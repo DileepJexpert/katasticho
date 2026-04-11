@@ -47,8 +47,10 @@ class JwtServiceTest {
         UUID orgId = UUID.randomUUID();
 
         String token = jwtService.generateAccessToken(userId, orgId, "OWNER");
-        // Tamper with last character
-        String tampered = token.substring(0, token.length() - 1) + "x";
+        // Tamper with the payload section (middle part) to ensure signature mismatch
+        String[] parts = token.split("\\.");
+        String tamperedPayload = parts[1].substring(0, parts[1].length() - 3) + "abc";
+        String tampered = parts[0] + "." + tamperedPayload + "." + parts[2];
 
         Claims claims = jwtService.validateAndExtract(tampered);
         assertNull(claims);
