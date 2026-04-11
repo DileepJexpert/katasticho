@@ -7,6 +7,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/invoice_repository.dart';
 
@@ -731,16 +732,3 @@ class _StepTab extends StatelessWidget {
   }
 }
 
-/// Import DateFormatter for review step
-class DateFormatter {
-  static String display(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')} '
-        '${_months[date.month - 1]} '
-        '${date.year}';
-  }
-
-  static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-}

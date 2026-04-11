@@ -75,6 +75,11 @@ app:
   rate-limit:
     requests-per-minute: 1000
     ai-requests-per-minute: 10
+  ai:
+    anthropic-api-key: ${ANTHROPIC_API_KEY:}
+    model: claude-sonnet-4-20250514
+    max-tokens: 4096
+    max-sql-rows: 100
 
 ---
 spring:
