@@ -1,12 +1,11 @@
 package com.katasticho.erp.ar.service;
 
 import com.katasticho.erp.accounting.dto.JournalPostRequest;
-import com.katasticho.erp.accounting.entity.Account;
 import com.katasticho.erp.accounting.entity.JournalEntry;
-import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ar.dto.CreateInvoiceRequest;
 import com.katasticho.erp.ar.dto.InvoiceLineRequest;
+import com.katasticho.erp.ar.dto.InvoiceResponse;
 import com.katasticho.erp.ar.entity.Customer;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.entity.TaxLineItem;
@@ -29,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -83,19 +83,30 @@ class InvoiceServiceTest {
         TenantContext.clear();
     }
 
+    /** Stub customerRepository.findById so toResponse() can resolve the customer name. */
+    private void stubCustomerLookup(Customer c) {
+        lenient().when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
+    }
+
+    /** Stub taxLineItemRepository for toResponse() tax-line lookup. */
+    private void stubTaxLineLookup(UUID invoiceId, List<TaxLineItem> taxLines) {
+        lenient().when(taxLineItemRepository.findBySourceTypeAndSourceId("INVOICE", invoiceId))
+                .thenReturn(taxLines);
+    }
+
     // T-AR-01: Invoice creation with GST auto-calculation (intra-state CGST+SGST)
     @Test
     void shouldCreateInvoiceWithCgstSgst() {
         when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
         when(customerRepository.findByIdAndOrgIdAndIsDeletedFalse(customer.getId(), orgId))
                 .thenReturn(Optional.of(customer));
+        stubCustomerLookup(customer);
         when(sequenceRepository.findByOrgIdAndPrefixAndYear(eq(orgId), eq("INV"), anyInt()))
                 .thenReturn(Optional.empty());
         when(sequenceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> {
             Invoice i = inv.getArgument(0);
             if (i.getId() == null) i.setId(UUID.randomUUID());
-            // Simulate line IDs being generated
             i.getLines().forEach(l -> {
                 if (l.getId() == null) {
                     try {
@@ -105,6 +116,8 @@ class InvoiceServiceTest {
                     } catch (Exception ignored) {}
                 }
             });
+            // Stub tax line lookup for toResponse() using the generated invoice ID
+            stubTaxLineLookup(i.getId(), Collections.emptyList());
             return i;
         });
 
@@ -120,19 +133,19 @@ class InvoiceServiceTest {
                         new BigDecimal("5000"), BigDecimal.ZERO, new BigDecimal("18"), "4010"))
         );
 
-        Invoice result = invoiceService.createInvoice(request);
+        InvoiceResponse result = invoiceService.createInvoice(request);
 
         assertNotNull(result);
-        assertEquals("DRAFT", result.getStatus());
+        assertEquals("DRAFT", result.status());
         // 2 x 5000 = 10000 taxable, 18% GST = 1800
-        assertEquals(0, new BigDecimal("10000.00").compareTo(result.getSubtotal()));
-        assertEquals(0, new BigDecimal("1800.00").compareTo(result.getTaxAmount()));
-        assertEquals(0, new BigDecimal("11800.00").compareTo(result.getTotalAmount()));
-        assertEquals(0, new BigDecimal("11800.00").compareTo(result.getBalanceDue()));
-        assertEquals(1, result.getLines().size());
+        assertEquals(0, new BigDecimal("10000.00").compareTo(result.subtotal()));
+        assertEquals(0, new BigDecimal("1800.00").compareTo(result.taxAmount()));
+        assertEquals(0, new BigDecimal("11800.00").compareTo(result.totalAmount()));
+        assertEquals(0, new BigDecimal("11800.00").compareTo(result.balanceDue()));
+        assertEquals(1, result.lines().size());
 
         // Due date should be invoice_date + 30 days
-        assertEquals(LocalDate.of(2026, 5, 11), result.getDueDate());
+        assertEquals(LocalDate.of(2026, 5, 11), result.dueDate());
 
         // Verify tax line items were saved (CGST + SGST = 2 components)
         ArgumentCaptor<List<TaxLineItem>> taxCaptor = ArgumentCaptor.forClass(List.class);
@@ -156,6 +169,7 @@ class InvoiceServiceTest {
         when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
         when(customerRepository.findByIdAndOrgIdAndIsDeletedFalse(kaCustomer.getId(), orgId))
                 .thenReturn(Optional.of(kaCustomer));
+        stubCustomerLookup(kaCustomer);
         when(sequenceRepository.findByOrgIdAndPrefixAndYear(eq(orgId), eq("INV"), anyInt()))
                 .thenReturn(Optional.empty());
         when(sequenceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -169,6 +183,7 @@ class InvoiceServiceTest {
                     f.set(l, UUID.randomUUID());
                 } catch (Exception ignored) {}
             });
+            stubTaxLineLookup(i.getId(), Collections.emptyList());
             return i;
         });
 
@@ -182,10 +197,10 @@ class InvoiceServiceTest {
                         new BigDecimal("10000"), BigDecimal.ZERO, new BigDecimal("18"), "4010"))
         );
 
-        Invoice result = invoiceService.createInvoice(request);
+        InvoiceResponse result = invoiceService.createInvoice(request);
 
-        assertEquals(0, new BigDecimal("10000.00").compareTo(result.getSubtotal()));
-        assertEquals(0, new BigDecimal("1800.00").compareTo(result.getTaxAmount()));
+        assertEquals(0, new BigDecimal("10000.00").compareTo(result.subtotal()));
+        assertEquals(0, new BigDecimal("1800.00").compareTo(result.taxAmount()));
 
         ArgumentCaptor<List<TaxLineItem>> taxCaptor = ArgumentCaptor.forClass(List.class);
         verify(taxLineItemRepository).saveAll(taxCaptor.capture());
@@ -224,6 +239,7 @@ class InvoiceServiceTest {
                 .thenReturn(Optional.of(draftInvoice));
         when(taxLineItemRepository.findBySourceTypeAndSourceId("INVOICE", draftInvoice.getId()))
                 .thenReturn(List.of(cgst, sgst));
+        stubCustomerLookup(customer);
         when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));
 
         JournalEntry mockJournal = JournalEntry.builder()
@@ -231,10 +247,10 @@ class InvoiceServiceTest {
         mockJournal.setId(UUID.randomUUID());
         when(journalService.postJournal(any(JournalPostRequest.class))).thenReturn(mockJournal);
 
-        Invoice result = invoiceService.sendInvoice(draftInvoice.getId());
+        InvoiceResponse result = invoiceService.sendInvoice(draftInvoice.getId());
 
-        assertEquals("SENT", result.getStatus());
-        assertNotNull(result.getJournalEntryId());
+        assertEquals("SENT", result.status());
+        assertNotNull(result.journalEntryId());
 
         // Verify journal was posted with correct lines
         ArgumentCaptor<JournalPostRequest> journalCaptor = ArgumentCaptor.forClass(JournalPostRequest.class);
@@ -297,8 +313,8 @@ class InvoiceServiceTest {
     @Test
     void shouldReverseJournalOnCancelSentInvoice() {
         UUID journalId = UUID.randomUUID();
-        Invoice sentInvoice = Invoice.builder().orgId(orgId).status("SENT")
-                .invoiceNumber("INV-2026-000001")
+        Invoice sentInvoice = Invoice.builder().orgId(orgId).customerId(customer.getId())
+                .status("SENT").invoiceNumber("INV-2026-000001")
                 .journalEntryId(journalId)
                 .amountPaid(BigDecimal.ZERO)
                 .build();
@@ -311,10 +327,12 @@ class InvoiceServiceTest {
                 .thenReturn(Optional.of(sentInvoice));
         when(journalService.reverseEntry(journalId)).thenReturn(reversal);
         when(invoiceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        stubCustomerLookup(customer);
+        stubTaxLineLookup(sentInvoice.getId(), Collections.emptyList());
 
-        Invoice result = invoiceService.cancelInvoice(sentInvoice.getId(), "Error in invoice");
+        InvoiceResponse result = invoiceService.cancelInvoice(sentInvoice.getId(), "Error in invoice");
 
-        assertEquals("CANCELLED", result.getStatus());
+        assertEquals("CANCELLED", result.status());
         verify(journalService).reverseEntry(journalId);
     }
 
@@ -324,6 +342,7 @@ class InvoiceServiceTest {
         when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
         when(customerRepository.findByIdAndOrgIdAndIsDeletedFalse(customer.getId(), orgId))
                 .thenReturn(Optional.of(customer));
+        stubCustomerLookup(customer);
         when(sequenceRepository.findByOrgIdAndPrefixAndYear(eq(orgId), eq("INV"), anyInt()))
                 .thenReturn(Optional.empty());
         when(sequenceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -337,6 +356,7 @@ class InvoiceServiceTest {
                     f.set(l, UUID.randomUUID());
                 } catch (Exception ignored) {}
             });
+            stubTaxLineLookup(i.getId(), Collections.emptyList());
             return i;
         });
 
@@ -349,12 +369,12 @@ class InvoiceServiceTest {
                         new BigDecimal("1000"), new BigDecimal("10"), new BigDecimal("18"), "4010"))
         );
 
-        Invoice result = invoiceService.createInvoice(request);
+        InvoiceResponse result = invoiceService.createInvoice(request);
 
         // Gross = 10 x 1000 = 10000, discount = 10% of 10000 = 1000, taxable = 9000
         // Tax = 18% of 9000 = 1620, total = 9000 + 1620 = 10620
-        assertEquals(0, new BigDecimal("9000.00").compareTo(result.getSubtotal()));
-        assertEquals(0, new BigDecimal("1620.00").compareTo(result.getTaxAmount()));
-        assertEquals(0, new BigDecimal("10620.00").compareTo(result.getTotalAmount()));
+        assertEquals(0, new BigDecimal("9000.00").compareTo(result.subtotal()));
+        assertEquals(0, new BigDecimal("1620.00").compareTo(result.taxAmount()));
+        assertEquals(0, new BigDecimal("10620.00").compareTo(result.totalAmount()));
     }
 }
