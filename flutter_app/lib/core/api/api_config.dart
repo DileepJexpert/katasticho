@@ -1,13 +1,15 @@
+import '../config/env_config.dart';
+
 /// API configuration constants.
 class ApiConfig {
   ApiConfig._();
 
-  // Base URL — override per environment via build flavors
-  static const String baseUrl = 'http://localhost:8080';
+  // Base URL — resolved from EnvConfig (--dart-define at build time)
+  static String get baseUrl => EnvConfig.apiBaseUrl;
 
-  // Timeouts
-  static const Duration connectTimeout = Duration(seconds: 15);
-  static const Duration receiveTimeout = Duration(seconds: 30);
+  // Timeouts — longer in dev for debugging
+  static Duration get connectTimeout => EnvConfig.connectTimeout;
+  static Duration get receiveTimeout => EnvConfig.receiveTimeout;
 
   // Auth endpoints
   static const String login = '/api/v1/auth/login';

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 import '../auth/auth_storage.dart';
+import '../config/env_config.dart';
 import 'api_config.dart';
 import 'auth_interceptor.dart';
 
@@ -13,7 +14,9 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 class ApiClient {
   late final Dio dio;
   final AuthStorage authStorage;
-  final _logger = Logger();
+  final _logger = Logger(
+    level: EnvConfig.enableLogging ? Level.debug : Level.warning,
+  );
 
   ApiClient({required this.authStorage}) {
     dio = Dio(BaseOptions(
@@ -26,10 +29,14 @@ class ApiClient {
       },
     ));
 
-    dio.interceptors.addAll([
+    dio.interceptors.add(
       AuthInterceptor(dio: dio, authStorage: authStorage),
-      _loggingInterceptor(),
-    ]);
+    );
+
+    // Only add verbose logging in non-production environments
+    if (EnvConfig.enableLogging) {
+      dio.interceptors.add(_loggingInterceptor());
+    }
   }
 
   InterceptorsWrapper _loggingInterceptor() {
