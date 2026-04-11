@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 /// App environment types.
 enum AppEnvironment { dev, staging, prod }
 
@@ -31,10 +33,13 @@ class EnvConfig {
 
   /// API base URL.
   /// Priority: --dart-define override > environment default.
+  /// Web uses localhost, Android emulator uses 10.0.2.2 (host alias).
   static String get apiBaseUrl {
     if (_apiBaseUrl.isNotEmpty) return _apiBaseUrl;
     return switch (environment) {
-      AppEnvironment.dev => 'http://10.0.2.2:8080', // Android emulator → host
+      AppEnvironment.dev => kIsWeb
+          ? 'http://localhost:8080'
+          : 'http://10.0.2.2:8080',
       AppEnvironment.staging => 'https://staging-api.katasticho.com',
       AppEnvironment.prod => 'https://api.katasticho.com',
     };
