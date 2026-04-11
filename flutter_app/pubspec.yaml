@@ -1,0 +1,87 @@
+name: katasticho
+description: Cloud-native, AI-powered ERP for SMEs in India and Africa.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Networking
+  dio: ^5.4.3+1
+  retrofit: ^4.1.0
+
+  # Navigation
+  go_router: ^14.2.0
+
+  # Storage
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.2.3
+
+  # UI Components
+  fl_chart: ^0.68.0
+  data_table_2: ^2.5.12
+  shimmer: ^3.0.0
+  cached_network_image: ^3.3.1
+  flutter_svg: ^2.0.10+1
+
+  # Forms & Validation
+  reactive_forms: ^17.0.1
+
+  # Date/Time
+  intl: ^0.19.0
+
+  # PDF & Sharing
+  pdf: ^3.11.0
+  printing: ^5.12.0
+  share_plus: ^9.0.0
+  url_launcher: ^6.2.6
+
+  # Utilities
+  uuid: ^4.4.0
+  json_annotation: ^4.9.0
+  equatable: ^2.0.5
+  freezed_annotation: ^2.4.1
+  logger: ^2.3.0
+
+  # Connectivity
+  connectivity_plus: ^6.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.9
+  json_serializable: ^6.8.0
+  freezed: ^2.5.2
+  retrofit_generator: ^8.1.0
+  riverpod_generator: ^2.4.0
+  mockito: ^5.4.4
+  mocktail: ^1.0.3
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
