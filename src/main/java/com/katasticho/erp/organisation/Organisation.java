@@ -35,11 +35,11 @@ public class Organisation {
 
     // -- Country & Currency (v3-ready from day 1) --
 
-    @Column(name = "country_code", nullable = false, length = 2)
+    @Column(name = "country_code", nullable = false, columnDefinition = "CHAR(2)")
     @Builder.Default
     private String countryCode = "IN";
 
-    @Column(name = "base_currency", nullable = false, length = 3)
+    @Column(name = "base_currency", nullable = false, columnDefinition = "CHAR(3)")
     @Builder.Default
     private String baseCurrency = "INR";
 
