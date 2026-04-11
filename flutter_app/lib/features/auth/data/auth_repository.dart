@@ -12,49 +12,40 @@ class AuthRepository {
 
   AuthRepository(this._apiClient);
 
-  /// Step 1: Send phone number, get OTP sent.
-  Future<Map<String, dynamic>> login(String phoneNumber) async {
+  /// Request OTP for phone number (used by both login and signup flows).
+  Future<Map<String, dynamic>> requestOtp(String phone) async {
     final response = await _apiClient.post(
-      ApiConfig.login,
-      data: {'phoneNumber': phoneNumber},
+      ApiConfig.requestOtp,
+      data: {'phone': phone},
     );
     return response.data as Map<String, dynamic>;
   }
 
-  /// Step 2: Verify OTP, get tokens.
-  Future<Map<String, dynamic>> verifyOtp(
-      String phoneNumber, String otpCode) async {
+  /// Verify OTP for existing user login — returns tokens.
+  Future<Map<String, dynamic>> verifyOtp(String phone, String otp) async {
     final response = await _apiClient.post(
       ApiConfig.verifyOtp,
-      data: {'phoneNumber': phoneNumber, 'otpCode': otpCode},
+      data: {'phone': phone, 'otp': otp},
     );
     return response.data as Map<String, dynamic>;
   }
 
-  /// Register new user + organisation.
-  Future<Map<String, dynamic>> register({
+  /// Signup: create new user + organisation (requires phone OTP).
+  Future<Map<String, dynamic>> signup({
+    required String phone,
+    required String otp,
     required String fullName,
-    required String phoneNumber,
-    required String email,
-    required String organisationName,
-    required String industry,
-    required String country,
-    required String baseCurrency,
-    String? gstin,
-    String? taxRegime,
+    required String orgName,
+    String? industry,
   }) async {
     final response = await _apiClient.post(
-      ApiConfig.register,
+      ApiConfig.signup,
       data: {
+        'phone': phone,
+        'otp': otp,
         'fullName': fullName,
-        'phoneNumber': phoneNumber,
-        'email': email,
-        'organisationName': organisationName,
-        'industry': industry,
-        'country': country,
-        'baseCurrency': baseCurrency,
-        if (gstin != null) 'gstin': gstin,
-        if (taxRegime != null) 'taxRegime': taxRegime,
+        'orgName': orgName,
+        if (industry != null) 'industry': industry,
       },
     );
     return response.data as Map<String, dynamic>;

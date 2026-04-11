@@ -19,8 +19,9 @@ class AuthInterceptor extends Interceptor {
     // Skip auth header for login/register/refresh endpoints
     final noAuthPaths = [
       ApiConfig.login,
+      ApiConfig.requestOtp,
       ApiConfig.verifyOtp,
-      ApiConfig.register,
+      ApiConfig.signup,
       ApiConfig.refreshToken,
     ];
     if (noAuthPaths.any((p) => options.path.contains(p))) {

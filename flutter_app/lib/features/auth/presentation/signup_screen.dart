@@ -60,23 +60,19 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
     try {
       final authRepo = ref.read(authRepositoryProvider);
-      await authRepo.register(
-        fullName: _nameController.text.trim(),
-        phoneNumber: _phoneController.text.trim(),
-        email: _emailController.text.trim(),
-        organisationName: _orgNameController.text.trim(),
-        industry: _selectedIndustry,
-        country: _selectedCountry,
-        baseCurrency: _selectedCountry == 'IN' ? 'INR' : 'USD',
-        gstin: _gstinController.text.trim().isNotEmpty
-            ? _gstinController.text.trim()
-            : null,
-        taxRegime:
-            _selectedCountry == 'IN' ? 'INDIA_GST' : null,
-      );
+      final phone = _phoneController.text.trim();
+
+      // Request OTP first, then go to OTP screen with signup context
+      await authRepo.requestOtp(phone);
 
       if (mounted) {
-        context.go(Routes.otp, extra: _phoneController.text.trim());
+        context.go(Routes.otp, extra: {
+          'phone': phone,
+          'isSignup': true,
+          'fullName': _nameController.text.trim(),
+          'orgName': _orgNameController.text.trim(),
+          'industry': _selectedIndustry,
+        });
       }
     } catch (e) {
       setState(() {

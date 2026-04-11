@@ -38,7 +38,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final authRepo = ref.read(authRepositoryProvider);
-      await authRepo.login(_phoneController.text.trim());
+      await authRepo.requestOtp(_phoneController.text.trim());
 
       if (mounted) {
         context.go(Routes.otp, extra: _phoneController.text.trim());

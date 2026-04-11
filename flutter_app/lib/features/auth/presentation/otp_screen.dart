@@ -13,8 +13,19 @@ import '../data/auth_repository.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
   final String phoneNumber;
+  final bool isSignup;
+  final String? fullName;
+  final String? orgName;
+  final String? industry;
 
-  const OtpScreen({super.key, required this.phoneNumber});
+  const OtpScreen({
+    super.key,
+    required this.phoneNumber,
+    this.isSignup = false,
+    this.fullName,
+    this.orgName,
+    this.industry,
+  });
 
   @override
   ConsumerState<OtpScreen> createState() => _OtpScreenState();
@@ -77,7 +88,21 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
     try {
       final authRepo = ref.read(authRepositoryProvider);
-      final response = await authRepo.verifyOtp(widget.phoneNumber, otp);
+      final Map<String, dynamic> response;
+
+      if (widget.isSignup) {
+        // Signup flow: send OTP + user details together
+        response = await authRepo.signup(
+          phone: widget.phoneNumber,
+          otp: otp,
+          fullName: widget.fullName!,
+          orgName: widget.orgName!,
+          industry: widget.industry,
+        );
+      } else {
+        // Login flow: verify OTP only
+        response = await authRepo.verifyOtp(widget.phoneNumber, otp);
+      }
 
       final data = response['data'] as Map<String, dynamic>;
 
@@ -97,7 +122,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Invalid OTP. Please try again.';
+        _errorMessage = widget.isSignup
+            ? 'Signup failed. Please try again.'
+            : 'Invalid OTP. Please try again.';
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -107,7 +134,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   Future<void> _handleResend() async {
     try {
       final authRepo = ref.read(authRepositoryProvider);
-      await authRepo.login(widget.phoneNumber);
+      await authRepo.requestOtp(widget.phoneNumber);
       _startResendTimer();
     } catch (_) {
       setState(() => _errorMessage = 'Failed to resend OTP.');
@@ -219,7 +246,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
                   // Verify button
                   KButton(
-                    label: 'Verify',
+                    label: widget.isSignup ? 'Create Account' : 'Verify',
                     onPressed: _handleVerify,
                     isLoading: _isLoading,
                     fullWidth: true,

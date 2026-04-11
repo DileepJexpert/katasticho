@@ -90,8 +90,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.otp,
         builder: (context, state) {
-          final phone = state.extra as String? ?? '';
-          return OtpScreen(phoneNumber: phone);
+          final extra = state.extra;
+          if (extra is Map<String, dynamic>) {
+            // Signup flow: carries signup details
+            return OtpScreen(
+              phoneNumber: extra['phone'] as String? ?? '',
+              isSignup: extra['isSignup'] as bool? ?? false,
+              fullName: extra['fullName'] as String?,
+              orgName: extra['orgName'] as String?,
+              industry: extra['industry'] as String?,
+            );
+          }
+          // Login flow: just phone number
+          return OtpScreen(phoneNumber: extra as String? ?? '');
         },
       ),
       GoRoute(

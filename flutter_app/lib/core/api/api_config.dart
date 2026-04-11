@@ -13,8 +13,9 @@ class ApiConfig {
 
   // Auth endpoints
   static const String login = '/api/v1/auth/login';
-  static const String verifyOtp = '/api/v1/auth/verify-otp';
-  static const String register = '/api/v1/auth/register';
+  static const String requestOtp = '/api/v1/auth/otp/request';
+  static const String verifyOtp = '/api/v1/auth/otp/verify';
+  static const String signup = '/api/v1/auth/signup';
   static const String refreshToken = '/api/v1/auth/refresh';
   static const String me = '/api/v1/auth/me';
 
