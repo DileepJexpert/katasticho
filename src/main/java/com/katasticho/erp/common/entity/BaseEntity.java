@@ -30,7 +30,7 @@ public abstract class BaseEntity {
     private UUID createdBy;
 
     @Column(name = "is_deleted", nullable = false)
-    private boolean deleted = false;
+    private boolean isDeleted = false;
 
     @PrePersist
     protected void onCreate() {

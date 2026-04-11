@@ -82,7 +82,7 @@ public class CreditNote {
 
     @Column(name = "is_deleted", nullable = false)
     @Builder.Default
-    private boolean deleted = false;
+    private boolean isDeleted = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
