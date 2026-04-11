@@ -2,7 +2,6 @@ package com.katasticho.erp.ar.controller;
 
 import com.katasticho.erp.ar.dto.CreateInvoiceRequest;
 import com.katasticho.erp.ar.dto.InvoiceResponse;
-import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.service.InvoiceService;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
@@ -28,16 +27,15 @@ public class InvoiceController {
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> createInvoice(@Valid @RequestBody CreateInvoiceRequest request) {
-        Invoice invoice = invoiceService.createInvoice(request);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.created(invoiceService.toResponse(invoice)));
+        InvoiceResponse response = invoiceService.createInvoice(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(response));
     }
 
     @PostMapping("/{id}/send")
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> sendInvoice(@PathVariable UUID id) {
-        Invoice invoice = invoiceService.sendInvoice(id);
-        return ResponseEntity.ok(ApiResponse.ok(invoiceService.toResponse(invoice), "Invoice sent and journal posted"));
+        InvoiceResponse response = invoiceService.sendInvoice(id);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Invoice sent and journal posted"));
     }
 
     @PostMapping("/{id}/cancel")
@@ -45,31 +43,28 @@ public class InvoiceController {
     public ResponseEntity<ApiResponse<InvoiceResponse>> cancelInvoice(
             @PathVariable UUID id, @RequestBody Map<String, String> body) {
         String reason = body.getOrDefault("reason", "Cancelled");
-        Invoice invoice = invoiceService.cancelInvoice(id, reason);
-        return ResponseEntity.ok(ApiResponse.ok(invoiceService.toResponse(invoice), "Invoice cancelled"));
+        InvoiceResponse response = invoiceService.cancelInvoice(id, reason);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Invoice cancelled"));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> getInvoice(@PathVariable UUID id) {
-        Invoice invoice = invoiceService.getInvoice(id);
-        return ResponseEntity.ok(ApiResponse.ok(invoiceService.toResponse(invoice)));
+        return ResponseEntity.ok(ApiResponse.ok(invoiceService.getInvoiceResponse(id)));
     }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<InvoiceResponse>>> listInvoices(Pageable pageable) {
-        Page<Invoice> page = invoiceService.listInvoices(pageable);
-        Page<InvoiceResponse> responsePage = page.map(invoiceService::toResponse);
-        return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(responsePage)));
+        Page<InvoiceResponse> page = invoiceService.listInvoiceResponses(pageable);
+        return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(page)));
     }
 
     @GetMapping("/customer/{customerId}")
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<InvoiceResponse>>> listByCustomer(
             @PathVariable UUID customerId, Pageable pageable) {
-        Page<Invoice> page = invoiceService.listInvoicesByCustomer(customerId, pageable);
-        Page<InvoiceResponse> responsePage = page.map(invoiceService::toResponse);
-        return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(responsePage)));
+        Page<InvoiceResponse> page = invoiceService.listInvoiceResponsesByCustomer(customerId, pageable);
+        return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(page)));
     }
 }

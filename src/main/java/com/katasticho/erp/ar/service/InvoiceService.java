@@ -62,7 +62,7 @@ public class InvoiceService {
      * Create a DRAFT invoice with tax calculation via TaxEngine.
      */
     @Transactional
-    public Invoice createInvoice(CreateInvoiceRequest request) {
+    public InvoiceResponse createInvoice(CreateInvoiceRequest request) {
         UUID orgId = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
 
@@ -220,7 +220,7 @@ public class InvoiceService {
 
         log.info("Invoice {} created: {} lines, total={}", invoice.getInvoiceNumber(),
                 invoice.getLines().size(), invoice.getTotalAmount());
-        return invoice;
+        return toResponse(invoice);
     }
 
     /**
@@ -232,7 +232,7 @@ public class InvoiceService {
      *   CR 2020/2021/2022 (GST Payable) = tax per component
      */
     @Transactional
-    public Invoice sendInvoice(UUID invoiceId) {
+    public InvoiceResponse sendInvoice(UUID invoiceId) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
         Invoice invoice = invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)
@@ -296,14 +296,14 @@ public class InvoiceService {
                 "{\"status\":\"SENT\",\"journalEntryId\":\"" + journalEntry.getId() + "\"}");
 
         log.info("Invoice {} sent, journal={}", invoice.getInvoiceNumber(), journalEntry.getEntryNumber());
-        return invoice;
+        return toResponse(invoice);
     }
 
     /**
      * Cancel a DRAFT or SENT invoice. If SENT, reverses the journal entry.
      */
     @Transactional
-    public Invoice cancelInvoice(UUID invoiceId, String reason) {
+    public InvoiceResponse cancelInvoice(UUID invoiceId, String reason) {
         UUID orgId = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
 
@@ -336,7 +336,12 @@ public class InvoiceService {
                 "{\"reason\":\"" + reason + "\"}");
 
         log.info("Invoice {} cancelled: {}", invoice.getInvoiceNumber(), reason);
-        return invoice;
+        return toResponse(invoice);
+    }
+
+    @Transactional(readOnly = true)
+    public InvoiceResponse getInvoiceResponse(UUID invoiceId) {
+        return toResponse(getInvoice(invoiceId));
     }
 
     public Invoice getInvoice(UUID invoiceId) {
@@ -345,14 +350,18 @@ public class InvoiceService {
                 .orElseThrow(() -> BusinessException.notFound("Invoice", invoiceId));
     }
 
-    public Page<Invoice> listInvoices(Pageable pageable) {
+    @Transactional(readOnly = true)
+    public Page<InvoiceResponse> listInvoiceResponses(Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        return invoiceRepository.findByOrgIdAndIsDeletedFalseOrderByInvoiceDateDesc(orgId, pageable);
+        return invoiceRepository.findByOrgIdAndIsDeletedFalseOrderByInvoiceDateDesc(orgId, pageable)
+                .map(this::toResponse);
     }
 
-    public Page<Invoice> listInvoicesByCustomer(UUID customerId, Pageable pageable) {
+    @Transactional(readOnly = true)
+    public Page<InvoiceResponse> listInvoiceResponsesByCustomer(UUID customerId, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        return invoiceRepository.findByOrgIdAndCustomerIdAndIsDeletedFalseOrderByInvoiceDateDesc(orgId, customerId, pageable);
+        return invoiceRepository.findByOrgIdAndCustomerIdAndIsDeletedFalseOrderByInvoiceDateDesc(orgId, customerId, pageable)
+                .map(this::toResponse);
     }
 
     /**
