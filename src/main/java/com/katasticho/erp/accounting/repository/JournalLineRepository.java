@@ -28,4 +28,60 @@ public interface JournalLineRepository extends JpaRepository<JournalLine, UUID> 
           AND je.effectiveDate <= :asOfDate
     """)
     BigDecimal computeRawBalance(UUID accountId, UUID orgId, LocalDate asOfDate);
+
+    /**
+     * Compute raw balance for a date range (for period-specific P&L).
+     */
+    @Query("""
+        SELECT COALESCE(SUM(jl.baseDebit), 0) - COALESCE(SUM(jl.baseCredit), 0)
+        FROM JournalLine jl JOIN jl.journalEntry je
+        WHERE jl.accountId = :accountId
+          AND je.orgId = :orgId
+          AND je.status = 'POSTED'
+          AND je.effectiveDate BETWEEN :startDate AND :endDate
+    """)
+    BigDecimal computeRawBalanceForPeriod(UUID accountId, UUID orgId, LocalDate startDate, LocalDate endDate);
+
+    /**
+     * Get debit and credit totals per account for trial balance.
+     */
+    @Query("""
+        SELECT jl.accountId,
+               COALESCE(SUM(jl.baseDebit), 0),
+               COALESCE(SUM(jl.baseCredit), 0)
+        FROM JournalLine jl JOIN jl.journalEntry je
+        WHERE je.orgId = :orgId
+          AND je.status = 'POSTED'
+          AND je.effectiveDate <= :asOfDate
+        GROUP BY jl.accountId
+    """)
+    List<Object[]> computeTrialBalanceData(UUID orgId, LocalDate asOfDate);
+
+    /**
+     * Get debit/credit totals per account for a date range.
+     */
+    @Query("""
+        SELECT jl.accountId,
+               COALESCE(SUM(jl.baseDebit), 0),
+               COALESCE(SUM(jl.baseCredit), 0)
+        FROM JournalLine jl JOIN jl.journalEntry je
+        WHERE je.orgId = :orgId
+          AND je.status = 'POSTED'
+          AND je.effectiveDate BETWEEN :startDate AND :endDate
+        GROUP BY jl.accountId
+    """)
+    List<Object[]> computeAccountTotalsForPeriod(UUID orgId, LocalDate startDate, LocalDate endDate);
+
+    /**
+     * Get all journal lines for an account in a date range (for general ledger).
+     */
+    @Query("""
+        SELECT jl FROM JournalLine jl JOIN FETCH jl.journalEntry je
+        WHERE jl.accountId = :accountId
+          AND je.orgId = :orgId
+          AND je.status = 'POSTED'
+          AND je.effectiveDate BETWEEN :startDate AND :endDate
+        ORDER BY je.effectiveDate, je.entryNumber
+    """)
+    List<JournalLine> findByAccountAndPeriod(UUID accountId, UUID orgId, LocalDate startDate, LocalDate endDate);
 }
