@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'k_colors.dart';
 import 'k_typography.dart';
 import 'k_spacing.dart';
@@ -10,7 +11,8 @@ class KTheme {
   static ThemeData get light {
     return ThemeData(
       useMaterial3: true,
-      fontFamily: 'Inter',
+      textTheme: GoogleFonts.interTextTheme(),
+      fontFamily: GoogleFonts.inter().fontFamily,
       brightness: Brightness.light,
       colorScheme: const ColorScheme.light(
         primary: KColors.primary,
@@ -30,13 +32,12 @@ class KTheme {
       dividerColor: KColors.divider,
 
       // ── AppBar ──
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: KColors.primary,
         foregroundColor: KColors.onPrimary,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: TextStyle(
-          fontFamily: 'Inter',
+        titleTextStyle: GoogleFonts.inter(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: KColors.onPrimary,

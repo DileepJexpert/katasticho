@@ -45,6 +45,9 @@ dependencies:
   share_plus: ^9.0.0
   url_launcher: ^6.2.6
 
+  # Fonts
+  google_fonts: ^6.2.1
+
   # Utilities
   uuid: ^4.4.0
   json_annotation: ^4.9.0
@@ -73,15 +76,3 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
-
-  fonts:
-    - family: Inter
-      fonts:
-        - asset: assets/fonts/Inter-Regular.ttf
-          weight: 400
-        - asset: assets/fonts/Inter-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/Inter-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/Inter-Bold.ttf
-          weight: 700
