@@ -33,7 +33,7 @@ public class JournalLine {
     @Column(length = 500)
     private String description;
 
-    @Column(nullable = false, columnDefinition = "CHAR(3)")
+    @Column(nullable = false, length = 3)
     @Builder.Default
     private String currency = "INR";
 

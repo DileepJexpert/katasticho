@@ -46,7 +46,7 @@ public class Account extends BaseEntity {
     @Builder.Default
     private BigDecimal openingBalance = BigDecimal.ZERO;
 
-    @Column(nullable = false, columnDefinition = "CHAR(3)")
+    @Column(nullable = false, length = 3)
     @Builder.Default
     private String currency = "INR";
 
