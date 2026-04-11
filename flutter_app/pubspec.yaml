@@ -37,7 +37,7 @@ dependencies:
   reactive_forms: ^17.0.1
 
   # Date/Time
-  intl: ^0.19.0
+  intl: ^0.20.2
 
   # PDF & Sharing
   pdf: ^3.11.0
