@@ -156,6 +156,14 @@ class _DesktopShell extends ConsumerWidget {
                       KSpacing.vGapSm,
                       _SidebarNavItem(
                         item: const NavItem(
+                          label: 'Credit Notes',
+                          icon: Icons.note_alt_outlined,
+                          activeIcon: Icons.note_alt,
+                          route: Routes.creditNotes,
+                        ),
+                      ),
+                      _SidebarNavItem(
+                        item: const NavItem(
                           label: 'GST',
                           icon: Icons.account_balance_outlined,
                           activeIcon: Icons.account_balance,

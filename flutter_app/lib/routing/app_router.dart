@@ -20,6 +20,10 @@ import '../features/reports/presentation/ageing_report_screen.dart';
 import '../features/ai_chat/presentation/ai_chat_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/gst/presentation/gst_dashboard_screen.dart';
+import '../features/credit_notes/presentation/credit_note_list_screen.dart';
+import '../features/credit_notes/presentation/credit_note_detail_screen.dart';
+import '../features/credit_notes/presentation/credit_note_create_screen.dart';
+import '../features/payments/presentation/record_payment_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -41,6 +45,10 @@ class Routes {
   static const balanceSheet = '/reports/balance-sheet';
   static const generalLedger = '/reports/general-ledger';
   static const ageingReport = '/reports/ageing';
+  static const creditNotes = '/credit-notes';
+  static const creditNoteCreate = '/credit-notes/create';
+  static const creditNoteDetail = '/credit-notes/:id';
+  static const recordPayment = '/invoices/:id/pay';
   static const aiChat = '/ai-chat';
   static const gst = '/gst';
   static const settings = '/settings';
@@ -112,6 +120,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const InvoiceCreateScreen(),
           ),
           GoRoute(
+            path: '/invoices/:id/pay',
+            builder: (context, state) => RecordPaymentScreen(
+              invoiceId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
             path: '/invoices/:id',
             builder: (context, state) => InvoiceDetailScreen(
               invoiceId: state.pathParameters['id']!,
@@ -154,6 +168,22 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.ageingReport,
             builder: (context, state) => const AgeingReportScreen(),
+          ),
+          GoRoute(
+            path: Routes.creditNotes,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: CreditNoteListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.creditNoteCreate,
+            builder: (context, state) => const CreditNoteCreateScreen(),
+          ),
+          GoRoute(
+            path: '/credit-notes/:id',
+            builder: (context, state) => CreditNoteDetailScreen(
+              creditNoteId: state.pathParameters['id']!,
+            ),
           ),
           GoRoute(
             path: Routes.aiChat,
