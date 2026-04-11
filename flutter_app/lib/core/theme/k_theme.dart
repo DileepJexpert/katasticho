@@ -45,7 +45,7 @@ class KTheme {
       ),
 
       // ── Card ──
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: KColors.surface,
         elevation: 1,
         shape: RoundedRectangleBorder(
@@ -142,7 +142,7 @@ class KTheme {
       ),
 
       // ── Dialog ──
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         shape: RoundedRectangleBorder(
           borderRadius: KSpacing.borderRadiusLg,
         ),
@@ -168,7 +168,7 @@ class KTheme {
       ),
 
       // ── Tab Bar ──
-      tabBarTheme: const TabBarTheme(
+      tabBarTheme: const TabBarThemeData(
         labelColor: KColors.primary,
         unselectedLabelColor: KColors.textSecondary,
         indicatorColor: KColors.primary,
