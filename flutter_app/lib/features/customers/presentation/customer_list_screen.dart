@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -39,16 +40,26 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
         ],
       ),
       body: customersAsync.when(
-        loading: () => const KShimmerList(),
-        error: (err, _) => KErrorView(
-          message: 'Failed to load customers',
-          onRetry: () => ref.invalidate(customerListProvider),
-        ),
+        loading: () {
+          debugPrint('[CustomerListScreen] Loading customers...');
+          return const KShimmerList();
+        },
+        error: (err, st) {
+          debugPrint('[CustomerListScreen] ERROR loading customers: $err');
+          debugPrint('[CustomerListScreen] Stack trace: $st');
+          return KErrorView(
+            message: 'Failed to load customers',
+            onRetry: () => ref.invalidate(customerListProvider),
+          );
+        },
         data: (data) {
+          debugPrint('[CustomerListScreen] Raw data received: $data');
           final content = data['data'];
+          debugPrint('[CustomerListScreen] content = $content (type: ${content.runtimeType})');
           final customers = content is List
               ? content
               : (content is Map ? (content['content'] as List?) ?? [] : []);
+          debugPrint('[CustomerListScreen] Parsed ${customers.length} customers');
 
           if (customers.isEmpty) {
             return KEmptyState(
@@ -135,17 +146,24 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
                 label: 'Add Customer',
                 fullWidth: true,
                 onPressed: () async {
+                  final customerData = {
+                    'name': nameController.text.trim(),
+                    'phone': phoneController.text.trim(),
+                    'email': emailController.text.trim(),
+                    'gstin': gstinController.text.trim(),
+                  };
+                  debugPrint('[CustomerListScreen] Adding customer: $customerData');
                   Navigator.pop(ctx);
                   try {
                     final repo = ref.read(customerRepositoryProvider);
-                    await repo.createCustomer({
-                      'name': nameController.text.trim(),
-                      'phone': phoneController.text.trim(),
-                      'email': emailController.text.trim(),
-                      'gstin': gstinController.text.trim(),
-                    });
+                    final result = await repo.createCustomer(customerData);
+                    debugPrint('[CustomerListScreen] Customer created: $result');
+                    debugPrint('[CustomerListScreen] Invalidating customerListProvider to refresh...');
                     ref.invalidate(customerListProvider);
-                  } catch (_) {}
+                  } catch (e, st) {
+                    debugPrint('[CustomerListScreen] Create customer FAILED: $e');
+                    debugPrint('[CustomerListScreen] Stack trace: $st');
+                  }
                 },
               ),
               KSpacing.vGapMd,

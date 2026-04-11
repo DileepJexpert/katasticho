@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
+import '../../customers/data/customer_repository.dart';
 import '../data/invoice_repository.dart';
 
 class InvoiceCreateScreen extends ConsumerStatefulWidget {
@@ -28,6 +30,62 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
   // Customer step
   String? _selectedCustomerId;
   String _customerName = '';
+  List<Map<String, dynamic>> _customers = [];
+  List<Map<String, dynamic>> _filteredCustomers = [];
+  bool _loadingCustomers = true;
+  String _customerSearch = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomers();
+  }
+
+  Future<void> _loadCustomers() async {
+    debugPrint('[InvoiceCreate] Loading customers...');
+    try {
+      final repo = ref.read(customerRepositoryProvider);
+      final result = await repo.listCustomers();
+      debugPrint('[InvoiceCreate] Customer list response: $result');
+      final content = result['data'];
+      final list = content is List
+          ? content.cast<Map<String, dynamic>>()
+          : (content is Map
+              ? ((content['content'] as List?)
+                      ?.cast<Map<String, dynamic>>() ??
+                  [])
+              : <Map<String, dynamic>>[]);
+      debugPrint('[InvoiceCreate] Parsed ${list.length} customers');
+      if (mounted) {
+        setState(() {
+          _customers = list;
+          _filteredCustomers = list;
+          _loadingCustomers = false;
+        });
+      }
+    } catch (e, st) {
+      debugPrint('[InvoiceCreate] Failed to load customers: $e');
+      debugPrint('[InvoiceCreate] Stack trace: $st');
+      if (mounted) setState(() => _loadingCustomers = false);
+    }
+  }
+
+  void _filterCustomers(String query) {
+    setState(() {
+      _customerSearch = query;
+      if (query.isEmpty) {
+        _filteredCustomers = _customers;
+      } else {
+        final lower = query.toLowerCase();
+        _filteredCustomers = _customers
+            .where((c) =>
+                (c['name'] as String? ?? '').toLowerCase().contains(lower) ||
+                (c['phone'] as String? ?? '').contains(lower) ||
+                (c['gstin'] as String? ?? '').toLowerCase().contains(lower))
+            .toList();
+      }
+    });
+  }
 
   // Line items
   final List<_LineItem> _lineItems = [_LineItem()];
@@ -242,29 +300,61 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
         Text('Select Customer', style: KTypography.h2),
         KSpacing.vGapMd,
 
-        // Customer search/select placeholder
+        // Customer search
         KTextField(
           label: 'Search customers',
-          hint: 'Type customer name...',
+          hint: 'Type customer name, phone or GSTIN...',
           prefixIcon: Icons.search,
-          onChanged: (v) {},
+          onChanged: _filterCustomers,
         ),
         KSpacing.vGapMd,
 
-        // Placeholder customer list
         Text(
-          'Recent Customers',
+          'Your Customers',
           style: KTypography.labelLarge.copyWith(color: KColors.textSecondary),
         ),
         KSpacing.vGapSm,
 
-        // Placeholder items — will be wired to customer API
-        _CustomerSelectTile(
-          name: 'Select a customer from the list',
-          gstin: 'Search or browse your customers',
-          isSelected: false,
-          onTap: () {},
-        ),
+        if (_loadingCustomers)
+          const Center(child: Padding(
+            padding: EdgeInsets.all(24),
+            child: CircularProgressIndicator(),
+          ))
+        else if (_filteredCustomers.isEmpty)
+          _CustomerSelectTile(
+            name: _customers.isEmpty
+                ? 'No customers yet'
+                : 'No matching customers',
+            gstin: _customers.isEmpty
+                ? 'Add customers from the Customers tab first'
+                : 'Try a different search term',
+            isSelected: false,
+            onTap: () {},
+          )
+        else
+          ..._filteredCustomers.map((customer) {
+            final id = customer['id']?.toString() ?? '';
+            final name = customer['name'] as String? ?? 'Unknown';
+            final gstin = customer['gstin'] as String? ?? '';
+            final phone = customer['phone'] as String? ?? '';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _CustomerSelectTile(
+                name: name,
+                gstin: gstin.isNotEmpty
+                    ? 'GSTIN: $gstin'
+                    : (phone.isNotEmpty ? phone : 'No details'),
+                isSelected: _selectedCustomerId == id,
+                onTap: () {
+                  debugPrint('[InvoiceCreate] Selected customer: $id ($name)');
+                  setState(() {
+                    _selectedCustomerId = id;
+                    _customerName = name;
+                  });
+                },
+              ),
+            );
+          }),
 
         KSpacing.vGapLg,
         const Divider(),

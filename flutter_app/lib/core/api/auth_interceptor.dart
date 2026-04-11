@@ -34,8 +34,8 @@ class AuthInterceptor extends Interceptor {
 
     final token = await authStorage.getAccessToken();
     if (token != null) {
-      options.headers['Authorization'] = 'Bearer ${token.substring(0, token.length > 20 ? 20 : token.length)}...';
-      debugPrint('[AuthInterceptor] Added Bearer token');
+      options.headers['Authorization'] = 'Bearer $token';
+      debugPrint('[AuthInterceptor] Added Bearer token (${token.length} chars)');
     } else {
       debugPrint('[AuthInterceptor] No access token available');
     }
