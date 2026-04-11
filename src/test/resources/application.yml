@@ -1,0 +1,31 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:katasticho_test}
+    username: ${DB_USER:katasticho}
+    password: ${DB_PASSWORD:katasticho}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+
+  flyway:
+    enabled: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+app:
+  jwt:
+    secret: test-secret-key-for-testing-only-must-be-at-least-256-bits-long-for-hmac
+    access-token-expiry-minutes: 15
+    refresh-token-expiry-days: 7
+  otp:
+    expiry-minutes: 5
+    max-attempts: 5
+    lockout-minutes: 30
+  rate-limit:
+    requests-per-minute: 1000
+    ai-requests-per-minute: 10
