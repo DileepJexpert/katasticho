@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 import '../auth/auth_storage.dart';
@@ -43,10 +44,17 @@ class ApiClient {
     return InterceptorsWrapper(
       onRequest: (options, handler) {
         _logger.d('→ ${options.method} ${options.uri}');
+        debugPrint('[ApiClient] → ${options.method} ${options.uri}');
+        debugPrint('[ApiClient] → Headers: ${options.headers}');
+        if (options.data != null) {
+          debugPrint('[ApiClient] → Body: ${options.data}');
+        }
         handler.next(options);
       },
       onResponse: (response, handler) {
         _logger.d('← ${response.statusCode} ${response.requestOptions.uri}');
+        debugPrint('[ApiClient] ← ${response.statusCode} ${response.requestOptions.uri}');
+        debugPrint('[ApiClient] ← Response: ${response.data}');
         handler.next(response);
       },
       onError: (error, handler) {
@@ -54,6 +62,9 @@ class ApiClient {
           '✗ ${error.response?.statusCode} ${error.requestOptions.uri}',
           error: error.message,
         );
+        debugPrint('[ApiClient] ✗ ERROR ${error.response?.statusCode} ${error.requestOptions.uri}');
+        debugPrint('[ApiClient] ✗ Message: ${error.message}');
+        debugPrint('[ApiClient] ✗ Response data: ${error.response?.data}');
         handler.next(error);
       },
     );

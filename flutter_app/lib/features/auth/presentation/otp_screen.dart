@@ -76,7 +76,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   Future<void> _handleVerify() async {
     final otp = _otpCode;
+    debugPrint('[OtpScreen] _handleVerify called, otp length: ${otp.length}, isSignup: ${widget.isSignup}');
     if (otp.length != 6) {
+      debugPrint('[OtpScreen] OTP incomplete, showing error');
       setState(() => _errorMessage = 'Please enter the 6-digit OTP');
       return;
     }
@@ -92,6 +94,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
       if (widget.isSignup) {
         // Signup flow: send OTP + user details together
+        debugPrint('[OtpScreen] Calling signup API with phone: ${widget.phoneNumber}, fullName: ${widget.fullName}, orgName: ${widget.orgName}, industry: ${widget.industry}');
         response = await authRepo.signup(
           phone: widget.phoneNumber,
           otp: otp,
@@ -101,11 +104,19 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         );
       } else {
         // Login flow: verify OTP only
+        debugPrint('[OtpScreen] Calling verifyOtp API with phone: ${widget.phoneNumber}');
         response = await authRepo.verifyOtp(widget.phoneNumber, otp);
       }
 
+      debugPrint('[OtpScreen] Raw response: $response');
+
       final data = response['data'] as Map<String, dynamic>;
+      debugPrint('[OtpScreen] Parsed data: $data');
+
       final user = data['user'] as Map<String, dynamic>;
+      debugPrint('[OtpScreen] Parsed user: $user');
+
+      debugPrint('[OtpScreen] Extracted values -> userId: ${user['id']}, userName: ${user['fullName']}, role: ${user['role']}, orgId: ${user['orgId']}, orgName: ${user['orgName']}, industry: ${user['industry']}');
 
       await ref.read(authProvider.notifier).onLoginSuccess(
             accessToken: data['accessToken'] as String,
@@ -118,10 +129,14 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             industry: user['industry'] as String?,
           );
 
+      debugPrint('[OtpScreen] onLoginSuccess completed, navigating to dashboard');
+
       if (mounted) {
         context.go(Routes.dashboard);
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[OtpScreen] Verify/Signup FAILED: $e');
+      debugPrint('[OtpScreen] Stack trace: $st');
       setState(() {
         _errorMessage = widget.isSignup
             ? 'Signup failed. Please try again.'
@@ -133,11 +148,15 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   }
 
   Future<void> _handleResend() async {
+    debugPrint('[OtpScreen] _handleResend called for phone: ${widget.phoneNumber}');
     try {
       final authRepo = ref.read(authRepositoryProvider);
       await authRepo.requestOtp(widget.phoneNumber);
+      debugPrint('[OtpScreen] Resend OTP success');
       _startResendTimer();
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('[OtpScreen] Resend OTP FAILED: $e');
+      debugPrint('[OtpScreen] Stack trace: $st');
       setState(() => _errorMessage = 'Failed to resend OTP.');
     }
   }

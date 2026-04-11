@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_storage.dart';
 
@@ -61,8 +62,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> _checkSession() async {
+    debugPrint('[AuthNotifier] _checkSession called');
     state = state.copyWith(status: AuthStatus.loading);
     final hasSession = await _storage.hasValidSession();
+    debugPrint('[AuthNotifier] hasValidSession: $hasSession');
     if (hasSession) {
       final userId = await _storage.getUserId();
       final userName = await _storage.getUserName();
@@ -70,6 +73,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final orgId = await _storage.getOrgId();
       final orgName = await _storage.getOrgName();
       final industry = await _storage.getIndustry();
+
+      debugPrint('[AuthNotifier] Restored session -> userId: $userId, userName: $userName, role: $role, orgId: $orgId, orgName: $orgName, industry: $industry');
 
       state = AuthState(
         status: AuthStatus.authenticated,
@@ -81,6 +86,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         industry: industry,
       );
     } else {
+      debugPrint('[AuthNotifier] No valid session, setting unauthenticated');
       state = const AuthState(status: AuthStatus.unauthenticated);
     }
   }
@@ -95,20 +101,34 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String orgName,
     String? industry,
   }) async {
+    debugPrint('[AuthNotifier] onLoginSuccess called');
+    debugPrint('[AuthNotifier] accessToken: ${accessToken.substring(0, accessToken.length > 20 ? 20 : accessToken.length)}...');
+    debugPrint('[AuthNotifier] refreshToken: ${refreshToken.substring(0, refreshToken.length > 20 ? 20 : refreshToken.length)}...');
+    debugPrint('[AuthNotifier] userId: $userId, userName: $userName, role: $role');
+    debugPrint('[AuthNotifier] orgId: $orgId, orgName: $orgName, industry: $industry');
+
+    debugPrint('[AuthNotifier] Saving tokens...');
     await _storage.saveTokens(
       accessToken: accessToken,
       refreshToken: refreshToken,
     );
+    debugPrint('[AuthNotifier] Tokens saved');
+
+    debugPrint('[AuthNotifier] Saving user info...');
     await _storage.saveUserInfo(
       userId: userId,
       userName: userName,
       role: role,
     );
+    debugPrint('[AuthNotifier] User info saved');
+
+    debugPrint('[AuthNotifier] Saving org info...');
     await _storage.saveOrgInfo(
       orgId: orgId,
       orgName: orgName,
       industry: industry,
     );
+    debugPrint('[AuthNotifier] Org info saved');
 
     state = AuthState(
       status: AuthStatus.authenticated,
@@ -119,14 +139,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
       orgName: orgName,
       industry: industry,
     );
+    debugPrint('[AuthNotifier] State set to authenticated');
   }
 
   Future<void> logout() async {
+    debugPrint('[AuthNotifier] logout called');
     await _storage.clearAll();
     state = const AuthState(status: AuthStatus.unauthenticated);
+    debugPrint('[AuthNotifier] Logged out, state set to unauthenticated');
   }
 
   void setError(String message) {
+    debugPrint('[AuthNotifier] setError: $message');
     state = state.copyWith(
       status: AuthStatus.unauthenticated,
       errorMessage: message,

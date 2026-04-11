@@ -29,7 +29,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+    debugPrint('[LoginScreen] _handleLogin called');
+    if (!_formKey.currentState!.validate()) {
+      debugPrint('[LoginScreen] Form validation failed');
+      return;
+    }
+
+    final phone = _phoneController.text.trim();
+    debugPrint('[LoginScreen] Requesting OTP for phone: $phone');
 
     setState(() {
       _isLoading = true;
@@ -38,12 +45,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final authRepo = ref.read(authRepositoryProvider);
-      await authRepo.requestOtp(_phoneController.text.trim());
+      final response = await authRepo.requestOtp(phone);
+      debugPrint('[LoginScreen] OTP request success, response: $response');
 
       if (mounted) {
-        context.go(Routes.otp, extra: _phoneController.text.trim());
+        debugPrint('[LoginScreen] Navigating to OTP screen');
+        context.go(Routes.otp, extra: phone);
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[LoginScreen] OTP request FAILED: $e');
+      debugPrint('[LoginScreen] Stack trace: $st');
       setState(() {
         _errorMessage = 'Failed to send OTP. Please try again.';
       });

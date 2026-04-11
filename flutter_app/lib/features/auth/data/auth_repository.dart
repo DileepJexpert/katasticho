@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
@@ -14,20 +15,40 @@ class AuthRepository {
 
   /// Request OTP for phone number (used by both login and signup flows).
   Future<Map<String, dynamic>> requestOtp(String phone) async {
-    final response = await _apiClient.post(
-      ApiConfig.requestOtp,
-      data: {'phone': phone},
-    );
-    return response.data as Map<String, dynamic>;
+    debugPrint('[AuthRepo] requestOtp called, phone: $phone');
+    debugPrint('[AuthRepo] POST ${ApiConfig.requestOtp} body: {phone: $phone}');
+    try {
+      final response = await _apiClient.post(
+        ApiConfig.requestOtp,
+        data: {'phone': phone},
+      );
+      debugPrint('[AuthRepo] requestOtp response status: ${response.statusCode}');
+      debugPrint('[AuthRepo] requestOtp response data: ${response.data}');
+      return response.data as Map<String, dynamic>;
+    } catch (e, st) {
+      debugPrint('[AuthRepo] requestOtp FAILED: $e');
+      debugPrint('[AuthRepo] Stack trace: $st');
+      rethrow;
+    }
   }
 
   /// Verify OTP for existing user login — returns tokens.
   Future<Map<String, dynamic>> verifyOtp(String phone, String otp) async {
-    final response = await _apiClient.post(
-      ApiConfig.verifyOtp,
-      data: {'phone': phone, 'otp': otp},
-    );
-    return response.data as Map<String, dynamic>;
+    debugPrint('[AuthRepo] verifyOtp called, phone: $phone, otp: $otp');
+    debugPrint('[AuthRepo] POST ${ApiConfig.verifyOtp} body: {phone: $phone, otp: $otp}');
+    try {
+      final response = await _apiClient.post(
+        ApiConfig.verifyOtp,
+        data: {'phone': phone, 'otp': otp},
+      );
+      debugPrint('[AuthRepo] verifyOtp response status: ${response.statusCode}');
+      debugPrint('[AuthRepo] verifyOtp response data: ${response.data}');
+      return response.data as Map<String, dynamic>;
+    } catch (e, st) {
+      debugPrint('[AuthRepo] verifyOtp FAILED: $e');
+      debugPrint('[AuthRepo] Stack trace: $st');
+      rethrow;
+    }
   }
 
   /// Signup: create new user + organisation (requires phone OTP).
@@ -38,22 +59,41 @@ class AuthRepository {
     required String orgName,
     String? industry,
   }) async {
-    final response = await _apiClient.post(
-      ApiConfig.signup,
-      data: {
-        'phone': phone,
-        'otp': otp,
-        'fullName': fullName,
-        'orgName': orgName,
-        if (industry != null) 'industry': industry,
-      },
-    );
-    return response.data as Map<String, dynamic>;
+    final body = {
+      'phone': phone,
+      'otp': otp,
+      'fullName': fullName,
+      'orgName': orgName,
+      if (industry != null) 'industry': industry,
+    };
+    debugPrint('[AuthRepo] signup called with body: $body');
+    debugPrint('[AuthRepo] POST ${ApiConfig.signup}');
+    try {
+      final response = await _apiClient.post(
+        ApiConfig.signup,
+        data: body,
+      );
+      debugPrint('[AuthRepo] signup response status: ${response.statusCode}');
+      debugPrint('[AuthRepo] signup response data: ${response.data}');
+      return response.data as Map<String, dynamic>;
+    } catch (e, st) {
+      debugPrint('[AuthRepo] signup FAILED: $e');
+      debugPrint('[AuthRepo] Stack trace: $st');
+      rethrow;
+    }
   }
 
   /// Get current user profile.
   Future<Map<String, dynamic>> getMe() async {
-    final response = await _apiClient.get(ApiConfig.me);
-    return response.data as Map<String, dynamic>;
+    debugPrint('[AuthRepo] getMe called');
+    try {
+      final response = await _apiClient.get(ApiConfig.me);
+      debugPrint('[AuthRepo] getMe response: ${response.data}');
+      return response.data as Map<String, dynamic>;
+    } catch (e, st) {
+      debugPrint('[AuthRepo] getMe FAILED: $e');
+      debugPrint('[AuthRepo] Stack trace: $st');
+      rethrow;
+    }
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -66,19 +67,25 @@ final routerProvider = Provider<GoRouter>((ref) {
           state.matchedLocation == Routes.otp ||
           state.matchedLocation == Routes.signup;
 
+      debugPrint('[Router] redirect check -> location: ${state.matchedLocation}, authStatus: ${authState.status}, isAuthenticated: $isAuthenticated, isAuthRoute: $isAuthRoute');
+
       if (authState.status == AuthStatus.initial ||
           authState.status == AuthStatus.loading) {
+        debugPrint('[Router] Auth still loading, no redirect');
         return null; // Still loading, don't redirect
       }
 
       if (!isAuthenticated && !isAuthRoute) {
+        debugPrint('[Router] Not authenticated, redirecting to login');
         return Routes.login;
       }
 
       if (isAuthenticated && isAuthRoute) {
+        debugPrint('[Router] Authenticated on auth route, redirecting to dashboard');
         return Routes.dashboard;
       }
 
+      debugPrint('[Router] No redirect needed');
       return null;
     },
     routes: [

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -26,14 +27,25 @@ class AuthStorage {
     required String accessToken,
     required String refreshToken,
   }) async {
+    debugPrint('[AuthStorage] saveTokens called');
     await Future.wait([
       _storage.write(key: _accessTokenKey, value: accessToken),
       _storage.write(key: _refreshTokenKey, value: refreshToken),
     ]);
+    debugPrint('[AuthStorage] Tokens saved successfully');
   }
 
-  Future<String?> getAccessToken() => _storage.read(key: _accessTokenKey);
-  Future<String?> getRefreshToken() => _storage.read(key: _refreshTokenKey);
+  Future<String?> getAccessToken() async {
+    final token = await _storage.read(key: _accessTokenKey);
+    debugPrint('[AuthStorage] getAccessToken: ${token != null ? "present (${token.length} chars)" : "null"}');
+    return token;
+  }
+
+  Future<String?> getRefreshToken() async {
+    final token = await _storage.read(key: _refreshTokenKey);
+    debugPrint('[AuthStorage] getRefreshToken: ${token != null ? "present" : "null"}');
+    return token;
+  }
 
   // ── User Info ──
 
@@ -42,16 +54,32 @@ class AuthStorage {
     required String userName,
     required String role,
   }) async {
+    debugPrint('[AuthStorage] saveUserInfo -> userId: $userId, userName: $userName, role: $role');
     await Future.wait([
       _storage.write(key: _userIdKey, value: userId),
       _storage.write(key: _userNameKey, value: userName),
       _storage.write(key: _userRoleKey, value: role),
     ]);
+    debugPrint('[AuthStorage] User info saved successfully');
   }
 
-  Future<String?> getUserId() => _storage.read(key: _userIdKey);
-  Future<String?> getUserName() => _storage.read(key: _userNameKey);
-  Future<String?> getUserRole() => _storage.read(key: _userRoleKey);
+  Future<String?> getUserId() async {
+    final v = await _storage.read(key: _userIdKey);
+    debugPrint('[AuthStorage] getUserId: $v');
+    return v;
+  }
+
+  Future<String?> getUserName() async {
+    final v = await _storage.read(key: _userNameKey);
+    debugPrint('[AuthStorage] getUserName: $v');
+    return v;
+  }
+
+  Future<String?> getUserRole() async {
+    final v = await _storage.read(key: _userRoleKey);
+    debugPrint('[AuthStorage] getUserRole: $v');
+    return v;
+  }
 
   // ── Organisation ──
 
@@ -60,23 +88,45 @@ class AuthStorage {
     required String orgName,
     String? industry,
   }) async {
+    debugPrint('[AuthStorage] saveOrgInfo -> orgId: $orgId, orgName: $orgName, industry: $industry');
     await Future.wait([
       _storage.write(key: _orgIdKey, value: orgId),
       _storage.write(key: _orgNameKey, value: orgName),
       if (industry != null) _storage.write(key: _industryKey, value: industry),
     ]);
+    debugPrint('[AuthStorage] Org info saved successfully');
   }
 
-  Future<String?> getOrgId() => _storage.read(key: _orgIdKey);
-  Future<String?> getOrgName() => _storage.read(key: _orgNameKey);
-  Future<String?> getIndustry() => _storage.read(key: _industryKey);
+  Future<String?> getOrgId() async {
+    final v = await _storage.read(key: _orgIdKey);
+    debugPrint('[AuthStorage] getOrgId: $v');
+    return v;
+  }
+
+  Future<String?> getOrgName() async {
+    final v = await _storage.read(key: _orgNameKey);
+    debugPrint('[AuthStorage] getOrgName: $v');
+    return v;
+  }
+
+  Future<String?> getIndustry() async {
+    final v = await _storage.read(key: _industryKey);
+    debugPrint('[AuthStorage] getIndustry: $v');
+    return v;
+  }
 
   // ── Clear ──
 
-  Future<void> clearAll() => _storage.deleteAll();
+  Future<void> clearAll() async {
+    debugPrint('[AuthStorage] clearAll called');
+    await _storage.deleteAll();
+    debugPrint('[AuthStorage] All storage cleared');
+  }
 
   Future<bool> hasValidSession() async {
-    final token = await getAccessToken();
-    return token != null && token.isNotEmpty;
+    final token = await _storage.read(key: _accessTokenKey);
+    final valid = token != null && token.isNotEmpty;
+    debugPrint('[AuthStorage] hasValidSession: $valid');
+    return valid;
   }
 }

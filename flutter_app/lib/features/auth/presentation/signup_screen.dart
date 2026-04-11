@@ -51,7 +51,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   Future<void> _handleSignup() async {
-    if (!_formKey.currentState!.validate()) return;
+    debugPrint('[SignupScreen] _handleSignup called, step: $_currentStep');
+    if (!_formKey.currentState!.validate()) {
+      debugPrint('[SignupScreen] Form validation failed');
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -61,20 +65,27 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     try {
       final authRepo = ref.read(authRepositoryProvider);
       final phone = _phoneController.text.trim();
+      debugPrint('[SignupScreen] Requesting OTP for phone: $phone');
 
       // Request OTP first, then go to OTP screen with signup context
-      await authRepo.requestOtp(phone);
+      final response = await authRepo.requestOtp(phone);
+      debugPrint('[SignupScreen] OTP request success, response: $response');
+
+      final extra = {
+        'phone': phone,
+        'isSignup': true,
+        'fullName': _nameController.text.trim(),
+        'orgName': _orgNameController.text.trim(),
+        'industry': _selectedIndustry,
+      };
+      debugPrint('[SignupScreen] Navigating to OTP screen with extra: $extra');
 
       if (mounted) {
-        context.go(Routes.otp, extra: {
-          'phone': phone,
-          'isSignup': true,
-          'fullName': _nameController.text.trim(),
-          'orgName': _orgNameController.text.trim(),
-          'industry': _selectedIndustry,
-        });
+        context.go(Routes.otp, extra: extra);
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[SignupScreen] Signup FAILED: $e');
+      debugPrint('[SignupScreen] Stack trace: $st');
       setState(() {
         _errorMessage = 'Registration failed. Please try again.';
       });
