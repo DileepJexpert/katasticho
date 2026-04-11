@@ -105,16 +105,17 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       }
 
       final data = response['data'] as Map<String, dynamic>;
+      final user = data['user'] as Map<String, dynamic>;
 
       await ref.read(authProvider.notifier).onLoginSuccess(
             accessToken: data['accessToken'] as String,
             refreshToken: data['refreshToken'] as String,
-            userId: data['userId'] as String,
-            userName: data['fullName'] as String,
-            role: data['role'] as String,
-            orgId: data['orgId'] as String,
-            orgName: data['orgName'] as String,
-            industry: data['industry'] as String?,
+            userId: user['id'].toString(),
+            userName: user['fullName'] as String,
+            role: user['role'] as String,
+            orgId: user['orgId'].toString(),
+            orgName: user['orgName'] as String,
+            industry: user['industry'] as String?,
           );
 
       if (mounted) {
