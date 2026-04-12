@@ -62,6 +62,12 @@ const _navItems = [
 
 const _secondaryNavItems = [
   NavItem(
+    label: 'Import Items',
+    icon: Icons.upload_file_outlined,
+    activeIcon: Icons.upload_file_rounded,
+    route: Routes.itemImport,
+  ),
+  NavItem(
     label: 'Goods Receipts',
     icon: Icons.local_shipping_outlined,
     activeIcon: Icons.local_shipping_rounded,
@@ -292,6 +298,24 @@ class _NavSectionLabel extends StatelessWidget {
   }
 }
 
+/// Longest-prefix match across both nav sections. Prevents `Items` (/items)
+/// and `Import Items` (/items/import) from both lighting up on /items/import
+/// — only the most specific entry wins. Uses `$r/` suffix guard so `/item`
+/// can't false-match `/items`.
+bool _isNavActive(String currentRoute, String itemRoute) {
+  if (itemRoute == '/') return currentRoute == '/';
+  bool matchesSelfOrChild(String r) =>
+      currentRoute == r || currentRoute.startsWith('$r/');
+  if (!matchesSelfOrChild(itemRoute)) return false;
+  for (final other in [..._navItems, ..._secondaryNavItems]) {
+    if (other.route == itemRoute) continue;
+    if (other.route.length > itemRoute.length && matchesSelfOrChild(other.route)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 class _SidebarNavItem extends StatelessWidget {
   final NavItem item;
 
@@ -301,8 +325,7 @@ class _SidebarNavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final currentRoute = GoRouterState.of(context).matchedLocation;
-    final isActive = currentRoute == item.route ||
-        (item.route != '/' && currentRoute.startsWith(item.route));
+    final isActive = _isNavActive(currentRoute, item.route);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
