@@ -65,6 +65,17 @@ public class InvoiceLine {
     @Column(name = "account_code", nullable = false, length = 20)
     private String accountCode;
 
+    /**
+     * Optional link to {@code item.id}. Free-text invoice lines (item_id = NULL)
+     * remain valid; only itemised lines flow through inventory.
+     */
+    @Column(name = "item_id")
+    private UUID itemId;
+
+    /** Optional batch reference — populated by Sprint 26 perishables. */
+    @Column(name = "batch_id")
+    private UUID batchId;
+
     // Base currency
     @Column(name = "base_taxable_amount")
     @Builder.Default

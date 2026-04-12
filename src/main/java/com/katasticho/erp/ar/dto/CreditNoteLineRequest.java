@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 public record CreditNoteLineRequest(
         @NotBlank(message = "Description is required")
@@ -24,5 +25,8 @@ public record CreditNoteLineRequest(
         BigDecimal gstRate,
 
         @NotBlank(message = "Account code is required")
-        String accountCode
+        String accountCode,
+
+        UUID itemId,
+        UUID batchId
 ) {}

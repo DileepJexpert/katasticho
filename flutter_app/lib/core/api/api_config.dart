@@ -48,6 +48,19 @@ class ApiConfig {
   static const String ageingReport = '/api/v1/ar-reports/ageing';
   static const String gstr1 = '/api/v1/ar-reports/gstr1';
 
+  // Inventory
+  static const String items = '/api/v1/items';
+  static String itemById(String id) => '/api/v1/items/$id';
+  static const String warehouses = '/api/v1/warehouses';
+  static const String stockAdjust = '/api/v1/stock/adjust';
+  static String stockReverse(String movementId) =>
+      '/api/v1/stock/movements/$movementId/reverse';
+  static String itemMovements(String itemId) =>
+      '/api/v1/stock/items/$itemId/movements';
+  static String itemBalances(String itemId) =>
+      '/api/v1/stock/items/$itemId/balances';
+  static const String lowStock = '/api/v1/stock/low-stock';
+
   // AI
   static const String aiQuery = '/api/v1/ai/query';
   static const String aiScanBill = '/api/v1/ai/scan-bill';

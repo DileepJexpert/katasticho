@@ -11,6 +11,7 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.currency.CurrencyService;
+import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.tax.TaxEngine;
@@ -55,6 +56,7 @@ public class CreditNoteService {
     private final TaxEngineFactory taxEngineFactory;
     private final CurrencyService currencyService;
     private final AuditService auditService;
+    private final InventoryService inventoryService;
 
     private static final String AR_ACCOUNT_CODE = "1200";
 
@@ -144,6 +146,8 @@ public class CreditNoteService {
                     .taxAmount(lineTax)
                     .lineTotal(lineTotal)
                     .accountCode(lineReq.accountCode())
+                    .itemId(lineReq.itemId())
+                    .batchId(lineReq.batchId())
                     .baseTaxableAmount(baseTaxable)
                     .baseTaxAmount(baseTax)
                     .baseLineTotal(baseTotal)
@@ -248,6 +252,20 @@ public class CreditNoteService {
                 true);
 
         JournalEntry journalEntry = journalService.postJournal(journalRequest);
+
+        // Restore stock for any itemised lines (returns / damages refunded).
+        for (CreditNoteLine line : cn.getLines()) {
+            if (line.getItemId() != null) {
+                inventoryService.restoreStockForCreditNote(
+                        orgId,
+                        line.getItemId(),
+                        line.getQuantity(),
+                        line.getUnitPrice(),
+                        cn.getId(),
+                        cn.getCreditNoteNumber(),
+                        cn.getCreditNoteDate());
+            }
+        }
 
         cn.setStatus("ISSUED");
         cn.setJournalEntryId(journalEntry.getId());

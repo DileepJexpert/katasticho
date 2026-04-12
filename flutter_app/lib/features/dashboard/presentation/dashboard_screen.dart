@@ -10,6 +10,7 @@ import '../data/dashboard_config.dart';
 import '../widgets/quick_action_grid.dart';
 import '../widgets/overdue_invoices_widget.dart';
 import '../widgets/sales_chart_widget.dart';
+import '../widgets/low_stock_widget.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -69,6 +70,7 @@ class DashboardScreen extends ConsumerWidget {
                         children: [
                           const SalesChartWidget(),
                           KSpacing.vGapMd,
+                          const LowStockWidget(),
                         ],
                       ),
                     ),
@@ -82,6 +84,8 @@ class DashboardScreen extends ConsumerWidget {
                 const SalesChartWidget(),
                 KSpacing.vGapMd,
                 const OverdueInvoicesWidget(),
+                KSpacing.vGapMd,
+                const LowStockWidget(),
               ],
             ],
           ),

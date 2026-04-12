@@ -11,6 +11,7 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.currency.CurrencyService;
+import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.tax.TaxEngine;
@@ -55,6 +56,7 @@ public class InvoiceService {
     private final TaxEngineFactory taxEngineFactory;
     private final CurrencyService currencyService;
     private final AuditService auditService;
+    private final InventoryService inventoryService;
 
     private static final String AR_ACCOUNT_CODE = "1200"; // Accounts Receivable
 
@@ -163,6 +165,8 @@ public class InvoiceService {
                     .taxAmount(lineTax)
                     .lineTotal(lineTotal)
                     .accountCode(lineReq.accountCode())
+                    .itemId(lineReq.itemId())
+                    .batchId(lineReq.batchId())
                     .baseTaxableAmount(baseTaxable)
                     .baseTaxAmount(baseTax)
                     .baseLineTotal(baseTotal)
@@ -285,6 +289,11 @@ public class InvoiceService {
                 true);
 
         JournalEntry journalEntry = journalService.postJournal(journalRequest);
+
+        // Deduct stock for any itemised lines (free-text lines are silently
+        // skipped). Runs after the journal post so a journal failure aborts
+        // the whole transaction without leaving a stock movement orphan.
+        inventoryService.deductStockForInvoice(invoice);
 
         // Update invoice status
         invoice.setStatus("SENT");

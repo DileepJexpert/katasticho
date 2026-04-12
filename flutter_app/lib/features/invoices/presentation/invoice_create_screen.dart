@@ -11,6 +11,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../customers/data/customer_repository.dart';
+import '../../inventory/presentation/item_picker_sheet.dart';
 import '../data/invoice_repository.dart';
 
 class InvoiceCreateScreen extends ConsumerStatefulWidget {
@@ -125,6 +126,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
                   'unitPrice': l.unitPrice,
                   'gstRate': l.gstRate,
                   'accountCode': '4000',
+                  if (l.itemId != null) 'itemId': l.itemId,
                 })
             .toList(),
       };
@@ -542,6 +544,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
 // ── Helper Widgets ──
 
 class _LineItem {
+  String? itemId;
   String description = '';
   String hsnCode = '';
   double quantity = 1;
@@ -553,7 +556,7 @@ class _LineItem {
   double get lineTotal => taxableAmount + taxAmount;
 }
 
-class _LineItemCard extends StatelessWidget {
+class _LineItemCard extends StatefulWidget {
   final _LineItem item;
   final int index;
   final VoidCallback? onRemove;
@@ -567,7 +570,60 @@ class _LineItemCard extends StatelessWidget {
   });
 
   @override
+  State<_LineItemCard> createState() => _LineItemCardState();
+}
+
+class _LineItemCardState extends State<_LineItemCard> {
+  late final TextEditingController _descCtl;
+  late final TextEditingController _hsnCtl;
+  late final TextEditingController _qtyCtl;
+  late final TextEditingController _priceCtl;
+
+  @override
+  void initState() {
+    super.initState();
+    _descCtl = TextEditingController(text: widget.item.description);
+    _hsnCtl = TextEditingController(text: widget.item.hsnCode);
+    _qtyCtl = TextEditingController(text: widget.item.quantity.toString());
+    _priceCtl = TextEditingController(text: widget.item.unitPrice.toString());
+  }
+
+  @override
+  void dispose() {
+    _descCtl.dispose();
+    _hsnCtl.dispose();
+    _qtyCtl.dispose();
+    _priceCtl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickItem() async {
+    final picked = await showItemPicker(context);
+    if (picked == null) return;
+    setState(() {
+      widget.item.itemId = picked['id']?.toString();
+      widget.item.description = picked['name']?.toString() ?? '';
+      widget.item.hsnCode = picked['hsnCode']?.toString() ?? '';
+      widget.item.unitPrice = (picked['salePrice'] as num?)?.toDouble() ?? 0;
+      final pickedGst = (picked['gstRate'] as num?)?.toDouble();
+      if (pickedGst != null && [0, 5, 12, 18, 28].contains(pickedGst.toInt())) {
+        widget.item.gstRate = pickedGst;
+      }
+      _descCtl.text = widget.item.description;
+      _hsnCtl.text = widget.item.hsnCode;
+      _priceCtl.text = widget.item.unitPrice.toString();
+    });
+    widget.onChanged();
+  }
+
+  void _clearItemLink() {
+    setState(() => widget.item.itemId = null);
+    widget.onChanged();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isLinked = widget.item.itemId != null;
     return KCard(
       margin: const EdgeInsets.only(bottom: KSpacing.sm),
       child: Column(
@@ -575,23 +631,56 @@ class _LineItemCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('Item ${index + 1}', style: KTypography.labelLarge),
+              Text('Item ${widget.index + 1}', style: KTypography.labelLarge),
+              if (isLinked) ...[
+                KSpacing.hGapSm,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: KColors.success.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.link, size: 12, color: KColors.success),
+                      const SizedBox(width: 4),
+                      Text('Tracked',
+                          style: KTypography.labelSmall.copyWith(
+                            color: KColors.success,
+                            fontWeight: FontWeight.w700,
+                          )),
+                    ],
+                  ),
+                ),
+              ],
               const Spacer(),
-              if (onRemove != null)
+              TextButton.icon(
+                onPressed: _pickItem,
+                icon: const Icon(Icons.search, size: 16),
+                label: Text(isLinked ? 'Change' : 'Pick Item'),
+              ),
+              if (isLinked)
+                IconButton(
+                  tooltip: 'Unlink (free-text)',
+                  icon: const Icon(Icons.link_off, size: 18),
+                  onPressed: _clearItemLink,
+                ),
+              if (widget.onRemove != null)
                 IconButton(
                   icon: const Icon(Icons.delete_outline,
                       color: KColors.error, size: 20),
-                  onPressed: onRemove,
+                  onPressed: widget.onRemove,
                 ),
             ],
           ),
           KSpacing.vGapSm,
           KTextField(
             label: 'Description',
-            initialValue: item.description,
+            controller: _descCtl,
             onChanged: (v) {
-              item.description = v;
-              onChanged();
+              widget.item.description = v;
+              widget.onChanged();
             },
           ),
           KSpacing.vGapSm,
@@ -600,10 +689,10 @@ class _LineItemCard extends StatelessWidget {
               Expanded(
                 child: KTextField(
                   label: 'HSN Code',
-                  initialValue: item.hsnCode,
+                  controller: _hsnCtl,
                   onChanged: (v) {
-                    item.hsnCode = v;
-                    onChanged();
+                    widget.item.hsnCode = v;
+                    widget.onChanged();
                   },
                 ),
               ),
@@ -611,12 +700,12 @@ class _LineItemCard extends StatelessWidget {
               Expanded(
                 child: KTextField(
                   label: 'Quantity',
-                  initialValue: item.quantity.toString(),
+                  controller: _qtyCtl,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
                   onChanged: (v) {
-                    item.quantity = double.tryParse(v) ?? 1;
-                    onChanged();
+                    widget.item.quantity = double.tryParse(v) ?? 1;
+                    widget.onChanged();
                   },
                 ),
               ),
@@ -628,16 +717,17 @@ class _LineItemCard extends StatelessWidget {
               Expanded(
                 child: KTextField.amount(
                   label: 'Unit Price',
+                  controller: _priceCtl,
                   onChanged: (v) {
-                    item.unitPrice = double.tryParse(v) ?? 0;
-                    onChanged();
+                    widget.item.unitPrice = double.tryParse(v) ?? 0;
+                    widget.onChanged();
                   },
                 ),
               ),
               KSpacing.hGapSm,
               Expanded(
                 child: DropdownButtonFormField<double>(
-                  value: item.gstRate,
+                  value: widget.item.gstRate,
                   decoration: const InputDecoration(
                     labelText: 'GST Rate',
                   ),
@@ -649,8 +739,8 @@ class _LineItemCard extends StatelessWidget {
                     DropdownMenuItem(value: 28, child: Text('28%')),
                   ],
                   onChanged: (v) {
-                    item.gstRate = v ?? 18;
-                    onChanged();
+                    widget.item.gstRate = v ?? 18;
+                    widget.onChanged();
                   },
                 ),
               ),
@@ -661,7 +751,7 @@ class _LineItemCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               Text(
-                'Line Total: ${CurrencyFormatter.formatIndian(item.lineTotal)}',
+                'Line Total: ${CurrencyFormatter.formatIndian(widget.item.lineTotal)}',
                 style: KTypography.amountSmall.copyWith(
                   color: KColors.primary,
                 ),

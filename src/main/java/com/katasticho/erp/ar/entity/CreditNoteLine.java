@@ -57,6 +57,13 @@ public class CreditNoteLine {
     @Column(name = "account_code", nullable = false, length = 20)
     private String accountCode;
 
+    /** Optional link to {@code item.id}; free-text lines leave this null. */
+    @Column(name = "item_id")
+    private UUID itemId;
+
+    @Column(name = "batch_id")
+    private UUID batchId;
+
     // Base currency
     @Column(name = "base_taxable_amount")
     @Builder.Default

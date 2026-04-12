@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 public record InvoiceLineRequest(
         @NotBlank(message = "Description is required")
@@ -26,7 +27,13 @@ public record InvoiceLineRequest(
         BigDecimal gstRate,
 
         @NotBlank(message = "Revenue account code is required")
-        String accountCode
+        String accountCode,
+
+        /** Optional item reference. Free-text lines leave this null. */
+        UUID itemId,
+
+        /** Optional batch reference (Sprint 26). */
+        UUID batchId
 ) {
     public InvoiceLineRequest {
         if (discountPercent == null) discountPercent = BigDecimal.ZERO;
