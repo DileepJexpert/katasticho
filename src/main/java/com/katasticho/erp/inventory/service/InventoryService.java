@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -260,11 +261,29 @@ public class InventoryService {
 
     /**
      * Called by InvoiceService.sendInvoice() AFTER the journal has been posted.
-     * Iterates the invoice lines and records a SALE (negative quantity) for
-     * each line that carries an item_id. Free-text lines are silently skipped.
+     * Records a SALE (negative quantity) against the item's stock. Free-text
+     * invoice lines (item_id = NULL) are silently skipped.
      *
-     * Uses the org's default warehouse in v1 — multi-warehouse selection lands
-     * in a later sprint.
+     * <p>Three branches depending on the item's batch-tracking flag:
+     * <ol>
+     *   <li><b>Non-batch item</b> — single movement with {@code batchId=null},
+     *       identical to v1 behaviour.</li>
+     *   <li><b>Batch-tracked with explicit pick</b> ({@code line.batchId} set) —
+     *       one movement against that specific batch. The single stock gate
+     *       (via {@link BatchService#applyDelta}) fails loud if the chosen
+     *       batch can't cover the quantity.</li>
+     *   <li><b>Batch-tracked with FEFO auto-pick</b> ({@code line.batchId} null) —
+     *       walks batches in expiry order and posts one movement per batch
+     *       consumed until the line quantity is satisfied. A single invoice
+     *       line can therefore produce multiple {@code stock_movement} rows,
+     *       each tagged with a different {@code batch_id}. If the total
+     *       available across all batches is short, the whole post fails with
+     *       {@code INV_INSUFFICIENT_BATCH_STOCK} and the outer transaction
+     *       rolls back — no partial deductions.</li>
+     * </ol>
+     *
+     * <p>Uses the org's default warehouse in v1 — multi-warehouse selection
+     * lands in a later sprint.
      */
     @Transactional
     public void deductStockForInvoice(Invoice invoice) {
@@ -279,32 +298,95 @@ public class InventoryService {
                 continue; // free-text invoice line — no inventory impact
             }
 
-            // Negative quantity = stock out
-            BigDecimal outQty = line.getQuantity().negate();
+            Item item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(line.getItemId(), orgId)
+                    .orElseThrow(() -> BusinessException.notFound("Item", line.getItemId()));
 
-            // Use the line's unit price as a fallback cost; in a richer cost
-            // model this would come from the item's average_cost.
-            BigDecimal unitCost = line.getUnitPrice();
+            // SERVICE items and non-tracked items have nothing to deduct.
+            // recordMovement() would no-op these anyway, but short-circuiting
+            // here keeps the FEFO branch clean of that special case.
+            if (!item.isTrackInventory() || item.getItemType() == ItemType.SERVICE) {
+                continue;
+            }
 
-            StockMovementRequest req = new StockMovementRequest(
-                    line.getItemId(),
-                    defaultWarehouse.getId(),
-                    MovementType.SALE,
-                    outQty,
-                    unitCost,
-                    invoice.getInvoiceDate(),
-                    ReferenceType.INVOICE,
-                    invoice.getId(),
-                    invoice.getInvoiceNumber(),
-                    "Sale via " + invoice.getInvoiceNumber());
+            if (!item.isTrackBatches()) {
+                // Non-batch path: single aggregate SALE movement.
+                recordMovement(buildInvoiceSaleRequest(
+                        invoice, line, defaultWarehouse.getId(),
+                        line.getQuantity().negate(), null));
+                continue;
+            }
 
-            recordMovement(req);
+            // From here on the item is batch-tracked.
+
+            if (line.getBatchId() != null) {
+                // Explicit pick — honour it as-is. The gate's applyDelta
+                // call will fail loud with BATCH_NEGATIVE_BALANCE if the
+                // chosen batch doesn't have enough stock.
+                recordMovement(buildInvoiceSaleRequest(
+                        invoice, line, defaultWarehouse.getId(),
+                        line.getQuantity().negate(), line.getBatchId()));
+                continue;
+            }
+
+            // FEFO auto-pick. Walk batches in expiry-ascending order and
+            // consume greedily. A single line can split across multiple
+            // stock_movement rows if no single batch covers the quantity.
+            BigDecimal remaining = line.getQuantity().setScale(4, RoundingMode.HALF_UP);
+            List<StockBatch> batches = batchService.findFefoBatches(item.getId(), defaultWarehouse.getId());
+            for (StockBatch batch : batches) {
+                if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+                    break;
+                }
+                BigDecimal available = batchService
+                        .getBatchBalance(batch.getId(), defaultWarehouse.getId());
+                if (available.compareTo(BigDecimal.ZERO) <= 0) {
+                    continue;
+                }
+                BigDecimal consume = available.min(remaining);
+                recordMovement(buildInvoiceSaleRequest(
+                        invoice, line, defaultWarehouse.getId(),
+                        consume.negate(), batch.getId()));
+                remaining = remaining.subtract(consume);
+            }
+
+            if (remaining.compareTo(BigDecimal.ZERO) > 0) {
+                throw new BusinessException(
+                        "Insufficient batch-tracked stock for " + item.getSku()
+                                + ": short by " + remaining
+                                + ". Either receive more stock or pick a"
+                                + " specific batch that has enough.",
+                        "INV_INSUFFICIENT_BATCH_STOCK", HttpStatus.CONFLICT);
+            }
         }
+    }
+
+    /** Shared request builder so the three deduction branches stay symmetrical. */
+    private StockMovementRequest buildInvoiceSaleRequest(Invoice invoice, InvoiceLine line,
+                                                         UUID warehouseId, BigDecimal signedQty,
+                                                         UUID batchId) {
+        return new StockMovementRequest(
+                line.getItemId(),
+                warehouseId,
+                MovementType.SALE,
+                signedQty,
+                line.getUnitPrice(),
+                invoice.getInvoiceDate(),
+                ReferenceType.INVOICE,
+                invoice.getId(),
+                invoice.getInvoiceNumber(),
+                "Sale via " + invoice.getInvoiceNumber(),
+                batchId);
     }
 
     /**
      * Called when a credit note is issued — restores the stock that was
      * deducted by the original invoice.
+     *
+     * <p>For batch-tracked items the caller MUST supply a {@code batchId}:
+     * returned goods come back with a specific batch printed on them, so
+     * auto-picking on restore would silently corrupt the master data. The
+     * method fails loud with {@code CN_BATCH_REQUIRED} otherwise. Non-batch
+     * items continue to restore via a plain aggregate movement.
      */
     @Transactional
     public void restoreStockForCreditNote(UUID orgId,
@@ -313,11 +395,24 @@ public class InventoryService {
                                           BigDecimal unitCost,
                                           UUID creditNoteId,
                                           String creditNoteNumber,
-                                          LocalDate creditNoteDate) {
+                                          LocalDate creditNoteDate,
+                                          UUID batchId) {
         Warehouse defaultWarehouse = warehouseRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
                 .orElseThrow(() -> new BusinessException(
                         "No default warehouse configured for org " + orgId,
                         "INV_NO_DEFAULT_WAREHOUSE", HttpStatus.BAD_REQUEST));
+
+        // Guard batch-tracked items early so the operator sees an
+        // actionable error ("pick a batch") instead of the gate's raw
+        // INV_BATCH_REQUIRED which fires in a different context.
+        Item item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(itemId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Item", itemId));
+        if (item.isTrackBatches() && batchId == null) {
+            throw new BusinessException(
+                    "Credit note line for batch-tracked item " + item.getSku()
+                            + " must specify which batch to restore to",
+                    "CN_BATCH_REQUIRED", HttpStatus.BAD_REQUEST);
+        }
 
         StockMovementRequest req = new StockMovementRequest(
                 itemId,
@@ -329,7 +424,8 @@ public class InventoryService {
                 ReferenceType.CREDIT_NOTE,
                 creditNoteId,
                 creditNoteNumber,
-                "Return via " + creditNoteNumber);
+                "Return via " + creditNoteNumber,
+                batchId);
 
         recordMovement(req);
     }
