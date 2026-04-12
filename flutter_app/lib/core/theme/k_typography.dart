@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'k_colors.dart';
 
 /// Typography scale for Katasticho ERP.
-/// Uses Inter font family with a clear hierarchy.
+///
+/// Inter for UI text (loaded via GoogleFonts in [KTheme]).
+/// Tighter tracking on display sizes, looser on small caps labels —
+/// matches modern design systems (Linear, Vercel, shadcn).
 class KTypography {
   KTypography._();
 
@@ -11,35 +14,39 @@ class KTypography {
   // ── Display ──
   static const TextStyle displayLarge = TextStyle(
     fontFamily: _fontFamily,
-    fontSize: 32,
-    fontWeight: FontWeight.w700,
+    fontSize: 40,
+    fontWeight: FontWeight.w800,
     color: KColors.textPrimary,
-    height: 1.25,
+    height: 1.15,
+    letterSpacing: -1.0,
   );
 
   static const TextStyle displayMedium = TextStyle(
     fontFamily: _fontFamily,
-    fontSize: 28,
-    fontWeight: FontWeight.w700,
+    fontSize: 32,
+    fontWeight: FontWeight.w800,
     color: KColors.textPrimary,
-    height: 1.29,
+    height: 1.2,
+    letterSpacing: -0.75,
   );
 
   // ── Headings ──
   static const TextStyle h1 = TextStyle(
     fontFamily: _fontFamily,
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: FontWeight.w700,
     color: KColors.textPrimary,
-    height: 1.33,
+    height: 1.25,
+    letterSpacing: -0.5,
   );
 
   static const TextStyle h2 = TextStyle(
     fontFamily: _fontFamily,
-    fontSize: 20,
-    fontWeight: FontWeight.w600,
+    fontSize: 22,
+    fontWeight: FontWeight.w700,
     color: KColors.textPrimary,
-    height: 1.4,
+    height: 1.3,
+    letterSpacing: -0.35,
   );
 
   static const TextStyle h3 = TextStyle(
@@ -47,7 +54,8 @@ class KTypography {
     fontSize: 18,
     fontWeight: FontWeight.w600,
     color: KColors.textPrimary,
-    height: 1.44,
+    height: 1.4,
+    letterSpacing: -0.2,
   );
 
   static const TextStyle h4 = TextStyle(
@@ -56,6 +64,7 @@ class KTypography {
     fontWeight: FontWeight.w600,
     color: KColors.textPrimary,
     height: 1.5,
+    letterSpacing: -0.1,
   );
 
   // ── Body ──
@@ -64,7 +73,7 @@ class KTypography {
     fontSize: 16,
     fontWeight: FontWeight.w400,
     color: KColors.textPrimary,
-    height: 1.5,
+    height: 1.55,
   );
 
   static const TextStyle bodyMedium = TextStyle(
@@ -72,7 +81,7 @@ class KTypography {
     fontSize: 14,
     fontWeight: FontWeight.w400,
     color: KColors.textPrimary,
-    height: 1.43,
+    height: 1.5,
   );
 
   static const TextStyle bodySmall = TextStyle(
@@ -80,7 +89,7 @@ class KTypography {
     fontSize: 12,
     fontWeight: FontWeight.w400,
     color: KColors.textSecondary,
-    height: 1.33,
+    height: 1.5,
   );
 
   // ── Labels ──
@@ -90,40 +99,47 @@ class KTypography {
     fontWeight: FontWeight.w600,
     color: KColors.textPrimary,
     height: 1.43,
+    letterSpacing: -0.1,
   );
 
   static const TextStyle labelMedium = TextStyle(
     fontFamily: _fontFamily,
     fontSize: 12,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w600,
     color: KColors.textSecondary,
-    height: 1.33,
+    height: 1.4,
+    letterSpacing: 0.1,
   );
 
+  /// All-caps utility label, slightly tracked.
   static const TextStyle labelSmall = TextStyle(
     fontFamily: _fontFamily,
-    fontSize: 10,
-    fontWeight: FontWeight.w500,
-    color: KColors.textHint,
-    letterSpacing: 0.5,
-    height: 1.6,
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    color: KColors.textTertiary,
+    letterSpacing: 0.6,
+    height: 1.4,
   );
 
-  // ── Financial ──
+  // ── Financial — tighter tracking, heavier weight ──
   static const TextStyle amountLarge = TextStyle(
     fontFamily: _fontFamily,
-    fontSize: 24,
-    fontWeight: FontWeight.w700,
+    fontSize: 28,
+    fontWeight: FontWeight.w800,
     color: KColors.textPrimary,
-    height: 1.33,
+    height: 1.2,
+    letterSpacing: -0.6,
+    fontFeatures: [FontFeature.tabularFigures()],
   );
 
   static const TextStyle amountMedium = TextStyle(
     fontFamily: _fontFamily,
-    fontSize: 18,
-    fontWeight: FontWeight.w600,
+    fontSize: 20,
+    fontWeight: FontWeight.w700,
     color: KColors.textPrimary,
-    height: 1.44,
+    height: 1.3,
+    letterSpacing: -0.3,
+    fontFeatures: [FontFeature.tabularFigures()],
   );
 
   static const TextStyle amountSmall = TextStyle(
@@ -132,6 +148,7 @@ class KTypography {
     fontWeight: FontWeight.w600,
     color: KColors.textPrimary,
     height: 1.43,
+    fontFeatures: [FontFeature.tabularFigures()],
   );
 
   // ── Button ──
@@ -139,7 +156,7 @@ class KTypography {
     fontFamily: _fontFamily,
     fontSize: 14,
     fontWeight: FontWeight.w600,
-    letterSpacing: 0.5,
+    letterSpacing: 0.1,
     height: 1.43,
   );
 
@@ -147,7 +164,7 @@ class KTypography {
     fontFamily: _fontFamily,
     fontSize: 12,
     fontWeight: FontWeight.w600,
-    letterSpacing: 0.5,
+    letterSpacing: 0.2,
     height: 1.33,
   );
 }

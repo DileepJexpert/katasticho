@@ -35,20 +35,79 @@ class DashboardScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {},
         child: SingleChildScrollView(
-          padding: KSpacing.pagePadding,
+          padding: KSpacing.pagePaddingLg,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Greeting
-              Text(
-                '${config.greeting}, ${authState.userName ?? 'User'}!',
-                style: KTypography.h1,
-              ),
-              KSpacing.vGapXs,
-              Text(
-                authState.orgName ?? 'Your Business',
-                style: KTypography.bodyMedium.copyWith(
-                  color: KColors.textSecondary,
+              // Hero greeting — gradient banner
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
+                decoration: BoxDecoration(
+                  gradient: KColors.brandGradient,
+                  borderRadius: BorderRadius.circular(KSpacing.radiusXl),
+                  boxShadow: KSpacing.shadowPrimary,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${config.greeting},',
+                            style: KTypography.bodyMedium.copyWith(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${authState.userName ?? 'User'} 👋',
+                            style: KTypography.h1.copyWith(color: Colors.white),
+                          ),
+                          KSpacing.vGapXs,
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.business_rounded,
+                                size: 14,
+                                color: Colors.white.withValues(alpha: 0.85),
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  authState.orgName ?? 'Your Business',
+                                  style: KTypography.bodySmall.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(KSpacing.radiusLg),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.auto_awesome_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               KSpacing.vGapLg,
