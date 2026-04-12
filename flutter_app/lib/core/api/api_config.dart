@@ -53,6 +53,12 @@ class ApiConfig {
   static String itemById(String id) => '/api/v1/items/$id';
   static const String itemImport = '/api/v1/items/import';
   static const String itemImportPreview = '/api/v1/items/import/preview';
+  // F4 BOM — composite item bill of materials (only valid for
+  // itemType=COMPOSITE parents; the resolver at invoice-send time is
+  // server-side and never hit over HTTP).
+  static String itemBom(String parentId) => '/api/v1/items/$parentId/bom';
+  static String itemBomComponentById(String componentId) =>
+      '/api/v1/items/bom/$componentId';
   static const String warehouses = '/api/v1/warehouses';
   static const String stockAdjust = '/api/v1/stock/adjust';
   static String stockReverse(String movementId) =>

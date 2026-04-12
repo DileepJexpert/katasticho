@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
@@ -206,11 +207,17 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                           items: const [
                             DropdownMenuItem(value: 'GOODS', child: Text('Goods')),
                             DropdownMenuItem(value: 'SERVICE', child: Text('Service')),
+                            DropdownMenuItem(
+                                value: 'COMPOSITE', child: Text('Composite (kit)')),
                           ],
                           onChanged: (v) {
                             setState(() {
                               _itemType = v ?? 'GOODS';
-                              if (_itemType == 'SERVICE') {
+                              // Non-goods types never track stock directly.
+                              // For COMPOSITE the parent is an abstraction
+                              // over its BOM children; the backend rejects
+                              // trackInventory=true for this type.
+                              if (_itemType != 'GOODS') {
                                 _trackInventory = false;
                               }
                             });
@@ -267,6 +274,27 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                   ),
                   KSpacing.vGapLg,
 
+                  if (_itemType == 'COMPOSITE') ...[
+                    KCard(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline,
+                              size: 18, color: KColors.primary),
+                          KSpacing.hGapSm,
+                          Expanded(
+                            child: Text(
+                              _isEdit
+                                  ? 'Add or edit components under "Bill of Materials" below. This item never carries stock — selling it deducts its components.'
+                                  : 'Save this item first, then add its components from the item detail screen. Composite items never carry stock directly.',
+                              style: KTypography.bodySmall,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    KSpacing.vGapLg,
+                  ],
                   if (_itemType == 'GOODS') ...[
                     Text('Inventory', style: KTypography.h3),
                     KSpacing.vGapMd,

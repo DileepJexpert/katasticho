@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,8 +8,10 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../data/bom_repository.dart';
 import '../data/item_repository.dart';
 import 'item_create_screen.dart';
+import 'item_picker_sheet.dart';
 import 'stock_adjust_sheet.dart';
 
 class ItemDetailScreen extends ConsumerWidget {
@@ -195,6 +198,14 @@ class _ItemDetailBody extends ConsumerWidget {
             KSpacing.vGapMd,
           ],
 
+          // Bill of Materials — only for composite items. Sits between
+          // Stock (which is hidden for composites) and Pricing so editors
+          // naturally see it as the "what's inside" section.
+          if (itemType == 'COMPOSITE') ...[
+            _BomEditorCard(parentId: itemId, parentSku: sku),
+            KSpacing.vGapMd,
+          ],
+
           // Pricing
           KCard(
             title: 'Pricing',
@@ -360,6 +371,284 @@ class _MovementTile extends StatelessWidget {
         style: KTypography.amountSmall.copyWith(
           color: isPositive ? KColors.success : KColors.error,
         ),
+      ),
+    );
+  }
+}
+
+/// Bill of Materials editor for a composite (kit) item. Watches
+/// `bomComponentsProvider` and renders one row per child with a delete
+/// button; the "Add component" button opens the item picker filtered to
+/// the eligible children. Backend errorCodes (BOM_DUPLICATE_CHILD,
+/// BOM_NESTED_NOT_SUPPORTED, BOM_BATCH_CHILD_NOT_SUPPORTED, BOM_SELF_REFERENCE)
+/// are translated to friendly messages in [_snackError].
+class _BomEditorCard extends ConsumerWidget {
+  final String parentId;
+  final String parentSku;
+
+  const _BomEditorCard({required this.parentId, required this.parentSku});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rowsAsync = ref.watch(bomComponentsProvider(parentId));
+
+    return KCard(
+      title: 'Bill of Materials',
+      subtitle: 'Selling this kit deducts each component',
+      action: KButton(
+        label: 'Add',
+        icon: Icons.add,
+        variant: KButtonVariant.outlined,
+        size: KButtonSize.small,
+        onPressed: () => _openAddSheet(context, ref),
+      ),
+      child: rowsAsync.when(
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: KShimmerCard(height: 60),
+        ),
+        error: (err, st) {
+          debugPrint('[BomEditorCard] ERROR: $err\n$st');
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Failed to load components: $err',
+              style: KTypography.bodySmall,
+            ),
+          );
+        },
+        data: (rows) {
+          if (rows.isEmpty) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'No components yet. Add the items this kit is made of.',
+                style: KTypography.bodySmall,
+              ),
+            );
+          }
+          return Column(
+            children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                if (i > 0) const Divider(height: 1),
+                _BomRow(
+                  row: rows[i],
+                  onDelete: () => _deleteComponent(context, ref, rows[i]),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _openAddSheet(BuildContext context, WidgetRef ref) async {
+    final child = await showItemPicker(context);
+    if (child == null) return;
+    if (!context.mounted) return;
+
+    // Client-side preflight — the backend re-validates, but catching
+    // the obvious cases here gives an immediate error without a round-trip.
+    final childId = child['id']?.toString();
+    if (childId == null || childId.isEmpty) return;
+    if (childId == parentId) {
+      _snackError(context, 'A kit cannot contain itself');
+      return;
+    }
+    if (child['itemType']?.toString() == 'COMPOSITE') {
+      _snackError(context, 'Nested kits are not supported — pick a simple goods item');
+      return;
+    }
+    if (child['trackBatches'] == true) {
+      _snackError(
+        context,
+        'Batch-tracked items cannot be used as kit components',
+      );
+      return;
+    }
+
+    final qty = await _promptQuantity(context, child);
+    if (qty == null || qty <= 0) return;
+    if (!context.mounted) return;
+
+    try {
+      await ref.read(bomRepositoryProvider).addComponent(
+            parentId,
+            childItemId: childId,
+            quantity: qty,
+          );
+      ref.invalidate(bomComponentsProvider(parentId));
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Component added')),
+      );
+    } catch (e, st) {
+      debugPrint('[BomEditorCard] add FAILED: $e\n$st');
+      if (!context.mounted) return;
+      _snackError(context, _translateError(e, 'Failed to add component'));
+    }
+  }
+
+  Future<double?> _promptQuantity(
+    BuildContext context,
+    Map<String, dynamic> child,
+  ) {
+    final controller = TextEditingController(text: '1');
+    return showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Quantity of ${child['sku'] ?? ''}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(child['name']?.toString() ?? '', style: KTypography.bodySmall),
+            KSpacing.vGapMd,
+            KTextField(
+              label: 'Quantity per kit',
+              controller: controller,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              prefixIcon: Icons.numbers,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final v = double.tryParse(controller.text.trim());
+              Navigator.pop(ctx, v);
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteComponent(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> row,
+  ) async {
+    final componentId = row['id']?.toString();
+    if (componentId == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove component?'),
+        content: Text(
+          '${row['childSku'] ?? ''} will be removed from $parentSku.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    if (!context.mounted) return;
+
+    try {
+      await ref.read(bomRepositoryProvider).deleteComponent(componentId);
+      ref.invalidate(bomComponentsProvider(parentId));
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Component removed')),
+      );
+    } catch (e, st) {
+      debugPrint('[BomEditorCard] delete FAILED: $e\n$st');
+      if (!context.mounted) return;
+      _snackError(context, _translateError(e, 'Failed to remove component'));
+    }
+  }
+
+  void _snackError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: KColors.error,
+      ),
+    );
+  }
+
+  /// Unwraps a DioException to surface the backend errorCode as a
+  /// user-friendly message. Everything else falls back to [fallback].
+  String _translateError(Object e, String fallback) {
+    if (e is DioException) {
+      final data = e.response?.data;
+      final code = data is Map ? data['errorCode']?.toString() : null;
+      switch (code) {
+        case 'BOM_DUPLICATE_CHILD':
+          return 'That component is already in the kit — edit the existing row instead.';
+        case 'BOM_NESTED_NOT_SUPPORTED':
+          return 'Nested kits are not supported — pick a simple goods item.';
+        case 'BOM_BATCH_CHILD_NOT_SUPPORTED':
+          return 'Batch-tracked items cannot be used as kit components.';
+        case 'BOM_SELF_REFERENCE':
+          return 'A kit cannot contain itself.';
+        case 'BOM_PARENT_NOT_COMPOSITE':
+          return 'This item is not a composite — change its type first.';
+        case 'BOM_QUANTITY_INVALID':
+          return 'Quantity must be greater than zero.';
+      }
+      final msg = data is Map ? data['message']?.toString() : null;
+      if (msg != null && msg.isNotEmpty) return msg;
+    }
+    return '$fallback: $e';
+  }
+}
+
+class _BomRow extends StatelessWidget {
+  final Map<String, dynamic> row;
+  final VoidCallback onDelete;
+
+  const _BomRow({required this.row, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final sku = row['childSku']?.toString() ?? '';
+    final name = row['childName']?.toString() ?? '';
+    final qty = (row['quantity'] as num?)?.toDouble() ?? 0;
+    final qtyText =
+        qty == qty.truncateToDouble() ? qty.toStringAsFixed(0) : qty.toStringAsFixed(2);
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: KColors.primaryLight.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.inventory_2_outlined,
+            color: KColors.primary, size: 20),
+      ),
+      title: Text(sku, style: KTypography.labelLarge),
+      subtitle: Text(name, style: KTypography.bodySmall),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('× $qtyText', style: KTypography.amountSmall),
+          IconButton(
+            tooltip: 'Remove',
+            icon: const Icon(Icons.delete_outline, size: 20),
+            onPressed: onDelete,
+          ),
+        ],
       ),
     );
   }

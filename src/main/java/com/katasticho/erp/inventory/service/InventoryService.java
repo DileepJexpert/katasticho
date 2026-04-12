@@ -8,6 +8,7 @@ import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.inventory.dto.StockAdjustmentRequest;
 import com.katasticho.erp.inventory.dto.StockMovementRequest;
 import com.katasticho.erp.inventory.entity.*;
+import com.katasticho.erp.inventory.repository.BomComponentRepository;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.StockMovementRepository;
@@ -49,6 +50,7 @@ public class InventoryService {
     private final WarehouseRepository warehouseRepository;
     private final StockMovementRepository stockMovementRepository;
     private final StockBalanceRepository stockBalanceRepository;
+    private final BomComponentRepository bomComponentRepository;
     private final BatchService batchService;
     private final AuditService auditService;
 
@@ -301,6 +303,70 @@ public class InventoryService {
             Item item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(line.getItemId(), orgId)
                     .orElseThrow(() -> BusinessException.notFound("Item", line.getItemId()));
 
+            // COMPOSITE items never move their own stock — they aren't
+            // received, aren't counted, and aren't physically held. The
+            // parent is an abstraction over its children. Explode the
+            // BOM and post one SALE movement per child, multiplying the
+            // child's per-parent quantity by the line quantity.
+            //
+            // Checked BEFORE the trackInventory/SERVICE early-return
+            // below, because composite items always have
+            // trackInventory=false (enforced in ItemService) and the
+            // explosion must still fire — we just want the ledger
+            // impact on the children, not the parent.
+            //
+            // BomService enforces at save time that children are simple
+            // non-batch GOODS or SERVICE, so there's no FEFO or batch
+            // path to worry about here. An empty BOM is logged loud but
+            // does NOT fail the send — the operator may have configured
+            // the item this way on purpose (e.g. a pure labour charge
+            // that carries its own revenue account).
+            if (item.getItemType() == ItemType.COMPOSITE) {
+                List<BomComponent> components = bomComponentRepository
+                        .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(
+                                orgId, item.getId());
+                if (components.isEmpty()) {
+                    log.warn("Composite item {} sold on invoice {} has no BOM — no stock deducted",
+                            item.getSku(), invoice.getInvoiceNumber());
+                    continue;
+                }
+                BigDecimal parentQty = line.getQuantity();
+                for (BomComponent comp : components) {
+                    BigDecimal childTotalQty = comp.getQuantity().multiply(parentQty);
+                    Item child = itemRepository
+                            .findByIdAndOrgIdAndIsDeletedFalse(comp.getChildItemId(), orgId)
+                            .orElseThrow(() -> BusinessException.notFound("Item", comp.getChildItemId()));
+                    // Children are guaranteed non-batch GOODS/SERVICE
+                    // by BomService. recordMovement() will silently
+                    // no-op SERVICE children and post a plain SALE for
+                    // non-batch GOODS.
+                    if (!child.isTrackInventory() || child.getItemType() == ItemType.SERVICE) {
+                        continue;
+                    }
+                    // Build the request against the CHILD's itemId, not
+                    // the parent's — recordMovement validates the item
+                    // belongs to this tenant and updates balance for
+                    // that id. Unit cost is left null so the gate falls
+                    // back to the child's purchase_price (the parent's
+                    // sale price has no relationship to child cost).
+                    StockMovementRequest childMove = new StockMovementRequest(
+                            child.getId(),
+                            defaultWarehouse.getId(),
+                            MovementType.SALE,
+                            childTotalQty.negate(),
+                            null, // use child.purchasePrice
+                            invoice.getInvoiceDate(),
+                            ReferenceType.INVOICE,
+                            invoice.getId(),
+                            invoice.getInvoiceNumber(),
+                            "Sale via " + invoice.getInvoiceNumber()
+                                    + " (BOM child of " + item.getSku() + ")",
+                            null);
+                    recordMovement(childMove);
+                }
+                continue;
+            }
+
             // SERVICE items and non-tracked items have nothing to deduct.
             // recordMovement() would no-op these anyway, but short-circuiting
             // here keeps the FEFO branch clean of that special case.
@@ -402,11 +468,51 @@ public class InventoryService {
                         "No default warehouse configured for org " + orgId,
                         "INV_NO_DEFAULT_WAREHOUSE", HttpStatus.BAD_REQUEST));
 
+        Item item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(itemId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Item", itemId));
+
+        // COMPOSITE parent: mirror the invoice-send explosion. Walk the
+        // BOM and restore each child at (childQty × lineQty). The
+        // parent itself never held stock, so no movement against its
+        // own id. BomService guarantees children are non-batch and
+        // non-composite, so there's no batch/FEFO path here.
+        if (item.getItemType() == ItemType.COMPOSITE) {
+            List<BomComponent> components = bomComponentRepository
+                    .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, itemId);
+            if (components.isEmpty()) {
+                log.warn("Credit note {} returns composite {} with no BOM — no stock restored",
+                        creditNoteNumber, item.getSku());
+                return;
+            }
+            BigDecimal parentQty = quantity.abs();
+            for (BomComponent comp : components) {
+                BigDecimal childTotalQty = comp.getQuantity().multiply(parentQty);
+                Item child = itemRepository
+                        .findByIdAndOrgIdAndIsDeletedFalse(comp.getChildItemId(), orgId)
+                        .orElseThrow(() -> BusinessException.notFound("Item", comp.getChildItemId()));
+                if (!child.isTrackInventory() || child.getItemType() == ItemType.SERVICE) {
+                    continue;
+                }
+                StockMovementRequest childReq = new StockMovementRequest(
+                        child.getId(),
+                        defaultWarehouse.getId(),
+                        MovementType.RETURN_IN,
+                        childTotalQty,
+                        null, // use child.purchasePrice
+                        creditNoteDate,
+                        ReferenceType.CREDIT_NOTE,
+                        creditNoteId,
+                        creditNoteNumber,
+                        "Return via " + creditNoteNumber + " (BOM child of " + item.getSku() + ")",
+                        null);
+                recordMovement(childReq);
+            }
+            return;
+        }
+
         // Guard batch-tracked items early so the operator sees an
         // actionable error ("pick a batch") instead of the gate's raw
         // INV_BATCH_REQUIRED which fires in a different context.
-        Item item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(itemId, orgId)
-                .orElseThrow(() -> BusinessException.notFound("Item", itemId));
         if (item.isTrackBatches() && batchId == null) {
             throw new BusinessException(
                     "Credit note line for batch-tracked item " + item.getSku()

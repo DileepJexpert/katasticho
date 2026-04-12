@@ -5,6 +5,7 @@ import com.katasticho.erp.ar.entity.InvoiceLine;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.inventory.entity.BomComponent;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.entity.ItemType;
 import com.katasticho.erp.inventory.entity.MovementType;
@@ -14,6 +15,7 @@ import com.katasticho.erp.inventory.entity.StockBatch;
 import com.katasticho.erp.inventory.entity.StockBatchBalance;
 import com.katasticho.erp.inventory.entity.StockMovement;
 import com.katasticho.erp.inventory.entity.Warehouse;
+import com.katasticho.erp.inventory.repository.BomComponentRepository;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.StockMovementRepository;
@@ -65,6 +67,7 @@ class InventoryServiceFefoTest {
     @Mock private WarehouseRepository warehouseRepository;
     @Mock private StockMovementRepository stockMovementRepository;
     @Mock private StockBalanceRepository stockBalanceRepository;
+    @Mock private BomComponentRepository bomComponentRepository;
     @Mock private BatchService batchService;
     @Mock private AuditService auditService;
 
@@ -78,7 +81,7 @@ class InventoryServiceFefoTest {
     void setUp() {
         inventoryService = new InventoryService(
                 itemRepository, warehouseRepository, stockMovementRepository,
-                stockBalanceRepository, batchService, auditService);
+                stockBalanceRepository, bomComponentRepository, batchService, auditService);
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
@@ -312,6 +315,109 @@ class InventoryServiceFefoTest {
         assertEquals("CN_BATCH_REQUIRED", ex.getErrorCode());
         // And no stock_movement row was even attempted.
         verify(stockMovementRepository, never()).save(any(StockMovement.class));
+    }
+
+    // --------------------------------------------------------------
+    // 6. Composite item explosion — BOM is walked, children deducted
+    //    at (childQty × lineQty), parent never posts its own movement
+    // --------------------------------------------------------------
+    @Test
+    void deductStockForInvoice_compositeItem_explodesBom() {
+        // Parent kit: 1 HAMPER = 2× CHOCOLATE + 1× CARD. Selling 3
+        // hampers should deduct 6 chocolates and 3 cards — and NO
+        // movement against the hamper itself.
+        Item hamper = Item.builder()
+                .sku("HAMPER-01").name("Gift Hamper")
+                .itemType(ItemType.COMPOSITE).unitOfMeasure("PCS")
+                .purchasePrice(new BigDecimal("100"))
+                .salePrice(new BigDecimal("250"))
+                .gstRate(BigDecimal.ZERO)
+                .trackInventory(false) // composites never hold stock
+                .build();
+        hamper.setId(UUID.randomUUID());
+        hamper.setOrgId(orgId);
+
+        Item chocolate = Item.builder()
+                .sku("CHOC-01").name("Chocolate Box")
+                .itemType(ItemType.GOODS).unitOfMeasure("PCS")
+                .purchasePrice(new BigDecimal("30"))
+                .salePrice(new BigDecimal("50"))
+                .gstRate(BigDecimal.ZERO)
+                .trackInventory(true).trackBatches(false)
+                .build();
+        chocolate.setId(UUID.randomUUID());
+        chocolate.setOrgId(orgId);
+
+        Item card = Item.builder()
+                .sku("CARD-01").name("Greeting Card")
+                .itemType(ItemType.GOODS).unitOfMeasure("PCS")
+                .purchasePrice(new BigDecimal("5"))
+                .salePrice(new BigDecimal("10"))
+                .gstRate(BigDecimal.ZERO)
+                .trackInventory(true).trackBatches(false)
+                .build();
+        card.setId(UUID.randomUUID());
+        card.setOrgId(orgId);
+
+        BomComponent chocolateRow = BomComponent.builder()
+                .parentItemId(hamper.getId())
+                .childItemId(chocolate.getId())
+                .quantity(new BigDecimal("2"))
+                .build();
+        chocolateRow.setId(UUID.randomUUID());
+        chocolateRow.setOrgId(orgId);
+
+        BomComponent cardRow = BomComponent.builder()
+                .parentItemId(hamper.getId())
+                .childItemId(card.getId())
+                .quantity(new BigDecimal("1"))
+                .build();
+        cardRow.setId(UUID.randomUUID());
+        cardRow.setOrgId(orgId);
+
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(hamper.getId(), orgId))
+                .thenReturn(Optional.of(hamper));
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(chocolate.getId(), orgId))
+                .thenReturn(Optional.of(chocolate));
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(card.getId(), orgId))
+                .thenReturn(Optional.of(card));
+        when(bomComponentRepository
+                .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, hamper.getId()))
+                .thenReturn(List.of(chocolateRow, cardRow));
+
+        Invoice invoice = buildInvoice();
+        InvoiceLine line = buildLine(hamper.getId(), new BigDecimal("3"),
+                new BigDecimal("250"), null);
+        invoice.addLine(line);
+
+        // Hamper itself has trackInventory=false, so recordMovement's
+        // early-return guard would no-op the parent regardless. The
+        // important assertion is that the explosion path fires and
+        // saves exactly 2 child movements (one per BOM row), not 3
+        // (parent + children).
+        inventoryService.deductStockForInvoice(invoice);
+
+        ArgumentCaptor<StockMovement> captor = ArgumentCaptor.forClass(StockMovement.class);
+        verify(stockMovementRepository, times(2)).save(captor.capture());
+        List<StockMovement> saved = captor.getAllValues();
+
+        // Row 0: 2 chocolates × 3 hampers = 6 chocolates out.
+        assertEquals(chocolate.getId(), saved.get(0).getItemId());
+        assertEquals(0, new BigDecimal("-6.0000").compareTo(saved.get(0).getQuantity()));
+        assertEquals(MovementType.SALE, saved.get(0).getMovementType());
+        assertNull(saved.get(0).getBatchId());
+
+        // Row 1: 1 card × 3 hampers = 3 cards out.
+        assertEquals(card.getId(), saved.get(1).getItemId());
+        assertEquals(0, new BigDecimal("-3.0000").compareTo(saved.get(1).getQuantity()));
+
+        // Parent hamper never appears as the itemId on any movement.
+        saved.forEach(m -> assertNotEquals(hamper.getId(), m.getItemId(),
+                "composite parent must never post its own movement"));
+
+        // No batch-service calls — BOM children are non-batch by v1 contract.
+        verify(batchService, never()).findFefoBatches(any(), any());
+        verify(batchService, never()).applyDelta(any(), any(), any());
     }
 
     // -------- helpers ---------------------------------------------

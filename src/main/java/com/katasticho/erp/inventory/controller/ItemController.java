@@ -2,11 +2,14 @@ package com.katasticho.erp.inventory.controller;
 
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
+import com.katasticho.erp.inventory.dto.BomComponentRequest;
+import com.katasticho.erp.inventory.dto.BomComponentResponse;
 import com.katasticho.erp.inventory.dto.CreateItemRequest;
 import com.katasticho.erp.inventory.dto.ItemImportPreview;
 import com.katasticho.erp.inventory.dto.ItemImportResult;
 import com.katasticho.erp.inventory.dto.ItemResponse;
 import com.katasticho.erp.inventory.dto.UpdateItemRequest;
+import com.katasticho.erp.inventory.service.BomService;
 import com.katasticho.erp.inventory.service.ItemImportService;
 import com.katasticho.erp.inventory.service.ItemService;
 import jakarta.validation.Valid;
@@ -20,6 +23,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -29,6 +33,7 @@ public class ItemController {
 
     private final ItemService itemService;
     private final ItemImportService itemImportService;
+    private final BomService bomService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
@@ -95,5 +100,41 @@ public class ItemController {
         ItemImportPreview preview = itemImportService.previewImport(file);
         String message = preview.validRows() + " valid, " + preview.errorRows() + " with errors";
         return ResponseEntity.ok(ApiResponse.ok(preview, message));
+    }
+
+    // ── Composite items / BOM (Feature 4) ───────────────────────────────
+    //
+    // Endpoints live under the parent item so the URL mirrors the
+    // conceptual relationship — "/items/{id}/bom" reads as "the BOM of
+    // this item". The invoice-send explosion is an internal path and
+    // never called over HTTP.
+
+    @PostMapping("/{id}/bom")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<BomComponentResponse>> addBomComponent(
+            @PathVariable UUID id,
+            @Valid @RequestBody BomComponentRequest request) {
+        BomComponentResponse response = BomComponentResponse.from(
+                bomService.addComponent(id, request));
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @GetMapping("/{id}/bom")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<List<BomComponentResponse>>> listBomComponents(
+            @PathVariable UUID id) {
+        // Enriched variant joins each row with the child's SKU + name
+        // so the Flutter item-detail screen can render "2 × WIDGET-BLUE"
+        // without an N+1 fetch.
+        List<BomComponentResponse> result = bomService.listComponentsEnriched(id);
+        return ResponseEntity.ok(ApiResponse.ok(result));
+    }
+
+    @DeleteMapping("/bom/{componentId}")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<Void>> deleteBomComponent(
+            @PathVariable UUID componentId) {
+        bomService.deleteComponent(componentId);
+        return ResponseEntity.ok(ApiResponse.ok(null));
     }
 }

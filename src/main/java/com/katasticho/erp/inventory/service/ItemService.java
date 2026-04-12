@@ -52,9 +52,29 @@ public class ItemService {
         }
 
         ItemType itemType = request.itemType() != null ? request.itemType() : ItemType.GOODS;
-        boolean trackInventory = request.trackInventory() != null
-                ? request.trackInventory()
-                : itemType == ItemType.GOODS;
+        // COMPOSITE items never hold stock in their own right — the
+        // parent is an abstraction over BOM children. Force trackInventory
+        // OFF (the invoice-send explosion path short-circuits the parent
+        // before touching the ledger) and reject batch-tracking and
+        // opening stock at the DTO level, so the operator sees the
+        // constraint up-front instead of a cryptic failure later.
+        boolean isComposite = itemType == ItemType.COMPOSITE;
+        if (isComposite && Boolean.TRUE.equals(request.trackBatches())) {
+            throw new BusinessException(
+                    "Composite items cannot be batch-tracked — tracking belongs on the BOM children",
+                    "INV_COMPOSITE_BATCH_NOT_ALLOWED", HttpStatus.BAD_REQUEST);
+        }
+        if (isComposite && request.openingStock() != null
+                && request.openingStock().compareTo(BigDecimal.ZERO) > 0) {
+            throw new BusinessException(
+                    "Composite items cannot carry opening stock — stock the BOM children instead",
+                    "INV_COMPOSITE_OPENING_NOT_ALLOWED", HttpStatus.BAD_REQUEST);
+        }
+        boolean trackInventory = isComposite
+                ? false
+                : (request.trackInventory() != null
+                        ? request.trackInventory()
+                        : itemType == ItemType.GOODS);
 
         String uomAbbr = request.unitOfMeasure() != null ? request.unitOfMeasure() : "PCS";
         UUID baseUomId = uomService.resolveBaseUomIdOrPcs(uomAbbr);
