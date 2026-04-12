@@ -1,4 +1,21 @@
 services:
+  # ────────────────────────────────────────────────────────────────────────
+  # NOTE on host ports:
+  # Everything is remapped to project-specific host ports (5xxxx range) so
+  # Katasticho can run side-by-side with other projects that also use
+  # Postgres / Redis / Mailpit on their default ports. The *internal* ports
+  # inside the compose network stay standard, so nothing in the application
+  # container config changes — only host-side bindings are shifted.
+  #
+  #   postgres  ->  host 55432  →  container 5432
+  #   redis     ->  host 56379  →  container 6379
+  #   mailpit   ->  host 51025  →  container 1025  (SMTP)
+  #   mailpit   ->  host 58025  →  container 8025  (Web UI)
+  #   adminer   ->  host 58080  →  container 8080  (DB Web UI)
+  #
+  # If you need the standard ports, export DB_PORT/REDIS_PORT/MAIL_PORT
+  # before `mvn spring-boot:run` or change the defaults in application.yml.
+  # ────────────────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: katasticho-db
@@ -7,7 +24,7 @@ services:
       POSTGRES_USER: katasticho
       POSTGRES_PASSWORD: katasticho
     ports:
-      - "5432:5432"
+      - "55432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +37,7 @@ services:
     image: redis:7-alpine
     container_name: katasticho-redis
     ports:
-      - "6379:6379"
+      - "56379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -33,11 +50,26 @@ services:
     image: axllent/mailpit:latest
     container_name: katasticho-mail
     ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI — http://localhost:8025
+      - "51025:1025"   # SMTP
+      - "58025:8025"   # Web UI — http://localhost:58025
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+  # Lightweight DB browser — http://localhost:58080
+  # Login: System=PostgreSQL, Server=postgres, User=katasticho,
+  #        Password=katasticho, Database=katasticho
+  adminer:
+    image: adminer:latest
+    container_name: katasticho-adminer
+    ports:
+      - "58080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: pepa-linha-dark
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:
