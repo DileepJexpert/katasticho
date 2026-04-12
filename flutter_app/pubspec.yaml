@@ -48,6 +48,9 @@ dependencies:
   # Fonts
   google_fonts: ^6.2.1
 
+  # Theming — professional Material 3 themes with light/dark/system support
+  flex_color_scheme: ^8.0.2
+
   # Utilities
   uuid: ^4.4.0
   json_annotation: ^4.9.0

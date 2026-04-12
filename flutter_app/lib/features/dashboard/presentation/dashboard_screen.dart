@@ -25,11 +25,13 @@ class DashboardScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
-        actions: [
+        actions: const [
+          ThemeModeIconButton(),
           IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
+            icon: Icon(Icons.notifications_outlined),
+            onPressed: null,
           ),
+          SizedBox(width: 4),
         ],
       ),
       body: RefreshIndicator(
@@ -177,7 +179,9 @@ class _KpiGrid extends StatelessWidget {
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: KSpacing.md,
         mainAxisSpacing: KSpacing.md,
-        childAspectRatio: isDesktop ? 1.6 : 1.3,
+        // Fixed tile height — avoids RenderFlex overflow that aspect-ratio
+        // grids produce when the card content is taller than the slot.
+        mainAxisExtent: isDesktop ? 152 : 158,
       ),
       itemCount: kpis.length,
       itemBuilder: (context, index) {

@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import '../theme/k_colors.dart';
 import '../theme/k_spacing.dart';
 import '../theme/k_typography.dart';
 
 /// Standardized card with optional header, action, and status indicator.
 ///
-/// Modern look: hairline border, soft layered shadow, generous radius.
-/// Drops Material's default elevation in favour of an explicit BoxShadow
-/// so the card sits flat on tinted backgrounds.
+/// Theme-aware: pulls surface/border/text colors from `Theme.of(context)` so
+/// it adapts automatically to light & dark modes.
 class KCard extends StatelessWidget {
   final Widget child;
   final String? title;
@@ -42,11 +40,28 @@ class KCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final r = radius ?? KSpacing.radiusLg;
     final br = BorderRadius.circular(r);
 
+    final defaultShadow = isDark
+        ? <BoxShadow>[]
+        : const [
+            BoxShadow(
+              color: Color(0x0F0F172A),
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
+            BoxShadow(
+              color: Color(0x080F172A),
+              blurRadius: 2,
+              offset: Offset(0, 1),
+            ),
+          ];
+
     final content = Padding(
-      padding: padding ?? KSpacing.cardPaddingLg,
+      padding: padding ?? const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -70,7 +85,7 @@ class KCard extends StatelessWidget {
                           style: KTypography.h4.copyWith(
                             color: gradient != null
                                 ? Colors.white
-                                : KColors.textPrimary,
+                                : cs.onSurface,
                           ),
                         ),
                       if (subtitle != null) ...[
@@ -80,7 +95,7 @@ class KCard extends StatelessWidget {
                           style: KTypography.bodySmall.copyWith(
                             color: gradient != null
                                 ? Colors.white70
-                                : KColors.textSecondary,
+                                : cs.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -102,17 +117,17 @@ class KCard extends StatelessWidget {
       margin: margin ?? EdgeInsets.zero,
       decoration: BoxDecoration(
         color: gradient == null
-            ? (backgroundColor ?? KColors.surface)
+            ? (backgroundColor ?? cs.surface)
             : null,
         gradient: gradient,
         borderRadius: br,
         border: gradient == null
             ? Border.all(
-                color: borderColor ?? KColors.dividerSoft,
+                color: borderColor ?? cs.outlineVariant.withValues(alpha: 0.6),
                 width: 1,
               )
             : null,
-        boxShadow: shadow ?? KSpacing.shadowSm,
+        boxShadow: shadow ?? defaultShadow,
       ),
       child: content,
     );
@@ -124,8 +139,8 @@ class KCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: br,
-          splashColor: KColors.primarySoft,
-          highlightColor: KColors.primarySoft.withValues(alpha: 0.5),
+          splashColor: cs.primary.withValues(alpha: 0.08),
+          highlightColor: cs.primary.withValues(alpha: 0.04),
           child: card,
         ),
       );
@@ -136,7 +151,8 @@ class KCard extends StatelessWidget {
 
 /// KPI card for dashboard metrics.
 ///
-/// Big number, icon tile in tinted soft color, optional trend pill.
+/// Compact layout (40px tinted icon tile + amount + label) sized to fit
+/// inside a 152-158px tall grid tile without overflow.
 class KKpiCard extends StatelessWidget {
   final String title;
   final String value;
@@ -161,34 +177,40 @@ class KKpiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = iconColor ?? KColors.primary;
+    final cs = Theme.of(context).colorScheme;
+    final accent = iconColor ?? cs.primary;
     final tile = backgroundColor ?? accent.withValues(alpha: 0.12);
 
     return KCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
                   color: tile,
-                  borderRadius: KSpacing.borderRadiusMd,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: accent, size: 22),
+                child: Icon(icon, color: accent, size: 20),
               ),
               const Spacer(),
-              if (trend != null) _TrendPill(trend: trend!, positive: trendPositive == true),
+              if (trend != null)
+                _TrendPill(trend: trend!, positive: trendPositive == true),
             ],
           ),
-          KSpacing.vGapLg,
+          const Spacer(),
           Text(
             value,
-            style: KTypography.amountLarge.copyWith(fontSize: 24),
+            style: KTypography.amountLarge.copyWith(
+              fontSize: 22,
+              color: cs.onSurface,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -196,8 +218,10 @@ class KKpiCard extends StatelessWidget {
           Text(
             title,
             style: KTypography.labelMedium.copyWith(
-              color: KColors.textTertiary,
+              color: cs.onSurfaceVariant,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -212,27 +236,27 @@ class _TrendPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = positive ? KColors.success : KColors.error;
+    final c = positive ? const Color(0xFF10B981) : const Color(0xFFEF4444);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.1),
-        borderRadius: KSpacing.borderRadiusXl,
+        color: c.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             positive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-            size: 13,
+            size: 12,
             color: c,
           ),
           const SizedBox(width: 3),
           Text(
             trend,
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
               color: c,
               letterSpacing: 0.1,
             ),
