@@ -27,9 +27,12 @@ public class CustomerService {
     public CustomerResponse createCustomer(CreateCustomerRequest request) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
-        if (request.gstin() != null && !request.gstin().isBlank()) {
-            if (customerRepository.existsByOrgIdAndGstinAndIsDeletedFalse(orgId, request.gstin())) {
-                throw new BusinessException("Customer with GSTIN " + request.gstin() + " already exists",
+        String gstin = blankToNull(request.gstin());
+        String pan = blankToNull(request.pan());
+
+        if (gstin != null) {
+            if (customerRepository.existsByOrgIdAndGstinAndIsDeletedFalse(orgId, gstin)) {
+                throw new BusinessException("Customer with GSTIN " + gstin + " already exists",
                         "AR_DUPLICATE_GSTIN", HttpStatus.CONFLICT);
             }
         }
@@ -38,9 +41,9 @@ public class CustomerService {
                 .name(request.name())
                 .email(request.email())
                 .phone(request.phone())
-                .gstin(request.gstin())
+                .gstin(gstin)
                 .taxId(request.taxId())
-                .pan(request.pan())
+                .pan(pan)
                 .billingAddressLine1(request.billingAddressLine1())
                 .billingAddressLine2(request.billingAddressLine2())
                 .billingCity(request.billingCity())
@@ -86,10 +89,12 @@ public class CustomerService {
         Customer customer = customerRepository.findByIdAndOrgIdAndIsDeletedFalse(customerId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Customer", customerId));
 
-        if (request.gstin() != null && !request.gstin().isBlank()
-                && !request.gstin().equals(customer.getGstin())) {
-            if (customerRepository.existsByOrgIdAndGstinAndIsDeletedFalse(orgId, request.gstin())) {
-                throw new BusinessException("Customer with GSTIN " + request.gstin() + " already exists",
+        String gstin = blankToNull(request.gstin());
+        String pan = blankToNull(request.pan());
+
+        if (gstin != null && !gstin.equals(customer.getGstin())) {
+            if (customerRepository.existsByOrgIdAndGstinAndIsDeletedFalse(orgId, gstin)) {
+                throw new BusinessException("Customer with GSTIN " + gstin + " already exists",
                         "AR_DUPLICATE_GSTIN", HttpStatus.CONFLICT);
             }
         }
@@ -97,9 +102,9 @@ public class CustomerService {
         customer.setName(request.name());
         customer.setEmail(request.email());
         customer.setPhone(request.phone());
-        customer.setGstin(request.gstin());
+        customer.setGstin(gstin);
         customer.setTaxId(request.taxId());
-        customer.setPan(request.pan());
+        customer.setPan(pan);
         customer.setBillingAddressLine1(request.billingAddressLine1());
         customer.setBillingAddressLine2(request.billingAddressLine2());
         customer.setBillingCity(request.billingCity());
@@ -132,6 +137,19 @@ public class CustomerService {
         customer.setDeleted(true);
         customerRepository.save(customer);
         auditService.log("CUSTOMER", customer.getId(), "DELETE", null, null);
+    }
+
+    /**
+     * Normalizes blank/empty strings to {@code null} for fields that participate in
+     * partial unique indexes ({@code WHERE col IS NOT NULL}). Postgres treats the
+     * empty string {@code ""} as a real value, so without this helper a second
+     * customer with no GSTIN would collide with the first on
+     * {@code idx_customer_org_gstin}.
+     */
+    private static String blankToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     public CustomerResponse toResponse(Customer c) {

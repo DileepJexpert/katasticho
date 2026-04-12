@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_state.dart';
-import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
@@ -37,90 +36,25 @@ class DashboardScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {},
         child: SingleChildScrollView(
-          padding: KSpacing.pagePaddingLg,
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Hero greeting — gradient banner
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
-                decoration: BoxDecoration(
-                  gradient: KColors.brandGradient,
-                  borderRadius: BorderRadius.circular(KSpacing.radiusXl),
-                  boxShadow: KSpacing.shadowPrimary,
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${config.greeting},',
-                            style: KTypography.bodyMedium.copyWith(
-                              color: Colors.white.withValues(alpha: 0.85),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${authState.userName ?? 'User'} 👋',
-                            style: KTypography.h1.copyWith(color: Colors.white),
-                          ),
-                          KSpacing.vGapXs,
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.business_rounded,
-                                size: 14,
-                                color: Colors.white.withValues(alpha: 0.85),
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  authState.orgName ?? 'Your Business',
-                                  style: KTypography.bodySmall.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.85),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(KSpacing.radiusLg),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.25),
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.auto_awesome_rounded,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                    ),
-                  ],
-                ),
+              // Compact greeting strip — single line, no banner
+              _GreetingStrip(
+                greeting: config.greeting,
+                userName: authState.userName ?? 'User',
+                orgName: authState.orgName ?? 'Your Business',
               ),
-              KSpacing.vGapLg,
+              KSpacing.vGapMd,
 
               // KPI Cards
               _KpiGrid(kpis: config.kpis, isDesktop: isDesktop),
-              KSpacing.vGapLg,
+              KSpacing.vGapMd,
 
               // Quick Actions
               Text('Quick Actions', style: KTypography.h3),
-              KSpacing.vGapMd,
+              KSpacing.vGapSm,
               QuickActionGrid(actions: config.quickActions),
               KSpacing.vGapLg,
 
@@ -157,6 +91,87 @@ class DashboardScreen extends ConsumerWidget {
         onPressed: () => context.go('/invoices/create'),
         icon: const Icon(Icons.add),
         label: const Text('New Invoice'),
+      ),
+    );
+  }
+}
+
+/// Compact single-row greeting. Replaces the oversized gradient hero banner.
+///
+/// Layout: small circular avatar + "Namaste, Dileep" + dot + org name. The
+/// whole strip sits inside a low-elevation surface tile so it reads as part
+/// of the page chrome rather than a marketing banner.
+class _GreetingStrip extends StatelessWidget {
+  final String greeting;
+  final String userName;
+  final String orgName;
+
+  const _GreetingStrip({
+    required this.greeting,
+    required this.userName,
+    required this.orgName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(KSpacing.radiusLg),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.waving_hand_rounded,
+                size: 18, color: cs.primary),
+          ),
+          KSpacing.hGapMd,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$greeting, $userName',
+                  style: KTypography.labelLarge.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 1),
+                Row(
+                  children: [
+                    Icon(Icons.business_rounded,
+                        size: 12, color: cs.onSurfaceVariant),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        orgName,
+                        style: KTypography.bodySmall.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
