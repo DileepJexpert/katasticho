@@ -28,6 +28,10 @@ import '../features/payments/presentation/record_payment_screen.dart';
 import '../features/inventory/presentation/item_list_screen.dart';
 import '../features/inventory/presentation/item_create_screen.dart';
 import '../features/inventory/presentation/item_detail_screen.dart';
+import '../features/inventory/presentation/item_import_screen.dart';
+import '../features/procurement/presentation/stock_receipt_list_screen.dart';
+import '../features/procurement/presentation/stock_receipt_create_screen.dart';
+import '../features/procurement/presentation/stock_receipt_detail_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -45,7 +49,11 @@ class Routes {
   static const customerDetail = '/customers/:id';
   static const items = '/items';
   static const itemCreate = '/items/create';
+  static const itemImport = '/items/import';
   static const itemDetail = '/items/:id';
+  static const stockReceipts = '/stock-receipts';
+  static const stockReceiptCreate = '/stock-receipts/create';
+  static const stockReceiptDetail = '/stock-receipts/:id';
   static const reports = '/reports';
   static const trialBalance = '/reports/trial-balance';
   static const profitLoss = '/reports/profit-loss';
@@ -178,9 +186,29 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ItemCreateScreen(),
           ),
           GoRoute(
+            path: Routes.itemImport,
+            builder: (context, state) => const ItemImportScreen(),
+          ),
+          GoRoute(
             path: '/items/:id',
             builder: (context, state) => ItemDetailScreen(
               itemId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: Routes.stockReceipts,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: StockReceiptListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.stockReceiptCreate,
+            builder: (context, state) => const StockReceiptCreateScreen(),
+          ),
+          GoRoute(
+            path: '/stock-receipts/:id',
+            builder: (context, state) => StockReceiptDetailScreen(
+              receiptId: state.pathParameters['id']!,
             ),
           ),
           GoRoute(

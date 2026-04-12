@@ -12,5 +12,6 @@ public enum ReferenceType {
     STOCK_ADJUSTMENT,
     STOCK_TRANSFER,
     STOCK_COUNT,
-    OPENING_BALANCE
+    OPENING_BALANCE,
+    STOCK_RECEIPT
 }

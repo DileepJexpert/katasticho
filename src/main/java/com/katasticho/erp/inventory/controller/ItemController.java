@@ -3,17 +3,21 @@ package com.katasticho.erp.inventory.controller;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
 import com.katasticho.erp.inventory.dto.CreateItemRequest;
+import com.katasticho.erp.inventory.dto.ItemImportResult;
 import com.katasticho.erp.inventory.dto.ItemResponse;
 import com.katasticho.erp.inventory.dto.UpdateItemRequest;
+import com.katasticho.erp.inventory.service.ItemImportService;
 import com.katasticho.erp.inventory.service.ItemService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -23,6 +27,7 @@ import java.util.UUID;
 public class ItemController {
 
     private final ItemService itemService;
+    private final ItemImportService itemImportService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
@@ -59,5 +64,21 @@ public class ItemController {
     public ResponseEntity<ApiResponse<Void>> deleteItem(@PathVariable UUID id) {
         itemService.deleteItem(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Item deleted"));
+    }
+
+    /**
+     * Bulk import items from a CSV upload.
+     * Form field name: {@code file}. Headers must include {@code sku} and
+     * {@code name}; everything else is optional. Rows that fail validation
+     * are skipped and reported in the response, but the rest of the file
+     * still imports.
+     */
+    @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<ItemImportResult>> importItems(
+            @RequestParam("file") MultipartFile file) {
+        ItemImportResult result = itemImportService.importItems(file);
+        String message = result.created() + " items imported, " + result.skipped() + " skipped";
+        return ResponseEntity.ok(ApiResponse.ok(result, message));
     }
 }

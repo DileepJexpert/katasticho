@@ -34,6 +34,13 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Items'),
+        actions: [
+          IconButton(
+            tooltip: 'Bulk import from CSV',
+            icon: const Icon(Icons.upload_file_outlined),
+            onPressed: () => context.go(Routes.itemImport),
+          ),
+        ],
       ),
       body: Column(
         children: [

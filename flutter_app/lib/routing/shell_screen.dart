@@ -62,6 +62,12 @@ const _navItems = [
 
 const _secondaryNavItems = [
   NavItem(
+    label: 'Goods Receipts',
+    icon: Icons.local_shipping_outlined,
+    activeIcon: Icons.local_shipping_rounded,
+    route: Routes.stockReceipts,
+  ),
+  NavItem(
     label: 'Credit Notes',
     icon: Icons.note_alt_outlined,
     activeIcon: Icons.note_alt_rounded,

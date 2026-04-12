@@ -51,6 +51,7 @@ class ApiConfig {
   // Inventory
   static const String items = '/api/v1/items';
   static String itemById(String id) => '/api/v1/items/$id';
+  static const String itemImport = '/api/v1/items/import';
   static const String warehouses = '/api/v1/warehouses';
   static const String stockAdjust = '/api/v1/stock/adjust';
   static String stockReverse(String movementId) =>
@@ -60,6 +61,16 @@ class ApiConfig {
   static String itemBalances(String itemId) =>
       '/api/v1/stock/items/$itemId/balances';
   static const String lowStock = '/api/v1/stock/low-stock';
+
+  // Procurement
+  static const String suppliers = '/api/v1/suppliers';
+  static String supplierById(String id) => '/api/v1/suppliers/$id';
+  static const String stockReceipts = '/api/v1/stock-receipts';
+  static String stockReceiptById(String id) => '/api/v1/stock-receipts/$id';
+  static String receiveStockReceipt(String id) =>
+      '/api/v1/stock-receipts/$id/receive';
+  static String cancelStockReceipt(String id) =>
+      '/api/v1/stock-receipts/$id/cancel';
 
   // AI
   static const String aiQuery = '/api/v1/ai/query';
