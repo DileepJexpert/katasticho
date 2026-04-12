@@ -52,6 +52,7 @@ class ApiConfig {
   static const String items = '/api/v1/items';
   static String itemById(String id) => '/api/v1/items/$id';
   static const String itemImport = '/api/v1/items/import';
+  static const String itemImportPreview = '/api/v1/items/import/preview';
   static const String warehouses = '/api/v1/warehouses';
   static const String stockAdjust = '/api/v1/stock/adjust';
   static String stockReverse(String movementId) =>

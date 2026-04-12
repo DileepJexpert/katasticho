@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
@@ -67,6 +68,41 @@ class ItemRepository {
 
   Future<Map<String, dynamic>> getLowStock() async {
     final response = await _api.get(ApiConfig.lowStock);
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Dry-run validate the CSV. Server parses + validates every row but
+  /// writes nothing. Returns an ItemImportPreview payload so the UI can
+  /// render a preview table with per-row OK / ERROR status.
+  Future<Map<String, dynamic>> previewImport(
+    String csv, {
+    String filename = 'items.csv',
+  }) async {
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromString(csv, filename: filename),
+    });
+    final response = await _api.dio.post(
+      ApiConfig.itemImportPreview,
+      data: form,
+      options: Options(headers: {'Content-Type': 'multipart/form-data'}),
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Commit the bulk import. Same CSV shape as preview; persists valid
+  /// rows and skips error rows (same verdicts as preview).
+  Future<Map<String, dynamic>> commitImport(
+    String csv, {
+    String filename = 'items.csv',
+  }) async {
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromString(csv, filename: filename),
+    });
+    final response = await _api.dio.post(
+      ApiConfig.itemImport,
+      data: form,
+      options: Options(headers: {'Content-Type': 'multipart/form-data'}),
+    );
     return response.data as Map<String, dynamic>;
   }
 }

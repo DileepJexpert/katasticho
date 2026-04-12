@@ -3,6 +3,7 @@ package com.katasticho.erp.inventory.controller;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
 import com.katasticho.erp.inventory.dto.CreateItemRequest;
+import com.katasticho.erp.inventory.dto.ItemImportPreview;
 import com.katasticho.erp.inventory.dto.ItemImportResult;
 import com.katasticho.erp.inventory.dto.ItemResponse;
 import com.katasticho.erp.inventory.dto.UpdateItemRequest;
@@ -67,7 +68,7 @@ public class ItemController {
     }
 
     /**
-     * Bulk import items from a CSV upload.
+     * Bulk import items from a CSV upload — COMMIT phase.
      * Form field name: {@code file}. Headers must include {@code sku} and
      * {@code name}; everything else is optional. Rows that fail validation
      * are skipped and reported in the response, but the rest of the file
@@ -80,5 +81,19 @@ public class ItemController {
         ItemImportResult result = itemImportService.importItems(file);
         String message = result.created() + " items imported, " + result.skipped() + " skipped";
         return ResponseEntity.ok(ApiResponse.ok(result, message));
+    }
+
+    /**
+     * Bulk import items — DRY-RUN / PREVIEW phase. Parses + validates every
+     * row and returns a per-row verdict (OK / ERROR) so the UI can show a
+     * preview grid before the user commits. Writes nothing to the database.
+     */
+    @PostMapping(value = "/import/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<ItemImportPreview>> previewImport(
+            @RequestParam("file") MultipartFile file) {
+        ItemImportPreview preview = itemImportService.previewImport(file);
+        String message = preview.validRows() + " valid, " + preview.errorRows() + " with errors";
+        return ResponseEntity.ok(ApiResponse.ok(preview, message));
     }
 }
