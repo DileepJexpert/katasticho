@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/k_colors.dart';
 import '../theme/k_spacing.dart';
 import '../theme/k_typography.dart';
 import 'k_button.dart';
@@ -23,6 +22,7 @@ class KEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(48),
@@ -32,19 +32,19 @@ class KEmptyState extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: KColors.primaryLight.withValues(alpha: 0.08),
+                color: cs.primaryContainer.withValues(alpha: 0.6),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
                 size: 48,
-                color: KColors.primary.withValues(alpha: 0.5),
+                color: cs.primary.withValues(alpha: 0.7),
               ),
             ),
             KSpacing.vGapLg,
             Text(
               title,
-              style: KTypography.h3,
+              style: KTypography.h3.copyWith(color: cs.onSurface),
               textAlign: TextAlign.center,
             ),
             if (subtitle != null) ...[
@@ -52,7 +52,7 @@ class KEmptyState extends StatelessWidget {
               Text(
                 subtitle!,
                 style: KTypography.bodyMedium.copyWith(
-                  color: KColors.textSecondary,
+                  color: cs.onSurfaceVariant,
                 ),
                 textAlign: TextAlign.center,
               ),

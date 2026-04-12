@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/k_colors.dart';
 import '../theme/k_spacing.dart';
 import '../theme/k_typography.dart';
 import 'k_button.dart';
@@ -19,17 +18,18 @@ class KErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(48),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 48, color: KColors.error),
+            Icon(icon, size: 48, color: cs.error),
             KSpacing.vGapMd,
             Text(
               message,
-              style: KTypography.bodyLarge.copyWith(color: KColors.textSecondary),
+              style: KTypography.bodyLarge.copyWith(color: cs.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
             if (onRetry != null) ...[
@@ -61,22 +61,23 @@ class KErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: KColors.errorLight,
+        color: cs.errorContainer,
         borderRadius: KSpacing.borderRadiusMd,
-        border: Border.all(color: KColors.error.withValues(alpha: 0.3)),
+        border: Border.all(color: cs.error.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: KColors.error, size: 20),
+          Icon(Icons.error_outline, color: cs.error, size: 20),
           KSpacing.hGapSm,
           Expanded(
             child: Text(
               message,
-              style: KTypography.bodySmall.copyWith(color: KColors.error),
+              style: KTypography.bodySmall.copyWith(color: cs.onErrorContainer),
             ),
           ),
           if (onDismiss != null)
@@ -85,6 +86,7 @@ class KErrorBanner extends StatelessWidget {
               onPressed: onDismiss,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
+              color: cs.onErrorContainer,
             ),
         ],
       ),

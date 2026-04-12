@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/k_colors.dart';
 import '../theme/k_typography.dart';
 import '../theme/k_spacing.dart';
 
@@ -28,23 +27,24 @@ class KButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final effectiveOnPressed = isLoading ? null : onPressed;
-    final child = _buildChild();
+    final child = _buildChild(cs);
 
     Widget button = switch (variant) {
       KButtonVariant.primary => ElevatedButton(
           onPressed: effectiveOnPressed,
-          style: _primaryStyle(),
+          style: _primaryStyle(cs),
           child: child,
         ),
       KButtonVariant.secondary => ElevatedButton(
           onPressed: effectiveOnPressed,
-          style: _secondaryStyle(),
+          style: _secondaryStyle(cs),
           child: child,
         ),
       KButtonVariant.outlined => OutlinedButton(
           onPressed: effectiveOnPressed,
-          style: _outlinedStyle(),
+          style: _outlinedStyle(cs),
           child: child,
         ),
       KButtonVariant.text => TextButton(
@@ -53,7 +53,7 @@ class KButton extends StatelessWidget {
         ),
       KButtonVariant.danger => ElevatedButton(
           onPressed: effectiveOnPressed,
-          style: _dangerStyle(),
+          style: _dangerStyle(cs),
           child: child,
         ),
     };
@@ -64,7 +64,7 @@ class KButton extends StatelessWidget {
     return button;
   }
 
-  Widget _buildChild() {
+  Widget _buildChild(ColorScheme cs) {
     if (isLoading) {
       return SizedBox(
         height: _iconSize,
@@ -72,8 +72,8 @@ class KButton extends StatelessWidget {
         child: CircularProgressIndicator(
           strokeWidth: 2,
           color: variant == KButtonVariant.outlined
-              ? KColors.primary
-              : KColors.onPrimary,
+              ? cs.primary
+              : cs.onPrimary,
         ),
       );
     }
@@ -113,33 +113,33 @@ class KButton extends StatelessWidget {
         KButtonSize.large => KTypography.button.copyWith(fontSize: 16),
       };
 
-  ButtonStyle _primaryStyle() => ElevatedButton.styleFrom(
-        backgroundColor: KColors.primary,
-        foregroundColor: KColors.onPrimary,
+  ButtonStyle _primaryStyle(ColorScheme cs) => ElevatedButton.styleFrom(
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
         padding: _padding,
         textStyle: _textStyle,
         shape: RoundedRectangleBorder(borderRadius: KSpacing.borderRadiusMd),
       );
 
-  ButtonStyle _secondaryStyle() => ElevatedButton.styleFrom(
-        backgroundColor: KColors.secondary,
-        foregroundColor: KColors.onSecondary,
+  ButtonStyle _secondaryStyle(ColorScheme cs) => ElevatedButton.styleFrom(
+        backgroundColor: cs.secondary,
+        foregroundColor: cs.onSecondary,
         padding: _padding,
         textStyle: _textStyle,
         shape: RoundedRectangleBorder(borderRadius: KSpacing.borderRadiusMd),
       );
 
-  ButtonStyle _outlinedStyle() => OutlinedButton.styleFrom(
-        foregroundColor: KColors.primary,
+  ButtonStyle _outlinedStyle(ColorScheme cs) => OutlinedButton.styleFrom(
+        foregroundColor: cs.primary,
         padding: _padding,
         textStyle: _textStyle,
-        side: const BorderSide(color: KColors.primary),
+        side: BorderSide(color: cs.primary),
         shape: RoundedRectangleBorder(borderRadius: KSpacing.borderRadiusMd),
       );
 
-  ButtonStyle _dangerStyle() => ElevatedButton.styleFrom(
-        backgroundColor: KColors.error,
-        foregroundColor: Colors.white,
+  ButtonStyle _dangerStyle(ColorScheme cs) => ElevatedButton.styleFrom(
+        backgroundColor: cs.error,
+        foregroundColor: cs.onError,
         padding: _padding,
         textStyle: _textStyle,
         shape: RoundedRectangleBorder(borderRadius: KSpacing.borderRadiusMd),

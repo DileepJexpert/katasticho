@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/k_colors.dart';
 import '../theme/k_spacing.dart';
 import '../theme/k_typography.dart';
 
@@ -39,6 +38,7 @@ class KDataTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       controller: scrollController,
       scrollDirection: Axis.horizontal,
@@ -48,12 +48,12 @@ class KDataTable extends StatelessWidget {
         ),
         child: DataTable(
           headingRowColor: WidgetStateProperty.all(
-            KColors.primary.withValues(alpha: 0.04),
+            cs.surfaceContainerHighest.withValues(alpha: 0.5),
           ),
           headingTextStyle: KTypography.labelLarge.copyWith(
-            color: KColors.textSecondary,
+            color: cs.onSurfaceVariant,
           ),
-          dataTextStyle: KTypography.bodyMedium,
+          dataTextStyle: KTypography.bodyMedium.copyWith(color: cs.onSurface),
           columnSpacing: KSpacing.md,
           horizontalMargin: KSpacing.md,
           dividerThickness: 0.5,
@@ -93,6 +93,7 @@ class KDetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -103,7 +104,7 @@ class KDetailRow extends StatelessWidget {
             child: Text(
               label,
               style: KTypography.bodySmall.copyWith(
-                color: KColors.textSecondary,
+                color: cs.onSurfaceVariant,
               ),
             ),
           ),
@@ -111,7 +112,8 @@ class KDetailRow extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: valueStyle ?? KTypography.bodyMedium,
+              style: valueStyle ??
+                  KTypography.bodyMedium.copyWith(color: cs.onSurface),
             ),
           ),
           if (trailing != null) trailing!,

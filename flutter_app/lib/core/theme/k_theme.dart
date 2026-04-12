@@ -8,21 +8,21 @@ import 'k_colors.dart';
 /// [FlexColorScheme] — a battle-tested theming library that gives us
 /// professional, fluidic, accessible Material 3 themes with minimal code.
 ///
-/// Both themes are seeded from [KColors.brandSeed] (Indigo 600). Surfaces
+/// Both themes are seeded from [KColors.brandSeed] (Sky 600). Surfaces
 /// use FlexColorScheme's tinted blend modes so the UI feels alive without
 /// being noisy.
 ///
-/// Font: **Plus Jakarta Sans** — modern, fluidic, geometric, professional.
+/// Font: **Manrope** — modern, fluidic, geometric, professional.
 class KTheme {
   KTheme._();
 
-  static String? get _fontFamily => GoogleFonts.plusJakartaSans().fontFamily;
+  static String? get _fontFamily => GoogleFonts.manrope().fontFamily;
 
   static TextTheme _textTheme(Brightness brightness) {
     final base = brightness == Brightness.light
         ? ThemeData.light().textTheme
         : ThemeData.dark().textTheme;
-    return GoogleFonts.plusJakartaSansTextTheme(base);
+    return GoogleFonts.manropeTextTheme(base);
   }
 
   // Shared sub-theme tweaks for both light & dark — fluidic, generous radii.
@@ -100,7 +100,7 @@ class KTheme {
     drawerIndicatorRadius: 12.0,
   );
 
-  /// LIGHT theme — soft slate background, indigo primary, white surfaces.
+  /// LIGHT theme — soft slate background, sky-blue primary, white surfaces.
   static ThemeData get light {
     final theme = FlexThemeData.light(
       colors: FlexSchemeColor.from(
@@ -152,7 +152,7 @@ class KTheme {
           statusBarBrightness: Brightness.light,
         ),
         toolbarHeight: 64,
-        titleTextStyle: GoogleFonts.plusJakartaSans(
+        titleTextStyle: GoogleFonts.manrope(
           fontSize: 18,
           fontWeight: FontWeight.w800,
           color: const Color(0xFF0F172A),
@@ -162,11 +162,11 @@ class KTheme {
     );
   }
 
-  /// DARK theme — soft slate-900 background (not pure black), same brand seed.
+  /// DARK theme — soft slate-900 background (not pure black), sky brand seed.
   static ThemeData get dark {
     final theme = FlexThemeData.dark(
       colors: FlexSchemeColor.from(
-        primary: const Color(0xFF818CF8), // indigo-400 reads better on dark
+        primary: const Color(0xFF38BDF8), // sky-400 reads better on dark
         secondary: const Color(0xFF2DD4BF),
         tertiary: const Color(0xFFFBBF24),
         error: const Color(0xFFF87171),
@@ -212,7 +212,7 @@ class KTheme {
           statusBarBrightness: Brightness.dark,
         ),
         toolbarHeight: 64,
-        titleTextStyle: GoogleFonts.plusJakartaSans(
+        titleTextStyle: GoogleFonts.manrope(
           fontSize: 18,
           fontWeight: FontWeight.w800,
           color: Colors.white,

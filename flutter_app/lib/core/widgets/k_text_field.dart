@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../theme/k_colors.dart';
-import '../theme/k_spacing.dart';
 
 /// Standardized text field with label, prefix, suffix, and validation.
 class KTextField extends StatelessWidget {

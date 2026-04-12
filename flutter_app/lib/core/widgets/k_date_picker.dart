@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/k_colors.dart';
-import '../theme/k_spacing.dart';
 import '../utils/date_formatter.dart';
 
 /// Date picker field that opens a Material date picker on tap.
@@ -24,6 +22,7 @@ class KDatePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: enabled ? () => _showPicker(context) : null,
       child: InputDecorator(
@@ -35,7 +34,7 @@ class KDatePicker extends StatelessWidget {
         child: Text(
           value != null ? DateFormatter.display(value!) : 'Select date',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: value != null ? KColors.textPrimary : KColors.textHint,
+                color: value != null ? cs.onSurface : cs.onSurfaceVariant,
               ),
         ),
       ),
@@ -48,16 +47,6 @@ class KDatePicker extends StatelessWidget {
       initialDate: value ?? DateTime.now(),
       firstDate: firstDate ?? DateTime(2020),
       lastDate: lastDate ?? DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: KColors.primary,
-                ),
-          ),
-          child: child!,
-        );
-      },
     );
     if (picked != null) {
       onChanged(picked);
@@ -80,6 +69,7 @@ class KDateRangePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => _showPicker(context),
       child: InputDecorator(
@@ -92,7 +82,7 @@ class KDateRangePicker extends StatelessWidget {
               ? '${DateFormatter.display(value!.start)} - ${DateFormatter.display(value!.end)}'
               : 'Select date range',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: value != null ? KColors.textPrimary : KColors.textHint,
+                color: value != null ? cs.onSurface : cs.onSurfaceVariant,
               ),
         ),
       ),
@@ -105,16 +95,6 @@ class KDateRangePicker extends StatelessWidget {
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
       initialDateRange: value,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: KColors.primary,
-                ),
-          ),
-          child: child!,
-        );
-      },
     );
     if (picked != null) {
       onChanged(picked);

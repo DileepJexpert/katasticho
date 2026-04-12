@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/k_colors.dart';
 import '../theme/k_spacing.dart';
 
 /// Full-page loading indicator.
@@ -10,17 +9,18 @@ class KLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(color: KColors.primary),
+          CircularProgressIndicator(color: cs.primary),
           if (message != null) ...[
             KSpacing.vGapMd,
             Text(
               message!,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: KColors.textSecondary,
+                    color: cs.onSurfaceVariant,
                   ),
             ),
           ],
@@ -39,11 +39,12 @@ class KShimmerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       height: height ?? 100,
       width: width ?? double.infinity,
       decoration: BoxDecoration(
-        color: KColors.divider.withValues(alpha: 0.3),
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
         borderRadius: KSpacing.borderRadiusMd,
       ),
     );

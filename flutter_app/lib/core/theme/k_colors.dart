@@ -10,28 +10,30 @@ import 'package:flutter/material.dart';
 ///   • The brand seed color (used by both light & dark themes)
 ///   • Semantic colors that are SAME in light & dark (status, ageing, etc.)
 ///   • A few legacy aliases kept for compatibility with existing widgets.
+///
+/// Palette — **Sky Blue + Slate** (light, professional, fluidic).
 class KColors {
   KColors._();
 
   // ── Brand seed ────────────────────────────────────────────────────
-  /// Indigo 600 — friendly, modern, professional. Drives ColorScheme.
-  static const Color brandSeed = Color(0xFF4F46E5);
+  /// Sky 600 — fluidic, professional, light. Drives the light ColorScheme.
+  static const Color brandSeed = Color(0xFF0284C7);
 
-  // Legacy convenience aliases — same in light & dark.
-  // Prefer Theme.of(context).colorScheme.primary in new code.
-  static const Color primary = Color(0xFF4F46E5);
-  static const Color primaryHover = Color(0xFF4338CA);
-  static const Color primaryPressed = Color(0xFF3730A3);
-  static const Color primaryLight = Color(0xFF818CF8);
-  static const Color primarySoft = Color(0xFFEEF2FF);
+  // Legacy convenience aliases — light-mode values, kept for compatibility
+  // with widgets that haven't been migrated to Theme.of(context) yet.
+  static const Color primary = Color(0xFF0284C7);     // sky-600
+  static const Color primaryHover = Color(0xFF0369A1); // sky-700
+  static const Color primaryPressed = Color(0xFF075985); // sky-800
+  static const Color primaryLight = Color(0xFF38BDF8); // sky-400
+  static const Color primarySoft = Color(0xFFE0F2FE);  // sky-100
   static const Color onPrimary = Colors.white;
 
-  static const Color secondary = Color(0xFF14B8A6);   // teal-500 — fluid accent
-  static const Color secondarySoft = Color(0xFFCCFBF1);
+  static const Color secondary = Color(0xFF14B8A6);     // teal-500 fluidic accent
+  static const Color secondarySoft = Color(0xFFCCFBF1); // teal-100
   static const Color onSecondary = Colors.white;
 
-  static const Color accent = Color(0xFFF59E0B);
-  static const Color accentSoft = Color(0xFFFFFBEB);
+  static const Color accent = Color(0xFFF59E0B);     // amber-500
+  static const Color accentSoft = Color(0xFFFFFBEB); // amber-50
 
   // ── Semantic — same in light & dark ──
   static const Color success = Color(0xFF10B981);
@@ -40,7 +42,7 @@ class KColors {
   static const Color warningLight = Color(0xFFFFFBEB);
   static const Color error = Color(0xFFEF4444);
   static const Color errorLight = Color(0xFFFEF2F2);
-  static const Color info = Color(0xFF3B82F6);
+  static const Color info = Color(0xFF0EA5E9);
   static const Color infoLight = Color(0xFFEFF6FF);
 
   // ── Financial Status ──
@@ -52,14 +54,14 @@ class KColors {
   static const Color overdueBg = Color(0xFFFEF2F2);
   static const Color draft = Color(0xFF64748B);
   static const Color draftBg = Color(0xFFF1F5F9);
-  static const Color sent = Color(0xFF2563EB);
-  static const Color sentBg = Color(0xFFEFF6FF);
+  static const Color sent = Color(0xFF0284C7);   // matches brand
+  static const Color sentBg = Color(0xFFE0F2FE);
   static const Color cancelled = Color(0xFF475569);
   static const Color cancelledBg = Color(0xFFF1F5F9);
 
   // ── Ageing Report Colors ──
   static const Color ageingCurrent = Color(0xFF10B981);
-  static const Color ageing1to30 = Color(0xFF3B82F6);
+  static const Color ageing1to30 = Color(0xFF0EA5E9);
   static const Color ageing31to60 = Color(0xFFF59E0B);
   static const Color ageing61to90 = Color(0xFFF97316);
   static const Color ageing90Plus = Color(0xFFEF4444);
@@ -80,16 +82,18 @@ class KColors {
   static const Color textOnDark = Colors.white;
 
   // ── Gradients ──
+  /// Sky → Indigo gradient — fluidic primary banner.
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+    colors: [Color(0xFF0EA5E9), Color(0xFF0284C7)],
   );
 
+  /// Sky → Cyan brand gradient for hero areas.
   static const LinearGradient brandGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+    colors: [Color(0xFF0EA5E9), Color(0xFF0891B2)],
   );
 
   static const LinearGradient successGradient = LinearGradient(
