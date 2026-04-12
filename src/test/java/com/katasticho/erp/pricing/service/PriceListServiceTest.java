@@ -4,6 +4,7 @@ import com.katasticho.erp.ar.entity.Customer;
 import com.katasticho.erp.ar.repository.CustomerRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.pricing.dto.CreatePriceListRequest;
 import com.katasticho.erp.pricing.dto.PriceListItemRequest;
 import com.katasticho.erp.pricing.entity.PriceList;
@@ -52,6 +53,7 @@ class PriceListServiceTest {
     @Mock private PriceListRepository priceListRepository;
     @Mock private PriceListItemRepository priceListItemRepository;
     @Mock private CustomerRepository customerRepository;
+    @Mock private ItemRepository itemRepository;
 
     private PriceListService service;
     private UUID orgId;
@@ -60,7 +62,7 @@ class PriceListServiceTest {
     @BeforeEach
     void setUp() {
         service = new PriceListService(
-                priceListRepository, priceListItemRepository, customerRepository);
+                priceListRepository, priceListItemRepository, customerRepository, itemRepository);
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);

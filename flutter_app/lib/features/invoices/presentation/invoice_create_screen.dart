@@ -13,6 +13,7 @@ import '../../../routing/app_router.dart';
 import '../../customers/data/customer_repository.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
+import '../../pricing/data/price_list_repository.dart';
 import '../data/invoice_repository.dart';
 
 class InvoiceCreateScreen extends ConsumerStatefulWidget {
@@ -389,6 +390,90 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
     );
   }
 
+  /// Returns the price list that will drive resolution for the
+  /// currently-selected customer, or null if none is loaded yet / none
+  /// applies. Walks the F3 fall-through chain on the client side so the
+  /// banner matches what [`PriceListService.resolvePrice`] will do at
+  /// invoice-submit time.
+  Map<String, dynamic>? _effectivePriceList(
+      List<Map<String, dynamic>> lists) {
+    if (_selectedCustomerId == null) return null;
+    final customer = _customers.firstWhere(
+      (c) => c['id']?.toString() == _selectedCustomerId,
+      orElse: () => const <String, dynamic>{},
+    );
+    final pinned = customer['defaultPriceListId']?.toString();
+    if (pinned != null) {
+      for (final l in lists) {
+        if (l['id']?.toString() == pinned && l['active'] != false) {
+          return l;
+        }
+      }
+    }
+    // Fall through to org default
+    for (final l in lists) {
+      if (l['isDefault'] == true && l['active'] != false) return l;
+    }
+    return null;
+  }
+
+  Widget _buildPriceListHint() {
+    final listsAsync = ref.watch(priceListsProvider);
+    return listsAsync.maybeWhen(
+      data: (lists) {
+        final effective = _effectivePriceList(lists);
+        if (effective == null) return const SizedBox.shrink();
+        final name = effective['name']?.toString() ?? 'Price List';
+        final currency = effective['currency']?.toString() ?? 'INR';
+        return Padding(
+          padding: const EdgeInsets.only(bottom: KSpacing.md),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: KSpacing.sm, vertical: KSpacing.sm),
+            decoration: BoxDecoration(
+              color: KColors.primary.withValues(alpha: 0.06),
+              borderRadius: KSpacing.borderRadiusMd,
+              border:
+                  Border.all(color: KColors.primary.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.sell_outlined,
+                    size: 18, color: KColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.primary),
+                      children: [
+                        const TextSpan(
+                            text: 'Prices will follow price list '),
+                        TextSpan(
+                          text: name,
+                          style: KTypography.bodySmall.copyWith(
+                            color: KColors.primary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        TextSpan(text: ' ($currency). '),
+                        const TextSpan(
+                          text:
+                              'Unit prices below may be overridden when the invoice is saved.',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+
   // ── Step 1: Line Items ──
   Widget _buildItemsStep() {
     return Column(
@@ -396,6 +481,8 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
       children: [
         Text('Line Items', style: KTypography.h2),
         KSpacing.vGapMd,
+
+        _buildPriceListHint(),
 
         ...List.generate(_lineItems.length, (index) {
           return _LineItemCard(

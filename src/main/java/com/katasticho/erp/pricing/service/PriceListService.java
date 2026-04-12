@@ -4,8 +4,11 @@ import com.katasticho.erp.ar.entity.Customer;
 import com.katasticho.erp.ar.repository.CustomerRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.inventory.entity.Item;
+import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.pricing.dto.CreatePriceListRequest;
 import com.katasticho.erp.pricing.dto.PriceListItemRequest;
+import com.katasticho.erp.pricing.dto.PriceListItemResponse;
 import com.katasticho.erp.pricing.entity.PriceList;
 import com.katasticho.erp.pricing.entity.PriceListItem;
 import com.katasticho.erp.pricing.repository.PriceListItemRepository;
@@ -18,8 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Price list lifecycle + the {@link #resolvePrice} hot path used by
@@ -50,6 +56,7 @@ public class PriceListService {
     private final PriceListRepository priceListRepository;
     private final PriceListItemRepository priceListItemRepository;
     private final CustomerRepository customerRepository;
+    private final ItemRepository itemRepository;
 
     // ────────────────────────────────────────────────────────────────────
     // Price list CRUD
@@ -168,6 +175,41 @@ public class PriceListService {
         return priceListItemRepository
                 .findByOrgIdAndPriceListIdAndIsDeletedFalseOrderByItemIdAsc(
                         list.getOrgId(), priceListId);
+    }
+
+    /**
+     * Same as {@link #listItems} but enriches every row with the item's
+     * SKU and display name in a single batch lookup. Used by the
+     * controller so the Flutter detail screen can show tiers grouped by
+     * item name without needing a second round trip per row.
+     */
+    @Transactional(readOnly = true)
+    public List<PriceListItemResponse> listItemsEnriched(UUID priceListId) {
+        PriceList list = getPriceList(priceListId); // tenant-checks
+        UUID orgId = list.getOrgId();
+
+        List<PriceListItem> rows = priceListItemRepository
+                .findByOrgIdAndPriceListIdAndIsDeletedFalseOrderByItemIdAsc(orgId, priceListId);
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+
+        Set<UUID> itemIds = rows.stream()
+                .map(PriceListItem::getItemId)
+                .collect(Collectors.toSet());
+        Map<UUID, Item> byId = itemRepository
+                .findByOrgIdAndIsDeletedFalseAndIdIn(orgId, itemIds)
+                .stream()
+                .collect(Collectors.toMap(Item::getId, i -> i));
+
+        return rows.stream()
+                .map(row -> {
+                    Item item = byId.get(row.getItemId());
+                    String sku = item != null ? item.getSku() : null;
+                    String name = item != null ? item.getName() : null;
+                    return PriceListItemResponse.from(row, sku, name);
+                })
+                .toList();
     }
 
     @Transactional

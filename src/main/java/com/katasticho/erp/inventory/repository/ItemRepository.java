@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,4 +36,8 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
     Page<Item> search(@Param("orgId") UUID orgId, @Param("q") String q, Pageable pageable);
 
     List<Item> findByOrgIdAndIsDeletedFalseAndTrackInventoryTrue(UUID orgId);
+
+    /** Bulk id lookup used by services that need to enrich DTOs with item
+     * name/SKU in one round trip — see {@code PriceListService.listItemsEnriched}. */
+    List<Item> findByOrgIdAndIsDeletedFalseAndIdIn(UUID orgId, Collection<UUID> ids);
 }

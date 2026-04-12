@@ -32,6 +32,9 @@ import '../features/inventory/presentation/item_import_screen.dart';
 import '../features/procurement/presentation/stock_receipt_list_screen.dart';
 import '../features/procurement/presentation/stock_receipt_create_screen.dart';
 import '../features/procurement/presentation/stock_receipt_detail_screen.dart';
+import '../features/pricing/presentation/price_list_list_screen.dart';
+import '../features/pricing/presentation/price_list_create_screen.dart';
+import '../features/pricing/presentation/price_list_detail_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -63,6 +66,9 @@ class Routes {
   static const creditNotes = '/credit-notes';
   static const creditNoteCreate = '/credit-notes/create';
   static const creditNoteDetail = '/credit-notes/:id';
+  static const priceLists = '/price-lists';
+  static const priceListCreate = '/price-lists/create';
+  static const priceListDetail = '/price-lists/:id';
   static const recordPayment = '/invoices/:id/pay';
   static const aiChat = '/ai-chat';
   static const gst = '/gst';
@@ -251,6 +257,22 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/credit-notes/:id',
             builder: (context, state) => CreditNoteDetailScreen(
               creditNoteId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: Routes.priceLists,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PriceListListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.priceListCreate,
+            builder: (context, state) => const PriceListCreateScreen(),
+          ),
+          GoRoute(
+            path: '/price-lists/:id',
+            builder: (context, state) => PriceListDetailScreen(
+              listId: state.pathParameters['id']!,
             ),
           ),
           GoRoute(

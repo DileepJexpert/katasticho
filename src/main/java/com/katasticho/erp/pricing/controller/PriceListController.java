@@ -78,9 +78,10 @@ public class PriceListController {
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<PriceListItemResponse>>> listItems(
             @PathVariable UUID id) {
-        List<PriceListItemResponse> result = priceListService.listItems(id).stream()
-                .map(PriceListItemResponse::from)
-                .toList();
+        // Enriched variant joins each row with the item's SKU + name in
+        // one batch lookup so the Flutter detail screen can group tiers
+        // by item name without an N+1 fetch.
+        List<PriceListItemResponse> result = priceListService.listItemsEnriched(id);
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 

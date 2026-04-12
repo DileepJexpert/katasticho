@@ -90,4 +90,12 @@ class ApiConfig {
   // AI
   static const String aiQuery = '/api/v1/ai/query';
   static const String aiScanBill = '/api/v1/ai/scan-bill';
+
+  // Pricing (v2 — F3 price lists)
+  static const String priceLists = '/api/v1/price-lists';
+  static String priceListById(String id) => '/api/v1/price-lists/$id';
+  static String priceListItems(String listId) =>
+      '/api/v1/price-lists/$listId/items';
+  static String priceListItemById(String itemRowId) =>
+      '/api/v1/price-lists/items/$itemRowId';
 }
