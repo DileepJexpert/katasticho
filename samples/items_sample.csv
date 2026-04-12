@@ -1,0 +1,21 @@
+sku,name,description,item_type,category,brand,hsn_code,unit_of_measure,purchase_price,sale_price,mrp,gst_rate,reorder_level,reorder_quantity,opening_stock
+PCM-500,Paracetamol 500mg,Pain reliever tablet strip of 10,GOODS,Pharma,Generic,3004,STRIP,8.50,12.00,15.00,12,20,100,50
+CRC-250,Crocin 250mg,Fever relief paediatric strip,GOODS,Pharma,GSK,3004,STRIP,14.00,18.00,22.00,12,15,50,30
+AZT-500,Azithromycin 500mg,Antibiotic strip of 3 tablets,GOODS,Pharma,Cipla,3004,STRIP,48.00,62.00,75.00,12,10,40,20
+DLO-10,Dolo 650,Paracetamol 650mg strip of 15,GOODS,Pharma,Micro Labs,3004,STRIP,24.50,30.00,35.00,12,25,100,80
+ORS-200,ORS Sachet,Oral rehydration salt 21g sachet,GOODS,Pharma,Electral,2106,PCS,12.00,18.00,22.00,18,30,150,120
+COT-100,Cotton Roll 100g,Sterile absorbent cotton roll,GOODS,Surgical,Bengal,5601,PCS,35.00,50.00,60.00,12,10,40,25
+BAN-PK,Bandage Pack,"Crepe bandage, 4 inch, pack of 5",GOODS,Surgical,Johnson,3005,PACK,85.00,120.00,140.00,12,5,20,15
+SYR-5ML,Syringe 5ml,Disposable syringe with needle,GOODS,Surgical,BD,9018,PCS,3.50,6.00,8.00,12,50,200,150
+MAS-N95,N95 Mask,NIOSH certified respirator mask,GOODS,PPE,3M,6307,PCS,28.00,45.00,55.00,5,20,100,60
+GLV-MD,Nitrile Gloves Medium,Powder free examination gloves box of 100,GOODS,PPE,Ansell,4015,BOX,180.00,250.00,300.00,12,5,25,10
+SAN-500,Hand Sanitizer 500ml,70% IPA sanitizer pump bottle,GOODS,Hygiene,Dettol,3808,BOTTLE,95.00,145.00,175.00,18,10,40,25
+SOA-LUX,Lux Soap 100g,Bathing soap rose scent,GOODS,FMCG,HUL,3401,PCS,28.00,40.00,45.00,18,30,120,90
+SHM-PAR,Parachute Oil 200ml,Pure coconut hair oil bottle,GOODS,FMCG,Marico,1513,BOTTLE,85.00,115.00,130.00,18,15,60,40
+TST-COL,Colgate 150g,MaxFresh toothpaste tube,GOODS,FMCG,Colgate,3306,PCS,75.00,95.00,110.00,18,20,80,55
+BIS-PG,Parle-G 100g,Glucose biscuits family pack,GOODS,FMCG,Parle,1905,PCS,8.00,10.00,12.00,18,50,200,150
+CHA-RED,Red Label Tea 500g,Brooke Bond black tea pack,GOODS,Grocery,HUL,0902,PCS,185.00,235.00,260.00,5,10,40,25
+OIL-FOR,Fortune Oil 1L,Refined sunflower oil pouch,GOODS,Grocery,Adani,1512,PCS,140.00,165.00,180.00,5,15,60,35
+RCE-BAS,Basmati Rice 5kg,Premium long grain basmati,GOODS,Grocery,India Gate,1006,BAG,650.00,795.00,850.00,5,5,20,12
+DEL-SVC,Home Delivery,Local delivery service within 5km,SERVICE,Services,,9967,PCS,0,50.00,50.00,18,0,0,0
+CONS-DR,Doctor Consultation,"General physician, 15 min session",SERVICE,Services,,9993,PCS,0,300.00,300.00,0,0,0,0
