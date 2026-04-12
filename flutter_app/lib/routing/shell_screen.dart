@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/auth/auth_state.dart';
-import '../core/theme/k_colors.dart';
 import '../core/theme/k_spacing.dart';
-import '../core/theme/k_typography.dart';
+import '../core/widgets/theme_mode_switcher.dart';
 import 'app_router.dart';
 
 /// Navigation item definition.
@@ -26,32 +25,53 @@ const _navItems = [
   NavItem(
     label: 'Dashboard',
     icon: Icons.dashboard_outlined,
-    activeIcon: Icons.dashboard,
+    activeIcon: Icons.dashboard_rounded,
     route: Routes.dashboard,
   ),
   NavItem(
     label: 'Invoices',
     icon: Icons.receipt_long_outlined,
-    activeIcon: Icons.receipt_long,
+    activeIcon: Icons.receipt_long_rounded,
     route: Routes.invoices,
   ),
   NavItem(
     label: 'Customers',
-    icon: Icons.people_outline,
-    activeIcon: Icons.people,
+    icon: Icons.people_outline_rounded,
+    activeIcon: Icons.people_rounded,
     route: Routes.customers,
   ),
   NavItem(
     label: 'Reports',
     icon: Icons.bar_chart_outlined,
-    activeIcon: Icons.bar_chart,
+    activeIcon: Icons.bar_chart_rounded,
     route: Routes.reports,
   ),
   NavItem(
     label: 'AI Chat',
     icon: Icons.auto_awesome_outlined,
-    activeIcon: Icons.auto_awesome,
+    activeIcon: Icons.auto_awesome_rounded,
     route: Routes.aiChat,
+  ),
+];
+
+const _secondaryNavItems = [
+  NavItem(
+    label: 'Credit Notes',
+    icon: Icons.note_alt_outlined,
+    activeIcon: Icons.note_alt_rounded,
+    route: Routes.creditNotes,
+  ),
+  NavItem(
+    label: 'GST',
+    icon: Icons.account_balance_outlined,
+    activeIcon: Icons.account_balance_rounded,
+    route: Routes.gst,
+  ),
+  NavItem(
+    label: 'Settings',
+    icon: Icons.settings_outlined,
+    activeIcon: Icons.settings_rounded,
+    route: Routes.settings,
   ),
 ];
 
@@ -66,7 +86,6 @@ class ShellScreen extends ConsumerWidget {
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= KSpacing.desktopBreakpoint;
     final isTablet = width >= KSpacing.tabletBreakpoint && !isDesktop;
-    final isMobile = !isDesktop && !isTablet;
 
     if (isDesktop) {
       return _DesktopShell(child: child);
@@ -78,7 +97,7 @@ class ShellScreen extends ConsumerWidget {
   }
 }
 
-// ── Desktop: Fixed sidebar + content area ──
+// ── Desktop: Fixed sidebar + content area ────────────────────────────
 
 class _DesktopShell extends ConsumerWidget {
   final Widget child;
@@ -88,140 +107,141 @@ class _DesktopShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: Row(
         children: [
-          // Sidebar
+          // Sidebar — soft tinted surface (not solid brand color)
           Container(
             width: KSpacing.sidebarWidth,
-            decoration: const BoxDecoration(
-              color: KColors.primary,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 8,
-                  offset: Offset(2, 0),
+            decoration: BoxDecoration(
+              color: cs.surface,
+              border: Border(
+                right: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: isDark ? 0.4 : 0.6),
+                  width: 1,
                 ),
-              ],
+              ),
             ),
             child: Column(
               children: [
                 // Logo / Brand
-                Container(
-                  padding: const EdgeInsets.all(20),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
                   child: Row(
                     children: [
                       Container(
-                        width: 36,
-                        height: 36,
+                        width: 38,
+                        height: 38,
                         decoration: BoxDecoration(
-                          color: KColors.accent,
-                          borderRadius: KSpacing.borderRadiusMd,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [cs.primary, cs.tertiary],
+                          ),
+                          borderRadius: BorderRadius.circular(11),
+                          boxShadow: [
+                            BoxShadow(
+                              color: cs.primary.withValues(alpha: 0.25),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
                         child: const Center(
                           child: Text(
                             'K',
                             style: TextStyle(
                               color: Colors.white,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w800,
                               fontSize: 18,
                             ),
                           ),
                         ),
                       ),
                       KSpacing.hGapMd,
-                      const Text(
+                      Text(
                         'Katasticho',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: cs.onSurface,
                           fontSize: 18,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Divider(color: Colors.white24, height: 1),
-                KSpacing.vGapSm,
 
-                // Nav Items
+                // Nav items
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     children: [
+                      _NavSectionLabel(label: 'WORKSPACE'),
                       ..._navItems.map((item) => _SidebarNavItem(item: item)),
-                      KSpacing.vGapSm,
-                      const Divider(color: Colors.white24, height: 1),
-                      KSpacing.vGapSm,
-                      _SidebarNavItem(
-                        item: const NavItem(
-                          label: 'Credit Notes',
-                          icon: Icons.note_alt_outlined,
-                          activeIcon: Icons.note_alt,
-                          route: Routes.creditNotes,
-                        ),
-                      ),
-                      _SidebarNavItem(
-                        item: const NavItem(
-                          label: 'GST',
-                          icon: Icons.account_balance_outlined,
-                          activeIcon: Icons.account_balance,
-                          route: Routes.gst,
-                        ),
-                      ),
-                      _SidebarNavItem(
-                        item: const NavItem(
-                          label: 'Settings',
-                          icon: Icons.settings_outlined,
-                          activeIcon: Icons.settings,
-                          route: Routes.settings,
-                        ),
-                      ),
+                      KSpacing.vGapMd,
+                      _NavSectionLabel(label: 'MORE'),
+                      ..._secondaryNavItems
+                          .map((item) => _SidebarNavItem(item: item)),
                     ],
                   ),
                 ),
 
-                // User info
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
+                // Footer: theme switcher + user
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                  child: Column(
                     children: [
-                      CircleAvatar(
-                        radius: 18,
-                        backgroundColor: KColors.accent,
-                        child: Text(
-                          (authState.userName ?? 'U')[0].toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                      Divider(
+                        color: cs.outlineVariant.withValues(alpha: 0.5),
+                        height: 1,
                       ),
-                      KSpacing.hGapSm,
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              authState.userName ?? 'User',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              authState.orgName ?? 'Organisation',
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 18,
+                            backgroundColor: cs.primaryContainer,
+                            child: Text(
+                              (authState.userName ?? 'U')[0].toUpperCase(),
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
-                                fontSize: 11,
+                                color: cs.onPrimaryContainer,
+                                fontWeight: FontWeight.w700,
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
-                          ],
-                        ),
+                          ),
+                          KSpacing.hGapSm,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  authState.userName ?? 'User',
+                                  style: TextStyle(
+                                    color: cs.onSurface,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  authState.orgName ?? 'Organisation',
+                                  style: TextStyle(
+                                    color: cs.onSurfaceVariant,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const ThemeModeIconButton(),
+                        ],
                       ),
                     ],
                   ),
@@ -238,6 +258,28 @@ class _DesktopShell extends ConsumerWidget {
   }
 }
 
+class _NavSectionLabel extends StatelessWidget {
+  final String label;
+  const _NavSectionLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+}
+
 class _SidebarNavItem extends StatelessWidget {
   final NavItem item;
 
@@ -245,38 +287,58 @@ class _SidebarNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final currentRoute = GoRouterState.of(context).matchedLocation;
     final isActive = currentRoute == item.route ||
         (item.route != '/' && currentRoute.startsWith(item.route));
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: ListTile(
-        dense: true,
-        shape: RoundedRectangleBorder(
-          borderRadius: KSpacing.borderRadiusMd,
-        ),
-        leading: Icon(
-          isActive ? item.activeIcon : item.icon,
-          color: isActive ? KColors.accent : Colors.white70,
-          size: 22,
-        ),
-        title: Text(
-          item.label,
-          style: TextStyle(
-            color: isActive ? Colors.white : Colors.white70,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-            fontSize: 14,
+      child: Material(
+        color: isActive ? cs.primaryContainer : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => context.go(item.route),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            child: Row(
+              children: [
+                Icon(
+                  isActive ? item.activeIcon : item.icon,
+                  color: isActive ? cs.primary : cs.onSurfaceVariant,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    item.label,
+                    style: TextStyle(
+                      color: isActive ? cs.onPrimaryContainer : cs.onSurface,
+                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                if (isActive)
+                  Container(
+                    width: 4,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: cs.primary,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
-        tileColor: isActive ? Colors.white.withValues(alpha: 0.12) : null,
-        onTap: () => context.go(item.route),
       ),
     );
   }
 }
 
-// ── Tablet: Rail navigation + content ──
+// ── Tablet: Rail navigation + content ────────────────────────────────
 
 class _TabletShell extends StatelessWidget {
   final Widget child;
@@ -285,6 +347,7 @@ class _TabletShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final currentRoute = GoRouterState.of(context).matchedLocation;
 
     int selectedIndex = _navItems.indexWhere(
@@ -299,45 +362,58 @@ class _TabletShell extends StatelessWidget {
         children: [
           NavigationRail(
             selectedIndex: selectedIndex,
-            backgroundColor: KColors.primary,
-            indicatorColor: Colors.white.withValues(alpha: 0.15),
+            backgroundColor: cs.surface,
+            indicatorColor: cs.primaryContainer,
+            indicatorShape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             onDestinationSelected: (index) {
               context.go(_navItems[index].route);
             },
             labelType: NavigationRailLabelType.all,
-            leading: Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: KColors.accent,
-                borderRadius: KSpacing.borderRadiusMd,
-              ),
-              child: const Center(
-                child: Text(
-                  'K',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 18,
+            leading: Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 12),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [cs.primary, cs.tertiary],
+                  ),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: const Center(
+                  child: Text(
+                    'K',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                    ),
                   ),
                 ),
               ),
             ),
+            trailing: const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: ThemeModeIconButton(),
+            ),
             destinations: _navItems
-                .map((item) => NavigationRailDestination(
-                      icon: Icon(item.icon, color: Colors.white70),
-                      selectedIcon:
-                          Icon(item.activeIcon, color: KColors.accent),
-                      label: Text(
-                        item.label,
-                        style: const TextStyle(
-                            color: Colors.white70, fontSize: 11),
-                      ),
-                    ))
+                .map(
+                  (item) => NavigationRailDestination(
+                    icon: Icon(item.icon),
+                    selectedIcon: Icon(item.activeIcon),
+                    label: Text(item.label),
+                  ),
+                )
                 .toList(),
           ),
-          const VerticalDivider(width: 1),
+          VerticalDivider(
+            width: 1,
+            color: cs.outlineVariant.withValues(alpha: 0.5),
+          ),
           Expanded(child: child),
         ],
       ),
@@ -345,7 +421,7 @@ class _TabletShell extends StatelessWidget {
   }
 }
 
-// ── Mobile: Bottom navigation bar ──
+// ── Mobile: Bottom navigation bar ────────────────────────────────────
 
 class _MobileShell extends StatelessWidget {
   final Widget child;
@@ -370,12 +446,10 @@ class _MobileShell extends StatelessWidget {
         onDestinationSelected: (index) {
           context.go(_navItems[index].route);
         },
-        backgroundColor: KColors.surface,
-        indicatorColor: KColors.primary.withValues(alpha: 0.12),
         destinations: _navItems
             .map((item) => NavigationDestination(
                   icon: Icon(item.icon),
-                  selectedIcon: Icon(item.activeIcon, color: KColors.primary),
+                  selectedIcon: Icon(item.activeIcon),
                   label: item.label,
                 ))
             .toList(),
