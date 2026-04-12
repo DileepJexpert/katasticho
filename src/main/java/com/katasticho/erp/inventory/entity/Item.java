@@ -76,6 +76,17 @@ public class Item extends BaseEntity {
     @Builder.Default
     private boolean trackInventory = true;
 
+    /**
+     * FEFO / batch tracking opt-in. Default FALSE so every existing item
+     * continues to use the v1 aggregate path. Items with this flag ON
+     * MUST have an associated {@link StockBatch} for every stock
+     * movement — the service layer enforces that invariant via
+     * {@code InventoryService.recordMovement()}.
+     */
+    @Column(name = "track_batches", nullable = false)
+    @Builder.Default
+    private boolean trackBatches = false;
+
     @Column(name = "reorder_level", nullable = false)
     @Builder.Default
     private BigDecimal reorderLevel = BigDecimal.ZERO;

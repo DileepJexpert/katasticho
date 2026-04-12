@@ -48,6 +48,7 @@ public class InventoryService {
     private final WarehouseRepository warehouseRepository;
     private final StockMovementRepository stockMovementRepository;
     private final StockBalanceRepository stockBalanceRepository;
+    private final BatchService batchService;
     private final AuditService auditService;
 
     /**
@@ -88,6 +89,22 @@ public class InventoryService {
         }
         validateSign(request.movementType(), qty);
 
+        // Step 3b: batch-tracking invariant. Items with track_batches=true
+        // MUST carry a batchId on every movement so the per-batch balance
+        // stays consistent. Items without the flag MUST NOT carry one —
+        // that would strand the movement against a batch the aggregate
+        // path can't see. This is the single place we enforce it.
+        if (item.isTrackBatches() && request.batchId() == null) {
+            throw new BusinessException(
+                    "Item " + item.getSku() + " has track_batches=true — batchId is required",
+                    "INV_BATCH_REQUIRED", HttpStatus.BAD_REQUEST);
+        }
+        if (!item.isTrackBatches() && request.batchId() != null) {
+            throw new BusinessException(
+                    "Item " + item.getSku() + " is not batch-tracked — batchId must be null",
+                    "INV_BATCH_NOT_ALLOWED", HttpStatus.BAD_REQUEST);
+        }
+
         // Step 4: cost
         BigDecimal unitCost = request.unitCost() != null
                 ? request.unitCost().setScale(4, RoundingMode.HALF_UP)
@@ -99,6 +116,7 @@ public class InventoryService {
                 .orgId(orgId)
                 .itemId(item.getId())
                 .warehouseId(warehouse.getId())
+                .batchId(request.batchId())
                 .movementDate(request.movementDate())
                 .movementType(request.movementType())
                 .quantity(qty)
@@ -115,8 +133,17 @@ public class InventoryService {
 
         movement = stockMovementRepository.save(movement);
 
-        // Step 6: update cache
+        // Step 6a: update the aggregate item×warehouse cache (every item,
+        // batch-tracked or not, is represented here so totals stay correct).
         updateBalanceCache(orgId, item, warehouse.getId(), qty, unitCost);
+
+        // Step 6b: for batch-tracked items, also fan out the delta to the
+        // per-batch per-warehouse grain so FEFO picks see an up-to-date
+        // view. Same transaction — either both balance rows update or
+        // the whole movement rolls back.
+        if (request.batchId() != null) {
+            batchService.applyDelta(request.batchId(), warehouse.getId(), qty);
+        }
 
         // Step 7: audit
         auditService.log("STOCK_MOVEMENT", movement.getId(), "CREATE", null,
@@ -159,6 +186,7 @@ public class InventoryService {
                 .orgId(orgId)
                 .itemId(original.getItemId())
                 .warehouseId(original.getWarehouseId())
+                .batchId(original.getBatchId())
                 .movementDate(LocalDate.now())
                 .movementType(MovementType.REVERSAL)
                 .quantity(reversedQty)
@@ -180,8 +208,13 @@ public class InventoryService {
         original.setReversed(true);
         stockMovementRepository.save(original);
 
-        // Update cache
+        // Update aggregate cache
         updateBalanceCache(orgId, item, original.getWarehouseId(), reversedQty, original.getUnitCost());
+
+        // Fan out to the per-batch balance if the original was batch-tracked.
+        if (original.getBatchId() != null) {
+            batchService.applyDelta(original.getBatchId(), original.getWarehouseId(), reversedQty);
+        }
 
         auditService.log("STOCK_MOVEMENT", reversal.getId(), "REVERSE", null,
                 "{\"reversalOf\":\"" + original.getId() + "\",\"reason\":\"" + reason + "\"}");

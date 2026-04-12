@@ -13,6 +13,7 @@ import com.katasticho.erp.inventory.entity.StockMovement;
 import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
+import com.katasticho.erp.inventory.service.BatchService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
@@ -51,6 +52,7 @@ class StockReceiptServiceTest {
     @Mock private OrganisationRepository organisationRepository;
     @Mock private InvoiceNumberSequenceRepository sequenceRepository;
     @Mock private InventoryService inventoryService;
+    @Mock private BatchService batchService;
     @Mock private AuditService auditService;
 
     private StockReceiptService stockReceiptService;
@@ -67,7 +69,7 @@ class StockReceiptServiceTest {
         stockReceiptService = new StockReceiptService(
                 receiptRepository, supplierRepository, itemRepository,
                 warehouseRepository, organisationRepository, sequenceRepository,
-                inventoryService, auditService);
+                inventoryService, batchService, auditService);
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
@@ -200,6 +202,12 @@ class StockReceiptServiceTest {
         when(receiptRepository.findByIdAndOrgIdAndIsDeletedFalse(draft.getId(), orgId))
                 .thenReturn(Optional.of(draft));
         when(receiptRepository.save(any(StockReceipt.class))).thenAnswer(inv -> inv.getArgument(0));
+        // receive() now re-fetches each line's item to check track_batches before
+        // routing to the inventory gate — stub those lookups.
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(paracetamol.getId(), orgId))
+                .thenReturn(Optional.of(paracetamol));
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(crocin.getId(), orgId))
+                .thenReturn(Optional.of(crocin));
 
         // recordMovement returns a movement with an id we can capture on the line
         StockMovement m1 = StockMovement.builder().itemId(paracetamol.getId()).build();

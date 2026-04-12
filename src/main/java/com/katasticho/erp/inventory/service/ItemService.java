@@ -74,6 +74,7 @@ public class ItemService {
                 .mrp(request.mrp())
                 .gstRate(nz(request.gstRate()))
                 .trackInventory(trackInventory)
+                .trackBatches(Boolean.TRUE.equals(request.trackBatches()))
                 .reorderLevel(nz(request.reorderLevel()))
                 .reorderQuantity(nz(request.reorderQuantity()))
                 .revenueAccountCode(request.revenueAccountCode())
@@ -156,6 +157,22 @@ public class ItemService {
         item.setMrp(request.mrp());
         if (request.gstRate() != null) item.setGstRate(request.gstRate());
         if (request.trackInventory() != null) item.setTrackInventory(request.trackInventory());
+        if (request.trackBatches() != null) {
+            // Forbid toggling batch tracking while the item still has
+            // on-hand stock — existing movements would be orphaned from
+            // the new mode. Operators must zero out stock first (or the
+            // flip through a data-migration job in a future sprint).
+            if (item.isTrackBatches() != request.trackBatches()) {
+                BigDecimal onHand = totalOnHand(orgId, item.getId());
+                if (onHand.compareTo(BigDecimal.ZERO) != 0) {
+                    throw new BusinessException(
+                            "Cannot toggle track_batches on " + item.getSku()
+                                    + " while on-hand is " + onHand,
+                            "INV_TRACK_BATCHES_LOCKED", HttpStatus.CONFLICT);
+                }
+            }
+            item.setTrackBatches(request.trackBatches());
+        }
         if (request.reorderLevel() != null) item.setReorderLevel(request.reorderLevel());
         if (request.reorderQuantity() != null) item.setReorderQuantity(request.reorderQuantity());
         item.setRevenueAccountCode(request.revenueAccountCode());
@@ -218,7 +235,8 @@ public class ItemService {
                 i.getId(), i.getSku(), i.getName(), i.getDescription(), i.getItemType(),
                 i.getCategory(), i.getBrand(), i.getHsnCode(), i.getUnitOfMeasure(),
                 i.getPurchasePrice(), i.getSalePrice(), i.getMrp(), i.getGstRate(),
-                i.isTrackInventory(), i.getReorderLevel(), i.getReorderQuantity(),
+                i.isTrackInventory(), i.isTrackBatches(),
+                i.getReorderLevel(), i.getReorderQuantity(),
                 i.getRevenueAccountCode(), i.getCogsAccountCode(), i.getInventoryAccountCode(),
                 i.isActive(), totalOnHand, i.getCreatedAt());
     }

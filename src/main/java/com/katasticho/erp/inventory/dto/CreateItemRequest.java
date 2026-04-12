@@ -45,6 +45,13 @@ public record CreateItemRequest(
 
         Boolean trackInventory,
 
+        /**
+         * Opt into FEFO/batch tracking for this item. When true, every
+         * stock movement MUST reference a batch via {@code stock_batch}.
+         * Defaults to false.
+         */
+        Boolean trackBatches,
+
         @DecimalMin(value = "0.00", message = "Reorder level must be >= 0")
         BigDecimal reorderLevel,
 

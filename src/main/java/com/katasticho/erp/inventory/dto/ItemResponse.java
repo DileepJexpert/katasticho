@@ -21,6 +21,7 @@ public record ItemResponse(
         BigDecimal mrp,
         BigDecimal gstRate,
         boolean trackInventory,
+        boolean trackBatches,
         BigDecimal reorderLevel,
         BigDecimal reorderQuantity,
         String revenueAccountCode,

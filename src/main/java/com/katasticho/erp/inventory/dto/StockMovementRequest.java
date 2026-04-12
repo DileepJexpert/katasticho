@@ -17,6 +17,10 @@ import java.util.UUID;
  *
  * Reference fields are optional for ad-hoc adjustments and required for
  * document-driven movements (the service validates the combination).
+ *
+ * {@code batchId} is optional: it must be non-null when the item has
+ * {@code track_batches=true}, and null otherwise. The service layer
+ * enforces the invariant.
  */
 public record StockMovementRequest(
         @NotNull UUID itemId,
@@ -28,5 +32,26 @@ public record StockMovementRequest(
         ReferenceType referenceType,
         UUID referenceId,
         String referenceNumber,
-        String notes
-) {}
+        String notes,
+        UUID batchId
+) {
+    /**
+     * Backwards-compatible constructor for callers that don't track
+     * batches. Defaults {@code batchId} to {@code null} so every
+     * existing call site keeps working without edit.
+     */
+    public StockMovementRequest(
+            UUID itemId,
+            UUID warehouseId,
+            MovementType movementType,
+            BigDecimal quantity,
+            BigDecimal unitCost,
+            LocalDate movementDate,
+            ReferenceType referenceType,
+            UUID referenceId,
+            String referenceNumber,
+            String notes) {
+        this(itemId, warehouseId, movementType, quantity, unitCost, movementDate,
+                referenceType, referenceId, referenceNumber, notes, null);
+    }
+}
