@@ -11,6 +11,7 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.currency.SimpleCurrencyService;
+import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.tax.IndiaGSTEngine;
@@ -45,6 +46,7 @@ class CreditNoteServiceTest {
     @Mock private InvoiceService invoiceService;
     @Mock private JournalService journalService;
     @Mock private AuditService auditService;
+    @Mock private InventoryService inventoryService;
 
     private CreditNoteService creditNoteService;
     private UUID orgId;
@@ -60,7 +62,7 @@ class CreditNoteServiceTest {
                 creditNoteRepository, taxLineItemRepository, customerRepository,
                 invoiceRepository, sequenceRepository, organisationRepository,
                 invoiceService, journalService, taxEngineFactory,
-                new SimpleCurrencyService(), auditService);
+                new SimpleCurrencyService(), auditService, inventoryService);
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
@@ -113,7 +115,7 @@ class CreditNoteServiceTest {
                 "Defective goods returned",
                 "MH",
                 List.of(new CreditNoteLineRequest("Widget return", "8471", new BigDecimal("1"),
-                        new BigDecimal("5000"), new BigDecimal("18"), "4010"))
+                        new BigDecimal("5000"), new BigDecimal("18"), "4010", null, null))
         );
 
         CreditNote cn = creditNoteService.createCreditNote(request);

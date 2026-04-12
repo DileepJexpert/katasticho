@@ -14,6 +14,7 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.currency.SimpleCurrencyService;
+import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.tax.IndiaGSTEngine;
@@ -47,6 +48,7 @@ class InvoiceServiceTest {
     @Mock private OrganisationRepository organisationRepository;
     @Mock private JournalService journalService;
     @Mock private AuditService auditService;
+    @Mock private InventoryService inventoryService;
 
     private InvoiceService invoiceService;
     private TaxEngineFactory taxEngineFactory;
@@ -62,7 +64,8 @@ class InvoiceServiceTest {
         invoiceService = new InvoiceService(
                 invoiceRepository, taxLineItemRepository, customerRepository,
                 sequenceRepository, organisationRepository, journalService,
-                taxEngineFactory, new SimpleCurrencyService(), auditService);
+                taxEngineFactory, new SimpleCurrencyService(), auditService,
+                inventoryService);
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
@@ -130,7 +133,7 @@ class InvoiceServiceTest {
                 "Test invoice",
                 null,
                 List.of(new InvoiceLineRequest("Widget", "8471", new BigDecimal("2"),
-                        new BigDecimal("5000"), BigDecimal.ZERO, new BigDecimal("18"), "4010"))
+                        new BigDecimal("5000"), BigDecimal.ZERO, new BigDecimal("18"), "4010", null, null))
         );
 
         InvoiceResponse result = invoiceService.createInvoice(request);
@@ -194,7 +197,7 @@ class InvoiceServiceTest {
                 "KA", // buyer state != seller state (MH)
                 false, null, null,
                 List.of(new InvoiceLineRequest("Service", "9983", BigDecimal.ONE,
-                        new BigDecimal("10000"), BigDecimal.ZERO, new BigDecimal("18"), "4010"))
+                        new BigDecimal("10000"), BigDecimal.ZERO, new BigDecimal("18"), "4010", null, null))
         );
 
         InvoiceResponse result = invoiceService.createInvoice(request);
@@ -366,7 +369,7 @@ class InvoiceServiceTest {
                 LocalDate.of(2026, 4, 11),
                 null, "MH", false, null, null,
                 List.of(new InvoiceLineRequest("Product", "8471", new BigDecimal("10"),
-                        new BigDecimal("1000"), new BigDecimal("10"), new BigDecimal("18"), "4010"))
+                        new BigDecimal("1000"), new BigDecimal("10"), new BigDecimal("18"), "4010", null, null))
         );
 
         InvoiceResponse result = invoiceService.createInvoice(request);
