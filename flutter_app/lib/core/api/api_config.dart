@@ -62,6 +62,8 @@ class ApiConfig {
   static String itemBalances(String itemId) =>
       '/api/v1/stock/items/$itemId/balances';
   static const String lowStock = '/api/v1/stock/low-stock';
+  static const String uoms = '/api/v1/uoms';
+  static String uomById(String id) => '/api/v1/uoms/$id';
 
   // Procurement
   static const String suppliers = '/api/v1/suppliers';

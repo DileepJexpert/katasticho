@@ -75,6 +75,7 @@ public class ItemImportService {
     private final WarehouseRepository warehouseRepository;
     private final InventoryService inventoryService;
     private final AuditService auditService;
+    private final UomService uomService;
 
     /**
      * Dry-run validator — parse the CSV, validate every row, return a
@@ -252,6 +253,11 @@ public class ItemImportService {
 
             boolean trackInventory = itemType == ItemType.GOODS;
 
+            // Resolve base_uom_id FK from the legacy abbreviation string so
+            // bulk-imported items match the invariant enforced by ItemService
+            // (every new row has a non-null base_uom_id, falling back to PCS).
+            UUID baseUomId = uomService.resolveBaseUomIdOrPcs(uom);
+
             Item item = Item.builder()
                     .sku(sku.trim())
                     .name(name.trim())
@@ -261,6 +267,7 @@ public class ItemImportService {
                     .brand(get(row, "brand"))
                     .hsnCode(hsn)
                     .unitOfMeasure(uom)
+                    .baseUomId(baseUomId)
                     .purchasePrice(purchasePrice)
                     .salePrice(salePrice)
                     .mrp(mrp)

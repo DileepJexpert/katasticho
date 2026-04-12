@@ -39,6 +39,7 @@ public class ItemService {
     private final WarehouseRepository warehouseRepository;
     private final InventoryService inventoryService;
     private final AuditService auditService;
+    private final UomService uomService;
 
     @Transactional
     public ItemResponse createItem(CreateItemRequest request) {
@@ -55,6 +56,9 @@ public class ItemService {
                 ? request.trackInventory()
                 : itemType == ItemType.GOODS;
 
+        String uomAbbr = request.unitOfMeasure() != null ? request.unitOfMeasure() : "PCS";
+        UUID baseUomId = uomService.resolveBaseUomIdOrPcs(uomAbbr);
+
         Item item = Item.builder()
                 .sku(sku)
                 .name(request.name().trim())
@@ -63,7 +67,8 @@ public class ItemService {
                 .category(request.category())
                 .brand(request.brand())
                 .hsnCode(request.hsnCode())
-                .unitOfMeasure(request.unitOfMeasure() != null ? request.unitOfMeasure() : "PCS")
+                .unitOfMeasure(uomAbbr)
+                .baseUomId(baseUomId)
                 .purchasePrice(nz(request.purchasePrice()))
                 .salePrice(nz(request.salePrice()))
                 .mrp(request.mrp())
@@ -132,7 +137,20 @@ public class ItemService {
         item.setCategory(request.category());
         item.setBrand(request.brand());
         item.setHsnCode(request.hsnCode());
-        if (request.unitOfMeasure() != null) item.setUnitOfMeasure(request.unitOfMeasure());
+        if (request.unitOfMeasure() != null) {
+            String newUomAbbr = request.unitOfMeasure();
+            // Re-resolve the UoM FK only if the abbreviation actually changed.
+            // This keeps the legacy string column as the canonical display
+            // value while repopulating base_uom_id on every change.
+            if (!newUomAbbr.equalsIgnoreCase(item.getUnitOfMeasure())
+                    || item.getBaseUomId() == null) {
+                item.setBaseUomId(uomService.resolveBaseUomIdOrPcs(newUomAbbr));
+            }
+            item.setUnitOfMeasure(newUomAbbr);
+        } else if (item.getBaseUomId() == null) {
+            // Pre-V13 row that was never touched — backfill to PCS now.
+            item.setBaseUomId(uomService.resolveBaseUomIdOrPcs(item.getUnitOfMeasure()));
+        }
         if (request.purchasePrice() != null) item.setPurchasePrice(request.purchasePrice());
         if (request.salePrice() != null) item.setSalePrice(request.salePrice());
         item.setMrp(request.mrp());

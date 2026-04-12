@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 /**
  * Item master — both physical goods and services.
@@ -46,6 +47,16 @@ public class Item extends BaseEntity {
     @Column(name = "unit_of_measure", nullable = false, length = 20)
     @Builder.Default
     private String unitOfMeasure = "PCS";
+
+    /**
+     * FK into {@code uom}. Populated by ItemService on create/update by
+     * looking up {@link #unitOfMeasure} in the current org's UoM master.
+     * Kept nullable at DB level (see V13) for backwards compatibility
+     * during the v2 rollout — a follow-up migration will enforce NOT
+     * NULL once every code path is verified to set it.
+     */
+    @Column(name = "base_uom_id")
+    private UUID baseUomId;
 
     @Column(name = "purchase_price", nullable = false)
     @Builder.Default
