@@ -3,6 +3,7 @@ package com.katasticho.erp.ar.dto;
 import jakarta.validation.constraints.NotBlank;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 public record CreateCustomerRequest(
         @NotBlank(message = "Customer name is required")
@@ -28,5 +29,9 @@ public record CreateCustomerRequest(
         String shippingCountry,
         BigDecimal creditLimit,
         Integer paymentTermsDays,
-        String notes
+        String notes,
+        /** Optional — pins a price list to the customer. Resolved at
+         *  invoice-create time; legacy callers who don't send it keep
+         *  pre-F3 behaviour (org default → item.salePrice). */
+        UUID defaultPriceListId
 ) {}

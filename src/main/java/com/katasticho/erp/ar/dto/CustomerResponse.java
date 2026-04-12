@@ -29,6 +29,10 @@ public record CustomerResponse(
         BigDecimal creditLimit,
         Integer paymentTermsDays,
         String notes,
+        /** The pinned price list for this customer (v2 F3). Null means
+         *  the customer falls through to the org default list, then to
+         *  {@code item.salePrice}. */
+        UUID defaultPriceListId,
         boolean active,
         Instant createdAt
 ) {}

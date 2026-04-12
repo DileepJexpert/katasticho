@@ -14,6 +14,7 @@ import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
+import com.katasticho.erp.pricing.service.PriceListService;
 import com.katasticho.erp.tax.TaxEngine;
 import com.katasticho.erp.tax.TaxEngineFactory;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +58,7 @@ public class InvoiceService {
     private final CurrencyService currencyService;
     private final AuditService auditService;
     private final InventoryService inventoryService;
+    private final PriceListService priceListService;
 
     private static final String AR_ACCOUNT_CODE = "1200"; // Accounts Receivable
 
@@ -123,8 +125,29 @@ public class InvoiceService {
         for (int i = 0; i < request.lines().size(); i++) {
             InvoiceLineRequest lineReq = request.lines().get(i);
 
+            // Resolve unit price via the v2 F3 price list chain. Only
+            // itemised lines (free-text has itemId = null) can be
+            // resolved; everything else falls through to the client
+            // unitPrice unchanged. The resolver walks:
+            //   customer.defaultPriceListId → org default list → empty
+            // and returns empty if neither step matches — in which
+            // case the client price is authoritative (legacy path).
+            BigDecimal effectiveUnitPrice = lineReq.unitPrice();
+            if (lineReq.itemId() != null) {
+                effectiveUnitPrice = priceListService
+                        .resolvePrice(customer.getId(), lineReq.itemId(), lineReq.quantity())
+                        .map(resolved -> {
+                            if (resolved.compareTo(lineReq.unitPrice()) != 0) {
+                                log.info("Price list override line {}: client={} resolved={}",
+                                        lineReq.itemId(), lineReq.unitPrice(), resolved);
+                            }
+                            return resolved;
+                        })
+                        .orElse(lineReq.unitPrice());
+            }
+
             // Calculate line amounts
-            BigDecimal grossAmount = lineReq.quantity().multiply(lineReq.unitPrice())
+            BigDecimal grossAmount = lineReq.quantity().multiply(effectiveUnitPrice)
                     .setScale(2, RoundingMode.HALF_UP);
             BigDecimal discountAmt = grossAmount.multiply(lineReq.discountPercent())
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
@@ -157,7 +180,7 @@ public class InvoiceService {
                     .description(lineReq.description())
                     .hsnCode(lineReq.hsnCode())
                     .quantity(lineReq.quantity())
-                    .unitPrice(lineReq.unitPrice())
+                    .unitPrice(effectiveUnitPrice)
                     .discountPercent(lineReq.discountPercent())
                     .discountAmount(discountAmt)
                     .taxableAmount(taxableAmount)

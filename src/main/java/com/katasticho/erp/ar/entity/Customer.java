@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Entity
 @Table(name = "customer")
@@ -85,6 +86,16 @@ public class Customer extends BaseEntity {
     private Integer paymentTermsDays = 30;
 
     private String notes;
+
+    /**
+     * FK into {@code price_list}. When set, the invoice resolver uses
+     * this list's tiered prices as the first step in its fall-through
+     * chain before checking the org default. Nullable — customers
+     * without a pinned list fall straight through to org default, then
+     * {@code item.sale_price}.
+     */
+    @Column(name = "default_price_list_id")
+    private UUID defaultPriceListId;
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default
