@@ -167,8 +167,8 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
                 }),
                 // Totals row
                 [
-                  const Text('', style: KTypography.labelLarge),
-                  const Text('TOTAL', style: KTypography.labelLarge),
+                  Text('', style: KTypography.labelLarge),
+                  Text('TOTAL', style: KTypography.labelLarge),
                   Text(
                     CurrencyFormatter.formatIndian(totalDebit),
                     style: KTypography.amountMedium,
