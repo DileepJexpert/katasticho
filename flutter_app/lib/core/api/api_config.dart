@@ -65,6 +65,18 @@ class ApiConfig {
   static const String uoms = '/api/v1/uoms';
   static String uomById(String id) => '/api/v1/uoms/$id';
 
+  // Batches (v2 — perishables / FEFO)
+  static String batchesByItem(String itemId) =>
+      '/api/v1/batches/item/$itemId';
+  /// FEFO-ordered list of batches with non-zero quantity available.
+  /// Omit [warehouseId] to fall back to the org's default warehouse
+  /// (the backend resolves it via TenantContext).
+  static String batchesAvailable(String itemId, {String? warehouseId}) {
+    final base = '/api/v1/batches/item/$itemId/available';
+    return warehouseId == null ? base : '$base?warehouseId=$warehouseId';
+  }
+  static String batchById(String id) => '/api/v1/batches/$id';
+
   // Procurement
   static const String suppliers = '/api/v1/suppliers';
   static String supplierById(String id) => '/api/v1/suppliers/$id';
