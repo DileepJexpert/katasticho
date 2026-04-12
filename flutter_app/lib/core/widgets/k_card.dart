@@ -181,6 +181,14 @@ class KKpiCard extends StatelessWidget {
     final accent = iconColor ?? cs.primary;
     final tile = backgroundColor ?? accent.withValues(alpha: 0.12);
 
+    // NOTE: we intentionally use fixed-height SizedBox gaps (not Spacer) here.
+    // KCard wraps us in a Column(mainAxisSize: min), which forwards unbounded
+    // height to its child. Spacer = Expanded(flex: 1), and an Expanded inside
+    // a min-sized column with unbounded height throws:
+    //   "RenderFlex children have non-zero flex but incoming height
+    //    constraints are unbounded."
+    // Once that blows up, every tile renders with zero size and the whole
+    // dashboard floods the console with hit-test errors. Fixed gaps dodge it.
     return KCard(
       onTap: onTap,
       padding: const EdgeInsets.all(14),
@@ -199,12 +207,12 @@ class KKpiCard extends StatelessWidget {
                 ),
                 child: Icon(icon, color: accent, size: 20),
               ),
-              const Spacer(),
+              const Spacer(), // OK: Row has bounded width from the grid tile
               if (trend != null)
                 _TrendPill(trend: trend!, positive: trendPositive == true),
             ],
           ),
-          const Spacer(),
+          const SizedBox(height: 20),
           Text(
             value,
             style: KTypography.amountLarge.copyWith(
