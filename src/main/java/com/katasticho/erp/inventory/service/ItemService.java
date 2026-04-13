@@ -18,7 +18,6 @@ import com.katasticho.erp.inventory.repository.ItemGroupRepository;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
@@ -35,7 +34,6 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ItemService {
 
@@ -51,9 +49,32 @@ public class ItemService {
      * service (its matrix bulk-create routes through
      * {@link #createItem}). The proxy breaks the cycle without
      * requiring a setter or extracting a separate "creator" component.
+     *
+     * <p>Constructor is written by hand (not via Lombok's
+     * {@code @RequiredArgsConstructor}) because Lombok drops field-
+     * level annotations when generating the constructor, so the
+     * {@code @Lazy} must sit directly on the constructor parameter
+     * for Spring to honour it.
      */
-    @Lazy
     private final ItemGroupService itemGroupService;
+
+    public ItemService(ItemRepository itemRepository,
+                       StockBalanceRepository stockBalanceRepository,
+                       WarehouseRepository warehouseRepository,
+                       InventoryService inventoryService,
+                       AuditService auditService,
+                       UomService uomService,
+                       ItemGroupRepository itemGroupRepository,
+                       @Lazy ItemGroupService itemGroupService) {
+        this.itemRepository = itemRepository;
+        this.stockBalanceRepository = stockBalanceRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.inventoryService = inventoryService;
+        this.auditService = auditService;
+        this.uomService = uomService;
+        this.itemGroupRepository = itemGroupRepository;
+        this.itemGroupService = itemGroupService;
+    }
 
     @Transactional
     public ItemResponse createItem(CreateItemRequest request) {

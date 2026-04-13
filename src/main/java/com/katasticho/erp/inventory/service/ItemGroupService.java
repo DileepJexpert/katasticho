@@ -15,7 +15,6 @@ import com.katasticho.erp.inventory.entity.ItemGroup;
 import com.katasticho.erp.inventory.entity.ItemType;
 import com.katasticho.erp.inventory.repository.ItemGroupRepository;
 import com.katasticho.erp.inventory.repository.ItemRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
@@ -60,7 +59,6 @@ import java.util.UUID;
  * and SKU dedupe checks all stay in one place.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ItemGroupService {
 
@@ -73,9 +71,24 @@ public class ItemGroupService {
      * helper and we depend on it for the matrix generator's per-child
      * create. The lazy proxy breaks the cycle without requiring a
      * setter or a separate "creator" component.
+     *
+     * <p>Constructor is written by hand (not via Lombok's
+     * {@code @RequiredArgsConstructor}) because Lombok drops field-
+     * level annotations when generating the constructor, so the
+     * {@code @Lazy} must sit directly on the constructor parameter
+     * for Spring to honour it.
      */
-    @Lazy
     private final ItemService itemService;
+
+    public ItemGroupService(ItemGroupRepository groupRepository,
+                            ItemRepository itemRepository,
+                            AuditService auditService,
+                            @Lazy ItemService itemService) {
+        this.groupRepository = groupRepository;
+        this.itemRepository = itemRepository;
+        this.auditService = auditService;
+        this.itemService = itemService;
+    }
 
     // ────────────────────────────────────────────────────────────────────
     // CRUD
