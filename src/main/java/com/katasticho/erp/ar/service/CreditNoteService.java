@@ -254,6 +254,8 @@ public class CreditNoteService {
         JournalEntry journalEntry = journalService.postJournal(journalRequest);
 
         // Restore stock for any itemised lines (returns / damages refunded).
+        // For batch-tracked items the line MUST carry the batch_id of the
+        // returned goods — the inventory gate rejects auto-picking on restore.
         for (CreditNoteLine line : cn.getLines()) {
             if (line.getItemId() != null) {
                 inventoryService.restoreStockForCreditNote(
@@ -263,7 +265,8 @@ public class CreditNoteService {
                         line.getUnitPrice(),
                         cn.getId(),
                         cn.getCreditNoteNumber(),
-                        cn.getCreditNoteDate());
+                        cn.getCreditNoteDate(),
+                        line.getBatchId());
             }
         }
 

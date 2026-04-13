@@ -11,7 +11,9 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../customers/data/customer_repository.dart';
+import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
+import '../../pricing/data/price_list_repository.dart';
 import '../data/invoice_repository.dart';
 
 class InvoiceCreateScreen extends ConsumerStatefulWidget {
@@ -127,6 +129,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
                   'gstRate': l.gstRate,
                   'accountCode': '4000',
                   if (l.itemId != null) 'itemId': l.itemId,
+                  if (l.batchId != null) 'batchId': l.batchId,
                 })
             .toList(),
       };
@@ -387,6 +390,90 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
     );
   }
 
+  /// Returns the price list that will drive resolution for the
+  /// currently-selected customer, or null if none is loaded yet / none
+  /// applies. Walks the F3 fall-through chain on the client side so the
+  /// banner matches what [`PriceListService.resolvePrice`] will do at
+  /// invoice-submit time.
+  Map<String, dynamic>? _effectivePriceList(
+      List<Map<String, dynamic>> lists) {
+    if (_selectedCustomerId == null) return null;
+    final customer = _customers.firstWhere(
+      (c) => c['id']?.toString() == _selectedCustomerId,
+      orElse: () => const <String, dynamic>{},
+    );
+    final pinned = customer['defaultPriceListId']?.toString();
+    if (pinned != null) {
+      for (final l in lists) {
+        if (l['id']?.toString() == pinned && l['active'] != false) {
+          return l;
+        }
+      }
+    }
+    // Fall through to org default
+    for (final l in lists) {
+      if (l['isDefault'] == true && l['active'] != false) return l;
+    }
+    return null;
+  }
+
+  Widget _buildPriceListHint() {
+    final listsAsync = ref.watch(priceListsProvider);
+    return listsAsync.maybeWhen(
+      data: (lists) {
+        final effective = _effectivePriceList(lists);
+        if (effective == null) return const SizedBox.shrink();
+        final name = effective['name']?.toString() ?? 'Price List';
+        final currency = effective['currency']?.toString() ?? 'INR';
+        return Padding(
+          padding: const EdgeInsets.only(bottom: KSpacing.md),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: KSpacing.sm, vertical: KSpacing.sm),
+            decoration: BoxDecoration(
+              color: KColors.primary.withValues(alpha: 0.06),
+              borderRadius: KSpacing.borderRadiusMd,
+              border:
+                  Border.all(color: KColors.primary.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.sell_outlined,
+                    size: 18, color: KColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.primary),
+                      children: [
+                        const TextSpan(
+                            text: 'Prices will follow price list '),
+                        TextSpan(
+                          text: name,
+                          style: KTypography.bodySmall.copyWith(
+                            color: KColors.primary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        TextSpan(text: ' ($currency). '),
+                        const TextSpan(
+                          text:
+                              'Unit prices below may be overridden when the invoice is saved.',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+
   // ── Step 1: Line Items ──
   Widget _buildItemsStep() {
     return Column(
@@ -394,6 +481,8 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
       children: [
         Text('Line Items', style: KTypography.h2),
         KSpacing.vGapMd,
+
+        _buildPriceListHint(),
 
         ...List.generate(_lineItems.length, (index) {
           return _LineItemCard(
@@ -551,6 +640,24 @@ class _LineItem {
   double unitPrice = 0;
   double gstRate = 18;
 
+  /// True if the linked item has `trackBatches = true`. When set, the
+  /// line MUST carry [batchId] before the invoice can be sent — the
+  /// backend gate rejects the post otherwise (INV_BATCH_REQUIRED).
+  bool trackBatches = false;
+
+  /// The explicit batch this line will draw from. Null means "let the
+  /// server FEFO-pick at send time", which is still valid: the
+  /// deductStockForInvoice branch walks batches in expiry order.
+  String? batchId;
+
+  /// Display hint — the batch number for the chip. Not sent to the
+  /// server (it resolves by id).
+  String? batchNumber;
+
+  /// Display hint — `yyyy-MM-dd` string from the API. Used to colour
+  /// the expiry chip urgently when it's near.
+  String? batchExpiry;
+
   double get taxableAmount => quantity * unitPrice;
   double get taxAmount => taxableAmount * gstRate / 100;
   double get lineTotal => taxableAmount + taxAmount;
@@ -609,16 +716,167 @@ class _LineItemCardState extends State<_LineItemCard> {
       if (pickedGst != null && [0, 5, 12, 18, 28].contains(pickedGst.toInt())) {
         widget.item.gstRate = pickedGst;
       }
+      widget.item.trackBatches = picked['trackBatches'] == true;
+      // New item means any prior batch selection is stale.
+      widget.item.batchId = null;
+      widget.item.batchNumber = null;
+      widget.item.batchExpiry = null;
       _descCtl.text = widget.item.description;
       _hsnCtl.text = widget.item.hsnCode;
       _priceCtl.text = widget.item.unitPrice.toString();
     });
     widget.onChanged();
+
+    // If the item is batch-tracked, chain straight into the batch
+    // picker so the user never lands on a send-button-disabled state
+    // without knowing why. They can still cancel and come back later
+    // via the "Pick Batch" button on the line card.
+    if (widget.item.trackBatches && widget.item.itemId != null && mounted) {
+      await _pickBatch();
+    }
+  }
+
+  Future<void> _pickBatch() async {
+    final itemId = widget.item.itemId;
+    if (itemId == null) return;
+    final picked = await showBatchPicker(
+      context,
+      itemId: itemId,
+      itemName: widget.item.description,
+    );
+    if (picked == null) return;
+    setState(() {
+      widget.item.batchId = picked['id']?.toString();
+      widget.item.batchNumber = picked['batchNumber']?.toString();
+      widget.item.batchExpiry = picked['expiryDate']?.toString();
+    });
+    widget.onChanged();
+  }
+
+  void _clearBatch() {
+    setState(() {
+      widget.item.batchId = null;
+      widget.item.batchNumber = null;
+      widget.item.batchExpiry = null;
+    });
+    widget.onChanged();
   }
 
   void _clearItemLink() {
-    setState(() => widget.item.itemId = null);
+    setState(() {
+      widget.item.itemId = null;
+      widget.item.trackBatches = false;
+      widget.item.batchId = null;
+      widget.item.batchNumber = null;
+      widget.item.batchExpiry = null;
+    });
     widget.onChanged();
+  }
+
+  /// The batch strip shown only when the linked item is batch-tracked.
+  /// Two states:
+  ///  • `batchId == null` → amber "Pick Batch" banner warning the user
+  ///    that the invoice can't send until a batch is chosen (or they
+  ///    leave it null and let the server FEFO-pick at send time — the
+  ///    banner says as much).
+  ///  • `batchId != null` → outlined chip showing batch number + expiry,
+  ///    with close + re-pick affordances. The expiry colour mirrors the
+  ///    picker: red if expired, amber if within 30 days.
+  Widget _buildBatchRow() {
+    final batchId = widget.item.batchId;
+    if (batchId == null) {
+      return InkWell(
+        onTap: _pickBatch,
+        borderRadius: KSpacing.borderRadiusMd,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+              horizontal: KSpacing.sm, vertical: KSpacing.sm),
+          decoration: BoxDecoration(
+            color: KColors.warning.withValues(alpha: 0.08),
+            borderRadius: KSpacing.borderRadiusMd,
+            border: Border.all(color: KColors.warning.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.inventory_2_outlined,
+                  size: 16, color: KColors.warning),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Pick batch — or leave blank to auto-pick earliest expiry (FEFO)',
+                  style: KTypography.bodySmall
+                      .copyWith(color: KColors.warning),
+                ),
+              ),
+              const Icon(Icons.chevron_right,
+                  size: 18, color: KColors.warning),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final expiry = widget.item.batchExpiry;
+    final expiryColor = _expiryColor(expiry);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+          horizontal: KSpacing.sm, vertical: KSpacing.xs),
+      decoration: BoxDecoration(
+        color: KColors.primary.withValues(alpha: 0.06),
+        borderRadius: KSpacing.borderRadiusMd,
+        border: Border.all(color: KColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.inventory_2,
+              size: 16, color: KColors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Batch: ${widget.item.batchNumber ?? "—"}',
+                  style: KTypography.labelMedium
+                      .copyWith(color: KColors.primary),
+                ),
+                if (expiry != null)
+                  Text(
+                    'Expires $expiry',
+                    style: KTypography.labelSmall.copyWith(color: expiryColor),
+                  ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: _pickBatch,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 32),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            child: const Text('Change'),
+          ),
+          IconButton(
+            tooltip: 'Clear batch',
+            icon: const Icon(Icons.close, size: 16),
+            visualDensity: VisualDensity.compact,
+            onPressed: _clearBatch,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _expiryColor(String? expiry) {
+    if (expiry == null) return KColors.textSecondary;
+    final parsed = DateTime.tryParse(expiry);
+    if (parsed == null) return KColors.textSecondary;
+    final days = parsed.difference(DateTime.now()).inDays;
+    if (days < 0) return KColors.error;
+    if (days <= 30) return KColors.warning;
+    return KColors.textSecondary;
   }
 
   @override
@@ -674,6 +932,10 @@ class _LineItemCardState extends State<_LineItemCard> {
                 ),
             ],
           ),
+          if (widget.item.trackBatches) ...[
+            KSpacing.vGapSm,
+            _buildBatchRow(),
+          ],
           KSpacing.vGapSm,
           KTextField(
             label: 'Description',

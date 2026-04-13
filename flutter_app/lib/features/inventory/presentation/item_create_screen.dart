@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../data/item_group_repository.dart';
 import '../data/item_repository.dart';
 
 /// Form for creating a new inventory item or editing an existing one.
@@ -39,6 +41,15 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   bool _trackInventory = true;
   bool _saving = false;
   bool _loading = false;
+
+  /// F5: when set, the item is created as a variant of this group.
+  /// `_selectedGroup` is the cached group map (carries name + defs +
+  /// defaults) so the attribute editor can render without an extra
+  /// fetch. `_variantAttrs` holds the operator's selections keyed by
+  /// the attribute key.
+  String? _groupId;
+  Map<String, dynamic>? _selectedGroup;
+  final Map<String, String> _variantAttrs = {};
 
   bool get _isEdit => widget.itemId != null;
 
@@ -80,7 +91,29 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     _reorderQtyController.text = (data['reorderQuantity'] ?? 0).toString();
     _itemType = data['itemType']?.toString() ?? 'GOODS';
     _trackInventory = data['trackInventory'] as bool? ?? true;
+    _groupId = data['groupId']?.toString();
+    final attrs = data['variantAttributes'];
+    if (attrs is Map) {
+      _variantAttrs.clear();
+      attrs.forEach((k, v) => _variantAttrs[k.toString()] = v.toString());
+    }
+    if (_groupId != null) {
+      // Defer the group fetch — initState/_load is already async.
+      // ignore: discarded_futures
+      _loadGroupCache(_groupId!);
+    }
     setState(() {});
+  }
+
+  Future<void> _loadGroupCache(String id) async {
+    try {
+      final repo = ref.read(itemGroupRepositoryProvider);
+      final result = await repo.getGroup(id);
+      final group = (result['data'] ?? result) as Map<String, dynamic>;
+      if (mounted) setState(() => _selectedGroup = group);
+    } catch (e) {
+      debugPrint('[ItemCreateScreen] loadGroupCache FAILED: $e');
+    }
   }
 
   @override
@@ -130,6 +163,26 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
       payload['openingStock'] = double.tryParse(_openingStockController.text) ?? 0;
     }
 
+    // F5: variant linkage. The backend rejects variant_attributes
+    // without a group_id and vice-versa; we mirror that here so the
+    // operator gets a snackbar instead of a 400.
+    if (_groupId != null) {
+      final defs = (_selectedGroup?['attributeDefinitions'] as List?) ?? const [];
+      for (final d in defs) {
+        final def = d as Map<String, dynamic>;
+        final key = def['key']?.toString() ?? '';
+        if (_variantAttrs[key] == null || _variantAttrs[key]!.isEmpty) {
+          setState(() => _saving = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Pick a value for "$key"')),
+          );
+          return;
+        }
+      }
+      payload['groupId'] = _groupId;
+      payload['variantAttributes'] = Map<String, String>.from(_variantAttrs);
+    }
+
     try {
       if (_isEdit) {
         await repo.updateItem(widget.itemId!, payload);
@@ -151,6 +204,119 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  /// "Group & Variant" section. Tap-to-pick a group from the list,
+  /// then render a dropdown per attribute key. Clearing the group
+  /// resets `variantAttributes` so the payload doesn't smuggle stale
+  /// values.
+  Widget _buildGroupSection() {
+    final defs = (_selectedGroup?['attributeDefinitions'] as List?) ?? const [];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Group & Variant', style: KTypography.h3),
+        KSpacing.vGapXs,
+        Text(
+          'Optionally link this item to a group to inherit defaults and pick a variant combination.',
+          style: KTypography.bodySmall,
+        ),
+        KSpacing.vGapMd,
+        InkWell(
+          onTap: _pickGroup,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.all(KSpacing.md),
+            decoration: BoxDecoration(
+              border: Border.all(color: KColors.textHint.withValues(alpha: 0.3)),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.category_outlined, color: KColors.primary),
+                KSpacing.hGapSm,
+                Expanded(
+                  child: Text(
+                    _selectedGroup == null
+                        ? (_groupId == null
+                            ? 'No group (standalone item)'
+                            : 'Loading group…')
+                        : (_selectedGroup!['name']?.toString() ?? ''),
+                    style: KTypography.labelLarge,
+                  ),
+                ),
+                if (_groupId != null)
+                  IconButton(
+                    tooltip: 'Clear',
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () {
+                      setState(() {
+                        _groupId = null;
+                        _selectedGroup = null;
+                        _variantAttrs.clear();
+                      });
+                    },
+                  )
+                else
+                  const Icon(Icons.chevron_right, color: KColors.textHint),
+              ],
+            ),
+          ),
+        ),
+        if (_selectedGroup != null && defs.isNotEmpty) ...[
+          KSpacing.vGapMd,
+          Text('Variant attributes', style: KTypography.labelLarge),
+          KSpacing.vGapSm,
+          ...defs.map<Widget>((d) {
+            final def = d as Map<String, dynamic>;
+            final key = def['key']?.toString() ?? '';
+            final values = ((def['values'] as List?) ?? const [])
+                .map((v) => v.toString())
+                .toList();
+            return Padding(
+              padding: const EdgeInsets.only(bottom: KSpacing.md),
+              child: DropdownButtonFormField<String>(
+                value: _variantAttrs[key],
+                decoration: InputDecoration(labelText: key),
+                items: values
+                    .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                    .toList(),
+                onChanged: (v) {
+                  setState(() {
+                    if (v == null) {
+                      _variantAttrs.remove(key);
+                    } else {
+                      _variantAttrs[key] = v;
+                    }
+                  });
+                },
+              ),
+            );
+          }),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _pickGroup() async {
+    final picked = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (ctx, scrollController) =>
+            _GroupPickerSheet(scrollController: scrollController),
+      ),
+    );
+    if (picked == null) return;
+    setState(() {
+      _groupId = picked['id']?.toString();
+      _selectedGroup = picked;
+      _variantAttrs.clear();
+    });
   }
 
   @override
@@ -206,12 +372,24 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                           items: const [
                             DropdownMenuItem(value: 'GOODS', child: Text('Goods')),
                             DropdownMenuItem(value: 'SERVICE', child: Text('Service')),
+                            DropdownMenuItem(
+                                value: 'COMPOSITE', child: Text('Composite (kit)')),
                           ],
                           onChanged: (v) {
                             setState(() {
                               _itemType = v ?? 'GOODS';
-                              if (_itemType == 'SERVICE') {
+                              // Non-goods types never track stock directly.
+                              // For COMPOSITE the parent is an abstraction
+                              // over its BOM children; the backend rejects
+                              // trackInventory=true for this type.
+                              if (_itemType != 'GOODS') {
                                 _trackInventory = false;
+                                // F5: groups are GOODS-only in v1, so
+                                // clear any selection when switching
+                                // away — the section disappears too.
+                                _groupId = null;
+                                _selectedGroup = null;
+                                _variantAttrs.clear();
                               }
                             });
                           },
@@ -220,6 +398,13 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                     ],
                   ),
                   KSpacing.vGapLg,
+
+                  // F5 — group picker. Only shown for GOODS items (the
+                  // backend rejects composites in groups for v1).
+                  if (_itemType == 'GOODS') ...[
+                    _buildGroupSection(),
+                    KSpacing.vGapLg,
+                  ],
 
                   Text('Pricing & Tax', style: KTypography.h3),
                   KSpacing.vGapMd,
@@ -267,6 +452,27 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                   ),
                   KSpacing.vGapLg,
 
+                  if (_itemType == 'COMPOSITE') ...[
+                    KCard(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline,
+                              size: 18, color: KColors.primary),
+                          KSpacing.hGapSm,
+                          Expanded(
+                            child: Text(
+                              _isEdit
+                                  ? 'Add or edit components under "Bill of Materials" below. This item never carries stock — selling it deducts its components.'
+                                  : 'Save this item first, then add its components from the item detail screen. Composite items never carry stock directly.',
+                              style: KTypography.bodySmall,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    KSpacing.vGapLg,
+                  ],
                   if (_itemType == 'GOODS') ...[
                     Text('Inventory', style: KTypography.h3),
                     KSpacing.vGapMd,
@@ -321,6 +527,84 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+/// Bottom sheet that lists item groups for selection. Returns the
+/// picked group map (so the caller can read attributeDefinitions
+/// without an extra round-trip) or null on dismiss.
+class _GroupPickerSheet extends ConsumerWidget {
+  final ScrollController scrollController;
+  const _GroupPickerSheet({required this.scrollController});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final groupsAsync = ref.watch(itemGroupListProvider);
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                KSpacing.md, KSpacing.md, KSpacing.md, KSpacing.sm),
+            child: Text('Select Group', style: KTypography.h3),
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: groupsAsync.when(
+              loading: () => const KShimmerList(),
+              error: (err, st) => KErrorView(message: 'Failed: $err'),
+              data: (data) {
+                final content = data['data'];
+                final groups = content is List
+                    ? content
+                    : (content is Map ? (content['content'] as List?) ?? [] : []);
+                if (groups.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'No item groups yet — create one first.',
+                        style: KTypography.bodyMedium,
+                      ),
+                    ),
+                  );
+                }
+                return ListView.separated(
+                  controller: scrollController,
+                  padding: KSpacing.pagePadding,
+                  itemCount: groups.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final group = groups[index] as Map<String, dynamic>;
+                    final defs =
+                        (group['attributeDefinitions'] as List?) ?? const [];
+                    return ListTile(
+                      leading: const Icon(Icons.category_outlined,
+                          color: KColors.primary),
+                      title: Text(group['name']?.toString() ?? '',
+                          style: KTypography.labelLarge),
+                      subtitle: Text(
+                        defs
+                            .map<String>((d) =>
+                                (d as Map<String, dynamic>)['key']?.toString() ?? '')
+                            .where((k) => k.isNotEmpty)
+                            .join(', '),
+                        style: KTypography.bodySmall,
+                      ),
+                      onTap: () => Navigator.pop(context, group),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

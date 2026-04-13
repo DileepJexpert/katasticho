@@ -52,6 +52,24 @@ class ApiConfig {
   static const String items = '/api/v1/items';
   static String itemById(String id) => '/api/v1/items/$id';
   static const String itemImport = '/api/v1/items/import';
+  static const String itemImportPreview = '/api/v1/items/import/preview';
+  // F4 BOM — composite item bill of materials (only valid for
+  // itemType=COMPOSITE parents; the resolver at invoice-send time is
+  // server-side and never hit over HTTP).
+  static String itemBom(String parentId) => '/api/v1/items/$parentId/bom';
+  static String itemBomComponentById(String componentId) =>
+      '/api/v1/items/bom/$componentId';
+
+  // F5 Item groups — variant template + matrix bulk-create.
+  // The group is a presentation/inheritance layer; variants stay as
+  // regular Item rows with group_id + variant_attributes, so every
+  // existing item endpoint (stock, BOM, batches, invoices, GRN, …)
+  // keeps working unchanged.
+  static const String itemGroups = '/api/v1/item-groups';
+  static String itemGroupById(String id) => '/api/v1/item-groups/$id';
+  static String itemGroupVariants(String id) => '/api/v1/item-groups/$id/items';
+  static String generateVariants(String id) =>
+      '/api/v1/item-groups/$id/generate-variants';
   static const String warehouses = '/api/v1/warehouses';
   static const String stockAdjust = '/api/v1/stock/adjust';
   static String stockReverse(String movementId) =>
@@ -61,6 +79,20 @@ class ApiConfig {
   static String itemBalances(String itemId) =>
       '/api/v1/stock/items/$itemId/balances';
   static const String lowStock = '/api/v1/stock/low-stock';
+  static const String uoms = '/api/v1/uoms';
+  static String uomById(String id) => '/api/v1/uoms/$id';
+
+  // Batches (v2 — perishables / FEFO)
+  static String batchesByItem(String itemId) =>
+      '/api/v1/batches/item/$itemId';
+  /// FEFO-ordered list of batches with non-zero quantity available.
+  /// Omit [warehouseId] to fall back to the org's default warehouse
+  /// (the backend resolves it via TenantContext).
+  static String batchesAvailable(String itemId, {String? warehouseId}) {
+    final base = '/api/v1/batches/item/$itemId/available';
+    return warehouseId == null ? base : '$base?warehouseId=$warehouseId';
+  }
+  static String batchById(String id) => '/api/v1/batches/$id';
 
   // Procurement
   static const String suppliers = '/api/v1/suppliers';
@@ -75,4 +107,12 @@ class ApiConfig {
   // AI
   static const String aiQuery = '/api/v1/ai/query';
   static const String aiScanBill = '/api/v1/ai/scan-bill';
+
+  // Pricing (v2 — F3 price lists)
+  static const String priceLists = '/api/v1/price-lists';
+  static String priceListById(String id) => '/api/v1/price-lists/$id';
+  static String priceListItems(String listId) =>
+      '/api/v1/price-lists/$listId/items';
+  static String priceListItemById(String itemRowId) =>
+      '/api/v1/price-lists/items/$itemRowId';
 }

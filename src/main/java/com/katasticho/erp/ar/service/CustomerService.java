@@ -61,6 +61,7 @@ public class CustomerService {
                 .creditLimit(request.creditLimit() != null ? request.creditLimit() : java.math.BigDecimal.ZERO)
                 .paymentTermsDays(request.paymentTermsDays() != null ? request.paymentTermsDays() : 30)
                 .notes(request.notes())
+                .defaultPriceListId(request.defaultPriceListId())
                 .build();
 
         customer = customerRepository.save(customer);
@@ -122,6 +123,9 @@ public class CustomerService {
         if (request.creditLimit() != null) customer.setCreditLimit(request.creditLimit());
         if (request.paymentTermsDays() != null) customer.setPaymentTermsDays(request.paymentTermsDays());
         customer.setNotes(request.notes());
+        // defaultPriceListId is a simple pass-through — set it unconditionally
+        // so clients can unset the pin by sending null.
+        customer.setDefaultPriceListId(request.defaultPriceListId());
 
         customer = customerRepository.save(customer);
 
@@ -163,6 +167,6 @@ public class CustomerService {
                 c.getShippingCity(), c.getShippingState(), c.getShippingStateCode(),
                 c.getShippingPostalCode(), c.getShippingCountry(),
                 c.getCreditLimit(), c.getPaymentTermsDays(),
-                c.getNotes(), c.isActive(), c.getCreatedAt());
+                c.getNotes(), c.getDefaultPriceListId(), c.isActive(), c.getCreatedAt());
     }
 }

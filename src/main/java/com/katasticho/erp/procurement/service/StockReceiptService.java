@@ -7,12 +7,15 @@ import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.inventory.dto.StockMovementRequest;
 import com.katasticho.erp.inventory.entity.Item;
+import com.katasticho.erp.inventory.entity.ItemType;
 import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.ReferenceType;
+import com.katasticho.erp.inventory.entity.StockBatch;
 import com.katasticho.erp.inventory.entity.StockMovement;
 import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
+import com.katasticho.erp.inventory.service.BatchService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
@@ -66,6 +69,7 @@ public class StockReceiptService {
     private final OrganisationRepository organisationRepository;
     private final InvoiceNumberSequenceRepository sequenceRepository;
     private final InventoryService inventoryService;
+    private final BatchService batchService;
     private final AuditService auditService;
 
     @Transactional
@@ -119,6 +123,17 @@ public class StockReceiptService {
 
             Item item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(lineReq.itemId(), orgId)
                     .orElseThrow(() -> BusinessException.notFound("Item", lineReq.itemId()));
+
+            // You can't receive a composite item — the parent is an
+            // abstraction over its children. The operator should
+            // receive the children (which have their own stock) and
+            // the composite will "assemble itself" at invoice-send
+            // time via the BOM explosion.
+            if (item.getItemType() == ItemType.COMPOSITE) {
+                throw new BusinessException(
+                        "Item " + item.getSku() + " is a composite (kit) — receive its component items instead",
+                        "GRN_COMPOSITE_NOT_ALLOWED", HttpStatus.BAD_REQUEST);
+            }
 
             BigDecimal qty = lineReq.quantity().setScale(4, RoundingMode.HALF_UP);
             BigDecimal unitPrice = lineReq.unitPrice().setScale(4, RoundingMode.HALF_UP);
@@ -200,6 +215,34 @@ public class StockReceiptService {
         }
 
         for (StockReceiptLine line : receipt.getLines()) {
+            Item item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(line.getItemId(), orgId)
+                    .orElseThrow(() -> BusinessException.notFound("Item", line.getItemId()));
+
+            // For batch-tracked items, upsert a stock_batch row from the
+            // line metadata and carry the resulting id into the movement.
+            // Non-batch-tracked items skip this entirely and flow through
+            // the aggregate path exactly as they did pre-V14.
+            UUID batchId = null;
+            if (item.isTrackBatches()) {
+                if (line.getBatchNumber() == null || line.getBatchNumber().isBlank()) {
+                    throw new BusinessException(
+                            "Item " + item.getSku() + " requires a batch number — line "
+                                    + line.getLineNumber() + " has none",
+                            "GRN_BATCH_REQUIRED", HttpStatus.BAD_REQUEST);
+                }
+                StockBatch batch = batchService.upsertBatch(
+                        item.getId(),
+                        line.getBatchNumber(),
+                        line.getExpiryDate(),
+                        line.getManufacturingDate(),
+                        line.getUnitPrice(),          // first receipt wins as batch unit cost
+                        receipt.getSupplierId());
+                batchId = batch.getId();
+                // Denormalise back onto the line so UI / audit can display
+                // the batch master id without re-joining on batch_number.
+                line.setBatchId(batchId);
+            }
+
             StockMovementRequest req = new StockMovementRequest(
                     line.getItemId(),
                     receipt.getWarehouseId(),
@@ -211,7 +254,8 @@ public class StockReceiptService {
                     receipt.getId(),
                     receipt.getReceiptNumber(),
                     "GRN " + receipt.getReceiptNumber()
-                            + (line.getBatchNumber() != null ? " batch " + line.getBatchNumber() : ""));
+                            + (line.getBatchNumber() != null ? " batch " + line.getBatchNumber() : ""),
+                    batchId);
 
             StockMovement movement = inventoryService.recordMovement(req);
             // SERVICE items return null from recordMovement — silently skip them.

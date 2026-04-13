@@ -27,6 +27,7 @@ public record UpdateItemRequest(
         @DecimalMin("0.00") BigDecimal mrp,
         @DecimalMin("0.00") BigDecimal gstRate,
         Boolean trackInventory,
+        Boolean trackBatches,
         @DecimalMin("0.00") BigDecimal reorderLevel,
         @DecimalMin("0.00") BigDecimal reorderQuantity,
         String revenueAccountCode,

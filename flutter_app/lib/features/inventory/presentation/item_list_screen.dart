@@ -36,6 +36,11 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
         title: const Text('Items'),
         actions: [
           IconButton(
+            tooltip: 'Item groups (variant templates)',
+            icon: const Icon(Icons.category_outlined),
+            onPressed: () => context.push(Routes.itemGroups),
+          ),
+          IconButton(
             tooltip: 'Bulk import from CSV',
             icon: const Icon(Icons.upload_file_outlined),
             onPressed: () => context.go(Routes.itemImport),

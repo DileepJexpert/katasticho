@@ -42,6 +42,15 @@ public class StockMovement {
     @Column(name = "warehouse_id", nullable = false, updatable = false)
     private UUID warehouseId;
 
+    /**
+     * Optional FK into {@code stock_batch}. Populated by
+     * {@code InventoryService.recordMovement()} for items where
+     * {@code track_batches=true}; left NULL for aggregate-only movements
+     * (service items, pre-V14 rows, items that don't track batches).
+     */
+    @Column(name = "batch_id", updatable = false)
+    private UUID batchId;
+
     /** Business time — when the movement actually happened. */
     @Column(name = "movement_date", nullable = false, updatable = false)
     private LocalDate movementDate;

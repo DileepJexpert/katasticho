@@ -7,6 +7,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.util.Map;
+import java.util.UUID;
 
 public record CreateItemRequest(
         @NotBlank(message = "SKU is required")
@@ -45,6 +47,13 @@ public record CreateItemRequest(
 
         Boolean trackInventory,
 
+        /**
+         * Opt into FEFO/batch tracking for this item. When true, every
+         * stock movement MUST reference a batch via {@code stock_batch}.
+         * Defaults to false.
+         */
+        Boolean trackBatches,
+
         @DecimalMin(value = "0.00", message = "Reorder level must be >= 0")
         BigDecimal reorderLevel,
 
@@ -60,5 +69,23 @@ public record CreateItemRequest(
         BigDecimal openingStock,
 
         /** Optional warehouse for the opening movement. Defaults to org's default warehouse. */
-        java.util.UUID openingWarehouseId
+        UUID openingWarehouseId,
+
+        /**
+         * Optional FK to {@code item_group}. When present, this item
+         * becomes a variant of that group: missing fields (HSN, GST,
+         * UoM, default purchase/sale price) inherit from the group at
+         * create time, and {@link #variantAttributes} must satisfy the
+         * group's attribute_definitions list.
+         */
+        UUID groupId,
+
+        /**
+         * Variant attributes, e.g. {@code {"size":"M","color":"Red"}}.
+         * Must be empty when {@link #groupId} is null and non-empty
+         * when it isn't (the DB CHECK and ItemGroupService validator
+         * both enforce this; the second message wins on user-facing
+         * errors).
+         */
+        Map<String, String> variantAttributes
 ) {}

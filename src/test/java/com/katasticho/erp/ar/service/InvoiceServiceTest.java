@@ -17,6 +17,7 @@ import com.katasticho.erp.currency.SimpleCurrencyService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
+import com.katasticho.erp.pricing.service.PriceListService;
 import com.katasticho.erp.tax.IndiaGSTEngine;
 import com.katasticho.erp.tax.TaxEngineFactory;
 import org.junit.jupiter.api.AfterEach;
@@ -49,6 +50,7 @@ class InvoiceServiceTest {
     @Mock private JournalService journalService;
     @Mock private AuditService auditService;
     @Mock private InventoryService inventoryService;
+    @Mock private PriceListService priceListService;
 
     private InvoiceService invoiceService;
     private TaxEngineFactory taxEngineFactory;
@@ -65,7 +67,14 @@ class InvoiceServiceTest {
                 invoiceRepository, taxLineItemRepository, customerRepository,
                 sequenceRepository, organisationRepository, journalService,
                 taxEngineFactory, new SimpleCurrencyService(), auditService,
-                inventoryService);
+                inventoryService, priceListService);
+
+        // By default the price list resolver returns empty — tests that
+        // want to exercise a price override stub this per-test. Using
+        // lenient() so the tests that don't create an invoice (send /
+        // cancel paths) don't trip unused-stub failures.
+        lenient().when(priceListService.resolvePrice(any(), any(), any()))
+                .thenReturn(Optional.empty());
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();

@@ -29,9 +29,16 @@ import '../features/inventory/presentation/item_list_screen.dart';
 import '../features/inventory/presentation/item_create_screen.dart';
 import '../features/inventory/presentation/item_detail_screen.dart';
 import '../features/inventory/presentation/item_import_screen.dart';
+import '../features/inventory/presentation/item_group_list_screen.dart';
+import '../features/inventory/presentation/item_group_create_screen.dart';
+import '../features/inventory/presentation/item_group_detail_screen.dart';
+import '../features/inventory/presentation/generate_variants_screen.dart';
 import '../features/procurement/presentation/stock_receipt_list_screen.dart';
 import '../features/procurement/presentation/stock_receipt_create_screen.dart';
 import '../features/procurement/presentation/stock_receipt_detail_screen.dart';
+import '../features/pricing/presentation/price_list_list_screen.dart';
+import '../features/pricing/presentation/price_list_create_screen.dart';
+import '../features/pricing/presentation/price_list_detail_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -51,6 +58,11 @@ class Routes {
   static const itemCreate = '/items/create';
   static const itemImport = '/items/import';
   static const itemDetail = '/items/:id';
+  static const itemGroups = '/item-groups';
+  static const itemGroupCreate = '/item-groups/create';
+  static const itemGroupDetail = '/item-groups/:id';
+  static const itemGroupEdit = '/item-groups/:id/edit';
+  static const itemGroupGenerate = '/item-groups/:id/generate-variants';
   static const stockReceipts = '/stock-receipts';
   static const stockReceiptCreate = '/stock-receipts/create';
   static const stockReceiptDetail = '/stock-receipts/:id';
@@ -63,6 +75,9 @@ class Routes {
   static const creditNotes = '/credit-notes';
   static const creditNoteCreate = '/credit-notes/create';
   static const creditNoteDetail = '/credit-notes/:id';
+  static const priceLists = '/price-lists';
+  static const priceListCreate = '/price-lists/create';
+  static const priceListDetail = '/price-lists/:id';
   static const recordPayment = '/invoices/:id/pay';
   static const aiChat = '/ai-chat';
   static const gst = '/gst';
@@ -195,6 +210,35 @@ final routerProvider = Provider<GoRouter>((ref) {
               itemId: state.pathParameters['id']!,
             ),
           ),
+          // F5 — item groups (variant templates).
+          GoRoute(
+            path: Routes.itemGroups,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ItemGroupListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.itemGroupCreate,
+            builder: (context, state) => const ItemGroupCreateScreen(),
+          ),
+          GoRoute(
+            path: '/item-groups/:id',
+            builder: (context, state) => ItemGroupDetailScreen(
+              groupId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: '/item-groups/:id/edit',
+            builder: (context, state) => ItemGroupCreateScreen(
+              groupId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: '/item-groups/:id/generate-variants',
+            builder: (context, state) => GenerateVariantsScreen(
+              groupId: state.pathParameters['id']!,
+            ),
+          ),
           GoRoute(
             path: Routes.stockReceipts,
             pageBuilder: (context, state) => const NoTransitionPage(
@@ -251,6 +295,22 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/credit-notes/:id',
             builder: (context, state) => CreditNoteDetailScreen(
               creditNoteId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: Routes.priceLists,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PriceListListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.priceListCreate,
+            builder: (context, state) => const PriceListCreateScreen(),
+          ),
+          GoRoute(
+            path: '/price-lists/:id',
+            builder: (context, state) => PriceListDetailScreen(
+              listId: state.pathParameters['id']!,
             ),
           ),
           GoRoute(

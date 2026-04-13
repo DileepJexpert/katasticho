@@ -80,6 +80,12 @@ const _secondaryNavItems = [
     route: Routes.creditNotes,
   ),
   NavItem(
+    label: 'Price Lists',
+    icon: Icons.sell_outlined,
+    activeIcon: Icons.sell_rounded,
+    route: Routes.priceLists,
+  ),
+  NavItem(
     label: 'GST',
     icon: Icons.account_balance_outlined,
     activeIcon: Icons.account_balance_rounded,
