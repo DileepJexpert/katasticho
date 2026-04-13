@@ -40,4 +40,13 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
     /** Bulk id lookup used by services that need to enrich DTOs with item
      * name/SKU in one round trip — see {@code PriceListService.listItemsEnriched}. */
     List<Item> findByOrgIdAndIsDeletedFalseAndIdIn(UUID orgId, Collection<UUID> ids);
+
+    /** Variants under one group — used by the F5 group detail screen
+     * and by the matrix bulk-create dedupe path. Ordered by SKU so the
+     * variant grid renders predictably. */
+    List<Item> findByOrgIdAndGroupIdAndIsDeletedFalseOrderBySkuAsc(UUID orgId, UUID groupId);
+
+    /** Existence guard for the F5 group delete path — refuses to
+     * soft-delete a group while live children still point at it. */
+    boolean existsByOrgIdAndGroupIdAndIsDeletedFalse(UUID orgId, UUID groupId);
 }

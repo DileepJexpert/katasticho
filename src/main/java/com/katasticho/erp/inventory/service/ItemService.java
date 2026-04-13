@@ -8,16 +8,19 @@ import com.katasticho.erp.inventory.dto.ItemResponse;
 import com.katasticho.erp.inventory.dto.StockMovementRequest;
 import com.katasticho.erp.inventory.dto.UpdateItemRequest;
 import com.katasticho.erp.inventory.entity.Item;
+import com.katasticho.erp.inventory.entity.ItemGroup;
 import com.katasticho.erp.inventory.entity.ItemType;
 import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.ReferenceType;
 import com.katasticho.erp.inventory.entity.StockBalance;
 import com.katasticho.erp.inventory.entity.Warehouse;
+import com.katasticho.erp.inventory.repository.ItemGroupRepository;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -26,7 +29,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -40,10 +45,48 @@ public class ItemService {
     private final InventoryService inventoryService;
     private final AuditService auditService;
     private final UomService uomService;
+    private final ItemGroupRepository itemGroupRepository;
+    /**
+     * Lazy because {@link ItemGroupService} also depends on this
+     * service (its matrix bulk-create routes through
+     * {@link #createItem}). The proxy breaks the cycle without
+     * requiring a setter or extracting a separate "creator" component.
+     */
+    @Lazy
+    private final ItemGroupService itemGroupService;
 
     @Transactional
     public ItemResponse createItem(CreateItemRequest request) {
         UUID orgId = TenantContext.getCurrentOrgId();
+
+        // F5: if the request links to an item group, run the request
+        // through one-shot inheritance BEFORE the dedupe check so the
+        // group's defaults are visible in any error context. The
+        // service.applyDefaults call returns a NEW record — never
+        // mutates the input — and validateAttributes runs against the
+        // group's closed list of allowed keys/values.
+        ItemGroup group = null;
+        if (request.groupId() != null) {
+            group = itemGroupService.loadForCreate(request.groupId());
+            if (request.itemType() != null && request.itemType() == ItemType.COMPOSITE) {
+                // Composites have their own lifecycle (BOM, no stock,
+                // GRN-locked) and don't fit cleanly into the variant
+                // template. Block them at the front door — the rule is
+                // easy to relax in v2 without a migration.
+                throw new BusinessException(
+                        "Composite items cannot belong to a variant group in this release",
+                        "GROUP_COMPOSITE_NOT_ALLOWED", HttpStatus.BAD_REQUEST);
+            }
+            itemGroupService.validateAttributes(group, request.variantAttributes());
+            request = itemGroupService.applyDefaults(group, request);
+        } else if (request.variantAttributes() != null && !request.variantAttributes().isEmpty()) {
+            // Attributes without a group make no sense — they would
+            // never satisfy a definitions list. Reject loud rather
+            // than silently dropping them, so the UI can correct.
+            throw new BusinessException(
+                    "Variant attributes can only be set on items that belong to a group",
+                    "GROUP_REQUIRED_FOR_ATTRIBUTES", HttpStatus.BAD_REQUEST);
+        }
 
         String sku = request.sku().trim();
         if (itemRepository.existsByOrgIdAndSkuAndIsDeletedFalse(orgId, sku)) {
@@ -101,6 +144,10 @@ public class ItemService {
                 .cogsAccountCode(request.cogsAccountCode())
                 .inventoryAccountCode(request.inventoryAccountCode())
                 .active(true)
+                .groupId(request.groupId())
+                .variantAttributes(request.variantAttributes() != null
+                        ? new HashMap<>(request.variantAttributes())
+                        : new HashMap<>())
                 .build();
 
         item = itemRepository.save(item);
@@ -251,6 +298,22 @@ public class ItemService {
     public ItemResponse toResponse(Item i) {
         UUID orgId = TenantContext.getCurrentOrgId();
         BigDecimal totalOnHand = i.isTrackInventory() ? totalOnHand(orgId, i.getId()) : BigDecimal.ZERO;
+        // Per-row group lookup is fine for the single-item path. The
+        // list path takes the same hit; if it ever becomes a hot spot
+        // we'll add a bulk enrichment helper similar to the BOM one.
+        // Today the variant population is small (a handful of groups
+        // per org) and the index on item.group_id keeps each lookup at
+        // a single B-tree probe.
+        String groupName = null;
+        if (i.getGroupId() != null) {
+            groupName = itemGroupRepository
+                    .findByIdAndOrgIdAndIsDeletedFalse(i.getGroupId(), orgId)
+                    .map(ItemGroup::getName)
+                    .orElse(null);
+        }
+        Map<String, String> attrs = i.getVariantAttributes() != null
+                ? i.getVariantAttributes()
+                : new HashMap<>();
         return new ItemResponse(
                 i.getId(), i.getSku(), i.getName(), i.getDescription(), i.getItemType(),
                 i.getCategory(), i.getBrand(), i.getHsnCode(), i.getUnitOfMeasure(),
@@ -258,7 +321,8 @@ public class ItemService {
                 i.isTrackInventory(), i.isTrackBatches(),
                 i.getReorderLevel(), i.getReorderQuantity(),
                 i.getRevenueAccountCode(), i.getCogsAccountCode(), i.getInventoryAccountCode(),
-                i.isActive(), totalOnHand, i.getCreatedAt());
+                i.isActive(), totalOnHand, i.getCreatedAt(),
+                i.getGroupId(), attrs, groupName);
     }
 
     private BigDecimal totalOnHand(UUID orgId, UUID itemId) {

@@ -3,8 +3,12 @@ package com.katasticho.erp.inventory.entity;
 import com.katasticho.erp.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -107,4 +111,32 @@ public class Item extends BaseEntity {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean active = true;
+
+    /**
+     * Optional FK to {@link ItemGroup}. When non-NULL this item is one
+     * variant of the group (e.g. "Cotton Tee — Red, M") and
+     * {@link #variantAttributes} carries the size/colour/etc. that
+     * distinguishes it from siblings.
+     *
+     * <p>v1 keeps the relation thin — no JPA {@code @ManyToOne} so the
+     * existing item DTO stays a flat record and there is no lazy-load
+     * surprise inside {@code toResponse}. The service joins to the
+     * group via {@code ItemGroupRepository.findById} when it needs
+     * defaults at create time.
+     */
+    @Column(name = "group_id")
+    private UUID groupId;
+
+    /**
+     * Variant attributes for this item, e.g. {@code {"size":"M","color":"Red"}}.
+     * Empty by default. The DB CHECK constraint
+     * {@code chk_item_variant_attrs_not_empty} forbids the combination
+     * (group_id IS NOT NULL, variant_attributes = '{}'). The service
+     * layer additionally validates every key/value against the parent
+     * group's {@code attribute_definitions} list.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "variant_attributes", columnDefinition = "jsonb", nullable = false)
+    @Builder.Default
+    private Map<String, String> variantAttributes = new HashMap<>();
 }
