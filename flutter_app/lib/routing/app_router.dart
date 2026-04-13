@@ -29,6 +29,10 @@ import '../features/inventory/presentation/item_list_screen.dart';
 import '../features/inventory/presentation/item_create_screen.dart';
 import '../features/inventory/presentation/item_detail_screen.dart';
 import '../features/inventory/presentation/item_import_screen.dart';
+import '../features/inventory/presentation/item_group_list_screen.dart';
+import '../features/inventory/presentation/item_group_create_screen.dart';
+import '../features/inventory/presentation/item_group_detail_screen.dart';
+import '../features/inventory/presentation/generate_variants_screen.dart';
 import '../features/procurement/presentation/stock_receipt_list_screen.dart';
 import '../features/procurement/presentation/stock_receipt_create_screen.dart';
 import '../features/procurement/presentation/stock_receipt_detail_screen.dart';
@@ -54,6 +58,11 @@ class Routes {
   static const itemCreate = '/items/create';
   static const itemImport = '/items/import';
   static const itemDetail = '/items/:id';
+  static const itemGroups = '/item-groups';
+  static const itemGroupCreate = '/item-groups/create';
+  static const itemGroupDetail = '/item-groups/:id';
+  static const itemGroupEdit = '/item-groups/:id/edit';
+  static const itemGroupGenerate = '/item-groups/:id/generate-variants';
   static const stockReceipts = '/stock-receipts';
   static const stockReceiptCreate = '/stock-receipts/create';
   static const stockReceiptDetail = '/stock-receipts/:id';
@@ -199,6 +208,35 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/items/:id',
             builder: (context, state) => ItemDetailScreen(
               itemId: state.pathParameters['id']!,
+            ),
+          ),
+          // F5 — item groups (variant templates).
+          GoRoute(
+            path: Routes.itemGroups,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ItemGroupListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.itemGroupCreate,
+            builder: (context, state) => const ItemGroupCreateScreen(),
+          ),
+          GoRoute(
+            path: '/item-groups/:id',
+            builder: (context, state) => ItemGroupDetailScreen(
+              groupId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: '/item-groups/:id/edit',
+            builder: (context, state) => ItemGroupCreateScreen(
+              groupId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: '/item-groups/:id/generate-variants',
+            builder: (context, state) => GenerateVariantsScreen(
+              groupId: state.pathParameters['id']!,
             ),
           ),
           GoRoute(

@@ -59,6 +59,17 @@ class ApiConfig {
   static String itemBom(String parentId) => '/api/v1/items/$parentId/bom';
   static String itemBomComponentById(String componentId) =>
       '/api/v1/items/bom/$componentId';
+
+  // F5 Item groups — variant template + matrix bulk-create.
+  // The group is a presentation/inheritance layer; variants stay as
+  // regular Item rows with group_id + variant_attributes, so every
+  // existing item endpoint (stock, BOM, batches, invoices, GRN, …)
+  // keeps working unchanged.
+  static const String itemGroups = '/api/v1/item-groups';
+  static String itemGroupById(String id) => '/api/v1/item-groups/$id';
+  static String itemGroupVariants(String id) => '/api/v1/item-groups/$id/items';
+  static String generateVariants(String id) =>
+      '/api/v1/item-groups/$id/generate-variants';
   static const String warehouses = '/api/v1/warehouses';
   static const String stockAdjust = '/api/v1/stock/adjust';
   static String stockReverse(String movementId) =>

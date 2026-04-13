@@ -107,6 +107,23 @@ class _ItemPickerSheetState extends ConsumerState<_ItemPickerSheet> {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final item = items[index] as Map<String, dynamic>;
+                    // F5: variants carry groupName + variantAttributes
+                    // so the picker can show "T-Shirt · size:M color:Red"
+                    // instead of just the SKU. Pickable rows behave
+                    // identically — variants are still regular Item
+                    // rows the rest of the app handles natively.
+                    final groupName = item['groupName']?.toString();
+                    final attrs =
+                        (item['variantAttributes'] as Map?) ?? const {};
+                    final attrText = attrs.entries
+                        .map((e) => '${e.key}: ${e.value}')
+                        .join(' · ');
+                    final subtitleParts = <String>[
+                      'SKU: ${item['sku'] ?? ''}',
+                      if (item['totalOnHand'] != null)
+                        '${item['totalOnHand']} on hand',
+                      if (attrText.isNotEmpty) attrText,
+                    ];
                     return ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       leading: Container(
@@ -124,11 +141,35 @@ class _ItemPickerSheetState extends ConsumerState<_ItemPickerSheet> {
                           size: 20,
                         ),
                       ),
-                      title: Text(item['name']?.toString() ?? '',
-                          style: KTypography.labelLarge),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(item['name']?.toString() ?? '',
+                                style: KTypography.labelLarge,
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                          if (groupName != null && groupName.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: KColors.primarySoft,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                groupName,
+                                style: KTypography.labelSmall.copyWith(
+                                  color: KColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                       subtitle: Text(
-                        'SKU: ${item['sku'] ?? ''}'
-                        '${item['totalOnHand'] != null ? ' • ${item['totalOnHand']} on hand' : ''}',
+                        subtitleParts.join(' • '),
                         style: KTypography.bodySmall,
                       ),
                       trailing: Text(
