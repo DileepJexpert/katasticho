@@ -12,6 +12,9 @@ public record RecordPaymentRequest(
         @NotNull(message = "Invoice ID is required")
         UUID invoiceId,
 
+        /** F6: unified contact FK — optional, derived from invoice if omitted. */
+        UUID contactId,
+
         @NotNull(message = "Payment date is required")
         LocalDate paymentDate,
 

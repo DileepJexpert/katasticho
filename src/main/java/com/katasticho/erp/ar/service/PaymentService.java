@@ -15,6 +15,7 @@ import com.katasticho.erp.ar.repository.PaymentRepository;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
@@ -53,6 +54,7 @@ public class PaymentService {
     private final InvoiceService invoiceService;
     private final CurrencyService currencyService;
     private final AuditService auditService;
+    private final CommentService commentService;
 
     private static final String AR_ACCOUNT_CODE = "1200";
     private static final String CASH_ACCOUNT_CODE = "1010";
@@ -121,10 +123,14 @@ public class PaymentService {
 
         JournalEntry journalEntry = journalService.postJournal(journalRequest);
 
+        // Resolve contactId: prefer explicit value, else inherit from invoice
+        UUID resolvedContactId = request.contactId() != null ? request.contactId() : invoice.getContactId();
+
         // Create payment record
         Payment payment = Payment.builder()
                 .orgId(orgId)
                 .customerId(invoice.getCustomerId())
+                .contactId(resolvedContactId)
                 .invoiceId(invoice.getId())
                 .paymentNumber(paymentNumber)
                 .paymentDate(request.paymentDate())
@@ -144,6 +150,10 @@ public class PaymentService {
 
         // Update invoice payment status
         invoiceService.updatePaymentStatus(invoice, request.amount());
+
+        // System comment on the invoice timeline
+        commentService.addSystemComment("INVOICE", invoice.getId(),
+                "Payment of \u20b9" + payment.getAmount() + " received (" + payment.getPaymentMethod() + ")");
 
         auditService.log("PAYMENT", payment.getId(), "CREATE", null,
                 "{\"paymentNumber\":\"" + payment.getPaymentNumber()

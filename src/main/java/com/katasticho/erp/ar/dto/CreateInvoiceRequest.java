@@ -12,6 +12,9 @@ public record CreateInvoiceRequest(
         @NotNull(message = "Customer ID is required")
         UUID customerId,
 
+        /** F6: unified contact FK — new clients send this instead of / in addition to customerId. */
+        UUID contactId,
+
         @NotNull(message = "Invoice date is required")
         LocalDate invoiceDate,
 

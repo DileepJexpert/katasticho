@@ -10,6 +10,7 @@ import com.katasticho.erp.ar.repository.*;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
@@ -57,6 +58,7 @@ public class CreditNoteService {
     private final CurrencyService currencyService;
     private final AuditService auditService;
     private final InventoryService inventoryService;
+    private final CommentService commentService;
 
     private static final String AR_ACCOUNT_CODE = "1200";
 
@@ -91,9 +93,13 @@ public class CreditNoteService {
         String cnNumber = invoiceService.generateNumber(orgId, "CN", periodYear);
         BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.creditNoteDate());
 
+        // Resolve contactId: prefer explicit value, fall back to customerId (same UUID after V2 migration)
+        UUID resolvedContactId = request.contactId() != null ? request.contactId() : customer.getId();
+
         CreditNote cn = CreditNote.builder()
                 .orgId(orgId)
                 .customerId(customer.getId())
+                .contactId(resolvedContactId)
                 .invoiceId(request.invoiceId())
                 .creditNoteNumber(cnNumber)
                 .creditNoteDate(request.creditNoteDate())
@@ -190,6 +196,8 @@ public class CreditNoteService {
 
         auditService.log("CREDIT_NOTE", cn.getId(), "CREATE", null,
                 "{\"creditNoteNumber\":\"" + cn.getCreditNoteNumber() + "\",\"total\":\"" + cn.getTotalAmount() + "\"}");
+
+        commentService.addSystemComment("CREDIT_NOTE", cn.getId(), "Credit note created");
 
         log.info("Credit note {} created: total={}", cn.getCreditNoteNumber(), cn.getTotalAmount());
         return cn;

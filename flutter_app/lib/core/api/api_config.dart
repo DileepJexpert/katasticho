@@ -104,6 +104,51 @@ class ApiConfig {
   static String cancelStockReceipt(String id) =>
       '/api/v1/stock-receipts/$id/cancel';
 
+  // F7: Expenses
+  static const String expenses = '/api/v1/expenses';
+  static String expenseById(String id) => '/api/v1/expenses/$id';
+
+  // F9: Estimates / Quotations
+  static const String estimates = '/api/v1/estimates';
+  static String estimateById(String id) => '/api/v1/estimates/$id';
+  static String sendEstimate(String id) => '/api/v1/estimates/$id/send';
+  static String acceptEstimate(String id) => '/api/v1/estimates/$id/accept';
+  static String declineEstimate(String id) => '/api/v1/estimates/$id/decline';
+  static String convertEstimate(String id) =>
+      '/api/v1/estimates/$id/convert-to-invoice';
+
+  // F8: Recurring Invoices (templates)
+  static const String recurringInvoices = '/api/v1/recurring-invoices';
+  static String recurringInvoiceById(String id) =>
+      '/api/v1/recurring-invoices/$id';
+  static String stopRecurringInvoice(String id) =>
+      '/api/v1/recurring-invoices/$id/stop';
+  static String resumeRecurringInvoice(String id) =>
+      '/api/v1/recurring-invoices/$id/resume';
+  static String generateRecurringInvoice(String id) =>
+      '/api/v1/recurring-invoices/$id/generate-now';
+  static String recurringInvoiceGenerated(String id) =>
+      '/api/v1/recurring-invoices/$id/generated-invoices';
+
+  // F6: Contacts (unified customer + vendor)
+  static const String contacts = '/api/v1/contacts';
+  static String contactById(String id) => '/api/v1/contacts/$id';
+  static String contactPersons(String contactId) =>
+      '/api/v1/contacts/$contactId/persons';
+  static String contactPersonById(String contactId, String personId) =>
+      '/api/v1/contacts/$contactId/persons/$personId';
+
+  // F6: Notifications
+  static const String notifications = '/api/v1/notifications';
+  static const String notificationsUnreadCount =
+      '/api/v1/notifications/unread-count';
+  static const String notificationsReadAll = '/api/v1/notifications/read-all';
+
+  // Comments
+  static String comments(String entityType, String entityId) =>
+      '/api/v1/comments/$entityType/$entityId';
+  static String commentById(String id) => '/api/v1/comments/$id';
+
   // AI
   static const String aiQuery = '/api/v1/ai/query';
   static const String aiScanBill = '/api/v1/ai/scan-bill';

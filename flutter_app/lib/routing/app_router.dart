@@ -10,8 +10,21 @@ import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/invoices/presentation/invoice_list_screen.dart';
 import '../features/invoices/presentation/invoice_create_screen.dart';
 import '../features/invoices/presentation/invoice_detail_screen.dart';
+import '../features/contacts/presentation/contact_list_screen.dart';
+import '../features/contacts/presentation/contact_create_screen.dart';
+import '../features/contacts/presentation/contact_detail_screen.dart';
 import '../features/customers/presentation/customer_list_screen.dart';
 import '../features/customers/presentation/customer_detail_screen.dart';
+import '../features/expenses/presentation/expense_list_screen.dart';
+import '../features/expenses/presentation/expense_create_screen.dart';
+import '../features/expenses/presentation/expense_detail_screen.dart';
+import '../features/estimates/presentation/estimate_list_screen.dart';
+import '../features/estimates/presentation/estimate_create_screen.dart';
+import '../features/estimates/presentation/estimate_detail_screen.dart';
+import '../features/recurring_invoices/presentation/recurring_invoice_list_screen.dart';
+import '../features/recurring_invoices/presentation/recurring_invoice_create_screen.dart';
+import '../features/recurring_invoices/presentation/recurring_invoice_detail_screen.dart';
+import '../features/notifications/presentation/notification_list_screen.dart';
 import '../features/reports/presentation/reports_hub_screen.dart';
 import '../features/reports/presentation/trial_balance_screen.dart';
 import '../features/reports/presentation/profit_loss_screen.dart';
@@ -52,6 +65,20 @@ class Routes {
   static const invoices = '/invoices';
   static const invoiceCreate = '/invoices/create';
   static const invoiceDetail = '/invoices/:id';
+  static const contacts = '/contacts';
+  static const contactCreate = '/contacts/create';
+  static const contactDetail = '/contacts/:id';
+  static const contactEdit = '/contacts/:id/edit';
+  static const notifications = '/notifications';
+  static const expenses = '/expenses';
+  static const expenseCreate = '/expenses/create';
+  static const expenseDetail = '/expenses/:id';
+  static const estimates = '/estimates';
+  static const estimateCreate = '/estimates/create';
+  static const estimateDetail = '/estimates/:id';
+  static const recurringInvoices = '/recurring-invoices';
+  static const recurringInvoiceCreate = '/recurring-invoices/create';
+  static const recurringInvoiceDetail = '/recurring-invoices/:id';
   static const customers = '/customers';
   static const customerDetail = '/customers/:id';
   static const items = '/items';
@@ -176,6 +203,85 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/invoices/:id',
             builder: (context, state) => InvoiceDetailScreen(
               invoiceId: state.pathParameters['id']!,
+            ),
+          ),
+          // F6: Contacts
+          GoRoute(
+            path: Routes.contacts,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ContactListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.contactCreate,
+            builder: (context, state) => const ContactCreateScreen(),
+          ),
+          GoRoute(
+            path: '/contacts/:id/edit',
+            builder: (context, state) => ContactCreateScreen(
+              contactId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: '/contacts/:id',
+            builder: (context, state) => ContactDetailScreen(
+              contactId: state.pathParameters['id']!,
+            ),
+          ),
+          // F6: Notifications
+          GoRoute(
+            path: Routes.notifications,
+            builder: (context, state) => const NotificationListScreen(),
+          ),
+          // F7: Expenses
+          GoRoute(
+            path: Routes.expenses,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ExpenseListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.expenseCreate,
+            builder: (context, state) => const ExpenseCreateScreen(),
+          ),
+          GoRoute(
+            path: '/expenses/:id',
+            builder: (context, state) => ExpenseDetailScreen(
+              expenseId: state.pathParameters['id']!,
+            ),
+          ),
+          // F9: Estimates / Quotations
+          GoRoute(
+            path: Routes.estimates,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: EstimateListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.estimateCreate,
+            builder: (context, state) => const EstimateCreateScreen(),
+          ),
+          GoRoute(
+            path: '/estimates/:id',
+            builder: (context, state) => EstimateDetailScreen(
+              estimateId: state.pathParameters['id']!,
+            ),
+          ),
+          // F8: Recurring Invoices
+          GoRoute(
+            path: Routes.recurringInvoices,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RecurringInvoiceListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.recurringInvoiceCreate,
+            builder: (context, state) => const RecurringInvoiceCreateScreen(),
+          ),
+          GoRoute(
+            path: '/recurring-invoices/:id',
+            builder: (context, state) => RecurringInvoiceDetailScreen(
+              templateId: state.pathParameters['id']!,
             ),
           ),
           GoRoute(
