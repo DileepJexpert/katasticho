@@ -21,6 +21,9 @@ import '../features/expenses/presentation/expense_detail_screen.dart';
 import '../features/estimates/presentation/estimate_list_screen.dart';
 import '../features/estimates/presentation/estimate_create_screen.dart';
 import '../features/estimates/presentation/estimate_detail_screen.dart';
+import '../features/recurring_invoices/presentation/recurring_invoice_list_screen.dart';
+import '../features/recurring_invoices/presentation/recurring_invoice_create_screen.dart';
+import '../features/recurring_invoices/presentation/recurring_invoice_detail_screen.dart';
 import '../features/notifications/presentation/notification_list_screen.dart';
 import '../features/reports/presentation/reports_hub_screen.dart';
 import '../features/reports/presentation/trial_balance_screen.dart';
@@ -73,6 +76,9 @@ class Routes {
   static const estimates = '/estimates';
   static const estimateCreate = '/estimates/create';
   static const estimateDetail = '/estimates/:id';
+  static const recurringInvoices = '/recurring-invoices';
+  static const recurringInvoiceCreate = '/recurring-invoices/create';
+  static const recurringInvoiceDetail = '/recurring-invoices/:id';
   static const customers = '/customers';
   static const customerDetail = '/customers/:id';
   static const items = '/items';
@@ -259,6 +265,23 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/estimates/:id',
             builder: (context, state) => EstimateDetailScreen(
               estimateId: state.pathParameters['id']!,
+            ),
+          ),
+          // F8: Recurring Invoices
+          GoRoute(
+            path: Routes.recurringInvoices,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RecurringInvoiceListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.recurringInvoiceCreate,
+            builder: (context, state) => const RecurringInvoiceCreateScreen(),
+          ),
+          GoRoute(
+            path: '/recurring-invoices/:id',
+            builder: (context, state) => RecurringInvoiceDetailScreen(
+              templateId: state.pathParameters['id']!,
             ),
           ),
           GoRoute(

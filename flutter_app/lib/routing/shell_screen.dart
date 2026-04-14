@@ -76,6 +76,12 @@ const _secondaryNavItems = [
     route: Routes.estimates,
   ),
   NavItem(
+    label: 'Recurring',
+    icon: Icons.autorenew_outlined,
+    activeIcon: Icons.autorenew_rounded,
+    route: Routes.recurringInvoices,
+  ),
+  NavItem(
     label: 'Import Items',
     icon: Icons.upload_file_outlined,
     activeIcon: Icons.upload_file_rounded,

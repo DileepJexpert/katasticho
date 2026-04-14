@@ -117,6 +117,19 @@ class ApiConfig {
   static String convertEstimate(String id) =>
       '/api/v1/estimates/$id/convert-to-invoice';
 
+  // F8: Recurring Invoices (templates)
+  static const String recurringInvoices = '/api/v1/recurring-invoices';
+  static String recurringInvoiceById(String id) =>
+      '/api/v1/recurring-invoices/$id';
+  static String stopRecurringInvoice(String id) =>
+      '/api/v1/recurring-invoices/$id/stop';
+  static String resumeRecurringInvoice(String id) =>
+      '/api/v1/recurring-invoices/$id/resume';
+  static String generateRecurringInvoice(String id) =>
+      '/api/v1/recurring-invoices/$id/generate-now';
+  static String recurringInvoiceGenerated(String id) =>
+      '/api/v1/recurring-invoices/$id/generated-invoices';
+
   // F6: Contacts (unified customer + vendor)
   static const String contacts = '/api/v1/contacts';
   static String contactById(String id) => '/api/v1/contacts/$id';
