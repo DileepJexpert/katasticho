@@ -13,6 +13,8 @@ import com.katasticho.erp.ar.repository.*;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.currency.SimpleCurrencyService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
@@ -45,12 +47,14 @@ class InvoiceServiceTest {
     @Mock private InvoiceRepository invoiceRepository;
     @Mock private TaxLineItemRepository taxLineItemRepository;
     @Mock private CustomerRepository customerRepository;
+    @Mock private ContactRepository contactRepository;
     @Mock private InvoiceNumberSequenceRepository sequenceRepository;
     @Mock private OrganisationRepository organisationRepository;
     @Mock private JournalService journalService;
     @Mock private AuditService auditService;
     @Mock private InventoryService inventoryService;
     @Mock private PriceListService priceListService;
+    @Mock private CommentService commentService;
 
     private InvoiceService invoiceService;
     private TaxEngineFactory taxEngineFactory;
@@ -65,9 +69,9 @@ class InvoiceServiceTest {
 
         invoiceService = new InvoiceService(
                 invoiceRepository, taxLineItemRepository, customerRepository,
-                sequenceRepository, organisationRepository, journalService,
-                taxEngineFactory, new SimpleCurrencyService(), auditService,
-                inventoryService, priceListService);
+                contactRepository, sequenceRepository, organisationRepository,
+                journalService, taxEngineFactory, new SimpleCurrencyService(),
+                auditService, inventoryService, priceListService, commentService);
 
         // By default the price list resolver returns empty — tests that
         // want to exercise a price override stub this per-test. Using
@@ -135,6 +139,7 @@ class InvoiceServiceTest {
 
         var request = new CreateInvoiceRequest(
                 customer.getId(),
+                null, // contactId — legacy test, customerId path
                 LocalDate.of(2026, 4, 11),
                 null, // auto-calculate due date
                 "MH", // same state as seller
@@ -201,6 +206,7 @@ class InvoiceServiceTest {
 
         var request = new CreateInvoiceRequest(
                 kaCustomer.getId(),
+                null, // contactId
                 LocalDate.of(2026, 4, 11),
                 null,
                 "KA", // buyer state != seller state (MH)
@@ -375,6 +381,7 @@ class InvoiceServiceTest {
         // 10 items @ 1000 each, 10% discount, 18% GST
         var request = new CreateInvoiceRequest(
                 customer.getId(),
+                null, // contactId
                 LocalDate.of(2026, 4, 11),
                 null, "MH", false, null, null,
                 List.of(new InvoiceLineRequest("Product", "8471", new BigDecimal("10"),

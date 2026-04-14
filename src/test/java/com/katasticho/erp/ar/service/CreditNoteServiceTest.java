@@ -10,6 +10,7 @@ import com.katasticho.erp.ar.repository.*;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.currency.SimpleCurrencyService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
@@ -47,6 +48,7 @@ class CreditNoteServiceTest {
     @Mock private JournalService journalService;
     @Mock private AuditService auditService;
     @Mock private InventoryService inventoryService;
+    @Mock private CommentService commentService;
 
     private CreditNoteService creditNoteService;
     private UUID orgId;
@@ -62,7 +64,8 @@ class CreditNoteServiceTest {
                 creditNoteRepository, taxLineItemRepository, customerRepository,
                 invoiceRepository, sequenceRepository, organisationRepository,
                 invoiceService, journalService, taxEngineFactory,
-                new SimpleCurrencyService(), auditService, inventoryService);
+                new SimpleCurrencyService(), auditService, inventoryService,
+                commentService);
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
@@ -110,7 +113,9 @@ class CreditNoteServiceTest {
 
         // Create credit note
         var request = new CreateCreditNoteRequest(
-                customer.getId(), invoiceId,
+                customer.getId(),
+                null, // contactId — legacy test, customerId path
+                invoiceId,
                 LocalDate.of(2026, 4, 15),
                 "Defective goods returned",
                 "MH",

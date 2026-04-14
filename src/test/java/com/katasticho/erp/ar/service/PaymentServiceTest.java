@@ -13,6 +13,7 @@ import com.katasticho.erp.ar.repository.PaymentRepository;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.currency.SimpleCurrencyService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
@@ -43,6 +44,7 @@ class PaymentServiceTest {
     @Mock private JournalService journalService;
     @Mock private InvoiceService invoiceService;
     @Mock private AuditService auditService;
+    @Mock private CommentService commentService;
 
     private PaymentService paymentService;
     private UUID orgId;
@@ -54,7 +56,7 @@ class PaymentServiceTest {
         paymentService = new PaymentService(
                 paymentRepository, invoiceRepository, customerRepository,
                 organisationRepository, journalService, invoiceService,
-                new SimpleCurrencyService(), auditService);
+                new SimpleCurrencyService(), auditService, commentService);
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
@@ -101,6 +103,7 @@ class PaymentServiceTest {
 
         var request = new RecordPaymentRequest(
                 invoice.getId(),
+                null, // contactId — legacy test, derived from invoice
                 LocalDate.of(2026, 4, 15),
                 new BigDecimal("5000"),
                 "BANK_TRANSFER",
@@ -147,6 +150,7 @@ class PaymentServiceTest {
 
         var request = new RecordPaymentRequest(
                 invoice.getId(),
+                null, // contactId
                 LocalDate.now(),
                 new BigDecimal("1500"), // Exceeds balance
                 "CASH", null, null, null
@@ -172,7 +176,9 @@ class PaymentServiceTest {
                 .thenReturn(Optional.of(draftInvoice));
 
         var request = new RecordPaymentRequest(
-                draftInvoice.getId(), LocalDate.now(),
+                draftInvoice.getId(),
+                null, // contactId
+                LocalDate.now(),
                 new BigDecimal("500"), "CASH", null, null, null
         );
 
@@ -210,7 +216,9 @@ class PaymentServiceTest {
         });
 
         var request = new RecordPaymentRequest(
-                invoice.getId(), LocalDate.now(), new BigDecimal("500"),
+                invoice.getId(),
+                null, // contactId
+                LocalDate.now(), new BigDecimal("500"),
                 "UPI", "UPI-REF-123", null, null
         );
 
