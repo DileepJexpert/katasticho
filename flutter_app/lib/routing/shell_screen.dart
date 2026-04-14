@@ -70,6 +70,12 @@ const _navItems = [
 
 const _secondaryNavItems = [
   NavItem(
+    label: 'Estimates',
+    icon: Icons.request_quote_outlined,
+    activeIcon: Icons.request_quote_rounded,
+    route: Routes.estimates,
+  ),
+  NavItem(
     label: 'Import Items',
     icon: Icons.upload_file_outlined,
     activeIcon: Icons.upload_file_rounded,

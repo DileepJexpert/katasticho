@@ -18,6 +18,9 @@ import '../features/customers/presentation/customer_detail_screen.dart';
 import '../features/expenses/presentation/expense_list_screen.dart';
 import '../features/expenses/presentation/expense_create_screen.dart';
 import '../features/expenses/presentation/expense_detail_screen.dart';
+import '../features/estimates/presentation/estimate_list_screen.dart';
+import '../features/estimates/presentation/estimate_create_screen.dart';
+import '../features/estimates/presentation/estimate_detail_screen.dart';
 import '../features/notifications/presentation/notification_list_screen.dart';
 import '../features/reports/presentation/reports_hub_screen.dart';
 import '../features/reports/presentation/trial_balance_screen.dart';
@@ -67,6 +70,9 @@ class Routes {
   static const expenses = '/expenses';
   static const expenseCreate = '/expenses/create';
   static const expenseDetail = '/expenses/:id';
+  static const estimates = '/estimates';
+  static const estimateCreate = '/estimates/create';
+  static const estimateDetail = '/estimates/:id';
   static const customers = '/customers';
   static const customerDetail = '/customers/:id';
   static const items = '/items';
@@ -236,6 +242,23 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/expenses/:id',
             builder: (context, state) => ExpenseDetailScreen(
               expenseId: state.pathParameters['id']!,
+            ),
+          ),
+          // F9: Estimates / Quotations
+          GoRoute(
+            path: Routes.estimates,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: EstimateListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.estimateCreate,
+            builder: (context, state) => const EstimateCreateScreen(),
+          ),
+          GoRoute(
+            path: '/estimates/:id',
+            builder: (context, state) => EstimateDetailScreen(
+              estimateId: state.pathParameters['id']!,
             ),
           ),
           GoRoute(

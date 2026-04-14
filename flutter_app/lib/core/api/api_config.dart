@@ -108,6 +108,15 @@ class ApiConfig {
   static const String expenses = '/api/v1/expenses';
   static String expenseById(String id) => '/api/v1/expenses/$id';
 
+  // F9: Estimates / Quotations
+  static const String estimates = '/api/v1/estimates';
+  static String estimateById(String id) => '/api/v1/estimates/$id';
+  static String sendEstimate(String id) => '/api/v1/estimates/$id/send';
+  static String acceptEstimate(String id) => '/api/v1/estimates/$id/accept';
+  static String declineEstimate(String id) => '/api/v1/estimates/$id/decline';
+  static String convertEstimate(String id) =>
+      '/api/v1/estimates/$id/convert-to-invoice';
+
   // F6: Contacts (unified customer + vendor)
   static const String contacts = '/api/v1/contacts';
   static String contactById(String id) => '/api/v1/contacts/$id';
