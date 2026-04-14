@@ -104,6 +104,25 @@ class ApiConfig {
   static String cancelStockReceipt(String id) =>
       '/api/v1/stock-receipts/$id/cancel';
 
+  // F6: Contacts (unified customer + vendor)
+  static const String contacts = '/api/v1/contacts';
+  static String contactById(String id) => '/api/v1/contacts/$id';
+  static String contactPersons(String contactId) =>
+      '/api/v1/contacts/$contactId/persons';
+  static String contactPersonById(String contactId, String personId) =>
+      '/api/v1/contacts/$contactId/persons/$personId';
+
+  // F6: Notifications
+  static const String notifications = '/api/v1/notifications';
+  static const String notificationsUnreadCount =
+      '/api/v1/notifications/unread-count';
+  static const String notificationsReadAll = '/api/v1/notifications/read-all';
+
+  // Comments
+  static String comments(String entityType, String entityId) =>
+      '/api/v1/comments/$entityType/$entityId';
+  static String commentById(String id) => '/api/v1/comments/$id';
+
   // AI
   static const String aiQuery = '/api/v1/ai/query';
   static const String aiScanBill = '/api/v1/ai/scan-bill';

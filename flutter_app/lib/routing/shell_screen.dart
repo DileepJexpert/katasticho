@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/auth/auth_state.dart';
+import '../core/theme/k_colors.dart';
 import '../core/theme/k_spacing.dart';
 import '../core/widgets/theme_mode_switcher.dart';
+import '../features/notifications/data/notification_repository.dart';
 import 'app_router.dart';
 
 /// Navigation item definition.
@@ -35,10 +37,10 @@ const _navItems = [
     route: Routes.invoices,
   ),
   NavItem(
-    label: 'Customers',
+    label: 'Contacts',
     icon: Icons.people_outline_rounded,
     activeIcon: Icons.people_rounded,
-    route: Routes.customers,
+    route: Routes.contacts,
   ),
   NavItem(
     label: 'Items',
@@ -264,6 +266,8 @@ class _DesktopShell extends ConsumerWidget {
                               ],
                             ),
                           ),
+                          const _NotificationBell(),
+                          const SizedBox(width: 4),
                           const ThemeModeIconButton(),
                         ],
                       ),
@@ -495,6 +499,54 @@ class _MobileShell extends StatelessWidget {
                 ))
             .toList(),
       ),
+    );
+  }
+}
+
+// ── Notification Bell ─────────────────────────────────────────────────
+
+class _NotificationBell extends ConsumerWidget {
+  const _NotificationBell();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final countAsync = ref.watch(unreadCountProvider);
+    final count = countAsync.valueOrNull ?? 0;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.notifications_outlined, size: 20),
+          tooltip: 'Notifications',
+          onPressed: () => context.push(Routes.notifications),
+        ),
+        if (count > 0)
+          Positioned(
+            right: 6,
+            top: 6,
+            child: IgnorePointer(
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: const BoxDecoration(
+                  color: KColors.error,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    count > 9 ? '9+' : '$count',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

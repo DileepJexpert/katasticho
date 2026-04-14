@@ -10,6 +10,9 @@ import com.katasticho.erp.ar.repository.*;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
@@ -51,6 +54,7 @@ public class InvoiceService {
     private final InvoiceRepository invoiceRepository;
     private final TaxLineItemRepository taxLineItemRepository;
     private final CustomerRepository customerRepository;
+    private final ContactRepository contactRepository;
     private final InvoiceNumberSequenceRepository sequenceRepository;
     private final OrganisationRepository organisationRepository;
     private final JournalService journalService;
@@ -59,6 +63,7 @@ public class InvoiceService {
     private final AuditService auditService;
     private final InventoryService inventoryService;
     private final PriceListService priceListService;
+    private final CommentService commentService;
 
     private static final String AR_ACCOUNT_CODE = "1200"; // Accounts Receivable
 
@@ -98,10 +103,14 @@ public class InvoiceService {
         // Get exchange rate
         BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.invoiceDate());
 
+        // Resolve contactId: prefer explicit value, fall back to customerId (UUIDs match after V2 migration)
+        UUID resolvedContactId = request.contactId() != null ? request.contactId() : customer.getId();
+
         // Build invoice
         Invoice invoice = Invoice.builder()
                 .orgId(orgId)
                 .customerId(customer.getId())
+                .contactId(resolvedContactId)
                 .invoiceNumber(invoiceNumber)
                 .invoiceDate(request.invoiceDate())
                 .dueDate(dueDate)
@@ -245,6 +254,8 @@ public class InvoiceService {
         auditService.log("INVOICE", invoice.getId(), "CREATE", null,
                 "{\"invoiceNumber\":\"" + invoice.getInvoiceNumber() + "\",\"total\":\"" + invoice.getTotalAmount() + "\"}");
 
+        commentService.addSystemComment("INVOICE", invoice.getId(), "Invoice created");
+
         log.info("Invoice {} created: {} lines, total={}", invoice.getInvoiceNumber(),
                 invoice.getLines().size(), invoice.getTotalAmount());
         return toResponse(invoice);
@@ -326,6 +337,16 @@ public class InvoiceService {
 
         auditService.log("INVOICE", invoice.getId(), "SEND", "{\"status\":\"DRAFT\"}",
                 "{\"status\":\"SENT\",\"journalEntryId\":\"" + journalEntry.getId() + "\"}");
+
+        // System comment: include contact email if available
+        String sendComment = "Invoice sent";
+        if (invoice.getContactId() != null) {
+            Contact contact = contactRepository.findById(invoice.getContactId()).orElse(null);
+            if (contact != null && contact.getEmail() != null) {
+                sendComment = "Invoice emailed to " + contact.getEmail();
+            }
+        }
+        commentService.addSystemComment("INVOICE", invoice.getId(), sendComment);
 
         log.info("Invoice {} sent, journal={}", invoice.getInvoiceNumber(), journalEntry.getEntryNumber());
         return toResponse(invoice);

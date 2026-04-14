@@ -29,6 +29,10 @@ public class Invoice {
     @Column(name = "customer_id", nullable = false)
     private UUID customerId;
 
+    /** F6: unified contact FK. Nullable for old rows; set on all new invoices. */
+    @Column(name = "contact_id")
+    private UUID contactId;
+
     @Column(name = "invoice_number", nullable = false, length = 30)
     private String invoiceNumber;
 

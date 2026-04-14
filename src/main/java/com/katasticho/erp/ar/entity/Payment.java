@@ -27,6 +27,10 @@ public class Payment {
     @Column(name = "customer_id", nullable = false)
     private UUID customerId;
 
+    /** F6: unified contact FK. */
+    @Column(name = "contact_id")
+    private UUID contactId;
+
     @Column(name = "invoice_id", nullable = false)
     private UUID invoiceId;
 

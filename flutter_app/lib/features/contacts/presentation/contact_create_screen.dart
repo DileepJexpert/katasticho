@@ -1,0 +1,417 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/widgets.dart';
+import '../data/contact_repository.dart';
+
+class ContactCreateScreen extends ConsumerStatefulWidget {
+  /// If non-null, loads the contact and pre-fills the form for editing.
+  final String? contactId;
+
+  const ContactCreateScreen({super.key, this.contactId});
+
+  @override
+  ConsumerState<ContactCreateScreen> createState() =>
+      _ContactCreateScreenState();
+}
+
+class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
+  final _formKey = GlobalKey<FormState>();
+
+  // Core
+  String _contactType = 'CUSTOMER';
+  final _displayNameCtrl = TextEditingController();
+  final _companyNameCtrl = TextEditingController();
+  final _firstNameCtrl = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
+
+  // Tax
+  final _gstinCtrl = TextEditingController();
+  final _panCtrl = TextEditingController();
+  String _gstTreatment = 'UNREGISTERED';
+
+  // Contact channels
+  final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _mobileCtrl = TextEditingController();
+
+  // Billing address
+  final _billAddr1Ctrl = TextEditingController();
+  final _billCityCtrl = TextEditingController();
+  final _billStateCtrl = TextEditingController();
+  final _billStateCodeCtrl = TextEditingController();
+  final _billPostalCtrl = TextEditingController();
+  final _billCountryCtrl = TextEditingController(text: 'IN');
+
+  // Financial
+  final _creditLimitCtrl = TextEditingController(text: '0');
+  int _paymentTermsDays = 30;
+
+  bool _loading = false;
+  bool _isEdit = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.contactId != null) {
+      _isEdit = true;
+      _loadContact();
+    }
+  }
+
+  @override
+  void dispose() {
+    _displayNameCtrl.dispose();
+    _companyNameCtrl.dispose();
+    _firstNameCtrl.dispose();
+    _lastNameCtrl.dispose();
+    _gstinCtrl.dispose();
+    _panCtrl.dispose();
+    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    _mobileCtrl.dispose();
+    _billAddr1Ctrl.dispose();
+    _billCityCtrl.dispose();
+    _billStateCtrl.dispose();
+    _billStateCodeCtrl.dispose();
+    _billPostalCtrl.dispose();
+    _billCountryCtrl.dispose();
+    _creditLimitCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadContact() async {
+    final repo = ref.read(contactRepositoryProvider);
+    final result = await repo.getContact(widget.contactId!);
+    final c = (result['data'] ?? result) as Map<String, dynamic>;
+    setState(() {
+      _contactType = c['contactType'] as String? ?? 'CUSTOMER';
+      _displayNameCtrl.text = c['displayName'] as String? ?? '';
+      _companyNameCtrl.text = c['companyName'] as String? ?? '';
+      _firstNameCtrl.text = c['firstName'] as String? ?? '';
+      _lastNameCtrl.text = c['lastName'] as String? ?? '';
+      _gstinCtrl.text = c['gstin'] as String? ?? '';
+      _panCtrl.text = c['pan'] as String? ?? '';
+      _gstTreatment = c['gstTreatment'] as String? ?? 'UNREGISTERED';
+      _emailCtrl.text = c['email'] as String? ?? '';
+      _phoneCtrl.text = c['phone'] as String? ?? '';
+      _mobileCtrl.text = c['mobile'] as String? ?? '';
+      _billAddr1Ctrl.text = c['billingAddressLine1'] as String? ?? '';
+      _billCityCtrl.text = c['billingCity'] as String? ?? '';
+      _billStateCtrl.text = c['billingState'] as String? ?? '';
+      _billStateCodeCtrl.text = c['billingStateCode'] as String? ?? '';
+      _billPostalCtrl.text = c['billingPostalCode'] as String? ?? '';
+      _billCountryCtrl.text = c['billingCountry'] as String? ?? 'IN';
+      _creditLimitCtrl.text =
+          (c['creditLimit'] as num?)?.toString() ?? '0';
+      _paymentTermsDays = (c['paymentTermsDays'] as num?)?.toInt() ?? 30;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_isEdit ? 'Edit Contact' : 'Add Contact'),
+        actions: [
+          TextButton(
+            onPressed: _loading ? null : _save,
+            child: _loading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Save'),
+          ),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: KSpacing.pagePadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Contact type selector
+              _SectionTitle('Contact Type'),
+              KSpacing.vGapSm,
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'CUSTOMER', label: Text('Customer')),
+                  ButtonSegment(value: 'VENDOR', label: Text('Vendor')),
+                  ButtonSegment(value: 'BOTH', label: Text('Both')),
+                ],
+                selected: {_contactType},
+                onSelectionChanged: (s) =>
+                    setState(() => _contactType = s.first),
+              ),
+              KSpacing.vGapLg,
+
+              // Basic info
+              _SectionTitle('Basic Information'),
+              KSpacing.vGapSm,
+              KTextField(
+                label: 'Display Name *',
+                controller: _displayNameCtrl,
+                prefixIcon: Icons.person_outline,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Required' : null,
+              ),
+              KSpacing.vGapMd,
+              KTextField(
+                label: 'Company Name',
+                controller: _companyNameCtrl,
+                prefixIcon: Icons.business_outlined,
+              ),
+              KSpacing.vGapMd,
+              Row(
+                children: [
+                  Expanded(
+                    child: KTextField(
+                      label: 'First Name',
+                      controller: _firstNameCtrl,
+                    ),
+                  ),
+                  KSpacing.hGapMd,
+                  Expanded(
+                    child: KTextField(
+                      label: 'Last Name',
+                      controller: _lastNameCtrl,
+                    ),
+                  ),
+                ],
+              ),
+              KSpacing.vGapLg,
+
+              // Contact details
+              _SectionTitle('Contact Details'),
+              KSpacing.vGapSm,
+              KTextField(
+                label: 'Email',
+                controller: _emailCtrl,
+                prefixIcon: Icons.email_outlined,
+                keyboardType: TextInputType.emailAddress,
+              ),
+              KSpacing.vGapMd,
+              KTextField(
+                label: 'Phone',
+                controller: _phoneCtrl,
+                prefixIcon: Icons.phone_outlined,
+                keyboardType: TextInputType.phone,
+              ),
+              KSpacing.vGapMd,
+              KTextField(
+                label: 'Mobile',
+                controller: _mobileCtrl,
+                prefixIcon: Icons.smartphone_outlined,
+                keyboardType: TextInputType.phone,
+              ),
+              KSpacing.vGapLg,
+
+              // Tax
+              _SectionTitle('Tax Information'),
+              KSpacing.vGapSm,
+              KTextField(
+                label: 'GSTIN',
+                controller: _gstinCtrl,
+                prefixIcon: Icons.receipt_long_outlined,
+                maxLength: 15,
+                onChanged: (v) {
+                  // Auto-infer GST treatment
+                  if (v.length == 15) {
+                    setState(() => _gstTreatment = 'REGISTERED');
+                  } else if (_gstTreatment == 'REGISTERED') {
+                    setState(() => _gstTreatment = 'UNREGISTERED');
+                  }
+                },
+              ),
+              KSpacing.vGapMd,
+              KTextField(
+                label: 'PAN',
+                controller: _panCtrl,
+                prefixIcon: Icons.credit_card_outlined,
+                maxLength: 10,
+              ),
+              KSpacing.vGapMd,
+              DropdownButtonFormField<String>(
+                value: _gstTreatment,
+                decoration: const InputDecoration(
+                  labelText: 'GST Treatment',
+                  prefixIcon: Icon(Icons.account_balance_outlined),
+                ),
+                items: const [
+                  DropdownMenuItem(
+                      value: 'REGISTERED', child: Text('Registered')),
+                  DropdownMenuItem(
+                      value: 'UNREGISTERED', child: Text('Unregistered')),
+                  DropdownMenuItem(
+                      value: 'COMPOSITION', child: Text('Composition Scheme')),
+                  DropdownMenuItem(
+                      value: 'CONSUMER', child: Text('Consumer')),
+                  DropdownMenuItem(value: 'OVERSEAS', child: Text('Overseas')),
+                  DropdownMenuItem(value: 'SEZ', child: Text('SEZ')),
+                ],
+                onChanged: (v) =>
+                    setState(() => _gstTreatment = v ?? 'UNREGISTERED'),
+              ),
+              KSpacing.vGapLg,
+
+              // Billing address
+              _SectionTitle('Billing Address'),
+              KSpacing.vGapSm,
+              KTextField(
+                label: 'Address Line 1',
+                controller: _billAddr1Ctrl,
+              ),
+              KSpacing.vGapMd,
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: KTextField(
+                      label: 'City',
+                      controller: _billCityCtrl,
+                    ),
+                  ),
+                  KSpacing.hGapMd,
+                  Expanded(
+                    child: KTextField(
+                      label: 'Postal Code',
+                      controller: _billPostalCtrl,
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
+              ),
+              KSpacing.vGapMd,
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: KTextField(
+                      label: 'State',
+                      controller: _billStateCtrl,
+                    ),
+                  ),
+                  KSpacing.hGapMd,
+                  Expanded(
+                    child: KTextField(
+                      label: 'State Code',
+                      controller: _billStateCodeCtrl,
+                      maxLength: 5,
+                      hint: 'e.g. 29',
+                    ),
+                  ),
+                ],
+              ),
+              KSpacing.vGapMd,
+              KTextField(
+                label: 'Country (2-letter code)',
+                controller: _billCountryCtrl,
+                maxLength: 2,
+              ),
+              KSpacing.vGapLg,
+
+              // Financial terms
+              _SectionTitle('Financial Terms'),
+              KSpacing.vGapSm,
+              KTextField(
+                label: 'Credit Limit (₹)',
+                controller: _creditLimitCtrl,
+                keyboardType: TextInputType.number,
+                prefixIcon: Icons.account_balance_wallet_outlined,
+              ),
+              KSpacing.vGapMd,
+              DropdownButtonFormField<int>(
+                value: _paymentTermsDays,
+                decoration: const InputDecoration(
+                  labelText: 'Payment Terms',
+                  prefixIcon: Icon(Icons.calendar_today_outlined),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 0, child: Text('Due on Receipt')),
+                  DropdownMenuItem(value: 15, child: Text('Net 15')),
+                  DropdownMenuItem(value: 30, child: Text('Net 30')),
+                  DropdownMenuItem(value: 45, child: Text('Net 45')),
+                  DropdownMenuItem(value: 60, child: Text('Net 60')),
+                  DropdownMenuItem(value: 90, child: Text('Net 90')),
+                ],
+                onChanged: (v) =>
+                    setState(() => _paymentTermsDays = v ?? 30),
+              ),
+              KSpacing.vGapXl,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _loading = true);
+
+    final data = <String, dynamic>{
+      'contactType': _contactType,
+      'displayName': _displayNameCtrl.text.trim(),
+      if (_companyNameCtrl.text.isNotEmpty)
+        'companyName': _companyNameCtrl.text.trim(),
+      if (_firstNameCtrl.text.isNotEmpty)
+        'firstName': _firstNameCtrl.text.trim(),
+      if (_lastNameCtrl.text.isNotEmpty) 'lastName': _lastNameCtrl.text.trim(),
+      if (_gstinCtrl.text.isNotEmpty) 'gstin': _gstinCtrl.text.trim(),
+      if (_panCtrl.text.isNotEmpty) 'pan': _panCtrl.text.trim(),
+      'gstTreatment': _gstTreatment,
+      if (_emailCtrl.text.isNotEmpty) 'email': _emailCtrl.text.trim(),
+      if (_phoneCtrl.text.isNotEmpty) 'phone': _phoneCtrl.text.trim(),
+      if (_mobileCtrl.text.isNotEmpty) 'mobile': _mobileCtrl.text.trim(),
+      if (_billAddr1Ctrl.text.isNotEmpty)
+        'billingAddressLine1': _billAddr1Ctrl.text.trim(),
+      if (_billCityCtrl.text.isNotEmpty)
+        'billingCity': _billCityCtrl.text.trim(),
+      if (_billStateCtrl.text.isNotEmpty)
+        'billingState': _billStateCtrl.text.trim(),
+      if (_billStateCodeCtrl.text.isNotEmpty)
+        'billingStateCode': _billStateCodeCtrl.text.trim(),
+      if (_billPostalCtrl.text.isNotEmpty)
+        'billingPostalCode': _billPostalCtrl.text.trim(),
+      'billingCountry':
+          _billCountryCtrl.text.trim().isEmpty ? 'IN' : _billCountryCtrl.text.trim(),
+      'creditLimit': double.tryParse(_creditLimitCtrl.text) ?? 0.0,
+      'paymentTermsDays': _paymentTermsDays,
+    };
+
+    try {
+      final repo = ref.read(contactRepositoryProvider);
+      if (_isEdit) {
+        await repo.updateContact(widget.contactId!, data);
+      } else {
+        await repo.createContact(data);
+      }
+      // Invalidate all contact list providers (all tab variants)
+      ref.invalidate(contactListProvider);
+      if (!mounted) return;
+      context.pop();
+    } catch (e) {
+      setState(() => _loading = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save contact: $e')),
+      );
+    }
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String text;
+
+  const _SectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, style: KTypography.h3);
+  }
+}

@@ -10,8 +10,12 @@ import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/invoices/presentation/invoice_list_screen.dart';
 import '../features/invoices/presentation/invoice_create_screen.dart';
 import '../features/invoices/presentation/invoice_detail_screen.dart';
+import '../features/contacts/presentation/contact_list_screen.dart';
+import '../features/contacts/presentation/contact_create_screen.dart';
+import '../features/contacts/presentation/contact_detail_screen.dart';
 import '../features/customers/presentation/customer_list_screen.dart';
 import '../features/customers/presentation/customer_detail_screen.dart';
+import '../features/notifications/presentation/notification_list_screen.dart';
 import '../features/reports/presentation/reports_hub_screen.dart';
 import '../features/reports/presentation/trial_balance_screen.dart';
 import '../features/reports/presentation/profit_loss_screen.dart';
@@ -52,6 +56,11 @@ class Routes {
   static const invoices = '/invoices';
   static const invoiceCreate = '/invoices/create';
   static const invoiceDetail = '/invoices/:id';
+  static const contacts = '/contacts';
+  static const contactCreate = '/contacts/create';
+  static const contactDetail = '/contacts/:id';
+  static const contactEdit = '/contacts/:id/edit';
+  static const notifications = '/notifications';
   static const customers = '/customers';
   static const customerDetail = '/customers/:id';
   static const items = '/items';
@@ -177,6 +186,34 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => InvoiceDetailScreen(
               invoiceId: state.pathParameters['id']!,
             ),
+          ),
+          // F6: Contacts
+          GoRoute(
+            path: Routes.contacts,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ContactListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.contactCreate,
+            builder: (context, state) => const ContactCreateScreen(),
+          ),
+          GoRoute(
+            path: '/contacts/:id/edit',
+            builder: (context, state) => ContactCreateScreen(
+              contactId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: '/contacts/:id',
+            builder: (context, state) => ContactDetailScreen(
+              contactId: state.pathParameters['id']!,
+            ),
+          ),
+          // F6: Notifications
+          GoRoute(
+            path: Routes.notifications,
+            builder: (context, state) => const NotificationListScreen(),
           ),
           GoRoute(
             path: Routes.customers,

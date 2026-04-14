@@ -13,6 +13,9 @@ public record CreateCreditNoteRequest(
         @NotNull(message = "Customer ID is required")
         UUID customerId,
 
+        /** F6: unified contact FK — optional, falls back to customerId. */
+        UUID contactId,
+
         UUID invoiceId,
 
         @NotNull(message = "Credit note date is required")
