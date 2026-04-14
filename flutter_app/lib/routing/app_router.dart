@@ -15,6 +15,9 @@ import '../features/contacts/presentation/contact_create_screen.dart';
 import '../features/contacts/presentation/contact_detail_screen.dart';
 import '../features/customers/presentation/customer_list_screen.dart';
 import '../features/customers/presentation/customer_detail_screen.dart';
+import '../features/expenses/presentation/expense_list_screen.dart';
+import '../features/expenses/presentation/expense_create_screen.dart';
+import '../features/expenses/presentation/expense_detail_screen.dart';
 import '../features/notifications/presentation/notification_list_screen.dart';
 import '../features/reports/presentation/reports_hub_screen.dart';
 import '../features/reports/presentation/trial_balance_screen.dart';
@@ -61,6 +64,9 @@ class Routes {
   static const contactDetail = '/contacts/:id';
   static const contactEdit = '/contacts/:id/edit';
   static const notifications = '/notifications';
+  static const expenses = '/expenses';
+  static const expenseCreate = '/expenses/create';
+  static const expenseDetail = '/expenses/:id';
   static const customers = '/customers';
   static const customerDetail = '/customers/:id';
   static const items = '/items';
@@ -214,6 +220,23 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.notifications,
             builder: (context, state) => const NotificationListScreen(),
+          ),
+          // F7: Expenses
+          GoRoute(
+            path: Routes.expenses,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ExpenseListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.expenseCreate,
+            builder: (context, state) => const ExpenseCreateScreen(),
+          ),
+          GoRoute(
+            path: '/expenses/:id',
+            builder: (context, state) => ExpenseDetailScreen(
+              expenseId: state.pathParameters['id']!,
+            ),
           ),
           GoRoute(
             path: Routes.customers,

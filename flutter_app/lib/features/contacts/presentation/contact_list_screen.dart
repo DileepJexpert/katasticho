@@ -53,7 +53,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen>
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(
-                KSpacing.mdVal, KSpacing.smVal, KSpacing.mdVal, 0),
+                KSpacing.md, KSpacing.sm, KSpacing.md, 0),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(

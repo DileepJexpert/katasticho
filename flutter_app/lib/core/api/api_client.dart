@@ -102,7 +102,7 @@ class ApiClient {
     return dio.patch<T>(path, data: data);
   }
 
-  Future<Response<T>> delete<T>(String path) {
-    return dio.delete<T>(path);
+  Future<Response<T>> delete<T>(String path, {dynamic data}) {
+    return dio.delete<T>(path, data: data);
   }
 }

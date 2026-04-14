@@ -49,6 +49,12 @@ const _navItems = [
     route: Routes.items,
   ),
   NavItem(
+    label: 'Expenses',
+    icon: Icons.payments_outlined,
+    activeIcon: Icons.payments_rounded,
+    route: Routes.expenses,
+  ),
+  NavItem(
     label: 'Reports',
     icon: Icons.bar_chart_outlined,
     activeIcon: Icons.bar_chart_rounded,
