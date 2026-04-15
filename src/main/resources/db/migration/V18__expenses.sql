@@ -14,6 +14,7 @@
 CREATE TABLE expense (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id              UUID          NOT NULL REFERENCES organisation(id),
+    branch_id           UUID          REFERENCES branch(id),
 
     expense_number      VARCHAR(30)   NOT NULL,          -- EXP-YYYY-NNNNNN
     expense_date        DATE          NOT NULL,

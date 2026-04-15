@@ -57,11 +57,42 @@ CREATE INDEX idx_exchange_rate_lookup ON exchange_rate(from_currency, to_currenc
 
 
 -- ─────────────────────────────────────────────────────────────
--- 3. APP USER
+-- 3. BRANCH  (org location / division — every warehouse, user,
+--            invoice, payment, etc. is scoped to a branch)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE branch (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id          UUID         NOT NULL REFERENCES organisation(id),
+    code            VARCHAR(20)  NOT NULL,
+    name            VARCHAR(255) NOT NULL,
+    address_line1   VARCHAR(255),
+    address_line2   VARCHAR(255),
+    city            VARCHAR(100),
+    state           VARCHAR(100),
+    state_code      VARCHAR(5),
+    postal_code     VARCHAR(20),
+    country         VARCHAR(2)   DEFAULT 'IN',
+    gstin           VARCHAR(15),
+    is_default      BOOLEAN      NOT NULL DEFAULT FALSE,
+    is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
+    is_deleted      BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    created_by      UUID
+);
+
+CREATE UNIQUE INDEX idx_branch_org_code    ON branch(org_id, code)  WHERE NOT is_deleted;
+CREATE UNIQUE INDEX idx_branch_org_default ON branch(org_id)        WHERE is_default AND NOT is_deleted;
+CREATE INDEX        idx_branch_org         ON branch(org_id)        WHERE NOT is_deleted;
+
+
+-- ─────────────────────────────────────────────────────────────
+-- 4. APP USER
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE app_user (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id              UUID        NOT NULL REFERENCES organisation(id),
+    branch_id           UUID        REFERENCES branch(id),
     email               VARCHAR(255),
     phone               VARCHAR(20),
     password_hash       VARCHAR(255),
@@ -377,6 +408,7 @@ SELECT 'F_AND_B',code,name,type,sub_type,parent_code,level,is_system FROM coa_te
 CREATE TABLE warehouse (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id          UUID         NOT NULL REFERENCES organisation(id),
+    branch_id       UUID         REFERENCES branch(id),
     code            VARCHAR(20)  NOT NULL,
     name            VARCHAR(255) NOT NULL,
     address_line1   VARCHAR(255),
@@ -675,6 +707,7 @@ CREATE INDEX        idx_stock_batch_balance_warehouse ON stock_batch_balance(org
 CREATE TABLE stock_movement (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id           UUID          NOT NULL REFERENCES organisation(id),
+    branch_id        UUID          REFERENCES branch(id),
     item_id          UUID          NOT NULL REFERENCES item(id),
     warehouse_id     UUID          NOT NULL REFERENCES warehouse(id),
     movement_date    DATE          NOT NULL,
@@ -717,6 +750,7 @@ CREATE INDEX idx_stock_movement_batch     ON stock_movement(batch_id) WHERE batc
 CREATE TABLE stock_balance (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id           UUID          NOT NULL REFERENCES organisation(id),
+    branch_id        UUID          REFERENCES branch(id),
     item_id          UUID          NOT NULL REFERENCES item(id),
     warehouse_id     UUID          NOT NULL REFERENCES warehouse(id),
     quantity_on_hand NUMERIC(15,4) NOT NULL DEFAULT 0,
@@ -815,6 +849,7 @@ CREATE INDEX        idx_customer_default_pl   ON customer(default_price_list_id)
 CREATE TABLE invoice (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id           UUID          NOT NULL REFERENCES organisation(id),
+    branch_id        UUID          REFERENCES branch(id),
     customer_id      UUID          NOT NULL REFERENCES customer(id),
     invoice_number   VARCHAR(30)   NOT NULL,
     invoice_date     DATE          NOT NULL,
@@ -920,6 +955,7 @@ CREATE INDEX idx_tax_line_regime ON tax_line_item(org_id, tax_regime, component_
 CREATE TABLE payment (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id           UUID          NOT NULL REFERENCES organisation(id),
+    branch_id        UUID          REFERENCES branch(id),
     customer_id      UUID          NOT NULL REFERENCES customer(id),
     invoice_id       UUID          NOT NULL REFERENCES invoice(id),
     payment_number   VARCHAR(30)   NOT NULL,
@@ -952,6 +988,7 @@ CREATE INDEX        idx_payment_customer   ON payment(customer_id);
 CREATE TABLE credit_note (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id            UUID          NOT NULL REFERENCES organisation(id),
+    branch_id         UUID          REFERENCES branch(id),
     customer_id       UUID          NOT NULL REFERENCES customer(id),
     invoice_id        UUID REFERENCES invoice(id),
     credit_note_number VARCHAR(30)  NOT NULL,
@@ -1027,6 +1064,7 @@ CREATE TABLE invoice_number_sequence (
 CREATE TABLE stock_receipt (
     id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id                UUID          NOT NULL REFERENCES organisation(id),
+    branch_id             UUID          REFERENCES branch(id),
     receipt_number        VARCHAR(30)   NOT NULL,
     receipt_date          DATE          NOT NULL,
     warehouse_id          UUID          NOT NULL REFERENCES warehouse(id),
@@ -1274,3 +1312,28 @@ BEGIN
     RETURN v_balance;
 END;
 $$ LANGUAGE plpgsql;
+
+
+-- ═══════════════════════════════════════════════════════════════
+-- VIEWS
+-- ═══════════════════════════════════════════════════════════════
+
+-- ─────────────────────────────────────────────────────────────
+-- V1. branch_stock_summary
+--     Rolls up on-hand stock per (branch, item) across all
+--     warehouses in that branch. Used by the branch dashboard.
+-- ─────────────────────────────────────────────────────────────
+CREATE VIEW branch_stock_summary AS
+SELECT
+    w.org_id                                  AS org_id,
+    w.branch_id                               AS branch_id,
+    sb.item_id                                AS item_id,
+    SUM(sb.quantity_on_hand)                  AS quantity_on_hand,
+    SUM(sb.quantity_on_hand * sb.average_cost) AS stock_value,
+    COUNT(DISTINCT sb.warehouse_id)           AS warehouse_count,
+    MAX(sb.last_movement_at)                  AS last_movement_at
+FROM stock_balance sb
+JOIN warehouse     w  ON w.id = sb.warehouse_id
+WHERE w.branch_id IS NOT NULL
+  AND NOT w.is_deleted
+GROUP BY w.org_id, w.branch_id, sb.item_id;

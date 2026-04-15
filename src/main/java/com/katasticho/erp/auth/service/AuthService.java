@@ -14,6 +14,7 @@ import com.katasticho.erp.organisation.OrganisationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +36,7 @@ public class AuthService {
     private final OtpService otpService;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
+    private final JdbcTemplate jdbcTemplate;
 
     public void requestOtp(OtpRequest request) {
         otpService.generateAndStore(request.phone());
@@ -87,7 +89,17 @@ public class AuthService {
                 .build();
         org = organisationRepository.save(org);
 
-        // Create owner user
+        // Bootstrap: every org gets a default branch on day 1. All future
+        // warehouses / invoices / etc. inherit this branch unless the user
+        // explicitly sets another. The unique partial index enforces one
+        // default per org at the DB level.
+        UUID defaultBranchId = UUID.randomUUID();
+        jdbcTemplate.update(
+                "INSERT INTO branch (id, org_id, code, name, is_default, is_active) " +
+                "VALUES (?, ?, 'HO', 'Head Office', TRUE, TRUE)",
+                defaultBranchId, org.getId());
+
+        // Create owner user — scoped to the default branch
         AppUser user = AppUser.builder()
                 .phone(request.phone())
                 .fullName(request.fullName())
@@ -96,6 +108,13 @@ public class AuthService {
         user.setOrgId(org.getId());
         user.setLastLoginAt(Instant.now());
         user = userRepository.save(user);
+
+        // Stamp the owner with the default branch via SQL — branchId is not
+        // yet on the AppUser entity; Hibernate validate mode ignores extra
+        // DB columns, so we set it out-of-band until the entity is extended.
+        jdbcTemplate.update(
+                "UPDATE app_user SET branch_id = ? WHERE id = ?",
+                defaultBranchId, user.getId());
 
         auditService.logSync(org.getId(), user.getId(), "APP_USER", user.getId(),
                 "CREATE", null, "{\"action\":\"signup\"}");
