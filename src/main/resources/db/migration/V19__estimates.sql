@@ -17,6 +17,7 @@
 CREATE TABLE estimate (
     id                         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id                     UUID          NOT NULL REFERENCES organisation(id),
+    branch_id                  UUID          REFERENCES branch(id),
 
     estimate_number            VARCHAR(30)   NOT NULL,   -- EST-YYYY-NNNNNN
 
