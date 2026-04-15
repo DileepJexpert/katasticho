@@ -82,12 +82,16 @@ public class AuthService {
             throw new BusinessException("Phone number already registered", "AUTH_PHONE_EXISTS", HttpStatus.CONFLICT);
         }
 
-        // Create organisation
+        // Create organisation — saveAndFlush so the INSERT hits the DB
+        // immediately. We need the row committed to the current txn before
+        // the raw JdbcTemplate branch insert below, otherwise the branch FK
+        // to organisation.id would fail (Hibernate's write-behind cache
+        // would still be holding the org insert).
         Organisation org = Organisation.builder()
                 .name(request.orgName())
                 .industry(request.industry())
                 .build();
-        org = organisationRepository.save(org);
+        org = organisationRepository.saveAndFlush(org);
 
         // Bootstrap: every org gets a default branch on day 1. All future
         // warehouses / invoices / etc. inherit this branch unless the user
@@ -99,7 +103,8 @@ public class AuthService {
                 "VALUES (?, ?, 'HO', 'Head Office', TRUE, TRUE)",
                 defaultBranchId, org.getId());
 
-        // Create owner user — scoped to the default branch
+        // Create owner user — saveAndFlush for the same write-behind reason
+        // (we raw-UPDATE the branch_id column below).
         AppUser user = AppUser.builder()
                 .phone(request.phone())
                 .fullName(request.fullName())
@@ -107,7 +112,7 @@ public class AuthService {
                 .build();
         user.setOrgId(org.getId());
         user.setLastLoginAt(Instant.now());
-        user = userRepository.save(user);
+        user = userRepository.saveAndFlush(user);
 
         // Stamp the owner with the default branch via SQL — branchId is not
         // yet on the AppUser entity; Hibernate validate mode ignores extra
