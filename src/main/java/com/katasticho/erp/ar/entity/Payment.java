@@ -24,6 +24,10 @@ public class Payment {
     @Column(name = "org_id", nullable = false, updatable = false)
     private UUID orgId;
 
+    /** Branch this payment belongs to. Nullable for pre-branch rows; set on all new payments. */
+    @Column(name = "branch_id")
+    private UUID branchId;
+
     @Column(name = "customer_id", nullable = false)
     private UUID customerId;
 

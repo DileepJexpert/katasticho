@@ -1,25 +1,23 @@
-package com.katasticho.erp.inventory.entity;
+package com.katasticho.erp.organisation;
 
 import com.katasticho.erp.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
 /**
- * Physical or logical stock location. Every org has at least one default
- * warehouse (seeded by V9 / OrganisationService).
+ * Branch — physical or logical business location under an organisation.
+ * Every org has at least one default branch (created at signup). Warehouses,
+ * users, invoices, payments, stock movements all carry branch_id so reports
+ * can be rolled up per-branch. One branch per org is flagged is_default.
  */
 @Entity
-@Table(name = "warehouse")
+@Table(name = "branch")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Warehouse extends BaseEntity {
-
-    /** Branch this warehouse sits under. Nullable for pre-branch rows. */
-    @Column(name = "branch_id")
-    private java.util.UUID branchId;
+public class Branch extends BaseEntity {
 
     @Column(nullable = false, length = 20)
     private String code;
@@ -48,6 +46,9 @@ public class Warehouse extends BaseEntity {
     @Column(length = 2)
     @Builder.Default
     private String country = "IN";
+
+    @Column(length = 15)
+    private String gstin;
 
     @Column(name = "is_default", nullable = false)
     @Builder.Default

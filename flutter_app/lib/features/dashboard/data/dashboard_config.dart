@@ -146,9 +146,16 @@ const _pharmacy = DashboardConfig(
   kpis: [
     KpiConfig(
       id: 'today_sales',
-      title: "Today's Sales",
+      title: 'Revenue',
       icon: Icons.point_of_sale,
       color: KColors.primary,
+      endpoint: '/api/v1/dashboard/today-sales',
+    ),
+    KpiConfig(
+      id: 'cash_collected',
+      title: 'Cash Collected',
+      icon: Icons.payments_outlined,
+      color: KColors.success,
       endpoint: '/api/v1/dashboard/today-sales',
     ),
     KpiConfig(
@@ -164,13 +171,6 @@ const _pharmacy = DashboardConfig(
       icon: Icons.account_balance_wallet,
       color: KColors.warning,
       endpoint: '/api/v1/dashboard/receivables',
-    ),
-    KpiConfig(
-      id: 'monthly_profit',
-      title: 'Monthly Profit',
-      icon: Icons.trending_up,
-      color: KColors.success,
-      endpoint: '/api/v1/dashboard/monthly-profit',
     ),
   ],
   quickActions: [

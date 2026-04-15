@@ -26,6 +26,10 @@ public class Invoice {
     @Column(name = "org_id", nullable = false, updatable = false)
     private UUID orgId;
 
+    /** Branch this invoice belongs to. Nullable for pre-branch rows; set on all new invoices. */
+    @Column(name = "branch_id")
+    private UUID branchId;
+
     @Column(name = "customer_id", nullable = false)
     private UUID customerId;
 

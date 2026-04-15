@@ -17,6 +17,7 @@ import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.currency.SimpleCurrencyService;
 import com.katasticho.erp.inventory.service.InventoryService;
+import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.pricing.service.PriceListService;
@@ -50,6 +51,7 @@ class InvoiceServiceTest {
     @Mock private ContactRepository contactRepository;
     @Mock private InvoiceNumberSequenceRepository sequenceRepository;
     @Mock private OrganisationRepository organisationRepository;
+    @Mock private BranchRepository branchRepository;
     @Mock private JournalService journalService;
     @Mock private AuditService auditService;
     @Mock private InventoryService inventoryService;
@@ -70,6 +72,7 @@ class InvoiceServiceTest {
         invoiceService = new InvoiceService(
                 invoiceRepository, taxLineItemRepository, customerRepository,
                 contactRepository, sequenceRepository, organisationRepository,
+                branchRepository,
                 journalService, taxEngineFactory, new SimpleCurrencyService(),
                 auditService, inventoryService, priceListService, commentService);
 

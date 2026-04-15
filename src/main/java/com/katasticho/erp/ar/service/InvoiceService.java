@@ -15,6 +15,8 @@ import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.inventory.service.InventoryService;
+import com.katasticho.erp.organisation.Branch;
+import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.pricing.service.PriceListService;
@@ -57,6 +59,7 @@ public class InvoiceService {
     private final ContactRepository contactRepository;
     private final InvoiceNumberSequenceRepository sequenceRepository;
     private final OrganisationRepository organisationRepository;
+    private final BranchRepository branchRepository;
     private final JournalService journalService;
     private final TaxEngineFactory taxEngineFactory;
     private final CurrencyService currencyService;
@@ -106,9 +109,16 @@ public class InvoiceService {
         // Resolve contactId: prefer explicit value, fall back to customerId (UUIDs match after V2 migration)
         UUID resolvedContactId = request.contactId() != null ? request.contactId() : customer.getId();
 
+        // Stamp the org's default branch. Multi-branch selection comes later
+        // via a request field; for now every new invoice rolls up to the
+        // default branch so dashboard breakdowns work out-of-the-box.
+        UUID branchId = branchRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
+                .map(Branch::getId).orElse(null);
+
         // Build invoice
         Invoice invoice = Invoice.builder()
                 .orgId(orgId)
+                .branchId(branchId)
                 .customerId(customer.getId())
                 .contactId(resolvedContactId)
                 .invoiceNumber(invoiceNumber)

@@ -7,10 +7,15 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../data/dashboard_config.dart';
+import '../data/dashboard_repository.dart';
 import '../widgets/quick_action_grid.dart';
 import '../widgets/overdue_invoices_widget.dart';
 import '../widgets/sales_chart_widget.dart';
 import '../widgets/low_stock_widget.dart';
+import '../widgets/revenue_by_branch_widget.dart';
+import '../widgets/top_selling_widget.dart';
+import '../widgets/branch_selector_widget.dart';
+import '../widgets/date_range_picker_widget.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -35,7 +40,14 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async {},
+        onRefresh: () async {
+          // Invalidate dashboard providers so the pull-down kicks a
+          // fresh fetch on every aggregation widget at once.
+          ref.invalidate(todaySalesProvider);
+          ref.invalidate(topSellingProvider);
+          ref.invalidate(branchesProvider);
+          await Future.delayed(const Duration(milliseconds: 200));
+        },
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
           child: Column(
@@ -49,7 +61,15 @@ class DashboardScreen extends ConsumerWidget {
               ),
               KSpacing.vGapMd,
 
-              // KPI Cards
+              // Filter bar — date range + branch selector. Updates the
+              // shared dashboardFilterProvider which every aggregation
+              // widget on the page keys off of.
+              const _FilterBar(),
+              KSpacing.vGapMd,
+
+              // KPI Cards — now driven by todaySalesProvider for the
+              // "today_sales" tile; other tiles still render static
+              // placeholders until their own endpoints come online.
               _KpiGrid(kpis: config.kpis, isDesktop: isDesktop),
               KSpacing.vGapMd,
 
@@ -67,21 +87,33 @@ class DashboardScreen extends ConsumerWidget {
                     Expanded(
                       flex: 2,
                       child: Column(
-                        children: [
-                          const SalesChartWidget(),
-                          KSpacing.vGapMd,
-                          const LowStockWidget(),
+                        children: const [
+                          SalesChartWidget(),
+                          SizedBox(height: 16),
+                          RevenueByBranchWidget(),
+                          SizedBox(height: 16),
+                          LowStockWidget(),
                         ],
                       ),
                     ),
                     KSpacing.hGapMd,
                     const Expanded(
-                      child: OverdueInvoicesWidget(),
+                      child: Column(
+                        children: [
+                          TopSellingWidget(),
+                          SizedBox(height: 16),
+                          OverdueInvoicesWidget(),
+                        ],
+                      ),
                     ),
                   ],
                 )
               else ...[
                 const SalesChartWidget(),
+                KSpacing.vGapMd,
+                const RevenueByBranchWidget(),
+                KSpacing.vGapMd,
+                const TopSellingWidget(),
                 KSpacing.vGapMd,
                 const OverdueInvoicesWidget(),
                 KSpacing.vGapMd,
@@ -181,15 +213,21 @@ class _GreetingStrip extends StatelessWidget {
   }
 }
 
-class _KpiGrid extends StatelessWidget {
+/// KPI tile grid. The four tiles come from the industry config, but the
+/// "today_sales" and "cash_collected" tiles are hydrated from the
+/// shared [todaySalesProvider] so they respond to the date + branch
+/// filter. Remaining tiles still fall back to a neutral placeholder
+/// until their own endpoints come online.
+class _KpiGrid extends ConsumerWidget {
   final List<KpiConfig> kpis;
   final bool isDesktop;
 
   const _KpiGrid({required this.kpis, required this.isDesktop});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final crossAxisCount = isDesktop ? 4 : 2;
+    final todaySalesAsync = ref.watch(todaySalesProvider);
 
     return GridView.builder(
       shrinkWrap: true,
@@ -205,15 +243,87 @@ class _KpiGrid extends StatelessWidget {
       itemCount: kpis.length,
       itemBuilder: (context, index) {
         final kpi = kpis[index];
-        // Placeholder values — will be replaced with actual API data
-        return KKpiCard(
-          title: kpi.title,
-          value: CurrencyFormatter.formatCompact(0),
-          icon: kpi.icon,
-          iconColor: kpi.color,
-          trend: '--',
+        return todaySalesAsync.when(
+          loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
+          error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
+          data: (data) {
+            final (value, trend) = _valueFor(kpi.id, data);
+            return KKpiCard(
+              title: kpi.title,
+              value: value,
+              icon: kpi.icon,
+              iconColor: kpi.color,
+              trend: trend,
+            );
+          },
         );
       },
+    );
+  }
+
+  /// Resolve a KPI tile value + trend label from the today-sales payload.
+  /// Non-sales KPIs (receivables, low-stock-count, etc.) fall back to a
+  /// neutral placeholder — they'll get their own providers later.
+  (String, String) _valueFor(String id, dynamic data) {
+    switch (id) {
+      case 'today_sales':
+        return (CurrencyFormatter.formatCompact(data.revenue as double), 'Today');
+      case 'cash_collected':
+        return (CurrencyFormatter.formatCompact(data.cashCollected as double), 'Today');
+      case 'monthly_revenue':
+        return (CurrencyFormatter.formatCompact(data.revenue as double), 'MTD');
+      case 'avg_order_value':
+        return (CurrencyFormatter.formatCompact(data.revenue as double), 'Avg');
+      default:
+        return (CurrencyFormatter.formatCompact(0), '--');
+    }
+  }
+}
+
+class _KpiPlaceholder extends StatelessWidget {
+  final KpiConfig kpi;
+  final String value;
+  const _KpiPlaceholder({required this.kpi, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return KKpiCard(
+      title: kpi.title,
+      value: value,
+      icon: kpi.icon,
+      iconColor: kpi.color,
+      trend: '--',
+    );
+  }
+}
+
+/// Dashboard-level filter bar: date-range picker + branch selector.
+/// Writes straight to `dashboardFilterProvider`. Layout shifts to a
+/// column on narrow screens so neither control gets squeezed.
+class _FilterBar extends ConsumerWidget {
+  const _FilterBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final width = MediaQuery.of(context).size.width;
+    final stacked = width < 600;
+
+    if (stacked) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: const [
+          DashboardDateRangePicker(),
+          SizedBox(height: 8),
+          BranchSelectorWidget(),
+        ],
+      );
+    }
+    return Row(
+      children: const [
+        Expanded(child: DashboardDateRangePicker()),
+        SizedBox(width: 12),
+        Expanded(child: BranchSelectorWidget()),
+      ],
     );
   }
 }

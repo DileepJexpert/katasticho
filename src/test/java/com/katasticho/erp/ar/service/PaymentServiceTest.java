@@ -15,6 +15,7 @@ import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.currency.SimpleCurrencyService;
+import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -41,6 +42,7 @@ class PaymentServiceTest {
     @Mock private InvoiceRepository invoiceRepository;
     @Mock private CustomerRepository customerRepository;
     @Mock private OrganisationRepository organisationRepository;
+    @Mock private BranchRepository branchRepository;
     @Mock private JournalService journalService;
     @Mock private InvoiceService invoiceService;
     @Mock private AuditService auditService;
@@ -55,7 +57,7 @@ class PaymentServiceTest {
     void setUp() {
         paymentService = new PaymentService(
                 paymentRepository, invoiceRepository, customerRepository,
-                organisationRepository, journalService, invoiceService,
+                organisationRepository, branchRepository, journalService, invoiceService,
                 new SimpleCurrencyService(), auditService, commentService);
 
         orgId = UUID.randomUUID();

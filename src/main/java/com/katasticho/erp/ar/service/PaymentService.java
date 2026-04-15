@@ -17,6 +17,8 @@ import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.currency.CurrencyService;
+import com.katasticho.erp.organisation.Branch;
+import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +52,7 @@ public class PaymentService {
     private final InvoiceRepository invoiceRepository;
     private final CustomerRepository customerRepository;
     private final OrganisationRepository organisationRepository;
+    private final BranchRepository branchRepository;
     private final JournalService journalService;
     private final InvoiceService invoiceService;
     private final CurrencyService currencyService;
@@ -126,9 +129,17 @@ public class PaymentService {
         // Resolve contactId: prefer explicit value, else inherit from invoice
         UUID resolvedContactId = request.contactId() != null ? request.contactId() : invoice.getContactId();
 
+        // Payment rolls up to the same branch as the invoice it settles.
+        // Fall back to the org's default branch for pre-branch invoices.
+        UUID branchId = invoice.getBranchId() != null
+                ? invoice.getBranchId()
+                : branchRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
+                        .map(Branch::getId).orElse(null);
+
         // Create payment record
         Payment payment = Payment.builder()
                 .orgId(orgId)
+                .branchId(branchId)
                 .customerId(invoice.getCustomerId())
                 .contactId(resolvedContactId)
                 .invoiceId(invoice.getId())

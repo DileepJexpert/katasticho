@@ -7,6 +7,8 @@ import com.katasticho.erp.inventory.dto.CreateWarehouseRequest;
 import com.katasticho.erp.inventory.dto.WarehouseResponse;
 import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
+import com.katasticho.erp.organisation.Branch;
+import com.katasticho.erp.organisation.BranchRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -22,6 +24,7 @@ import java.util.UUID;
 public class WarehouseService {
 
     private final WarehouseRepository warehouseRepository;
+    private final BranchRepository branchRepository;
     private final AuditService auditService;
 
     @Transactional
@@ -49,7 +52,13 @@ public class WarehouseService {
             }
         }
 
+        // Stamp the org's default branch on new warehouses so branch
+        // rollups stay accurate. Callers don't pick branch yet.
+        UUID branchId = branchRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
+                .map(Branch::getId).orElse(null);
+
         Warehouse warehouse = Warehouse.builder()
+                .branchId(branchId)
                 .code(code)
                 .name(request.name().trim())
                 .addressLine1(request.addressLine1())

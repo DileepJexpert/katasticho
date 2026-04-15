@@ -153,6 +153,18 @@ class ApiConfig {
   static const String aiQuery = '/api/v1/ai/query';
   static const String aiScanBill = '/api/v1/ai/scan-bill';
 
+  // Branches (multi-branch rollup)
+  static const String branches = '/api/v1/branches';
+  static String branchById(String id) => '/api/v1/branches/$id';
+
+  // Dashboard aggregation
+  static const String dashboardTodaySales = '/api/v1/dashboard/today-sales';
+  static const String dashboardTopSelling = '/api/v1/dashboard/top-selling';
+
+  // Demo seeding (owner-only, idempotent)
+  static const String demoSeedSharmaMedical =
+      '/api/v1/demo/seed-sharma-medical';
+
   // Pricing (v2 — F3 price lists)
   static const String priceLists = '/api/v1/price-lists';
   static String priceListById(String id) => '/api/v1/price-lists/$id';
