@@ -57,6 +57,8 @@ class DashboardServiceTest {
     @Mock private ItemRepository itemRepository;
     @Mock private BranchRepository branchRepository;
     @Mock private OrganisationRepository organisationRepository;
+    @Mock private com.katasticho.erp.ap.repository.PurchaseBillRepository purchaseBillRepository;
+    @Mock private com.katasticho.erp.contact.repository.ContactRepository contactRepository;
 
     private DashboardService dashboardService;
     private UUID orgId;
@@ -66,7 +68,8 @@ class DashboardServiceTest {
     void setUp() {
         dashboardService = new DashboardService(
                 invoiceRepository, paymentRepository, invoiceLineRepository,
-                itemRepository, branchRepository, organisationRepository);
+                itemRepository, branchRepository, organisationRepository,
+                purchaseBillRepository, contactRepository);
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);
