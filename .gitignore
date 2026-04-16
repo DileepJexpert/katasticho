@@ -24,6 +24,12 @@ Thumbs.db
 ### Environment ###
 .env
 *.env.local
+!.env.example
+
+### Android Signing ###
+*.jks
+*.keystore
+key.properties
 
 ### Logs ###
 *.log
