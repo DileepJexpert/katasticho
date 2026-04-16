@@ -81,6 +81,12 @@ const _purchasesNavItems = [
     activeIcon: Icons.payments_rounded,
     route: Routes.vendorPayments,
   ),
+  NavItem(
+    label: 'Credits',
+    icon: Icons.note_alt_outlined,
+    activeIcon: Icons.note_alt_rounded,
+    route: Routes.vendorCredits,
+  ),
 ];
 
 const _secondaryNavItems = [
