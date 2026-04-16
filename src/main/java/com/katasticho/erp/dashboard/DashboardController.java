@@ -1,6 +1,8 @@
 package com.katasticho.erp.dashboard;
 
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.dashboard.dto.ApSummaryResponse;
+import com.katasticho.erp.dashboard.dto.RecentBillResponse;
 import com.katasticho.erp.dashboard.dto.TodaySalesResponse;
 import com.katasticho.erp.dashboard.dto.TopSellingItem;
 import lombok.RequiredArgsConstructor;
@@ -47,5 +49,21 @@ public class DashboardController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false, defaultValue = "5") int limit) {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.getTopSelling(from, to, limit)));
+    }
+
+    @GetMapping("/ap-summary")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<ApSummaryResponse>> apSummary(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) UUID branchId) {
+        return ResponseEntity.ok(ApiResponse.ok(dashboardService.getApSummary(from, to, branchId)));
+    }
+
+    @GetMapping("/recent-bills")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<List<RecentBillResponse>>> recentBills(
+            @RequestParam(required = false, defaultValue = "5") int limit) {
+        return ResponseEntity.ok(ApiResponse.ok(dashboardService.getRecentBills(limit)));
     }
 }

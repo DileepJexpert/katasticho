@@ -1,13 +1,15 @@
 package com.katasticho.erp.dashboard;
 
+import com.katasticho.erp.ap.entity.PurchaseBill;
+import com.katasticho.erp.ap.repository.PurchaseBillRepository;
 import com.katasticho.erp.ar.repository.InvoiceLineRepository;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.repository.PaymentRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
-import com.katasticho.erp.dashboard.dto.BranchSalesRow;
-import com.katasticho.erp.dashboard.dto.TodaySalesResponse;
-import com.katasticho.erp.dashboard.dto.TopSellingItem;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.repository.ContactRepository;
+import com.katasticho.erp.dashboard.dto.*;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.organisation.Branch;
@@ -16,6 +18,7 @@ import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +50,8 @@ public class DashboardService {
     private final ItemRepository itemRepository;
     private final BranchRepository branchRepository;
     private final OrganisationRepository organisationRepository;
+    private final PurchaseBillRepository purchaseBillRepository;
+    private final ContactRepository contactRepository;
 
     /**
      * Today-sales snapshot for the dashboard. Returns revenue + cash
@@ -131,6 +136,89 @@ public class DashboardService {
                 })
                 .sorted(Comparator.comparing(BranchSalesRow::revenue).reversed())
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ApSummaryResponse getApSummary(LocalDate from, LocalDate to, UUID branchId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        LocalDate today = LocalDate.now();
+        LocalDate weekFromNow = today.plusDays(7);
+
+        List<PurchaseBill> outstanding = purchaseBillRepository.findOutstandingBills(orgId);
+
+        BigDecimal totalOutstanding = BigDecimal.ZERO;
+        int overdueCount = 0;
+        BigDecimal dueThisWeek = BigDecimal.ZERO;
+        int dueThisWeekCount = 0;
+
+        for (PurchaseBill bill : outstanding) {
+            totalOutstanding = totalOutstanding.add(bill.getBalanceDue());
+
+            if (bill.getDueDate() != null && bill.getDueDate().isBefore(today)) {
+                overdueCount++;
+            }
+            if (bill.getDueDate() != null
+                    && !bill.getDueDate().isBefore(today)
+                    && !bill.getDueDate().isAfter(weekFromNow)) {
+                dueThisWeek = dueThisWeek.add(bill.getBalanceDue());
+                dueThisWeekCount++;
+            }
+        }
+
+        List<Branch> branches = branchRepository.findByOrgIdAndIsDeletedFalseOrderByName(orgId);
+        List<BranchPurchaseRow> byBranch;
+        if (branches.isEmpty()) {
+            byBranch = List.of();
+        } else {
+            Map<UUID, BigDecimal> purchasesByBranch = outstanding.stream()
+                    .filter(b -> b.getBranchId() != null)
+                    .collect(Collectors.groupingBy(
+                            PurchaseBill::getBranchId,
+                            Collectors.reducing(BigDecimal.ZERO, PurchaseBill::getBalanceDue, BigDecimal::add)));
+
+            BigDecimal denom = totalOutstanding.signum() > 0 ? totalOutstanding : BigDecimal.ONE;
+            byBranch = branches.stream()
+                    .filter(b -> branchId == null || branchId.equals(b.getId()))
+                    .map(b -> {
+                        BigDecimal amt = purchasesByBranch.getOrDefault(b.getId(), BigDecimal.ZERO);
+                        BigDecimal pct = totalOutstanding.signum() > 0
+                                ? amt.multiply(BigDecimal.valueOf(100)).divide(denom, 2, RoundingMode.HALF_UP)
+                                : BigDecimal.ZERO;
+                        return new BranchPurchaseRow(b.getId(), b.getCode(), b.getName(), amt, pct);
+                    })
+                    .sorted(Comparator.comparing(BranchPurchaseRow::purchases).reversed())
+                    .toList();
+        }
+
+        return new ApSummaryResponse(totalOutstanding, overdueCount, dueThisWeek, dueThisWeekCount, byBranch);
+    }
+
+    @Transactional(readOnly = true)
+    public List<RecentBillResponse> getRecentBills(int limit) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        int capped = Math.max(1, Math.min(limit, 20));
+
+        Page<PurchaseBill> page = purchaseBillRepository
+                .findByOrgIdAndIsDeletedFalseOrderByBillDateDesc(orgId, PageRequest.of(0, capped));
+
+        Map<UUID, String> contactNames = new java.util.HashMap<>();
+
+        return page.getContent().stream().map(bill -> {
+            String vendorName = "Unknown";
+            if (bill.getContactId() != null) {
+                vendorName = contactNames.computeIfAbsent(bill.getContactId(), cid ->
+                        contactRepository.findById(cid)
+                                .map(Contact::getDisplayName)
+                                .orElse("Unknown"));
+            }
+            return new RecentBillResponse(
+                    bill.getId(),
+                    bill.getBillNumber(),
+                    vendorName,
+                    bill.getStatus(),
+                    bill.getTotalAmount(),
+                    bill.getBillDate());
+        }).toList();
     }
 
     /**
