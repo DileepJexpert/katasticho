@@ -63,3 +63,12 @@ final contactListProvider =
     return repo.listContacts(type: type);
   },
 );
+
+/// Contact search provider — searches by name/phone, filtered by type.
+final contactSearchProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>, ({String? type, String? search})>(
+  (ref, params) async {
+    final repo = ref.watch(contactRepositoryProvider);
+    return repo.listContacts(type: params.type, search: params.search);
+  },
+);

@@ -24,6 +24,7 @@ class KTextField extends StatelessWidget {
   final String? initialValue;
   final TextInputAction? textInputAction;
   final VoidCallback? onTap;
+  final ValueChanged<String>? onFieldSubmitted;
 
   const KTextField({
     super.key,
@@ -48,6 +49,7 @@ class KTextField extends StatelessWidget {
     this.initialValue,
     this.textInputAction,
     this.onTap,
+    this.onFieldSubmitted,
   });
 
   @override
@@ -67,6 +69,7 @@ class KTextField extends StatelessWidget {
       focusNode: focusNode,
       textInputAction: textInputAction,
       onTap: onTap,
+      onFieldSubmitted: onFieldSubmitted,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,

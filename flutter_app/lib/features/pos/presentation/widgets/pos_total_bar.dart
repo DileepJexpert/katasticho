@@ -6,7 +6,7 @@ import '../../../../core/theme/k_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../data/pos_cart_state.dart';
 
-/// Sticky bottom bar with total amount and payment mode buttons.
+/// Sticky bottom bar with subtotal/tax/total breakdown and payment mode buttons.
 class PosTotalBar extends ConsumerWidget {
   final VoidCallback? onCashTap;
   final VoidCallback? onUpiTap;
@@ -25,7 +25,7 @@ class PosTotalBar extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
       decoration: BoxDecoration(
         color: cs.surface,
         border: Border(top: BorderSide(color: cs.outlineVariant)),
@@ -42,13 +42,37 @@ class PosTotalBar extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Total row
+            // Subtotal + tax + total breakdown
+            if (!cart.isEmpty) ...[
+              _AmountRow(
+                label: 'Subtotal',
+                amount: cart.subtotal,
+                style: KTypography.bodyMedium,
+                amountStyle: KTypography.labelMedium,
+              ),
+              if (cart.taxAmount > 0) ...[
+                const SizedBox(height: 2),
+                _AmountRow(
+                  label: 'GST',
+                  amount: cart.taxAmount,
+                  style: KTypography.bodySmall.copyWith(
+                    color: KColors.textSecondary,
+                  ),
+                  amountStyle: KTypography.bodySmall.copyWith(
+                    color: KColors.textSecondary,
+                  ),
+                ),
+              ],
+              Divider(height: 12, color: cs.outlineVariant),
+            ],
+
+            // Grand total
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Total', style: KTypography.h3),
                 Text(
-                  CurrencyFormatter.formatIndian(cart.subtotal),
+                  CurrencyFormatter.formatIndian(cart.total),
                   style: KTypography.h2.copyWith(
                     color: cs.primary,
                     fontWeight: FontWeight.w800,
@@ -65,6 +89,7 @@ class PosTotalBar extends ConsumerWidget {
                   child: _PaymentButton(
                     icon: Icons.payments_outlined,
                     label: 'Cash',
+                    shortcut: 'F1',
                     color: KColors.success,
                     isSelected: cart.paymentMode == 'CASH',
                     onTap: cart.isEmpty ? null : onCashTap,
@@ -75,6 +100,7 @@ class PosTotalBar extends ConsumerWidget {
                   child: _PaymentButton(
                     icon: Icons.qr_code_2,
                     label: 'UPI',
+                    shortcut: 'F2',
                     color: KColors.primary,
                     isSelected: cart.paymentMode == 'UPI',
                     onTap: cart.isEmpty ? null : onUpiTap,
@@ -85,6 +111,7 @@ class PosTotalBar extends ConsumerWidget {
                   child: _PaymentButton(
                     icon: Icons.credit_card,
                     label: 'Card',
+                    shortcut: 'F3',
                     color: KColors.secondary,
                     isSelected: cart.paymentMode == 'CARD',
                     onTap: cart.isEmpty ? null : onCardTap,
@@ -99,9 +126,35 @@ class PosTotalBar extends ConsumerWidget {
   }
 }
 
+class _AmountRow extends StatelessWidget {
+  final String label;
+  final double amount;
+  final TextStyle style;
+  final TextStyle amountStyle;
+
+  const _AmountRow({
+    required this.label,
+    required this.amount,
+    required this.style,
+    required this.amountStyle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: style),
+        Text(CurrencyFormatter.formatIndian(amount), style: amountStyle),
+      ],
+    );
+  }
+}
+
 class _PaymentButton extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String shortcut;
   final Color color;
   final bool isSelected;
   final VoidCallback? onTap;
@@ -109,6 +162,7 @@ class _PaymentButton extends StatelessWidget {
   const _PaymentButton({
     required this.icon,
     required this.label,
+    required this.shortcut,
     required this.color,
     required this.isSelected,
     this.onTap,
@@ -117,7 +171,8 @@ class _PaymentButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final effectiveColor = onTap == null ? cs.onSurface.withValues(alpha: 0.3) : color;
+    final effectiveColor =
+        onTap == null ? cs.onSurface.withValues(alpha: 0.3) : color;
 
     return Material(
       color: isSelected
@@ -128,15 +183,21 @@ class _PaymentButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           child: Column(
             children: [
               Icon(icon, size: 22, color: effectiveColor),
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
               Text(label,
                   style: KTypography.labelSmall.copyWith(
                     color: effectiveColor,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight:
+                        isSelected ? FontWeight.w700 : FontWeight.w500,
+                  )),
+              Text(shortcut,
+                  style: KTypography.labelSmall.copyWith(
+                    color: effectiveColor.withValues(alpha: 0.5),
+                    fontSize: 9,
                   )),
             ],
           ),

@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Single item in the POS cart.
+/// Single item in the POS cart — tax-aware with batch/stock info.
 class CartItem {
   final String? itemId;
   final String name;
@@ -12,6 +12,9 @@ class CartItem {
   final String? taxGroupName;
   final String? hsnCode;
   final String? batchId;
+  final double taxRate; // combined tax % (e.g. 18.0 for 18% GST)
+  final String? batchExpiry; // ISO date string for batch expiry
+  final double currentStock; // available qty from search result
   double quantity;
 
   CartItem({
@@ -25,10 +28,15 @@ class CartItem {
     this.taxGroupName,
     this.hsnCode,
     this.batchId,
+    this.taxRate = 0,
+    this.batchExpiry,
+    this.currentStock = 0,
     this.quantity = 1,
   });
 
   double get lineTotal => rate * quantity;
+  double get taxAmount => lineTotal * taxRate / 100;
+  double get lineTotalWithTax => lineTotal + taxAmount;
 
   CartItem copyWith({
     String? itemId,
@@ -41,6 +49,9 @@ class CartItem {
     String? taxGroupName,
     String? hsnCode,
     String? batchId,
+    double? taxRate,
+    String? batchExpiry,
+    double? currentStock,
     double? quantity,
   }) {
     return CartItem(
@@ -54,12 +65,15 @@ class CartItem {
       taxGroupName: taxGroupName ?? this.taxGroupName,
       hsnCode: hsnCode ?? this.hsnCode,
       batchId: batchId ?? this.batchId,
+      taxRate: taxRate ?? this.taxRate,
+      batchExpiry: batchExpiry ?? this.batchExpiry,
+      currentStock: currentStock ?? this.currentStock,
       quantity: quantity ?? this.quantity,
     );
   }
 }
 
-/// Full cart state — items + payment mode + amounts.
+/// Full cart state — items + payment mode + amounts + customer.
 class PosCartState {
   final List<CartItem> items;
   final String paymentMode; // CASH, UPI, CARD
@@ -67,6 +81,7 @@ class PosCartState {
   final String? upiReference;
   final String? contactId;
   final String? contactName;
+  final String? contactPhone;
   final String? notes;
 
   const PosCartState({
@@ -76,14 +91,22 @@ class PosCartState {
     this.upiReference,
     this.contactId,
     this.contactName,
+    this.contactPhone,
     this.notes,
   });
 
   double get subtotal => items.fold(0.0, (sum, item) => sum + item.lineTotal);
+  double get taxAmount => items.fold(0.0, (sum, item) => sum + item.taxAmount);
+  double get total => subtotal + taxAmount;
   int get itemCount => items.length;
+  int get totalQuantity =>
+      items.fold(0, (sum, item) => sum + item.quantity.ceil());
   bool get isEmpty => items.isEmpty;
   double get changeReturned =>
-      amountReceived > subtotal ? amountReceived - subtotal : 0;
+      amountReceived > total ? amountReceived - total : 0;
+
+  /// Whether a customer is selected (not walk-in).
+  bool get hasCustomer => contactId != null;
 
   PosCartState copyWith({
     List<CartItem>? items,
@@ -91,7 +114,9 @@ class PosCartState {
     double? amountReceived,
     String? upiReference,
     String? contactId,
+    bool clearContact = false,
     String? contactName,
+    String? contactPhone,
     String? notes,
   }) {
     return PosCartState(
@@ -99,8 +124,9 @@ class PosCartState {
       paymentMode: paymentMode ?? this.paymentMode,
       amountReceived: amountReceived ?? this.amountReceived,
       upiReference: upiReference ?? this.upiReference,
-      contactId: contactId ?? this.contactId,
-      contactName: contactName ?? this.contactName,
+      contactId: clearContact ? null : (contactId ?? this.contactId),
+      contactName: clearContact ? null : (contactName ?? this.contactName),
+      contactPhone: clearContact ? null : (contactPhone ?? this.contactPhone),
       notes: notes ?? this.notes,
     );
   }
@@ -117,7 +143,9 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
     );
     if (existing >= 0) {
       final updated = List<CartItem>.from(state.items);
-      updated[existing].quantity += item.quantity;
+      updated[existing] = updated[existing].copyWith(
+        quantity: updated[existing].quantity + item.quantity,
+      );
       state = state.copyWith(items: updated);
     } else {
       state = state.copyWith(items: [...state.items, item]);
@@ -131,7 +159,35 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
     if (quantity <= 0) {
       updated.removeAt(index);
     } else {
-      updated[index].quantity = quantity;
+      updated[index] = updated[index].copyWith(quantity: quantity);
+    }
+    state = state.copyWith(items: updated);
+  }
+
+  /// Set exact quantity for item at index (from manual qty entry).
+  void setQuantity(int index, double quantity) {
+    updateQuantity(index, quantity);
+  }
+
+  /// Increment quantity for item at index.
+  void incrementQty(int index) {
+    if (index < 0 || index >= state.items.length) return;
+    final updated = List<CartItem>.from(state.items);
+    updated[index] = updated[index].copyWith(
+      quantity: updated[index].quantity + 1,
+    );
+    state = state.copyWith(items: updated);
+  }
+
+  /// Decrement quantity for item at index (removes if reaches 0).
+  void decrementQty(int index) {
+    if (index < 0 || index >= state.items.length) return;
+    final updated = List<CartItem>.from(state.items);
+    final newQty = updated[index].quantity - 1;
+    if (newQty <= 0) {
+      updated.removeAt(index);
+    } else {
+      updated[index] = updated[index].copyWith(quantity: newQty);
     }
     state = state.copyWith(items: updated);
   }
@@ -160,8 +216,18 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
   }
 
   /// Set customer (contact).
-  void setContact(String? id, String? name) {
-    state = state.copyWith(contactId: id, contactName: name);
+  void setContact(String? id, String? name, [String? phone]) {
+    if (id == null) {
+      state = state.copyWith(clearContact: true);
+    } else {
+      state = state.copyWith(
+          contactId: id, contactName: name, contactPhone: phone);
+    }
+  }
+
+  /// Clear customer — revert to Walk-in.
+  void clearContact() {
+    state = state.copyWith(clearContact: true);
   }
 
   /// Set notes.

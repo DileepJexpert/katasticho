@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import '../../../../core/widgets/widgets.dart';
 
 /// Sticky top search bar for POS — searches items or scans barcode.
+/// Supports Enter key to add first result instantly.
 class PosSearchBar extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
+  final ValueChanged<String>? onSubmitted;
   final FocusNode? focusNode;
 
   const PosSearchBar({
@@ -13,6 +15,7 @@ class PosSearchBar extends StatelessWidget {
     required this.controller,
     required this.onChanged,
     required this.onClear,
+    this.onSubmitted,
     this.focusNode,
   });
 
@@ -25,6 +28,8 @@ class PosSearchBar extends StatelessWidget {
         hint: 'Search items or scan barcode',
         controller: controller,
         onChanged: onChanged,
+        onFieldSubmitted: onSubmitted,
+        textInputAction: TextInputAction.search,
         prefixIcon: Icons.search,
         suffixIcon:
             controller.text.isNotEmpty ? Icons.close : null,
