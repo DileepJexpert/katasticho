@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -30,6 +31,27 @@ public interface PurchaseBillRepository extends JpaRepository<PurchaseBill, UUID
 
     Page<PurchaseBill> findByOrgIdAndBillDateBetweenAndIsDeletedFalseOrderByBillDateDesc(
             UUID orgId, LocalDate from, LocalDate to, Pageable pageable);
+
+    @Query("""
+        SELECT b FROM PurchaseBill b
+        WHERE b.orgId = :orgId
+          AND b.isDeleted = false
+          AND (:status IS NULL OR b.status = :status)
+          AND (:contactId IS NULL OR b.contactId = :contactId)
+          AND (:branchId IS NULL OR b.branchId = :branchId)
+          AND (:dateFrom IS NULL OR b.billDate >= :dateFrom)
+          AND (:dateTo IS NULL OR b.billDate <= :dateTo)
+        ORDER BY b.billDate DESC
+    """)
+    Page<PurchaseBill> findFiltered(
+        @Param("orgId") UUID orgId,
+        @Param("status") String status,
+        @Param("contactId") UUID contactId,
+        @Param("branchId") UUID branchId,
+        @Param("dateFrom") LocalDate dateFrom,
+        @Param("dateTo") LocalDate dateTo,
+        Pageable pageable
+    );
 
     @Query("""
         SELECT b FROM PurchaseBill b

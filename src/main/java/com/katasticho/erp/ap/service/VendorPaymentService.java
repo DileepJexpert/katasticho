@@ -35,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -239,6 +240,66 @@ public class VendorPaymentService {
         UUID orgId = TenantContext.getCurrentOrgId();
         return paymentRepository.findByOrgIdAndContactIdAndIsDeletedFalseOrderByPaymentDateDesc(orgId, contactId, pageable)
                 .map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<VendorPaymentResponse> listPaymentsFiltered(
+            UUID contactId, LocalDate dateFrom, LocalDate dateTo, Pageable pageable) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        return paymentRepository.findFiltered(orgId, contactId, dateFrom, dateTo, pageable)
+                .map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public List<VendorPaymentResponse> listPaymentsForBill(UUID billId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        return paymentRepository.findByOrgIdAndBillId(orgId, billId)
+                .stream().map(this::toResponse).toList();
+    }
+
+    @Transactional
+    public VendorPaymentResponse voidPayment(UUID paymentId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        VendorPayment payment = paymentRepository.findByIdAndOrgIdAndIsDeletedFalse(paymentId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("VendorPayment", paymentId));
+
+        // Reverse journal entry
+        if (payment.getJournalEntryId() != null) {
+            journalService.reverseEntry(payment.getJournalEntryId());
+        }
+
+        // Restore bill payment statuses
+        for (VendorPaymentAllocation alloc : payment.getAllocations()) {
+            PurchaseBill bill = billRepository.findById(alloc.getPurchaseBillId()).orElse(null);
+            if (bill != null) {
+                BigDecimal newAmountPaid = bill.getAmountPaid().subtract(alloc.getAmountApplied());
+                if (newAmountPaid.compareTo(BigDecimal.ZERO) <= 0) {
+                    bill.setAmountPaid(BigDecimal.ZERO);
+                    bill.setBalanceDue(bill.getTotalAmount());
+                    bill.setStatus("OPEN");
+                } else {
+                    bill.setAmountPaid(newAmountPaid);
+                    bill.setBalanceDue(bill.getTotalAmount().subtract(newAmountPaid));
+                    bill.setStatus("PARTIALLY_PAID");
+                }
+                billRepository.save(bill);
+            }
+        }
+
+        // Restore vendor's outstanding AP
+        Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(payment.getContactId(), orgId)
+                .orElse(null);
+        if (contact != null) {
+            contact.setOutstandingAp(contact.getOutstandingAp().add(payment.getAmount()));
+            contactRepository.save(contact);
+        }
+
+        payment.setDeleted(true);
+        payment = paymentRepository.save(payment);
+
+        log.info("Vendor payment {} voided", payment.getPaymentNumber());
+        return toResponse(payment);
     }
 
     // ── Response mapping ────────────────────────────────────────

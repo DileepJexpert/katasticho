@@ -8,6 +8,7 @@ import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ap.dto.CreatePurchaseBillRequest;
 import com.katasticho.erp.ap.dto.PurchaseBillResponse;
+import com.katasticho.erp.ap.dto.UpdatePurchaseBillRequest;
 import com.katasticho.erp.ap.entity.PurchaseBill;
 import com.katasticho.erp.ap.entity.PurchaseBillLine;
 import com.katasticho.erp.ap.repository.PurchaseBillRepository;
@@ -461,6 +462,15 @@ public class PurchaseBillService {
     }
 
     @Transactional(readOnly = true)
+    public Page<PurchaseBillResponse> listBillsFiltered(
+            String status, UUID contactId, UUID branchId,
+            LocalDate dateFrom, LocalDate dateTo, Pageable pageable) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        return billRepository.findFiltered(orgId, status, contactId, branchId, dateFrom, dateTo, pageable)
+                .map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
     public Page<PurchaseBillResponse> listBillsByVendor(UUID contactId, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
         return billRepository.findByOrgIdAndContactIdAndIsDeletedFalseOrderByBillDateDesc(orgId, contactId, pageable)
@@ -472,6 +482,151 @@ public class PurchaseBillService {
         UUID orgId = TenantContext.getCurrentOrgId();
         return billRepository.findByOrgIdAndStatusAndIsDeletedFalseOrderByBillDateDesc(orgId, status, pageable)
                 .map(this::toResponse);
+    }
+
+    @Transactional
+    public PurchaseBillResponse updateBill(UUID billId, UpdatePurchaseBillRequest request) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        PurchaseBill bill = billRepository.findByIdAndOrgIdAndIsDeletedFalse(billId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("PurchaseBill", billId));
+
+        if (!"DRAFT".equals(bill.getStatus())) {
+            throw new BusinessException("Only DRAFT bills can be updated",
+                    "AP_BILL_NOT_DRAFT", HttpStatus.BAD_REQUEST);
+        }
+
+        Organisation org = organisationRepository.findById(orgId)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
+        final UUID vendorContactId = bill.getContactId();
+        Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(vendorContactId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Contact", vendorContactId));
+
+        // Clear existing lines (orphanRemoval removes them) and tax line items
+        bill.getLines().clear();
+        taxLineItemRepository.deleteBySourceTypeAndSourceId("BILL", billId);
+
+        // Update simple fields
+        if (request.vendorBillNumber() != null) bill.setVendorBillNumber(request.vendorBillNumber());
+        if (request.dueDate() != null) bill.setDueDate(request.dueDate());
+        if (request.placeOfSupply() != null) bill.setPlaceOfSupply(request.placeOfSupply());
+        bill.setReverseCharge(request.reverseCharge());
+        if (request.notes() != null) bill.setNotes(request.notes());
+        if (request.termsAndConditions() != null) bill.setTermsAndConditions(request.termsAndConditions());
+
+        String placeOfSupply = bill.getPlaceOfSupply() != null
+                ? bill.getPlaceOfSupply()
+                : contact.getBillingStateCode();
+
+        BigDecimal totalSubtotal = BigDecimal.ZERO;
+        BigDecimal totalTax = BigDecimal.ZERO;
+        List<TaxLineItem> allTaxLines = new ArrayList<>();
+        final BigDecimal exchangeRate = bill.getExchangeRate();
+
+        for (int i = 0; i < request.lines().size(); i++) {
+            UpdatePurchaseBillRequest.BillLineRequest lineReq = request.lines().get(i);
+
+            accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, lineReq.accountId())
+                    .orElseThrow(() -> BusinessException.notFound("Account", lineReq.accountId()));
+
+            BigDecimal grossAmount = lineReq.quantity().multiply(lineReq.unitPrice())
+                    .setScale(2, RoundingMode.HALF_UP);
+            BigDecimal discountAmt = grossAmount.multiply(lineReq.discountPercent())
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            BigDecimal taxableAmount = grossAmount.subtract(discountAmt);
+
+            UUID lineTaxGroupId = lineReq.taxGroupId();
+            if (lineTaxGroupId == null && lineReq.gstRate() != null
+                    && lineReq.gstRate().compareTo(BigDecimal.ZERO) > 0) {
+                lineTaxGroupId = taxEngine.resolveGroupId(orgId, lineReq.gstRate(),
+                        contact.getBillingStateCode(), org.getStateCode()).orElse(null);
+            }
+
+            TaxEngine.TaxCalculationResult taxResult = taxEngine.calculate(
+                    orgId, lineTaxGroupId, taxableAmount, TaxEngine.TransactionType.PURCHASE);
+
+            BigDecimal lineTax = taxResult.totalTaxAmount();
+            BigDecimal lineTotal = taxableAmount.add(lineTax);
+            BigDecimal baseTaxable = taxableAmount.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal baseTax = lineTax.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal baseTotal = lineTotal.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP);
+
+            PurchaseBillLine line = PurchaseBillLine.builder()
+                    .lineNumber(i + 1)
+                    .description(lineReq.description())
+                    .hsnCode(lineReq.hsnCode())
+                    .itemId(lineReq.itemId())
+                    .accountId(lineReq.accountId())
+                    .quantity(lineReq.quantity())
+                    .unitPrice(lineReq.unitPrice())
+                    .discountPercent(lineReq.discountPercent())
+                    .discountAmount(discountAmt)
+                    .taxableAmount(taxableAmount)
+                    .gstRate(lineReq.gstRate())
+                    .taxGroupId(lineTaxGroupId)
+                    .taxAmount(lineTax)
+                    .lineTotal(lineTotal)
+                    .baseTaxableAmount(baseTaxable)
+                    .baseTaxAmount(baseTax)
+                    .baseLineTotal(baseTotal)
+                    .build();
+
+            bill.addLine(line);
+            totalSubtotal = totalSubtotal.add(taxableAmount);
+            totalTax = totalTax.add(lineTax);
+
+            for (TaxEngine.TaxComponent comp : taxResult.components()) {
+                if (comp.glAccountCode() == null) continue;
+                allTaxLines.add(TaxLineItem.builder()
+                        .orgId(orgId)
+                        .sourceType("BILL")
+                        .taxRegime("TAX")
+                        .componentCode(comp.rateCode())
+                        .rate(comp.percentage())
+                        .taxableAmount(taxableAmount)
+                        .taxAmount(comp.amount())
+                        .accountCode(comp.glAccountCode())
+                        .hsnCode(lineReq.hsnCode())
+                        .baseTaxableAmount(baseTaxable)
+                        .baseTaxAmount(comp.amount().multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP))
+                        .build());
+            }
+        }
+
+        BigDecimal totalAmount = totalSubtotal.add(totalTax);
+        bill.setSubtotal(totalSubtotal.setScale(2, RoundingMode.HALF_UP));
+        bill.setTaxAmount(totalTax.setScale(2, RoundingMode.HALF_UP));
+        bill.setTotalAmount(totalAmount.setScale(2, RoundingMode.HALF_UP));
+        bill.setBalanceDue(totalAmount.setScale(2, RoundingMode.HALF_UP));
+        bill.setBaseSubtotal(totalSubtotal.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP));
+        bill.setBaseTaxAmount(totalTax.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP));
+        bill.setBaseTotal(totalAmount.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP));
+
+        bill = billRepository.save(bill);
+
+        final UUID savedBillId = bill.getId();
+        allTaxLines.forEach(tli -> tli.setSourceId(savedBillId));
+        taxLineItemRepository.saveAll(allTaxLines);
+
+        log.info("Purchase bill {} updated", bill.getBillNumber());
+        return toResponse(bill);
+    }
+
+    @Transactional
+    public void deleteBill(UUID billId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        PurchaseBill bill = billRepository.findByIdAndOrgIdAndIsDeletedFalse(billId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("PurchaseBill", billId));
+
+        if (!"DRAFT".equals(bill.getStatus())) {
+            throw new BusinessException("Only DRAFT bills can be deleted",
+                    "AP_BILL_NOT_DRAFT", HttpStatus.BAD_REQUEST);
+        }
+
+        bill.setDeleted(true);
+        billRepository.save(bill);
+        log.info("Purchase bill {} deleted", bill.getBillNumber());
     }
 
     @Transactional(readOnly = true)

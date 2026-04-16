@@ -8,6 +8,7 @@ import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ap.dto.ApplyVendorCreditRequest;
 import com.katasticho.erp.ap.dto.CreateVendorCreditRequest;
+import com.katasticho.erp.ap.dto.VendorCreditResponse;
 import com.katasticho.erp.ap.entity.PurchaseBill;
 import com.katasticho.erp.ap.entity.VendorCredit;
 import com.katasticho.erp.ap.entity.VendorCreditApplication;
@@ -451,9 +452,51 @@ public class VendorCreditService {
     }
 
     @Transactional(readOnly = true)
+    public Page<VendorCredit> listCreditsFiltered(String status, UUID contactId, Pageable pageable) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        return creditRepository.findFiltered(orgId, status, contactId, pageable);
+    }
+
+    @Transactional(readOnly = true)
     public List<VendorCredit> getOpenCreditsByVendor(UUID contactId) {
         UUID orgId = TenantContext.getCurrentOrgId();
         return creditRepository.findByOrgIdAndContactIdAndStatusAndIsDeletedFalse(orgId, contactId, "OPEN");
+    }
+
+    @Transactional
+    public void deleteCredit(UUID creditId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        VendorCredit credit = creditRepository.findByIdAndOrgIdAndIsDeletedFalse(creditId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("VendorCredit", creditId));
+        if (!"DRAFT".equals(credit.getStatus())) {
+            throw new BusinessException("Only DRAFT vendor credits can be deleted",
+                    "AP_CREDIT_NOT_DRAFT", HttpStatus.BAD_REQUEST);
+        }
+        credit.setDeleted(true);
+        creditRepository.save(credit);
+        log.info("Vendor credit {} deleted", credit.getCreditNumber());
+    }
+
+    public VendorCreditResponse toResponse(VendorCredit credit) {
+        Contact contact = contactRepository.findById(credit.getContactId()).orElse(null);
+        List<VendorCreditResponse.LineResponse> lineResponses = credit.getLines().stream()
+                .map(l -> new VendorCreditResponse.LineResponse(
+                        l.getId(), l.getLineNumber(), l.getDescription(), l.getHsnCode(),
+                        l.getItemId(), l.getAccountId(),
+                        l.getQuantity(), l.getUnitPrice(), l.getTaxableAmount(),
+                        l.getGstRate(), l.getTaxAmount(), l.getLineTotal()))
+                .toList();
+        return new VendorCreditResponse(
+                credit.getId(), credit.getContactId(),
+                contact != null ? contact.getDisplayName() : null,
+                credit.getCreditNumber(), credit.getCreditDate(),
+                credit.getPurchaseBillId(), credit.getReason(),
+                credit.getStatus(),
+                credit.getSubtotal(), credit.getTaxAmount(),
+                credit.getTotalAmount(), credit.getBalance(),
+                credit.getCurrency(), credit.getPlaceOfSupply(),
+                credit.getJournalEntryId(),
+                lineResponses, credit.getCreatedAt());
     }
 
     // ── Stock helpers ───────────────────────────────────────────
