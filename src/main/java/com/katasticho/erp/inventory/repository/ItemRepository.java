@@ -20,6 +20,8 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
 
     Optional<Item> findByOrgIdAndSkuAndIsDeletedFalse(UUID orgId, String sku);
 
+    Optional<Item> findByOrgIdAndBarcodeAndIsDeletedFalse(UUID orgId, String barcode);
+
     boolean existsByOrgIdAndSkuAndIsDeletedFalse(UUID orgId, String sku);
 
     Page<Item> findByOrgIdAndIsDeletedFalse(UUID orgId, Pageable pageable);

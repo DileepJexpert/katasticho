@@ -28,6 +28,9 @@ public class Item extends BaseEntity {
     @Column(nullable = false, length = 50)
     private String sku;
 
+    @Column(length = 50)
+    private String barcode;
+
     @Column(nullable = false)
     private String name;
 

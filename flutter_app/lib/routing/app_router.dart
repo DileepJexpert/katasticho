@@ -61,6 +61,7 @@ import '../features/vendor_payments/presentation/vendor_payment_detail_screen.da
 import '../features/vendor_credits/presentation/vendor_credit_list_screen.dart';
 import '../features/vendor_credits/presentation/vendor_credit_detail_screen.dart';
 import '../features/vendor_credits/presentation/vendor_credit_create_screen.dart';
+import '../features/pos/presentation/pos_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -127,6 +128,8 @@ class Routes {
   static const vendorCredits = '/vendor-credits';
   static const vendorCreditCreate = '/vendor-credits/create';
   static const vendorCreditDetail = '/vendor-credits/:id';
+  // POS
+  static const pos = '/pos';
   static const aiChat = '/ai-chat';
   static const gst = '/gst';
   static const settings = '/settings';
@@ -489,6 +492,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/vendor-credits/:id',
             builder: (context, state) => VendorCreditDetailScreen(
               creditId: state.pathParameters['id']!,
+            ),
+          ),
+          // POS
+          GoRoute(
+            path: Routes.pos,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PosScreen(),
             ),
           ),
           GoRoute(

@@ -199,6 +199,11 @@ class ApiConfig {
   static const String taxGroups = '/api/v1/tax-groups';
   static String taxGroupById(String id) => '/api/v1/tax-groups/$id';
 
+  // POS — Sales Receipts
+  static const String salesReceipts = '/api/v1/sales-receipts';
+  static String salesReceiptById(String id) => '/api/v1/sales-receipts/$id';
+  static const String posSearch = '/api/v1/items/pos-search';
+
   // Pricing (v2 — F3 price lists)
   static const String priceLists = '/api/v1/price-lists';
   static String priceListById(String id) => '/api/v1/price-lists/$id';
