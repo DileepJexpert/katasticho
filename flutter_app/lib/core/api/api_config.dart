@@ -163,6 +163,8 @@ class ApiConfig {
   // Dashboard aggregation
   static const String dashboardTodaySales = '/api/v1/dashboard/today-sales';
   static const String dashboardTopSelling = '/api/v1/dashboard/top-selling';
+  static const String dashboardApSummary = '/api/v1/dashboard/ap-summary';
+  static const String dashboardRecentBills = '/api/v1/dashboard/recent-bills';
 
   // Demo seeding (owner-only, idempotent)
   static const String demoSeedSharmaMedical =

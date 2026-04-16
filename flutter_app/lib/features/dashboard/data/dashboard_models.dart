@@ -92,6 +92,91 @@ class TopSellingItem {
       );
 }
 
+/// AP summary for the dashboard — total outstanding payables, overdue count,
+/// bills due within the next 7 days.
+class ApSummaryData {
+  final double totalOutstanding;
+  final int overdueCount;
+  final double dueThisWeek;
+  final int dueThisWeekCount;
+  final List<BranchPurchaseRow> byBranch;
+
+  const ApSummaryData({
+    required this.totalOutstanding,
+    required this.overdueCount,
+    required this.dueThisWeek,
+    required this.dueThisWeekCount,
+    required this.byBranch,
+  });
+
+  factory ApSummaryData.fromJson(Map<String, dynamic> json) => ApSummaryData(
+        totalOutstanding:
+            (json['totalOutstanding'] as num?)?.toDouble() ?? 0.0,
+        overdueCount: (json['overdueCount'] as num?)?.toInt() ?? 0,
+        dueThisWeek: (json['dueThisWeek'] as num?)?.toDouble() ?? 0.0,
+        dueThisWeekCount:
+            (json['dueThisWeekCount'] as num?)?.toInt() ?? 0,
+        byBranch: ((json['byBranch'] as List?) ?? const [])
+            .map((e) =>
+                BranchPurchaseRow.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+class BranchPurchaseRow {
+  final String branchId;
+  final String branchCode;
+  final String branchName;
+  final double purchases;
+  final double sharePercent;
+
+  const BranchPurchaseRow({
+    required this.branchId,
+    required this.branchCode,
+    required this.branchName,
+    required this.purchases,
+    required this.sharePercent,
+  });
+
+  factory BranchPurchaseRow.fromJson(Map<String, dynamic> json) =>
+      BranchPurchaseRow(
+        branchId: json['branchId']?.toString() ?? '',
+        branchCode: json['branchCode']?.toString() ?? '',
+        branchName: json['branchName']?.toString() ?? '',
+        purchases: (json['purchases'] as num?)?.toDouble() ?? 0.0,
+        sharePercent: (json['sharePercent'] as num?)?.toDouble() ?? 0.0,
+      );
+}
+
+/// A recent bill for the dashboard activity feed.
+class RecentBillData {
+  final String id;
+  final String billNumber;
+  final String vendorName;
+  final String status;
+  final double totalAmount;
+  final String billDate;
+
+  const RecentBillData({
+    required this.id,
+    required this.billNumber,
+    required this.vendorName,
+    required this.status,
+    required this.totalAmount,
+    required this.billDate,
+  });
+
+  factory RecentBillData.fromJson(Map<String, dynamic> json) =>
+      RecentBillData(
+        id: json['id']?.toString() ?? '',
+        billNumber: json['billNumber']?.toString() ?? '--',
+        vendorName: json['vendorName']?.toString() ?? 'Unknown',
+        status: json['status']?.toString() ?? 'DRAFT',
+        totalAmount: (json['totalAmount'] as num?)?.toDouble() ?? 0.0,
+        billDate: json['billDate']?.toString() ?? '',
+      );
+}
+
 class BranchSummary {
   final String id;
   final String code;

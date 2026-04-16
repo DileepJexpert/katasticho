@@ -121,6 +121,28 @@ class DashboardRepository {
         .toList();
   }
 
+  Future<ApSummaryData> getApSummary(DashboardFilter filter) async {
+    final response = await _api.get(
+      ApiConfig.dashboardApSummary,
+      queryParameters: {
+        'from': _fmtDate(filter.from),
+        'to': _fmtDate(filter.to),
+        if (filter.branchId != null) 'branchId': filter.branchId,
+      },
+    );
+    return ApSummaryData.fromJson(_unwrap(response.data));
+  }
+
+  Future<List<RecentBillData>> getRecentBills({int limit = 5}) async {
+    final response = await _api.get(
+      ApiConfig.dashboardRecentBills,
+      queryParameters: {'limit': limit},
+    );
+    return _unwrapList(response.data)
+        .map((e) => RecentBillData.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<Map<String, dynamic>> seedSharmaMedical() async {
     final response = await _api.post(ApiConfig.demoSeedSharmaMedical);
     return _unwrap(response.data);
@@ -150,4 +172,15 @@ final topSellingProvider =
 final branchesProvider =
     FutureProvider.autoDispose<List<BranchSummary>>((ref) async {
   return ref.watch(dashboardRepositoryProvider).listBranches();
+});
+
+final apSummaryProvider =
+    FutureProvider.autoDispose<ApSummaryData>((ref) async {
+  final filter = ref.watch(dashboardFilterProvider);
+  return ref.watch(dashboardRepositoryProvider).getApSummary(filter);
+});
+
+final recentBillsProvider =
+    FutureProvider.autoDispose<List<RecentBillData>>((ref) async {
+  return ref.watch(dashboardRepositoryProvider).getRecentBills();
 });

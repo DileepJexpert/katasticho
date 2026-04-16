@@ -13,6 +13,9 @@ import '../widgets/overdue_invoices_widget.dart';
 import '../widgets/sales_chart_widget.dart';
 import '../widgets/low_stock_widget.dart';
 import '../widgets/revenue_by_branch_widget.dart';
+import '../widgets/purchases_by_branch_widget.dart';
+import '../widgets/cash_position_widget.dart';
+import '../widgets/recent_bills_widget.dart';
 import '../widgets/top_selling_widget.dart';
 import '../widgets/branch_selector_widget.dart';
 import '../widgets/date_range_picker_widget.dart';
@@ -46,6 +49,8 @@ class DashboardScreen extends ConsumerWidget {
           ref.invalidate(todaySalesProvider);
           ref.invalidate(topSellingProvider);
           ref.invalidate(branchesProvider);
+          ref.invalidate(apSummaryProvider);
+          ref.invalidate(recentBillsProvider);
           await Future.delayed(const Duration(milliseconds: 200));
         },
         child: SingleChildScrollView(
@@ -90,7 +95,11 @@ class DashboardScreen extends ConsumerWidget {
                         children: const [
                           SalesChartWidget(),
                           SizedBox(height: 16),
+                          CashPositionWidget(),
+                          SizedBox(height: 16),
                           RevenueByBranchWidget(),
+                          SizedBox(height: 16),
+                          PurchasesByBranchWidget(),
                           SizedBox(height: 16),
                           LowStockWidget(),
                         ],
@@ -103,6 +112,8 @@ class DashboardScreen extends ConsumerWidget {
                           TopSellingWidget(),
                           SizedBox(height: 16),
                           OverdueInvoicesWidget(),
+                          SizedBox(height: 16),
+                          RecentBillsWidget(),
                         ],
                       ),
                     ),
@@ -111,11 +122,17 @@ class DashboardScreen extends ConsumerWidget {
               else ...[
                 const SalesChartWidget(),
                 KSpacing.vGapMd,
+                const CashPositionWidget(),
+                KSpacing.vGapMd,
                 const RevenueByBranchWidget(),
+                KSpacing.vGapMd,
+                const PurchasesByBranchWidget(),
                 KSpacing.vGapMd,
                 const TopSellingWidget(),
                 KSpacing.vGapMd,
                 const OverdueInvoicesWidget(),
+                KSpacing.vGapMd,
+                const RecentBillsWidget(),
                 KSpacing.vGapMd,
                 const LowStockWidget(),
               ],
@@ -228,6 +245,7 @@ class _KpiGrid extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final crossAxisCount = isDesktop ? 4 : 2;
     final todaySalesAsync = ref.watch(todaySalesProvider);
+    final apSummaryAsync = ref.watch(apSummaryProvider);
 
     return GridView.builder(
       shrinkWrap: true,
@@ -243,6 +261,29 @@ class _KpiGrid extends ConsumerWidget {
       itemCount: kpis.length,
       itemBuilder: (context, index) {
         final kpi = kpis[index];
+
+        // Payables KPI hydrates from apSummaryProvider
+        if (kpi.id == 'payables') {
+          return apSummaryAsync.when(
+            loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
+            error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
+            data: (ap) {
+              final value =
+                  CurrencyFormatter.formatCompact(ap.totalOutstanding);
+              final trend = ap.overdueCount > 0
+                  ? '${ap.overdueCount} overdue'
+                  : 'All current';
+              return KKpiCard(
+                title: kpi.title,
+                value: value,
+                icon: kpi.icon,
+                iconColor: kpi.color,
+                trend: trend,
+              );
+            },
+          );
+        }
+
         return todaySalesAsync.when(
           loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
           error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),

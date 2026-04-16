@@ -100,11 +100,11 @@ const _kirana = DashboardConfig(
       endpoint: '/api/v1/dashboard/low-stock',
     ),
     KpiConfig(
-      id: 'monthly_profit',
-      title: 'Monthly Profit',
-      icon: Icons.trending_up,
-      color: KColors.success,
-      endpoint: '/api/v1/dashboard/monthly-profit',
+      id: 'payables',
+      title: 'Payables',
+      icon: Icons.payment,
+      color: KColors.error,
+      endpoint: '/api/v1/dashboard/ap-summary',
     ),
   ],
   quickActions: [
@@ -193,7 +193,7 @@ const _clothManufacturing = DashboardConfig(
     KpiConfig(id: 'monthly_revenue', title: 'Monthly Revenue', icon: Icons.monetization_on, color: KColors.primary, endpoint: '/api/v1/dashboard/monthly-revenue'),
     KpiConfig(id: 'pending_orders', title: 'Pending Orders', icon: Icons.pending_actions, color: KColors.warning, endpoint: '/api/v1/dashboard/pending-orders'),
     KpiConfig(id: 'receivables', title: 'Receivables', icon: Icons.account_balance_wallet, color: KColors.error, endpoint: '/api/v1/dashboard/receivables'),
-    KpiConfig(id: 'monthly_profit', title: 'Monthly Profit', icon: Icons.trending_up, color: KColors.success, endpoint: '/api/v1/dashboard/monthly-profit'),
+    KpiConfig(id: 'payables', title: 'Payables', icon: Icons.payment, color: KColors.warning, endpoint: '/api/v1/dashboard/ap-summary'),
   ],
   quickActions: [
     QuickAction(label: 'New Invoice', icon: Icons.receipt_long, route: '/invoices/create', color: KColors.primary),
@@ -280,7 +280,7 @@ const _default = DashboardConfig(
   kpis: [
     KpiConfig(id: 'receivables', title: 'Receivables', icon: Icons.account_balance_wallet, color: KColors.warning, endpoint: '/api/v1/dashboard/receivables'),
     KpiConfig(id: 'monthly_revenue', title: 'Monthly Revenue', icon: Icons.monetization_on, color: KColors.primary, endpoint: '/api/v1/dashboard/monthly-revenue'),
-    KpiConfig(id: 'overdue_count', title: 'Overdue Invoices', icon: Icons.warning, color: KColors.error, endpoint: '/api/v1/dashboard/overdue-count'),
+    KpiConfig(id: 'payables', title: 'Payables', icon: Icons.payment, color: KColors.error, endpoint: '/api/v1/dashboard/ap-summary'),
     KpiConfig(id: 'monthly_profit', title: 'Monthly Profit', icon: Icons.trending_up, color: KColors.success, endpoint: '/api/v1/dashboard/monthly-profit'),
   ],
   quickActions: [
