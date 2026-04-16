@@ -262,8 +262,12 @@ public class UomService {
             return;
         }
         seedUom(orgId, "Pieces",      "PCS",    UomCategory.COUNT,     true);
+        seedUom(orgId, "Dozen",       "DOZEN",  UomCategory.COUNT,     false);
         seedUom(orgId, "Box",         "BOX",    UomCategory.PACKAGING, true);
+        seedUom(orgId, "Pack",        "PACK",   UomCategory.PACKAGING, false);
         seedUom(orgId, "Strip",       "STRIP",  UomCategory.PACKAGING, false);
+        seedUom(orgId, "Bottle",      "BOTTLE", UomCategory.PACKAGING, false);
+        seedUom(orgId, "Bag",         "BAG",    UomCategory.PACKAGING, false);
         seedUom(orgId, "Kilogram",    "KG",     UomCategory.WEIGHT,    true);
         seedUom(orgId, "Gram",        "GM",     UomCategory.WEIGHT,    false);
         seedUom(orgId, "Litre",       "LTR",    UomCategory.VOLUME,    true);
