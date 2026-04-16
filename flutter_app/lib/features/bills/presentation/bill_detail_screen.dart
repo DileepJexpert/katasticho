@@ -6,8 +6,11 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../data/bill_dto.dart';
 import '../data/bill_providers.dart';
 import '../data/bill_repository.dart';
+import 'widgets/bill_status_chip.dart';
+import 'widgets/record_payment_bottom_sheet.dart';
 
 class BillDetailScreen extends ConsumerWidget {
   final String billId;
@@ -25,22 +28,20 @@ class BillDetailScreen extends ConsumerWidget {
           billAsync.whenOrNull(
                 data: (data) {
                   final bill = (data['data'] ?? data) as Map<String, dynamic>;
-                  final status = bill['status'] as String? ?? '';
+                  final b = BillDto(bill);
                   return PopupMenuButton<String>(
                     onSelected: (value) =>
-                        _handleAction(context, ref, value, status),
+                        _handleAction(context, ref, value, b),
                     itemBuilder: (context) => [
-                      if (status == 'DRAFT')
+                      if (b.isDraft)
                         const PopupMenuItem(
                             value: 'post', child: Text('Post Bill')),
-                      if (status == 'DRAFT')
+                      if (b.isDraft)
                         const PopupMenuItem(
                             value: 'delete',
                             child: Text('Delete Bill',
                                 style: TextStyle(color: KColors.error))),
-                      if (status == 'OPEN' ||
-                          status == 'PARTIALLY_PAID' ||
-                          status == 'OVERDUE')
+                      if (b.isPayable)
                         const PopupMenuItem(
                             value: 'void',
                             child: Text('Void Bill',
@@ -66,13 +67,9 @@ class BillDetailScreen extends ConsumerWidget {
       bottomNavigationBar: billAsync.whenOrNull(
         data: (data) {
           final bill = (data['data'] ?? data) as Map<String, dynamic>;
-          final status = bill['status'] as String? ?? '';
-          final balanceDue =
-              (bill['balanceDue'] as num?)?.toDouble() ?? 0;
+          final b = BillDto(bill);
 
-          if (status == 'OPEN' ||
-              status == 'PARTIALLY_PAID' ||
-              status == 'OVERDUE') {
+          if (b.isPayable) {
             return Container(
               padding: const EdgeInsets.all(KSpacing.md),
               decoration: BoxDecoration(
@@ -94,7 +91,7 @@ class BillDetailScreen extends ConsumerWidget {
                       children: [
                         Text('Balance Due', style: KTypography.bodySmall),
                         Text(
-                          CurrencyFormatter.formatIndian(balanceDue),
+                          CurrencyFormatter.formatIndian(b.balanceDue),
                           style: KTypography.amountLarge.copyWith(
                             color: KColors.error,
                           ),
@@ -107,7 +104,7 @@ class BillDetailScreen extends ConsumerWidget {
                       icon: Icons.payments,
                       variant: KButtonVariant.secondary,
                       onPressed: () =>
-                          _showPaymentSheet(context, ref, bill),
+                          showRecordPaymentSheet(context, ref, bill),
                     ),
                   ],
                 ),
@@ -121,7 +118,7 @@ class BillDetailScreen extends ConsumerWidget {
   }
 
   void _handleAction(
-      BuildContext context, WidgetRef ref, String action, String status) async {
+      BuildContext context, WidgetRef ref, String action, BillDto b) async {
     final repo = ref.read(billRepositoryProvider);
 
     switch (action) {
@@ -132,7 +129,8 @@ class BillDetailScreen extends ConsumerWidget {
           ref.invalidate(billListProvider);
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Bill posted — journal entry created')),
+              const SnackBar(
+                  content: Text('Bill posted — journal entry created')),
             );
           }
         } catch (e) {
@@ -253,98 +251,6 @@ class BillDetailScreen extends ConsumerWidget {
       ),
     );
   }
-
-  void _showPaymentSheet(
-    BuildContext context,
-    WidgetRef ref,
-    Map<String, dynamic> bill,
-  ) {
-    final balanceDue = (bill['balanceDue'] as num?)?.toDouble() ?? 0;
-    final amountController =
-        TextEditingController(text: balanceDue.toStringAsFixed(2));
-    String paymentMethod = 'BANK_TRANSFER';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          left: KSpacing.md,
-          right: KSpacing.md,
-          top: KSpacing.lg,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Record Payment', style: KTypography.h2),
-            KSpacing.vGapSm,
-            Text(
-              'Bill: ${bill['billNumber'] ?? '--'}',
-              style: KTypography.bodySmall.copyWith(
-                color: KColors.textSecondary,
-              ),
-            ),
-            KSpacing.vGapMd,
-            KTextField.amount(
-              label: 'Amount',
-              controller: amountController,
-            ),
-            KSpacing.vGapMd,
-            DropdownButtonFormField<String>(
-              value: paymentMethod,
-              decoration: const InputDecoration(labelText: 'Payment Method'),
-              items: const [
-                DropdownMenuItem(value: 'CASH', child: Text('Cash')),
-                DropdownMenuItem(
-                    value: 'BANK_TRANSFER', child: Text('Bank Transfer')),
-                DropdownMenuItem(value: 'UPI', child: Text('UPI')),
-                DropdownMenuItem(value: 'CHEQUE', child: Text('Cheque')),
-                DropdownMenuItem(value: 'CARD', child: Text('Card')),
-              ],
-              onChanged: (v) => paymentMethod = v ?? 'BANK_TRANSFER',
-            ),
-            KSpacing.vGapLg,
-            KButton(
-              label: 'Record Payment',
-              icon: Icons.check,
-              fullWidth: true,
-              onPressed: () async {
-                Navigator.pop(ctx);
-                try {
-                  final repo = ref.read(billRepositoryProvider);
-                  await repo.recordPayment({
-                    'billId': billId,
-                    'amount': double.tryParse(amountController.text) ?? 0,
-                    'paymentMethod': paymentMethod,
-                    'paymentDate':
-                        DateTime.now().toIso8601String().split('T')[0],
-                  });
-                  ref.invalidate(billDetailProvider(billId));
-                  ref.invalidate(billListProvider);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Payment recorded successfully')),
-                    );
-                  }
-                } catch (_) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Failed to record payment')),
-                    );
-                  }
-                }
-              },
-            ),
-            KSpacing.vGapMd,
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _BillDetailBody extends ConsumerWidget {
@@ -355,14 +261,7 @@ class _BillDetailBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final status = bill['status'] as String? ?? 'DRAFT';
-    final billNumber = bill['billNumber'] as String? ?? '--';
-    final vendorName = bill['vendorName'] as String? ?? 'Vendor';
-    final totalAmount = (bill['totalAmount'] as num?)?.toDouble() ?? 0;
-    final subtotal = (bill['subtotal'] as num?)?.toDouble() ?? totalAmount;
-    final taxAmount = (bill['taxAmount'] as num?)?.toDouble() ?? 0;
-    final amountPaid = (bill['amountPaid'] as num?)?.toDouble() ?? 0;
-    final lines = (bill['lines'] as List?) ?? [];
+    final b = BillDto(bill);
 
     return DefaultTabController(
       length: 3,
@@ -379,16 +278,16 @@ class _BillDetailBody extends ConsumerWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(billNumber, style: KTypography.h2),
+                      child: Text(b.billNumber, style: KTypography.h2),
                     ),
-                    KStatusChip(status: status),
+                    BillStatusChip(status: b.status),
                   ],
                 ),
                 KSpacing.vGapSm,
-                Text(vendorName, style: KTypography.bodyLarge),
+                Text(b.vendorName, style: KTypography.bodyLarge),
                 KSpacing.vGapMd,
                 Text(
-                  CurrencyFormatter.formatIndian(totalAmount),
+                  CurrencyFormatter.formatIndian(b.totalAmount),
                   style: KTypography.amountLarge,
                 ),
               ],
@@ -415,63 +314,58 @@ class _BillDetailBody extends ConsumerWidget {
                     child: Column(
                       children: [
                         KDetailRow(
-                          label: 'Bill Number',
-                          value: billNumber,
-                        ),
-                        KDetailRow(
-                          label: 'Vendor',
-                          value: vendorName,
-                        ),
+                            label: 'Bill Number', value: b.billNumber),
+                        KDetailRow(label: 'Vendor', value: b.vendorName),
                         KDetailRow(
                           label: 'Vendor Bill #',
-                          value: bill['vendorBillNumber'] as String? ?? '--',
+                          value: b.vendorBillNumber.isEmpty
+                              ? '--'
+                              : b.vendorBillNumber,
                         ),
                         KDetailRow(
                           label: 'Bill Date',
-                          value: bill['billDate'] as String? ?? '--',
+                          value: b.billDate.isEmpty ? '--' : b.billDate,
                         ),
                         KDetailRow(
                           label: 'Due Date',
-                          value: bill['dueDate'] as String? ?? '--',
+                          value: b.dueDate.isEmpty ? '--' : b.dueDate,
                         ),
                         KDetailRow(
                           label: 'Place of Supply',
-                          value: bill['placeOfSupply'] as String? ?? '--',
+                          value: b.placeOfSupply.isEmpty
+                              ? '--'
+                              : b.placeOfSupply,
                         ),
-                        if (bill['reverseCharge'] == true)
+                        if (b.reverseCharge)
                           const KDetailRow(
-                            label: 'Reverse Charge',
-                            value: 'Yes',
-                          ),
+                              label: 'Reverse Charge', value: 'Yes'),
                         const Divider(),
                         KDetailRow(
                           label: 'Subtotal',
-                          value: CurrencyFormatter.formatIndian(subtotal),
+                          value: CurrencyFormatter.formatIndian(b.subtotal),
                         ),
                         KDetailRow(
                           label: 'Tax',
-                          value: CurrencyFormatter.formatIndian(taxAmount),
+                          value: CurrencyFormatter.formatIndian(b.taxAmount),
                         ),
                         const Divider(),
                         KDetailRow(
                           label: 'Total',
-                          value: CurrencyFormatter.formatIndian(totalAmount),
+                          value:
+                              CurrencyFormatter.formatIndian(b.totalAmount),
                           valueStyle: KTypography.amountMedium,
                         ),
                         KDetailRow(
                           label: 'Amount Paid',
-                          value: CurrencyFormatter.formatIndian(amountPaid),
+                          value:
+                              CurrencyFormatter.formatIndian(b.amountPaid),
                           valueStyle: KTypography.amountSmall.copyWith(
                             color: KColors.success,
                           ),
                         ),
-                        if (bill['notes'] != null &&
-                            (bill['notes'] as String).isNotEmpty) ...[
+                        if (b.notes.isNotEmpty) ...[
                           const Divider(),
-                          KDetailRow(
-                            label: 'Notes',
-                            value: bill['notes'] as String,
-                          ),
+                          KDetailRow(label: 'Notes', value: b.notes),
                         ],
                       ],
                     ),
@@ -479,89 +373,7 @@ class _BillDetailBody extends ConsumerWidget {
                 ),
 
                 // Lines tab
-                lines.isEmpty
-                    ? const KEmptyState(
-                        icon: Icons.list_alt,
-                        title: 'No line items',
-                      )
-                    : ListView.builder(
-                        padding: KSpacing.pagePadding,
-                        itemCount: lines.length,
-                        itemBuilder: (context, index) {
-                          final line = lines[index] as Map<String, dynamic>;
-                          final itemName =
-                              line['itemName'] as String? ?? 'Item';
-                          final description =
-                              line['description'] as String? ?? '';
-                          final qty =
-                              (line['quantity'] as num?)?.toDouble() ?? 0;
-                          final unitPrice =
-                              (line['unitPrice'] as num?)?.toDouble() ?? 0;
-                          final lineTotal =
-                              (line['lineTotal'] as num?)?.toDouble() ?? 0;
-                          final taxGroupName =
-                              line['taxGroupName'] as String?;
-
-                          return KCard(
-                            margin:
-                                const EdgeInsets.only(bottom: KSpacing.sm),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(itemName,
-                                              style: KTypography.bodyMedium
-                                                  .copyWith(
-                                                      fontWeight:
-                                                          FontWeight.w600)),
-                                          if (description.isNotEmpty)
-                                            Text(description,
-                                                style: KTypography.bodySmall
-                                                    .copyWith(
-                                                        color: KColors
-                                                            .textSecondary)),
-                                        ],
-                                      ),
-                                    ),
-                                    Text(
-                                      CurrencyFormatter.formatIndian(
-                                          lineTotal),
-                                      style: KTypography.amountSmall,
-                                    ),
-                                  ],
-                                ),
-                                KSpacing.vGapXs,
-                                Row(
-                                  children: [
-                                    Text(
-                                      '${qty.toStringAsFixed(qty.truncateToDouble() == qty ? 0 : 2)} x ${CurrencyFormatter.formatIndian(unitPrice)}',
-                                      style: KTypography.bodySmall.copyWith(
-                                        color: KColors.textSecondary,
-                                      ),
-                                    ),
-                                    if (taxGroupName != null) ...[
-                                      KSpacing.hGapSm,
-                                      Text(
-                                        taxGroupName,
-                                        style:
-                                            KTypography.labelSmall.copyWith(
-                                          color: KColors.textHint,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
+                _LinesTab(lines: b.lines),
 
                 // Payments tab
                 _PaymentsTab(billId: billId),
@@ -570,6 +382,80 @@ class _BillDetailBody extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _LinesTab extends StatelessWidget {
+  final List<BillLineDto> lines;
+
+  const _LinesTab({required this.lines});
+
+  @override
+  Widget build(BuildContext context) {
+    if (lines.isEmpty) {
+      return const KEmptyState(
+        icon: Icons.list_alt,
+        title: 'No line items',
+      );
+    }
+
+    return ListView.builder(
+      padding: KSpacing.pagePadding,
+      itemCount: lines.length,
+      itemBuilder: (context, index) {
+        final line = lines[index];
+        return KCard(
+          margin: const EdgeInsets.only(bottom: KSpacing.sm),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(line.itemName,
+                            style: KTypography.bodyMedium
+                                .copyWith(fontWeight: FontWeight.w600)),
+                        if (line.description.isNotEmpty)
+                          Text(line.description,
+                              style: KTypography.bodySmall.copyWith(
+                                  color: KColors.textSecondary)),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    CurrencyFormatter.formatIndian(line.lineTotal),
+                    style: KTypography.amountSmall,
+                  ),
+                ],
+              ),
+              KSpacing.vGapXs,
+              Row(
+                children: [
+                  Text(
+                    '${line.quantity.toStringAsFixed(line.quantity.truncateToDouble() == line.quantity ? 0 : 2)} x ${CurrencyFormatter.formatIndian(line.unitPrice)}',
+                    style: KTypography.bodySmall.copyWith(
+                      color: KColors.textSecondary,
+                    ),
+                  ),
+                  if (line.taxGroupName != null) ...[
+                    KSpacing.hGapSm,
+                    Text(
+                      line.taxGroupName!,
+                      style: KTypography.labelSmall.copyWith(
+                        color: KColors.textHint,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -607,14 +493,8 @@ class _PaymentsTab extends ConsumerWidget {
           padding: KSpacing.pagePadding,
           itemCount: payments.length,
           itemBuilder: (context, index) {
-            final payment = payments[index] as Map<String, dynamic>;
-            final amount =
-                (payment['amount'] as num?)?.toDouble() ?? 0;
-            final paymentDate = payment['paymentDate'] as String?;
-            final paymentMethod =
-                payment['paymentMethod'] as String? ?? '--';
-            final paymentNumber =
-                payment['paymentNumber'] as String? ?? '--';
+            final payment = BillPaymentDto(
+                payments[index] as Map<String, dynamic>);
 
             return KCard(
               margin: const EdgeInsets.only(bottom: KSpacing.sm),
@@ -638,10 +518,10 @@ class _PaymentsTab extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(paymentNumber,
+                        Text(payment.paymentNumber,
                             style: KTypography.labelLarge),
                         Text(
-                          '${paymentMethod.replaceAll('_', ' ')}${paymentDate != null ? ' · ${DateFormatter.display(DateTime.parse(paymentDate))}' : ''}',
+                          '${payment.paymentMethod.replaceAll('_', ' ')}${payment.paymentDate.isNotEmpty ? ' · ${DateFormatter.display(DateTime.parse(payment.paymentDate))}' : ''}',
                           style: KTypography.bodySmall.copyWith(
                             color: KColors.textSecondary,
                           ),
@@ -650,7 +530,7 @@ class _PaymentsTab extends ConsumerWidget {
                     ),
                   ),
                   Text(
-                    CurrencyFormatter.formatIndian(amount),
+                    CurrencyFormatter.formatIndian(payment.amount),
                     style: KTypography.amountSmall.copyWith(
                       color: KColors.success,
                     ),

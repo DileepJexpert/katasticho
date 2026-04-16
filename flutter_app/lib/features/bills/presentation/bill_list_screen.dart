@@ -3,12 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
-import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
-import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/bill_providers.dart';
+import 'widgets/bill_card.dart';
 
 /// Filter tabs for bill status.
 const _statusFilters = [
@@ -126,7 +124,7 @@ class BillListScreen extends ConsumerWidget {
                     separatorBuilder: (_, __) => KSpacing.vGapSm,
                     itemBuilder: (context, index) {
                       final bill = bills[index] as Map<String, dynamic>;
-                      return _BillCard(bill: bill);
+                      return BillCard(bill: bill);
                     },
                   ),
                 );
@@ -147,100 +145,6 @@ class BillListScreen extends ConsumerWidget {
     showSearch(
       context: context,
       delegate: _BillSearchDelegate(ref),
-    );
-  }
-}
-
-class _BillCard extends StatelessWidget {
-  final Map<String, dynamic> bill;
-
-  const _BillCard({required this.bill});
-
-  @override
-  Widget build(BuildContext context) {
-    final status = bill['status'] as String? ?? 'DRAFT';
-    final totalAmount =
-        (bill['totalAmount'] as num?)?.toDouble() ?? 0;
-    final balanceDue =
-        (bill['balanceDue'] as num?)?.toDouble() ?? totalAmount;
-    final vendorName = bill['vendorName'] as String? ?? 'Unknown';
-    final billNumber = bill['billNumber'] as String? ?? '--';
-    final vendorBillNumber = bill['vendorBillNumber'] as String?;
-    final dueDate = bill['dueDate'] as String?;
-
-    return KCard(
-      onTap: () {
-        final id = bill['id']?.toString();
-        if (id != null) {
-          context.go('/bills/$id');
-        }
-      },
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(billNumber, style: KTypography.labelLarge),
-                    ),
-                    KSpacing.hGapSm,
-                    KStatusChip(status: status),
-                  ],
-                ),
-                KSpacing.vGapXs,
-                Text(
-                  vendorName,
-                  style: KTypography.bodyMedium,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (vendorBillNumber != null && vendorBillNumber.isNotEmpty) ...[
-                  KSpacing.vGapXs,
-                  Text(
-                    'Ref: $vendorBillNumber',
-                    style: KTypography.bodySmall.copyWith(
-                      color: KColors.textSecondary,
-                    ),
-                  ),
-                ],
-                if (dueDate != null) ...[
-                  KSpacing.vGapXs,
-                  Text(
-                    DateFormatter.dueStatus(DateTime.parse(dueDate)),
-                    style: KTypography.bodySmall.copyWith(
-                      color: status == 'OVERDUE'
-                          ? KColors.error
-                          : KColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                CurrencyFormatter.formatIndian(totalAmount),
-                style: KTypography.amountMedium,
-              ),
-              if (balanceDue < totalAmount && balanceDue > 0) ...[
-                KSpacing.vGapXs,
-                Text(
-                  'Due: ${CurrencyFormatter.formatIndian(balanceDue)}',
-                  style: KTypography.bodySmall.copyWith(
-                    color: KColors.warning,
-                  ),
-                ),
-              ],
-            ],
-          ),
-          KSpacing.hGapSm,
-          const Icon(Icons.chevron_right, color: KColors.textHint),
-        ],
-      ),
     );
   }
 }
@@ -270,9 +174,6 @@ class _BillSearchDelegate extends SearchDelegate<String?> {
 
   @override
   Widget buildResults(BuildContext context) {
-    // Bills search uses contactId filter on backend; for now close and
-    // let the user filter via chips. A full-text search endpoint can be
-    // added later.
     close(context, query);
     return const SizedBox();
   }
