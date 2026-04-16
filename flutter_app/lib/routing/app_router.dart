@@ -54,6 +54,7 @@ import '../features/pricing/presentation/price_list_create_screen.dart';
 import '../features/pricing/presentation/price_list_detail_screen.dart';
 import '../features/bills/presentation/bill_list_screen.dart';
 import '../features/bills/presentation/bill_detail_screen.dart';
+import '../features/bills/presentation/bill_create_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -431,6 +432,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => const NoTransitionPage(
               child: BillListScreen(),
             ),
+          ),
+          GoRoute(
+            path: Routes.billCreate,
+            builder: (context, state) => const BillCreateScreen(),
           ),
           GoRoute(
             path: '/bills/:id',
