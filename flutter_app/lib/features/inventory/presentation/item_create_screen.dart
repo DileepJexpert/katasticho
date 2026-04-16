@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/item_group_repository.dart';
 import '../data/item_repository.dart';
@@ -41,6 +43,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   bool _trackInventory = true;
   bool _saving = false;
   bool _loading = false;
+  Map<String, String> _serverErrors = {};
 
   /// F5: when set, the item is created as a variant of this group.
   /// `_selectedGroup` is the cached group map (carries name + defs +
@@ -134,6 +137,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   }
 
   Future<void> _save() async {
+    setState(() => _serverErrors = {});
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _saving = true);
@@ -198,9 +202,24 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     } catch (e, st) {
       debugPrint('[ItemCreateScreen] save FAILED: $e\n$st');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Save failed: $e')),
-      );
+      if (e is DioException) {
+        final fieldErrs = ApiErrorParser.fieldErrors(e);
+        if (fieldErrs.isNotEmpty) {
+          setState(() => _serverErrors = fieldErrs);
+          _formKey.currentState!.validate();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please fix the errors below')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(ApiErrorParser.message(e))),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Save failed: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -338,16 +357,22 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                     label: 'SKU *',
                     controller: _skuController,
                     prefixIcon: Icons.qr_code,
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'SKU is required' : null,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'SKU is required';
+                      if (_serverErrors.containsKey('sku')) return _serverErrors['sku'];
+                      return null;
+                    },
                   ),
                   KSpacing.vGapMd,
                   KTextField(
                     label: 'Name *',
                     controller: _nameController,
                     prefixIcon: Icons.label_outline,
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Name is required';
+                      if (_serverErrors.containsKey('name')) return _serverErrors['name'];
+                      return null;
+                    },
                   ),
                   KSpacing.vGapMd,
                   KTextField(
@@ -414,6 +439,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                         child: KTextField.amount(
                           label: 'Purchase Price',
                           controller: _purchasePriceController,
+                          validator: (v) => _serverErrors['purchasePrice'],
                         ),
                       ),
                       KSpacing.hGapMd,
@@ -421,6 +447,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                         child: KTextField.amount(
                           label: 'Sale Price',
                           controller: _salePriceController,
+                          validator: (v) => _serverErrors['salePrice'],
                         ),
                       ),
                     ],

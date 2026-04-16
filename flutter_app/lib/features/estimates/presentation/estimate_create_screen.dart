@@ -1,9 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../contacts/data/contact_repository.dart';
 import '../data/estimate_repository.dart';
@@ -347,7 +349,9 @@ class _EstimateCreateScreenState extends ConsumerState<EstimateCreateScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save: $e')),
+        SnackBar(content: Text(e is DioException
+            ? ApiErrorParser.message(e)
+            : 'Failed to save: $e')),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
