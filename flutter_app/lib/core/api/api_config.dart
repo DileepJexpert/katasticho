@@ -202,6 +202,9 @@ class ApiConfig {
   // POS — Sales Receipts
   static const String salesReceipts = '/api/v1/sales-receipts';
   static String salesReceiptById(String id) => '/api/v1/sales-receipts/$id';
+  static String salesReceiptPrint(String id) => '/api/v1/sales-receipts/$id/print';
+  static String salesReceiptWhatsAppLink(String id) =>
+      '/api/v1/sales-receipts/$id/whatsapp-link';
   static const String posSearch = '/api/v1/items/pos-search';
 
   // Pricing (v2 — F3 price lists)

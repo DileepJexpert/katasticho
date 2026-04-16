@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
@@ -38,6 +39,23 @@ class PosRepository {
   /// Get receipt by ID.
   Future<Map<String, dynamic>> getReceipt(String id) async {
     final response = await _api.get(ApiConfig.salesReceiptById(id));
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Download receipt PDF bytes (58mm thermal format).
+  Future<List<int>> printReceipt(String id) async {
+    final response = await _api.dio.get<List<int>>(
+      ApiConfig.salesReceiptPrint(id),
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return response.data ?? [];
+  }
+
+  /// Get a shareable WhatsApp link for a receipt.
+  Future<Map<String, dynamic>> getWhatsAppLink(String id) async {
+    final response = await _api.post(
+      ApiConfig.salesReceiptWhatsAppLink(id),
+    );
     return response.data as Map<String, dynamic>;
   }
 

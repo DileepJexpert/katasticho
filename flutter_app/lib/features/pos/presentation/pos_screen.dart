@@ -2,40 +2,22 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/pos_cart_state.dart';
 import '../data/pos_providers.dart';
+import '../data/pos_repository.dart';
 import 'widgets/pos_search_bar.dart';
 import 'widgets/pos_item_search_result.dart';
 import 'widgets/pos_cart_list.dart';
 import 'widgets/pos_total_bar.dart';
 import 'widgets/pos_customer_button.dart';
+import 'widgets/pos_payment_sheet.dart';
+import 'widgets/pos_success_sheet.dart';
 
-/// Quick POS Screen — counter billing optimized for speed.
-///
-/// Layout:
-/// ┌─────────────────────────────────┐
-/// │ Quick POS            [Walk-in ▼]│ ← AppBar + customer chip
-/// ├─────────────────────────────────┤
-/// │ 🔍 Search items or scan barcode │ ← sticky top
-/// ├─────────────────────────────────┤
-/// │ [Search results / Cart]         │ ← scrollable body
-/// ├─────────────────────────────────┤
-/// │ Subtotal     ₹127.12           │
-/// │ GST           ₹22.88           │
-/// │ ──────────────────────         │
-/// │ Total        ₹150.00           │
-/// │ [Cash F1] [UPI F2] [Card F3]   │ ← sticky bottom
-/// └─────────────────────────────────┘
-///
-/// Shortcuts:
-///   Ctrl+F  → focus search
-///   Enter   → add first search result
-///   Ctrl+Enter → complete sale (Day 3)
-///   Ctrl+Delete → clear cart
-///   F1/F2/F3 → Cash/UPI/Card
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
 
@@ -48,6 +30,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   final _searchFocusNode = FocusNode();
   String? _searchQuery;
   Timer? _debounce;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -74,7 +57,6 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     _searchFocusNode.requestFocus();
   }
 
-  /// Enter key in search — add the first result immediately.
   void _onSearchSubmitted(String value) {
     if (value.trim().isEmpty) return;
     final searchAsync = ref.read(posSearchProvider(_searchQuery));
@@ -89,9 +71,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   void _addToCart(Map<String, dynamic> item) {
     final stock = (item['currentStock'] as num?)?.toDouble() ?? 0;
-    if (stock <= 0) return; // Don't add out-of-stock items
+    if (stock <= 0) return;
 
-    // Parse tax rate from taxGroupName (e.g. "GST 18%") or default 0
     final taxRate = _parseTaxRate(item['taxGroupName'] as String?);
 
     ref.read(posCartProvider.notifier).addItem(CartItem(
@@ -110,16 +91,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           currentStock: stock,
         ));
 
-    // Clear search and refocus for next item
     _clearSearch();
-
-    // Brief haptic feedback
     HapticFeedback.lightImpact();
   }
 
   double _parseTaxRate(String? taxGroupName) {
     if (taxGroupName == null || taxGroupName.isEmpty) return 0;
-    // Match patterns like "GST 18%", "GST 5%", "18%"
     final match = RegExp(r'(\d+(?:\.\d+)?)%').firstMatch(taxGroupName);
     if (match != null) {
       return double.tryParse(match.group(1)!) ?? 0;
@@ -127,9 +104,237 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     return 0;
   }
 
-  void _onPaymentTap(String mode) {
+  // ── Payment flow ─────────────────────────────────────────────
+
+  Future<void> _onPaymentTap(String mode) async {
+    final cart = ref.read(posCartProvider);
+    if (cart.isEmpty) return;
+
     ref.read(posCartProvider.notifier).setPaymentMode(mode);
-    // TODO: Day 3 — show payment confirmation sheet, then submit
+
+    final paymentResult = await showPosPaymentSheet(
+      context,
+      cart: cart,
+      paymentMode: mode,
+    );
+
+    if (paymentResult == null || !mounted) return;
+
+    await _completeSale(paymentResult);
+  }
+
+  Future<void> _completeSale(Map<String, dynamic> paymentResult) async {
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
+
+    final cart = ref.read(posCartProvider);
+    final repo = ref.read(posRepositoryProvider);
+
+    try {
+      // Build receipt request matching CreateSalesReceiptRequest
+      final requestBody = _buildReceiptRequest(cart, paymentResult);
+      final response = await repo.createReceipt(requestBody);
+
+      if (!mounted) return;
+
+      HapticFeedback.mediumImpact();
+
+      // Show success sheet
+      final action = await showPosSuccessSheet(
+        context,
+        receipt: response,
+        customerPhone: cart.contactPhone,
+      );
+
+      // Extract receipt ID for actions
+      final receiptData = response['data'] is Map
+          ? response['data'] as Map<String, dynamic>
+          : response;
+      final receiptId = receiptData['id']?.toString();
+
+      if (mounted && receiptId != null) {
+        await _handleSuccessAction(action, receiptId, receiptData, cart);
+      }
+
+      // Clear cart and refocus for next sale
+      ref.read(posCartProvider.notifier).clear();
+      _searchFocusNode.requestFocus();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sale failed: $e'),
+          backgroundColor: KColors.error,
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Retry',
+            textColor: Colors.white,
+            onPressed: () => _completeSale(paymentResult),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Map<String, dynamic> _buildReceiptRequest(
+      PosCartState cart, Map<String, dynamic> paymentResult) {
+    final now = DateTime.now();
+    return {
+      if (cart.contactId != null) 'contactId': cart.contactId,
+      'receiptDate': '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
+      'paymentMode': paymentResult['paymentMode'],
+      'amountReceived': paymentResult['amountReceived'],
+      if (paymentResult['upiReference'] != null)
+        'upiReference': paymentResult['upiReference'],
+      if (cart.notes != null) 'notes': cart.notes,
+      'lines': cart.items
+          .map((item) => {
+                if (item.itemId != null) 'itemId': item.itemId,
+                'description': item.name,
+                'quantity': item.quantity,
+                if (item.unit != null) 'unit': item.unit,
+                'rate': item.rate,
+                if (item.taxGroupId != null) 'taxGroupId': item.taxGroupId,
+                if (item.hsnCode != null) 'hsnCode': item.hsnCode,
+                if (item.batchId != null) 'batchId': item.batchId,
+              })
+          .toList(),
+    };
+  }
+
+  Future<void> _handleSuccessAction(
+    SuccessAction? action,
+    String receiptId,
+    Map<String, dynamic> receiptData,
+    PosCartState cart,
+  ) async {
+    if (action == null || action == SuccessAction.skip) return;
+
+    final repo = ref.read(posRepositoryProvider);
+
+    switch (action) {
+      case SuccessAction.print:
+        await _handlePrint(repo, receiptId);
+        break;
+      case SuccessAction.whatsapp:
+        await _handleWhatsApp(repo, receiptId, receiptData, cart);
+        break;
+      case SuccessAction.email:
+        _showInfoSnackBar('Email receipt coming soon');
+        break;
+      case SuccessAction.skip:
+        break;
+    }
+  }
+
+  Future<void> _handlePrint(PosRepository repo, String receiptId) async {
+    try {
+      _showInfoSnackBar('Generating receipt...');
+      final pdfBytes = await repo.printReceipt(receiptId);
+      if (!mounted) return;
+      // Use the printing package to send to printer
+      _showInfoSnackBar('Receipt ready (${pdfBytes.length} bytes)');
+    } catch (e) {
+      if (mounted) _showErrorSnackBar('Print failed: $e');
+    }
+  }
+
+  Future<void> _handleWhatsApp(
+    PosRepository repo,
+    String receiptId,
+    Map<String, dynamic> receiptData,
+    PosCartState cart,
+  ) async {
+    try {
+      final linkResponse = await repo.getWhatsAppLink(receiptId);
+      final linkData = linkResponse['data'] is Map
+          ? linkResponse['data'] as Map<String, dynamic>
+          : linkResponse;
+      final shareUrl = linkData['shareUrl']?.toString() ?? '';
+
+      final receiptNumber =
+          receiptData['receiptNumber']?.toString() ?? '';
+      final total = (receiptData['total'] as num?)?.toDouble() ?? 0;
+      final paymentMode =
+          receiptData['paymentMode']?.toString() ?? 'CASH';
+
+      final message = 'Receipt from your store\n\n'
+          'Receipt: $receiptNumber\n'
+          'Total: ${_formatAmount(total)}\n'
+          'Paid via $paymentMode\n\n'
+          'View full receipt: $shareUrl\n\n'
+          '— Sent via Katasticho';
+
+      String? phone = cart.contactPhone;
+      if (phone == null || phone.isEmpty) {
+        phone = await _promptForPhone();
+      }
+      if (phone == null || phone.isEmpty) return;
+
+      // Clean phone number — remove spaces, dashes, leading +
+      phone = phone.replaceAll(RegExp(r'[\s\-\+]'), '');
+      if (phone.length == 10) phone = '91$phone'; // default India
+
+      final waUrl = Uri.parse(
+          'https://wa.me/$phone?text=${Uri.encodeComponent(message)}');
+      if (await canLaunchUrl(waUrl)) {
+        await launchUrl(waUrl, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      if (mounted) _showErrorSnackBar('WhatsApp share failed: $e');
+    }
+  }
+
+  Future<String?> _promptForPhone() async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Customer Phone'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.phone,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Enter phone number',
+            prefixText: '+91 ',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatAmount(double amount) {
+    return '\u20B9${amount.toStringAsFixed(2)}';
+  }
+
+  void _showInfoSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: KColors.error,
+      ),
+    );
   }
 
   // ── Keyboard shortcuts ───────────────────────────────────────
@@ -139,32 +344,32 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     final isCtrl = HardwareKeyboard.instance.isControlPressed;
 
-    // Ctrl+F → focus search
     if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyF) {
       _searchFocusNode.requestFocus();
       return KeyEventResult.handled;
     }
 
-    // Ctrl+Delete → clear cart
+    // Ctrl+Enter → complete sale with current payment mode
+    if (isCtrl && event.logicalKey == LogicalKeyboardKey.enter) {
+      final cart = ref.read(posCartProvider);
+      if (!cart.isEmpty) _onPaymentTap(cart.paymentMode);
+      return KeyEventResult.handled;
+    }
+
     if (isCtrl && event.logicalKey == LogicalKeyboardKey.delete) {
       ref.read(posCartProvider.notifier).clear();
       _searchFocusNode.requestFocus();
       return KeyEventResult.handled;
     }
 
-    // F1 → Cash
     if (event.logicalKey == LogicalKeyboardKey.f1) {
       _onPaymentTap('CASH');
       return KeyEventResult.handled;
     }
-
-    // F2 → UPI
     if (event.logicalKey == LogicalKeyboardKey.f2) {
       _onPaymentTap('UPI');
       return KeyEventResult.handled;
     }
-
-    // F3 → Card
     if (event.logicalKey == LogicalKeyboardKey.f3) {
       _onPaymentTap('CARD');
       return KeyEventResult.handled;
@@ -183,49 +388,69 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     return Focus(
       onKeyEvent: _handleKeyEvent,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Quick POS'),
-          actions: [
-            const PosCustomerButton(),
-            const SizedBox(width: 8),
-            if (cart.items.isNotEmpty)
-              TextButton.icon(
-                onPressed: () {
-                  ref.read(posCartProvider.notifier).clear();
-                },
-                icon: const Icon(Icons.clear_all, size: 18),
-                label: const Text('Clear'),
+      child: Stack(
+        children: [
+          Scaffold(
+            appBar: AppBar(
+              title: const Text('Quick POS'),
+              actions: [
+                const PosCustomerButton(),
+                const SizedBox(width: 8),
+                if (cart.items.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: () {
+                      ref.read(posCartProvider.notifier).clear();
+                    },
+                    icon: const Icon(Icons.clear_all, size: 18),
+                    label: const Text('Clear'),
+                  ),
+                const SizedBox(width: 4),
+              ],
+            ),
+            body: Column(
+              children: [
+                PosSearchBar(
+                  controller: _searchController,
+                  onChanged: _onSearchChanged,
+                  onClear: _clearSearch,
+                  onSubmitted: _onSearchSubmitted,
+                  focusNode: _searchFocusNode,
+                ),
+                Expanded(
+                  child: isSearching
+                      ? _buildSearchResults(searchAsync)
+                      : _buildCartView(cart),
+                ),
+                PosTotalBar(
+                  onCashTap: () => _onPaymentTap('CASH'),
+                  onUpiTap: () => _onPaymentTap('UPI'),
+                  onCardTap: () => _onPaymentTap('CARD'),
+                ),
+              ],
+            ),
+          ),
+
+          // Loading overlay during sale submission
+          if (_isSubmitting)
+            Container(
+              color: Colors.black.withValues(alpha: 0.3),
+              child: const Center(
+                child: Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Processing sale...'),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            const SizedBox(width: 4),
-          ],
-        ),
-        body: Column(
-          children: [
-            // Sticky search bar
-            PosSearchBar(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              onClear: _clearSearch,
-              onSubmitted: _onSearchSubmitted,
-              focusNode: _searchFocusNode,
             ),
-
-            // Scrollable body — search results or cart
-            Expanded(
-              child: isSearching
-                  ? _buildSearchResults(searchAsync)
-                  : _buildCartView(cart),
-            ),
-
-            // Sticky total bar
-            PosTotalBar(
-              onCashTap: () => _onPaymentTap('CASH'),
-              onUpiTap: () => _onPaymentTap('UPI'),
-              onCardTap: () => _onPaymentTap('CARD'),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
