@@ -91,6 +91,28 @@ class ReportsHubScreen extends StatelessWidget {
                 ),
               ],
             ),
+            KSpacing.vGapXl,
+
+            // AP Reports
+            Text('Accounts Payable', style: KTypography.h2),
+            KSpacing.vGapMd,
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: KSpacing.md,
+              mainAxisSpacing: KSpacing.md,
+              childAspectRatio: 1.4,
+              children: [
+                _ReportTile(
+                  icon: Icons.timelapse,
+                  title: 'AP Ageing',
+                  subtitle: 'Outstanding payables by age',
+                  color: KColors.ageing61to90,
+                  onTap: () => context.go(Routes.apAgeingReport),
+                ),
+              ],
+            ),
           ],
         ),
       ),

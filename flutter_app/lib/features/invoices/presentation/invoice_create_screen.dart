@@ -14,6 +14,8 @@ import '../../customers/data/customer_repository.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../pricing/data/price_list_repository.dart';
+import '../../tax_groups/data/tax_group_repository.dart';
+import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/invoice_repository.dart';
 
 class InvoiceCreateScreen extends ConsumerStatefulWidget {
@@ -128,6 +130,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
                   'unitPrice': l.unitPrice,
                   'gstRate': l.gstRate,
                   'accountCode': '4000',
+                  if (l.taxGroupId != null) 'taxGroupId': l.taxGroupId,
                   if (l.itemId != null) 'itemId': l.itemId,
                   if (l.batchId != null) 'batchId': l.batchId,
                 })
@@ -634,6 +637,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
 
 class _LineItem {
   String? itemId;
+  String? taxGroupId;
   String description = '';
   String hsnCode = '';
   double quantity = 1;
@@ -713,8 +717,12 @@ class _LineItemCardState extends State<_LineItemCard> {
       widget.item.hsnCode = picked['hsnCode']?.toString() ?? '';
       widget.item.unitPrice = (picked['salePrice'] as num?)?.toDouble() ?? 0;
       final pickedGst = (picked['gstRate'] as num?)?.toDouble();
-      if (pickedGst != null && [0, 5, 12, 18, 28].contains(pickedGst.toInt())) {
+      if (pickedGst != null) {
         widget.item.gstRate = pickedGst;
+      }
+      final pickedTaxGroupId = picked['taxGroupId']?.toString();
+      if (pickedTaxGroupId != null) {
+        widget.item.taxGroupId = pickedTaxGroupId;
       }
       widget.item.trackBatches = picked['trackBatches'] == true;
       // New item means any prior batch selection is stale.
@@ -988,20 +996,12 @@ class _LineItemCardState extends State<_LineItemCard> {
               ),
               KSpacing.hGapSm,
               Expanded(
-                child: DropdownButtonFormField<double>(
-                  value: widget.item.gstRate,
-                  decoration: const InputDecoration(
-                    labelText: 'GST Rate',
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 0, child: Text('0%')),
-                    DropdownMenuItem(value: 5, child: Text('5%')),
-                    DropdownMenuItem(value: 12, child: Text('12%')),
-                    DropdownMenuItem(value: 18, child: Text('18%')),
-                    DropdownMenuItem(value: 28, child: Text('28%')),
-                  ],
-                  onChanged: (v) {
-                    widget.item.gstRate = v ?? 18;
+                child: TaxGroupPicker(
+                  value: widget.item.taxGroupId,
+                  label: 'Tax Group',
+                  onChanged: (group) {
+                    widget.item.taxGroupId = group?.id;
+                    widget.item.gstRate = group?.totalRate ?? 0;
                     widget.onChanged();
                   },
                 ),

@@ -9,6 +9,8 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../contacts/data/contact_repository.dart';
+import '../../tax_groups/data/tax_group_repository.dart';
+import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/bill_repository.dart';
 
 class BillCreateScreen extends ConsumerStatefulWidget {
@@ -711,20 +713,12 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
               ),
               KSpacing.hGapSm,
               Expanded(
-                child: DropdownButtonFormField<double>(
-                  value: widget.item.taxRate,
-                  decoration: const InputDecoration(
-                    labelText: 'Tax Rate',
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 0, child: Text('0%')),
-                    DropdownMenuItem(value: 5, child: Text('5%')),
-                    DropdownMenuItem(value: 12, child: Text('12%')),
-                    DropdownMenuItem(value: 18, child: Text('18%')),
-                    DropdownMenuItem(value: 28, child: Text('28%')),
-                  ],
-                  onChanged: (v) {
-                    widget.item.taxRate = v ?? 18;
+                child: TaxGroupPicker(
+                  value: widget.item.taxGroupId,
+                  label: 'Tax Group',
+                  onChanged: (group) {
+                    widget.item.taxGroupId = group?.id;
+                    widget.item.taxRate = group?.totalRate ?? 0;
                     widget.onChanged();
                   },
                 ),

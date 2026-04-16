@@ -48,6 +48,9 @@ class ApiConfig {
   static const String ageingReport = '/api/v1/ar-reports/ageing';
   static const String gstr1 = '/api/v1/ar-reports/gstr1';
 
+  // AP Reports
+  static const String apAgeingReport = '/api/v1/reports/ap-ageing';
+
   // Inventory
   static const String items = '/api/v1/items';
   static String itemById(String id) => '/api/v1/items/$id';

@@ -9,6 +9,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../contacts/data/contact_repository.dart';
+import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/vendor_credit_repository.dart';
 
 class VendorCreditCreateScreen extends ConsumerStatefulWidget {
@@ -130,6 +131,7 @@ class _VendorCreditCreateScreenState
                   'quantity': l.quantity,
                   'unitPrice': l.unitPrice,
                   'gstRate': l.gstRate,
+                  if (l.taxGroupId != null) 'taxGroupId': l.taxGroupId,
                 })
             .toList(),
       };
@@ -571,6 +573,7 @@ class _VendorCreditCreateScreenState
 
 class _CreditLineItem {
   String? itemId;
+  String? taxGroupId;
   String description = '';
   String hsnCode = '';
   String accountId = '';
@@ -720,25 +723,13 @@ class _CreditLineItemCardState
               ),
               KSpacing.hGapSm,
               Expanded(
-                child: DropdownButtonFormField<double>(
-                  value: widget.item.gstRate,
-                  decoration: const InputDecoration(
-                    labelText: 'GST Rate',
-                  ),
-                  items: const [
-                    DropdownMenuItem(
-                        value: 0, child: Text('0%')),
-                    DropdownMenuItem(
-                        value: 5, child: Text('5%')),
-                    DropdownMenuItem(
-                        value: 12, child: Text('12%')),
-                    DropdownMenuItem(
-                        value: 18, child: Text('18%')),
-                    DropdownMenuItem(
-                        value: 28, child: Text('28%')),
-                  ],
-                  onChanged: (v) {
-                    widget.item.gstRate = v ?? 18;
+                child: TaxGroupPicker(
+                  value: widget.item.taxGroupId,
+                  label: 'Tax Group',
+                  onChanged: (group) {
+                    widget.item.taxGroupId = group?.id;
+                    widget.item.gstRate =
+                        group?.totalRate ?? 0;
                     widget.onChanged();
                   },
                 ),

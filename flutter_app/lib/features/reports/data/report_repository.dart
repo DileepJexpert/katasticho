@@ -60,6 +60,15 @@ class ReportRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> getApAgeingReport({String? asOfDate}) async {
+    final params = <String, dynamic>{
+      if (asOfDate != null) 'asOfDate': asOfDate,
+    };
+    final response =
+        await _api.get(ApiConfig.apAgeingReport, queryParameters: params);
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> getGstr1({
     required String startDate,
     required String endDate,

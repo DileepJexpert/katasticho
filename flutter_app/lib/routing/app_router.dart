@@ -31,6 +31,7 @@ import '../features/reports/presentation/profit_loss_screen.dart';
 import '../features/reports/presentation/balance_sheet_screen.dart';
 import '../features/reports/presentation/general_ledger_screen.dart';
 import '../features/reports/presentation/ageing_report_screen.dart';
+import '../features/reports/presentation/ap_ageing_screen.dart';
 import '../features/ai_chat/presentation/ai_chat_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/gst/presentation/gst_dashboard_screen.dart';
@@ -107,6 +108,7 @@ class Routes {
   static const balanceSheet = '/reports/balance-sheet';
   static const generalLedger = '/reports/general-ledger';
   static const ageingReport = '/reports/ageing';
+  static const apAgeingReport = '/reports/ap-ageing';
   static const creditNotes = '/credit-notes';
   static const creditNoteCreate = '/credit-notes/create';
   static const creditNoteDetail = '/credit-notes/:id';
@@ -405,6 +407,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.ageingReport,
             builder: (context, state) => const AgeingReportScreen(),
+          ),
+          GoRoute(
+            path: Routes.apAgeingReport,
+            builder: (context, state) => const ApAgeingScreen(),
           ),
           GoRoute(
             path: Routes.creditNotes,
