@@ -165,6 +165,35 @@ class ApiConfig {
   static const String demoSeedSharmaMedical =
       '/api/v1/demo/seed-sharma-medical';
 
+  // AP — Purchase Bills
+  static const String bills = '/api/v1/bills';
+  static String billById(String id) => '/api/v1/bills/$id';
+  static String postBill(String id) => '/api/v1/bills/$id/post';
+  static String voidBill(String id) => '/api/v1/bills/$id/void';
+  static String billPayments(String id) => '/api/v1/bills/$id/payments';
+  static String billComments(String id) => '/api/v1/bills/$id/comments';
+  static String billAttachments(String id) => '/api/v1/bills/$id/attachments';
+
+  // AP — Vendor Payments
+  static const String vendorPayments = '/api/v1/vendor-payments';
+  static String vendorPaymentById(String id) => '/api/v1/vendor-payments/$id';
+  static String voidVendorPayment(String id) =>
+      '/api/v1/vendor-payments/$id/void';
+
+  // AP — Vendor Credits
+  static const String vendorCredits = '/api/v1/vendor-credits';
+  static String vendorCreditById(String id) => '/api/v1/vendor-credits/$id';
+  static String postVendorCredit(String id) =>
+      '/api/v1/vendor-credits/$id/post';
+  static String voidVendorCredit(String id) =>
+      '/api/v1/vendor-credits/$id/void';
+  static String applyVendorCredit(String id) =>
+      '/api/v1/vendor-credits/$id/apply';
+
+  // AP — Tax Groups
+  static const String taxGroups = '/api/v1/tax-groups';
+  static String taxGroupById(String id) => '/api/v1/tax-groups/$id';
+
   // Pricing (v2 — F3 price lists)
   static const String priceLists = '/api/v1/price-lists';
   static String priceListById(String id) => '/api/v1/price-lists/$id';

@@ -52,6 +52,7 @@ import '../features/procurement/presentation/stock_receipt_detail_screen.dart';
 import '../features/pricing/presentation/price_list_list_screen.dart';
 import '../features/pricing/presentation/price_list_create_screen.dart';
 import '../features/pricing/presentation/price_list_detail_screen.dart';
+import '../features/bills/presentation/bill_list_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -106,6 +107,10 @@ class Routes {
   static const priceListCreate = '/price-lists/create';
   static const priceListDetail = '/price-lists/:id';
   static const recordPayment = '/invoices/:id/pay';
+  // AP — Bills
+  static const bills = '/bills';
+  static const billCreate = '/bills/create';
+  static const billDetail = '/bills/:id';
   static const aiChat = '/ai-chat';
   static const gst = '/gst';
   static const settings = '/settings';
@@ -417,6 +422,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/price-lists/:id',
             builder: (context, state) => PriceListDetailScreen(
               listId: state.pathParameters['id']!,
+            ),
+          ),
+          // AP — Bills
+          GoRoute(
+            path: Routes.bills,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: BillListScreen(),
             ),
           ),
           GoRoute(

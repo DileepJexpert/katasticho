@@ -68,6 +68,15 @@ const _navItems = [
   ),
 ];
 
+const _purchasesNavItems = [
+  NavItem(
+    label: 'Bills',
+    icon: Icons.receipt_outlined,
+    activeIcon: Icons.receipt_rounded,
+    route: Routes.bills,
+  ),
+];
+
 const _secondaryNavItems = [
   NavItem(
     label: 'Estimates',
@@ -227,6 +236,10 @@ class _DesktopShell extends ConsumerWidget {
                       _NavSectionLabel(label: 'WORKSPACE'),
                       ..._navItems.map((item) => _SidebarNavItem(item: item)),
                       KSpacing.vGapMd,
+                      _NavSectionLabel(label: 'PURCHASES'),
+                      ..._purchasesNavItems
+                          .map((item) => _SidebarNavItem(item: item)),
+                      KSpacing.vGapMd,
                       _NavSectionLabel(label: 'MORE'),
                       ..._secondaryNavItems
                           .map((item) => _SidebarNavItem(item: item)),
@@ -335,7 +348,7 @@ bool _isNavActive(String currentRoute, String itemRoute) {
   bool matchesSelfOrChild(String r) =>
       currentRoute == r || currentRoute.startsWith('$r/');
   if (!matchesSelfOrChild(itemRoute)) return false;
-  for (final other in [..._navItems, ..._secondaryNavItems]) {
+  for (final other in [..._navItems, ..._purchasesNavItems, ..._secondaryNavItems]) {
     if (other.route == itemRoute) continue;
     if (other.route.length > itemRoute.length && matchesSelfOrChild(other.route)) {
       return false;
