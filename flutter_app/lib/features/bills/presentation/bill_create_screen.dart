@@ -1,9 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
@@ -147,7 +149,9 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to create bill. Please try again.';
+        _errorMessage = e is DioException
+            ? ApiErrorParser.message(e)
+            : 'Failed to create bill. Please try again.';
       });
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
