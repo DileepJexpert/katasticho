@@ -252,6 +252,37 @@ public class UomService {
 
     // ── Private helpers ──────────────────────────────────────────
 
+    /**
+     * Seed standard UoMs for a newly created organisation.
+     * Called from signup flow so items can be created immediately.
+     */
+    @Transactional
+    public void seedDefaultsForOrg(UUID orgId) {
+        if (uomRepository.existsByOrgIdAndAbbreviationIgnoreCaseAndIsDeletedFalse(orgId, "PCS")) {
+            return;
+        }
+        seedUom(orgId, "Pieces",      "PCS",    UomCategory.COUNT,     true);
+        seedUom(orgId, "Box",         "BOX",    UomCategory.PACKAGING, true);
+        seedUom(orgId, "Strip",       "STRIP",  UomCategory.PACKAGING, false);
+        seedUom(orgId, "Kilogram",    "KG",     UomCategory.WEIGHT,    true);
+        seedUom(orgId, "Gram",        "GM",     UomCategory.WEIGHT,    false);
+        seedUom(orgId, "Litre",       "LTR",    UomCategory.VOLUME,    true);
+        seedUom(orgId, "Millilitre",  "ML",     UomCategory.VOLUME,    false);
+        seedUom(orgId, "Metre",       "MTR",    UomCategory.LENGTH,    true);
+        log.info("Seeded default UoMs for org {}", orgId);
+    }
+
+    private void seedUom(UUID orgId, String name, String abbr, UomCategory cat, boolean isBase) {
+        Uom uom = Uom.builder()
+                .name(name)
+                .abbreviation(abbr)
+                .category(cat)
+                .base(isBase)
+                .build();
+        uom.setOrgId(orgId);
+        uomRepository.save(uom);
+    }
+
     private Uom findForOrg(UUID id, UUID orgId) {
         return uomRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Uom", id));

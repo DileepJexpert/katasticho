@@ -9,6 +9,7 @@ import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.auth.repository.RefreshTokenRepository;
 import com.katasticho.erp.auth.repository.UserInvitationRepository;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.inventory.service.UomService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
     private final JdbcTemplate jdbcTemplate;
+    private final UomService uomService;
 
     public void requestOtp(OtpRequest request) {
         otpService.generateAndStore(request.phone());
@@ -102,6 +104,8 @@ public class AuthService {
                 "INSERT INTO branch (id, org_id, code, name, is_default, is_active) " +
                 "VALUES (?, ?, 'HO', 'Head Office', TRUE, TRUE)",
                 defaultBranchId, org.getId());
+
+        uomService.seedDefaultsForOrg(org.getId());
 
         // Create owner user — saveAndFlush for the same write-behind reason
         // (we raw-UPDATE the branch_id column below).
