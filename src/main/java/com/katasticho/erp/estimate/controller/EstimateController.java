@@ -7,6 +7,7 @@ import com.katasticho.erp.estimate.dto.CreateEstimateRequest;
 import com.katasticho.erp.estimate.dto.EstimateResponse;
 import com.katasticho.erp.estimate.dto.UpdateEstimateRequest;
 import com.katasticho.erp.estimate.service.EstimateService;
+import com.katasticho.erp.common.service.DocumentShareService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -16,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -24,6 +26,7 @@ import java.util.UUID;
 public class EstimateController {
 
     private final EstimateService estimateService;
+    private final DocumentShareService documentShareService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
@@ -90,5 +93,11 @@ public class EstimateController {
     public ResponseEntity<ApiResponse<InvoiceResponse>> convert(@PathVariable UUID id) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created(estimateService.convertToInvoice(id)));
+    }
+
+    @GetMapping("/{id}/whatsapp-link")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<Map<String, String>>> whatsappLink(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(documentShareService.shareEstimate(id)));
     }
 }

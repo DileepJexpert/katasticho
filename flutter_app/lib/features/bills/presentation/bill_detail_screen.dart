@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/api/api_client.dart';
+import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/whatsapp_share.dart';
 import '../data/bill_dto.dart';
 import '../data/bill_providers.dart';
 import '../data/bill_repository.dart';
@@ -33,6 +36,9 @@ class BillDetailScreen extends ConsumerWidget {
                     onSelected: (value) =>
                         _handleAction(context, ref, value, b),
                     itemBuilder: (context) => [
+                      const PopupMenuItem(
+                          value: 'share',
+                          child: Text('Share via WhatsApp')),
                       if (b.isDraft)
                         const PopupMenuItem(
                             value: 'post', child: Text('Post Bill')),
@@ -122,6 +128,17 @@ class BillDetailScreen extends ConsumerWidget {
     final repo = ref.read(billRepositoryProvider);
 
     switch (action) {
+      case 'share':
+        if (context.mounted) {
+          final api = ref.read(apiClientProvider);
+          launchWhatsAppShare(
+            context,
+            fetchShareData: () => api.get(
+              ApiConfig.billWhatsAppLink(billId),
+            ).then((r) => r.data as Map<String, dynamic>),
+          );
+        }
+        break;
       case 'post':
         try {
           await repo.postBill(billId);

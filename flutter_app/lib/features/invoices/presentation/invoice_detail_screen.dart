@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/api/api_client.dart';
+import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/whatsapp_share.dart';
 import '../../../routing/app_router.dart';
 import '../data/invoice_providers.dart';
 import '../data/invoice_repository.dart';
@@ -29,6 +32,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'send', child: Text('Send Invoice')),
               const PopupMenuItem(value: 'share', child: Text('Share via WhatsApp')),
+              const PopupMenuItem(value: 'reminder', child: Text('Send Payment Reminder')),
               const PopupMenuItem(value: 'pdf', child: Text('Download PDF')),
               const PopupMenuItem(
                 value: 'cancel',
@@ -128,10 +132,28 @@ class InvoiceDetailScreen extends ConsumerWidget {
         _showCancelConfirmation(context, ref);
         break;
       case 'pdf':
-        // PDF generation placeholder
         break;
       case 'share':
-        // WhatsApp share placeholder
+        if (context.mounted) {
+          final api = ref.read(apiClientProvider);
+          launchWhatsAppShare(
+            context,
+            fetchShareData: () => api.get(
+              ApiConfig.invoiceWhatsAppLink(invoiceId),
+            ).then((r) => r.data as Map<String, dynamic>),
+          );
+        }
+        break;
+      case 'reminder':
+        if (context.mounted) {
+          final api = ref.read(apiClientProvider);
+          launchWhatsAppShare(
+            context,
+            fetchShareData: () => api.get(
+              ApiConfig.invoiceWhatsAppReminder(invoiceId),
+            ).then((r) => r.data as Map<String, dynamic>),
+          );
+        }
         break;
     }
   }

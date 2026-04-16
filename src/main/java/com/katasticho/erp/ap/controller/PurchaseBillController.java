@@ -12,6 +12,7 @@ import com.katasticho.erp.common.entity.EntityAttachment;
 import com.katasticho.erp.common.entity.EntityComment;
 import com.katasticho.erp.common.service.AttachmentService;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.common.service.DocumentShareService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -37,6 +38,7 @@ public class PurchaseBillController {
     private final VendorPaymentService paymentService;
     private final CommentService commentService;
     private final AttachmentService attachmentService;
+    private final DocumentShareService documentShareService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
@@ -139,5 +141,11 @@ public class PurchaseBillController {
     public ResponseEntity<ApiResponse<List<EntityAttachment>>> listAttachments(@PathVariable UUID id) {
         List<EntityAttachment> attachments = attachmentService.list("BILL", id);
         return ResponseEntity.ok(ApiResponse.ok(attachments));
+    }
+
+    @GetMapping("/{id}/whatsapp-link")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<Map<String, String>>> whatsappLink(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(documentShareService.shareBill(id)));
     }
 }

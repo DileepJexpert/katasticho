@@ -37,6 +37,10 @@ class ApiConfig {
   static const String customers = '/api/v1/customers';
   static const String invoices = '/api/v1/invoices';
   static String invoiceById(String id) => '/api/v1/invoices/$id';
+  static String invoiceWhatsAppLink(String id) =>
+      '/api/v1/invoices/$id/whatsapp-link';
+  static String invoiceWhatsAppReminder(String id) =>
+      '/api/v1/invoices/$id/whatsapp-reminder';
   static String sendInvoice(String id) => '/api/v1/invoices/$id/send';
   static String cancelInvoice(String id) => '/api/v1/invoices/$id/cancel';
   static String invoicePayments(String invoiceId) =>
@@ -114,6 +118,8 @@ class ApiConfig {
   // F9: Estimates / Quotations
   static const String estimates = '/api/v1/estimates';
   static String estimateById(String id) => '/api/v1/estimates/$id';
+  static String estimateWhatsAppLink(String id) =>
+      '/api/v1/estimates/$id/whatsapp-link';
   static String sendEstimate(String id) => '/api/v1/estimates/$id/send';
   static String acceptEstimate(String id) => '/api/v1/estimates/$id/accept';
   static String declineEstimate(String id) => '/api/v1/estimates/$id/decline';
@@ -173,6 +179,8 @@ class ApiConfig {
   // AP — Purchase Bills
   static const String bills = '/api/v1/bills';
   static String billById(String id) => '/api/v1/bills/$id';
+  static String billWhatsAppLink(String id) =>
+      '/api/v1/bills/$id/whatsapp-link';
   static String postBill(String id) => '/api/v1/bills/$id/post';
   static String voidBill(String id) => '/api/v1/bills/$id/void';
   static String billPayments(String id) => '/api/v1/bills/$id/payments';

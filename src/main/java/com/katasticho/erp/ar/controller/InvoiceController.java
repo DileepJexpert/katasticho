@@ -5,6 +5,7 @@ import com.katasticho.erp.ar.dto.InvoiceResponse;
 import com.katasticho.erp.ar.service.InvoiceService;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
+import com.katasticho.erp.common.service.DocumentShareService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -23,6 +24,7 @@ import java.util.UUID;
 public class InvoiceController {
 
     private final InvoiceService invoiceService;
+    private final DocumentShareService documentShareService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
@@ -66,5 +68,17 @@ public class InvoiceController {
             @PathVariable UUID customerId, Pageable pageable) {
         Page<InvoiceResponse> page = invoiceService.listInvoiceResponsesByCustomer(customerId, pageable);
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(page)));
+    }
+
+    @GetMapping("/{id}/whatsapp-link")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<Map<String, String>>> whatsappLink(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(documentShareService.shareInvoice(id)));
+    }
+
+    @GetMapping("/{id}/whatsapp-reminder")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<Map<String, String>>> whatsappReminder(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(documentShareService.shareInvoiceReminder(id)));
     }
 }

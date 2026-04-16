@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
+import '../../../core/utils/whatsapp_share.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
@@ -51,6 +52,21 @@ class EstimateDetailScreen extends ConsumerWidget {
           child: Scaffold(
             appBar: AppBar(
               title: Text(number),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.send),
+                  tooltip: 'Share via WhatsApp',
+                  onPressed: () {
+                    final api = ref.read(apiClientProvider);
+                    launchWhatsAppShare(
+                      context,
+                      fetchShareData: () => api.get(
+                        ApiConfig.estimateWhatsAppLink(estimateId),
+                      ).then((r) => r.data as Map<String, dynamic>),
+                    );
+                  },
+                ),
+              ],
               bottom: const TabBar(
                 tabs: [
                   Tab(text: 'Details'),
