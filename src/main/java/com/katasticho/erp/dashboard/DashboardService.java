@@ -176,12 +176,13 @@ public class DashboardService {
                             PurchaseBill::getBranchId,
                             Collectors.reducing(BigDecimal.ZERO, PurchaseBill::getBalanceDue, BigDecimal::add)));
 
-            BigDecimal denom = totalOutstanding.signum() > 0 ? totalOutstanding : BigDecimal.ONE;
+            final BigDecimal finalOutstanding = totalOutstanding;
+            BigDecimal denom = finalOutstanding.signum() > 0 ? finalOutstanding : BigDecimal.ONE;
             byBranch = branches.stream()
                     .filter(b -> branchId == null || branchId.equals(b.getId()))
                     .map(b -> {
                         BigDecimal amt = purchasesByBranch.getOrDefault(b.getId(), BigDecimal.ZERO);
-                        BigDecimal pct = totalOutstanding.signum() > 0
+                        BigDecimal pct = finalOutstanding.signum() > 0
                                 ? amt.multiply(BigDecimal.valueOf(100)).divide(denom, 2, RoundingMode.HALF_UP)
                                 : BigDecimal.ZERO;
                         return new BranchPurchaseRow(b.getId(), b.getCode(), b.getName(), amt, pct);
