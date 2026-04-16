@@ -26,6 +26,7 @@ public record CreateVendorCreditRequest(
             @NotNull UUID accountId,
             @NotNull BigDecimal quantity,
             @NotNull BigDecimal unitPrice,
-            @NotNull BigDecimal gstRate
+            @NotNull BigDecimal gstRate,
+            UUID taxGroupId
     ) {}
 }

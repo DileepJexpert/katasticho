@@ -21,5 +21,6 @@ public record UpdateExpenseRequest(
         Boolean billable,
         UUID projectId,
         UUID customerContactId,
-        String receiptUrl
+        String receiptUrl,
+        UUID taxGroupId
 ) {}

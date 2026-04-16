@@ -33,7 +33,10 @@ public record InvoiceLineRequest(
         UUID itemId,
 
         /** Optional batch reference (Sprint 26). */
-        UUID batchId
+        UUID batchId,
+
+        /** Optional tax group override. If null, resolved from gstRate. */
+        UUID taxGroupId
 ) {
     public InvoiceLineRequest {
         if (discountPercent == null) discountPercent = BigDecimal.ZERO;

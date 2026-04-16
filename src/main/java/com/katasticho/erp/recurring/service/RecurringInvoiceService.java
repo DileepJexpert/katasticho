@@ -340,6 +340,7 @@ public class RecurringInvoiceService {
                                 ? l.getAccountCode()
                                 : DEFAULT_REVENUE_ACCOUNT_CODE,
                         l.getItemId(),
+                        null,
                         null))
                 .toList();
 

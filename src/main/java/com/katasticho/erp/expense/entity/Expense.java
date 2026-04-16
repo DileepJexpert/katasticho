@@ -58,6 +58,9 @@ public class Expense {
     @Builder.Default
     private BigDecimal gstRate = BigDecimal.ZERO;
 
+    @Column(name = "tax_group_id")
+    private UUID taxGroupId;
+
     /** FK to contact.id — vendor (optional). */
     @Column(name = "contact_id")
     private UUID contactId;

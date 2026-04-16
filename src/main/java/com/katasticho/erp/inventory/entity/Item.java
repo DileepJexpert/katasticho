@@ -76,6 +76,9 @@ public class Item extends BaseEntity {
     @Builder.Default
     private BigDecimal gstRate = BigDecimal.ZERO;
 
+    @Column(name = "default_tax_group_id")
+    private UUID defaultTaxGroupId;
+
     @Column(name = "track_inventory", nullable = false)
     @Builder.Default
     private boolean trackInventory = true;

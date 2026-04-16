@@ -34,7 +34,6 @@ import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.tax.TaxEngine;
-import com.katasticho.erp.tax.TaxEngineFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -80,12 +79,11 @@ public class VendorCreditService {
     private final WarehouseRepository warehouseRepository;
     private final JournalService journalService;
     private final PurchaseBillService billService;
-    private final TaxEngineFactory taxEngineFactory;
+    private final TaxEngine taxEngine;
     private final CurrencyService currencyService;
     private final InventoryService inventoryService;
 
     private static final String AP_ACCOUNT_CODE = "2010";
-    private static final String GST_INPUT_CREDIT_CODE = "1500";
 
     // ── Create ──────────────────────────────────────────────────
 
@@ -113,8 +111,6 @@ public class VendorCreditService {
         String placeOfSupply = request.placeOfSupply() != null
                 ? request.placeOfSupply()
                 : contact.getBillingStateCode();
-
-        TaxEngine taxEngine = taxEngineFactory.getEngine(org.getTaxRegime());
 
         int periodYear = billService.computeFiscalYear(request.creditDate(), org.getFiscalYearStart());
         String creditNumber = billService.generateNumber(orgId, "VCRED", periodYear);
@@ -153,18 +149,16 @@ public class VendorCreditService {
             BigDecimal taxableAmount = lineReq.quantity().multiply(lineReq.unitPrice())
                     .setScale(2, RoundingMode.HALF_UP);
 
-            TaxEngine.TaxableItem taxableItem = new TaxEngine.TaxableItem(
-                    lineReq.description(), lineReq.hsnCode(), taxableAmount, lineReq.gstRate());
+            // Resolve tax group: prefer explicit taxGroupId, else resolve from legacy gstRate
+            UUID lineTaxGroupId = lineReq.taxGroupId();
+            if (lineTaxGroupId == null && lineReq.gstRate() != null
+                    && lineReq.gstRate().compareTo(BigDecimal.ZERO) > 0) {
+                lineTaxGroupId = taxEngine.resolveGroupId(orgId, lineReq.gstRate(),
+                        contact.getBillingStateCode(), org.getStateCode()).orElse(null);
+            }
 
-            TaxEngine.TaxContext taxContext = new TaxEngine.TaxContext(
-                    contact.getBillingCountry(), contact.getBillingStateCode(),
-                    org.getCountryCode(), org.getStateCode(),
-                    lineReq.hsnCode(),
-                    TaxEngine.TransactionType.DOMESTIC,
-                    request.creditDate(),
-                    false);
-
-            TaxEngine.TaxResult taxResult = taxEngine.calculateTax(taxableItem, taxContext);
+            TaxEngine.TaxCalculationResult taxResult = taxEngine.calculate(
+                    orgId, lineTaxGroupId, taxableAmount, TaxEngine.TransactionType.PURCHASE);
 
             BigDecimal lineTax = taxResult.totalTaxAmount();
             BigDecimal lineTotal = taxableAmount.add(lineTax);
@@ -183,6 +177,7 @@ public class VendorCreditService {
                     .unitPrice(lineReq.unitPrice())
                     .taxableAmount(taxableAmount)
                     .gstRate(lineReq.gstRate())
+                    .taxGroupId(lineTaxGroupId)
                     .taxAmount(lineTax)
                     .lineTotal(lineTotal)
                     .baseTaxableAmount(baseTaxable)
@@ -194,16 +189,17 @@ public class VendorCreditService {
             totalSubtotal = totalSubtotal.add(taxableAmount);
             totalTax = totalTax.add(lineTax);
 
-            for (TaxEngine.TaxComponentResult comp : taxResult.components()) {
+            for (TaxEngine.TaxComponent comp : taxResult.components()) {
+                if (comp.glAccountCode() == null) continue; // non-recoverable tax
                 allTaxLines.add(TaxLineItem.builder()
                         .orgId(orgId)
                         .sourceType("VENDOR_CREDIT")
-                        .taxRegime(taxResult.taxRegime())
-                        .componentCode(comp.componentCode())
-                        .rate(comp.rate())
+                        .taxRegime("TAX")
+                        .componentCode(comp.rateCode())
+                        .rate(comp.percentage())
                         .taxableAmount(taxableAmount)
                         .taxAmount(comp.amount())
-                        .accountCode(comp.accountCode())
+                        .accountCode(comp.glAccountCode())
                         .hsnCode(lineReq.hsnCode())
                         .baseTaxableAmount(baseTaxable)
                         .baseTaxAmount(comp.amount().multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP))
@@ -276,11 +272,11 @@ public class VendorCreditService {
                     null, null));
         }
 
-        // CR: GST Input Credit reversal per tax component
+        // CR: Tax input credit reversal per component (account code from tax engine, not hardcoded)
         List<TaxLineItem> taxLines = taxLineItemRepository.findBySourceTypeAndSourceId("VENDOR_CREDIT", credit.getId());
         for (TaxLineItem tli : taxLines) {
             journalLines.add(new JournalLineRequest(
-                    GST_INPUT_CREDIT_CODE,
+                    tli.getAccountCode(),
                     BigDecimal.ZERO, tli.getTaxAmount(),
                     tli.getComponentCode() + " Input Credit reversal",
                     tli.getComponentCode(), null));

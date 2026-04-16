@@ -39,5 +39,8 @@ public record CreateExpenseRequest(
         UUID projectId,
         UUID customerContactId,
 
-        String receiptUrl
+        String receiptUrl,
+
+        /** Optional tax group. If null, resolved from gstRate. */
+        UUID taxGroupId
 ) {}

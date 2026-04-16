@@ -15,8 +15,7 @@ import com.katasticho.erp.currency.SimpleCurrencyService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
-import com.katasticho.erp.tax.IndiaGSTEngine;
-import com.katasticho.erp.tax.TaxEngineFactory;
+import com.katasticho.erp.tax.TaxEngine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,6 +45,7 @@ class CreditNoteServiceTest {
     @Mock private OrganisationRepository organisationRepository;
     @Mock private InvoiceService invoiceService;
     @Mock private JournalService journalService;
+    @Mock private TaxEngine taxEngine;
     @Mock private AuditService auditService;
     @Mock private InventoryService inventoryService;
     @Mock private CommentService commentService;
@@ -58,12 +58,10 @@ class CreditNoteServiceTest {
 
     @BeforeEach
     void setUp() {
-        TaxEngineFactory taxEngineFactory = new TaxEngineFactory(List.of(new IndiaGSTEngine()));
-
         creditNoteService = new CreditNoteService(
                 creditNoteRepository, taxLineItemRepository, customerRepository,
                 invoiceRepository, sequenceRepository, organisationRepository,
-                invoiceService, journalService, taxEngineFactory,
+                invoiceService, journalService, taxEngine,
                 new SimpleCurrencyService(), auditService, inventoryService,
                 commentService);
 
@@ -111,23 +109,36 @@ class CreditNoteServiceTest {
             return cn;
         });
 
-        // Create credit note
+        // Stub taxEngine: 5000 taxable, intra-state 18% → CGST 9% (450) + SGST 9% (450)
+        UUID gstGroupId = UUID.randomUUID();
+        when(taxEngine.resolveGroupId(eq(orgId), eq(new BigDecimal("18")), eq("MH"), eq("MH")))
+                .thenReturn(Optional.of(gstGroupId));
+        when(taxEngine.calculate(eq(orgId), eq(gstGroupId), eq(new BigDecimal("5000.00")), eq(TaxEngine.TransactionType.SALE)))
+                .thenReturn(new TaxEngine.TaxCalculationResult(
+                        List.of(
+                                new TaxEngine.TaxComponent(UUID.randomUUID(), "CGST", "CGST 9%",
+                                        new BigDecimal("9.00"), new BigDecimal("450.00"),
+                                        UUID.randomUUID(), "2020", true),
+                                new TaxEngine.TaxComponent(UUID.randomUUID(), "SGST", "SGST 9%",
+                                        new BigDecimal("9.00"), new BigDecimal("450.00"),
+                                        UUID.randomUUID(), "2021", true)),
+                        new BigDecimal("900.00")));
+
         var request = new CreateCreditNoteRequest(
                 customer.getId(),
-                null, // contactId — legacy test, customerId path
+                null,
                 invoiceId,
                 LocalDate.of(2026, 4, 15),
                 "Defective goods returned",
                 "MH",
                 List.of(new CreditNoteLineRequest("Widget return", "8471", new BigDecimal("1"),
-                        new BigDecimal("5000"), new BigDecimal("18"), "4010", null, null))
+                        new BigDecimal("5000"), new BigDecimal("18"), "4010", null, null, null))
         );
 
         CreditNote cn = creditNoteService.createCreditNote(request);
 
         assertNotNull(cn);
         assertEquals("DRAFT", cn.getStatus());
-        // 1 x 5000 = 5000 taxable, 18% GST = 900 (CGST 450 + SGST 450)
         assertEquals(0, new BigDecimal("5000.00").compareTo(cn.getSubtotal()));
         assertEquals(0, new BigDecimal("900.00").compareTo(cn.getTaxAmount()));
         assertEquals(0, new BigDecimal("5900.00").compareTo(cn.getTotalAmount()));
@@ -149,37 +160,25 @@ class CreditNoteServiceTest {
 
         CreditNote issued = creditNoteService.issueCreditNote(cn.getId());
 
-        // Verify the journal was posted
         ArgumentCaptor<JournalPostRequest> captor = ArgumentCaptor.forClass(JournalPostRequest.class);
         verify(journalService).postJournal(captor.capture());
 
         JournalPostRequest journalReq = captor.getValue();
         assertEquals("AR", journalReq.sourceModule());
-
-        // Journal should reverse the invoice entry:
-        // DR Revenue (4010) = 5000 (reversal of revenue)
-        // DR CGST Payable (2020) = 450 (reversal of tax)
-        // DR SGST Payable (2021) = 450 (reversal of tax)
-        // CR AR (1200) = 5900 (reduces receivable)
         assertEquals(4, journalReq.lines().size());
 
-        // DR Revenue
         assertEquals("4010", journalReq.lines().get(0).accountCode());
         assertEquals(0, new BigDecimal("5000.00").compareTo(journalReq.lines().get(0).debit()));
 
-        // DR CGST
         assertEquals("2020", journalReq.lines().get(1).accountCode());
         assertEquals(0, new BigDecimal("450.00").compareTo(journalReq.lines().get(1).debit()));
 
-        // DR SGST
         assertEquals("2021", journalReq.lines().get(2).accountCode());
         assertEquals(0, new BigDecimal("450.00").compareTo(journalReq.lines().get(2).debit()));
 
-        // CR AR
         assertEquals("1200", journalReq.lines().get(3).accountCode());
         assertEquals(0, new BigDecimal("5900.00").compareTo(journalReq.lines().get(3).credit()));
 
-        // Invoice balance should be updated
         verify(invoiceService).updatePaymentStatus(invoice, cn.getTotalAmount());
     }
 

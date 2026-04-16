@@ -66,6 +66,9 @@ public class PurchaseBillLine {
     @Builder.Default
     private BigDecimal gstRate = BigDecimal.ZERO;
 
+    @Column(name = "tax_group_id")
+    private UUID taxGroupId;
+
     @Column(name = "tax_amount", nullable = false)
     @Builder.Default
     private BigDecimal taxAmount = BigDecimal.ZERO;

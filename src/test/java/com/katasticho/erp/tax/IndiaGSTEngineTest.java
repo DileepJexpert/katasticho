@@ -1,86 +1,152 @@
 package com.katasticho.erp.tax;
 
+import com.katasticho.erp.accounting.entity.Account;
+import com.katasticho.erp.accounting.repository.AccountRepository;
+import com.katasticho.erp.tax.entity.TaxGroup;
+import com.katasticho.erp.tax.entity.TaxGroupRate;
+import com.katasticho.erp.tax.entity.TaxRate;
+import com.katasticho.erp.tax.repository.TaxGroupRateRepository;
+import com.katasticho.erp.tax.repository.TaxGroupRepository;
+import com.katasticho.erp.tax.repository.TaxRateRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
+/**
+ * Tests GenericTaxEngine — the database-driven tax engine that
+ * replaced IndiaGSTEngine.
+ */
+@ExtendWith(MockitoExtension.class)
 class IndiaGSTEngineTest {
 
-    private IndiaGSTEngine engine;
+    @Mock private TaxGroupRepository groupRepository;
+    @Mock private TaxGroupRateRepository groupRateRepository;
+    @Mock private TaxRateRepository rateRepository;
+    @Mock private AccountRepository accountRepository;
+
+    private GenericTaxEngine engine;
+    private UUID orgId;
 
     @BeforeEach
     void setUp() {
-        engine = new IndiaGSTEngine();
+        engine = new GenericTaxEngine(groupRepository, groupRateRepository, rateRepository, accountRepository);
+        orgId = UUID.randomUUID();
     }
 
     @Test
     void shouldCalculateCgstSgstForIntraState() {
-        // Same state: Maharashtra -> Maharashtra
-        var item = new TaxEngine.TaxableItem("Widget", "8471", new BigDecimal("10000"), new BigDecimal("18"));
-        var context = new TaxEngine.TaxContext("IN", "MH", "IN", "MH", "8471",
-                TaxEngine.TransactionType.DOMESTIC, LocalDate.now(), false);
+        UUID groupId = UUID.randomUUID();
+        UUID cgstRateId = UUID.randomUUID();
+        UUID sgstRateId = UUID.randomUUID();
+        UUID cgstAccountId = UUID.randomUUID();
+        UUID sgstAccountId = UUID.randomUUID();
 
-        TaxEngine.TaxResult result = engine.calculateTax(item, context);
+        when(groupRateRepository.findByTaxGroupId(groupId)).thenReturn(List.of(
+                TaxGroupRate.builder().taxGroupId(groupId).taxRateId(cgstRateId).build(),
+                TaxGroupRate.builder().taxGroupId(groupId).taxRateId(sgstRateId).build()));
+
+        TaxRate cgst = TaxRate.builder().orgId(orgId).name("CGST 9%").rateCode("CGST")
+                .percentage(new BigDecimal("9.00")).taxType("BOTH")
+                .glOutputAccountId(cgstAccountId).glInputAccountId(UUID.randomUUID()).build();
+        cgst.setId(cgstRateId);
+        when(rateRepository.findById(cgstRateId)).thenReturn(Optional.of(cgst));
+
+        TaxRate sgst = TaxRate.builder().orgId(orgId).name("SGST 9%").rateCode("SGST")
+                .percentage(new BigDecimal("9.00")).taxType("BOTH")
+                .glOutputAccountId(sgstAccountId).glInputAccountId(UUID.randomUUID()).build();
+        sgst.setId(sgstRateId);
+        when(rateRepository.findById(sgstRateId)).thenReturn(Optional.of(sgst));
+
+        Account cgstAccount = Account.builder().code("2020").name("CGST Payable").build();
+        when(accountRepository.findById(cgstAccountId)).thenReturn(Optional.of(cgstAccount));
+        Account sgstAccount = Account.builder().code("2021").name("SGST Payable").build();
+        when(accountRepository.findById(sgstAccountId)).thenReturn(Optional.of(sgstAccount));
+
+        TaxEngine.TaxCalculationResult result = engine.calculate(
+                orgId, groupId, new BigDecimal("10000"), TaxEngine.TransactionType.SALE);
 
         assertEquals(2, result.components().size());
-        assertEquals("CGST", result.components().get(0).componentCode());
-        assertEquals("SGST", result.components().get(1).componentCode());
-        assertEquals(new BigDecimal("9.00"), result.components().get(0).rate());
+        assertEquals("CGST", result.components().get(0).rateCode());
+        assertEquals("SGST", result.components().get(1).rateCode());
+        assertEquals(new BigDecimal("9.00"), result.components().get(0).percentage());
         assertEquals(new BigDecimal("900.00"), result.components().get(0).amount());
         assertEquals(new BigDecimal("900.00"), result.components().get(1).amount());
         assertEquals(new BigDecimal("1800.00"), result.totalTaxAmount());
+        assertEquals("2020", result.components().get(0).glAccountCode());
+        assertEquals("2021", result.components().get(1).glAccountCode());
     }
 
     @Test
     void shouldCalculateIgstForInterState() {
-        // Different state: Maharashtra -> Karnataka
-        var item = new TaxEngine.TaxableItem("Widget", "8471", new BigDecimal("10000"), new BigDecimal("18"));
-        var context = new TaxEngine.TaxContext("IN", "MH", "IN", "KA", "8471",
-                TaxEngine.TransactionType.DOMESTIC, LocalDate.now(), false);
+        UUID groupId = UUID.randomUUID();
+        UUID igstRateId = UUID.randomUUID();
+        UUID igstAccountId = UUID.randomUUID();
 
-        TaxEngine.TaxResult result = engine.calculateTax(item, context);
+        when(groupRateRepository.findByTaxGroupId(groupId)).thenReturn(List.of(
+                TaxGroupRate.builder().taxGroupId(groupId).taxRateId(igstRateId).build()));
+
+        TaxRate igst = TaxRate.builder().orgId(orgId).name("IGST 18%").rateCode("IGST")
+                .percentage(new BigDecimal("18.00")).taxType("BOTH")
+                .glOutputAccountId(igstAccountId).glInputAccountId(UUID.randomUUID()).build();
+        igst.setId(igstRateId);
+        when(rateRepository.findById(igstRateId)).thenReturn(Optional.of(igst));
+
+        Account igstAccount = Account.builder().code("2022").name("IGST Payable").build();
+        when(accountRepository.findById(igstAccountId)).thenReturn(Optional.of(igstAccount));
+
+        TaxEngine.TaxCalculationResult result = engine.calculate(
+                orgId, groupId, new BigDecimal("10000"), TaxEngine.TransactionType.SALE);
 
         assertEquals(1, result.components().size());
-        assertEquals("IGST", result.components().get(0).componentCode());
-        assertEquals(0, new BigDecimal("18").compareTo(result.components().get(0).rate()));
+        assertEquals("IGST", result.components().get(0).rateCode());
+        assertEquals(0, new BigDecimal("18").compareTo(result.components().get(0).percentage()));
         assertEquals(new BigDecimal("1800.00"), result.components().get(0).amount());
         assertEquals(new BigDecimal("1800.00"), result.totalTaxAmount());
     }
 
     @Test
-    void shouldReturnZeroForZeroRate() {
-        var item = new TaxEngine.TaxableItem("Exempt Item", "0000", new BigDecimal("5000"), BigDecimal.ZERO);
-        var context = new TaxEngine.TaxContext("IN", "MH", "IN", "MH", "0000",
-                TaxEngine.TransactionType.DOMESTIC, LocalDate.now(), false);
-
-        TaxEngine.TaxResult result = engine.calculateTax(item, context);
+    void shouldReturnZeroForNullTaxGroup() {
+        TaxEngine.TaxCalculationResult result = engine.calculate(
+                orgId, null, new BigDecimal("5000"), TaxEngine.TransactionType.SALE);
 
         assertTrue(result.components().isEmpty());
         assertEquals(BigDecimal.ZERO, result.totalTaxAmount());
     }
 
     @Test
-    void shouldHandle5PercentGST() {
-        var item = new TaxEngine.TaxableItem("Food Item", "1001", new BigDecimal("1000"), new BigDecimal("5"));
-        var context = new TaxEngine.TaxContext("IN", "MH", "IN", "MH", "1001",
-                TaxEngine.TransactionType.DOMESTIC, LocalDate.now(), false);
+    void shouldReturnZeroForEmptyGroupRates() {
+        UUID groupId = UUID.randomUUID();
+        when(groupRateRepository.findByTaxGroupId(groupId)).thenReturn(List.of());
 
-        TaxEngine.TaxResult result = engine.calculateTax(item, context);
+        TaxEngine.TaxCalculationResult result = engine.calculate(
+                orgId, groupId, new BigDecimal("5000"), TaxEngine.TransactionType.SALE);
 
-        assertEquals(2, result.components().size());
-        assertEquals(new BigDecimal("2.50"), result.components().get(0).rate());
-        assertEquals(new BigDecimal("25.00"), result.components().get(0).amount());
-        assertEquals(new BigDecimal("50.00"), result.totalTaxAmount());
+        assertTrue(result.components().isEmpty());
+        assertEquals(BigDecimal.ZERO, result.totalTaxAmount());
     }
 
     @Test
-    void shouldReturnCorrectRegimeCode() {
-        assertEquals("INDIA_GST", engine.getTaxRegimeCode());
-        assertEquals("GST", engine.getTaxLabel());
-        assertEquals("GSTIN", engine.getTaxIdLabel());
+    void shouldResolveIntraStateGstGroup() {
+        UUID gstGroupId = UUID.randomUUID();
+        TaxGroup gstGroup = TaxGroup.builder().orgId(orgId).name("GST 18%").build();
+        gstGroup.setId(gstGroupId);
+
+        when(groupRepository.findByOrgIdAndNameAndActiveTrue(orgId, "GST 18%"))
+                .thenReturn(Optional.of(gstGroup));
+
+        Optional<UUID> result = engine.resolveGroupId(orgId, new BigDecimal("18"), "MH", "MH");
+
+        assertTrue(result.isPresent());
+        assertEquals(gstGroupId, result.get());
     }
 }

@@ -316,6 +316,7 @@ public class EstimateService {
                         l.getTaxRate(),
                         DEFAULT_REVENUE_ACCOUNT_CODE,
                         l.getItemId(),
+                        null,
                         null))
                 .toList();
 

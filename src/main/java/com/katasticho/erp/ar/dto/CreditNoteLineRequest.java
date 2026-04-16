@@ -28,5 +28,6 @@ public record CreditNoteLineRequest(
         String accountCode,
 
         UUID itemId,
-        UUID batchId
+        UUID batchId,
+        UUID taxGroupId
 ) {}

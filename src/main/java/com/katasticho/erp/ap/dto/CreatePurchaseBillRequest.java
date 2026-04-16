@@ -30,7 +30,8 @@ public record CreatePurchaseBillRequest(
             @NotNull BigDecimal quantity,
             @NotNull BigDecimal unitPrice,
             BigDecimal discountPercent,
-            @NotNull BigDecimal gstRate
+            @NotNull BigDecimal gstRate,
+            UUID taxGroupId
     ) {
         public BillLineRequest {
             if (discountPercent == null) discountPercent = BigDecimal.ZERO;

@@ -21,7 +21,6 @@ import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.pricing.service.PriceListService;
 import com.katasticho.erp.tax.TaxEngine;
-import com.katasticho.erp.tax.TaxEngineFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -61,7 +60,7 @@ public class InvoiceService {
     private final OrganisationRepository organisationRepository;
     private final BranchRepository branchRepository;
     private final JournalService journalService;
-    private final TaxEngineFactory taxEngineFactory;
+    private final TaxEngine taxEngine;
     private final CurrencyService currencyService;
     private final AuditService auditService;
     private final InventoryService inventoryService;
@@ -88,9 +87,6 @@ public class InvoiceService {
         String placeOfSupply = request.placeOfSupply() != null
                 ? request.placeOfSupply()
                 : customer.getBillingStateCode();
-
-        // Get tax engine for this org's regime
-        TaxEngine taxEngine = taxEngineFactory.getEngine(org.getTaxRegime());
 
         // Compute fiscal period
         int periodYear = computeFiscalYear(request.invoiceDate(), org.getFiscalYearStart());
@@ -172,19 +168,17 @@ public class InvoiceService {
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             BigDecimal taxableAmount = grossAmount.subtract(discountAmt);
 
-            // Calculate tax via TaxEngine
-            TaxEngine.TaxableItem taxableItem = new TaxEngine.TaxableItem(
-                    lineReq.description(), lineReq.hsnCode(), taxableAmount, lineReq.gstRate());
+            // Resolve tax group: prefer explicit taxGroupId, else resolve from legacy gstRate
+            UUID lineTaxGroupId = lineReq.taxGroupId();
+            if (lineTaxGroupId == null && lineReq.gstRate() != null
+                    && lineReq.gstRate().compareTo(BigDecimal.ZERO) > 0) {
+                lineTaxGroupId = taxEngine.resolveGroupId(orgId, lineReq.gstRate(),
+                        org.getStateCode(), placeOfSupply).orElse(null);
+            }
 
-            TaxEngine.TaxContext taxContext = new TaxEngine.TaxContext(
-                    org.getCountryCode(), org.getStateCode(),
-                    customer.getBillingCountry(), placeOfSupply,
-                    lineReq.hsnCode(),
-                    TaxEngine.TransactionType.DOMESTIC,
-                    request.invoiceDate(),
-                    request.reverseCharge());
-
-            TaxEngine.TaxResult taxResult = taxEngine.calculateTax(taxableItem, taxContext);
+            // Calculate tax via database-driven TaxEngine
+            TaxEngine.TaxCalculationResult taxResult = taxEngine.calculate(
+                    orgId, lineTaxGroupId, taxableAmount, TaxEngine.TransactionType.SALE);
 
             BigDecimal lineTax = taxResult.totalTaxAmount();
             BigDecimal lineTotal = taxableAmount.add(lineTax);
@@ -204,6 +198,7 @@ public class InvoiceService {
                     .discountAmount(discountAmt)
                     .taxableAmount(taxableAmount)
                     .gstRate(lineReq.gstRate())
+                    .taxGroupId(lineTaxGroupId)
                     .taxAmount(lineTax)
                     .lineTotal(lineTotal)
                     .accountCode(lineReq.accountCode())
@@ -219,16 +214,16 @@ public class InvoiceService {
             totalTax = totalTax.add(lineTax);
 
             // Create tax line items for each component (will be saved after invoice)
-            for (TaxEngine.TaxComponentResult comp : taxResult.components()) {
+            for (TaxEngine.TaxComponent comp : taxResult.components()) {
                 allTaxLines.add(TaxLineItem.builder()
                         .orgId(orgId)
                         .sourceType("INVOICE")
-                        .taxRegime(taxResult.taxRegime())
-                        .componentCode(comp.componentCode())
-                        .rate(comp.rate())
+                        .taxRegime("TAX")
+                        .componentCode(comp.rateCode())
+                        .rate(comp.percentage())
                         .taxableAmount(taxableAmount)
                         .taxAmount(comp.amount())
-                        .accountCode(comp.accountCode())
+                        .accountCode(comp.glAccountCode())
                         .hsnCode(lineReq.hsnCode())
                         .baseTaxableAmount(baseTaxable)
                         .baseTaxAmount(comp.amount().multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP))

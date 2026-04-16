@@ -13,6 +13,8 @@ public interface TaxLineItemRepository extends JpaRepository<TaxLineItem, UUID> 
 
     List<TaxLineItem> findBySourceTypeAndSourceId(String sourceType, UUID sourceId);
 
+    void deleteBySourceTypeAndSourceId(String sourceType, UUID sourceId);
+
     List<TaxLineItem> findBySourceTypeAndSourceIdAndSourceLineId(String sourceType, UUID sourceId, UUID sourceLineId);
 
     @Query("""

@@ -33,7 +33,6 @@ import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.tax.TaxEngine;
-import com.katasticho.erp.tax.TaxEngineFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -78,12 +77,11 @@ public class PurchaseBillService {
     private final WarehouseRepository warehouseRepository;
     private final VendorPaymentAllocationRepository allocationRepository;
     private final JournalService journalService;
-    private final TaxEngineFactory taxEngineFactory;
+    private final TaxEngine taxEngine;
     private final CurrencyService currencyService;
     private final InventoryService inventoryService;
 
     private static final String AP_ACCOUNT_CODE = "2010";
-    private static final String GST_INPUT_CREDIT_CODE = "1500";
     private static final String TDS_PAYABLE_CODE = "2030";
 
     // ── Create ──────────────────────────────────────────────────
@@ -107,8 +105,6 @@ public class PurchaseBillService {
         String placeOfSupply = request.placeOfSupply() != null
                 ? request.placeOfSupply()
                 : contact.getBillingStateCode();
-
-        TaxEngine taxEngine = taxEngineFactory.getEngine(org.getTaxRegime());
 
         int periodYear = computeFiscalYear(request.billDate(), org.getFiscalYearStart());
         String billNumber = generateNumber(orgId, "BILL", periodYear);
@@ -160,18 +156,16 @@ public class PurchaseBillService {
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             BigDecimal taxableAmount = grossAmount.subtract(discountAmt);
 
-            TaxEngine.TaxableItem taxableItem = new TaxEngine.TaxableItem(
-                    lineReq.description(), lineReq.hsnCode(), taxableAmount, lineReq.gstRate());
+            // Resolve tax group: prefer explicit taxGroupId, else resolve from legacy gstRate
+            UUID lineTaxGroupId = lineReq.taxGroupId();
+            if (lineTaxGroupId == null && lineReq.gstRate() != null
+                    && lineReq.gstRate().compareTo(BigDecimal.ZERO) > 0) {
+                lineTaxGroupId = taxEngine.resolveGroupId(orgId, lineReq.gstRate(),
+                        contact.getBillingStateCode(), org.getStateCode()).orElse(null);
+            }
 
-            TaxEngine.TaxContext taxContext = new TaxEngine.TaxContext(
-                    contact.getBillingCountry(), contact.getBillingStateCode(),
-                    org.getCountryCode(), org.getStateCode(),
-                    lineReq.hsnCode(),
-                    TaxEngine.TransactionType.DOMESTIC,
-                    request.billDate(),
-                    request.reverseCharge());
-
-            TaxEngine.TaxResult taxResult = taxEngine.calculateTax(taxableItem, taxContext);
+            TaxEngine.TaxCalculationResult taxResult = taxEngine.calculate(
+                    orgId, lineTaxGroupId, taxableAmount, TaxEngine.TransactionType.PURCHASE);
 
             BigDecimal lineTax = taxResult.totalTaxAmount();
             BigDecimal lineTotal = taxableAmount.add(lineTax);
@@ -192,6 +186,7 @@ public class PurchaseBillService {
                     .discountAmount(discountAmt)
                     .taxableAmount(taxableAmount)
                     .gstRate(lineReq.gstRate())
+                    .taxGroupId(lineTaxGroupId)
                     .taxAmount(lineTax)
                     .lineTotal(lineTotal)
                     .baseTaxableAmount(baseTaxable)
@@ -203,16 +198,17 @@ public class PurchaseBillService {
             totalSubtotal = totalSubtotal.add(taxableAmount);
             totalTax = totalTax.add(lineTax);
 
-            for (TaxEngine.TaxComponentResult comp : taxResult.components()) {
+            for (TaxEngine.TaxComponent comp : taxResult.components()) {
+                if (comp.glAccountCode() == null) continue; // non-recoverable tax
                 allTaxLines.add(TaxLineItem.builder()
                         .orgId(orgId)
                         .sourceType("BILL")
-                        .taxRegime(taxResult.taxRegime())
-                        .componentCode(comp.componentCode())
-                        .rate(comp.rate())
+                        .taxRegime("TAX")
+                        .componentCode(comp.rateCode())
+                        .rate(comp.percentage())
                         .taxableAmount(taxableAmount)
                         .taxAmount(comp.amount())
-                        .accountCode(comp.accountCode())
+                        .accountCode(comp.glAccountCode())
                         .hsnCode(lineReq.hsnCode())
                         .baseTaxableAmount(baseTaxable)
                         .baseTaxAmount(comp.amount().multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP))
@@ -285,13 +281,11 @@ public class PurchaseBillService {
                     null, null));
         }
 
-        // DR: GST Input Credit per tax component
-        // The tax engine outputs AR account codes (2020/2021/2022 for GST Payable).
-        // For AP, we remap ALL tax components to 1500 (GST Input Credit).
+        // DR: Tax input credit per component (account code from tax engine, not hardcoded)
         List<TaxLineItem> taxLines = taxLineItemRepository.findBySourceTypeAndSourceId("BILL", bill.getId());
         for (TaxLineItem tli : taxLines) {
             journalLines.add(new JournalLineRequest(
-                    GST_INPUT_CREDIT_CODE,
+                    tli.getAccountCode(),
                     tli.getTaxAmount(), BigDecimal.ZERO,
                     tli.getComponentCode() + " Input Credit",
                     tli.getComponentCode(), null));

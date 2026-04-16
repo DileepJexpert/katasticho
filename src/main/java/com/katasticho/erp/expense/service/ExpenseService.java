@@ -7,7 +7,9 @@ import com.katasticho.erp.accounting.entity.JournalEntry;
 import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ar.entity.InvoiceNumberSequence;
+import com.katasticho.erp.ar.entity.TaxLineItem;
 import com.katasticho.erp.ar.repository.InvoiceNumberSequenceRepository;
+import com.katasticho.erp.ar.repository.TaxLineItemRepository;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
@@ -22,6 +24,7 @@ import com.katasticho.erp.expense.entity.PaymentMode;
 import com.katasticho.erp.expense.repository.ExpenseRepository;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
+import com.katasticho.erp.tax.TaxEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -64,11 +67,10 @@ public class ExpenseService {
     private final InvoiceNumberSequenceRepository sequenceRepository;
     private final OrganisationRepository organisationRepository;
     private final JournalService journalService;
+    private final TaxEngine taxEngine;
+    private final TaxLineItemRepository taxLineItemRepository;
     private final AuditService auditService;
     private final CommentService commentService;
-
-    /** Chart-of-accounts code for GST Input Credit (DR side on purchases / expenses). */
-    private static final String GST_INPUT_CREDIT_CODE = "1500";
 
     // ─────────────────────────────────────────────────────────────
     // CREATE
@@ -95,8 +97,18 @@ public class ExpenseService {
 
         BigDecimal amount = request.amount().setScale(2, RoundingMode.HALF_UP);
         BigDecimal gstRate = request.gstRate() != null ? request.gstRate() : BigDecimal.ZERO;
-        BigDecimal taxAmount = amount.multiply(gstRate)
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+        // Resolve tax group: prefer explicit taxGroupId, else resolve from legacy gstRate
+        UUID taxGroupId = request.taxGroupId();
+        if (taxGroupId == null && gstRate.compareTo(BigDecimal.ZERO) > 0) {
+            taxGroupId = taxEngine.resolveGroupId(orgId, gstRate, org.getStateCode(), org.getStateCode())
+                    .orElse(null);
+        }
+
+        TaxEngine.TaxCalculationResult taxResult = taxEngine.calculate(
+                orgId, taxGroupId, amount, TaxEngine.TransactionType.PURCHASE);
+
+        BigDecimal taxAmount = taxResult.totalTaxAmount();
         BigDecimal total = amount.add(taxAmount);
 
         int periodYear = computeFiscalYear(request.expenseDate(), org.getFiscalYearStart());
@@ -116,6 +128,7 @@ public class ExpenseService {
                 .total(total)
                 .currency(request.currency() != null ? request.currency() : "INR")
                 .gstRate(gstRate)
+                .taxGroupId(taxGroupId)
                 .contactId(request.contactId())
                 .paymentMode(request.paymentMode())
                 .paidThroughId(paidThrough.getId())
@@ -129,10 +142,13 @@ public class ExpenseService {
 
         // Post journal FIRST, then save expense with journal ref.
         JournalEntry journalEntry = postExpenseJournal(
-                expense, expenseAccount, paidThrough, taxAmount, "Expense " + expenseNumber);
+                expense, expenseAccount, paidThrough, taxResult, "Expense " + expenseNumber);
         expense.setJournalEntryId(journalEntry.getId());
 
         expense = expenseRepository.save(expense);
+
+        // Save tax line items
+        saveTaxLineItems(orgId, expense.getId(), taxResult);
 
         auditService.log("EXPENSE", expense.getId(), "CREATE", null,
                 "{\"expenseNumber\":\"" + expense.getExpenseNumber()
@@ -206,11 +222,25 @@ public class ExpenseService {
         }
 
         if (financialChange) {
-            // Recompute tax + total
-            BigDecimal taxAmount = expense.getAmount().multiply(expense.getGstRate())
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            expense.setTaxAmount(taxAmount);
-            expense.setTotal(expense.getAmount().add(taxAmount));
+            // Resolve tax group
+            UUID updTaxGroupId = expense.getTaxGroupId();
+            if (request.taxGroupId() != null) {
+                updTaxGroupId = request.taxGroupId();
+                expense.setTaxGroupId(updTaxGroupId);
+            }
+            if (updTaxGroupId == null && expense.getGstRate().compareTo(BigDecimal.ZERO) > 0) {
+                Organisation updOrg = organisationRepository.findById(orgId)
+                        .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
+                updTaxGroupId = taxEngine.resolveGroupId(orgId, expense.getGstRate(),
+                        updOrg.getStateCode(), updOrg.getStateCode()).orElse(null);
+                expense.setTaxGroupId(updTaxGroupId);
+            }
+
+            // Recompute tax via tax engine
+            TaxEngine.TaxCalculationResult updTaxResult = taxEngine.calculate(
+                    orgId, updTaxGroupId, expense.getAmount(), TaxEngine.TransactionType.PURCHASE);
+            expense.setTaxAmount(updTaxResult.totalTaxAmount());
+            expense.setTotal(expense.getAmount().add(updTaxResult.totalTaxAmount()));
 
             // Reverse old journal, post new one
             if (expense.getJournalEntryId() != null) {
@@ -219,9 +249,13 @@ public class ExpenseService {
             Account expenseAccount = requireAccount(orgId, expense.getAccountId(), "Expense account");
             Account paidThrough = requireAccount(orgId, expense.getPaidThroughId(), "Paid-through account");
             JournalEntry newJe = postExpenseJournal(
-                    expense, expenseAccount, paidThrough, taxAmount,
+                    expense, expenseAccount, paidThrough, updTaxResult,
                     "Expense " + expense.getExpenseNumber() + " (updated)");
             expense.setJournalEntryId(newJe.getId());
+
+            // Re-save tax line items
+            taxLineItemRepository.deleteBySourceTypeAndSourceId("EXPENSE", expense.getId());
+            saveTaxLineItems(orgId, expense.getId(), updTaxResult);
         }
 
         expense = expenseRepository.save(expense);
@@ -314,7 +348,7 @@ public class ExpenseService {
     private JournalEntry postExpenseJournal(Expense expense,
                                             Account expenseAccount,
                                             Account paidThrough,
-                                            BigDecimal taxAmount,
+                                            TaxEngine.TaxCalculationResult taxResult,
                                             String description) {
         List<JournalLineRequest> lines = new ArrayList<>();
 
@@ -326,13 +360,14 @@ public class ExpenseService {
                 description,
                 null, null));
 
-        // DR: GST Input Credit (only if tax > 0)
-        if (taxAmount.compareTo(BigDecimal.ZERO) > 0) {
+        // DR: Tax input credit per component (account code from tax engine)
+        for (TaxEngine.TaxComponent comp : taxResult.components()) {
+            if (comp.glAccountCode() == null) continue; // non-recoverable tax
             lines.add(new JournalLineRequest(
-                    GST_INPUT_CREDIT_CODE,
-                    taxAmount,
+                    comp.glAccountCode(),
+                    comp.amount(),
                     BigDecimal.ZERO,
-                    "GST Input Credit: " + expense.getExpenseNumber(),
+                    comp.rateCode() + " Input Credit: " + expense.getExpenseNumber(),
                     null, null));
         }
 
@@ -352,6 +387,27 @@ public class ExpenseService {
                 lines,
                 true);
         return journalService.postJournal(request);
+    }
+
+    private void saveTaxLineItems(UUID orgId, UUID expenseId, TaxEngine.TaxCalculationResult taxResult) {
+        List<TaxLineItem> taxLines = new ArrayList<>();
+        for (TaxEngine.TaxComponent comp : taxResult.components()) {
+            if (comp.glAccountCode() == null) continue;
+            taxLines.add(TaxLineItem.builder()
+                    .orgId(orgId)
+                    .sourceType("EXPENSE")
+                    .sourceId(expenseId)
+                    .taxRegime("TAX")
+                    .componentCode(comp.rateCode())
+                    .rate(comp.percentage())
+                    .taxableAmount(BigDecimal.ZERO) // expense has single amount, not per-line
+                    .taxAmount(comp.amount())
+                    .accountCode(comp.glAccountCode())
+                    .build());
+        }
+        if (!taxLines.isEmpty()) {
+            taxLineItemRepository.saveAll(taxLines);
+        }
     }
 
     private Account requireAccount(UUID orgId, UUID accountId, String label) {
