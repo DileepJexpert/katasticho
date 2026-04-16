@@ -92,7 +92,6 @@ public class SalesReceiptService {
 
         // 2. Build receipt entity
         SalesReceipt receipt = SalesReceipt.builder()
-                .orgId(orgId)
                 .branchId(request.branchId())
                 .receiptNumber(receiptNumber)
                 .contactId(request.contactId())
@@ -102,8 +101,9 @@ public class SalesReceiptService {
                 .amountReceived(request.amountReceived())
                 .upiReference(request.upiReference())
                 .notes(request.notes())
-                .createdBy(userId)
                 .build();
+        receipt.setOrgId(orgId);
+        receipt.setCreatedBy(userId);
 
         // 3. Process line items — compute tax, build lines
         BigDecimal subtotal = BigDecimal.ZERO;
