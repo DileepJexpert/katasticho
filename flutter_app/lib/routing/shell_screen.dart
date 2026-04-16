@@ -75,6 +75,12 @@ const _purchasesNavItems = [
     activeIcon: Icons.receipt_rounded,
     route: Routes.bills,
   ),
+  NavItem(
+    label: 'Payments',
+    icon: Icons.payments_outlined,
+    activeIcon: Icons.payments_rounded,
+    route: Routes.vendorPayments,
+  ),
 ];
 
 const _secondaryNavItems = [

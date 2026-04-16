@@ -55,6 +55,8 @@ import '../features/pricing/presentation/price_list_detail_screen.dart';
 import '../features/bills/presentation/bill_list_screen.dart';
 import '../features/bills/presentation/bill_detail_screen.dart';
 import '../features/bills/presentation/bill_create_screen.dart';
+import '../features/vendor_payments/presentation/vendor_payment_list_screen.dart';
+import '../features/vendor_payments/presentation/vendor_payment_detail_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -113,6 +115,9 @@ class Routes {
   static const bills = '/bills';
   static const billCreate = '/bills/create';
   static const billDetail = '/bills/:id';
+  // AP — Vendor Payments
+  static const vendorPayments = '/vendor-payments';
+  static const vendorPaymentDetail = '/vendor-payments/:id';
   static const aiChat = '/ai-chat';
   static const gst = '/gst';
   static const settings = '/settings';
@@ -441,6 +446,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/bills/:id',
             builder: (context, state) => BillDetailScreen(
               billId: state.pathParameters['id']!,
+            ),
+          ),
+          // AP — Vendor Payments
+          GoRoute(
+            path: Routes.vendorPayments,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: VendorPaymentListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/vendor-payments/:id',
+            builder: (context, state) => VendorPaymentDetailScreen(
+              paymentId: state.pathParameters['id']!,
             ),
           ),
           GoRoute(
