@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
@@ -65,6 +66,24 @@ public class OrgBootstrapService {
     private final DefaultAccountService defaultAccountService;
     private final TaxSeedService taxSeedService;
     private final OrgBootstrapStatusRepository statusRepository;
+
+    private final ConcurrentHashMap<UUID, Boolean> verifiedOrgs = new ConcurrentHashMap<>();
+
+    /**
+     * Lazily ensures an org has been bootstrapped. Called once per org per
+     * app lifecycle (result cached in-memory). If the org has no
+     * bootstrap status record, triggers a full bootstrap.
+     */
+    public void ensureBootstrapped(UUID orgId) {
+        verifiedOrgs.computeIfAbsent(orgId, id -> {
+            boolean exists = statusRepository.existsById(id);
+            if (!exists) {
+                log.warn("Org {} has no bootstrap record — running lazy bootstrap", id);
+                organisationRepository.findById(id).ifPresent(this::bootstrap);
+            }
+            return true;
+        });
+    }
 
     @EventListener(ApplicationReadyEvent.class)
     public void onStartup() {
