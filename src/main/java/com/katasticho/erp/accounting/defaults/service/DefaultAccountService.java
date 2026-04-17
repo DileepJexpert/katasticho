@@ -7,13 +7,8 @@ import com.katasticho.erp.accounting.defaults.repository.OrgDefaultAccountReposi
 import com.katasticho.erp.accounting.entity.Account;
 import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.common.exception.BusinessException;
-import com.katasticho.erp.organisation.Organisation;
-import com.katasticho.erp.organisation.OrganisationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
-import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,25 +40,6 @@ public class DefaultAccountService {
 
     private final OrgDefaultAccountRepository repo;
     private final AccountRepository accountRepository;
-    private final OrganisationRepository organisationRepository;
-
-    // Run AFTER AccountService(@Order 1) seeds the CoA, BEFORE TaxSeedService(@Order 3).
-    // Tax seeding does not depend on default accounts today, but giving us slot 2
-    // leaves room without re-shuffling later.
-    @EventListener(ApplicationReadyEvent.class)
-    @Order(2)
-    @Transactional
-    public void seedAllOrgs() {
-        List<Organisation> orgs = organisationRepository.findAll();
-        int touched = 0;
-        for (Organisation org : orgs) {
-            int added = seedDefaultsForOrg(org.getId());
-            if (added > 0) touched++;
-        }
-        if (touched > 0) {
-            log.info("Seeded org_default_account rows for {} org(s)", touched);
-        }
-    }
 
     /**
      * Idempotent: inserts one row per missing purpose for the org. Existing

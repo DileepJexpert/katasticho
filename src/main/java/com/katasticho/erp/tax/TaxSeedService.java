@@ -3,7 +3,6 @@ package com.katasticho.erp.tax;
 import com.katasticho.erp.accounting.entity.Account;
 import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.organisation.Organisation;
-import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.tax.entity.TaxConfiguration;
 import com.katasticho.erp.tax.entity.TaxGroup;
 import com.katasticho.erp.tax.entity.TaxGroupRate;
@@ -14,9 +13,6 @@ import com.katasticho.erp.tax.repository.TaxGroupRepository;
 import com.katasticho.erp.tax.repository.TaxRateRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,28 +39,8 @@ public class TaxSeedService {
     private final TaxGroupRepository groupRepo;
     private final TaxGroupRateRepository groupRateRepo;
     private final AccountRepository accountRepo;
-    private final OrganisationRepository orgRepo;
 
-    @EventListener(ApplicationReadyEvent.class)
-    @Order(3)
-    @Transactional
-    public void seedAllOrgs() {
-        List<Organisation> orgs = orgRepo.findAll();
-        int seeded = 0;
-        for (Organisation org : orgs) {
-            if (!configRepo.existsByOrgId(org.getId())) {
-                seedForOrg(org);
-                seeded++;
-            } else {
-                seeded += repairMissingGlAccounts(org);
-            }
-        }
-        if (seeded > 0) {
-            log.info("Seeded/repaired tax configuration for {} org(s)", seeded);
-        }
-    }
-
-    private int repairMissingGlAccounts(Organisation org) {
+    public int repairMissingGlAccounts(Organisation org) {
         List<TaxRate> rates = rateRepo.findByOrgId(org.getId());
         int fixed = 0;
         for (TaxRate rate : rates) {
@@ -108,7 +84,11 @@ public class TaxSeedService {
     }
 
     @Transactional
-    public void seedForOrg(Organisation org) {
+    public boolean seedForOrg(Organisation org) {
+        if (configRepo.existsByOrgId(org.getId())) {
+            repairMissingGlAccounts(org);
+            return false;
+        }
         switch (org.getCountryCode()) {
             case "IN" -> seedIndia(org);
             case "VN" -> seedVietnam(org);
@@ -120,6 +100,7 @@ public class TaxSeedService {
             default   -> seedGenericVAT(org);
         }
         log.info("Tax seeded for org {} (country={})", org.getId(), org.getCountryCode());
+        return true;
     }
 
     // ── India GST ───────────────────────────────────────────────

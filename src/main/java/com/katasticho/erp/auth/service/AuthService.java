@@ -1,7 +1,5 @@
 package com.katasticho.erp.auth.service;
 
-import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
-import com.katasticho.erp.accounting.service.AccountService;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.auth.dto.*;
 import com.katasticho.erp.auth.entity.AppUser;
@@ -11,10 +9,9 @@ import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.auth.repository.RefreshTokenRepository;
 import com.katasticho.erp.auth.repository.UserInvitationRepository;
 import com.katasticho.erp.common.exception.BusinessException;
-import com.katasticho.erp.inventory.service.UomService;
+import com.katasticho.erp.common.service.OrgBootstrapService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
-import com.katasticho.erp.tax.TaxSeedService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -41,10 +38,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
     private final JdbcTemplate jdbcTemplate;
-    private final UomService uomService;
-    private final AccountService accountService;
-    private final DefaultAccountService defaultAccountService;
-    private final TaxSeedService taxSeedService;
+    private final OrgBootstrapService bootstrapService;
 
     public void requestOtp(OtpRequest request) {
         otpService.generateAndStore(request.phone());
@@ -111,13 +105,7 @@ public class AuthService {
                 "VALUES (?, ?, 'HO', 'Head Office', TRUE, TRUE)",
                 defaultBranchId, org.getId());
 
-        uomService.seedDefaultsForOrg(org.getId());
-        accountService.seedFromTemplate(org.getId(), org.getIndustry());
-        // Must run AFTER CoA seeding — looks up account rows by default code.
-        defaultAccountService.seedDefaultsForOrg(org.getId());
-        // Tax groups + rates + GL account bindings — must run after CoA seeding
-        // so that findAccountId("1500"/"2020"/etc.) can resolve the GL accounts.
-        taxSeedService.seedForOrg(org);
+        bootstrapService.bootstrap(org);
 
         // Bootstrap: every org gets a default warehouse tied to the default
         // branch. Without this, CSV import / stock movements fail with

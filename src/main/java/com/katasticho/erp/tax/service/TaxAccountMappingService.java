@@ -133,10 +133,7 @@ public class TaxAccountMappingService {
         }
         taxRateRepository.saveAll(existing);
 
-        // Repair pass — same logic as startup seeding, so behaviour is identical
-        // to a freshly-seeded org. We don't have direct access to the repair
-        // method, so trigger the public entry point.
-        taxSeedService.seedAllOrgs();
+        taxSeedService.repairMissingGlAccounts(org);
 
         log.info("Reset tax account mappings for org {} ({} rates)", orgId, existing.size());
         return listForOrg(orgId);
