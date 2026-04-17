@@ -2,6 +2,8 @@ package com.katasticho.erp.common.service;
 
 import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.service.AccountService;
+import com.katasticho.erp.common.entity.OrgBootstrapStatus;
+import com.katasticho.erp.common.repository.OrgBootstrapStatusRepository;
 import com.katasticho.erp.inventory.service.UomService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
@@ -11,10 +13,47 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.function.Supplier;
 
+/**
+ * Single orchestrator for all org-level seed data.
+ *
+ * <h3>Bootstrap order is CRITICAL:</h3>
+ * <ol>
+ *   <li><b>UoMs</b> — needed by item creation later, no dependencies</li>
+ *   <li><b>Chart of Accounts</b> — must exist before tax GL accounts can
+ *       be resolved. Tax seeding (step 4) calls
+ *       {@code findAccountId("2020")} etc.</li>
+ *   <li><b>Default Accounts</b> — maps CoA accounts to business purposes
+ *       (AR, AP, Sales, Purchase etc.). Requires CoA from step 2.</li>
+ *   <li><b>Tax Configuration</b> — links tax rates to GL accounts from
+ *       the CoA. Requires accounts from step 2 to exist.</li>
+ * </ol>
+ *
+ * <p>Reversing this order causes:
+ * <ul>
+ *   <li>Tax rates with null GL accounts (step 4 before step 2)</li>
+ *   <li>Default account settings pointing to non-existent accounts
+ *       (step 3 before step 2)</li>
+ * </ul>
+ *
+ * <h3>Idempotency contract:</h3>
+ * Every seeder is safe to call 100 times. Each returns a
+ * {@link SeedResult} indicating what it did. This method does NOT
+ * use {@code @Transactional} — each seeder manages its own transaction.
+ * If one fails, already-committed seeders remain. The caller can retry.
+ *
+ * <h3>Error handling:</h3>
+ * If a seeder throws, the exception is caught, logged, and the next
+ * seeder runs. The org's bootstrap status is recorded in
+ * {@code org_bootstrap_status} with {@code PARTIAL_FAILURE} so an
+ * admin can re-trigger via the repair endpoint.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -25,36 +64,114 @@ public class OrgBootstrapService {
     private final AccountService accountService;
     private final DefaultAccountService defaultAccountService;
     private final TaxSeedService taxSeedService;
+    private final OrgBootstrapStatusRepository statusRepository;
 
     @EventListener(ApplicationReadyEvent.class)
-    @Transactional
-    public void bootstrapAllOrgs() {
+    public void onStartup() {
+        BootstrapAllResult result = bootstrapAll();
+        log.info("Bootstrap complete: {} orgs OK, {} orgs repaired, {} failures",
+                result.succeeded(), result.repaired(), result.failed());
+    }
+
+    public BootstrapAllResult bootstrapAll() {
         List<Organisation> orgs = organisationRepository.findAll();
-        int bootstrapped = 0;
+        List<BootstrapResult> results = new ArrayList<>(orgs.size());
+        int ok = 0, repaired = 0, failed = 0;
+
         for (Organisation org : orgs) {
-            if (bootstrap(org)) bootstrapped++;
+            BootstrapResult result = bootstrap(org);
+            results.add(result);
+
+            if (!result.allSucceeded()) {
+                failed++;
+            } else if (isUnchanged(result)) {
+                ok++;
+            } else {
+                repaired++;
+            }
         }
-        if (bootstrapped > 0) {
-            log.info("Bootstrapped {} org(s) on startup", bootstrapped);
+
+        return new BootstrapAllResult(orgs.size(), ok, repaired, failed, results);
+    }
+
+    public BootstrapResult bootstrap(Organisation org) {
+        UUID orgId = org.getId();
+
+        StepOutcome uoms = runStep("UoMs", orgId,
+                () -> uomService.seedDefaultsForOrg(orgId));
+
+        StepOutcome accounts = runStep("CoA", orgId,
+                () -> accountService.seedFromTemplate(orgId, org.getIndustry()));
+
+        StepOutcome defaults = runStep("DefaultAccounts", orgId,
+                () -> defaultAccountService.seedDefaultsForOrg(orgId));
+
+        StepOutcome tax = runStep("TaxConfig", orgId,
+                () -> taxSeedService.seedForOrg(org));
+
+        boolean allOk = uoms.succeeded() && accounts.succeeded()
+                && defaults.succeeded() && tax.succeeded();
+
+        String summary = String.format(
+                "Org %s bootstrap: UoMs=%s, CoA=%s, DefaultAccounts=%s, TaxConfig=%s",
+                orgId, format(uoms), format(accounts), format(defaults), format(tax));
+        log.info(summary);
+
+        recordStatus(orgId, uoms, accounts, defaults, tax, allOk, summary);
+
+        return new BootstrapResult(orgId, uoms, accounts, defaults, tax, allOk, summary);
+    }
+
+    private StepOutcome runStep(String name, UUID orgId, Supplier<SeedResult> step) {
+        try {
+            return StepOutcome.success(step.get());
+        } catch (Exception e) {
+            log.error("Bootstrap step '{}' failed for org {}: {}", name, orgId, e.getMessage(), e);
+            return StepOutcome.failure(e.getMessage());
         }
     }
 
-    /**
-     * Idempotent bootstrap: seeds UoMs, CoA, default accounts, and tax
-     * configuration for the given org. Each step has its own idempotency
-     * guard, so calling this multiple times is safe.
-     *
-     * @return true if any data was actually seeded
-     */
-    @Transactional
-    public boolean bootstrap(Organisation org) {
-        boolean changed = false;
-        uomService.seedDefaultsForOrg(org.getId());
-        int accounts = accountService.seedFromTemplate(org.getId(), org.getIndustry());
-        changed |= accounts > 0;
-        int defaults = defaultAccountService.seedDefaultsForOrg(org.getId());
-        changed |= defaults > 0;
-        changed |= taxSeedService.seedForOrg(org);
-        return changed;
+    private void recordStatus(UUID orgId, StepOutcome uoms, StepOutcome accounts,
+                              StepOutcome defaults, StepOutcome tax,
+                              boolean allOk, String errorSummary) {
+        try {
+            OrgBootstrapStatus status = statusRepository.findById(orgId)
+                    .orElseGet(() -> OrgBootstrapStatus.builder().orgId(orgId).build());
+
+            Instant now = Instant.now();
+            if (uoms.succeeded()) status.setUomsSeededAt(now);
+            if (accounts.succeeded()) status.setAccountsSeededAt(now);
+            if (defaults.succeeded()) status.setDefaultAccountsSeededAt(now);
+            if (tax.succeeded()) status.setTaxConfigSeededAt(now);
+
+            status.setLastBootstrapAt(now);
+            status.setLastBootstrapStatus(allOk ? "SUCCESS" : "PARTIAL_FAILURE");
+
+            if (!allOk) {
+                StringBuilder errors = new StringBuilder();
+                if (!uoms.succeeded()) errors.append("UoMs: ").append(uoms.error()).append("; ");
+                if (!accounts.succeeded()) errors.append("CoA: ").append(accounts.error()).append("; ");
+                if (!defaults.succeeded()) errors.append("DefaultAccounts: ").append(defaults.error()).append("; ");
+                if (!tax.succeeded()) errors.append("TaxConfig: ").append(tax.error()).append("; ");
+                status.setLastErrorMessage(errors.toString());
+            } else {
+                status.setLastErrorMessage(null);
+            }
+
+            statusRepository.save(status);
+        } catch (Exception e) {
+            log.warn("Failed to record bootstrap status for org {}: {}", orgId, e.getMessage());
+        }
+    }
+
+    private boolean isUnchanged(BootstrapResult result) {
+        return result.uoms().result() == SeedResult.ALREADY_EXISTS
+                && result.accounts().result() == SeedResult.ALREADY_EXISTS
+                && result.defaultAccounts().result() == SeedResult.ALREADY_EXISTS
+                && result.taxConfig().result() == SeedResult.ALREADY_EXISTS;
+    }
+
+    private String format(StepOutcome outcome) {
+        return outcome.succeeded() ? String.valueOf(outcome.result()) : "FAILED(" + outcome.error() + ")";
     }
 }

@@ -19,6 +19,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -105,8 +107,6 @@ public class AuthService {
                 "VALUES (?, ?, 'HO', 'Head Office', TRUE, TRUE)",
                 defaultBranchId, org.getId());
 
-        bootstrapService.bootstrap(org);
-
         // Bootstrap: every org gets a default warehouse tied to the default
         // branch. Without this, CSV import / stock movements fail with
         // INV_NO_DEFAULT_WAREHOUSE.
@@ -137,6 +137,19 @@ public class AuthService {
                 "CREATE", null, "{\"action\":\"signup\"}");
 
         log.info("New org created: {} ({}), owner: {}", org.getName(), org.getId(), user.getFullName());
+
+        Organisation orgRef = org;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    bootstrapService.bootstrap(orgRef);
+                } catch (Exception e) {
+                    log.error("Post-signup bootstrap failed for org {}: {}", orgRef.getId(), e.getMessage(), e);
+                }
+            }
+        });
+
         return buildAuthResponse(user, org);
     }
 

@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import com.katasticho.erp.common.service.SeedResult;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -257,9 +258,9 @@ public class UomService {
      * Called from signup flow so items can be created immediately.
      */
     @Transactional
-    public void seedDefaultsForOrg(UUID orgId) {
+    public SeedResult seedDefaultsForOrg(UUID orgId) {
         if (uomRepository.existsByOrgIdAndAbbreviationIgnoreCaseAndIsDeletedFalse(orgId, "PCS")) {
-            return;
+            return SeedResult.ALREADY_EXISTS;
         }
         seedUom(orgId, "Pieces",      "PCS",    UomCategory.COUNT,     true);
         seedUom(orgId, "Dozen",       "DOZEN",  UomCategory.COUNT,     false);
@@ -274,6 +275,7 @@ public class UomService {
         seedUom(orgId, "Millilitre",  "ML",     UomCategory.VOLUME,    false);
         seedUom(orgId, "Metre",       "MTR",    UomCategory.LENGTH,    true);
         log.info("Seeded default UoMs for org {}", orgId);
+        return SeedResult.CREATED_NEW;
     }
 
     private void seedUom(UUID orgId, String name, String abbr, UomCategory cat, boolean isBase) {

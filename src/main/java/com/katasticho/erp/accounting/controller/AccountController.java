@@ -46,8 +46,8 @@ public class AccountController {
     @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> seedTemplate(@RequestBody Map<String, String> request) {
         String industry = request.getOrDefault("industry", "TRADING");
-        int count = accountService.seedFromTemplate(TenantContext.getCurrentOrgId(), industry);
-        return ResponseEntity.ok(ApiResponse.ok(Map.of("accountsCreated", count, "industry", industry)));
+        var result = accountService.seedFromTemplate(TenantContext.getCurrentOrgId(), industry);
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("result", result, "industry", industry)));
     }
 
     @GetMapping("/{id}/balance")

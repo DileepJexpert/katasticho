@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import com.katasticho.erp.common.service.SeedResult;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -46,17 +47,18 @@ public class DefaultAccountService {
      * rows are never overwritten. Returns count of rows actually inserted.
      */
     @Transactional
-    public int seedDefaultsForOrg(UUID orgId) {
+    public SeedResult seedDefaultsForOrg(UUID orgId) {
         int inserted = 0;
+        int alreadyExisted = 0;
         for (DefaultAccountPurpose purpose : DefaultAccountPurpose.values()) {
-            if (repo.existsByOrgIdAndPurpose(orgId, purpose)) continue;
+            if (repo.existsByOrgIdAndPurpose(orgId, purpose)) {
+                alreadyExisted++;
+                continue;
+            }
 
             Optional<Account> account = accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(
                     orgId, purpose.defaultCode());
             if (account.isEmpty()) {
-                // CoA template hasn't been seeded yet (or doesn't include this code).
-                // Skip silently — the next startup pass will pick it up once the
-                // account exists.
                 continue;
             }
 
@@ -71,7 +73,9 @@ public class DefaultAccountService {
         if (inserted > 0) {
             log.info("Seeded {} default-account rows for org {}", inserted, orgId);
         }
-        return inserted;
+        if (inserted == 0) return SeedResult.ALREADY_EXISTS;
+        if (alreadyExisted > 0) return SeedResult.REPAIRED_PARTIAL;
+        return SeedResult.CREATED_NEW;
     }
 
     /**

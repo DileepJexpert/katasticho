@@ -15,7 +15,8 @@ import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.contact.repository.ContactRepository;
-import com.katasticho.erp.currency.SimpleCurrencyService;
+import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
+import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Organisation;
@@ -57,6 +58,8 @@ class InvoiceServiceTest {
     @Mock private InventoryService inventoryService;
     @Mock private PriceListService priceListService;
     @Mock private CommentService commentService;
+    @Mock private CurrencyService currencyService;
+    @Mock private DefaultAccountService defaultAccountService;
 
     private InvoiceService invoiceService;
     private UUID orgId;
@@ -70,8 +73,9 @@ class InvoiceServiceTest {
                 invoiceRepository, taxLineItemRepository, customerRepository,
                 contactRepository, sequenceRepository, organisationRepository,
                 branchRepository,
-                journalService, taxEngine, new SimpleCurrencyService(),
-                auditService, inventoryService, priceListService, commentService);
+                journalService, taxEngine, currencyService,
+                auditService, inventoryService, priceListService, commentService,
+                defaultAccountService);
 
         lenient().when(priceListService.resolvePrice(any(), any(), any()))
                 .thenReturn(Optional.empty());

@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import com.katasticho.erp.common.service.SeedResult;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -76,7 +77,7 @@ public class AccountService {
      * Called during signup or manual template application.
      */
     @Transactional
-    public int seedFromTemplate(UUID orgId, String industry) {
+    public SeedResult seedFromTemplate(UUID orgId, String industry) {
         String templateIndustry = resolveIndustry(industry);
 
         // Fetch template rows
@@ -86,7 +87,7 @@ public class AccountService {
 
         if (templates.isEmpty()) {
             log.warn("No CoA template found for industry: {}", industry);
-            return 0;
+            return SeedResult.ALREADY_EXISTS;
         }
 
         // First pass: create all accounts without parents
@@ -127,7 +128,9 @@ public class AccountService {
         }
 
         log.info("Seeded {} accounts from {} template for org {}", codeToId.size(), templateIndustry, orgId);
-        return codeToId.size();
+        if (codeToId.isEmpty()) return SeedResult.ALREADY_EXISTS;
+        if (codeToId.size() < templates.size()) return SeedResult.REPAIRED_PARTIAL;
+        return SeedResult.CREATED_NEW;
     }
 
     private String resolveIndustry(String industry) {

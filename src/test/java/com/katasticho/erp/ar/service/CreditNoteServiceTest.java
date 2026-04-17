@@ -11,7 +11,8 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
-import com.katasticho.erp.currency.SimpleCurrencyService;
+import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
+import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
@@ -49,6 +50,8 @@ class CreditNoteServiceTest {
     @Mock private AuditService auditService;
     @Mock private InventoryService inventoryService;
     @Mock private CommentService commentService;
+    @Mock private CurrencyService currencyService;
+    @Mock private DefaultAccountService defaultAccountService;
 
     private CreditNoteService creditNoteService;
     private UUID orgId;
@@ -62,8 +65,8 @@ class CreditNoteServiceTest {
                 creditNoteRepository, taxLineItemRepository, customerRepository,
                 invoiceRepository, sequenceRepository, organisationRepository,
                 invoiceService, journalService, taxEngine,
-                new SimpleCurrencyService(), auditService, inventoryService,
-                commentService);
+                currencyService, auditService, inventoryService,
+                commentService, defaultAccountService);
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();

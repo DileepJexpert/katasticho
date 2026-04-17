@@ -405,7 +405,6 @@ public class ExpenseService {
     private void saveTaxLineItems(UUID orgId, UUID expenseId, TaxEngine.TaxCalculationResult taxResult) {
         List<TaxLineItem> taxLines = new ArrayList<>();
         for (TaxEngine.TaxComponent comp : taxResult.components()) {
-            if (comp.glAccountCode() == null) continue;
             taxLines.add(TaxLineItem.builder()
                     .orgId(orgId)
                     .sourceType("EXPENSE")
@@ -413,7 +412,7 @@ public class ExpenseService {
                     .taxRegime("TAX")
                     .componentCode(comp.rateCode())
                     .rate(comp.percentage())
-                    .taxableAmount(BigDecimal.ZERO) // expense has single amount, not per-line
+                    .taxableAmount(BigDecimal.ZERO)
                     .taxAmount(comp.amount())
                     .accountCode(comp.glAccountCode())
                     .build());

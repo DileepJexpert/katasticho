@@ -14,6 +14,7 @@ import com.katasticho.erp.tax.repository.TaxRateRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import com.katasticho.erp.common.service.SeedResult;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -84,10 +85,10 @@ public class TaxSeedService {
     }
 
     @Transactional
-    public boolean seedForOrg(Organisation org) {
+    public SeedResult seedForOrg(Organisation org) {
         if (configRepo.existsByOrgId(org.getId())) {
-            repairMissingGlAccounts(org);
-            return false;
+            int repaired = repairMissingGlAccounts(org);
+            return repaired > 0 ? SeedResult.REPAIRED_PARTIAL : SeedResult.ALREADY_EXISTS;
         }
         switch (org.getCountryCode()) {
             case "IN" -> seedIndia(org);
@@ -100,7 +101,7 @@ public class TaxSeedService {
             default   -> seedGenericVAT(org);
         }
         log.info("Tax seeded for org {} (country={})", org.getId(), org.getCountryCode());
-        return true;
+        return SeedResult.CREATED_NEW;
     }
 
     // ── India GST ───────────────────────────────────────────────
