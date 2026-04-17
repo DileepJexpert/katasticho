@@ -148,8 +148,7 @@ public class PurchaseBillService {
         for (int i = 0; i < request.lines().size(); i++) {
             CreatePurchaseBillRequest.BillLineRequest lineReq = request.lines().get(i);
 
-            Account lineAccount = accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, lineReq.accountId())
-                    .orElseThrow(() -> BusinessException.notFound("Account", lineReq.accountId()));
+            Account lineAccount = resolveLineAccount(orgId, lineReq);
 
             BigDecimal grossAmount = lineReq.quantity().multiply(lineReq.unitPrice())
                     .setScale(2, RoundingMode.HALF_UP);
@@ -180,7 +179,7 @@ public class PurchaseBillService {
                     .description(lineReq.description())
                     .hsnCode(lineReq.hsnCode())
                     .itemId(lineReq.itemId())
-                    .accountId(lineReq.accountId())
+                    .accountId(lineAccount.getId())
                     .quantity(lineReq.quantity())
                     .unitPrice(lineReq.unitPrice())
                     .discountPercent(lineReq.discountPercent())
@@ -526,8 +525,7 @@ public class PurchaseBillService {
         for (int i = 0; i < request.lines().size(); i++) {
             UpdatePurchaseBillRequest.BillLineRequest lineReq = request.lines().get(i);
 
-            accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, lineReq.accountId())
-                    .orElseThrow(() -> BusinessException.notFound("Account", lineReq.accountId()));
+            Account lineAccount = resolveUpdateLineAccount(orgId, lineReq);
 
             BigDecimal grossAmount = lineReq.quantity().multiply(lineReq.unitPrice())
                     .setScale(2, RoundingMode.HALF_UP);
@@ -556,7 +554,7 @@ public class PurchaseBillService {
                     .description(lineReq.description())
                     .hsnCode(lineReq.hsnCode())
                     .itemId(lineReq.itemId())
-                    .accountId(lineReq.accountId())
+                    .accountId(lineAccount.getId())
                     .quantity(lineReq.quantity())
                     .unitPrice(lineReq.unitPrice())
                     .discountPercent(lineReq.discountPercent())
@@ -750,5 +748,35 @@ public class PurchaseBillService {
                 bill.getCurrency(), bill.getPlaceOfSupply(), bill.isReverseCharge(),
                 bill.getJournalEntryId(), bill.getNotes(),
                 lineResponses, bill.getCreatedAt());
+    }
+
+    private static final String DEFAULT_PURCHASE_ACCOUNT_CODE = "5000";
+
+    private Account resolveLineAccount(UUID orgId, CreatePurchaseBillRequest.BillLineRequest lineReq) {
+        if (lineReq.accountId() != null) {
+            return accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, lineReq.accountId())
+                    .orElseThrow(() -> BusinessException.notFound("Account", lineReq.accountId()));
+        }
+        String code = lineReq.accountCode() != null && !lineReq.accountCode().isBlank()
+                ? lineReq.accountCode().trim()
+                : DEFAULT_PURCHASE_ACCOUNT_CODE;
+        return accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(orgId, code)
+                .orElseThrow(() -> new BusinessException(
+                        "Purchase account not found: " + code,
+                        "AP_ACCOUNT_NOT_FOUND", HttpStatus.BAD_REQUEST));
+    }
+
+    private Account resolveUpdateLineAccount(UUID orgId, UpdatePurchaseBillRequest.BillLineRequest lineReq) {
+        if (lineReq.accountId() != null) {
+            return accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, lineReq.accountId())
+                    .orElseThrow(() -> BusinessException.notFound("Account", lineReq.accountId()));
+        }
+        String code = lineReq.accountCode() != null && !lineReq.accountCode().isBlank()
+                ? lineReq.accountCode().trim()
+                : DEFAULT_PURCHASE_ACCOUNT_CODE;
+        return accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(orgId, code)
+                .orElseThrow(() -> new BusinessException(
+                        "Purchase account not found: " + code,
+                        "AP_ACCOUNT_NOT_FOUND", HttpStatus.BAD_REQUEST));
     }
 }

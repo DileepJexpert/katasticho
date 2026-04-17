@@ -133,6 +133,7 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen> {
                   'quantity': l.quantity,
                   'unitPrice': l.unitPrice,
                   'accountCode': l.accountCode,
+                  'gstRate': l.taxRate,
                   if (l.taxGroupId != null) 'taxGroupId': l.taxGroupId,
                   if (l.itemId != null) 'itemId': l.itemId,
                 })

@@ -26,15 +26,17 @@ public record CreatePurchaseBillRequest(
             @NotBlank String description,
             String hsnCode,
             UUID itemId,
-            @NotNull UUID accountId,
+            UUID accountId,
+            String accountCode,
             @NotNull BigDecimal quantity,
             @NotNull BigDecimal unitPrice,
             BigDecimal discountPercent,
-            @NotNull BigDecimal gstRate,
+            BigDecimal gstRate,
             UUID taxGroupId
     ) {
         public BillLineRequest {
             if (discountPercent == null) discountPercent = BigDecimal.ZERO;
+            if (gstRate == null) gstRate = BigDecimal.ZERO;
         }
     }
 }
