@@ -1,5 +1,7 @@
 package com.katasticho.erp.pos.service;
 
+import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
+import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.dto.JournalLineRequest;
 import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.JournalEntry;
@@ -65,9 +67,6 @@ import java.util.stream.Collectors;
 public class SalesReceiptService {
 
     private static final String RECEIPT_PREFIX = "SR";
-    private static final String DEFAULT_REVENUE_ACCOUNT = "4000";
-    private static final String CASH_ACCOUNT = "1010";
-    private static final String BANK_ACCOUNT = "1020";
 
     private final SalesReceiptRepository receiptRepository;
     private final ItemRepository itemRepository;
@@ -80,6 +79,7 @@ public class SalesReceiptService {
     private final BatchService batchService;
     private final TaxEngine taxEngine;
     private final AuditService auditService;
+    private final DefaultAccountService defaultAccountService;
 
     @Transactional
     public SalesReceiptResponse create(CreateSalesReceiptRequest request) {
@@ -229,10 +229,11 @@ public class SalesReceiptService {
     // ── Journal posting ─────────────────────────────────────────
 
     private JournalEntry postJournal(SalesReceipt receipt, List<TaxLineItem> taxLines) {
+        UUID orgId = receipt.getOrgId();
         List<JournalLineRequest> journalLines = new ArrayList<>();
 
         // DR: Paid-through account (Cash / Bank / UPI)
-        String paidThroughCode = resolvePaidThroughAccount(receipt.getPaymentMode());
+        String paidThroughCode = resolvePaidThroughAccount(orgId, receipt.getPaymentMode());
         journalLines.add(new JournalLineRequest(
                 paidThroughCode,
                 receipt.getTotal(),
@@ -240,17 +241,23 @@ public class SalesReceiptService {
                 "POS Sale: " + receipt.getReceiptNumber(),
                 null, null));
 
-        // CR: Revenue — group by account code from line items
-        BigDecimal revenueTotal = receipt.getSubtotal();
+        // CR: Revenue
+        String revenueCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.SALES_REVENUE);
         journalLines.add(new JournalLineRequest(
-                DEFAULT_REVENUE_ACCOUNT,
+                revenueCode,
                 BigDecimal.ZERO,
-                revenueTotal,
+                receipt.getSubtotal(),
                 "Revenue: " + receipt.getReceiptNumber(),
                 null, null));
 
         // CR: Tax payable per component
         for (TaxLineItem tli : taxLines) {
+            if (tli.getAccountCode() == null || tli.getAccountCode().isBlank()) {
+                throw new BusinessException(
+                        "Tax component " + tli.getComponentCode()
+                                + " has no GL output account. Configure it in Settings → Tax Account Mapping.",
+                        "TAX_GL_ACCOUNT_MISSING", HttpStatus.BAD_REQUEST);
+            }
             journalLines.add(new JournalLineRequest(
                     tli.getAccountCode(),
                     BigDecimal.ZERO,
@@ -270,10 +277,10 @@ public class SalesReceiptService {
         return journalService.postJournal(journalRequest);
     }
 
-    private String resolvePaidThroughAccount(PaymentMode mode) {
+    private String resolvePaidThroughAccount(UUID orgId, PaymentMode mode) {
         return switch (mode) {
-            case CASH -> CASH_ACCOUNT;
-            case UPI, CARD, MIXED -> BANK_ACCOUNT;
+            case CASH -> defaultAccountService.getCode(orgId, DefaultAccountPurpose.CASH);
+            case UPI, CARD, MIXED -> defaultAccountService.getCode(orgId, DefaultAccountPurpose.BANK);
         };
     }
 

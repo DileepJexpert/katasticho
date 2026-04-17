@@ -360,14 +360,27 @@ public class ExpenseService {
                 description,
                 null, null));
 
-        // DR: Tax input credit per component (account code from tax engine)
+        // DR: Tax input credit per component (recoverable tax with a GL account)
+        BigDecimal recoverableTax = BigDecimal.ZERO;
         for (TaxEngine.TaxComponent comp : taxResult.components()) {
-            if (comp.glAccountCode() == null) continue; // non-recoverable tax
+            if (comp.glAccountCode() == null) continue;
             lines.add(new JournalLineRequest(
                     comp.glAccountCode(),
                     comp.amount(),
                     BigDecimal.ZERO,
                     comp.rateCode() + " Input Credit: " + expense.getExpenseNumber(),
+                    null, null));
+            recoverableTax = recoverableTax.add(comp.amount());
+        }
+
+        // Non-recoverable tax is part of the expense cost — absorb into same account
+        BigDecimal nonRecoverable = taxResult.totalTaxAmount().subtract(recoverableTax);
+        if (nonRecoverable.compareTo(BigDecimal.ZERO) > 0) {
+            lines.add(new JournalLineRequest(
+                    expenseAccount.getCode(),
+                    nonRecoverable,
+                    BigDecimal.ZERO,
+                    "Non-recoverable tax: " + expense.getExpenseNumber(),
                     null, null));
         }
 

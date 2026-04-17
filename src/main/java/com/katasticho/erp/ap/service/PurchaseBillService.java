@@ -199,7 +199,6 @@ public class PurchaseBillService {
             totalTax = totalTax.add(lineTax);
 
             for (TaxEngine.TaxComponent comp : taxResult.components()) {
-                if (comp.glAccountCode() == null) continue; // non-recoverable tax
                 allTaxLines.add(TaxLineItem.builder()
                         .orgId(orgId)
                         .sourceType("BILL")
@@ -281,14 +280,29 @@ public class PurchaseBillService {
                     null, null));
         }
 
-        // DR: Tax input credit per component (account code from tax engine, not hardcoded)
+        // DR: Tax input credit per component (only recoverable with a bound GL account)
+        BigDecimal recoverableTaxDebit = BigDecimal.ZERO;
         List<TaxLineItem> taxLines = taxLineItemRepository.findBySourceTypeAndSourceId("BILL", bill.getId());
         for (TaxLineItem tli : taxLines) {
+            if (tli.getAccountCode() == null || tli.getAccountCode().isBlank()) continue;
             journalLines.add(new JournalLineRequest(
                     tli.getAccountCode(),
                     tli.getTaxAmount(), BigDecimal.ZERO,
                     tli.getComponentCode() + " Input Credit",
                     tli.getComponentCode(), null));
+            recoverableTaxDebit = recoverableTaxDebit.add(tli.getTaxAmount());
+        }
+
+        // Non-recoverable tax (tax in totalAmount but no input-credit line item)
+        // is part of the purchase cost — absorb into the default purchase account.
+        BigDecimal nonRecoverableTax = bill.getTaxAmount().subtract(recoverableTaxDebit);
+        if (nonRecoverableTax.compareTo(BigDecimal.ZERO) > 0) {
+            String purchaseCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.PURCHASE);
+            journalLines.add(new JournalLineRequest(
+                    purchaseCode,
+                    nonRecoverableTax, BigDecimal.ZERO,
+                    "Non-recoverable tax: " + bill.getBillNumber(),
+                    null, null));
         }
 
         // CR: Accounts Payable (net of TDS) — code resolved per-org
@@ -574,7 +588,6 @@ public class PurchaseBillService {
             totalTax = totalTax.add(lineTax);
 
             for (TaxEngine.TaxComponent comp : taxResult.components()) {
-                if (comp.glAccountCode() == null) continue;
                 allTaxLines.add(TaxLineItem.builder()
                         .orgId(orgId)
                         .sourceType("BILL")

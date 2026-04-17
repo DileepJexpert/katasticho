@@ -311,6 +311,12 @@ public class InvoiceService {
         // CR: Tax payable per component
         List<TaxLineItem> taxLines = taxLineItemRepository.findBySourceTypeAndSourceId("INVOICE", invoice.getId());
         for (TaxLineItem tli : taxLines) {
+            if (tli.getAccountCode() == null || tli.getAccountCode().isBlank()) {
+                throw new BusinessException(
+                        "Tax component " + tli.getComponentCode()
+                                + " has no GL output account. Configure it in Settings → Tax Account Mapping.",
+                        "TAX_GL_ACCOUNT_MISSING", HttpStatus.BAD_REQUEST);
+            }
             journalLines.add(new JournalLineRequest(
                     tli.getAccountCode(),
                     BigDecimal.ZERO,
