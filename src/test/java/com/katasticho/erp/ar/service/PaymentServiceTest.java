@@ -65,6 +65,7 @@ class PaymentServiceTest {
                 currencyService, auditService, commentService,
                 defaultAccountService);
 
+        lenient().when(currencyService.getRate(any(), any(), any())).thenReturn(BigDecimal.ONE);
         lenient().when(defaultAccountService.getCode(any(), eq(DefaultAccountPurpose.AR))).thenReturn("1200");
         lenient().when(defaultAccountService.getCode(any(), eq(DefaultAccountPurpose.BANK))).thenReturn("1020");
         lenient().when(defaultAccountService.getCode(any(), eq(DefaultAccountPurpose.CASH))).thenReturn("1010");
