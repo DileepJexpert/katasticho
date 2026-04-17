@@ -81,13 +81,35 @@ public class InvoiceService {
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
-        Customer customer = customerRepository.findByIdAndOrgIdAndIsDeletedFalse(request.customerId(), orgId)
-                .orElseThrow(() -> BusinessException.notFound("Customer", request.customerId()));
+        // Resolve customer: prefer customerId, else look up contact
+        final UUID resolvedCustomerId;
+        final UUID resolvedContactId;
+        String billingStateCode;
+        int paymentTermsDays;
+
+        if (request.customerId() != null) {
+            Customer customer = customerRepository.findByIdAndOrgIdAndIsDeletedFalse(request.customerId(), orgId)
+                    .orElseThrow(() -> BusinessException.notFound("Customer", request.customerId()));
+            resolvedCustomerId = customer.getId();
+            resolvedContactId = request.contactId() != null ? request.contactId() : customer.getId();
+            billingStateCode = customer.getBillingStateCode();
+            paymentTermsDays = customer.getPaymentTermsDays();
+        } else if (request.contactId() != null) {
+            Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(request.contactId(), orgId)
+                    .orElseThrow(() -> BusinessException.notFound("Contact", request.contactId()));
+            resolvedCustomerId = contact.getId();
+            resolvedContactId = contact.getId();
+            billingStateCode = contact.getBillingStateCode();
+            paymentTermsDays = contact.getPaymentTermsDays();
+        } else {
+            throw new BusinessException("Either customerId or contactId is required",
+                    "AR_NO_CUSTOMER", HttpStatus.BAD_REQUEST);
+        }
 
         // Determine place of supply for GST
         String placeOfSupply = request.placeOfSupply() != null
                 ? request.placeOfSupply()
-                : customer.getBillingStateCode();
+                : billingStateCode;
 
         // Compute fiscal period
         int periodYear = computeFiscalYear(request.invoiceDate(), org.getFiscalYearStart());
@@ -98,13 +120,10 @@ public class InvoiceService {
         // Due date defaults to invoice date + customer payment terms
         LocalDate dueDate = request.dueDate() != null
                 ? request.dueDate()
-                : request.invoiceDate().plusDays(customer.getPaymentTermsDays());
+                : request.invoiceDate().plusDays(paymentTermsDays);
 
         // Get exchange rate
         BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.invoiceDate());
-
-        // Resolve contactId: prefer explicit value, fall back to customerId (UUIDs match after V2 migration)
-        UUID resolvedContactId = request.contactId() != null ? request.contactId() : customer.getId();
 
         // Stamp the org's default branch. Multi-branch selection comes later
         // via a request field; for now every new invoice rolls up to the
@@ -116,7 +135,7 @@ public class InvoiceService {
         Invoice invoice = Invoice.builder()
                 .orgId(orgId)
                 .branchId(branchId)
-                .customerId(customer.getId())
+                .customerId(resolvedCustomerId)
                 .contactId(resolvedContactId)
                 .invoiceNumber(invoiceNumber)
                 .invoiceDate(request.invoiceDate())
@@ -151,7 +170,7 @@ public class InvoiceService {
             BigDecimal effectiveUnitPrice = lineReq.unitPrice();
             if (lineReq.itemId() != null) {
                 effectiveUnitPrice = priceListService
-                        .resolvePrice(customer.getId(), lineReq.itemId(), lineReq.quantity())
+                        .resolvePrice(resolvedCustomerId, lineReq.itemId(), lineReq.quantity())
                         .map(resolved -> {
                             if (resolved.compareTo(lineReq.unitPrice()) != 0) {
                                 log.info("Price list override line {}: client={} resolved={}",

@@ -92,10 +92,12 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen> {
         final lower = query.toLowerCase();
         _filteredContacts = _contacts
             .where((c) =>
-                (c['name'] as String? ?? '').toLowerCase().contains(lower) ||
+                (c['displayName'] as String? ?? '').toLowerCase().contains(lower) ||
                 (c['companyName'] as String? ?? '')
                     .toLowerCase()
                     .contains(lower) ||
+                (c['phone'] as String? ?? '').contains(lower) ||
+                (c['mobile'] as String? ?? '').contains(lower) ||
                 (c['gstin'] as String? ?? '').toLowerCase().contains(lower))
             .toList();
       }

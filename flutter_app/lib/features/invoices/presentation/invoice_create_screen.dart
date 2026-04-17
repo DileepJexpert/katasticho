@@ -12,7 +12,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
-import '../../customers/data/customer_repository.dart';
+import '../../contacts/data/contact_repository.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../pricing/data/price_list_repository.dart';
@@ -49,11 +49,9 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
   }
 
   Future<void> _loadCustomers() async {
-    debugPrint('[InvoiceCreate] Loading customers...');
     try {
-      final repo = ref.read(customerRepositoryProvider);
-      final result = await repo.listCustomers();
-      debugPrint('[InvoiceCreate] Customer list response: $result');
+      final repo = ref.read(contactRepositoryProvider);
+      final result = await repo.listContacts(size: 200);
       final content = result['data'];
       final list = content is List
           ? content.cast<Map<String, dynamic>>()
@@ -62,17 +60,20 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
                       ?.cast<Map<String, dynamic>>() ??
                   [])
               : <Map<String, dynamic>>[]);
-      debugPrint('[InvoiceCreate] Parsed ${list.length} customers');
+      final customers = list
+          .where((c) {
+            final type = (c['contactType'] as String? ?? '').toUpperCase();
+            return type == 'CUSTOMER' || type == 'BOTH';
+          })
+          .toList();
       if (mounted) {
         setState(() {
-          _customers = list;
-          _filteredCustomers = list;
+          _customers = customers;
+          _filteredCustomers = customers;
           _loadingCustomers = false;
         });
       }
-    } catch (e, st) {
-      debugPrint('[InvoiceCreate] Failed to load customers: $e');
-      debugPrint('[InvoiceCreate] Stack trace: $st');
+    } catch (e) {
       if (mounted) setState(() => _loadingCustomers = false);
     }
   }
@@ -86,8 +87,10 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
         final lower = query.toLowerCase();
         _filteredCustomers = _customers
             .where((c) =>
-                (c['name'] as String? ?? '').toLowerCase().contains(lower) ||
+                (c['displayName'] as String? ?? '').toLowerCase().contains(lower) ||
+                (c['companyName'] as String? ?? '').toLowerCase().contains(lower) ||
                 (c['phone'] as String? ?? '').contains(lower) ||
+                (c['mobile'] as String? ?? '').contains(lower) ||
                 (c['gstin'] as String? ?? '').toLowerCase().contains(lower))
             .toList();
       }
@@ -119,7 +122,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
     try {
       final repo = ref.read(invoiceRepositoryProvider);
       final data = {
-        'customerId': _selectedCustomerId,
+        'contactId': _selectedCustomerId,
         'invoiceDate': _invoiceDate.toIso8601String().split('T')[0],
         'dueDate': _dueDate.toIso8601String().split('T')[0],
         'notes': _notes,
@@ -346,9 +349,11 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
         else
           ..._filteredCustomers.map((customer) {
             final id = customer['id']?.toString() ?? '';
-            final name = customer['name'] as String? ?? 'Unknown';
+            final name = customer['displayName'] as String? ??
+                customer['companyName'] as String? ?? 'Unknown';
             final gstin = customer['gstin'] as String? ?? '';
-            final phone = customer['phone'] as String? ?? '';
+            final phone = customer['phone'] as String? ??
+                customer['mobile'] as String? ?? '';
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: _CustomerSelectTile(
@@ -358,7 +363,6 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
                     : (phone.isNotEmpty ? phone : 'No details'),
                 isSelected: _selectedCustomerId == id,
                 onTap: () {
-                  debugPrint('[InvoiceCreate] Selected customer: $id ($name)');
                   setState(() {
                     _selectedCustomerId = id;
                     _customerName = name;
