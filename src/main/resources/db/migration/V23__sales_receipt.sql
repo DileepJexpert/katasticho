@@ -23,7 +23,7 @@ CREATE TABLE sales_receipt (
     change_returned DECIMAL(15,2) NOT NULL DEFAULT 0,
     upi_reference   VARCHAR(50),
 
-    currency        CHAR(3) NOT NULL DEFAULT 'INR',
+    currency        VARCHAR(3) NOT NULL DEFAULT 'INR',
     notes           VARCHAR(500),
 
     journal_entry_id UUID REFERENCES journal_entry(id),
@@ -60,7 +60,3 @@ CREATE TABLE sales_receipt_line (
 
 CREATE INDEX idx_srl_receipt ON sales_receipt_line(receipt_id);
 CREATE INDEX idx_srl_item    ON sales_receipt_line(item_id);
-
--- ── Add barcode column to item table ─────────────────────────────────
-ALTER TABLE item ADD COLUMN IF NOT EXISTS barcode VARCHAR(50);
-CREATE INDEX idx_item_barcode ON item(barcode) WHERE barcode IS NOT NULL;
