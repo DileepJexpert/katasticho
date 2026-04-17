@@ -10,6 +10,8 @@ import java.util.UUID;
 @Repository
 public interface TaxRateRepository extends JpaRepository<TaxRate, UUID> {
 
+    List<TaxRate> findByOrgId(UUID orgId);
+
     List<TaxRate> findByOrgIdAndActiveTrue(UUID orgId);
 
     List<TaxRate> findByTaxConfigIdAndActiveTrue(UUID taxConfigId);
