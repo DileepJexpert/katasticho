@@ -207,6 +207,14 @@ class ApiConfig {
   static const String taxGroups = '/api/v1/tax-groups';
   static String taxGroupById(String id) => '/api/v1/tax-groups/$id';
 
+  // Settings — Default GL Accounts (per org, by purpose)
+  static const String defaultAccounts = '/api/v1/settings/default-accounts';
+
+  // Settings — Tax Account Mapping (per-rate GL bindings)
+  static const String taxAccountMappings = '/api/v1/settings/tax-accounts';
+  static const String taxAccountMappingsReset =
+      '/api/v1/settings/tax-accounts/reset';
+
   // POS — Sales Receipts
   static const String salesReceipts = '/api/v1/sales-receipts';
   static String salesReceiptById(String id) => '/api/v1/sales-receipts/$id';

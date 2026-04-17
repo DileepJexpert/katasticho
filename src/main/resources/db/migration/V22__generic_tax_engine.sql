@@ -47,6 +47,9 @@ CREATE TABLE tax_rate (
                           CHECK (tax_type IN ('OUTPUT','INPUT','BOTH')),
     gl_output_account_id  UUID          REFERENCES account(id),
     gl_input_account_id   UUID          REFERENCES account(id),
+    -- TRUE once the user edits the GL mapping in Settings → Tax Account Mapping.
+    -- Re-seeders MUST NOT overwrite GL mappings on rows where this is TRUE.
+    is_gl_account_customized BOOLEAN    NOT NULL DEFAULT FALSE,
     is_recoverable        BOOLEAN       NOT NULL DEFAULT TRUE,
     is_active             BOOLEAN       NOT NULL DEFAULT TRUE,
     created_at            TIMESTAMPTZ   NOT NULL DEFAULT now(),

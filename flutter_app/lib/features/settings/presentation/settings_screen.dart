@@ -84,6 +84,12 @@ class SettingsScreen extends ConsumerWidget {
               subtitle: 'Manage account structure',
               onTap: () {},
             ),
+            _SettingsTile(
+              icon: Icons.account_balance_outlined,
+              title: 'Default Accounts',
+              subtitle: 'AR, AP, Cash, Bank, Sales, etc.',
+              onTap: () => context.push(Routes.defaultAccounts),
+            ),
             KSpacing.vGapLg,
 
             // Tax & Compliance
@@ -106,6 +112,12 @@ class SettingsScreen extends ConsumerWidget {
               title: 'Tax Rates',
               subtitle: 'GST slabs & HSN mapping',
               onTap: () {},
+            ),
+            _SettingsTile(
+              icon: Icons.swap_horiz_outlined,
+              title: 'Tax Account Mapping',
+              subtitle: 'Bind tax rates to GL accounts',
+              onTap: () => context.push(Routes.taxAccountMappings),
             ),
             KSpacing.vGapLg,
 

@@ -1,5 +1,7 @@
 package com.katasticho.erp.ar.service;
 
+import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
+import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.dto.JournalLineRequest;
 import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.JournalEntry;
@@ -58,10 +60,7 @@ public class PaymentService {
     private final CurrencyService currencyService;
     private final AuditService auditService;
     private final CommentService commentService;
-
-    private static final String AR_ACCOUNT_CODE = "1200";
-    private static final String CASH_ACCOUNT_CODE = "1010";
-    private static final String BANK_ACCOUNT_CODE = "1020";
+    private final DefaultAccountService defaultAccountService;
 
     /**
      * Record a payment against an invoice (supports partial payments).
@@ -100,9 +99,9 @@ public class PaymentService {
         String paymentNumber = invoiceService.generateNumber(orgId, "PAY", periodYear);
 
         // Determine debit account: CASH for cash/UPI, BANK for bank transfer/cheque/card
-        String debitAccountCode = resolvePaymentAccount(request.paymentMethod());
+        String debitAccountCode = resolvePaymentAccount(orgId, request.paymentMethod());
 
-        // Post journal: DR Cash/Bank, CR AR
+        // Post journal: DR Cash/Bank, CR AR (per-org defaults)
         List<JournalLineRequest> journalLines = List.of(
                 new JournalLineRequest(
                         debitAccountCode,
@@ -110,7 +109,7 @@ public class PaymentService {
                         "Payment " + paymentNumber + " received",
                         null, null),
                 new JournalLineRequest(
-                        AR_ACCOUNT_CODE,
+                        defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR),
                         BigDecimal.ZERO, request.amount(),
                         "AR cleared: " + invoice.getInvoiceNumber(),
                         null, null)
@@ -206,11 +205,12 @@ public class PaymentService {
                 p.getJournalEntryId(), p.getCreatedAt());
     }
 
-    private String resolvePaymentAccount(String paymentMethod) {
-        return switch (paymentMethod) {
-            case "CASH", "UPI" -> CASH_ACCOUNT_CODE;
-            case "BANK_TRANSFER", "CHEQUE", "CARD" -> BANK_ACCOUNT_CODE;
-            default -> CASH_ACCOUNT_CODE;
+    private String resolvePaymentAccount(UUID orgId, String paymentMethod) {
+        DefaultAccountPurpose purpose = switch (paymentMethod) {
+            case "CASH", "UPI" -> DefaultAccountPurpose.CASH;
+            case "BANK_TRANSFER", "CHEQUE", "CARD" -> DefaultAccountPurpose.BANK;
+            default -> DefaultAccountPurpose.CASH;
         };
+        return defaultAccountService.getCode(orgId, purpose);
     }
 }

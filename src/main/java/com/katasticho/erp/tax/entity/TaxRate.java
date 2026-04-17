@@ -40,6 +40,14 @@ public class TaxRate {
     @Column(name = "gl_input_account_id")
     private UUID glInputAccountId;
 
+    /**
+     * TRUE once the user edits the GL mapping in Settings → Tax Account Mapping.
+     * Re-seeders MUST NOT overwrite GL mappings on rows where this is TRUE.
+     */
+    @Column(name = "is_gl_account_customized", nullable = false)
+    @Builder.Default
+    private boolean glAccountCustomized = false;
+
     @Column(name = "is_recoverable", nullable = false)
     @Builder.Default
     private boolean recoverable = true;

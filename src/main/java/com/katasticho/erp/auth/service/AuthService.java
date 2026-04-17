@@ -1,5 +1,6 @@
 package com.katasticho.erp.auth.service;
 
+import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.service.AccountService;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.auth.dto.*;
@@ -41,6 +42,7 @@ public class AuthService {
     private final JdbcTemplate jdbcTemplate;
     private final UomService uomService;
     private final AccountService accountService;
+    private final DefaultAccountService defaultAccountService;
 
     public void requestOtp(OtpRequest request) {
         otpService.generateAndStore(request.phone());
@@ -109,6 +111,8 @@ public class AuthService {
 
         uomService.seedDefaultsForOrg(org.getId());
         accountService.seedFromTemplate(org.getId(), org.getIndustry());
+        // Must run AFTER CoA seeding — looks up account rows by default code.
+        defaultAccountService.seedDefaultsForOrg(org.getId());
 
         // Bootstrap: every org gets a default warehouse tied to the default
         // branch. Without this, CSV import / stock movements fail with

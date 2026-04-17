@@ -1,5 +1,7 @@
 package com.katasticho.erp.ap.service;
 
+import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
+import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.dto.JournalLineRequest;
 import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.Account;
@@ -65,9 +67,7 @@ public class VendorPaymentService {
     private final JournalService journalService;
     private final PurchaseBillService billService;
     private final CurrencyService currencyService;
-
-    private static final String AP_ACCOUNT_CODE = "2010";
-    private static final String TDS_PAYABLE_CODE = "2030";
+    private final DefaultAccountService defaultAccountService;
 
     @Transactional
     public VendorPaymentResponse recordPayment(VendorPaymentRequest request) {
@@ -133,14 +133,14 @@ public class VendorPaymentService {
 
         BigDecimal apDebit = request.amount().subtract(request.tdsAmount());
         journalLines.add(new JournalLineRequest(
-                AP_ACCOUNT_CODE,
+                defaultAccountService.getCode(orgId, DefaultAccountPurpose.AP),
                 apDebit, BigDecimal.ZERO,
                 "AP cleared: " + paymentNumber,
                 null, null));
 
         if (request.tdsAmount().compareTo(BigDecimal.ZERO) > 0) {
             journalLines.add(new JournalLineRequest(
-                    TDS_PAYABLE_CODE,
+                    defaultAccountService.getCode(orgId, DefaultAccountPurpose.TDS_PAYABLE),
                     request.tdsAmount(), BigDecimal.ZERO,
                     "TDS: " + paymentNumber,
                     null, null));

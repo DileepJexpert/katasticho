@@ -1,5 +1,7 @@
 package com.katasticho.erp.recurring.service;
 
+import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
+import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.ar.dto.CreateInvoiceRequest;
 import com.katasticho.erp.ar.dto.InvoiceLineRequest;
 import com.katasticho.erp.ar.dto.InvoiceResponse;
@@ -67,9 +69,7 @@ public class RecurringInvoiceService {
     private final InvoiceService invoiceService;
     private final AuditService auditService;
     private final CommentService commentService;
-
-    /** Default revenue GL used when a template line omits {@code accountCode}. */
-    private static final String DEFAULT_REVENUE_ACCOUNT_CODE = "4000";
+    private final DefaultAccountService defaultAccountService;
 
     private static final Set<String> VALID_FREQUENCIES = Set.of(
             "WEEKLY", "MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY");
@@ -328,6 +328,7 @@ public class RecurringInvoiceService {
                 ? invoiceDate.plusDays(template.getPaymentTermsDays())
                 : null;
 
+        String revenueCode = defaultAccountService.getCode(template.getOrgId(), DefaultAccountPurpose.SALES_REVENUE);
         List<InvoiceLineRequest> invoiceLines = template.getLineItems().stream()
                 .map(l -> new InvoiceLineRequest(
                         l.getDescription(),
@@ -338,7 +339,7 @@ public class RecurringInvoiceService {
                         l.getTaxRate() != null ? l.getTaxRate() : BigDecimal.ZERO,
                         l.getAccountCode() != null && !l.getAccountCode().isBlank()
                                 ? l.getAccountCode()
-                                : DEFAULT_REVENUE_ACCOUNT_CODE,
+                                : revenueCode,
                         l.getItemId(),
                         null,
                         null))

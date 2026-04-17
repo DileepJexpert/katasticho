@@ -1,5 +1,7 @@
 package com.katasticho.erp.ar.service;
 
+import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
+import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.dto.JournalLineRequest;
 import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.JournalEntry;
@@ -58,8 +60,7 @@ public class CreditNoteService {
     private final AuditService auditService;
     private final InventoryService inventoryService;
     private final CommentService commentService;
-
-    private static final String AR_ACCOUNT_CODE = "1200";
+    private final DefaultAccountService defaultAccountService;
 
     /**
      * Create a DRAFT credit note with tax calculation.
@@ -240,9 +241,9 @@ public class CreditNoteService {
                     tli.getComponentCode(), null));
         }
 
-        // CR: Accounts Receivable
+        // CR: Accounts Receivable (per-org default)
         journalLines.add(new JournalLineRequest(
-                AR_ACCOUNT_CODE,
+                defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR),
                 BigDecimal.ZERO, cn.getTotalAmount(),
                 "AR credit: CN " + cn.getCreditNoteNumber(),
                 null, null));

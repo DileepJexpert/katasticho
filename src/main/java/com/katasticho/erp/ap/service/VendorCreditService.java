@@ -1,5 +1,7 @@
 package com.katasticho.erp.ap.service;
 
+import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
+import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.dto.JournalLineRequest;
 import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.Account;
@@ -83,8 +85,7 @@ public class VendorCreditService {
     private final TaxEngine taxEngine;
     private final CurrencyService currencyService;
     private final InventoryService inventoryService;
-
-    private static final String AP_ACCOUNT_CODE = "2010";
+    private final DefaultAccountService defaultAccountService;
 
     // ── Create ──────────────────────────────────────────────────
 
@@ -254,9 +255,9 @@ public class VendorCreditService {
 
         List<JournalLineRequest> journalLines = new ArrayList<>();
 
-        // DR: Accounts Payable (reduces what we owe)
+        // DR: Accounts Payable (reduces what we owe) — per-org default
         journalLines.add(new JournalLineRequest(
-                AP_ACCOUNT_CODE,
+                defaultAccountService.getCode(orgId, DefaultAccountPurpose.AP),
                 credit.getTotalAmount(), BigDecimal.ZERO,
                 "AP debit: VC " + credit.getCreditNumber(),
                 null, null));

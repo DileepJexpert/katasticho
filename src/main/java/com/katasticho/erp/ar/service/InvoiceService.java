@@ -1,5 +1,7 @@
 package com.katasticho.erp.ar.service;
 
+import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
+import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.dto.JournalLineRequest;
 import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.JournalEntry;
@@ -66,8 +68,7 @@ public class InvoiceService {
     private final InventoryService inventoryService;
     private final PriceListService priceListService;
     private final CommentService commentService;
-
-    private static final String AR_ACCOUNT_CODE = "1200"; // Accounts Receivable
+    private final DefaultAccountService defaultAccountService;
 
     /**
      * Create a DRAFT invoice with tax calculation via TaxEngine.
@@ -289,9 +290,9 @@ public class InvoiceService {
         // Build journal lines
         List<JournalLineRequest> journalLines = new ArrayList<>();
 
-        // DR: Accounts Receivable for total amount
+        // DR: Accounts Receivable for total amount (per-org default)
         journalLines.add(new JournalLineRequest(
-                AR_ACCOUNT_CODE,
+                defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR),
                 invoice.getTotalAmount(),
                 BigDecimal.ZERO,
                 "AR: " + invoice.getInvoiceNumber(),

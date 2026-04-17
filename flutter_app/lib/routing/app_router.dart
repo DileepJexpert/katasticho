@@ -34,6 +34,8 @@ import '../features/reports/presentation/ageing_report_screen.dart';
 import '../features/reports/presentation/ap_ageing_screen.dart';
 import '../features/ai_chat/presentation/ai_chat_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
+import '../features/default_accounts/presentation/default_accounts_screen.dart';
+import '../features/tax_account_mapping/presentation/tax_account_mapping_screen.dart';
 import '../features/gst/presentation/gst_dashboard_screen.dart';
 import '../features/credit_notes/presentation/credit_note_list_screen.dart';
 import '../features/credit_notes/presentation/credit_note_detail_screen.dart';
@@ -133,6 +135,8 @@ class Routes {
   static const aiChat = '/ai-chat';
   static const gst = '/gst';
   static const settings = '/settings';
+  static const defaultAccounts = '/settings/default-accounts';
+  static const taxAccountMappings = '/settings/tax-accounts';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -518,6 +522,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => const NoTransitionPage(
               child: SettingsScreen(),
             ),
+          ),
+          GoRoute(
+            path: Routes.defaultAccounts,
+            builder: (context, state) => const DefaultAccountsScreen(),
+          ),
+          GoRoute(
+            path: Routes.taxAccountMappings,
+            builder: (context, state) => const TaxAccountMappingScreen(),
           ),
         ],
       ),

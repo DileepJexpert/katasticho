@@ -1,5 +1,7 @@
 package com.katasticho.erp.ap.service;
 
+import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
+import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.dto.JournalLineRequest;
 import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.Account;
@@ -81,9 +83,7 @@ public class PurchaseBillService {
     private final TaxEngine taxEngine;
     private final CurrencyService currencyService;
     private final InventoryService inventoryService;
-
-    private static final String AP_ACCOUNT_CODE = "2010";
-    private static final String TDS_PAYABLE_CODE = "2030";
+    private final DefaultAccountService defaultAccountService;
 
     // ── Create ──────────────────────────────────────────────────
 
@@ -291,18 +291,18 @@ public class PurchaseBillService {
                     tli.getComponentCode(), null));
         }
 
-        // CR: Accounts Payable (net of TDS)
+        // CR: Accounts Payable (net of TDS) — code resolved per-org
         BigDecimal apCredit = bill.getTotalAmount().subtract(bill.getTdsAmount());
         journalLines.add(new JournalLineRequest(
-                AP_ACCOUNT_CODE,
+                defaultAccountService.getCode(orgId, DefaultAccountPurpose.AP),
                 BigDecimal.ZERO, apCredit,
                 "AP: " + bill.getBillNumber(),
                 null, null));
 
-        // CR: TDS Payable (if vendor has TDS deducted)
+        // CR: TDS Payable (if vendor has TDS deducted) — code resolved per-org
         if (bill.getTdsAmount().compareTo(BigDecimal.ZERO) > 0) {
             journalLines.add(new JournalLineRequest(
-                    TDS_PAYABLE_CODE,
+                    defaultAccountService.getCode(orgId, DefaultAccountPurpose.TDS_PAYABLE),
                     BigDecimal.ZERO, bill.getTdsAmount(),
                     "TDS: " + bill.getBillNumber(),
                     null, null));
@@ -750,20 +750,20 @@ public class PurchaseBillService {
                 lineResponses, bill.getCreatedAt());
     }
 
-    private static final String DEFAULT_PURCHASE_ACCOUNT_CODE = "5000";
-
     private Account resolveLineAccount(UUID orgId, CreatePurchaseBillRequest.BillLineRequest lineReq) {
         if (lineReq.accountId() != null) {
             return accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, lineReq.accountId())
                     .orElseThrow(() -> BusinessException.notFound("Account", lineReq.accountId()));
         }
-        String code = lineReq.accountCode() != null && !lineReq.accountCode().isBlank()
-                ? lineReq.accountCode().trim()
-                : DEFAULT_PURCHASE_ACCOUNT_CODE;
-        return accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(orgId, code)
-                .orElseThrow(() -> new BusinessException(
-                        "Purchase account not found: " + code,
-                        "AP_ACCOUNT_NOT_FOUND", HttpStatus.BAD_REQUEST));
+        if (lineReq.accountCode() != null && !lineReq.accountCode().isBlank()) {
+            String code = lineReq.accountCode().trim();
+            return accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(orgId, code)
+                    .orElseThrow(() -> new BusinessException(
+                            "Purchase account not found: " + code,
+                            "AP_ACCOUNT_NOT_FOUND", HttpStatus.BAD_REQUEST));
+        }
+        // Fall through to per-org default for the PURCHASE purpose.
+        return defaultAccountService.get(orgId, DefaultAccountPurpose.PURCHASE);
     }
 
     private Account resolveUpdateLineAccount(UUID orgId, UpdatePurchaseBillRequest.BillLineRequest lineReq) {
@@ -771,12 +771,13 @@ public class PurchaseBillService {
             return accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, lineReq.accountId())
                     .orElseThrow(() -> BusinessException.notFound("Account", lineReq.accountId()));
         }
-        String code = lineReq.accountCode() != null && !lineReq.accountCode().isBlank()
-                ? lineReq.accountCode().trim()
-                : DEFAULT_PURCHASE_ACCOUNT_CODE;
-        return accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(orgId, code)
-                .orElseThrow(() -> new BusinessException(
-                        "Purchase account not found: " + code,
-                        "AP_ACCOUNT_NOT_FOUND", HttpStatus.BAD_REQUEST));
+        if (lineReq.accountCode() != null && !lineReq.accountCode().isBlank()) {
+            String code = lineReq.accountCode().trim();
+            return accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(orgId, code)
+                    .orElseThrow(() -> new BusinessException(
+                            "Purchase account not found: " + code,
+                            "AP_ACCOUNT_NOT_FOUND", HttpStatus.BAD_REQUEST));
+        }
+        return defaultAccountService.get(orgId, DefaultAccountPurpose.PURCHASE);
     }
 }

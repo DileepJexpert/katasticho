@@ -46,7 +46,7 @@ public class TaxSeedService {
     private final OrganisationRepository orgRepo;
 
     @EventListener(ApplicationReadyEvent.class)
-    @Order(2)
+    @Order(3)
     @Transactional
     public void seedAllOrgs() {
         List<Organisation> orgs = orgRepo.findAll();
@@ -68,6 +68,11 @@ public class TaxSeedService {
         List<TaxRate> rates = rateRepo.findByOrgId(org.getId());
         int fixed = 0;
         for (TaxRate rate : rates) {
+            // Honour user customisations: if the admin has explicitly mapped
+            // this rate from Settings → Tax Account Mapping (even to NULL),
+            // never silently re-point it during startup repair.
+            if (rate.isGlAccountCustomized()) continue;
+
             boolean changed = false;
             if (rate.getGlInputAccountId() == null && rate.isRecoverable()) {
                 UUID inputId = findAccountId(org.getId(), "1500");

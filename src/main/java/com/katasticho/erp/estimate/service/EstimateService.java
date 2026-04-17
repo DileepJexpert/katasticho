@@ -1,5 +1,7 @@
 package com.katasticho.erp.estimate.service;
 
+import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
+import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.ar.dto.CreateInvoiceRequest;
 import com.katasticho.erp.ar.dto.InvoiceLineRequest;
 import com.katasticho.erp.ar.dto.InvoiceResponse;
@@ -65,9 +67,7 @@ public class EstimateService {
     private final InvoiceService invoiceService;
     private final AuditService auditService;
     private final CommentService commentService;
-
-    /** Default revenue GL used when converting estimate lines into invoice lines. */
-    private static final String DEFAULT_REVENUE_ACCOUNT_CODE = "4000";
+    private final DefaultAccountService defaultAccountService;
 
     /** States in which the seller can still edit the estimate. */
     private static final Set<String> EDITABLE_STATUSES = Set.of("DRAFT", "SENT");
@@ -306,6 +306,7 @@ public class EstimateService {
                         "Estimate contact is not a customer — add them to customers first",
                         "EST_CONTACT_NOT_CUSTOMER", HttpStatus.BAD_REQUEST));
 
+        String revenueCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.SALES_REVENUE);
         List<InvoiceLineRequest> invoiceLines = estimate.getLines().stream()
                 .map(l -> new InvoiceLineRequest(
                         l.getDescription(),
@@ -314,7 +315,7 @@ public class EstimateService {
                         l.getRate(),
                         l.getDiscountPct(),
                         l.getTaxRate(),
-                        DEFAULT_REVENUE_ACCOUNT_CODE,
+                        revenueCode,
                         l.getItemId(),
                         null,
                         null))
