@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +46,7 @@ public class TaxSeedService {
     private final OrganisationRepository orgRepo;
 
     @EventListener(ApplicationReadyEvent.class)
+    @Order(2)
     @Transactional
     public void seedAllOrgs() {
         List<Organisation> orgs = orgRepo.findAll();
@@ -53,11 +55,51 @@ public class TaxSeedService {
             if (!configRepo.existsByOrgId(org.getId())) {
                 seedForOrg(org);
                 seeded++;
+            } else {
+                seeded += repairMissingGlAccounts(org);
             }
         }
         if (seeded > 0) {
-            log.info("Seeded tax configuration for {} org(s)", seeded);
+            log.info("Seeded/repaired tax configuration for {} org(s)", seeded);
         }
+    }
+
+    private int repairMissingGlAccounts(Organisation org) {
+        List<TaxRate> rates = rateRepo.findByOrgId(org.getId());
+        int fixed = 0;
+        for (TaxRate rate : rates) {
+            boolean changed = false;
+            if (rate.getGlInputAccountId() == null && rate.isRecoverable()) {
+                UUID inputId = findAccountId(org.getId(), "1500");
+                if (inputId != null) {
+                    rate.setGlInputAccountId(inputId);
+                    changed = true;
+                }
+            }
+            if (rate.getGlOutputAccountId() == null) {
+                String code = switch (rate.getRateCode()) {
+                    case "CGST" -> "2020";
+                    case "SGST" -> "2021";
+                    case "IGST" -> "2022";
+                    default -> null;
+                };
+                if (code != null) {
+                    UUID outputId = findAccountId(org.getId(), code);
+                    if (outputId != null) {
+                        rate.setGlOutputAccountId(outputId);
+                        changed = true;
+                    }
+                }
+            }
+            if (changed) {
+                rateRepo.save(rate);
+                fixed++;
+            }
+        }
+        if (fixed > 0) {
+            log.info("Repaired {} tax rates with missing GL accounts for org {}", fixed, org.getId());
+        }
+        return fixed > 0 ? 1 : 0;
     }
 
     @Transactional
