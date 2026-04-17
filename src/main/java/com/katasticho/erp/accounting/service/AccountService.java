@@ -6,8 +6,12 @@ import com.katasticho.erp.accounting.entity.Account;
 import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.organisation.Organisation;
+import com.katasticho.erp.organisation.OrganisationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -25,7 +29,24 @@ import java.util.UUID;
 public class AccountService {
 
     private final AccountRepository accountRepository;
+    private final OrganisationRepository organisationRepository;
     private final JdbcTemplate jdbcTemplate;
+
+    @EventListener(ApplicationReadyEvent.class)
+    @Transactional
+    public void seedAllOrgs() {
+        List<Organisation> orgs = organisationRepository.findAll();
+        int seeded = 0;
+        for (Organisation org : orgs) {
+            if (!accountRepository.existsByOrgIdAndCodeAndIsDeletedFalse(org.getId(), "1000")) {
+                seedFromTemplate(org.getId(), org.getIndustry());
+                seeded++;
+            }
+        }
+        if (seeded > 0) {
+            log.info("Seeded chart of accounts for {} org(s)", seeded);
+        }
+    }
 
     public List<AccountResponse> listAccounts(UUID orgId) {
         return accountRepository.findByOrgIdAndIsDeletedFalseOrderByCode(orgId).stream()
