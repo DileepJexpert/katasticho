@@ -348,7 +348,7 @@ class _VendorCreditCreateScreenState
         else
           ..._filteredContacts.map((contact) {
             final id = contact['id']?.toString() ?? '';
-            final name = contact['name'] as String? ??
+            final name = contact['displayName'] as String? ??
                 contact['companyName'] as String? ??
                 'Unknown';
             final gstin = contact['gstin'] as String? ?? '';
