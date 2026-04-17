@@ -14,6 +14,7 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
 import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.organisation.BranchRepository;
@@ -63,6 +64,10 @@ class PaymentServiceTest {
                 organisationRepository, branchRepository, journalService, invoiceService,
                 currencyService, auditService, commentService,
                 defaultAccountService);
+
+        lenient().when(defaultAccountService.getCode(any(), eq(DefaultAccountPurpose.AR))).thenReturn("1200");
+        lenient().when(defaultAccountService.getCode(any(), eq(DefaultAccountPurpose.BANK))).thenReturn("1020");
+        lenient().when(defaultAccountService.getCode(any(), eq(DefaultAccountPurpose.CASH))).thenReturn("1010");
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();

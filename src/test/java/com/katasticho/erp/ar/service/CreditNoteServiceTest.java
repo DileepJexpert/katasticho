@@ -11,6 +11,7 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
 import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.inventory.service.InventoryService;
@@ -67,6 +68,9 @@ class CreditNoteServiceTest {
                 invoiceService, journalService, taxEngine,
                 currencyService, auditService, inventoryService,
                 commentService, defaultAccountService);
+
+        lenient().when(currencyService.getRate(any(), any(), any())).thenReturn(BigDecimal.ONE);
+        lenient().when(defaultAccountService.getCode(any(), eq(DefaultAccountPurpose.AR))).thenReturn("1200");
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();

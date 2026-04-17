@@ -15,6 +15,7 @@ import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.contact.repository.ContactRepository;
+import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
 import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.inventory.service.InventoryService;
@@ -79,6 +80,8 @@ class InvoiceServiceTest {
 
         lenient().when(priceListService.resolvePrice(any(), any(), any()))
                 .thenReturn(Optional.empty());
+        lenient().when(currencyService.getRate(any(), any(), any())).thenReturn(BigDecimal.ONE);
+        lenient().when(defaultAccountService.getCode(any(), eq(DefaultAccountPurpose.AR))).thenReturn("1200");
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
