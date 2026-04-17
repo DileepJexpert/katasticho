@@ -107,6 +107,14 @@ public class AuthService {
 
         uomService.seedDefaultsForOrg(org.getId());
 
+        // Bootstrap: every org gets a default warehouse tied to the default
+        // branch. Without this, CSV import / stock movements fail with
+        // INV_NO_DEFAULT_WAREHOUSE.
+        jdbcTemplate.update(
+                "INSERT INTO warehouse (id, org_id, branch_id, code, name, is_default, is_active, is_deleted, created_at, updated_at) " +
+                "VALUES (?, ?, ?, 'MAIN', 'Main Warehouse', TRUE, TRUE, FALSE, now(), now())",
+                UUID.randomUUID(), org.getId(), defaultBranchId);
+
         // Create owner user — saveAndFlush for the same write-behind reason
         // (we raw-UPDATE the branch_id column below).
         AppUser user = AppUser.builder()

@@ -511,6 +511,7 @@ CREATE TABLE item (
     inventory_account_code  VARCHAR(20),
     group_id                UUID REFERENCES item_group(id),
     variant_attributes      JSONB         NOT NULL DEFAULT '{}'::jsonb,
+    barcode                 VARCHAR(50),
     is_active               BOOLEAN       NOT NULL DEFAULT TRUE,
     is_deleted              BOOLEAN       NOT NULL DEFAULT FALSE,
     created_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -533,6 +534,7 @@ CREATE INDEX        idx_item_track_batches    ON item(org_id)               WHER
 CREATE UNIQUE INDEX idx_item_group_variant_unique ON item(group_id, variant_attributes)
     WHERE group_id IS NOT NULL AND NOT is_deleted;
 CREATE INDEX        idx_item_group_id         ON item(group_id)             WHERE group_id IS NOT NULL AND NOT is_deleted;
+CREATE INDEX        idx_item_barcode          ON item(barcode)              WHERE barcode IS NOT NULL;
 
 
 -- ─────────────────────────────────────────────────────────────
