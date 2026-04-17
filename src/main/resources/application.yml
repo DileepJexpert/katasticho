@@ -65,8 +65,8 @@ management:
 app:
   jwt:
     secret: ${JWT_SECRET:katasticho-dev-secret-key-change-in-production-must-be-at-least-256-bits}
-    access-token-expiry-minutes: ${JWT_ACCESS_EXPIRY:15}
-    refresh-token-expiry-days: ${JWT_REFRESH_EXPIRY:7}
+    access-token-expiry-minutes: ${JWT_ACCESS_EXPIRY:1440}
+    refresh-token-expiry-days: ${JWT_REFRESH_EXPIRY:30}
   otp:
     expiry-minutes: 5
     max-attempts: 5
