@@ -111,6 +111,14 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen> {
   double get _grandTotal => _subtotal + _totalTax;
 
   Future<void> _handleSubmit() async {
+    final validLines = _lineItems
+        .where((l) => l.description.isNotEmpty || l.unitPrice > 0)
+        .toList();
+    if (validLines.isEmpty) {
+      setState(() => _errorMessage = 'Please add at least one line item with a description or price');
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -127,9 +135,9 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen> {
         'reverseCharge': _reverseCharge,
         'notes': _notes,
         'lines': _lineItems
-            .where((l) => l.description.isNotEmpty)
+            .where((l) => l.description.isNotEmpty || l.unitPrice > 0)
             .map((l) => {
-                  'description': l.description,
+                  'description': l.description.isNotEmpty ? l.description : 'Line item',
                   'quantity': l.quantity,
                   'unitPrice': l.unitPrice,
                   'accountCode': l.accountCode,
