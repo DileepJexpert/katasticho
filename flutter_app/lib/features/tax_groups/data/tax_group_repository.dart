@@ -82,5 +82,5 @@ class TaxRateDto {
 
   String get id => raw['id']?.toString() ?? '';
   String get name => raw['name'] as String? ?? '';
-  double get rate => (raw['rate'] as num?)?.toDouble() ?? 0;
+  double get rate => (raw['percentage'] as num? ?? raw['rate'] as num?)?.toDouble() ?? 0;
 }
