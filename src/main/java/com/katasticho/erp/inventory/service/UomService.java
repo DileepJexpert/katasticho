@@ -236,17 +236,29 @@ public class UomService {
      * populating {@code item.base_uom_id} on create/update so we never
      * silently lose a UoM reference.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public UUID resolveBaseUomIdOrPcs(String abbreviation) {
-        Optional<Uom> exact = findByAbbreviation(abbreviation);
-        if (exact.isPresent()) return exact.get().getId();
-
         UUID orgId = TenantContext.getCurrentOrgId();
+
+        if (abbreviation != null && !abbreviation.isBlank()) {
+            Optional<Uom> exact = uomRepository
+                    .findByOrgIdAndAbbreviationIgnoreCaseAndIsDeletedFalse(orgId, abbreviation.trim());
+            if (exact.isPresent()) return exact.get().getId();
+        }
+
+        Optional<Uom> pcs = uomRepository
+                .findByOrgIdAndAbbreviationIgnoreCaseAndIsDeletedFalse(orgId, "PCS");
+        if (pcs.isPresent()) return pcs.get().getId();
+
+        // Self-heal: seed defaults if bootstrap missed this org
+        log.warn("PCS UoM missing for org {} — seeding defaults now", orgId);
+        seedDefaultsForOrg(orgId);
+
         return uomRepository
                 .findByOrgIdAndAbbreviationIgnoreCaseAndIsDeletedFalse(orgId, "PCS")
                 .map(Uom::getId)
                 .orElseThrow(() -> new BusinessException(
-                        "No default PCS UoM seeded for org — did V13 migration run?",
+                        "UoM seed failed for org — PCS still missing after auto-seed",
                         "UOM_PCS_MISSING",
                         HttpStatus.INTERNAL_SERVER_ERROR));
     }
