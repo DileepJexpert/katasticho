@@ -30,7 +30,7 @@ public class Invoice {
     @Column(name = "branch_id")
     private UUID branchId;
 
-    @Column(name = "customer_id", nullable = false)
+    @Column(name = "customer_id")
     private UUID customerId;
 
     /** F6: unified contact FK. Nullable for old rows; set on all new invoices. */

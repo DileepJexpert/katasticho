@@ -97,7 +97,9 @@ public class InvoiceService {
         } else if (request.contactId() != null) {
             Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(request.contactId(), orgId)
                     .orElseThrow(() -> BusinessException.notFound("Contact", request.contactId()));
-            resolvedCustomerId = contact.getId();
+            // Use contact ID as customerId only if a matching customer row exists (V2 migrated data)
+            resolvedCustomerId = customerRepository.findByIdAndOrgIdAndIsDeletedFalse(contact.getId(), orgId)
+                    .map(Customer::getId).orElse(null);
             resolvedContactId = contact.getId();
             billingStateCode = contact.getBillingStateCode();
             paymentTermsDays = contact.getPaymentTermsDays();
