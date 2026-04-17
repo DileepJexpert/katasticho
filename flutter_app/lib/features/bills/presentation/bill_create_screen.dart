@@ -634,7 +634,6 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
   late final TextEditingController _descCtl;
   late final TextEditingController _qtyCtl;
   late final TextEditingController _priceCtl;
-  late final TextEditingController _accountCtl;
 
   @override
   void initState() {
@@ -642,7 +641,6 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
     _descCtl = TextEditingController(text: widget.item.description);
     _qtyCtl = TextEditingController(text: widget.item.quantity.toString());
     _priceCtl = TextEditingController(text: widget.item.unitPrice.toString());
-    _accountCtl = TextEditingController(text: widget.item.accountCode);
   }
 
   @override
@@ -650,7 +648,6 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
     _descCtl.dispose();
     _qtyCtl.dispose();
     _priceCtl.dispose();
-    _accountCtl.dispose();
     super.dispose();
   }
 
@@ -711,32 +708,14 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
             ],
           ),
           KSpacing.vGapSm,
-          Row(
-            children: [
-              Expanded(
-                child: KTextField(
-                  label: 'Account Code',
-                  controller: _accountCtl,
-                  hint: 'e.g. 5000',
-                  onChanged: (v) {
-                    widget.item.accountCode = v;
-                    widget.onChanged();
-                  },
-                ),
-              ),
-              KSpacing.hGapSm,
-              Expanded(
-                child: TaxGroupPicker(
-                  value: widget.item.taxGroupId,
-                  label: 'Tax Group',
-                  onChanged: (group) {
-                    widget.item.taxGroupId = group?.id;
-                    widget.item.taxRate = group?.totalRate ?? 0;
-                    widget.onChanged();
-                  },
-                ),
-              ),
-            ],
+          TaxGroupPicker(
+            value: widget.item.taxGroupId,
+            label: 'Tax Group',
+            onChanged: (group) {
+              widget.item.taxGroupId = group?.id;
+              widget.item.taxRate = group?.totalRate ?? 0;
+              widget.onChanged();
+            },
           ),
           KSpacing.vGapSm,
           Row(
