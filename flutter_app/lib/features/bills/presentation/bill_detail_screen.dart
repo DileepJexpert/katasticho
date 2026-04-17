@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
@@ -188,7 +189,7 @@ class BillDetailScreen extends ConsumerWidget {
                 await repo.deleteBill(billId);
                 ref.invalidate(billListProvider);
                 if (context.mounted) {
-                  Navigator.of(context).pop();
+                  context.go('/bills');
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Bill deleted')),
                   );
