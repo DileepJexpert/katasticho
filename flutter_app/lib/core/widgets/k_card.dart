@@ -184,6 +184,7 @@ class KKpiCard extends StatelessWidget {
     // there throws "non-zero flex with unbounded height".
     return KCard(
       onTap: onTap,
+      backgroundColor: accent.withValues(alpha: 0.03),
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
