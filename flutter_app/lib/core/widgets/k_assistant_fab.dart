@@ -4,8 +4,8 @@ import '../theme/k_spacing.dart';
 import '../theme/k_typography.dart';
 import '../../routing/app_router.dart';
 
-/// Compact floating action button for the AI assistant — pill shape with
-/// a sparkle icon and an optional "Ask AI" label on wider screens.
+/// AI assistant button — renders full-width when placed in a sidebar,
+/// or inline when used elsewhere.
 class KAssistantFab extends StatelessWidget {
   final VoidCallback onTap;
 
@@ -16,28 +16,23 @@ class KAssistantFab extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Material(
       color: Colors.transparent,
+      borderRadius: BorderRadius.circular(KSpacing.radiusMd),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(KSpacing.radiusRound),
+        borderRadius: BorderRadius.circular(KSpacing.radiusMd),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [cs.primary, cs.tertiary],
             ),
-            borderRadius: BorderRadius.circular(KSpacing.radiusRound),
-            boxShadow: [
-              BoxShadow(
-                color: cs.primary.withValues(alpha: 0.3),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(KSpacing.radiusMd),
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(Icons.auto_awesome_rounded,
                   size: 16, color: Colors.white),

@@ -211,19 +211,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
       shell = _MobileShell(child: widget.child);
     }
 
-    return Stack(
-      children: [
-        shell,
-        if (!_isMobile(width))
-          Positioned(
-            right: 20,
-            bottom: 20,
-            child: KAssistantFab(
-              onTap: () => KAssistantPanel.show(context),
-            ),
-          ),
-      ],
-    );
+    return shell;
   }
 }
 
@@ -324,6 +312,78 @@ class _DesktopShell extends ConsumerWidget {
                       _NavSectionLabel(label: 'MORE'),
                       ..._secondaryNavItems
                           .map((item) => _SidebarNavItem(item: item)),
+                    ],
+                  ),
+                ),
+
+                // Ask AI + Search shortcut
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                  child: Column(
+                    children: [
+                      // Search (Ctrl/Cmd+K)
+                      Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+                          onTap: () => KCommandPalette.show(
+                            context,
+                            commands: buildAppCommands(),
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 9),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: cs.outlineVariant.withValues(alpha: 0.6),
+                              ),
+                              borderRadius:
+                                  BorderRadius.circular(KSpacing.radiusMd),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.search_rounded,
+                                    size: 16, color: cs.onSurfaceVariant),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Search…',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: cs.onSurfaceVariant
+                                          .withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: cs.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                        color: cs.outlineVariant, width: 1),
+                                  ),
+                                  child: Text(
+                                    '⌘K',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Ask AI button
+                      KAssistantFab(
+                        onTap: () => KAssistantPanel.show(context),
+                      ),
                     ],
                   ),
                 ),
