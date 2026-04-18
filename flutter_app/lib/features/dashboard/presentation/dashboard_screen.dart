@@ -71,23 +71,6 @@ class DashboardScreen extends ConsumerWidget {
 
               // KPI Cards
               _KpiGrid(kpis: config.kpis, isDesktop: isDesktop),
-              KSpacing.vGapMd,
-
-              // AR / AP Aging drill-down cards
-              if (isDesktop)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Expanded(child: ArAgingCard()),
-                    SizedBox(width: 16),
-                    Expanded(child: ApAgingCard()),
-                  ],
-                )
-              else ...[
-                const ArAgingCard(),
-                KSpacing.vGapMd,
-                const ApAgingCard(),
-              ],
               KSpacing.vGapLg,
 
               // Dashboard Widgets
@@ -254,6 +237,8 @@ class _KpiGrid extends ConsumerWidget {
     final apSummaryAsync = ref.watch(apSummaryProvider);
     final arSummaryAsync = ref.watch(arSummaryProvider);
     final monthlyProfitAsync = ref.watch(monthlyProfitProvider);
+    final arAgingAsync = ref.watch(arAgingProvider);
+    final apAgingAsync = ref.watch(apAgingProvider);
 
     return GridView.builder(
       shrinkWrap: true,
@@ -262,15 +247,13 @@ class _KpiGrid extends ConsumerWidget {
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: KSpacing.md,
         mainAxisSpacing: KSpacing.md,
-        // Fixed tile height — avoids RenderFlex overflow that aspect-ratio
-        // grids produce when the card content is taller than the slot.
         mainAxisExtent: isDesktop ? 152 : 158,
       ),
       itemCount: kpis.length,
       itemBuilder: (context, index) {
         final kpi = kpis[index];
 
-        // Payables KPI hydrates from apSummaryProvider
+        // Payables KPI — tap opens AP aging bottom sheet
         if (kpi.id == 'payables') {
           return apSummaryAsync.when(
             loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
@@ -287,12 +270,13 @@ class _KpiGrid extends ConsumerWidget {
                 icon: kpi.icon,
                 iconColor: kpi.color,
                 trend: trend,
+                onTap: () => _showApAging(context, apAgingAsync),
               );
             },
           );
         }
 
-        // Receivables KPI hydrates from arSummaryProvider
+        // Receivables KPI — tap opens AR aging bottom sheet
         if (kpi.id == 'receivables') {
           return arSummaryAsync.when(
             loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
@@ -309,6 +293,7 @@ class _KpiGrid extends ConsumerWidget {
                 icon: kpi.icon,
                 iconColor: kpi.color,
                 trend: trend,
+                onTap: () => _showArAging(context, arAgingAsync),
               );
             },
           );
@@ -366,6 +351,66 @@ class _KpiGrid extends ConsumerWidget {
       default:
         return (CurrencyFormatter.formatCompact(0), '--');
     }
+  }
+
+  void _showArAging(BuildContext context, AsyncValue<dynamic> arAgingAsync) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => arAgingAsync.when(
+        loading: () => const SizedBox(
+          height: 200,
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+        error: (_, __) => const SizedBox(
+          height: 100,
+          child: Center(child: Text('Failed to load aging data')),
+        ),
+        data: (ar) => AgingBreakdown(
+          title: 'Receivables',
+          totalOutstanding: ar.totalOutstanding,
+          current: ar.current,
+          days1to30: ar.days1to30,
+          days31to60: ar.days31to60,
+          days61to90: ar.days61to90,
+          days90plus: ar.days90plus,
+          reportRoute: '/reports/ageing',
+          accentColor: const Color(0xFFF59E0B),
+        ),
+      ),
+    );
+  }
+
+  void _showApAging(BuildContext context, AsyncValue<dynamic> apAgingAsync) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => apAgingAsync.when(
+        loading: () => const SizedBox(
+          height: 200,
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+        error: (_, __) => const SizedBox(
+          height: 100,
+          child: Center(child: Text('Failed to load aging data')),
+        ),
+        data: (ap) => AgingBreakdown(
+          title: 'Payables',
+          totalOutstanding: ap.totalOutstanding,
+          current: ap.current,
+          days1to30: ap.days1to30,
+          days31to60: ap.days31to60,
+          days61to90: ap.days61to90,
+          days90plus: ap.days90plus,
+          reportRoute: '/reports/ap-ageing',
+          accentColor: const Color(0xFFEF4444),
+        ),
+      ),
+    );
   }
 }
 
