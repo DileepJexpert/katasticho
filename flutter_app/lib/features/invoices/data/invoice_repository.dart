@@ -47,6 +47,25 @@ class InvoiceRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> bulkSend(List<String> ids) async {
+    final response = await _api.post(
+      ApiConfig.bulkSendInvoices,
+      data: {'ids': ids},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> bulkCancel(
+    List<String> ids, {
+    String reason = 'Bulk cancelled',
+  }) async {
+    final response = await _api.post(
+      ApiConfig.bulkCancelInvoices,
+      data: {'ids': ids, 'reason': reason},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> recordPayment(
       String invoiceId, Map<String, dynamic> data) async {
     final response = await _api.post(

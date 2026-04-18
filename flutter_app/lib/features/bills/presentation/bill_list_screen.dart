@@ -37,6 +37,84 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
 
   void _clearSelection() => setState(_selectedIds.clear);
 
+  Future<void> _bulkPost() async {
+    final count = _selectedIds.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Post $count bill${count == 1 ? '' : 's'}?'),
+        content: const Text(
+            'This will post selected DRAFT bills, creating journal entries and updating inventory.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Go Back')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Post Bills'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final repo = ref.read(billRepositoryProvider);
+    final ids = _selectedIds.toList();
+    try {
+      final result = await repo.bulkPost(ids);
+      if (!mounted) return;
+      setState(_selectedIds.clear);
+      ref.invalidate(billListProvider);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_bulkMsg(result, 'Posted'))));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error));
+    }
+  }
+
+  Future<void> _bulkVoid() async {
+    final count = _selectedIds.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Void $count bill${count == 1 ? '' : 's'}?'),
+        content: const Text(
+            'Bills with existing payments cannot be voided. This will reverse journal entries.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Go Back')),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: KColors.error.withValues(alpha: 0.12),
+              foregroundColor: KColors.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Void Bills'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final repo = ref.read(billRepositoryProvider);
+    final ids = _selectedIds.toList();
+    try {
+      final result = await repo.bulkVoid(ids);
+      if (!mounted) return;
+      setState(_selectedIds.clear);
+      ref.invalidate(billListProvider);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_bulkMsg(result, 'Voided'))));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error));
+    }
+  }
+
   Future<void> _bulkDelete() async {
     final count = _selectedIds.length;
     final confirmed = await showDialog<bool>(
@@ -44,7 +122,7 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
       builder: (ctx) => AlertDialog(
         title: Text('Delete $count bill${count == 1 ? '' : 's'}?'),
         content: const Text(
-            'Only draft bills can be deleted. Bills with payments may fail.'),
+            'Only DRAFT bills can be deleted. This cannot be undone.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -83,6 +161,14 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
     ));
   }
 
+  String _bulkMsg(Map<String, dynamic> result, String verb) {
+    final data = (result['data'] as Map?) ?? {};
+    final success = (data['successCount'] as num?)?.toInt() ?? 0;
+    final fail = (data['failCount'] as num?)?.toInt() ?? 0;
+    if (fail == 0) return '$verb $success successfully';
+    return '$verb $success, $fail failed';
+  }
+
   @override
   Widget build(BuildContext context) {
     final filter = ref.watch(billFilterProvider);
@@ -106,6 +192,19 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
             selectionCount: _selectedIds.length,
             onClearSelection: _clearSelection,
             selectionActions: [
+              IconButton(
+                icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
+                tooltip: 'Post selected',
+                visualDensity: VisualDensity.compact,
+                onPressed: _bulkPost,
+              ),
+              IconButton(
+                icon: const Icon(Icons.block_rounded, size: 20),
+                tooltip: 'Void selected',
+                color: KColors.warning,
+                visualDensity: VisualDensity.compact,
+                onPressed: _bulkVoid,
+              ),
               IconButton(
                 icon: const Icon(Icons.delete_outline_rounded, size: 20),
                 tooltip: 'Delete selected',

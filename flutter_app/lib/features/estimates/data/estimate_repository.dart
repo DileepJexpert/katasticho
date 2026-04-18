@@ -86,6 +86,22 @@ class EstimateRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> bulkSend(List<String> ids) async {
+    final response = await _api.post(
+      ApiConfig.bulkSendEstimates,
+      data: {'ids': ids},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> bulkDelete(List<String> ids) async {
+    final response = await _api.delete(
+      ApiConfig.bulkDeleteEstimates,
+      data: {'ids': ids},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> convertToInvoice(String id) async {
     final response = await _api.post(ApiConfig.convertEstimate(id));
     return response.data as Map<String, dynamic>;

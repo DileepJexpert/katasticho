@@ -69,6 +69,25 @@ class BillRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> bulkPost(List<String> ids) async {
+    final response = await _api.post(
+      ApiConfig.bulkPostBills,
+      data: {'ids': ids},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> bulkVoid(
+    List<String> ids, {
+    String reason = 'Bulk voided',
+  }) async {
+    final response = await _api.post(
+      ApiConfig.bulkVoidBills,
+      data: {'ids': ids, 'reason': reason},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> getBillPayments(String id) async {
     final response = await _api.get(ApiConfig.billPayments(id));
     return response.data as Map<String, dynamic>;
