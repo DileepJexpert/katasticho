@@ -4,6 +4,7 @@ import com.katasticho.erp.ar.dto.CreateInvoiceRequest;
 import com.katasticho.erp.ar.dto.InvoiceResponse;
 import com.katasticho.erp.ar.dto.PaymentResponse;
 import com.katasticho.erp.ar.dto.RecordPaymentForInvoiceRequest;
+import com.katasticho.erp.ar.service.InvoicePdfService;
 import com.katasticho.erp.ar.service.InvoiceService;
 import com.katasticho.erp.ar.service.PaymentService;
 import com.katasticho.erp.common.dto.ApiResponse;
@@ -13,7 +14,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -30,6 +33,7 @@ public class InvoiceController {
     private final InvoiceService invoiceService;
     private final PaymentService paymentService;
     private final DocumentShareService documentShareService;
+    private final InvoicePdfService invoicePdfService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
@@ -90,6 +94,18 @@ public class InvoiceController {
             @PathVariable UUID contactId, Pageable pageable) {
         Page<InvoiceResponse> page = invoiceService.listInvoiceResponsesByContact(contactId, pageable);
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(page)));
+    }
+
+    @GetMapping("/{id}/pdf")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<byte[]> downloadPdf(@PathVariable UUID id) {
+        InvoiceResponse inv = invoiceService.getInvoiceResponse(id);
+        byte[] pdf = invoicePdfService.generatePdf(inv);
+        String filename = "invoice-" + inv.invoiceNumber().replaceAll("[/\\\\:*?\"<>|]", "-") + ".pdf";
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .body(pdf);
     }
 
     @GetMapping("/{id}/whatsapp-link")
