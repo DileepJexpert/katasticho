@@ -1,99 +1,99 @@
 import 'package:flutter/material.dart';
 
-/// Katasticho brand & semantic color tokens.
+/// Katasticho brand & semantic color tokens — **Katasticho 2026** palette.
 ///
-/// Theme-aware surfaces, text, and primaries are owned by [ThemeData] /
+/// Theme-aware surfaces, text and primaries are owned by [ThemeData] /
 /// [ColorScheme] (built via FlexColorScheme in `k_theme.dart`). Pull those
 /// from `Theme.of(context).colorScheme`.
 ///
 /// This file only holds:
 ///   • The brand seed color (used by both light & dark themes)
 ///   • Semantic colors that are SAME in light & dark (status, ageing, etc.)
-///   • A few legacy aliases kept for compatibility with existing widgets.
+///   • Legacy aliases for widgets that haven't been migrated to Theme.of()
 ///
-/// Palette — **Sky Blue + Slate** (light, professional, fluidic).
+/// Palette — **Indigo + slate** (professional, finance-grade, 2026-era).
+/// Indigo conveys trust without looking like QuickBooks green or Zoho red.
 class KColors {
   KColors._();
 
   // ── Brand seed ────────────────────────────────────────────────────
-  /// Sky 600 — fluidic, professional, light. Drives the light ColorScheme.
-  static const Color brandSeed = Color(0xFF0284C7);
+  /// Indigo-600 — trustworthy, finance-grade primary.
+  static const Color brandSeed = Color(0xFF4F46E5);
 
-  // Legacy convenience aliases — light-mode values, kept for compatibility
-  // with widgets that haven't been migrated to Theme.of(context) yet.
-  static const Color primary = Color(0xFF0284C7);     // sky-600
-  static const Color primaryHover = Color(0xFF0369A1); // sky-700
-  static const Color primaryPressed = Color(0xFF075985); // sky-800
-  static const Color primaryLight = Color(0xFF38BDF8); // sky-400
-  static const Color primarySoft = Color(0xFFE0F2FE);  // sky-100
+  // Legacy convenience aliases — light-mode values.
+  static const Color primary = Color(0xFF4F46E5);        // indigo-600
+  static const Color primaryHover = Color(0xFF4338CA);   // indigo-700
+  static const Color primaryPressed = Color(0xFF3730A3); // indigo-800
+  static const Color primaryLight = Color(0xFF818CF8);   // indigo-400
+  static const Color primarySoft = Color(0xFFEEF2FF);    // indigo-50
   static const Color onPrimary = Colors.white;
 
-  static const Color secondary = Color(0xFF14B8A6);     // teal-500 fluidic accent
-  static const Color secondarySoft = Color(0xFFCCFBF1); // teal-100
+  static const Color secondary = Color(0xFF0EA5E9);      // sky-500 — cool accent
+  static const Color secondarySoft = Color(0xFFE0F2FE);  // sky-100
   static const Color onSecondary = Colors.white;
 
-  static const Color accent = Color(0xFFF59E0B);     // amber-500
-  static const Color accentSoft = Color(0xFFFFFBEB); // amber-50
+  static const Color accent = Color(0xFFF59E0B);         // amber-500
+  static const Color accentSoft = Color(0xFFFEF3C7);     // amber-100
 
   // ── Semantic — same in light & dark ──
-  static const Color success = Color(0xFF10B981);
-  static const Color successLight = Color(0xFFECFDF5);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color warningLight = Color(0xFFFFFBEB);
-  static const Color error = Color(0xFFEF4444);
-  static const Color errorLight = Color(0xFFFEF2F2);
-  static const Color info = Color(0xFF0EA5E9);
-  static const Color infoLight = Color(0xFFEFF6FF);
+  static const Color success = Color(0xFF059669);        // emerald-600
+  static const Color successLight = Color(0xFFD1FAE5);   // emerald-100
+  static const Color warning = Color(0xFFD97706);        // amber-600
+  static const Color warningLight = Color(0xFFFEF3C7);   // amber-100
+  static const Color error = Color(0xFFDC2626);          // rose-600
+  static const Color errorLight = Color(0xFFFEE2E2);     // rose-100
+  static const Color info = Color(0xFF2563EB);           // blue-600
+  static const Color infoLight = Color(0xFFDBEAFE);      // blue-100
 
   // ── Financial Status ──
   static const Color paid = Color(0xFF059669);
-  static const Color paidBg = Color(0xFFECFDF5);
+  static const Color paidBg = Color(0xFFD1FAE5);
   static const Color partiallyPaid = Color(0xFFD97706);
-  static const Color partiallyPaidBg = Color(0xFFFFFBEB);
+  static const Color partiallyPaidBg = Color(0xFFFEF3C7);
   static const Color overdue = Color(0xFFDC2626);
-  static const Color overdueBg = Color(0xFFFEF2F2);
+  static const Color overdueBg = Color(0xFFFEE2E2);
   static const Color draft = Color(0xFF64748B);
   static const Color draftBg = Color(0xFFF1F5F9);
-  static const Color sent = Color(0xFF0284C7);   // matches brand
-  static const Color sentBg = Color(0xFFE0F2FE);
+  static const Color sent = Color(0xFF4F46E5);           // matches new brand
+  static const Color sentBg = Color(0xFFEEF2FF);
   static const Color cancelled = Color(0xFF475569);
-  static const Color cancelledBg = Color(0xFFF1F5F9);
+  static const Color cancelledBg = Color(0xFFE2E8F0);
 
   // ── Ageing Report Colors ──
-  static const Color ageingCurrent = Color(0xFF10B981);
-  static const Color ageing1to30 = Color(0xFF0EA5E9);
-  static const Color ageing31to60 = Color(0xFFF59E0B);
-  static const Color ageing61to90 = Color(0xFFF97316);
-  static const Color ageing90Plus = Color(0xFFEF4444);
+  static const Color ageingCurrent = Color(0xFF059669);
+  static const Color ageing1to30 = Color(0xFF2563EB);
+  static const Color ageing31to60 = Color(0xFFD97706);
+  static const Color ageing61to90 = Color(0xFFEA580C);
+  static const Color ageing90Plus = Color(0xFFDC2626);
 
   // ── Legacy neutral aliases — light-mode values, kept for compat ──
   // Prefer Theme.of(context).colorScheme.surface / onSurface in new code.
-  static const Color background = Color(0xFFF8FAFC);
-  static const Color backgroundAlt = Color(0xFFF1F5F9);
+  static const Color background = Color(0xFFF8FAFC);     // slate-50
+  static const Color backgroundAlt = Color(0xFFF1F5F9);  // slate-100
   static const Color surface = Colors.white;
   static const Color surfaceVariant = Color(0xFFF8FAFC);
-  static const Color divider = Color(0xFFE2E8F0);
+  static const Color divider = Color(0xFFE2E8F0);        // slate-200
   static const Color dividerSoft = Color(0xFFF1F5F9);
   static const Color disabled = Color(0xFFCBD5E1);
-  static const Color textPrimary = Color(0xFF0F172A);
-  static const Color textSecondary = Color(0xFF475569);
-  static const Color textTertiary = Color(0xFF64748B);
-  static const Color textHint = Color(0xFF94A3B8);
+  static const Color textPrimary = Color(0xFF0F172A);    // slate-900
+  static const Color textSecondary = Color(0xFF475569);  // slate-600
+  static const Color textTertiary = Color(0xFF64748B);   // slate-500
+  static const Color textHint = Color(0xFF94A3B8);       // slate-400
   static const Color textOnDark = Colors.white;
 
   // ── Gradients ──
-  /// Sky → Indigo gradient — fluidic primary banner.
+  /// Indigo → violet primary banner.
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF0EA5E9), Color(0xFF0284C7)],
+    colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
   );
 
-  /// Sky → Cyan brand gradient for hero areas.
+  /// Indigo → sky brand gradient for hero areas.
   static const LinearGradient brandGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF0EA5E9), Color(0xFF0891B2)],
+    colors: [Color(0xFF4F46E5), Color(0xFF0EA5E9)],
   );
 
   static const LinearGradient successGradient = LinearGradient(

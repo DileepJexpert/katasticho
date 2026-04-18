@@ -26,32 +26,31 @@ class KStatusChip extends StatelessWidget {
 
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: dense ? 8 : 10,
-        vertical: dense ? 3 : 5,
+        horizontal: dense ? 7 : 9,
+        vertical: dense ? 2 : 3,
       ),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: KSpacing.borderRadiusXl,
-        border: Border.all(color: color.withValues(alpha: 0.18), width: 1),
+        borderRadius: BorderRadius.circular(KSpacing.radiusRound),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 6,
-            height: 6,
+            width: 5,
+            height: 5,
             decoration: BoxDecoration(
               color: color,
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           Text(
             displayLabel,
             style: KTypography.labelSmall.copyWith(
               color: color,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.1,
               fontSize: dense ? 10 : 11,
             ),
           ),

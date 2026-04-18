@@ -4,72 +4,73 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'k_colors.dart';
 
-/// Builds the Material 3 light & dark themes for Katasticho ERP using
-/// [FlexColorScheme] — a battle-tested theming library that gives us
-/// professional, fluidic, accessible Material 3 themes with minimal code.
+/// Builds the Material 3 light & dark themes for Katasticho ERP —
+/// **Katasticho 2026** design language.
 ///
-/// Both themes are seeded from [KColors.brandSeed] (Sky 600). Surfaces
+/// Both themes are seeded from [KColors.brandSeed] (Indigo-600). Surfaces
 /// use FlexColorScheme's tinted blend modes so the UI feels alive without
-/// being noisy.
-///
-/// Font: **Manrope** — modern, fluidic, geometric, professional.
+/// being noisy. Compared to the previous iteration this theme:
+///   • Switches the typeface to **Inter** (finance-SaaS standard)
+///   • Tightens radii — 8/10/14 instead of 12/16/20
+///   • Denser inputs & buttons (~40/38px instead of ~56/48px)
+///   • Flatter surfaces — borders over shadows
 class KTheme {
   KTheme._();
 
-  static String? get _fontFamily => GoogleFonts.manrope().fontFamily;
+  static String? get _fontFamily => GoogleFonts.inter().fontFamily;
 
   static TextTheme _textTheme(Brightness brightness) {
     final base = brightness == Brightness.light
         ? ThemeData.light().textTheme
         : ThemeData.dark().textTheme;
-    return GoogleFonts.manropeTextTheme(base);
+    return GoogleFonts.interTextTheme(base);
   }
 
-  // Shared sub-theme tweaks for both light & dark — fluidic, generous radii.
+  // Shared sub-theme tweaks for both light & dark — tight radii, flat surfaces.
   static const FlexSubThemesData _subThemes = FlexSubThemesData(
     interactionEffects: true,
     tintedDisabledControls: true,
-    blendOnLevel: 8,
+    blendOnLevel: 6,
     blendOnColors: false,
     useM2StyleDividerInM3: false,
 
-    // Inputs
+    // Inputs — 40px height target, border-based, subtle
     inputDecoratorBorderType: FlexInputBorderType.outline,
-    inputDecoratorRadius: 12.0,
-    inputDecoratorIsFilled: true,
-    inputDecoratorBorderWidth: 1.2,
-    inputDecoratorFocusedBorderWidth: 1.8,
+    inputDecoratorRadius: 8.0,
+    inputDecoratorIsFilled: false,
+    inputDecoratorBorderWidth: 1.0,
+    inputDecoratorFocusedBorderWidth: 1.5,
     inputDecoratorFocusedHasBorder: true,
     inputDecoratorUnfocusedHasBorder: true,
 
-    // Buttons
-    elevatedButtonRadius: 12.0,
+    // Buttons — 38px default height, 8px radius, flat
+    elevatedButtonRadius: 8.0,
     elevatedButtonElevation: 0,
-    filledButtonRadius: 12.0,
-    outlinedButtonRadius: 12.0,
-    outlinedButtonBorderWidth: 1.2,
+    filledButtonRadius: 8.0,
+    outlinedButtonRadius: 8.0,
+    outlinedButtonBorderWidth: 1.0,
     outlinedButtonPressedBorderWidth: 1.5,
-    textButtonRadius: 10.0,
-    toggleButtonsRadius: 12.0,
+    textButtonRadius: 8.0,
+    toggleButtonsRadius: 8.0,
 
-    // Cards & containers
-    cardRadius: 16.0,
+    // Cards & containers — border-based, no shadow
+    cardRadius: 10.0,
     cardElevation: 0,
-    chipRadius: 20.0,
-    popupMenuRadius: 12.0,
+    chipRadius: 999.0, // fully pill
+    popupMenuRadius: 10.0,
     popupMenuElevation: 4.0,
-    tooltipRadius: 8,
+    tooltipRadius: 6,
 
-    // Dialogs / sheets
-    dialogRadius: 20.0,
-    dialogElevation: 8.0,
-    bottomSheetRadius: 24.0,
-    bottomSheetElevation: 8.0,
-    bottomSheetModalElevation: 12.0,
-    timePickerDialogRadius: 20.0,
-    datePickerDialogRadius: 20.0,
-    snackBarRadius: 12,
-    snackBarElevation: 4,
+    // Dialogs / sheets — refined, less chunky
+    dialogRadius: 14.0,
+    dialogElevation: 6.0,
+    bottomSheetRadius: 16.0,
+    bottomSheetElevation: 6.0,
+    bottomSheetModalElevation: 10.0,
+    timePickerDialogRadius: 14.0,
+    datePickerDialogRadius: 14.0,
+    snackBarRadius: 8,
+    snackBarElevation: 3,
 
     // Navigation
     navigationBarSelectedLabelSchemeColor: SchemeColor.primary,
@@ -95,9 +96,9 @@ class KTheme {
     appBarCenterTitle: false,
 
     // Drawer
-    drawerRadius: 16.0,
-    drawerWidth: 280,
-    drawerIndicatorRadius: 12.0,
+    drawerRadius: 12.0,
+    drawerWidth: 260,
+    drawerIndicatorRadius: 8.0,
   );
 
   /// LIGHT theme — soft slate background, sky-blue primary, white surfaces.
@@ -126,7 +127,7 @@ class KTheme {
         keepPrimary: true,
         keepSecondary: true,
       ),
-      visualDensity: FlexColorScheme.comfortablePlatformDensity,
+      visualDensity: VisualDensity.compact,
       fontFamily: _fontFamily,
       useMaterial3: true,
       swapLegacyOnMaterial3: true,
@@ -151,10 +152,10 @@ class KTheme {
           statusBarIconBrightness: Brightness.dark,
           statusBarBrightness: Brightness.light,
         ),
-        toolbarHeight: 64,
-        titleTextStyle: GoogleFonts.manrope(
-          fontSize: 18,
-          fontWeight: FontWeight.w800,
+        toolbarHeight: 56,
+        titleTextStyle: GoogleFonts.inter(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
           color: const Color(0xFF0F172A),
           letterSpacing: -0.2,
         ),
@@ -162,12 +163,12 @@ class KTheme {
     );
   }
 
-  /// DARK theme — soft slate-900 background (not pure black), sky brand seed.
+  /// DARK theme — soft slate-900 background (not pure black), indigo primary.
   static ThemeData get dark {
     final theme = FlexThemeData.dark(
       colors: FlexSchemeColor.from(
-        primary: const Color(0xFF38BDF8), // sky-400 reads better on dark
-        secondary: const Color(0xFF2DD4BF),
+        primary: const Color(0xFF818CF8), // indigo-400 reads better on dark
+        secondary: const Color(0xFF38BDF8), // sky-400
         tertiary: const Color(0xFFFBBF24),
         error: const Color(0xFFF87171),
         brightness: Brightness.dark,
@@ -186,7 +187,7 @@ class KTheme {
         useSecondary: true,
         useTertiary: true,
       ),
-      visualDensity: FlexColorScheme.comfortablePlatformDensity,
+      visualDensity: VisualDensity.compact,
       fontFamily: _fontFamily,
       useMaterial3: true,
       swapLegacyOnMaterial3: true,
@@ -211,10 +212,10 @@ class KTheme {
           statusBarIconBrightness: Brightness.light,
           statusBarBrightness: Brightness.dark,
         ),
-        toolbarHeight: 64,
-        titleTextStyle: GoogleFonts.manrope(
-          fontSize: 18,
-          fontWeight: FontWeight.w800,
+        toolbarHeight: 56,
+        titleTextStyle: GoogleFonts.inter(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
           color: Colors.white,
           letterSpacing: -0.2,
         ),
