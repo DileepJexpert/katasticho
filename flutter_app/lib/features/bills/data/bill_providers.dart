@@ -6,12 +6,14 @@ class BillListFilter {
   final String? status;
   final String? contactId;
   final String? branchId;
+  final String? search;
   final int page;
 
   const BillListFilter({
     this.status,
     this.contactId,
     this.branchId,
+    this.search,
     this.page = 0,
   });
 
@@ -19,12 +21,14 @@ class BillListFilter {
     String? status,
     String? contactId,
     String? branchId,
+    String? search,
     int? page,
   }) {
     return BillListFilter(
       status: status ?? this.status,
       contactId: contactId ?? this.contactId,
       branchId: branchId ?? this.branchId,
+      search: search ?? this.search,
       page: page ?? this.page,
     );
   }
@@ -43,6 +47,7 @@ final billListProvider =
     status: filter.status,
     contactId: filter.contactId,
     branchId: filter.branchId,
+    search: filter.search,
   );
 });
 
