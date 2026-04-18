@@ -242,7 +242,6 @@ class InvoiceDetailScreen extends ConsumerWidget {
                 try {
                   final repo = ref.read(invoiceRepositoryProvider);
                   await repo.recordPayment(invoiceId, {
-                    'invoiceId': invoiceId,
                     'amount': double.tryParse(amountController.text) ?? 0,
                     'paymentMethod': paymentMethod,
                     'paymentDate':

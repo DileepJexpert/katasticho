@@ -3,6 +3,8 @@ package com.katasticho.erp.ar.service;
 import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.JournalEntry;
 import com.katasticho.erp.accounting.service.JournalService;
+import com.katasticho.erp.ar.dto.PaymentResponse;
+import com.katasticho.erp.ar.dto.RecordPaymentForInvoiceRequest;
 import com.katasticho.erp.ar.dto.RecordPaymentRequest;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.entity.Payment;
@@ -29,6 +31,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -232,5 +235,143 @@ class PaymentServiceTest {
         ArgumentCaptor<JournalPostRequest> captor = ArgumentCaptor.forClass(JournalPostRequest.class);
         verify(journalService).postJournal(captor.capture());
         assertEquals("1010", captor.getValue().lines().get(0).accountCode());
+    }
+
+    // ── recordForInvoice tests ──────────────────────────────────────────
+
+    @Test
+    void recordForInvoice_sentInvoice_returns201() {
+        Invoice invoice = Invoice.builder()
+                .orgId(orgId).contactId(UUID.randomUUID())
+                .invoiceNumber("INV-2026-000001").status("SENT")
+                .totalAmount(new BigDecimal("1000.00"))
+                .amountPaid(BigDecimal.ZERO)
+                .balanceDue(new BigDecimal("1000.00"))
+                .build();
+        invoice.setId(UUID.randomUUID());
+
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoice.getId(), orgId))
+                .thenReturn(Optional.of(invoice));
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(invoiceService.computeFiscalYear(any(LocalDate.class), anyInt())).thenReturn(2026);
+        when(invoiceService.generateNumber(eq(orgId), eq("PAY"), anyInt()))
+                .thenReturn("PAY-2026-000001");
+        JournalEntry je = JournalEntry.builder().entryNumber("JE-001").build();
+        je.setId(UUID.randomUUID());
+        when(journalService.postJournal(any())).thenReturn(je);
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> {
+            Payment p = inv.getArgument(0);
+            if (p.getId() == null) p.setId(UUID.randomUUID());
+            return p;
+        });
+
+        var req = new RecordPaymentForInvoiceRequest(
+                new BigDecimal("500"), "BANK_TRANSFER",
+                LocalDate.of(2026, 4, 18), null, "UTR-001", null);
+
+        PaymentResponse response = paymentService.recordForInvoice(invoice.getId(), req);
+
+        assertNotNull(response);
+        assertEquals(0, new BigDecimal("500").compareTo(response.amount()));
+        assertEquals("BANK_TRANSFER", response.paymentMethod());
+        verify(invoiceService).updatePaymentStatus(invoice, new BigDecimal("500"));
+    }
+
+    @Test
+    void recordForInvoice_amountExceedsBalance_throws400() {
+        Invoice invoice = Invoice.builder()
+                .orgId(orgId).contactId(UUID.randomUUID())
+                .invoiceNumber("INV-001").status("SENT")
+                .totalAmount(new BigDecimal("1000.00"))
+                .amountPaid(BigDecimal.ZERO)
+                .balanceDue(new BigDecimal("1000.00"))
+                .build();
+        invoice.setId(UUID.randomUUID());
+
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoice.getId(), orgId))
+                .thenReturn(Optional.of(invoice));
+
+        var req = new RecordPaymentForInvoiceRequest(
+                new BigDecimal("1500"), "CASH",
+                LocalDate.now(), null, null, null);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> paymentService.recordForInvoice(invoice.getId(), req));
+        assertEquals("AR_PAYMENT_EXCEEDS_BALANCE", ex.getErrorCode());
+        verify(paymentRepository, never()).save(any());
+    }
+
+    @Test
+    void recordForInvoice_voidInvoice_throws400() {
+        Invoice invoice = Invoice.builder()
+                .orgId(orgId).contactId(UUID.randomUUID())
+                .invoiceNumber("INV-001").status("CANCELLED")
+                .totalAmount(new BigDecimal("1000.00"))
+                .balanceDue(new BigDecimal("1000.00"))
+                .build();
+        invoice.setId(UUID.randomUUID());
+
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoice.getId(), orgId))
+                .thenReturn(Optional.of(invoice));
+
+        var req = new RecordPaymentForInvoiceRequest(
+                new BigDecimal("500"), "CASH",
+                LocalDate.now(), null, null, null);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> paymentService.recordForInvoice(invoice.getId(), req));
+        assertEquals("AR_INVOICE_NOT_PAYABLE", ex.getErrorCode());
+    }
+
+    @Test
+    void recordForInvoice_paidInvoice_throws400() {
+        Invoice invoice = Invoice.builder()
+                .orgId(orgId).contactId(UUID.randomUUID())
+                .invoiceNumber("INV-001").status("PAID")
+                .totalAmount(new BigDecimal("1000.00"))
+                .amountPaid(new BigDecimal("1000.00"))
+                .balanceDue(BigDecimal.ZERO)
+                .build();
+        invoice.setId(UUID.randomUUID());
+
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoice.getId(), orgId))
+                .thenReturn(Optional.of(invoice));
+
+        var req = new RecordPaymentForInvoiceRequest(
+                new BigDecimal("100"), "CASH",
+                LocalDate.now(), null, null, null);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> paymentService.recordForInvoice(invoice.getId(), req));
+        assertEquals("AR_INVOICE_NOT_PAYABLE", ex.getErrorCode());
+    }
+
+    @Test
+    void listForInvoice_returnsPaymentResponses() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID contactId = UUID.randomUUID();
+
+        Payment p1 = Payment.builder()
+                .orgId(orgId).contactId(contactId).invoiceId(invoiceId)
+                .paymentNumber("PAY-001").paymentDate(LocalDate.of(2026, 4, 10))
+                .amount(new BigDecimal("500")).currency("INR")
+                .paymentMethod("CASH").build();
+        p1.setId(UUID.randomUUID());
+
+        Payment p2 = Payment.builder()
+                .orgId(orgId).contactId(contactId).invoiceId(invoiceId)
+                .paymentNumber("PAY-002").paymentDate(LocalDate.of(2026, 4, 15))
+                .amount(new BigDecimal("300")).currency("INR")
+                .paymentMethod("UPI").build();
+        p2.setId(UUID.randomUUID());
+
+        when(paymentRepository.findByInvoiceIdAndIsDeletedFalse(invoiceId))
+                .thenReturn(List.of(p1, p2));
+
+        List<PaymentResponse> result = paymentService.listForInvoice(invoiceId);
+
+        assertEquals(2, result.size());
+        assertEquals("PAY-001", result.get(0).paymentNumber());
+        assertEquals("PAY-002", result.get(1).paymentNumber());
     }
 }

@@ -7,6 +7,7 @@ import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.JournalEntry;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ar.dto.PaymentResponse;
+import com.katasticho.erp.ar.dto.RecordPaymentForInvoiceRequest;
 import com.katasticho.erp.ar.dto.RecordPaymentRequest;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.entity.Payment;
@@ -183,6 +184,38 @@ public class PaymentService {
     public Page<Payment> listPayments(Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
         return paymentRepository.findByOrgIdAndIsDeletedFalseOrderByPaymentDateDesc(orgId, pageable);
+    }
+
+    @Transactional
+    public PaymentResponse recordForInvoice(UUID invoiceId, RecordPaymentForInvoiceRequest req) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        Invoice invoice = invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Invoice", invoiceId));
+
+        if (!List.of("SENT", "PARTIALLY_PAID", "OVERDUE").contains(invoice.getStatus())) {
+            throw new BusinessException(
+                    "Invoice " + invoice.getInvoiceNumber() + " is not payable (status: " + invoice.getStatus() + ")",
+                    "AR_INVOICE_NOT_PAYABLE", HttpStatus.BAD_REQUEST);
+        }
+
+        if (req.amount().compareTo(invoice.getBalanceDue()) > 0) {
+            throw new BusinessException(
+                    "Payment amount " + req.amount() + " exceeds balance due " + invoice.getBalanceDue(),
+                    "AR_PAYMENT_EXCEEDS_BALANCE", HttpStatus.BAD_REQUEST);
+        }
+
+        RecordPaymentRequest internal = new RecordPaymentRequest(
+                invoiceId, invoice.getContactId(), req.paymentDate(), req.amount(),
+                req.paymentMethod(), req.referenceNumber(), null, req.notes());
+
+        Payment payment = recordPayment(internal);
+        return toResponse(payment);
+    }
+
+    public List<PaymentResponse> listForInvoice(UUID invoiceId) {
+        return paymentRepository.findByInvoiceIdAndIsDeletedFalse(invoiceId).stream()
+                .map(this::toResponse).toList();
     }
 
     public List<Payment> getPaymentsForInvoice(UUID invoiceId) {

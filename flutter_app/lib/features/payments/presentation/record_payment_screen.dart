@@ -56,7 +56,6 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
     try {
       final repo = ref.read(paymentRepositoryProvider);
       await repo.recordPayment(widget.invoiceId, {
-        'invoiceId': widget.invoiceId,
         'amount': double.tryParse(_amountController.text) ?? 0,
         'paymentMethod': _paymentMethod,
         'paymentDate': DateFormatter.api(_paymentDate),
