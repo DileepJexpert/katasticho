@@ -11,6 +11,9 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.entity.ContactType;
+import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
 import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.currency.CurrencyService;
@@ -41,7 +44,7 @@ class CreditNoteServiceTest {
 
     @Mock private CreditNoteRepository creditNoteRepository;
     @Mock private TaxLineItemRepository taxLineItemRepository;
-    @Mock private CustomerRepository customerRepository;
+    @Mock private ContactRepository contactRepository;
     @Mock private InvoiceRepository invoiceRepository;
     @Mock private InvoiceNumberSequenceRepository sequenceRepository;
     @Mock private OrganisationRepository organisationRepository;
@@ -58,12 +61,12 @@ class CreditNoteServiceTest {
     private UUID orgId;
     private UUID userId;
     private Organisation org;
-    private Customer customer;
+    private Contact contact;
 
     @BeforeEach
     void setUp() {
         creditNoteService = new CreditNoteService(
-                creditNoteRepository, taxLineItemRepository, customerRepository,
+                creditNoteRepository, taxLineItemRepository, contactRepository,
                 invoiceRepository, sequenceRepository, organisationRepository,
                 invoiceService, journalService, taxEngine,
                 currencyService, auditService, inventoryService,
@@ -80,10 +83,10 @@ class CreditNoteServiceTest {
         org = Organisation.builder().name("Test Corp").stateCode("MH").build();
         org.setId(orgId);
 
-        customer = Customer.builder().name("Acme Ltd").billingStateCode("MH")
-                .billingCountry("IN").build();
-        customer.setId(UUID.randomUUID());
-        customer.setOrgId(orgId);
+        contact = Contact.builder().displayName("Acme Ltd").contactType(ContactType.CUSTOMER)
+                .billingStateCode("MH").billingCountry("IN").build();
+        contact.setId(UUID.randomUUID());
+        contact.setOrgId(orgId);
     }
 
     @AfterEach
@@ -91,11 +94,10 @@ class CreditNoteServiceTest {
         TenantContext.clear();
     }
 
-    // T-AR-05: Credit note creates correct reversal journal
     @Test
     void shouldCreateAndIssueCreditNoteWithReversalJournal() {
         UUID invoiceId = UUID.randomUUID();
-        Invoice invoice = Invoice.builder().orgId(orgId).customerId(customer.getId())
+        Invoice invoice = Invoice.builder().orgId(orgId).contactId(contact.getId())
                 .invoiceNumber("INV-2026-000001").status("SENT")
                 .totalAmount(new BigDecimal("11800.00"))
                 .amountPaid(BigDecimal.ZERO).balanceDue(new BigDecimal("11800.00"))
@@ -103,8 +105,8 @@ class CreditNoteServiceTest {
         invoice.setId(invoiceId);
 
         when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
-        when(customerRepository.findByIdAndOrgIdAndIsDeletedFalse(customer.getId(), orgId))
-                .thenReturn(Optional.of(customer));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contact.getId(), orgId))
+                .thenReturn(Optional.of(contact));
         when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
                 .thenReturn(Optional.of(invoice));
         when(invoiceService.computeFiscalYear(any(LocalDate.class), anyInt())).thenReturn(2026);
@@ -116,7 +118,6 @@ class CreditNoteServiceTest {
             return cn;
         });
 
-        // Stub taxEngine: 5000 taxable, intra-state 18% → CGST 9% (450) + SGST 9% (450)
         UUID gstGroupId = UUID.randomUUID();
         when(taxEngine.resolveGroupId(eq(orgId), eq(new BigDecimal("18")), eq("MH"), eq("MH")))
                 .thenReturn(Optional.of(gstGroupId));
@@ -132,8 +133,7 @@ class CreditNoteServiceTest {
                         new BigDecimal("900.00")));
 
         var request = new CreateCreditNoteRequest(
-                customer.getId(),
-                null,
+                contact.getId(),
                 invoiceId,
                 LocalDate.of(2026, 4, 15),
                 "Defective goods returned",
@@ -150,7 +150,6 @@ class CreditNoteServiceTest {
         assertEquals(0, new BigDecimal("900.00").compareTo(cn.getTaxAmount()));
         assertEquals(0, new BigDecimal("5900.00").compareTo(cn.getTotalAmount()));
 
-        // Now issue the credit note
         TaxLineItem cgst = TaxLineItem.builder().componentCode("CGST").accountCode("2020")
                 .taxAmount(new BigDecimal("450.00")).build();
         TaxLineItem sgst = TaxLineItem.builder().componentCode("SGST").accountCode("2021")
@@ -189,7 +188,6 @@ class CreditNoteServiceTest {
         verify(invoiceService).updatePaymentStatus(invoice, cn.getTotalAmount());
     }
 
-    // T-AR-05b: Cannot issue non-DRAFT credit note
     @Test
     void shouldRejectIssueForNonDraftCreditNote() {
         CreditNote issuedCn = CreditNote.builder().orgId(orgId).status("ISSUED").build();

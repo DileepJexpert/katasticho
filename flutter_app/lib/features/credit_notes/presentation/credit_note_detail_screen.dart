@@ -145,7 +145,7 @@ class _CreditNoteDetailBody extends StatelessWidget {
     final creditNoteNumber =
         creditNote['creditNoteNumber'] as String? ?? '--';
     final customerName =
-        creditNote['customerName'] as String? ?? 'Customer';
+        creditNote['contactName'] as String? ?? 'Customer';
     final invoiceNumber = creditNote['invoiceNumber'] as String?;
     final totalAmount =
         (creditNote['totalAmount'] as num?)?.toDouble() ?? 0;

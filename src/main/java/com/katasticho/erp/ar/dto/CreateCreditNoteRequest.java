@@ -10,10 +10,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record CreateCreditNoteRequest(
-        @NotNull(message = "Customer ID is required")
-        UUID customerId,
-
-        /** F6: unified contact FK — optional, falls back to customerId. */
+        @NotNull(message = "Contact ID is required")
         UUID contactId,
 
         UUID invoiceId,

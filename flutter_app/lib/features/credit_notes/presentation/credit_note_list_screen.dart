@@ -86,7 +86,7 @@ class _CreditNoteCard extends StatelessWidget {
     final totalAmount =
         (creditNote['totalAmount'] as num?)?.toDouble() ?? 0;
     final customerName =
-        creditNote['customerName'] as String? ?? 'Unknown';
+        creditNote['contactName'] as String? ?? 'Unknown';
     final creditNoteNumber =
         creditNote['creditNoteNumber'] as String? ?? '--';
     final invoiceNumber = creditNote['invoiceNumber'] as String?;

@@ -8,8 +8,8 @@ import java.util.UUID;
 
 public record CreditNoteResponse(
         UUID id,
-        UUID customerId,
-        String customerName,
+        UUID contactId,
+        String contactName,
         UUID invoiceId,
         String invoiceNumber,
         String creditNoteNumber,

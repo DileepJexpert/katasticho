@@ -34,7 +34,6 @@ class ApiConfig {
       '/api/v1/reports/general-ledger/$accountId';
 
   // AR
-  static const String customers = '/api/v1/customers';
   static const String invoices = '/api/v1/invoices';
   static String invoiceById(String id) => '/api/v1/invoices/$id';
   static String invoiceWhatsAppLink(String id) =>

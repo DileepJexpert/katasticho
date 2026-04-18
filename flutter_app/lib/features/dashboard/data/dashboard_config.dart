@@ -123,7 +123,7 @@ const _kirana = DashboardConfig(
     QuickAction(
       label: 'Add Customer',
       icon: Icons.person_add,
-      route: '/customers',
+      route: '/contacts',
       color: KColors.secondary,
     ),
     QuickAction(

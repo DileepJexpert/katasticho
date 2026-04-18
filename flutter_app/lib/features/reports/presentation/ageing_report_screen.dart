@@ -64,7 +64,7 @@ class _AgeingReportScreenState extends ConsumerState<AgeingReportScreen> {
     final buckets =
         (_report!['buckets'] ?? _report!['summary']) as Map<String, dynamic>? ??
             {};
-    final customers = (_report!['customers'] as List?) ?? [];
+    final customers = (_report!['contacts'] as List?) ?? [];
 
     return SingleChildScrollView(
       padding: KSpacing.pagePadding,
@@ -132,7 +132,7 @@ class _AgeingReportScreenState extends ConsumerState<AgeingReportScreen> {
           else
             ...customers.map((c) {
               final customer = c as Map<String, dynamic>;
-              final name = customer['customerName'] as String? ?? 'Unknown';
+              final name = customer['contactName'] as String? ?? 'Unknown';
               final total =
                   (customer['totalOutstanding'] as num?)?.toDouble() ?? 0;
               return Padding(

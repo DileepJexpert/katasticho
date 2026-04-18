@@ -35,8 +35,8 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
   String? _errorMessage;
 
   // Customer step
-  String? _selectedCustomerId;
-  String _customerName = '';
+  String? _selectedContactId;
+  String _contactName = '';
   List<Map<String, dynamic>> _customers = [];
   List<Map<String, dynamic>> _filteredCustomers = [];
   bool _loadingCustomers = true;
@@ -122,7 +122,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
     try {
       final repo = ref.read(invoiceRepositoryProvider);
       final data = {
-        'contactId': _selectedCustomerId,
+        'contactId': _selectedContactId,
         'invoiceDate': _invoiceDate.toIso8601String().split('T')[0],
         'dueDate': _dueDate.toIso8601String().split('T')[0],
         'notes': _notes,
@@ -273,7 +273,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
                         label: 'Next',
                         onPressed: () {
                           if (_currentStep == 0 &&
-                              _selectedCustomerId == null) {
+                              _selectedContactId == null) {
                             setState(() =>
                                 _errorMessage = 'Please select a customer');
                             return;
@@ -361,11 +361,11 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
                 gstin: gstin.isNotEmpty
                     ? 'GSTIN: $gstin'
                     : (phone.isNotEmpty ? phone : 'No details'),
-                isSelected: _selectedCustomerId == id,
+                isSelected: _selectedContactId == id,
                 onTap: () {
                   setState(() {
-                    _selectedCustomerId = id;
-                    _customerName = name;
+                    _selectedContactId = id;
+                    _contactName = name;
                   });
                 },
               ),
@@ -408,9 +408,9 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
   /// invoice-submit time.
   Map<String, dynamic>? _effectivePriceList(
       List<Map<String, dynamic>> lists) {
-    if (_selectedCustomerId == null) return null;
+    if (_selectedContactId == null) return null;
     final customer = _customers.firstWhere(
-      (c) => c['id']?.toString() == _selectedCustomerId,
+      (c) => c['id']?.toString() == _selectedContactId,
       orElse: () => const <String, dynamic>{},
     );
     final pinned = customer['defaultPriceListId']?.toString();
@@ -554,7 +554,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _customerName.isEmpty ? 'Selected Customer' : _customerName,
+                _contactName.isEmpty ? 'Selected Customer' : _contactName,
                 style: KTypography.bodyLarge,
               ),
               KSpacing.vGapSm,

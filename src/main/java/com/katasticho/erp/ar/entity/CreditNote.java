@@ -26,11 +26,7 @@ public class CreditNote {
     @Column(name = "org_id", nullable = false, updatable = false)
     private UUID orgId;
 
-    @Column(name = "customer_id", nullable = false)
-    private UUID customerId;
-
-    /** F6: unified contact FK. */
-    @Column(name = "contact_id")
+    @Column(name = "contact_id", nullable = false)
     private UUID contactId;
 
     @Column(name = "invoice_id")

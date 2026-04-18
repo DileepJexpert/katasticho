@@ -9,8 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record CreateInvoiceRequest(
-        UUID customerId,
-
+        @NotNull(message = "Contact ID is required")
         UUID contactId,
 
         @NotNull(message = "Invoice date is required")

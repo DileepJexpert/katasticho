@@ -8,12 +8,12 @@ import com.katasticho.erp.accounting.entity.JournalEntry;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ar.dto.PaymentResponse;
 import com.katasticho.erp.ar.dto.RecordPaymentRequest;
-import com.katasticho.erp.ar.entity.Customer;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.entity.Payment;
-import com.katasticho.erp.ar.repository.CustomerRepository;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.repository.PaymentRepository;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
@@ -52,7 +52,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final InvoiceRepository invoiceRepository;
-    private final CustomerRepository customerRepository;
+    private final ContactRepository contactRepository;
     private final OrganisationRepository organisationRepository;
     private final BranchRepository branchRepository;
     private final JournalService journalService;
@@ -139,7 +139,6 @@ public class PaymentService {
         Payment payment = Payment.builder()
                 .orgId(orgId)
                 .branchId(branchId)
-                .customerId(invoice.getCustomerId())
                 .contactId(resolvedContactId)
                 .invoiceId(invoice.getId())
                 .paymentNumber(paymentNumber)
@@ -191,12 +190,12 @@ public class PaymentService {
     }
 
     public PaymentResponse toResponse(Payment p) {
-        Customer customer = customerRepository.findById(p.getCustomerId()).orElse(null);
+        Contact contact = contactRepository.findById(p.getContactId()).orElse(null);
         Invoice invoice = invoiceRepository.findById(p.getInvoiceId()).orElse(null);
 
         return new PaymentResponse(
-                p.getId(), p.getCustomerId(),
-                customer != null ? customer.getName() : null,
+                p.getId(), p.getContactId(),
+                contact != null ? contact.getDisplayName() : null,
                 p.getInvoiceId(),
                 invoice != null ? invoice.getInvoiceNumber() : null,
                 p.getPaymentNumber(), p.getPaymentDate(),

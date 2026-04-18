@@ -281,7 +281,7 @@ class _InvoiceDetailBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = invoice['status'] as String? ?? 'DRAFT';
     final invoiceNumber = invoice['invoiceNumber'] as String? ?? '--';
-    final customerName = invoice['customerName'] as String? ?? 'Customer';
+    final customerName = invoice['contactName'] as String? ?? 'Customer';
     final total = (invoice['total'] as num?)?.toDouble() ?? 0;
     final subtotal = (invoice['subtotal'] as num?)?.toDouble() ?? total;
     final tax = (invoice['taxTotal'] as num?)?.toDouble() ?? 0;

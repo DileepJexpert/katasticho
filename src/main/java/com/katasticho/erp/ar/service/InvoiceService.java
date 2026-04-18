@@ -56,7 +56,6 @@ public class InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final TaxLineItemRepository taxLineItemRepository;
-    private final CustomerRepository customerRepository;
     private final ContactRepository contactRepository;
     private final InvoiceNumberSequenceRepository sequenceRepository;
     private final OrganisationRepository organisationRepository;
@@ -81,50 +80,20 @@ public class InvoiceService {
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
-        // Resolve customer: prefer customerId, else look up contact
-        final UUID resolvedCustomerId;
-        final UUID resolvedContactId;
-        String billingStateCode;
-        int paymentTermsDays;
+        Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(request.contactId(), orgId)
+                .orElseThrow(() -> BusinessException.notFound("Contact", request.contactId()));
 
-        if (request.customerId() != null) {
-            Customer customer = customerRepository.findByIdAndOrgIdAndIsDeletedFalse(request.customerId(), orgId)
-                    .orElseThrow(() -> BusinessException.notFound("Customer", request.customerId()));
-            resolvedCustomerId = customer.getId();
-            resolvedContactId = request.contactId() != null ? request.contactId() : customer.getId();
-            billingStateCode = customer.getBillingStateCode();
-            paymentTermsDays = customer.getPaymentTermsDays();
-        } else if (request.contactId() != null) {
-            Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(request.contactId(), orgId)
-                    .orElseThrow(() -> BusinessException.notFound("Contact", request.contactId()));
-            // Use contact ID as customerId only if a matching customer row exists (V2 migrated data)
-            resolvedCustomerId = customerRepository.findByIdAndOrgIdAndIsDeletedFalse(contact.getId(), orgId)
-                    .map(Customer::getId).orElse(null);
-            resolvedContactId = contact.getId();
-            billingStateCode = contact.getBillingStateCode();
-            paymentTermsDays = contact.getPaymentTermsDays();
-        } else {
-            throw new BusinessException("Either customerId or contactId is required",
-                    "AR_NO_CUSTOMER", HttpStatus.BAD_REQUEST);
-        }
-
-        // Determine place of supply for GST
         String placeOfSupply = request.placeOfSupply() != null
                 ? request.placeOfSupply()
-                : billingStateCode;
+                : contact.getBillingStateCode();
 
-        // Compute fiscal period
         int periodYear = computeFiscalYear(request.invoiceDate(), org.getFiscalYearStart());
-
-        // Generate invoice number
         String invoiceNumber = generateNumber(orgId, "INV", periodYear);
 
-        // Due date defaults to invoice date + customer payment terms
         LocalDate dueDate = request.dueDate() != null
                 ? request.dueDate()
-                : request.invoiceDate().plusDays(paymentTermsDays);
+                : request.invoiceDate().plusDays(contact.getPaymentTermsDays());
 
-        // Get exchange rate
         BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.invoiceDate());
 
         // Stamp the org's default branch. Multi-branch selection comes later
@@ -137,8 +106,7 @@ public class InvoiceService {
         Invoice invoice = Invoice.builder()
                 .orgId(orgId)
                 .branchId(branchId)
-                .customerId(resolvedCustomerId)
-                .contactId(resolvedContactId)
+                .contactId(contact.getId())
                 .invoiceNumber(invoiceNumber)
                 .invoiceDate(request.invoiceDate())
                 .dueDate(dueDate)
@@ -172,7 +140,7 @@ public class InvoiceService {
             BigDecimal effectiveUnitPrice = lineReq.unitPrice();
             if (lineReq.itemId() != null) {
                 effectiveUnitPrice = priceListService
-                        .resolvePrice(resolvedCustomerId, lineReq.itemId(), lineReq.quantity())
+                        .resolvePrice(contact.getId(), lineReq.itemId(), lineReq.quantity())
                         .map(resolved -> {
                             if (resolved.compareTo(lineReq.unitPrice()) != 0) {
                                 log.info("Price list override line {}: client={} resolved={}",
@@ -444,9 +412,9 @@ public class InvoiceService {
     }
 
     @Transactional(readOnly = true)
-    public Page<InvoiceResponse> listInvoiceResponsesByCustomer(UUID customerId, Pageable pageable) {
+    public Page<InvoiceResponse> listInvoiceResponsesByContact(UUID contactId, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        return invoiceRepository.findByOrgIdAndCustomerIdAndIsDeletedFalseOrderByInvoiceDateDesc(orgId, customerId, pageable)
+        return invoiceRepository.findByOrgIdAndContactIdAndIsDeletedFalseOrderByInvoiceDateDesc(orgId, contactId, pageable)
                 .map(this::toResponse);
     }
 
@@ -469,7 +437,7 @@ public class InvoiceService {
     }
 
     public InvoiceResponse toResponse(Invoice inv) {
-        Customer customer = customerRepository.findById(inv.getCustomerId()).orElse(null);
+        Contact contact = contactRepository.findById(inv.getContactId()).orElse(null);
         List<TaxLineItem> taxLines = taxLineItemRepository.findBySourceTypeAndSourceId("INVOICE", inv.getId());
 
         List<InvoiceResponse.LineResponse> lineResponses = inv.getLines().stream()
@@ -487,8 +455,8 @@ public class InvoiceService {
                 .toList();
 
         return new InvoiceResponse(
-                inv.getId(), inv.getCustomerId(),
-                customer != null ? customer.getName() : null,
+                inv.getId(), inv.getContactId(),
+                contact != null ? contact.getDisplayName() : null,
                 inv.getInvoiceNumber(), inv.getInvoiceDate(), inv.getDueDate(),
                 inv.getStatus(), inv.getSubtotal(), inv.getTaxAmount(),
                 inv.getTotalAmount(), inv.getAmountPaid(), inv.getBalanceDue(),

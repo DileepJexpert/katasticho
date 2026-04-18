@@ -6,7 +6,7 @@ import com.katasticho.erp.ar.dto.CreateInvoiceRequest;
 import com.katasticho.erp.ar.dto.InvoiceLineRequest;
 import com.katasticho.erp.ar.dto.InvoiceResponse;
 import com.katasticho.erp.ar.entity.Invoice;
-import com.katasticho.erp.ar.repository.CustomerRepository;
+
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.service.InvoiceService;
 import com.katasticho.erp.audit.AuditService;
@@ -64,7 +64,6 @@ public class RecurringInvoiceService {
     private final RecurringInvoiceRepository templateRepository;
     private final RecurringInvoiceGenerationRepository generationRepository;
     private final ContactRepository contactRepository;
-    private final CustomerRepository customerRepository;
     private final InvoiceRepository invoiceRepository;
     private final InvoiceService invoiceService;
     private final AuditService auditService;
@@ -317,11 +316,10 @@ public class RecurringInvoiceService {
             return null;
         }
 
-        // Ensure the buyer is still a valid customer.
-        customerRepository.findByIdAndOrgIdAndIsDeletedFalse(template.getContactId(), template.getOrgId())
+        Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(template.getContactId(), template.getOrgId())
                 .orElseThrow(() -> new BusinessException(
-                        "Template buyer is no longer a customer",
-                        "REC_CONTACT_NOT_CUSTOMER", HttpStatus.BAD_REQUEST));
+                        "Template buyer contact not found",
+                        "REC_CONTACT_NOT_FOUND", HttpStatus.BAD_REQUEST));
 
         LocalDate invoiceDate = LocalDate.now();
         LocalDate dueDate = template.getPaymentTermsDays() > 0
@@ -346,12 +344,11 @@ public class RecurringInvoiceService {
                 .toList();
 
         CreateInvoiceRequest invoiceRequest = new CreateInvoiceRequest(
-                template.getContactId(),   // customerId
-                template.getContactId(),   // contactId
+                template.getContactId(),
                 invoiceDate,
                 dueDate,
-                null,                       // placeOfSupply — derived
-                false,                      // reverseCharge
+                null,
+                false,
                 template.getNotes() != null
                         ? "Auto-generated from template: " + template.getProfileName()
                                 + "\n\n" + template.getNotes()

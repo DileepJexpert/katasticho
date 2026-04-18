@@ -13,8 +13,7 @@ import '../features/invoices/presentation/invoice_detail_screen.dart';
 import '../features/contacts/presentation/contact_list_screen.dart';
 import '../features/contacts/presentation/contact_create_screen.dart';
 import '../features/contacts/presentation/contact_detail_screen.dart';
-import '../features/customers/presentation/customer_list_screen.dart';
-import '../features/customers/presentation/customer_detail_screen.dart';
+
 import '../features/expenses/presentation/expense_list_screen.dart';
 import '../features/expenses/presentation/expense_create_screen.dart';
 import '../features/expenses/presentation/expense_detail_screen.dart';
@@ -91,8 +90,7 @@ class Routes {
   static const recurringInvoices = '/recurring-invoices';
   static const recurringInvoiceCreate = '/recurring-invoices/create';
   static const recurringInvoiceDetail = '/recurring-invoices/:id';
-  static const customers = '/customers';
-  static const customerDetail = '/customers/:id';
+
   static const items = '/items';
   static const itemCreate = '/items/create';
   static const itemImport = '/items/import';
@@ -312,18 +310,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               templateId: state.pathParameters['id']!,
             ),
           ),
-          GoRoute(
-            path: Routes.customers,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: CustomerListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/customers/:id',
-            builder: (context, state) => CustomerDetailScreen(
-              customerId: state.pathParameters['id']!,
-            ),
-          ),
+
           GoRoute(
             path: Routes.items,
             pageBuilder: (context, state) => const NoTransitionPage(

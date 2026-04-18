@@ -6,7 +6,6 @@ import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ar.dto.CreateInvoiceRequest;
 import com.katasticho.erp.ar.dto.InvoiceLineRequest;
 import com.katasticho.erp.ar.dto.InvoiceResponse;
-import com.katasticho.erp.ar.entity.Customer;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.entity.TaxLineItem;
 import com.katasticho.erp.ar.repository.*;
@@ -14,6 +13,8 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.entity.ContactType;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
 import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
@@ -48,7 +49,6 @@ class InvoiceServiceTest {
 
     @Mock private InvoiceRepository invoiceRepository;
     @Mock private TaxLineItemRepository taxLineItemRepository;
-    @Mock private CustomerRepository customerRepository;
     @Mock private ContactRepository contactRepository;
     @Mock private InvoiceNumberSequenceRepository sequenceRepository;
     @Mock private OrganisationRepository organisationRepository;
@@ -66,12 +66,12 @@ class InvoiceServiceTest {
     private UUID orgId;
     private UUID userId;
     private Organisation org;
-    private Customer customer;
+    private Contact contact;
 
     @BeforeEach
     void setUp() {
         invoiceService = new InvoiceService(
-                invoiceRepository, taxLineItemRepository, customerRepository,
+                invoiceRepository, taxLineItemRepository,
                 contactRepository, sequenceRepository, organisationRepository,
                 branchRepository,
                 journalService, taxEngine, currencyService,
@@ -91,10 +91,11 @@ class InvoiceServiceTest {
         org = Organisation.builder().name("Test Corp").stateCode("MH").build();
         org.setId(orgId);
 
-        customer = Customer.builder().name("Acme Ltd").billingStateCode("MH").billingCountry("IN")
+        contact = Contact.builder().displayName("Acme Ltd").contactType(ContactType.CUSTOMER)
+                .billingStateCode("MH").billingCountry("IN")
                 .paymentTermsDays(30).build();
-        customer.setId(UUID.randomUUID());
-        customer.setOrgId(orgId);
+        contact.setId(UUID.randomUUID());
+        contact.setOrgId(orgId);
     }
 
     @AfterEach
@@ -102,8 +103,8 @@ class InvoiceServiceTest {
         TenantContext.clear();
     }
 
-    private void stubCustomerLookup(Customer c) {
-        lenient().when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
+    private void stubContactLookup(Contact c) {
+        lenient().when(contactRepository.findById(c.getId())).thenReturn(Optional.of(c));
     }
 
     private void stubTaxLineLookup(UUID invoiceId, List<TaxLineItem> taxLines) {
@@ -111,7 +112,6 @@ class InvoiceServiceTest {
                 .thenReturn(taxLines);
     }
 
-    /** Stub taxEngine for intra-state GST 18%: CGST 9% + SGST 9% */
     private void stubIntraStateTax(BigDecimal taxableAmount) {
         UUID gstGroupId = UUID.randomUUID();
         lenient().when(taxEngine.resolveGroupId(eq(orgId), eq(new BigDecimal("18")), eq("MH"), eq("MH")))
@@ -131,7 +131,6 @@ class InvoiceServiceTest {
                         totalTax));
     }
 
-    /** Stub taxEngine for inter-state GST 18%: IGST 18% */
     private void stubInterStateTax(BigDecimal taxableAmount) {
         UUID igstGroupId = UUID.randomUUID();
         lenient().when(taxEngine.resolveGroupId(eq(orgId), eq(new BigDecimal("18")), eq("MH"), eq("KA")))
@@ -147,13 +146,12 @@ class InvoiceServiceTest {
                         tax));
     }
 
-    // T-AR-01: Invoice creation with GST auto-calculation (intra-state CGST+SGST)
     @Test
     void shouldCreateInvoiceWithCgstSgst() {
         when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
-        when(customerRepository.findByIdAndOrgIdAndIsDeletedFalse(customer.getId(), orgId))
-                .thenReturn(Optional.of(customer));
-        stubCustomerLookup(customer);
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contact.getId(), orgId))
+                .thenReturn(Optional.of(contact));
+        stubContactLookup(contact);
         when(sequenceRepository.findByOrgIdAndPrefixAndYear(eq(orgId), eq("INV"), anyInt()))
                 .thenReturn(Optional.empty());
         when(sequenceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -173,12 +171,10 @@ class InvoiceServiceTest {
             return i;
         });
 
-        // 2 x 5000 = 10000 taxable
         stubIntraStateTax(new BigDecimal("10000.00"));
 
         var request = new CreateInvoiceRequest(
-                customer.getId(),
-                null,
+                contact.getId(),
                 LocalDate.of(2026, 4, 11),
                 null,
                 "MH",
@@ -210,18 +206,17 @@ class InvoiceServiceTest {
         assertEquals(0, new BigDecimal("900.00").compareTo(taxLines.get(1).getTaxAmount()));
     }
 
-    // T-AR-01b: Invoice creation with IGST (inter-state)
     @Test
     void shouldCreateInvoiceWithIgstForInterState() {
-        Customer kaCustomer = Customer.builder().name("Bangalore Ltd")
+        Contact kaContact = Contact.builder().displayName("Bangalore Ltd").contactType(ContactType.CUSTOMER)
                 .billingStateCode("KA").billingCountry("IN").paymentTermsDays(30).build();
-        kaCustomer.setId(UUID.randomUUID());
-        kaCustomer.setOrgId(orgId);
+        kaContact.setId(UUID.randomUUID());
+        kaContact.setOrgId(orgId);
 
         when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
-        when(customerRepository.findByIdAndOrgIdAndIsDeletedFalse(kaCustomer.getId(), orgId))
-                .thenReturn(Optional.of(kaCustomer));
-        stubCustomerLookup(kaCustomer);
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(kaContact.getId(), orgId))
+                .thenReturn(Optional.of(kaContact));
+        stubContactLookup(kaContact);
         when(sequenceRepository.findByOrgIdAndPrefixAndYear(eq(orgId), eq("INV"), anyInt()))
                 .thenReturn(Optional.empty());
         when(sequenceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -239,12 +234,10 @@ class InvoiceServiceTest {
             return i;
         });
 
-        // 1 x 10000 = 10000 taxable, inter-state
         stubInterStateTax(new BigDecimal("10000.00"));
 
         var request = new CreateInvoiceRequest(
-                kaCustomer.getId(),
-                null,
+                kaContact.getId(),
                 LocalDate.of(2026, 4, 11),
                 null,
                 "KA",
@@ -266,11 +259,10 @@ class InvoiceServiceTest {
         assertEquals(0, new BigDecimal("1800.00").compareTo(taxLines.get(0).getTaxAmount()));
     }
 
-    // T-AR-02: sendInvoice() posts correct journal entry
     @Test
     void shouldPostJournalOnSendInvoice() {
         Invoice draftInvoice = Invoice.builder()
-                .orgId(orgId).customerId(customer.getId())
+                .orgId(orgId).contactId(contact.getId())
                 .invoiceNumber("INV-2026-000001").invoiceDate(LocalDate.of(2026, 4, 11))
                 .dueDate(LocalDate.of(2026, 5, 11)).status("DRAFT")
                 .subtotal(new BigDecimal("10000.00")).taxAmount(new BigDecimal("1800.00"))
@@ -293,7 +285,7 @@ class InvoiceServiceTest {
                 .thenReturn(Optional.of(draftInvoice));
         when(taxLineItemRepository.findBySourceTypeAndSourceId("INVOICE", draftInvoice.getId()))
                 .thenReturn(List.of(cgst, sgst));
-        stubCustomerLookup(customer);
+        stubContactLookup(contact);
         when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));
 
         JournalEntry mockJournal = JournalEntry.builder()
@@ -324,7 +316,6 @@ class InvoiceServiceTest {
         assertEquals("2021", journalReq.lines().get(3).accountCode());
     }
 
-    // T-AR-02b: Cannot send non-DRAFT invoice
     @Test
     void shouldRejectSendForNonDraftInvoice() {
         Invoice sentInvoice = Invoice.builder().orgId(orgId).status("SENT").build();
@@ -338,7 +329,6 @@ class InvoiceServiceTest {
         assertEquals("AR_INVOICE_NOT_DRAFT", ex.getErrorCode());
     }
 
-    // T-AR-03: Cancel invoice with existing payments should fail
     @Test
     void shouldRejectCancelForInvoiceWithPayments() {
         Invoice paidInvoice = Invoice.builder().orgId(orgId).status("PARTIALLY_PAID")
@@ -353,11 +343,10 @@ class InvoiceServiceTest {
         assertEquals("AR_INVOICE_HAS_PAYMENTS", ex.getErrorCode());
     }
 
-    // T-AR-03b: Cancel SENT invoice should reverse journal
     @Test
     void shouldReverseJournalOnCancelSentInvoice() {
         UUID journalId = UUID.randomUUID();
-        Invoice sentInvoice = Invoice.builder().orgId(orgId).customerId(customer.getId())
+        Invoice sentInvoice = Invoice.builder().orgId(orgId).contactId(contact.getId())
                 .status("SENT").invoiceNumber("INV-2026-000001")
                 .journalEntryId(journalId)
                 .amountPaid(BigDecimal.ZERO)
@@ -371,7 +360,7 @@ class InvoiceServiceTest {
                 .thenReturn(Optional.of(sentInvoice));
         when(journalService.reverseEntry(journalId)).thenReturn(reversal);
         when(invoiceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        stubCustomerLookup(customer);
+        stubContactLookup(contact);
         stubTaxLineLookup(sentInvoice.getId(), Collections.emptyList());
 
         InvoiceResponse result = invoiceService.cancelInvoice(sentInvoice.getId(), "Error in invoice");
@@ -380,13 +369,12 @@ class InvoiceServiceTest {
         verify(journalService).reverseEntry(journalId);
     }
 
-    // Test discount calculation
     @Test
     void shouldApplyDiscountCorrectly() {
         when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
-        when(customerRepository.findByIdAndOrgIdAndIsDeletedFalse(customer.getId(), orgId))
-                .thenReturn(Optional.of(customer));
-        stubCustomerLookup(customer);
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contact.getId(), orgId))
+                .thenReturn(Optional.of(contact));
+        stubContactLookup(contact);
         when(sequenceRepository.findByOrgIdAndPrefixAndYear(eq(orgId), eq("INV"), anyInt()))
                 .thenReturn(Optional.empty());
         when(sequenceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -404,12 +392,10 @@ class InvoiceServiceTest {
             return i;
         });
 
-        // 10 x 1000 = 10000 gross, 10% discount = 9000 taxable
         stubIntraStateTax(new BigDecimal("9000.00"));
 
         var request = new CreateInvoiceRequest(
-                customer.getId(),
-                null,
+                contact.getId(),
                 LocalDate.of(2026, 4, 11),
                 null, "MH", false, null, null,
                 List.of(new InvoiceLineRequest("Product", "8471", new BigDecimal("10"),

@@ -122,7 +122,7 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
           final balanceDue =
               (invoice['balanceDue'] as num?)?.toDouble() ?? total;
           final customerName =
-              invoice['customerName'] as String? ?? 'Customer';
+              invoice['contactName'] as String? ?? 'Customer';
 
           // Pre-fill amount with balance due
           if (_amountController.text.isEmpty) {

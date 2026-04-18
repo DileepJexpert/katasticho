@@ -62,11 +62,11 @@ public class InvoiceController {
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(page)));
     }
 
-    @GetMapping("/customer/{customerId}")
+    @GetMapping("/contact/{contactId}")
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
-    public ResponseEntity<ApiResponse<PagedResponse<InvoiceResponse>>> listByCustomer(
-            @PathVariable UUID customerId, Pageable pageable) {
-        Page<InvoiceResponse> page = invoiceService.listInvoiceResponsesByCustomer(customerId, pageable);
+    public ResponseEntity<ApiResponse<PagedResponse<InvoiceResponse>>> listByContact(
+            @PathVariable UUID contactId, Pageable pageable) {
+        Page<InvoiceResponse> page = invoiceService.listInvoiceResponsesByContact(contactId, pageable);
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(page)));
     }
 

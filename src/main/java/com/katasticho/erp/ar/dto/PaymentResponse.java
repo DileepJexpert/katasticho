@@ -7,8 +7,8 @@ import java.util.UUID;
 
 public record PaymentResponse(
         UUID id,
-        UUID customerId,
-        String customerName,
+        UUID contactId,
+        String contactName,
         UUID invoiceId,
         String invoiceNumber,
         String paymentNumber,
