@@ -226,28 +226,16 @@ class _TaxAccountMappingScreenState
   }
 
   Future<void> _confirmReset() async {
-    final ok = await showDialog<bool>(
+    final ok = await KDialog.confirm(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Reset tax mappings?'),
-        content: const Text(
+      title: 'Reset tax mappings?',
+      message:
           'This drops every customisation and re-binds tax rates to the '
           'country-default GL accounts. Continue?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: KColors.error),
-            child: const Text('Reset'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Reset',
+      destructive: true,
     );
-    if (ok != true || !mounted) return;
+    if (!ok || !mounted) return;
 
     setState(() {
       _resetting = true;
