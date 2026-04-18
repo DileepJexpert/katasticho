@@ -53,6 +53,15 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
 
     // ─── Dashboard aggregation queries ───────────────────────────────────
 
+    /** Total outstanding AR (sum of balanceDue) for all open invoices. */
+    @Query("""
+        SELECT COALESCE(SUM(i.balanceDue), 0) FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.isDeleted = false
+          AND i.status IN ('SENT','PARTIALLY_PAID','OVERDUE')
+    """)
+    java.math.BigDecimal sumOutstandingAr(UUID orgId);
+
     /** Total invoiced revenue for an org within a date range (inclusive). */
     @Query("""
         SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i
