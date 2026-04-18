@@ -100,4 +100,23 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
         UUID getBranchId();
         BigDecimal getTotal();
     }
+
+    /** Daily revenue totals for trend chart (one row per day that had invoices). */
+    @Query("""
+        SELECT i.invoiceDate AS date, COALESCE(SUM(i.totalAmount), 0) AS total
+        FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.isDeleted = false
+          AND i.status <> 'CANCELLED'
+          AND i.invoiceDate >= :from
+          AND i.invoiceDate <= :to
+        GROUP BY i.invoiceDate
+        ORDER BY i.invoiceDate
+    """)
+    List<DailyRevenueRow> sumRevenueDailyByOrg(UUID orgId, LocalDate from, LocalDate to);
+
+    interface DailyRevenueRow {
+        LocalDate getDate();
+        BigDecimal getTotal();
+    }
 }

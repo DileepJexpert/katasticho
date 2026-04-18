@@ -5,6 +5,7 @@ import com.katasticho.erp.dashboard.dto.ApSummaryResponse;
 import com.katasticho.erp.dashboard.dto.ArSummaryResponse;
 import com.katasticho.erp.dashboard.dto.MonthlyProfitResponse;
 import com.katasticho.erp.dashboard.dto.RecentBillResponse;
+import com.katasticho.erp.dashboard.dto.RevenueTrendResponse;
 import com.katasticho.erp.dashboard.dto.TodaySalesResponse;
 import com.katasticho.erp.dashboard.dto.TopSellingItem;
 import lombok.RequiredArgsConstructor;
@@ -60,6 +61,13 @@ public class DashboardController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) UUID branchId) {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.getApSummary(from, to, branchId)));
+    }
+
+    @GetMapping("/revenue-trend")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<RevenueTrendResponse>> revenueTrend(
+            @RequestParam(required = false, defaultValue = "30") int days) {
+        return ResponseEntity.ok(ApiResponse.ok(dashboardService.getRevenueTrend(days)));
     }
 
     @GetMapping("/receivables")
