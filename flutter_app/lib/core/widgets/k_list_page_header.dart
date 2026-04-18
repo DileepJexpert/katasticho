@@ -45,6 +45,14 @@ class KListPageHeader extends StatefulWidget {
   final TextEditingController? searchController;
   final List<Widget>? actions;
 
+  /// When > 0 the header renders a bulk-selection bar in place of the
+  /// title row — "{count} selected" + [selectionActions] + a close (X)
+  /// button that triggers [onClearSelection]. Tab strip stays hidden
+  /// while selection is active.
+  final int selectionCount;
+  final VoidCallback? onClearSelection;
+  final List<Widget>? selectionActions;
+
   const KListPageHeader({
     super.key,
     required this.title,
@@ -55,6 +63,9 @@ class KListPageHeader extends StatefulWidget {
     this.onSearchChanged,
     this.searchController,
     this.actions,
+    this.selectionCount = 0,
+    this.onClearSelection,
+    this.selectionActions,
   });
 
   @override
@@ -101,10 +112,13 @@ class _KListPageHeaderState extends State<KListPageHeader> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasTabs = widget.tabs != null && widget.tabs!.isNotEmpty;
+    final inSelection = widget.selectionCount > 0;
 
     return Container(
       decoration: BoxDecoration(
-        color: cs.surface,
+        color: inSelection
+            ? cs.primary.withValues(alpha: 0.08)
+            : cs.surface,
         border: Border(
           bottom: BorderSide(
             color: cs.outlineVariant.withValues(alpha: isDark ? 0.4 : 0.7),
@@ -122,29 +136,36 @@ class _KListPageHeaderState extends State<KListPageHeader> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 180),
-                child: _searchExpanded
-                    ? _SearchRow(
-                        key: const ValueKey('search'),
-                        controller: _controller,
-                        focusNode: _focusNode,
-                        hint: widget.searchHint,
-                        onChanged: widget.onSearchChanged,
-                        onClose: _closeSearch,
+                child: inSelection
+                    ? _SelectionRow(
+                        key: const ValueKey('selection'),
+                        count: widget.selectionCount,
+                        onClose: widget.onClearSelection,
+                        actions: widget.selectionActions,
                       )
-                    : _TitleRow(
-                        key: const ValueKey('title'),
-                        title: widget.title,
-                        actions: widget.actions,
-                        onSearchTap: widget.onSearchChanged != null
-                            ? _openSearch
-                            : null,
-                      ),
+                    : _searchExpanded
+                        ? _SearchRow(
+                            key: const ValueKey('search'),
+                            controller: _controller,
+                            focusNode: _focusNode,
+                            hint: widget.searchHint,
+                            onChanged: widget.onSearchChanged,
+                            onClose: _closeSearch,
+                          )
+                        : _TitleRow(
+                            key: const ValueKey('title'),
+                            title: widget.title,
+                            actions: widget.actions,
+                            onSearchTap: widget.onSearchChanged != null
+                                ? _openSearch
+                                : null,
+                          ),
               ),
             ),
           ),
 
           // ── Tab chips ────────────────────────────────────────────
-          if (hasTabs)
+          if (hasTabs && !inSelection)
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -265,6 +286,46 @@ class _SearchRow extends StatelessWidget {
                 )
               : const SizedBox.shrink(),
         ),
+      ],
+    );
+  }
+}
+
+class _SelectionRow extends StatelessWidget {
+  final int count;
+  final VoidCallback? onClose;
+  final List<Widget>? actions;
+
+  const _SelectionRow({
+    super.key,
+    required this.count,
+    required this.onClose,
+    required this.actions,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.close_rounded, size: 20),
+          tooltip: 'Clear selection',
+          color: cs.onSurface,
+          visualDensity: VisualDensity.compact,
+          onPressed: onClose,
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            '$count selected',
+            style: KTypography.labelLarge.copyWith(
+              color: cs.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        if (actions != null) ...actions!,
       ],
     );
   }
