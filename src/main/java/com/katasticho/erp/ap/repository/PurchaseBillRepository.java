@@ -53,6 +53,16 @@ public interface PurchaseBillRepository extends JpaRepository<PurchaseBill, UUID
         Pageable pageable
     );
 
+    /** Total purchase cost (COGS proxy) for non-cancelled bills in a date range. */
+    @Query("""
+        SELECT COALESCE(SUM(b.totalAmount), 0) FROM PurchaseBill b
+        WHERE b.orgId = :orgId
+          AND b.isDeleted = false
+          AND b.status <> 'CANCELLED'
+          AND b.billDate BETWEEN :from AND :to
+    """)
+    java.math.BigDecimal sumCogsByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
+
     @Query("""
         SELECT b FROM PurchaseBill b
         WHERE b.orgId = :orgId

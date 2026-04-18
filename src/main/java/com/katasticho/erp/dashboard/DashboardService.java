@@ -10,6 +10,7 @@ import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.dashboard.dto.*;
+import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.organisation.Branch;
@@ -220,6 +221,67 @@ public class DashboardService {
                     bill.getTotalAmount(),
                     bill.getBillDate());
         }).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ArSummaryResponse getArSummary() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        LocalDate today = LocalDate.now();
+        LocalDate weekFromNow = today.plusDays(7);
+
+        Organisation org = organisationRepository.findById(orgId)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
+
+        List<Invoice> outstanding = invoiceRepository.findOutstandingInvoices(orgId);
+
+        int overdueCount = 0;
+        BigDecimal dueThisWeek = BigDecimal.ZERO;
+        int dueThisWeekCount = 0;
+
+        for (Invoice inv : outstanding) {
+            if (inv.getDueDate() != null && inv.getDueDate().isBefore(today)) {
+                overdueCount++;
+            }
+            if (inv.getDueDate() != null
+                    && !inv.getDueDate().isBefore(today)
+                    && !inv.getDueDate().isAfter(weekFromNow)) {
+                dueThisWeek = dueThisWeek.add(inv.getBalanceDue());
+                dueThisWeekCount++;
+            }
+        }
+
+        BigDecimal totalOutstanding = invoiceRepository.sumOutstandingAr(orgId);
+
+        return new ArSummaryResponse(
+                totalOutstanding, overdueCount, dueThisWeek, dueThisWeekCount,
+                org.getBaseCurrency());
+    }
+
+    @Transactional(readOnly = true)
+    public MonthlyProfitResponse getMonthlyProfit(LocalDate from, LocalDate to) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        LocalDate today = LocalDate.now();
+        LocalDate firstOfMonth = today.withDayOfMonth(1);
+        LocalDate effectiveFrom = from != null ? from : firstOfMonth;
+        LocalDate effectiveTo = to != null ? to : today;
+        if (effectiveTo.isBefore(effectiveFrom)) {
+            throw new BusinessException("'to' must be on or after 'from'",
+                    "DASHBOARD_INVALID_RANGE",
+                    org.springframework.http.HttpStatus.BAD_REQUEST);
+        }
+
+        Organisation org = organisationRepository.findById(orgId)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
+
+        BigDecimal revenue = invoiceRepository.sumRevenueByOrgAndDateRange(
+                orgId, effectiveFrom, effectiveTo);
+        BigDecimal cogs = purchaseBillRepository.sumCogsByOrgAndDateRange(
+                orgId, effectiveFrom, effectiveTo);
+        BigDecimal grossProfit = revenue.subtract(cogs);
+
+        return new MonthlyProfitResponse(
+                effectiveFrom, effectiveTo, revenue, cogs, grossProfit,
+                org.getBaseCurrency());
     }
 
     /**

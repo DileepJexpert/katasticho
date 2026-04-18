@@ -2,6 +2,8 @@ package com.katasticho.erp.dashboard;
 
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.dashboard.dto.ApSummaryResponse;
+import com.katasticho.erp.dashboard.dto.ArSummaryResponse;
+import com.katasticho.erp.dashboard.dto.MonthlyProfitResponse;
 import com.katasticho.erp.dashboard.dto.RecentBillResponse;
 import com.katasticho.erp.dashboard.dto.TodaySalesResponse;
 import com.katasticho.erp.dashboard.dto.TopSellingItem;
@@ -58,6 +60,20 @@ public class DashboardController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) UUID branchId) {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.getApSummary(from, to, branchId)));
+    }
+
+    @GetMapping("/receivables")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<ArSummaryResponse>> receivables() {
+        return ResponseEntity.ok(ApiResponse.ok(dashboardService.getArSummary()));
+    }
+
+    @GetMapping("/monthly-profit")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<MonthlyProfitResponse>> monthlyProfit(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(ApiResponse.ok(dashboardService.getMonthlyProfit(from, to)));
     }
 
     @GetMapping("/recent-bills")
