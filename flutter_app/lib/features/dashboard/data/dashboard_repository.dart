@@ -143,6 +143,22 @@ class DashboardRepository {
         .toList();
   }
 
+  Future<ArSummaryData> getArSummary() async {
+    final response = await _api.get(ApiConfig.dashboardReceivables);
+    return ArSummaryData.fromJson(_unwrap(response.data));
+  }
+
+  Future<MonthlyProfitData> getMonthlyProfit(DashboardFilter filter) async {
+    final response = await _api.get(
+      ApiConfig.dashboardMonthlyProfit,
+      queryParameters: {
+        'from': _fmtDate(filter.from),
+        'to': _fmtDate(filter.to),
+      },
+    );
+    return MonthlyProfitData.fromJson(_unwrap(response.data));
+  }
+
   Future<Map<String, dynamic>> seedSharmaMedical() async {
     final response = await _api.post(ApiConfig.demoSeedSharmaMedical);
     return _unwrap(response.data);
@@ -183,4 +199,15 @@ final apSummaryProvider =
 final recentBillsProvider =
     FutureProvider.autoDispose<List<RecentBillData>>((ref) async {
   return ref.watch(dashboardRepositoryProvider).getRecentBills();
+});
+
+final arSummaryProvider =
+    FutureProvider.autoDispose<ArSummaryData>((ref) async {
+  return ref.watch(dashboardRepositoryProvider).getArSummary();
+});
+
+final monthlyProfitProvider =
+    FutureProvider.autoDispose<MonthlyProfitData>((ref) async {
+  final filter = ref.watch(dashboardFilterProvider);
+  return ref.watch(dashboardRepositoryProvider).getMonthlyProfit(filter);
 });
