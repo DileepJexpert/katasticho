@@ -7,20 +7,13 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/recurring_invoice_repository.dart';
 
-/// Supported status filters — maps to RecurringStatus on the backend.
-const _statusFilters = <_StatusFilter>[
-  _StatusFilter('All', null),
-  _StatusFilter('Active', 'ACTIVE'),
-  _StatusFilter('Paused', 'PAUSED'),
-  _StatusFilter('Stopped', 'STOPPED'),
-  _StatusFilter('Expired', 'EXPIRED'),
+const _statusTabs = [
+  KListTab(label: 'All'),
+  KListTab(label: 'Active', value: 'ACTIVE'),
+  KListTab(label: 'Paused', value: 'PAUSED'),
+  KListTab(label: 'Stopped', value: 'STOPPED'),
+  KListTab(label: 'Expired', value: 'EXPIRED'),
 ];
-
-class _StatusFilter {
-  final String label;
-  final String? value;
-  const _StatusFilter(this.label, this.value);
-}
 
 class RecurringInvoiceListScreen extends ConsumerStatefulWidget {
   const RecurringInvoiceListScreen({super.key});
@@ -40,29 +33,15 @@ class _RecurringInvoiceListScreenState
     final asyncTemplates = ref.watch(recurringInvoiceListProvider(filters));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Recurring Invoices')),
       body: Column(
         children: [
-          SizedBox(
-            height: 52,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: KSpacing.md, vertical: KSpacing.sm),
-              scrollDirection: Axis.horizontal,
-              itemCount: _statusFilters.length,
-              separatorBuilder: (_, __) => KSpacing.hGapSm,
-              itemBuilder: (_, i) {
-                final f = _statusFilters[i];
-                final selected = _status == f.value;
-                return FilterChip(
-                  label: Text(f.label),
-                  selected: selected,
-                  onSelected: (_) => setState(() => _status = f.value),
-                );
-              },
-            ),
+          KListPageHeader(
+            title: 'Recurring Invoices',
+            searchHint: 'Search recurring invoices…',
+            tabs: _statusTabs,
+            selectedTab: _status,
+            onTabChanged: (v) => setState(() => _status = v),
           ),
-          const Divider(height: 1),
           Expanded(
             child: asyncTemplates.when(
               loading: () => const KShimmerList(),
@@ -92,8 +71,8 @@ class _RecurringInvoiceListScreenState
                 }
 
                 return RefreshIndicator(
-                  onRefresh: () async => ref
-                      .invalidate(recurringInvoiceListProvider(filters)),
+                  onRefresh: () async =>
+                      ref.invalidate(recurringInvoiceListProvider(filters)),
                   child: ListView.separated(
                     padding: KSpacing.pagePadding,
                     itemCount: templates.length,
@@ -181,14 +160,12 @@ class _TemplateCard extends StatelessWidget {
                 KSpacing.vGapXs,
                 Row(
                   children: [
-                    Icon(Icons.repeat,
-                        size: 12, color: KColors.textHint),
+                    Icon(Icons.repeat, size: 12, color: KColors.textHint),
                     const SizedBox(width: 4),
                     Text(_prettyFrequency(frequency),
                         style: KTypography.labelSmall),
                     const SizedBox(width: 10),
-                    Icon(Icons.event,
-                        size: 12, color: KColors.textHint),
+                    Icon(Icons.event, size: 12, color: KColors.textHint),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(

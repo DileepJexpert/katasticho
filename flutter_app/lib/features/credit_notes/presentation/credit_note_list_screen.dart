@@ -9,62 +9,100 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/credit_note_providers.dart';
 
-class CreditNoteListScreen extends ConsumerWidget {
+const _statusTabs = [
+  KListTab(label: 'All'),
+  KListTab(label: 'Draft', value: 'DRAFT'),
+  KListTab(label: 'Open', value: 'OPEN'),
+  KListTab(label: 'Applied', value: 'APPLIED'),
+  KListTab(label: 'Void', value: 'VOID'),
+];
+
+class CreditNoteListScreen extends ConsumerStatefulWidget {
   const CreditNoteListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CreditNoteListScreen> createState() =>
+      _CreditNoteListScreenState();
+}
+
+class _CreditNoteListScreenState extends ConsumerState<CreditNoteListScreen> {
+  String? _status;
+
+  @override
+  Widget build(BuildContext context) {
     final creditNotesAsync = ref.watch(creditNoteListProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Credit Notes'),
-      ),
-      body: creditNotesAsync.when(
-        loading: () => const KShimmerList(),
-        error: (err, _) => KErrorView(
-          message: 'Failed to load credit notes',
-          onRetry: () => ref.invalidate(creditNoteListProvider),
-        ),
-        data: (data) {
-          final content = data['data'];
-          if (content == null) {
-            return KEmptyState(
-              icon: Icons.note_alt_outlined,
-              title: 'No credit notes yet',
-              subtitle: 'Create a credit note to issue refunds or adjustments',
-              actionLabel: 'Create Credit Note',
-              onAction: () => context.go(Routes.creditNoteCreate),
-            );
-          }
+      body: Column(
+        children: [
+          KListPageHeader(
+            title: 'Credit Notes',
+            searchHint: 'Search credit notes…',
+            tabs: _statusTabs,
+            selectedTab: _status,
+            onTabChanged: (v) => setState(() => _status = v),
+          ),
+          Expanded(
+            child: creditNotesAsync.when(
+              loading: () => const KShimmerList(),
+              error: (err, _) => KErrorView(
+                message: 'Failed to load credit notes',
+                onRetry: () => ref.invalidate(creditNoteListProvider),
+              ),
+              data: (data) {
+                final content = data['data'];
+                if (content == null) {
+                  return KEmptyState(
+                    icon: Icons.note_alt_outlined,
+                    title: 'No credit notes yet',
+                    subtitle:
+                        'Create a credit note to issue refunds or adjustments',
+                    actionLabel: 'Create Credit Note',
+                    onAction: () => context.go(Routes.creditNoteCreate),
+                  );
+                }
 
-          final creditNotes = (content is List)
-              ? content
-              : (content['content'] as List?) ?? [];
+                var creditNotes = (content is List)
+                    ? content
+                    : (content['content'] as List?) ?? [];
 
-          if (creditNotes.isEmpty) {
-            return KEmptyState(
-              icon: Icons.note_alt_outlined,
-              title: 'No credit notes found',
-              subtitle: 'Create a credit note to get started',
-              actionLabel: 'Create Credit Note',
-              onAction: () => context.go(Routes.creditNoteCreate),
-            );
-          }
+                if (_status != null) {
+                  creditNotes = creditNotes
+                      .where((c) =>
+                          (c as Map<String, dynamic>)['status'] == _status)
+                      .toList();
+                }
 
-          return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(creditNoteListProvider),
-            child: ListView.separated(
-              padding: KSpacing.pagePadding,
-              itemCount: creditNotes.length,
-              separatorBuilder: (_, __) => KSpacing.vGapSm,
-              itemBuilder: (context, index) {
-                final cn = creditNotes[index] as Map<String, dynamic>;
-                return _CreditNoteCard(creditNote: cn);
+                if (creditNotes.isEmpty) {
+                  return KEmptyState(
+                    icon: Icons.note_alt_outlined,
+                    title: 'No credit notes found',
+                    subtitle: _status != null
+                        ? 'No ${_status!.toLowerCase()} credit notes'
+                        : 'Create a credit note to get started',
+                    actionLabel: 'Create Credit Note',
+                    onAction: () => context.go(Routes.creditNoteCreate),
+                  );
+                }
+
+                return RefreshIndicator(
+                  onRefresh: () async =>
+                      ref.invalidate(creditNoteListProvider),
+                  child: ListView.separated(
+                    padding: KSpacing.pagePadding,
+                    itemCount: creditNotes.length,
+                    separatorBuilder: (_, __) => KSpacing.vGapSm,
+                    itemBuilder: (context, index) {
+                      final cn =
+                          creditNotes[index] as Map<String, dynamic>;
+                      return _CreditNoteCard(creditNote: cn);
+                    },
+                  ),
+                );
               },
             ),
-          );
-        },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.go(Routes.creditNoteCreate),

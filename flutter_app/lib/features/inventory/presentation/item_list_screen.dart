@@ -18,52 +18,34 @@ class ItemListScreen extends ConsumerStatefulWidget {
 }
 
 class _ItemListScreenState extends ConsumerState<ItemListScreen> {
-  final _searchController = TextEditingController();
   String? _searchQuery;
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final itemsAsync = ref.watch(itemListProvider(_searchQuery));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Items'),
-        actions: [
-          IconButton(
-            tooltip: 'Item groups (variant templates)',
-            icon: const Icon(Icons.category_outlined),
-            onPressed: () => context.push(Routes.itemGroups),
-          ),
-          IconButton(
-            tooltip: 'Bulk import from CSV',
-            icon: const Icon(Icons.upload_file_outlined),
-            onPressed: () => context.go(Routes.itemImport),
-          ),
-        ],
-      ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(KSpacing.md, KSpacing.md, KSpacing.md, KSpacing.sm),
-            child: KTextField.search(
-              controller: _searchController,
-              hint: 'Search by SKU or name',
-              onChanged: (v) {
-                setState(() {
-                  _searchQuery = v.trim().isEmpty ? null : v.trim();
-                });
-              },
-              onClear: () {
-                _searchController.clear();
-                setState(() => _searchQuery = null);
-              },
-            ),
+          KListPageHeader(
+            title: 'Items',
+            searchHint: 'Search by SKU or name',
+            onSearchChanged: (q) =>
+                setState(() => _searchQuery = q.trim().isEmpty ? null : q.trim()),
+            actions: [
+              IconButton(
+                tooltip: 'Item groups (variant templates)',
+                icon: const Icon(Icons.category_outlined, size: 20),
+                visualDensity: VisualDensity.compact,
+                onPressed: () => context.push(Routes.itemGroups),
+              ),
+              IconButton(
+                tooltip: 'Bulk import from CSV',
+                icon: const Icon(Icons.upload_file_outlined, size: 20),
+                visualDensity: VisualDensity.compact,
+                onPressed: () => context.go(Routes.itemImport),
+              ),
+            ],
           ),
           Expanded(
             child: itemsAsync.when(

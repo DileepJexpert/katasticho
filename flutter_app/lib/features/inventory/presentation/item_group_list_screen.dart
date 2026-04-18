@@ -8,8 +8,6 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/item_group_repository.dart';
 
-/// F5 — flat list of variant templates (item groups). Tapping a row
-/// drills into the detail screen where variants live.
 class ItemGroupListScreen extends ConsumerWidget {
   const ItemGroupListScreen({super.key});
 
@@ -18,46 +16,52 @@ class ItemGroupListScreen extends ConsumerWidget {
     final groupsAsync = ref.watch(itemGroupListProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Item Groups')),
-      body: groupsAsync.when(
-        loading: () => const KShimmerList(),
-        error: (err, st) {
-          debugPrint('[ItemGroupListScreen] ERROR: $err\n$st');
-          return KErrorView(
-            message: 'Failed to load item groups',
-            onRetry: () => ref.invalidate(itemGroupListProvider),
-          );
-        },
-        data: (data) {
-          final content = data['data'];
-          final groups = content is List
-              ? content
-              : (content is Map ? (content['content'] as List?) ?? [] : []);
+      body: Column(
+        children: [
+          const KListPageHeader(title: 'Item Groups'),
+          Expanded(
+            child: groupsAsync.when(
+              loading: () => const KShimmerList(),
+              error: (err, st) {
+                debugPrint('[ItemGroupListScreen] ERROR: $err\n$st');
+                return KErrorView(
+                  message: 'Failed to load item groups',
+                  onRetry: () => ref.invalidate(itemGroupListProvider),
+                );
+              },
+              data: (data) {
+                final content = data['data'];
+                final groups = content is List
+                    ? content
+                    : (content is Map ? (content['content'] as List?) ?? [] : []);
 
-          if (groups.isEmpty) {
-            return KEmptyState(
-              icon: Icons.category_outlined,
-              title: 'No item groups yet',
-              subtitle:
-                  'Group similar items (e.g. T-Shirt) and let the matrix tool mint every size + colour variant in one click.',
-              actionLabel: 'Create Group',
-              onAction: () => context.push('/item-groups/create'),
-            );
-          }
+                if (groups.isEmpty) {
+                  return KEmptyState(
+                    icon: Icons.category_outlined,
+                    title: 'No item groups yet',
+                    subtitle:
+                        'Group similar items (e.g. T-Shirt) and let the matrix tool mint every size + colour variant in one click.',
+                    actionLabel: 'Create Group',
+                    onAction: () => context.push('/item-groups/create'),
+                  );
+                }
 
-          return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(itemGroupListProvider),
-            child: ListView.separated(
-              padding: KSpacing.pagePadding,
-              itemCount: groups.length,
-              separatorBuilder: (_, __) => KSpacing.vGapSm,
-              itemBuilder: (context, index) {
-                final group = groups[index] as Map<String, dynamic>;
-                return _GroupCard(group: group);
+                return RefreshIndicator(
+                  onRefresh: () async => ref.invalidate(itemGroupListProvider),
+                  child: ListView.separated(
+                    padding: KSpacing.pagePadding,
+                    itemCount: groups.length,
+                    separatorBuilder: (_, __) => KSpacing.vGapSm,
+                    itemBuilder: (context, index) {
+                      final group = groups[index] as Map<String, dynamic>;
+                      return _GroupCard(group: group);
+                    },
+                  ),
+                );
               },
             ),
-          );
-        },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/item-groups/create'),
