@@ -7,8 +7,8 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 
 /// Reusable aging bucket breakdown — renders Current / 1-30 / 31-60 /
-/// 61-90 / 90+ rows with colour-coded bars. Used inside the bottom
-/// sheet that opens when tapping the Receivables or Payables KPI tile.
+/// 61-90 / 90+ rows with colour-coded bars. Rendered inline under the
+/// KPI grid when the Receivables or Payables tile is tapped.
 class AgingBreakdown extends StatelessWidget {
   final String title;
   final double totalOutstanding;
@@ -47,22 +47,11 @@ class AgingBreakdown extends StatelessWidget {
     ];
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
           Row(
             children: [
               Text(title,
@@ -98,10 +87,7 @@ class AgingBreakdown extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                context.go(reportRoute);
-              },
+              onPressed: () => context.go(reportRoute),
               icon: Icon(Icons.arrow_forward, size: 16, color: accentColor),
               label: Text('View Full Report',
                   style: KTypography.labelMedium

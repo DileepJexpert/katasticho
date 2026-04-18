@@ -19,11 +19,24 @@ import '../widgets/top_selling_widget.dart';
 import '../widgets/branch_selector_widget.dart';
 import '../widgets/date_range_picker_widget.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  String? _expandedAging; // 'ar' | 'ap' | null
+
+  void _toggleAging(String id) {
+    setState(() {
+      _expandedAging = _expandedAging == id ? null : id;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final config = DashboardConfig.forIndustry(authState.industry);
     final width = MediaQuery.of(context).size.width;
@@ -69,7 +82,16 @@ class DashboardScreen extends ConsumerWidget {
               KSpacing.vGapMd,
 
               // KPI Cards
-              _KpiGrid(kpis: config.kpis, isDesktop: isDesktop),
+              _KpiGrid(
+                kpis: config.kpis,
+                isDesktop: isDesktop,
+                expandedAging: _expandedAging,
+                onToggleAging: _toggleAging,
+              ),
+
+              // Inline aging drill-down — slides in below the KPI grid
+              // when a Receivables/Payables tile is tapped (Zoho-style).
+              _InlineAgingPanel(expandedAging: _expandedAging),
               KSpacing.vGapLg,
 
               // Dashboard Widgets
@@ -222,8 +244,15 @@ class _GreetingStrip extends StatelessWidget {
 class _KpiGrid extends ConsumerWidget {
   final List<KpiConfig> kpis;
   final bool isDesktop;
+  final String? expandedAging;
+  final ValueChanged<String> onToggleAging;
 
-  const _KpiGrid({required this.kpis, required this.isDesktop});
+  const _KpiGrid({
+    required this.kpis,
+    required this.isDesktop,
+    required this.expandedAging,
+    required this.onToggleAging,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -232,8 +261,6 @@ class _KpiGrid extends ConsumerWidget {
     final apSummaryAsync = ref.watch(apSummaryProvider);
     final arSummaryAsync = ref.watch(arSummaryProvider);
     final monthlyProfitAsync = ref.watch(monthlyProfitProvider);
-    final arAgingAsync = ref.watch(arAgingProvider);
-    final apAgingAsync = ref.watch(apAgingProvider);
 
     return GridView.builder(
       shrinkWrap: true,
@@ -242,13 +269,13 @@ class _KpiGrid extends ConsumerWidget {
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: KSpacing.md,
         mainAxisSpacing: KSpacing.md,
-        mainAxisExtent: isDesktop ? 152 : 158,
+        mainAxisExtent: isDesktop ? 112 : 116,
       ),
       itemCount: kpis.length,
       itemBuilder: (context, index) {
         final kpi = kpis[index];
 
-        // Payables KPI — tap opens AP aging bottom sheet
+        // Payables KPI — tap expands AP aging panel inline below the grid
         if (kpi.id == 'payables') {
           return apSummaryAsync.when(
             loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
@@ -276,13 +303,15 @@ class _KpiGrid extends ConsumerWidget {
                 iconColor: kpi.color,
                 trend: trend,
                 trendPositive: trendPositive,
-                onTap: () => _showApAging(context, apAgingAsync),
+                showChevron: true,
+                expanded: expandedAging == 'ap',
+                onTap: () => onToggleAging('ap'),
               );
             },
           );
         }
 
-        // Receivables KPI — tap opens AR aging bottom sheet
+        // Receivables KPI — tap expands AR aging panel inline below the grid
         if (kpi.id == 'receivables') {
           return arSummaryAsync.when(
             loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
@@ -310,7 +339,9 @@ class _KpiGrid extends ConsumerWidget {
                 iconColor: kpi.color,
                 trend: trend,
                 trendPositive: trendPositive,
-                onTap: () => _showArAging(context, arAgingAsync),
+                showChevron: true,
+                expanded: expandedAging == 'ar',
+                onTap: () => onToggleAging('ar'),
               );
             },
           );
@@ -323,6 +354,25 @@ class _KpiGrid extends ConsumerWidget {
             error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
             data: (mp) {
               final value = CurrencyFormatter.formatCompact(mp.grossProfit);
+              return KKpiCard(
+                title: kpi.title,
+                value: value,
+                icon: kpi.icon,
+                iconColor: kpi.color,
+                trend: 'MTD',
+              );
+            },
+          );
+        }
+
+        // Monthly Revenue KPI also reads MTD revenue from monthlyProfitProvider
+        // so it doesn't get collapsed to zero by the date-range filter.
+        if (kpi.id == 'monthly_revenue') {
+          return monthlyProfitAsync.when(
+            loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
+            error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
+            data: (mp) {
+              final value = CurrencyFormatter.formatCompact(mp.revenue);
               return KKpiCard(
                 title: kpi.title,
                 value: value,
@@ -361,73 +411,106 @@ class _KpiGrid extends ConsumerWidget {
         return (CurrencyFormatter.formatCompact(data.revenue as double), 'Today');
       case 'cash_collected':
         return (CurrencyFormatter.formatCompact(data.cashCollected as double), 'Today');
-      case 'monthly_revenue':
-        return (CurrencyFormatter.formatCompact(data.revenue as double), 'MTD');
       case 'avg_order_value':
         return (CurrencyFormatter.formatCompact(data.revenue as double), 'Avg');
       default:
         return (CurrencyFormatter.formatCompact(0), '--');
     }
   }
+}
 
-  void _showArAging(BuildContext context, AsyncValue<dynamic> arAgingAsync) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => arAgingAsync.when(
-        loading: () => const SizedBox(
-          height: 200,
-          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        ),
-        error: (_, __) => const SizedBox(
-          height: 100,
-          child: Center(child: Text('Failed to load aging data')),
-        ),
-        data: (ar) => AgingBreakdown(
-          title: 'Receivables',
-          totalOutstanding: ar.totalOutstanding,
-          current: ar.current,
-          days1to30: ar.days1to30,
-          days31to60: ar.days31to60,
-          days61to90: ar.days61to90,
-          days90plus: ar.days90plus,
-          reportRoute: '/reports/ageing',
-          accentColor: const Color(0xFFF59E0B),
-        ),
-      ),
+/// Inline aging drill-down panel — replaces the bottom sheet. Slides in
+/// below the KPI grid with an AnimatedSize transition, Zoho-style.
+class _InlineAgingPanel extends ConsumerWidget {
+  final String? expandedAging;
+  const _InlineAgingPanel({required this.expandedAging});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      alignment: Alignment.topCenter,
+      child: expandedAging == null
+          ? const SizedBox(width: double.infinity)
+          : Padding(
+              padding: const EdgeInsets.only(top: KSpacing.md),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  borderRadius:
+                      BorderRadius.circular(KSpacing.radiusLg),
+                  border: Border.all(
+                      color: cs.outlineVariant.withValues(alpha: 0.6)),
+                ),
+                child: expandedAging == 'ar'
+                    ? const _InlineArAging()
+                    : const _InlineApAging(),
+              ),
+            ),
     );
   }
+}
 
-  void _showApAging(BuildContext context, AsyncValue<dynamic> apAgingAsync) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => apAgingAsync.when(
-        loading: () => const SizedBox(
-          height: 200,
-          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        ),
-        error: (_, __) => const SizedBox(
-          height: 100,
-          child: Center(child: Text('Failed to load aging data')),
-        ),
-        data: (ap) => AgingBreakdown(
-          title: 'Payables',
-          totalOutstanding: ap.totalOutstanding,
-          current: ap.current,
-          days1to30: ap.days1to30,
-          days31to60: ap.days31to60,
-          days61to90: ap.days61to90,
-          days90plus: ap.days90plus,
-          reportRoute: '/reports/ap-ageing',
-          accentColor: const Color(0xFFEF4444),
-        ),
-      ),
-    );
+class _InlineArAging extends ConsumerWidget {
+  const _InlineArAging();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref.watch(arAgingProvider).when(
+          loading: () => const SizedBox(
+            height: 160,
+            child:
+                Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          error: (_, __) => const SizedBox(
+            height: 100,
+            child: Center(child: Text('Failed to load aging data')),
+          ),
+          data: (ar) => AgingBreakdown(
+            title: 'Receivables Aging',
+            totalOutstanding: ar.totalOutstanding,
+            current: ar.current,
+            days1to30: ar.days1to30,
+            days31to60: ar.days31to60,
+            days61to90: ar.days61to90,
+            days90plus: ar.days90plus,
+            reportRoute: '/reports/ageing',
+            accentColor: const Color(0xFFF59E0B),
+          ),
+        );
+  }
+}
+
+class _InlineApAging extends ConsumerWidget {
+  const _InlineApAging();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref.watch(apAgingProvider).when(
+          loading: () => const SizedBox(
+            height: 160,
+            child:
+                Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          error: (_, __) => const SizedBox(
+            height: 100,
+            child: Center(child: Text('Failed to load aging data')),
+          ),
+          data: (ap) => AgingBreakdown(
+            title: 'Payables Aging',
+            totalOutstanding: ap.totalOutstanding,
+            current: ap.current,
+            days1to30: ap.days1to30,
+            days31to60: ap.days31to60,
+            days61to90: ap.days61to90,
+            days90plus: ap.days90plus,
+            reportRoute: '/reports/ap-ageing',
+            accentColor: const Color(0xFFEF4444),
+          ),
+        );
   }
 }
 
