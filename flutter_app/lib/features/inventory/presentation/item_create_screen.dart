@@ -153,7 +153,9 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
           ? null
           : _categoryController.text.trim(),
       'hsnCode': _hsnController.text.trim().isEmpty ? null : _hsnController.text.trim(),
-      'unitOfMeasure': _uomController.text.trim().isEmpty ? 'PCS' : _uomController.text.trim(),
+      'unitOfMeasure': _itemType == 'SERVICE'
+          ? null
+          : (_uomController.text.trim().isEmpty ? 'PCS' : _uomController.text.trim()),
       'itemType': _itemType,
       'purchasePrice': double.tryParse(_purchasePriceController.text) ?? 0,
       'salePrice': double.tryParse(_salePriceController.text) ?? 0,
@@ -457,7 +459,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                     children: [
                       Expanded(
                         child: KTextField(
-                          label: 'HSN Code',
+                          label: _itemType == 'SERVICE' ? 'SAC Code' : 'HSN Code',
                           controller: _hsnController,
                         ),
                       ),
@@ -472,12 +474,14 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                       ),
                     ],
                   ),
-                  KSpacing.vGapMd,
-                  KTextField(
-                    label: 'Unit of Measure',
-                    controller: _uomController,
-                    prefixIcon: Icons.straighten,
-                  ),
+                  if (_itemType != 'SERVICE') ...[
+                    KSpacing.vGapMd,
+                    KTextField(
+                      label: 'Unit of Measure',
+                      controller: _uomController,
+                      prefixIcon: Icons.straighten,
+                    ),
+                  ],
                   KSpacing.vGapLg,
 
                   if (_itemType == 'COMPOSITE') ...[
