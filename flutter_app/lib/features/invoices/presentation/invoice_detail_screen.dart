@@ -13,6 +13,7 @@ import '../../../core/utils/whatsapp_share.dart';
 import '../../../routing/app_router.dart';
 import '../data/invoice_providers.dart';
 import '../data/invoice_repository.dart';
+import '../data/invoice_timeline_events.dart';
 import 'invoice_pdf_screen.dart';
 
 class InvoiceDetailScreen extends ConsumerWidget {
@@ -359,10 +360,8 @@ class _InvoiceDetailBody extends ConsumerWidget {
                 _PaymentsTab(invoiceId: invoiceId),
 
                 // Activity tab
-                KActivityTimeline(
-                  entityType: 'INVOICE',
-                  entityId: invoiceId,
-                ),
+                _InvoiceActivityTab(
+                    invoice: invoice, invoiceId: invoiceId),
               ],
             ),
           ),
@@ -460,5 +459,38 @@ class _PaymentsTab extends ConsumerWidget {
       default:
         return method;
     }
+  }
+}
+
+/// Activity tab for invoice detail — fetches payments alongside comments
+/// so we can synthesize a proper audit trail.
+class _InvoiceActivityTab extends ConsumerWidget {
+  final Map<String, dynamic> invoice;
+  final String invoiceId;
+
+  const _InvoiceActivityTab(
+      {required this.invoice, required this.invoiceId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final paymentsAsync = ref.watch(invoicePaymentsProvider(invoiceId));
+
+    return paymentsAsync.when(
+      loading: () => KActivityTimeline(
+        entityType: 'INVOICE',
+        entityId: invoiceId,
+        systemEvents: InvoiceTimelineEvents.from(invoice, const []),
+      ),
+      error: (_, __) => KActivityTimeline(
+        entityType: 'INVOICE',
+        entityId: invoiceId,
+        systemEvents: InvoiceTimelineEvents.from(invoice, const []),
+      ),
+      data: (payments) => KActivityTimeline(
+        entityType: 'INVOICE',
+        entityId: invoiceId,
+        systemEvents: InvoiceTimelineEvents.from(invoice, payments),
+      ),
+    );
   }
 }

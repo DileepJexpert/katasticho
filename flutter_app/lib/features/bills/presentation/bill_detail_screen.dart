@@ -13,6 +13,7 @@ import '../../../core/utils/whatsapp_share.dart';
 import '../data/bill_dto.dart';
 import '../data/bill_providers.dart';
 import '../data/bill_repository.dart';
+import '../data/bill_timeline_events.dart';
 import 'widgets/bill_status_chip.dart';
 import 'widgets/record_payment_bottom_sheet.dart';
 
@@ -398,10 +399,7 @@ class _BillDetailBody extends ConsumerWidget {
                 _PaymentsTab(billId: billId),
 
                 // Activity tab
-                KActivityTimeline(
-                  entityType: 'BILL',
-                  entityId: billId,
-                ),
+                _BillActivityTab(bill: bill, billId: billId),
               ],
             ),
           ),
@@ -564,6 +562,43 @@ class _PaymentsTab extends ConsumerWidget {
               ),
             );
           },
+        );
+      },
+    );
+  }
+}
+
+class _BillActivityTab extends ConsumerWidget {
+  final Map<String, dynamic> bill;
+  final String billId;
+
+  const _BillActivityTab({required this.bill, required this.billId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final paymentsAsync = ref.watch(billPaymentsProvider(billId));
+
+    return paymentsAsync.when(
+      loading: () => KActivityTimeline(
+        entityType: 'BILL',
+        entityId: billId,
+        systemEvents: BillTimelineEvents.from(bill, const []),
+      ),
+      error: (_, __) => KActivityTimeline(
+        entityType: 'BILL',
+        entityId: billId,
+        systemEvents: BillTimelineEvents.from(bill, const []),
+      ),
+      data: (data) {
+        final payments = data['data'] is List
+            ? data['data'] as List
+            : (data['data'] is Map
+                ? (data['data']['content'] as List?) ?? []
+                : <dynamic>[]);
+        return KActivityTimeline(
+          entityType: 'BILL',
+          entityId: billId,
+          systemEvents: BillTimelineEvents.from(bill, payments),
         );
       },
     );
