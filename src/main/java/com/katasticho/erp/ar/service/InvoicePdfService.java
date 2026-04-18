@@ -28,6 +28,11 @@ public class InvoicePdfService {
         return pdfService.render(buildHtml(inv, org));
     }
 
+    /** Called by email service when org is already loaded — avoids a redundant DB lookup. */
+    public byte[] generatePdf(InvoiceResponse inv, Organisation org) {
+        return pdfService.render(buildHtml(inv, org));
+    }
+
     /** Package-visible: reused by email service to embed HTML in email body. */
     String buildHtml(InvoiceResponse inv, Organisation org) {
         StringBuilder sb = new StringBuilder();

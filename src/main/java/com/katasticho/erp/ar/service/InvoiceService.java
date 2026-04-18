@@ -13,6 +13,7 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.common.service.DocumentEmailService;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.currency.CurrencyService;
@@ -68,6 +69,7 @@ public class InvoiceService {
     private final PriceListService priceListService;
     private final CommentService commentService;
     private final DefaultAccountService defaultAccountService;
+    private final DocumentEmailService documentEmailService;
 
     /**
      * Create a DRAFT invoice with tax calculation via TaxEngine.
@@ -339,18 +341,26 @@ public class InvoiceService {
         auditService.log("INVOICE", invoice.getId(), "SEND", "{\"status\":\"DRAFT\"}",
                 "{\"status\":\"SENT\",\"journalEntryId\":\"" + journalEntry.getId() + "\"}");
 
-        // System comment: include contact email if available
+        // Build response once — reused for both email and return value
+        InvoiceResponse response = toResponse(invoice);
+
+        // Send email and record outcome in the system comment
         String sendComment = "Invoice sent";
         if (invoice.getContactId() != null) {
             Contact contact = contactRepository.findById(invoice.getContactId()).orElse(null);
-            if (contact != null && contact.getEmail() != null) {
-                sendComment = "Invoice emailed to " + contact.getEmail();
+            if (contact != null && contact.getEmail() != null && !contact.getEmail().isBlank()) {
+                boolean emailed = documentEmailService.sendInvoice(response, contact.getEmail());
+                sendComment = emailed
+                        ? "Invoice emailed to " + contact.getEmail()
+                        : "Invoice sent (email delivery failed)";
+            } else {
+                sendComment = "Invoice sent (no email on file)";
             }
         }
         commentService.addSystemComment("INVOICE", invoice.getId(), sendComment);
 
         log.info("Invoice {} sent, journal={}", invoice.getInvoiceNumber(), journalEntry.getEntryNumber());
-        return toResponse(invoice);
+        return response;
     }
 
     /**

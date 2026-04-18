@@ -28,6 +28,11 @@ public class EstimatePdfService {
         return pdfService.render(buildHtml(estimate, org));
     }
 
+    /** Called by email service when org is already loaded — avoids a redundant DB lookup. */
+    public byte[] generatePdf(EstimateResponse estimate, Organisation org) {
+        return pdfService.render(buildHtml(estimate, org));
+    }
+
     /** Package-visible: reused by email service to embed HTML in email body. */
     String buildHtml(EstimateResponse est, Organisation org) {
         StringBuilder sb = new StringBuilder();

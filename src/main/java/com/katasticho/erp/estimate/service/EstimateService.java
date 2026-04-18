@@ -13,6 +13,7 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.common.service.DocumentEmailService;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.estimate.dto.CreateEstimateRequest;
@@ -67,6 +68,7 @@ public class EstimateService {
     private final AuditService auditService;
     private final CommentService commentService;
     private final DefaultAccountService defaultAccountService;
+    private final DocumentEmailService documentEmailService;
 
     /** States in which the seller can still edit the estimate. */
     private static final Set<String> EDITABLE_STATUSES = Set.of("DRAFT", "SENT");
@@ -207,18 +209,26 @@ public class EstimateService {
         estimate.setSentAt(Instant.now());
         estimate = estimateRepository.save(estimate);
 
-        // Best-effort: include recipient email in the comment.
+        // Build response once — reused for both email and return value
+        EstimateResponse response = toResponse(estimate);
+
+        // Send email and record outcome in the system comment
         String sendComment = "Estimate sent";
         Contact contact = contactRepository.findById(estimate.getContactId()).orElse(null);
         if (contact != null && contact.getEmail() != null && !contact.getEmail().isBlank()) {
-            sendComment = "Estimate emailed to " + contact.getEmail();
+            boolean emailed = documentEmailService.sendEstimate(response, contact.getEmail());
+            sendComment = emailed
+                    ? "Estimate emailed to " + contact.getEmail()
+                    : "Estimate sent (email delivery failed)";
+        } else {
+            sendComment = "Estimate sent (no email on file)";
         }
         commentService.addSystemComment("ESTIMATE", estimate.getId(), sendComment);
 
         auditService.log("ESTIMATE", estimate.getId(), "SEND", null,
                 "{\"status\":\"SENT\"}");
         log.info("Estimate {} sent", estimate.getEstimateNumber());
-        return toResponse(estimate);
+        return response;
     }
 
     @Transactional
