@@ -79,6 +79,9 @@ app:
     model: claude-sonnet-4-20250514
     max-tokens: 4096
     max-sql-rows: 100
+  mail:
+    from: ${MAIL_FROM:noreply@katasticho.com}
+    from-name: ${MAIL_FROM_NAME:Katasticho}
 
 ---
 spring:

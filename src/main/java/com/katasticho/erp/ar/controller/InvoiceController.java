@@ -8,9 +8,12 @@ import com.katasticho.erp.ar.service.InvoicePdfService;
 import com.katasticho.erp.ar.service.InvoiceService;
 import com.katasticho.erp.ar.service.PaymentService;
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.dto.BulkIdsRequest;
+import com.katasticho.erp.common.dto.BulkOperationResult;
 import com.katasticho.erp.common.dto.PagedResponse;
 import com.katasticho.erp.common.service.DocumentShareService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -106,6 +109,25 @@ public class InvoiceController {
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .body(pdf);
+    }
+
+    @PostMapping("/bulk-send")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<BulkOperationResult>> bulkSend(
+            @Valid @RequestBody BulkIdsRequest request) {
+        BulkOperationResult result = invoiceService.bulkSend(request.ids());
+        String msg = result.successCount() + " sent, " + result.failCount() + " failed";
+        return ResponseEntity.ok(ApiResponse.ok(result, msg));
+    }
+
+    @PostMapping("/bulk-cancel")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<BulkOperationResult>> bulkCancel(
+            @Valid @RequestBody BulkIdsRequest request) {
+        String reason = request.resolvedReason("Bulk cancelled");
+        BulkOperationResult result = invoiceService.bulkCancel(request.ids(), reason);
+        String msg = result.successCount() + " cancelled, " + result.failCount() + " failed";
+        return ResponseEntity.ok(ApiResponse.ok(result, msg));
     }
 
     @GetMapping("/{id}/whatsapp-link")

@@ -7,6 +7,8 @@ import com.katasticho.erp.ap.dto.VendorPaymentResponse;
 import com.katasticho.erp.ap.service.PurchaseBillService;
 import com.katasticho.erp.ap.service.VendorPaymentService;
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.dto.BulkIdsRequest;
+import com.katasticho.erp.common.dto.BulkOperationResult;
 import com.katasticho.erp.common.dto.EntityCommentResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
 import com.katasticho.erp.common.entity.EntityAttachment;
@@ -141,6 +143,25 @@ public class PurchaseBillController {
     public ResponseEntity<ApiResponse<List<EntityAttachment>>> listAttachments(@PathVariable UUID id) {
         List<EntityAttachment> attachments = attachmentService.list("BILL", id);
         return ResponseEntity.ok(ApiResponse.ok(attachments));
+    }
+
+    @PostMapping("/bulk-post")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<BulkOperationResult>> bulkPost(
+            @Valid @RequestBody BulkIdsRequest request) {
+        BulkOperationResult result = billService.bulkPost(request.ids());
+        String msg = result.successCount() + " posted, " + result.failCount() + " failed";
+        return ResponseEntity.ok(ApiResponse.ok(result, msg));
+    }
+
+    @PostMapping("/bulk-void")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<BulkOperationResult>> bulkVoid(
+            @Valid @RequestBody BulkIdsRequest request) {
+        String reason = request.resolvedReason("Bulk voided");
+        BulkOperationResult result = billService.bulkVoid(request.ids(), reason);
+        String msg = result.successCount() + " voided, " + result.failCount() + " failed";
+        return ResponseEntity.ok(ApiResponse.ok(result, msg));
     }
 
     @GetMapping("/{id}/whatsapp-link")

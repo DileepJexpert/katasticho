@@ -35,13 +35,49 @@ class _EstimateListScreenState extends ConsumerState<EstimateListScreen> {
 
   void _clearSelection() => setState(_selectedIds.clear);
 
+  Future<void> _bulkSend() async {
+    final count = _selectedIds.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Send $count estimate${count == 1 ? '' : 's'}?'),
+        content: const Text('Selected estimates will be marked as sent and emailed to contacts.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Go Back')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final repo = ref.read(estimateRepositoryProvider);
+    final ids = _selectedIds.toList();
+    try {
+      final result = await repo.bulkSend(ids);
+      if (!mounted) return;
+      setState(_selectedIds.clear);
+      ref.invalidate(estimateListProvider(EstimateFilters(status: _status)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_bulkMsg(result, 'Sent'))));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error));
+    }
+  }
+
   Future<void> _bulkDelete() async {
     final count = _selectedIds.length;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Delete $count estimate${count == 1 ? '' : 's'}?'),
-        content: const Text('This action cannot be undone.'),
+        content: const Text('Only DRAFT estimates can be deleted. This cannot be undone.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -62,23 +98,26 @@ class _EstimateListScreenState extends ConsumerState<EstimateListScreen> {
     final repo = ref.read(estimateRepositoryProvider);
     final filters = EstimateFilters(status: _status);
     final ids = _selectedIds.toList();
-    int success = 0, failed = 0;
-    for (final id in ids) {
-      try {
-        await repo.deleteEstimate(id);
-        success++;
-      } catch (_) {
-        failed++;
-      }
+    try {
+      final result = await repo.bulkDelete(ids);
+      if (!mounted) return;
+      setState(_selectedIds.clear);
+      ref.invalidate(estimateListProvider(filters));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_bulkMsg(result, 'Deleted'))));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error));
     }
-    if (!mounted) return;
-    setState(_selectedIds.clear);
-    ref.invalidate(estimateListProvider(filters));
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(failed == 0
-          ? 'Deleted $success estimate${success == 1 ? '' : 's'}'
-          : 'Deleted $success, $failed failed'),
-    ));
+  }
+
+  String _bulkMsg(Map<String, dynamic> result, String verb) {
+    final data = (result['data'] as Map?) ?? {};
+    final success = (data['successCount'] as num?)?.toInt() ?? 0;
+    final fail = (data['failCount'] as num?)?.toInt() ?? 0;
+    if (fail == 0) return '$verb $success successfully';
+    return '$verb $success, $fail failed';
   }
 
   @override
@@ -99,6 +138,12 @@ class _EstimateListScreenState extends ConsumerState<EstimateListScreen> {
             selectionCount: _selectedIds.length,
             onClearSelection: _clearSelection,
             selectionActions: [
+              IconButton(
+                icon: const Icon(Icons.send_outlined, size: 20),
+                tooltip: 'Send selected',
+                visualDensity: VisualDensity.compact,
+                onPressed: _bulkSend,
+              ),
               IconButton(
                 icon: const Icon(Icons.delete_outline_rounded, size: 20),
                 tooltip: 'Delete selected',

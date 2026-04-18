@@ -47,6 +47,7 @@ class KStatusChip extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             displayLabel,
+            overflow: TextOverflow.ellipsis,
             style: KTypography.labelSmall.copyWith(
               color: color,
               fontWeight: FontWeight.w600,

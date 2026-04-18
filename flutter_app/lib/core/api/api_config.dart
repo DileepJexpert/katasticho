@@ -186,6 +186,14 @@ class ApiConfig {
   static String billComments(String id) => '/api/v1/bills/$id/comments';
   static String billAttachments(String id) => '/api/v1/bills/$id/attachments';
 
+  // Bulk operations
+  static const String bulkSendInvoices = '/api/v1/invoices/bulk-send';
+  static const String bulkCancelInvoices = '/api/v1/invoices/bulk-cancel';
+  static const String bulkSendEstimates = '/api/v1/estimates/bulk-send';
+  static const String bulkDeleteEstimates = '/api/v1/estimates/bulk-delete';
+  static const String bulkPostBills = '/api/v1/bills/bulk-post';
+  static const String bulkVoidBills = '/api/v1/bills/bulk-void';
+
   // AP — Vendor Payments
   static const String vendorPayments = '/api/v1/vendor-payments';
   static String vendorPaymentById(String id) => '/api/v1/vendor-payments/$id';
