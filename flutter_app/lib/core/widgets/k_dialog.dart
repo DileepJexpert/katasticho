@@ -68,29 +68,35 @@ class KDialog extends StatelessWidget {
     String cancelLabel = 'Cancel',
     bool destructive = false,
   }) async {
-    final result = await show<bool>(
+    // IMPORTANT: build the actions inside the dialog's own builder so their
+    // onPressed callbacks capture the *dialog* route's context. Using the
+    // caller's `context` would pop the underlying page instead of the dialog.
+    final result = await showDialog<bool>(
       context: context,
-      title: title,
-      child: Text(
-        message,
-        style: KTypography.bodyMedium.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+      barrierDismissible: true,
+      builder: (dialogCtx) => KDialog(
+        title: title,
+        child: Text(
+          message,
+          style: KTypography.bodyMedium.copyWith(
+            color: Theme.of(dialogCtx).colorScheme.onSurfaceVariant,
+          ),
         ),
+        actions: [
+          KButton(
+            label: cancelLabel,
+            variant: KButtonVariant.text,
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+          ),
+          KButton(
+            label: confirmLabel,
+            variant: destructive
+                ? KButtonVariant.danger
+                : KButtonVariant.primary,
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+          ),
+        ],
       ),
-      actions: [
-        KButton(
-          label: cancelLabel,
-          variant: KButtonVariant.text,
-          onPressed: () => Navigator.of(context).pop(false),
-        ),
-        KButton(
-          label: confirmLabel,
-          variant: destructive
-              ? KButtonVariant.danger
-              : KButtonVariant.primary,
-          onPressed: () => Navigator.of(context).pop(true),
-        ),
-      ],
     );
     return result == true;
   }
