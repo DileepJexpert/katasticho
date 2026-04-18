@@ -65,8 +65,9 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
           'notes': _notesController.text.trim(),
       });
 
-      // Invalidate invoice detail so it refreshes
+      // Invalidate invoice detail + payments list so they refresh
       ref.invalidate(invoiceDetailProvider(widget.invoiceId));
+      ref.invalidate(invoicePaymentsProvider(widget.invoiceId));
       ref.invalidate(invoiceListProvider);
 
       if (mounted) {
