@@ -4,8 +4,8 @@ import com.katasticho.erp.ap.dto.VendorPaymentRequest;
 import com.katasticho.erp.ap.dto.VendorPaymentResponse;
 import com.katasticho.erp.ap.service.VendorPaymentService;
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.dto.EntityCommentResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
-import com.katasticho.erp.common.entity.EntityComment;
 import com.katasticho.erp.common.service.CommentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -65,19 +65,19 @@ public class VendorPaymentController {
 
     @PostMapping("/{id}/comments")
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
-    public ResponseEntity<ApiResponse<EntityComment>> addComment(
+    public ResponseEntity<ApiResponse<EntityCommentResponse>> addComment(
             @PathVariable UUID id,
             @RequestBody Map<String, String> body) {
         String text = body.getOrDefault("text", "");
-        EntityComment comment = commentService.addComment("VENDOR_PAYMENT", id, text);
+        EntityCommentResponse comment = commentService.addComment("VENDOR_PAYMENT", id, text);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(comment));
     }
 
     @GetMapping("/{id}/comments")
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
-    public ResponseEntity<ApiResponse<PagedResponse<EntityComment>>> listComments(
+    public ResponseEntity<ApiResponse<PagedResponse<EntityCommentResponse>>> listComments(
             @PathVariable UUID id, Pageable pageable) {
-        Page<EntityComment> page = commentService.listComments("VENDOR_PAYMENT", id, pageable);
+        Page<EntityCommentResponse> page = commentService.listComments("VENDOR_PAYMENT", id, pageable);
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(page)));
     }
 }

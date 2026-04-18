@@ -21,6 +21,7 @@ import com.katasticho.erp.ar.repository.TaxLineItemRepository;
 import com.katasticho.erp.ar.entity.InvoiceNumberSequence;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.entity.ContactType;
 import com.katasticho.erp.contact.repository.ContactRepository;
@@ -84,6 +85,7 @@ public class PurchaseBillService {
     private final CurrencyService currencyService;
     private final InventoryService inventoryService;
     private final DefaultAccountService defaultAccountService;
+    private final CommentService commentService;
 
     // ── Create ──────────────────────────────────────────────────
 
@@ -230,6 +232,7 @@ public class PurchaseBillService {
         allTaxLines.forEach(tli -> tli.setSourceId(billId));
         taxLineItemRepository.saveAll(allTaxLines);
 
+        commentService.addSystemComment("BILL", bill.getId(), "Bill created");
         log.info("Purchase bill {} created: {} lines, total={}", bill.getBillNumber(),
                 bill.getLines().size(), bill.getTotalAmount());
         return toResponse(bill);
@@ -353,6 +356,8 @@ public class PurchaseBillService {
             contactRepository.save(contact);
         }
 
+        commentService.addSystemComment("BILL", bill.getId(),
+                "Bill posted to accounts payable");
         log.info("Purchase bill {} posted, journal={}", bill.getBillNumber(),
                 journalEntry.getEntryNumber());
         return toResponse(bill);
@@ -408,6 +413,9 @@ public class PurchaseBillService {
         bill.setBalanceDue(BigDecimal.ZERO);
         bill = billRepository.save(bill);
 
+        String voidComment = (reason == null || reason.isBlank())
+                ? "Bill voided" : "Bill voided: " + reason;
+        commentService.addSystemComment("BILL", bill.getId(), voidComment);
         log.info("Purchase bill {} voided: {}", bill.getBillNumber(), reason);
         return toResponse(bill);
     }
@@ -416,6 +424,8 @@ public class PurchaseBillService {
 
     @Transactional
     public void updatePaymentStatus(PurchaseBill bill, BigDecimal paymentAmount) {
+        String previousStatus = bill.getStatus();
+
         bill.setAmountPaid(bill.getAmountPaid().add(paymentAmount));
         bill.setBalanceDue(bill.getTotalAmount().subtract(bill.getAmountPaid()));
 
@@ -427,6 +437,10 @@ public class PurchaseBillService {
         }
 
         billRepository.save(bill);
+
+        if ("PAID".equals(bill.getStatus()) && !"PAID".equals(previousStatus)) {
+            commentService.addSystemComment("BILL", bill.getId(), "Bill fully paid");
+        }
     }
 
     // ── Overdue scheduler ───────────────────────────────────────
@@ -445,6 +459,7 @@ public class PurchaseBillService {
             for (PurchaseBill bill : overdue) {
                 bill.setStatus("OVERDUE");
                 billRepository.save(bill);
+                commentService.addSystemComment(orgId, "BILL", bill.getId(), "Bill became overdue");
                 count++;
             }
         }
