@@ -19,6 +19,7 @@ class BillRepository {
     String? branchId,
     String? dateFrom,
     String? dateTo,
+    String? search,
   }) async {
     final params = <String, dynamic>{
       'page': page,
@@ -28,6 +29,7 @@ class BillRepository {
       if (branchId != null) 'branch_id': branchId,
       if (dateFrom != null) 'date_from': dateFrom,
       if (dateTo != null) 'date_to': dateTo,
+      if (search != null) 'search': search,
     };
     final response = await _api.get(ApiConfig.bills, queryParameters: params);
     return response.data as Map<String, dynamic>;
