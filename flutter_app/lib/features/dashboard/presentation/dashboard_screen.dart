@@ -14,7 +14,6 @@ import '../widgets/sales_chart_widget.dart';
 import '../widgets/low_stock_widget.dart';
 import '../widgets/revenue_by_branch_widget.dart';
 import '../widgets/purchases_by_branch_widget.dart';
-import '../widgets/cash_position_widget.dart';
 import '../widgets/recent_bills_widget.dart';
 import '../widgets/top_selling_widget.dart';
 import '../widgets/branch_selector_widget.dart';
@@ -84,8 +83,6 @@ class DashboardScreen extends ConsumerWidget {
                         children: const [
                           SalesChartWidget(),
                           SizedBox(height: 16),
-                          CashPositionWidget(),
-                          SizedBox(height: 16),
                           RevenueByBranchWidget(),
                           SizedBox(height: 16),
                           PurchasesByBranchWidget(),
@@ -110,8 +107,6 @@ class DashboardScreen extends ConsumerWidget {
                 )
               else ...[
                 const SalesChartWidget(),
-                KSpacing.vGapMd,
-                const CashPositionWidget(),
                 KSpacing.vGapMd,
                 const RevenueByBranchWidget(),
                 KSpacing.vGapMd,
@@ -261,15 +256,26 @@ class _KpiGrid extends ConsumerWidget {
             data: (ap) {
               final value =
                   CurrencyFormatter.formatCompact(ap.totalOutstanding);
-              final trend = ap.overdueCount > 0
-                  ? '${ap.overdueCount} overdue'
-                  : 'All current';
+              final String trend;
+              final bool trendPositive;
+              if (ap.dueThisWeekCount > 0) {
+                trend =
+                    '${CurrencyFormatter.formatCompact(ap.dueThisWeek)} this week';
+                trendPositive = false;
+              } else if (ap.overdueCount > 0) {
+                trend = '${ap.overdueCount} overdue';
+                trendPositive = false;
+              } else {
+                trend = 'All current';
+                trendPositive = true;
+              }
               return KKpiCard(
                 title: kpi.title,
                 value: value,
                 icon: kpi.icon,
                 iconColor: kpi.color,
                 trend: trend,
+                trendPositive: trendPositive,
                 onTap: () => _showApAging(context, apAgingAsync),
               );
             },
@@ -284,15 +290,26 @@ class _KpiGrid extends ConsumerWidget {
             data: (ar) {
               final value =
                   CurrencyFormatter.formatCompact(ar.totalOutstanding);
-              final trend = ar.overdueCount > 0
-                  ? '${ar.overdueCount} overdue'
-                  : 'All current';
+              final String trend;
+              final bool trendPositive;
+              if (ar.dueThisWeekCount > 0) {
+                trend =
+                    '${CurrencyFormatter.formatCompact(ar.dueThisWeek)} this week';
+                trendPositive = true;
+              } else if (ar.overdueCount > 0) {
+                trend = '${ar.overdueCount} overdue';
+                trendPositive = false;
+              } else {
+                trend = 'All current';
+                trendPositive = true;
+              }
               return KKpiCard(
                 title: kpi.title,
                 value: value,
                 icon: kpi.icon,
                 iconColor: kpi.color,
                 trend: trend,
+                trendPositive: trendPositive,
                 onTap: () => _showArAging(context, arAgingAsync),
               );
             },
