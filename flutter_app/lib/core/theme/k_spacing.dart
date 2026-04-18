@@ -77,8 +77,8 @@ class KSpacing {
   static const double desktopBreakpoint = 1200;
 
   // ── Sidebar ──
-  static const double sidebarWidth = 260;
-  static const double sidebarCollapsedWidth = 72;
+  static const double sidebarWidth = 220;
+  static const double sidebarCollapsedWidth = 64;
 
   // ── Modern Shadow Tokens ─────────────────────────────────────────
   // Soft, layered shadows inspired by Tailwind's shadow scale.
