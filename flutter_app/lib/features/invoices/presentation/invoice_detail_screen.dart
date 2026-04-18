@@ -94,7 +94,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
                       label: 'Record Payment',
                       icon: Icons.payments,
                       variant: KButtonVariant.secondary,
-                      onPressed: () => _showPaymentSheet(context, ref, invoice),
+                      onPressed: () => context.push('/invoices/$invoiceId/pay'),
                     ),
                   ],
                 ),
@@ -188,88 +188,6 @@ class InvoiceDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _showPaymentSheet(
-    BuildContext context,
-    WidgetRef ref,
-    Map<String, dynamic> invoice,
-  ) {
-    final balanceDue = (invoice['balanceDue'] as num?)?.toDouble() ?? 0;
-    final amountController =
-        TextEditingController(text: balanceDue.toStringAsFixed(2));
-    String paymentMethod = 'BANK_TRANSFER';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          left: KSpacing.md,
-          right: KSpacing.md,
-          top: KSpacing.lg,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Record Payment', style: KTypography.h2),
-            KSpacing.vGapMd,
-            KTextField.amount(
-              label: 'Amount',
-              controller: amountController,
-            ),
-            KSpacing.vGapMd,
-            DropdownButtonFormField<String>(
-              value: paymentMethod,
-              decoration: const InputDecoration(labelText: 'Payment Method'),
-              items: const [
-                DropdownMenuItem(value: 'CASH', child: Text('Cash')),
-                DropdownMenuItem(
-                    value: 'BANK_TRANSFER', child: Text('Bank Transfer')),
-                DropdownMenuItem(value: 'UPI', child: Text('UPI')),
-                DropdownMenuItem(value: 'CHEQUE', child: Text('Cheque')),
-                DropdownMenuItem(value: 'CARD', child: Text('Card')),
-              ],
-              onChanged: (v) => paymentMethod = v ?? 'BANK_TRANSFER',
-            ),
-            KSpacing.vGapLg,
-            KButton(
-              label: 'Record Payment',
-              icon: Icons.check,
-              fullWidth: true,
-              onPressed: () async {
-                Navigator.pop(ctx);
-                try {
-                  final repo = ref.read(invoiceRepositoryProvider);
-                  await repo.recordPayment(invoiceId, {
-                    'amount': double.tryParse(amountController.text) ?? 0,
-                    'paymentMethod': paymentMethod,
-                    'paymentDate':
-                        DateTime.now().toIso8601String().split('T')[0],
-                  });
-                  ref.invalidate(invoiceDetailProvider(invoiceId));
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Payment recorded successfully')),
-                    );
-                  }
-                } catch (_) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Failed to record payment')),
-                    );
-                  }
-                }
-              },
-            ),
-            KSpacing.vGapMd,
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _InvoiceDetailBody extends StatelessWidget {
