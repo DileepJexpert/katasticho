@@ -40,6 +40,8 @@ class DashboardScreen extends ConsumerWidget {
           ref.invalidate(branchesProvider);
           ref.invalidate(apSummaryProvider);
           ref.invalidate(recentBillsProvider);
+          ref.invalidate(arSummaryProvider);
+          ref.invalidate(monthlyProfitProvider);
           await Future.delayed(const Duration(milliseconds: 200));
         },
         child: SingleChildScrollView(
@@ -235,6 +237,8 @@ class _KpiGrid extends ConsumerWidget {
     final crossAxisCount = isDesktop ? 4 : 2;
     final todaySalesAsync = ref.watch(todaySalesProvider);
     final apSummaryAsync = ref.watch(apSummaryProvider);
+    final arSummaryAsync = ref.watch(arSummaryProvider);
+    final monthlyProfitAsync = ref.watch(monthlyProfitProvider);
 
     return GridView.builder(
       shrinkWrap: true,
@@ -268,6 +272,46 @@ class _KpiGrid extends ConsumerWidget {
                 icon: kpi.icon,
                 iconColor: kpi.color,
                 trend: trend,
+              );
+            },
+          );
+        }
+
+        // Receivables KPI hydrates from arSummaryProvider
+        if (kpi.id == 'receivables') {
+          return arSummaryAsync.when(
+            loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
+            error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
+            data: (ar) {
+              final value =
+                  CurrencyFormatter.formatCompact(ar.totalOutstanding);
+              final trend = ar.overdueCount > 0
+                  ? '${ar.overdueCount} overdue'
+                  : 'All current';
+              return KKpiCard(
+                title: kpi.title,
+                value: value,
+                icon: kpi.icon,
+                iconColor: kpi.color,
+                trend: trend,
+              );
+            },
+          );
+        }
+
+        // Monthly Profit KPI hydrates from monthlyProfitProvider
+        if (kpi.id == 'monthly_profit') {
+          return monthlyProfitAsync.when(
+            loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
+            error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
+            data: (mp) {
+              final value = CurrencyFormatter.formatCompact(mp.grossProfit);
+              return KKpiCard(
+                title: kpi.title,
+                value: value,
+                icon: kpi.icon,
+                iconColor: kpi.color,
+                trend: 'MTD',
               );
             },
           );

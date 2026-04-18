@@ -200,3 +200,59 @@ class BranchSummary {
         active: json['active'] as bool? ?? true,
       );
 }
+
+/// AR summary for the dashboard — total outstanding receivables, overdue
+/// invoice count, invoices due in the next 7 days.
+class ArSummaryData {
+  final double totalOutstanding;
+  final int overdueCount;
+  final double dueThisWeek;
+  final int dueThisWeekCount;
+  final String currency;
+
+  const ArSummaryData({
+    required this.totalOutstanding,
+    required this.overdueCount,
+    required this.dueThisWeek,
+    required this.dueThisWeekCount,
+    required this.currency,
+  });
+
+  factory ArSummaryData.fromJson(Map<String, dynamic> json) => ArSummaryData(
+        totalOutstanding:
+            (json['totalOutstanding'] as num?)?.toDouble() ?? 0.0,
+        overdueCount: (json['overdueCount'] as num?)?.toInt() ?? 0,
+        dueThisWeek: (json['dueThisWeek'] as num?)?.toDouble() ?? 0.0,
+        dueThisWeekCount: (json['dueThisWeekCount'] as num?)?.toInt() ?? 0,
+        currency: json['currency']?.toString() ?? 'INR',
+      );
+}
+
+/// Monthly profit (revenue − COGS) for the dashboard tile.
+class MonthlyProfitData {
+  final DateTime from;
+  final DateTime to;
+  final double revenue;
+  final double cogs;
+  final double grossProfit;
+  final String currency;
+
+  const MonthlyProfitData({
+    required this.from,
+    required this.to,
+    required this.revenue,
+    required this.cogs,
+    required this.grossProfit,
+    required this.currency,
+  });
+
+  factory MonthlyProfitData.fromJson(Map<String, dynamic> json) =>
+      MonthlyProfitData(
+        from: DateTime.parse(json['from'] as String),
+        to: DateTime.parse(json['to'] as String),
+        revenue: (json['revenue'] as num?)?.toDouble() ?? 0.0,
+        cogs: (json['cogs'] as num?)?.toDouble() ?? 0.0,
+        grossProfit: (json['grossProfit'] as num?)?.toDouble() ?? 0.0,
+        currency: json['currency']?.toString() ?? 'INR',
+      );
+}
