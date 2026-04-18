@@ -1,7 +1,7 @@
 package com.katasticho.erp.pricing.service;
 
-import com.katasticho.erp.ar.entity.Customer;
-import com.katasticho.erp.ar.repository.CustomerRepository;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.inventory.entity.Item;
@@ -55,7 +55,7 @@ public class PriceListService {
 
     private final PriceListRepository priceListRepository;
     private final PriceListItemRepository priceListItemRepository;
-    private final CustomerRepository customerRepository;
+    private final ContactRepository contactRepository;
     private final ItemRepository itemRepository;
 
     // ────────────────────────────────────────────────────────────────────
@@ -237,17 +237,16 @@ public class PriceListService {
      * resolver is read-only and joins the caller's transaction.
      */
     @Transactional(readOnly = true)
-    public Optional<BigDecimal> resolvePrice(UUID customerId, UUID itemId, BigDecimal quantity) {
+    public Optional<BigDecimal> resolvePrice(UUID contactId, UUID itemId, BigDecimal quantity) {
         if (itemId == null || quantity == null) {
             return Optional.empty();
         }
         UUID orgId = TenantContext.getCurrentOrgId();
 
-        // 1. Customer-pinned list
         Optional<PriceList> pinned = Optional.empty();
-        if (customerId != null) {
-            pinned = customerRepository.findByIdAndOrgIdAndIsDeletedFalse(customerId, orgId)
-                    .map(Customer::getDefaultPriceListId)
+        if (contactId != null) {
+            pinned = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId)
+                    .map(Contact::getDefaultPriceListId)
                     .flatMap(id -> priceListRepository
                             .findByIdAndOrgIdAndIsDeletedFalse(id, orgId))
                     .filter(PriceList::isActive);

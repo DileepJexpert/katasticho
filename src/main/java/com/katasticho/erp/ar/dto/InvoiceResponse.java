@@ -8,8 +8,8 @@ import java.util.UUID;
 
 public record InvoiceResponse(
         UUID id,
-        UUID customerId,
-        String customerName,
+        UUID contactId,
+        String contactName,
         String invoiceNumber,
         LocalDate invoiceDate,
         LocalDate dueDate,

@@ -6,7 +6,7 @@ import com.katasticho.erp.ar.dto.CreateInvoiceRequest;
 import com.katasticho.erp.ar.dto.InvoiceLineRequest;
 import com.katasticho.erp.ar.dto.InvoiceResponse;
 import com.katasticho.erp.ar.entity.InvoiceNumberSequence;
-import com.katasticho.erp.ar.repository.CustomerRepository;
+
 import com.katasticho.erp.ar.repository.InvoiceNumberSequenceRepository;
 import com.katasticho.erp.ar.service.InvoiceService;
 import com.katasticho.erp.audit.AuditService;
@@ -61,7 +61,6 @@ public class EstimateService {
 
     private final EstimateRepository estimateRepository;
     private final ContactRepository contactRepository;
-    private final CustomerRepository customerRepository;
     private final InvoiceNumberSequenceRepository sequenceRepository;
     private final OrganisationRepository organisationRepository;
     private final InvoiceService invoiceService;
@@ -298,13 +297,14 @@ public class EstimateService {
                     "EST_EMPTY", HttpStatus.BAD_REQUEST);
         }
 
-        // After V2__unified_contact, contact.id and customer.id share the same UUID
-        // for CUSTOMER/BOTH contacts, so we can pass the same value to both fields.
-        // Validate there's actually a Customer row for this contact.
-        customerRepository.findByIdAndOrgIdAndIsDeletedFalse(estimate.getContactId(), orgId)
-                .orElseThrow(() -> new BusinessException(
-                        "Estimate contact is not a customer — add them to customers first",
-                        "EST_CONTACT_NOT_CUSTOMER", HttpStatus.BAD_REQUEST));
+        Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(estimate.getContactId(), orgId)
+                .orElseThrow(() -> BusinessException.notFound("Contact", estimate.getContactId()));
+
+        if (!List.of("CUSTOMER", "BOTH").contains(contact.getContactType())) {
+            throw new BusinessException(
+                    "Estimate contact is not a customer",
+                    "EST_CONTACT_NOT_CUSTOMER", HttpStatus.BAD_REQUEST);
+        }
 
         String revenueCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.SALES_REVENUE);
         List<InvoiceLineRequest> invoiceLines = estimate.getLines().stream()
@@ -322,12 +322,11 @@ public class EstimateService {
                 .toList();
 
         CreateInvoiceRequest invoiceRequest = new CreateInvoiceRequest(
-                estimate.getContactId(),  // customerId
-                estimate.getContactId(),  // contactId
+                estimate.getContactId(),
                 LocalDate.now(),
-                null,                      // dueDate — InvoiceService derives from customer terms
-                null,                      // placeOfSupply — derived
-                false,                     // reverseCharge
+                null,
+                null,
+                false,
                 joinNotes(estimate),
                 estimate.getTerms(),
                 invoiceLines);

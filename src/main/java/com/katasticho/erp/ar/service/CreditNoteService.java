@@ -13,6 +13,8 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
@@ -49,7 +51,7 @@ public class CreditNoteService {
 
     private final CreditNoteRepository creditNoteRepository;
     private final TaxLineItemRepository taxLineItemRepository;
-    private final CustomerRepository customerRepository;
+    private final ContactRepository contactRepository;
     private final InvoiceRepository invoiceRepository;
     private final InvoiceNumberSequenceRepository sequenceRepository;
     private final OrganisationRepository organisationRepository;
@@ -73,10 +75,9 @@ public class CreditNoteService {
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
-        Customer customer = customerRepository.findByIdAndOrgIdAndIsDeletedFalse(request.customerId(), orgId)
-                .orElseThrow(() -> BusinessException.notFound("Customer", request.customerId()));
+        Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(request.contactId(), orgId)
+                .orElseThrow(() -> BusinessException.notFound("Contact", request.contactId()));
 
-        // If linked to invoice, validate it exists
         Invoice invoice = null;
         if (request.invoiceId() != null) {
             invoice = invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(request.invoiceId(), orgId)
@@ -85,19 +86,15 @@ public class CreditNoteService {
 
         String placeOfSupply = request.placeOfSupply() != null
                 ? request.placeOfSupply()
-                : customer.getBillingStateCode();
+                : contact.getBillingStateCode();
 
         int periodYear = invoiceService.computeFiscalYear(request.creditNoteDate(), org.getFiscalYearStart());
         String cnNumber = invoiceService.generateNumber(orgId, "CN", periodYear);
         BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.creditNoteDate());
 
-        // Resolve contactId: prefer explicit value, fall back to customerId (same UUID after V2 migration)
-        UUID resolvedContactId = request.contactId() != null ? request.contactId() : customer.getId();
-
         CreditNote cn = CreditNote.builder()
                 .orgId(orgId)
-                .customerId(customer.getId())
-                .contactId(resolvedContactId)
+                .contactId(contact.getId())
                 .invoiceId(request.invoiceId())
                 .creditNoteNumber(cnNumber)
                 .creditNoteDate(request.creditNoteDate())
@@ -308,7 +305,7 @@ public class CreditNoteService {
     }
 
     public CreditNoteResponse toResponse(CreditNote cn) {
-        Customer customer = customerRepository.findById(cn.getCustomerId()).orElse(null);
+        Contact contact = contactRepository.findById(cn.getContactId()).orElse(null);
         Invoice invoice = cn.getInvoiceId() != null ? invoiceRepository.findById(cn.getInvoiceId()).orElse(null) : null;
 
         List<CreditNoteResponse.LineResponse> lineResponses = cn.getLines().stream()
@@ -319,8 +316,8 @@ public class CreditNoteService {
                 .toList();
 
         return new CreditNoteResponse(
-                cn.getId(), cn.getCustomerId(),
-                customer != null ? customer.getName() : null,
+                cn.getId(), cn.getContactId(),
+                contact != null ? contact.getDisplayName() : null,
                 cn.getInvoiceId(),
                 invoice != null ? invoice.getInvoiceNumber() : null,
                 cn.getCreditNoteNumber(), cn.getCreditNoteDate(),

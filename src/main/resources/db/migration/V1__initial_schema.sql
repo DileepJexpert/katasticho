@@ -803,46 +803,116 @@ CREATE INDEX idx_stock_count_line_count ON stock_count_line(stock_count_id);
 
 
 -- ─────────────────────────────────────────────────────────────
--- 27. CUSTOMER  (AR master; will be superseded by contact in V2)
+-- 27. CONTACT  (unified: customers, vendors, both)
 -- ─────────────────────────────────────────────────────────────
-CREATE TABLE customer (
-    id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id                 UUID          NOT NULL REFERENCES organisation(id),
-    name                   VARCHAR(255)  NOT NULL,
-    email                  VARCHAR(255),
-    phone                  VARCHAR(20),
-    gstin                  VARCHAR(15),
-    tax_id                 VARCHAR(50),
-    pan                    VARCHAR(10),
-    billing_address_line1  VARCHAR(255),
-    billing_address_line2  VARCHAR(255),
-    billing_city           VARCHAR(100),
-    billing_state          VARCHAR(100),
-    billing_state_code     VARCHAR(5),
-    billing_postal_code    VARCHAR(20),
-    billing_country        VARCHAR(2)    DEFAULT 'IN',
-    shipping_address_line1 VARCHAR(255),
-    shipping_address_line2 VARCHAR(255),
-    shipping_city          VARCHAR(100),
-    shipping_state         VARCHAR(100),
-    shipping_state_code    VARCHAR(5),
-    shipping_postal_code   VARCHAR(20),
-    shipping_country       VARCHAR(2)    DEFAULT 'IN',
-    credit_limit           NUMERIC(15,2) DEFAULT 0,
-    payment_terms_days     INTEGER       DEFAULT 30,
-    default_price_list_id  UUID REFERENCES price_list(id),
-    notes                  TEXT,
-    is_active              BOOLEAN       NOT NULL DEFAULT TRUE,
-    is_deleted             BOOLEAN       NOT NULL DEFAULT FALSE,
-    created_at             TIMESTAMPTZ   NOT NULL DEFAULT now(),
-    updated_at             TIMESTAMPTZ   NOT NULL DEFAULT now(),
-    created_by             UUID
+CREATE TABLE contact (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id                  UUID          NOT NULL REFERENCES organisation(id),
+
+    contact_type            VARCHAR(10)   NOT NULL DEFAULT 'CUSTOMER'
+                            CHECK (contact_type IN ('CUSTOMER','VENDOR','BOTH')),
+
+    display_name            VARCHAR(255)  NOT NULL,
+    company_name            VARCHAR(255),
+    first_name              VARCHAR(100),
+    last_name               VARCHAR(100),
+    salutation              VARCHAR(20),
+
+    gstin                   VARCHAR(15),
+    pan                     VARCHAR(10),
+    tax_id                  VARCHAR(50),
+    gst_treatment           VARCHAR(30)   DEFAULT 'UNREGISTERED'
+                            CHECK (gst_treatment IN (
+                                'REGISTERED','UNREGISTERED','COMPOSITION',
+                                'CONSUMER','OVERSEAS','SEZ'
+                            )),
+    place_of_supply         VARCHAR(5),
+    msme_registered         BOOLEAN       NOT NULL DEFAULT FALSE,
+    msme_registration_no    VARCHAR(50),
+
+    email                   VARCHAR(255),
+    phone                   VARCHAR(30),
+    mobile                  VARCHAR(30),
+    website                 VARCHAR(255),
+
+    billing_address_line1   VARCHAR(255),
+    billing_address_line2   VARCHAR(255),
+    billing_city            VARCHAR(100),
+    billing_state           VARCHAR(100),
+    billing_state_code      VARCHAR(5),
+    billing_postal_code     VARCHAR(20),
+    billing_country         VARCHAR(2)    NOT NULL DEFAULT 'IN',
+
+    shipping_address_line1  VARCHAR(255),
+    shipping_address_line2  VARCHAR(255),
+    shipping_city           VARCHAR(100),
+    shipping_state          VARCHAR(100),
+    shipping_state_code     VARCHAR(5),
+    shipping_postal_code    VARCHAR(20),
+    shipping_country        VARCHAR(2)    NOT NULL DEFAULT 'IN',
+
+    currency                VARCHAR(3)    NOT NULL DEFAULT 'INR',
+    payment_terms_days      INTEGER       NOT NULL DEFAULT 30,
+    credit_limit            NUMERIC(15,2) NOT NULL DEFAULT 0,
+    opening_balance         NUMERIC(15,2) NOT NULL DEFAULT 0,
+    outstanding_ar          NUMERIC(15,2) NOT NULL DEFAULT 0,
+    outstanding_ap          NUMERIC(15,2) NOT NULL DEFAULT 0,
+    default_price_list_id   UUID REFERENCES price_list(id),
+
+    tds_applicable          BOOLEAN       NOT NULL DEFAULT FALSE,
+    tds_section             VARCHAR(20),
+    tds_rate                NUMERIC(5,2),
+
+    bank_name               VARCHAR(255),
+    bank_account_no         VARCHAR(50),
+    bank_ifsc               VARCHAR(20),
+    upi_id                  VARCHAR(50),
+
+    portal_enabled          BOOLEAN       NOT NULL DEFAULT FALSE,
+    portal_url              VARCHAR(500),
+
+    notes                   TEXT,
+
+    is_active               BOOLEAN       NOT NULL DEFAULT TRUE,
+    is_deleted              BOOLEAN       NOT NULL DEFAULT FALSE,
+    created_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    created_by              UUID
 );
 
-CREATE INDEX        idx_customer_org          ON customer(org_id)              WHERE NOT is_deleted;
-CREATE INDEX        idx_customer_org_name     ON customer(org_id, name)        WHERE NOT is_deleted;
-CREATE UNIQUE INDEX idx_customer_org_gstin    ON customer(org_id, gstin)       WHERE gstin IS NOT NULL AND NOT is_deleted;
-CREATE INDEX        idx_customer_default_pl   ON customer(default_price_list_id) WHERE default_price_list_id IS NOT NULL;
+CREATE INDEX        idx_contact_org        ON contact(org_id)                 WHERE NOT is_deleted;
+CREATE INDEX        idx_contact_org_type   ON contact(org_id, contact_type)   WHERE NOT is_deleted;
+CREATE INDEX        idx_contact_org_name   ON contact(org_id, display_name)   WHERE NOT is_deleted;
+CREATE UNIQUE INDEX idx_contact_org_gstin  ON contact(org_id, gstin)
+    WHERE gstin IS NOT NULL AND NOT is_deleted;
+CREATE INDEX        idx_contact_default_pl ON contact(default_price_list_id)
+    WHERE default_price_list_id IS NOT NULL;
+
+
+-- ─────────────────────────────────────────────────────────────
+-- 27b. CONTACT PERSON  (multiple people per contact)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE contact_person (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    contact_id  UUID         NOT NULL REFERENCES contact(id),
+    salutation  VARCHAR(20),
+    first_name  VARCHAR(100) NOT NULL,
+    last_name   VARCHAR(100),
+    designation VARCHAR(100),
+    department  VARCHAR(100),
+    email       VARCHAR(255),
+    phone       VARCHAR(30),
+    mobile      VARCHAR(30),
+    is_primary  BOOLEAN      NOT NULL DEFAULT FALSE,
+    notes       TEXT,
+    is_deleted  BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX        idx_contact_person_contact ON contact_person(contact_id) WHERE NOT is_deleted;
+CREATE UNIQUE INDEX idx_contact_person_primary ON contact_person(contact_id)
+    WHERE is_primary AND NOT is_deleted;
 
 
 -- ─────────────────────────────────────────────────────────────
@@ -852,7 +922,7 @@ CREATE TABLE invoice (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id           UUID          NOT NULL REFERENCES organisation(id),
     branch_id        UUID          REFERENCES branch(id),
-    customer_id      UUID          NOT NULL REFERENCES customer(id),
+    contact_id       UUID          NOT NULL REFERENCES contact(id),
     invoice_number   VARCHAR(30)   NOT NULL,
     invoice_date     DATE          NOT NULL,
     due_date         DATE          NOT NULL,
@@ -887,7 +957,7 @@ CREATE TABLE invoice (
 
 CREATE UNIQUE INDEX idx_invoice_org_number ON invoice(org_id, invoice_number) WHERE NOT is_deleted;
 CREATE INDEX        idx_invoice_org_status ON invoice(org_id, status);
-CREATE INDEX        idx_invoice_customer   ON invoice(customer_id);
+CREATE INDEX        idx_invoice_contact    ON invoice(contact_id);
 CREATE INDEX        idx_invoice_org_date   ON invoice(org_id, invoice_date);
 CREATE INDEX        idx_invoice_org_due    ON invoice(org_id, due_date)
     WHERE status IN ('SENT','PARTIALLY_PAID','OVERDUE');
@@ -958,7 +1028,7 @@ CREATE TABLE payment (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id           UUID          NOT NULL REFERENCES organisation(id),
     branch_id        UUID          REFERENCES branch(id),
-    customer_id      UUID          NOT NULL REFERENCES customer(id),
+    contact_id       UUID          NOT NULL REFERENCES contact(id),
     invoice_id       UUID          NOT NULL REFERENCES invoice(id),
     payment_number   VARCHAR(30)   NOT NULL,
     payment_date     DATE          NOT NULL,
@@ -981,7 +1051,7 @@ CREATE TABLE payment (
 CREATE UNIQUE INDEX idx_payment_org_number ON payment(org_id, payment_number) WHERE NOT is_deleted;
 CREATE INDEX        idx_payment_org        ON payment(org_id);
 CREATE INDEX        idx_payment_invoice    ON payment(invoice_id);
-CREATE INDEX        idx_payment_customer   ON payment(customer_id);
+CREATE INDEX        idx_payment_contact    ON payment(contact_id);
 
 
 -- ─────────────────────────────────────────────────────────────
@@ -991,7 +1061,7 @@ CREATE TABLE credit_note (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id            UUID          NOT NULL REFERENCES organisation(id),
     branch_id         UUID          REFERENCES branch(id),
-    customer_id       UUID          NOT NULL REFERENCES customer(id),
+    contact_id        UUID          NOT NULL REFERENCES contact(id),
     invoice_id        UUID REFERENCES invoice(id),
     credit_note_number VARCHAR(30)  NOT NULL,
     credit_note_date  DATE          NOT NULL,

@@ -4,16 +4,15 @@ import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.JournalEntry;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ar.dto.RecordPaymentRequest;
-import com.katasticho.erp.ar.entity.Customer;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.entity.Payment;
-import com.katasticho.erp.ar.repository.CustomerRepository;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.repository.PaymentRepository;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
 import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.currency.CurrencyService;
@@ -42,7 +41,7 @@ class PaymentServiceTest {
 
     @Mock private PaymentRepository paymentRepository;
     @Mock private InvoiceRepository invoiceRepository;
-    @Mock private CustomerRepository customerRepository;
+    @Mock private ContactRepository contactRepository;
     @Mock private OrganisationRepository organisationRepository;
     @Mock private BranchRepository branchRepository;
     @Mock private JournalService journalService;
@@ -60,7 +59,7 @@ class PaymentServiceTest {
     @BeforeEach
     void setUp() {
         paymentService = new PaymentService(
-                paymentRepository, invoiceRepository, customerRepository,
+                paymentRepository, invoiceRepository, contactRepository,
                 organisationRepository, branchRepository, journalService, invoiceService,
                 currencyService, auditService, commentService,
                 defaultAccountService);
@@ -84,11 +83,10 @@ class PaymentServiceTest {
         TenantContext.clear();
     }
 
-    // T-AR-04: Payment posts correct journal (DR Cash, CR AR)
     @Test
     void shouldPostJournalOnPayment() {
         Invoice invoice = Invoice.builder()
-                .orgId(orgId).customerId(UUID.randomUUID())
+                .orgId(orgId).contactId(UUID.randomUUID())
                 .invoiceNumber("INV-2026-000001").status("SENT")
                 .totalAmount(new BigDecimal("11800.00"))
                 .amountPaid(BigDecimal.ZERO)
@@ -115,7 +113,7 @@ class PaymentServiceTest {
 
         var request = new RecordPaymentRequest(
                 invoice.getId(),
-                null, // contactId — legacy test, derived from invoice
+                null,
                 LocalDate.of(2026, 4, 15),
                 new BigDecimal("5000"),
                 "BANK_TRANSFER",
@@ -130,22 +128,19 @@ class PaymentServiceTest {
         assertEquals("PAY-2026-000001", result.getPaymentNumber());
         assertEquals(0, new BigDecimal("5000").compareTo(result.getAmount()));
 
-        // Verify journal: DR Bank (1020), CR AR (1200)
         ArgumentCaptor<JournalPostRequest> captor = ArgumentCaptor.forClass(JournalPostRequest.class);
         verify(journalService).postJournal(captor.capture());
 
         JournalPostRequest journalReq = captor.getValue();
         assertEquals(2, journalReq.lines().size());
-        assertEquals("1020", journalReq.lines().get(0).accountCode()); // Bank
+        assertEquals("1020", journalReq.lines().get(0).accountCode());
         assertEquals(0, new BigDecimal("5000").compareTo(journalReq.lines().get(0).debit()));
-        assertEquals("1200", journalReq.lines().get(1).accountCode()); // AR
+        assertEquals("1200", journalReq.lines().get(1).accountCode());
         assertEquals(0, new BigDecimal("5000").compareTo(journalReq.lines().get(1).credit()));
 
-        // Verify invoice payment status was updated
         verify(invoiceService).updatePaymentStatus(invoice, new BigDecimal("5000"));
     }
 
-    // T-AR-04b: Payment exceeding balance should be rejected
     @Test
     void shouldRejectPaymentExceedingBalance() {
         Invoice invoice = Invoice.builder()
@@ -162,9 +157,9 @@ class PaymentServiceTest {
 
         var request = new RecordPaymentRequest(
                 invoice.getId(),
-                null, // contactId
+                null,
                 LocalDate.now(),
-                new BigDecimal("1500"), // Exceeds balance
+                new BigDecimal("1500"),
                 "CASH", null, null, null
         );
 
@@ -173,7 +168,6 @@ class PaymentServiceTest {
         assertEquals("AR_PAYMENT_EXCEEDS_BALANCE", ex.getErrorCode());
     }
 
-    // T-AR-04c: Payment to DRAFT invoice should be rejected
     @Test
     void shouldRejectPaymentToDraftInvoice() {
         Invoice draftInvoice = Invoice.builder()
@@ -189,7 +183,7 @@ class PaymentServiceTest {
 
         var request = new RecordPaymentRequest(
                 draftInvoice.getId(),
-                null, // contactId
+                null,
                 LocalDate.now(),
                 new BigDecimal("500"), "CASH", null, null, null
         );
@@ -199,11 +193,10 @@ class PaymentServiceTest {
         assertEquals("AR_INVOICE_NOT_PAYABLE", ex.getErrorCode());
     }
 
-    // T-AR-04d: UPI payment should debit Cash account
     @Test
     void shouldUseCashAccountForUpiPayment() {
         Invoice invoice = Invoice.builder()
-                .orgId(orgId).customerId(UUID.randomUUID())
+                .orgId(orgId).contactId(UUID.randomUUID())
                 .invoiceNumber("INV-2026-000001").status("SENT")
                 .totalAmount(new BigDecimal("500.00"))
                 .amountPaid(BigDecimal.ZERO)
@@ -229,7 +222,7 @@ class PaymentServiceTest {
 
         var request = new RecordPaymentRequest(
                 invoice.getId(),
-                null, // contactId
+                null,
                 LocalDate.now(), new BigDecimal("500"),
                 "UPI", "UPI-REF-123", null, null
         );
@@ -238,6 +231,6 @@ class PaymentServiceTest {
 
         ArgumentCaptor<JournalPostRequest> captor = ArgumentCaptor.forClass(JournalPostRequest.class);
         verify(journalService).postJournal(captor.capture());
-        assertEquals("1010", captor.getValue().lines().get(0).accountCode()); // Cash account for UPI
+        assertEquals("1010", captor.getValue().lines().get(0).accountCode());
     }
 }

@@ -103,12 +103,12 @@ public class DemoSeedService {
         insertStockBalance(orgId, sec18, items.get("VITD3"),   wh18, new BigDecimal("40"));
         insertStockBalance(orgId, sec18, items.get("ORSSACH"), wh18, new BigDecimal("5"));
 
-        // ── 5. Customer (walk-in) ────────────────────────────────────────
-        UUID customerId = UUID.randomUUID();
+        // ── 5. Contact (walk-in customer) ────────────────────────────────
+        UUID contactId = UUID.randomUUID();
         jdbcTemplate.update("""
-                INSERT INTO customer (id, org_id, name, phone, billing_state, billing_state_code, payment_terms_days, created_by)
-                VALUES (?, ?, 'Walk-in Customer', '9999900000', 'Uttar Pradesh', '09', 0, ?)
-                """, customerId, orgId, userId);
+                INSERT INTO contact (id, org_id, contact_type, display_name, phone, billing_state, billing_state_code, payment_terms_days, created_by)
+                VALUES (?, ?, 'CUSTOMER', 'Walk-in Customer', '9999900000', 'Uttar Pradesh', '09', 0, ?)
+                """, contactId, orgId, userId);
 
         // ── 6. Invoices ──────────────────────────────────────────────────
         // Mock breakdown:
@@ -121,29 +121,29 @@ public class DemoSeedService {
         // Using gst_rate 0 so tax_amount=0 and total_amount=subtotal.
 
         // Inv A — Sector 62 — ₹4,200  — Paracetamol 50, Crocin 30
-        UUID invA = createInvoice(orgId, sec62, customerId, userId, today, "INV-2026-000001", new BigDecimal("4200.00"));
+        UUID invA = createInvoice(orgId, sec62, contactId, userId, today, "INV-2026-000001", new BigDecimal("4200.00"));
         insertInvoiceLine(invA, 1, "Paracetamol 500mg", items.get("PARA500"), new BigDecimal("50"), new BigDecimal("20.00"),  new BigDecimal("1000.00"));
         insertInvoiceLine(invA, 2, "Crocin Advance",    items.get("CROCIN"),  new BigDecimal("30"), new BigDecimal("40.00"),  new BigDecimal("1200.00"));
         insertInvoiceLine(invA, 3, "Vitamin D3",        items.get("VITD3"),   new BigDecimal("8"),  new BigDecimal("250.00"), new BigDecimal("2000.00"));
 
         // Inv B — Sector 62 — ₹3,000  — Paracetamol 37, Crocin 13, D3 4
-        UUID invB = createInvoice(orgId, sec62, customerId, userId, today, "INV-2026-000002", new BigDecimal("3000.00"));
+        UUID invB = createInvoice(orgId, sec62, contactId, userId, today, "INV-2026-000002", new BigDecimal("3000.00"));
         insertInvoiceLine(invB, 1, "Paracetamol 500mg", items.get("PARA500"), new BigDecimal("37"), new BigDecimal("20.00"),  new BigDecimal("740.00"));
         insertInvoiceLine(invB, 2, "Crocin Advance",    items.get("CROCIN"),  new BigDecimal("13"), new BigDecimal("40.00"),  new BigDecimal("520.00"));
         insertInvoiceLine(invB, 3, "Vitamin D3",        items.get("VITD3"),   new BigDecimal("4"),  new BigDecimal("250.00"), new BigDecimal("1000.00"));
         insertInvoiceLine(invB, 4, "ORS Sachets",       items.get("ORSSACH"), new BigDecimal("48"), new BigDecimal("15.00"),  new BigDecimal("740.00"));
 
         // Inv C — Sector 18 — ₹5,250
-        UUID invC = createInvoice(orgId, sec18, customerId, userId, today, "INV-2026-000003", new BigDecimal("5250.00"));
+        UUID invC = createInvoice(orgId, sec18, contactId, userId, today, "INV-2026-000003", new BigDecimal("5250.00"));
         insertInvoiceLine(invC, 1, "Vitamin D3",        items.get("VITD3"),   new BigDecimal("15"), new BigDecimal("250.00"), new BigDecimal("3750.00"));
         insertInvoiceLine(invC, 2, "ORS Sachets",       items.get("ORSSACH"), new BigDecimal("100"),new BigDecimal("15.00"),  new BigDecimal("1500.00"));
 
         // ── 7. Payments (₹8,200 total collected) ────────────────────────
         // Payment against Inv A: ₹4,200 (cash) — fully paid
-        createPayment(orgId, sec62, customerId, invA, userId, today, "PAY-2026-000001",
+        createPayment(orgId, sec62, contactId, invA, userId, today, "PAY-2026-000001",
                 new BigDecimal("4200.00"), "CASH");
         // Payment against Inv C: ₹4,000 partial (bank)
-        createPayment(orgId, sec18, customerId, invC, userId, today, "PAY-2026-000002",
+        createPayment(orgId, sec18, contactId, invC, userId, today, "PAY-2026-000002",
                 new BigDecimal("4000.00"), "BANK_TRANSFER");
 
         log.info("Demo seed complete for org {} — 2 branches, 4 items, 3 invoices, 2 payments", orgId);
@@ -171,11 +171,11 @@ public class DemoSeedService {
                 """, UUID.randomUUID(), orgId, branchId, itemId, warehouseId, qty);
     }
 
-    private UUID createInvoice(UUID orgId, UUID branchId, UUID customerId, UUID userId,
+    private UUID createInvoice(UUID orgId, UUID branchId, UUID contactId, UUID userId,
                                LocalDate date, String number, BigDecimal total) {
         UUID invoiceId = UUID.randomUUID();
         jdbcTemplate.update("""
-                INSERT INTO invoice (id, org_id, branch_id, customer_id, invoice_number,
+                INSERT INTO invoice (id, org_id, branch_id, contact_id, invoice_number,
                                      invoice_date, due_date, status,
                                      subtotal, tax_amount, total_amount, amount_paid, balance_due,
                                      currency, exchange_rate,
@@ -187,7 +187,7 @@ public class DemoSeedService {
                         ?, 0, ?,
                         ?, ?, ?)
                 """,
-                invoiceId, orgId, branchId, customerId, number,
+                invoiceId, orgId, branchId, contactId, number,
                 date, date,
                 total, total, total,
                 total, total,
@@ -210,16 +210,16 @@ public class DemoSeedService {
                 lineTotal, lineTotal, lineTotal, lineTotal);
     }
 
-    private void createPayment(UUID orgId, UUID branchId, UUID customerId, UUID invoiceId, UUID userId,
+    private void createPayment(UUID orgId, UUID branchId, UUID contactId, UUID invoiceId, UUID userId,
                                LocalDate date, String number, BigDecimal amount, String method) {
         jdbcTemplate.update("""
-                INSERT INTO payment (id, org_id, branch_id, customer_id, invoice_id,
+                INSERT INTO payment (id, org_id, branch_id, contact_id, invoice_id,
                                      payment_number, payment_date, amount,
                                      currency, exchange_rate, base_amount,
                                      payment_method, created_by)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'INR', 1.000000, ?, ?, ?)
                 """,
-                UUID.randomUUID(), orgId, branchId, customerId, invoiceId,
+                UUID.randomUUID(), orgId, branchId, contactId, invoiceId,
                 number, date, amount, amount, method, userId);
     }
 

@@ -160,7 +160,7 @@ class _InvoiceCard extends StatelessWidget {
     final status = invoice['status'] as String? ?? 'DRAFT';
     final total = (invoice['total'] as num?)?.toDouble() ?? 0;
     final balanceDue = (invoice['balanceDue'] as num?)?.toDouble() ?? total;
-    final customerName = invoice['customerName'] as String? ?? 'Unknown';
+    final customerName = invoice['contactName'] as String? ?? 'Unknown';
     final invoiceNumber = invoice['invoiceNumber'] as String? ?? '--';
     final dueDate = invoice['dueDate'] as String?;
 

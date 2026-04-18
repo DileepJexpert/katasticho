@@ -11,11 +11,11 @@ public record AgeingReportResponse(
         BigDecimal days31to60,
         BigDecimal days61to90,
         BigDecimal days90plus,
-        List<CustomerAgeing> customers
+        List<ContactAgeing> contacts
 ) {
-    public record CustomerAgeing(
-            UUID customerId,
-            String customerName,
+    public record ContactAgeing(
+            UUID contactId,
+            String contactName,
             BigDecimal totalOutstanding,
             BigDecimal current,
             BigDecimal days1to30,

@@ -56,7 +56,6 @@ public class InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final TaxLineItemRepository taxLineItemRepository;
-    private final CustomerRepository customerRepository;
     private final ContactRepository contactRepository;
     private final InvoiceNumberSequenceRepository sequenceRepository;
     private final OrganisationRepository organisationRepository;
@@ -81,30 +80,21 @@ public class InvoiceService {
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
-        Customer customer = customerRepository.findByIdAndOrgIdAndIsDeletedFalse(request.customerId(), orgId)
-                .orElseThrow(() -> BusinessException.notFound("Customer", request.customerId()));
+        Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(request.contactId(), orgId)
+                .orElseThrow(() -> BusinessException.notFound("Contact", request.contactId()));
 
-        // Determine place of supply for GST
         String placeOfSupply = request.placeOfSupply() != null
                 ? request.placeOfSupply()
-                : customer.getBillingStateCode();
+                : contact.getBillingStateCode();
 
-        // Compute fiscal period
         int periodYear = computeFiscalYear(request.invoiceDate(), org.getFiscalYearStart());
-
-        // Generate invoice number
         String invoiceNumber = generateNumber(orgId, "INV", periodYear);
 
-        // Due date defaults to invoice date + customer payment terms
         LocalDate dueDate = request.dueDate() != null
                 ? request.dueDate()
-                : request.invoiceDate().plusDays(customer.getPaymentTermsDays());
+                : request.invoiceDate().plusDays(contact.getPaymentTermsDays());
 
-        // Get exchange rate
         BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.invoiceDate());
-
-        // Resolve contactId: prefer explicit value, fall back to customerId (UUIDs match after V2 migration)
-        UUID resolvedContactId = request.contactId() != null ? request.contactId() : customer.getId();
 
         // Stamp the org's default branch. Multi-branch selection comes later
         // via a request field; for now every new invoice rolls up to the
@@ -116,8 +106,7 @@ public class InvoiceService {
         Invoice invoice = Invoice.builder()
                 .orgId(orgId)
                 .branchId(branchId)
-                .customerId(customer.getId())
-                .contactId(resolvedContactId)
+                .contactId(contact.getId())
                 .invoiceNumber(invoiceNumber)
                 .invoiceDate(request.invoiceDate())
                 .dueDate(dueDate)
@@ -151,7 +140,7 @@ public class InvoiceService {
             BigDecimal effectiveUnitPrice = lineReq.unitPrice();
             if (lineReq.itemId() != null) {
                 effectiveUnitPrice = priceListService
-                        .resolvePrice(customer.getId(), lineReq.itemId(), lineReq.quantity())
+                        .resolvePrice(contact.getId(), lineReq.itemId(), lineReq.quantity())
                         .map(resolved -> {
                             if (resolved.compareTo(lineReq.unitPrice()) != 0) {
                                 log.info("Price list override line {}: client={} resolved={}",
@@ -423,9 +412,9 @@ public class InvoiceService {
     }
 
     @Transactional(readOnly = true)
-    public Page<InvoiceResponse> listInvoiceResponsesByCustomer(UUID customerId, Pageable pageable) {
+    public Page<InvoiceResponse> listInvoiceResponsesByContact(UUID contactId, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        return invoiceRepository.findByOrgIdAndCustomerIdAndIsDeletedFalseOrderByInvoiceDateDesc(orgId, customerId, pageable)
+        return invoiceRepository.findByOrgIdAndContactIdAndIsDeletedFalseOrderByInvoiceDateDesc(orgId, contactId, pageable)
                 .map(this::toResponse);
     }
 
@@ -448,7 +437,7 @@ public class InvoiceService {
     }
 
     public InvoiceResponse toResponse(Invoice inv) {
-        Customer customer = customerRepository.findById(inv.getCustomerId()).orElse(null);
+        Contact contact = contactRepository.findById(inv.getContactId()).orElse(null);
         List<TaxLineItem> taxLines = taxLineItemRepository.findBySourceTypeAndSourceId("INVOICE", inv.getId());
 
         List<InvoiceResponse.LineResponse> lineResponses = inv.getLines().stream()
@@ -466,8 +455,8 @@ public class InvoiceService {
                 .toList();
 
         return new InvoiceResponse(
-                inv.getId(), inv.getCustomerId(),
-                customer != null ? customer.getName() : null,
+                inv.getId(), inv.getContactId(),
+                contact != null ? contact.getDisplayName() : null,
                 inv.getInvoiceNumber(), inv.getInvoiceDate(), inv.getDueDate(),
                 inv.getStatus(), inv.getSubtotal(), inv.getTaxAmount(),
                 inv.getTotalAmount(), inv.getAmountPaid(), inv.getBalanceDue(),

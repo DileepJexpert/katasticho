@@ -1,12 +1,13 @@
 package com.katasticho.erp.ar.service;
 
 import com.katasticho.erp.ar.dto.AgeingReportResponse;
-import com.katasticho.erp.ar.entity.Customer;
 import com.katasticho.erp.ar.entity.Invoice;
-import com.katasticho.erp.ar.repository.CustomerRepository;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.repository.TaxLineItemRepository;
 import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.entity.ContactType;
+import com.katasticho.erp.contact.repository.ContactRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,22 +28,22 @@ import static org.mockito.Mockito.*;
 class ArReportServiceTest {
 
     @Mock private InvoiceRepository invoiceRepository;
-    @Mock private CustomerRepository customerRepository;
+    @Mock private ContactRepository contactRepository;
     @Mock private TaxLineItemRepository taxLineItemRepository;
 
     private ArReportService reportService;
     private UUID orgId;
-    private Customer customer;
+    private Contact contact;
 
     @BeforeEach
     void setUp() {
-        reportService = new ArReportService(invoiceRepository, customerRepository, taxLineItemRepository);
+        reportService = new ArReportService(invoiceRepository, contactRepository, taxLineItemRepository);
         orgId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);
 
-        customer = Customer.builder().name("Acme Ltd").build();
-        customer.setId(UUID.randomUUID());
-        customer.setOrgId(orgId);
+        contact = Contact.builder().displayName("Acme Ltd").contactType(ContactType.CUSTOMER).build();
+        contact.setId(UUID.randomUUID());
+        contact.setOrgId(orgId);
     }
 
     @AfterEach
@@ -54,45 +55,41 @@ class ArReportServiceTest {
     void shouldCalculateAgeingBucketsCorrectly() {
         LocalDate asOfDate = LocalDate.of(2026, 4, 11);
 
-        // Current (not overdue)
         Invoice inv1 = Invoice.builder()
-                .orgId(orgId).customerId(customer.getId())
+                .orgId(orgId).contactId(contact.getId())
                 .invoiceNumber("INV-001").status("SENT")
-                .dueDate(LocalDate.of(2026, 4, 15)) // Due in 4 days — CURRENT
+                .dueDate(LocalDate.of(2026, 4, 15))
                 .balanceDue(new BigDecimal("5000.00"))
                 .build();
         inv1.setId(UUID.randomUUID());
 
-        // 1-30 days overdue
         Invoice inv2 = Invoice.builder()
-                .orgId(orgId).customerId(customer.getId())
+                .orgId(orgId).contactId(contact.getId())
                 .invoiceNumber("INV-002").status("SENT")
-                .dueDate(LocalDate.of(2026, 3, 20)) // 22 days overdue
+                .dueDate(LocalDate.of(2026, 3, 20))
                 .balanceDue(new BigDecimal("3000.00"))
                 .build();
         inv2.setId(UUID.randomUUID());
 
-        // 31-60 days overdue
         Invoice inv3 = Invoice.builder()
-                .orgId(orgId).customerId(customer.getId())
+                .orgId(orgId).contactId(contact.getId())
                 .invoiceNumber("INV-003").status("PARTIALLY_PAID")
-                .dueDate(LocalDate.of(2026, 2, 25)) // 45 days overdue
+                .dueDate(LocalDate.of(2026, 2, 25))
                 .balanceDue(new BigDecimal("7000.00"))
                 .build();
         inv3.setId(UUID.randomUUID());
 
-        // 90+ days overdue
         Invoice inv4 = Invoice.builder()
-                .orgId(orgId).customerId(customer.getId())
+                .orgId(orgId).contactId(contact.getId())
                 .invoiceNumber("INV-004").status("OVERDUE")
-                .dueDate(LocalDate.of(2025, 12, 1)) // ~131 days overdue
+                .dueDate(LocalDate.of(2025, 12, 1))
                 .balanceDue(new BigDecimal("10000.00"))
                 .build();
         inv4.setId(UUID.randomUUID());
 
         when(invoiceRepository.findOutstandingInvoices(orgId))
                 .thenReturn(List.of(inv1, inv2, inv3, inv4));
-        when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
+        when(contactRepository.findById(contact.getId())).thenReturn(Optional.of(contact));
 
         AgeingReportResponse report = reportService.getAgeingReport(asOfDate);
 
@@ -104,13 +101,12 @@ class ArReportServiceTest {
         assertEquals(0, BigDecimal.ZERO.compareTo(report.days61to90()));
         assertEquals(0, new BigDecimal("10000.00").compareTo(report.days90plus()));
 
-        // Should have 1 customer with 4 invoices
-        assertEquals(1, report.customers().size());
-        assertEquals(4, report.customers().get(0).invoices().size());
-        assertEquals("CURRENT", report.customers().get(0).invoices().get(0).bucket());
-        assertEquals("1-30", report.customers().get(0).invoices().get(1).bucket());
-        assertEquals("31-60", report.customers().get(0).invoices().get(2).bucket());
-        assertEquals("90+", report.customers().get(0).invoices().get(3).bucket());
+        assertEquals(1, report.contacts().size());
+        assertEquals(4, report.contacts().get(0).invoices().size());
+        assertEquals("CURRENT", report.contacts().get(0).invoices().get(0).bucket());
+        assertEquals("1-30", report.contacts().get(0).invoices().get(1).bucket());
+        assertEquals("31-60", report.contacts().get(0).invoices().get(2).bucket());
+        assertEquals("90+", report.contacts().get(0).invoices().get(3).bucket());
     }
 
     @Test
@@ -121,6 +117,6 @@ class ArReportServiceTest {
 
         assertNotNull(report);
         assertEquals(0, BigDecimal.ZERO.compareTo(report.totalOutstanding()));
-        assertTrue(report.customers().isEmpty());
+        assertTrue(report.contacts().isEmpty());
     }
 }

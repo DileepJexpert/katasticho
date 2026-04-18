@@ -20,7 +20,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
 
     Page<Invoice> findByOrgIdAndIsDeletedFalseOrderByInvoiceDateDesc(UUID orgId, Pageable pageable);
 
-    Page<Invoice> findByOrgIdAndCustomerIdAndIsDeletedFalseOrderByInvoiceDateDesc(UUID orgId, UUID customerId, Pageable pageable);
+    Page<Invoice> findByOrgIdAndContactIdAndIsDeletedFalseOrderByInvoiceDateDesc(UUID orgId, UUID contactId, Pageable pageable);
 
     @Query("""
         SELECT i FROM Invoice i
@@ -44,12 +44,12 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     @Query("""
         SELECT i FROM Invoice i
         WHERE i.orgId = :orgId
-          AND i.customerId = :customerId
+          AND i.contactId = :contactId
           AND i.status IN ('SENT','PARTIALLY_PAID','OVERDUE')
           AND i.isDeleted = false
         ORDER BY i.dueDate ASC
     """)
-    List<Invoice> findOutstandingByCustomer(UUID orgId, UUID customerId);
+    List<Invoice> findOutstandingByContact(UUID orgId, UUID contactId);
 
     // ─── Dashboard aggregation queries ───────────────────────────────────
 

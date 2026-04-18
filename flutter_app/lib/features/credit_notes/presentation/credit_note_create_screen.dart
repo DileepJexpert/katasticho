@@ -8,7 +8,7 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
-import '../../customers/data/customer_repository.dart';
+import '../../contacts/data/contact_repository.dart';
 import '../data/credit_note_repository.dart';
 import '../data/credit_note_providers.dart';
 
@@ -36,7 +36,7 @@ class _CreditNoteCreateScreenState
   bool _isSubmitting = false;
 
   // Header fields
-  String? _selectedCustomerId;
+  String? _selectedContactId;
   String? _selectedCustomerName;
   DateTime _creditNoteDate = DateTime.now();
   final _reasonController = TextEditingController();
@@ -65,7 +65,7 @@ class _CreditNoteCreateScreenState
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedCustomerId == null) {
+    if (_selectedContactId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a customer')),
       );
@@ -77,7 +77,7 @@ class _CreditNoteCreateScreenState
     try {
       final repo = ref.read(creditNoteRepositoryProvider);
       final data = {
-        'customerId': _selectedCustomerId,
+        'contactId': _selectedContactId,
         'creditNoteDate': DateFormatter.api(_creditNoteDate),
         'reason': _reasonController.text.trim(),
         if (_placeOfSupplyController.text.trim().isNotEmpty)
@@ -253,7 +253,7 @@ class _CreditNoteCreateScreenState
   }
 
   Widget _buildCustomerPicker() {
-    final customersAsync = ref.watch(customerListProvider);
+    final customersAsync = ref.watch(contactListProvider('CUSTOMER'));
 
     return customersAsync.when(
       loading: () => const KTextField(
@@ -273,7 +273,7 @@ class _CreditNoteCreateScreenState
             : (content is Map ? (content['content'] as List?) ?? [] : []);
 
         return DropdownButtonFormField<String>(
-          value: _selectedCustomerId,
+          value: _selectedContactId,
           decoration: const InputDecoration(
             labelText: 'Customer',
             prefixIcon: Icon(Icons.person_outline),
@@ -287,7 +287,7 @@ class _CreditNoteCreateScreenState
           }).toList(),
           onChanged: (v) {
             setState(() {
-              _selectedCustomerId = v;
+              _selectedContactId = v;
               final customer = customers.firstWhere(
                 (c) => (c as Map)['id']?.toString() == v,
                 orElse: () => <String, dynamic>{},

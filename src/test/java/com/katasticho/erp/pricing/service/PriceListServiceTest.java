@@ -1,7 +1,8 @@
 package com.katasticho.erp.pricing.service;
 
-import com.katasticho.erp.ar.entity.Customer;
-import com.katasticho.erp.ar.repository.CustomerRepository;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.entity.ContactType;
+import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.inventory.repository.ItemRepository;
@@ -29,30 +30,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for the F3 price resolver and CRUD in
- * {@link PriceListService}. Covers:
- *
- * <ol>
- *   <li>Tiered resolution — multiple rows per (list, item) honour the
- *       highest-{@code minQuantity} rule.</li>
- *   <li>Customer pinned list takes precedence over the org default
- *       list even if both contain the item.</li>
- *   <li>Fall-through — customer without a pinned list hits org
- *       default.</li>
- *   <li>Empty fall-through — no pinned, no default ⇒ empty so caller
- *       keeps the client-supplied price.</li>
- *   <li>Guard — duplicate tier (same minQuantity) rejected.</li>
- *   <li>Default flip — creating a new default unsets the old one in
- *       the same tx.</li>
- * </ol>
- */
 @ExtendWith(MockitoExtension.class)
 class PriceListServiceTest {
 
     @Mock private PriceListRepository priceListRepository;
     @Mock private PriceListItemRepository priceListItemRepository;
-    @Mock private CustomerRepository customerRepository;
+    @Mock private ContactRepository contactRepository;
     @Mock private ItemRepository itemRepository;
 
     private PriceListService service;
@@ -62,7 +45,7 @@ class PriceListServiceTest {
     @BeforeEach
     void setUp() {
         service = new PriceListService(
-                priceListRepository, priceListItemRepository, customerRepository, itemRepository);
+                priceListRepository, priceListItemRepository, contactRepository, itemRepository);
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);
@@ -74,34 +57,27 @@ class PriceListServiceTest {
         TenantContext.clear();
     }
 
-    // ── Resolver tests ───────────────────────────────────────────────────
-
-    /**
-     * Three tiers (1+, 10+, 100+) — requesting 50 units should land on
-     * the 10+ tier (45), not the 1+ tier (50) and not the 100+ tier (40).
-     */
     @Test
     void resolvePrice_tieredLookup_picksHighestMinQuantityThatFits() {
-        UUID customerId = UUID.randomUUID();
+        UUID contactId = UUID.randomUUID();
         UUID itemId = UUID.randomUUID();
         UUID listId = UUID.randomUUID();
 
-        Customer customer = Customer.builder().name("Wholesale Co").build();
-        customer.setId(customerId);
-        customer.setOrgId(orgId);
-        customer.setDefaultPriceListId(listId);
+        Contact contact = Contact.builder().displayName("Wholesale Co").contactType(ContactType.CUSTOMER).build();
+        contact.setId(contactId);
+        contact.setOrgId(orgId);
+        contact.setDefaultPriceListId(listId);
 
         PriceList list = PriceList.builder().name("Wholesale").currency("INR").active(true).build();
         list.setId(listId);
         list.setOrgId(orgId);
 
-        // Repo returns tiers already sorted minQuantity DESC
         PriceListItem tier100 = tier(listId, itemId, "100", "40");
         PriceListItem tier10 = tier(listId, itemId, "10", "45");
         PriceListItem tier1 = tier(listId, itemId, "1", "50");
 
-        when(customerRepository.findByIdAndOrgIdAndIsDeletedFalse(customerId, orgId))
-                .thenReturn(Optional.of(customer));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
         when(priceListRepository.findByIdAndOrgIdAndIsDeletedFalse(listId, orgId))
                 .thenReturn(Optional.of(list));
         when(priceListItemRepository
@@ -109,34 +85,29 @@ class PriceListServiceTest {
                         orgId, listId, itemId))
                 .thenReturn(List.of(tier100, tier10, tier1));
 
-        Optional<BigDecimal> resolved = service.resolvePrice(customerId, itemId, new BigDecimal("50"));
+        Optional<BigDecimal> resolved = service.resolvePrice(contactId, itemId, new BigDecimal("50"));
 
         assertTrue(resolved.isPresent());
         assertEquals(0, new BigDecimal("45").compareTo(resolved.get()));
     }
 
-    /**
-     * Customer has no pinned list → resolver walks to org default and
-     * picks the 1+ tier for a small order.
-     */
     @Test
     void resolvePrice_noPinnedList_fallsThroughToOrgDefault() {
-        UUID customerId = UUID.randomUUID();
+        UUID contactId = UUID.randomUUID();
         UUID itemId = UUID.randomUUID();
         UUID defaultListId = UUID.randomUUID();
 
-        Customer customer = Customer.builder().name("Walk-in").build();
-        customer.setId(customerId);
-        customer.setOrgId(orgId);
-        // No defaultPriceListId
+        Contact contact = Contact.builder().displayName("Walk-in").contactType(ContactType.CUSTOMER).build();
+        contact.setId(contactId);
+        contact.setOrgId(orgId);
 
         PriceList defaultList = PriceList.builder().name("Retail")
                 .currency("INR").isDefault(true).active(true).build();
         defaultList.setId(defaultListId);
         defaultList.setOrgId(orgId);
 
-        when(customerRepository.findByIdAndOrgIdAndIsDeletedFalse(customerId, orgId))
-                .thenReturn(Optional.of(customer));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
         when(priceListRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId))
                 .thenReturn(Optional.of(defaultList));
         when(priceListItemRepository
@@ -144,80 +115,62 @@ class PriceListServiceTest {
                         orgId, defaultListId, itemId))
                 .thenReturn(List.of(tier(defaultListId, itemId, "1", "99")));
 
-        Optional<BigDecimal> resolved = service.resolvePrice(customerId, itemId, new BigDecimal("3"));
+        Optional<BigDecimal> resolved = service.resolvePrice(contactId, itemId, new BigDecimal("3"));
 
         assertTrue(resolved.isPresent());
         assertEquals(0, new BigDecimal("99").compareTo(resolved.get()));
     }
 
-    /**
-     * No pinned, no org default → resolver returns empty so
-     * InvoiceService keeps the client-supplied unitPrice unchanged.
-     */
     @Test
     void resolvePrice_nothingConfigured_returnsEmpty() {
-        UUID customerId = UUID.randomUUID();
+        UUID contactId = UUID.randomUUID();
         UUID itemId = UUID.randomUUID();
 
-        Customer customer = Customer.builder().name("Walk-in").build();
-        customer.setId(customerId);
-        customer.setOrgId(orgId);
+        Contact contact = Contact.builder().displayName("Walk-in").contactType(ContactType.CUSTOMER).build();
+        contact.setId(contactId);
+        contact.setOrgId(orgId);
 
-        when(customerRepository.findByIdAndOrgIdAndIsDeletedFalse(customerId, orgId))
-                .thenReturn(Optional.of(customer));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
         when(priceListRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId))
                 .thenReturn(Optional.empty());
 
-        Optional<BigDecimal> resolved = service.resolvePrice(customerId, itemId, new BigDecimal("10"));
+        Optional<BigDecimal> resolved = service.resolvePrice(contactId, itemId, new BigDecimal("10"));
 
         assertTrue(resolved.isEmpty());
     }
 
-    /**
-     * Quantity below every tier's minQuantity → resolver returns empty
-     * for this list and falls through (to org default, then empty). The
-     * caller still keeps the client unitPrice.
-     */
     @Test
     void resolvePrice_quantityBelowAllTiers_fallsThrough() {
-        UUID customerId = UUID.randomUUID();
+        UUID contactId = UUID.randomUUID();
         UUID itemId = UUID.randomUUID();
         UUID listId = UUID.randomUUID();
 
-        Customer customer = Customer.builder().build();
-        customer.setId(customerId);
-        customer.setOrgId(orgId);
-        customer.setDefaultPriceListId(listId);
+        Contact contact = Contact.builder().displayName("Buyer").contactType(ContactType.CUSTOMER).build();
+        contact.setId(contactId);
+        contact.setOrgId(orgId);
+        contact.setDefaultPriceListId(listId);
 
         PriceList list = PriceList.builder().name("Bulk Only").currency("INR").active(true).build();
         list.setId(listId);
         list.setOrgId(orgId);
 
-        when(customerRepository.findByIdAndOrgIdAndIsDeletedFalse(customerId, orgId))
-                .thenReturn(Optional.of(customer));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
         when(priceListRepository.findByIdAndOrgIdAndIsDeletedFalse(listId, orgId))
                 .thenReturn(Optional.of(list));
-        // Only a 100+ tier exists
         when(priceListItemRepository
                 .findByOrgIdAndPriceListIdAndItemIdAndIsDeletedFalseOrderByMinQuantityDesc(
                         orgId, listId, itemId))
                 .thenReturn(List.of(tier(listId, itemId, "100", "40")));
-        // No org default either
         when(priceListRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId))
                 .thenReturn(Optional.empty());
 
-        Optional<BigDecimal> resolved = service.resolvePrice(customerId, itemId, new BigDecimal("5"));
+        Optional<BigDecimal> resolved = service.resolvePrice(contactId, itemId, new BigDecimal("5"));
 
         assertTrue(resolved.isEmpty());
     }
 
-    // ── CRUD tests ───────────────────────────────────────────────────────
-
-    /**
-     * Adding a second tier at the same minQuantity for the same item
-     * should be rejected at the service layer (CONFLICT), so the
-     * caller gets a clear error before the partial unique index kicks in.
-     */
     @Test
     void addItem_duplicateTier_throwsConflict() {
         UUID listId = UUID.randomUUID();
@@ -243,11 +196,6 @@ class PriceListServiceTest {
         verify(priceListItemRepository, never()).save(any());
     }
 
-    /**
-     * Creating a second default list must flip the first one off in
-     * the same transaction — the partial unique index on is_default
-     * would otherwise reject the insert.
-     */
     @Test
     void createPriceList_newDefault_flipsOldDefaultOff() {
         PriceList existingDefault = PriceList.builder().name("Retail")
@@ -271,23 +219,17 @@ class PriceListServiceTest {
 
         PriceList created = service.createPriceList(req);
 
-        // Both saves happened: one to flip the old default off, one
-        // for the new list.
         ArgumentCaptor<PriceList> captor = ArgumentCaptor.forClass(PriceList.class);
         verify(priceListRepository, times(2)).save(captor.capture());
 
         List<PriceList> saved = captor.getAllValues();
-        // First save: existingDefault flipped off
         assertEquals(existingDefault.getId(), saved.get(0).getId());
         assertFalse(saved.get(0).isDefault());
-        // Second save: new list with isDefault=true
         assertTrue(saved.get(1).isDefault());
         assertEquals("Wholesale", saved.get(1).getName());
 
         assertTrue(created.isDefault());
     }
-
-    // ── Helpers ──────────────────────────────────────────────────────────
 
     private PriceListItem tier(UUID listId, UUID itemId, String minQty, String price) {
         PriceListItem row = PriceListItem.builder()
