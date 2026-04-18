@@ -89,9 +89,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 onToggleAging: _toggleAging,
               ),
 
-              // Inline aging drill-down — slides in below the KPI grid
-              // when a Receivables/Payables tile is tapped (Zoho-style).
-              _InlineAgingPanel(expandedAging: _expandedAging),
               KSpacing.vGapLg,
 
               // Dashboard Widgets
@@ -236,11 +233,9 @@ class _GreetingStrip extends StatelessWidget {
   }
 }
 
-/// KPI tile grid. The four tiles come from the industry config, but the
-/// "today_sales" and "cash_collected" tiles are hydrated from the
-/// shared [todaySalesProvider] so they respond to the date + branch
-/// filter. Remaining tiles still fall back to a neutral placeholder
-/// until their own endpoints come online.
+/// KPI tile grid built with manual Rows (not GridView) so that the
+/// aging drill-down panel can be inserted directly below the correct
+/// card, aligned to its column — Zoho-style.
 class _KpiGrid extends ConsumerWidget {
   final List<KpiConfig> kpis;
   final bool isDesktop;
@@ -256,155 +251,212 @@ class _KpiGrid extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final crossAxisCount = isDesktop ? 4 : 2;
+    final cols = isDesktop ? 4 : 2;
+    final tileH = isDesktop ? 112.0 : 116.0;
     final todaySalesAsync = ref.watch(todaySalesProvider);
     final apSummaryAsync = ref.watch(apSummaryProvider);
     final arSummaryAsync = ref.watch(arSummaryProvider);
     final monthlyProfitAsync = ref.watch(monthlyProfitProvider);
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        crossAxisSpacing: KSpacing.md,
-        mainAxisSpacing: KSpacing.md,
-        mainAxisExtent: isDesktop ? 112 : 116,
-      ),
-      itemCount: kpis.length,
-      itemBuilder: (context, index) {
-        final kpi = kpis[index];
-
-        // Payables KPI — tap expands AP aging panel inline below the grid
-        if (kpi.id == 'payables') {
-          return apSummaryAsync.when(
-            loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
-            error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
-            data: (ap) {
-              final value =
-                  CurrencyFormatter.formatCompact(ap.totalOutstanding);
-              final String trend;
-              final bool trendPositive;
-              if (ap.dueThisWeekCount > 0) {
-                trend =
-                    '${CurrencyFormatter.formatCompact(ap.dueThisWeek)} this week';
-                trendPositive = false;
-              } else if (ap.overdueCount > 0) {
-                trend = '${ap.overdueCount} overdue';
-                trendPositive = false;
-              } else {
-                trend = 'All current';
-                trendPositive = true;
-              }
-              return KKpiCard(
-                title: kpi.title,
-                value: value,
-                icon: kpi.icon,
-                iconColor: kpi.color,
-                trend: trend,
-                trendPositive: trendPositive,
-                showChevron: true,
-                expanded: expandedAging == 'ap',
-                onTap: () => onToggleAging('ap'),
-              );
-            },
-          );
-        }
-
-        // Receivables KPI — tap expands AR aging panel inline below the grid
-        if (kpi.id == 'receivables') {
-          return arSummaryAsync.when(
-            loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
-            error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
-            data: (ar) {
-              final value =
-                  CurrencyFormatter.formatCompact(ar.totalOutstanding);
-              final String trend;
-              final bool trendPositive;
-              if (ar.dueThisWeekCount > 0) {
-                trend =
-                    '${CurrencyFormatter.formatCompact(ar.dueThisWeek)} this week';
-                trendPositive = true;
-              } else if (ar.overdueCount > 0) {
-                trend = '${ar.overdueCount} overdue';
-                trendPositive = false;
-              } else {
-                trend = 'All current';
-                trendPositive = true;
-              }
-              return KKpiCard(
-                title: kpi.title,
-                value: value,
-                icon: kpi.icon,
-                iconColor: kpi.color,
-                trend: trend,
-                trendPositive: trendPositive,
-                showChevron: true,
-                expanded: expandedAging == 'ar',
-                onTap: () => onToggleAging('ar'),
-              );
-            },
-          );
-        }
-
-        // Monthly Profit KPI hydrates from monthlyProfitProvider
-        if (kpi.id == 'monthly_profit') {
-          return monthlyProfitAsync.when(
-            loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
-            error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
-            data: (mp) {
-              final value = CurrencyFormatter.formatCompact(mp.grossProfit);
-              return KKpiCard(
-                title: kpi.title,
-                value: value,
-                icon: kpi.icon,
-                iconColor: kpi.color,
-                trend: 'MTD',
-              );
-            },
-          );
-        }
-
-        // Monthly Revenue KPI also reads MTD revenue from monthlyProfitProvider
-        // so it doesn't get collapsed to zero by the date-range filter.
-        if (kpi.id == 'monthly_revenue') {
-          return monthlyProfitAsync.when(
-            loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
-            error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
-            data: (mp) {
-              final value = CurrencyFormatter.formatCompact(mp.revenue);
-              return KKpiCard(
-                title: kpi.title,
-                value: value,
-                icon: kpi.icon,
-                iconColor: kpi.color,
-                trend: 'MTD',
-              );
-            },
-          );
-        }
-
-        return todaySalesAsync.when(
+    // ── Build each tile widget ──
+    Widget buildTile(KpiConfig kpi) {
+      if (kpi.id == 'payables') {
+        return apSummaryAsync.when(
           loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
           error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
-          data: (data) {
-            final (value, trend) = _valueFor(kpi.id, data);
+          data: (ap) {
+            final value =
+                CurrencyFormatter.formatCompact(ap.totalOutstanding);
+            final String trend;
+            final bool trendPositive;
+            if (ap.dueThisWeekCount > 0) {
+              trend =
+                  '${CurrencyFormatter.formatCompact(ap.dueThisWeek)} this wk';
+              trendPositive = false;
+            } else if (ap.overdueCount > 0) {
+              trend = '${ap.overdueCount} overdue';
+              trendPositive = false;
+            } else {
+              trend = 'All current';
+              trendPositive = true;
+            }
             return KKpiCard(
               title: kpi.title,
               value: value,
               icon: kpi.icon,
               iconColor: kpi.color,
               trend: trend,
+              trendPositive: trendPositive,
+              showChevron: true,
+              expanded: expandedAging == 'ap',
+              onTap: () => onToggleAging('ap'),
             );
           },
         );
-      },
+      }
+
+      if (kpi.id == 'receivables') {
+        return arSummaryAsync.when(
+          loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
+          error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
+          data: (ar) {
+            final value =
+                CurrencyFormatter.formatCompact(ar.totalOutstanding);
+            final String trend;
+            final bool trendPositive;
+            if (ar.dueThisWeekCount > 0) {
+              trend =
+                  '${CurrencyFormatter.formatCompact(ar.dueThisWeek)} this wk';
+              trendPositive = true;
+            } else if (ar.overdueCount > 0) {
+              trend = '${ar.overdueCount} overdue';
+              trendPositive = false;
+            } else {
+              trend = 'All current';
+              trendPositive = true;
+            }
+            return KKpiCard(
+              title: kpi.title,
+              value: value,
+              icon: kpi.icon,
+              iconColor: kpi.color,
+              trend: trend,
+              trendPositive: trendPositive,
+              showChevron: true,
+              expanded: expandedAging == 'ar',
+              onTap: () => onToggleAging('ar'),
+            );
+          },
+        );
+      }
+
+      if (kpi.id == 'monthly_profit') {
+        return monthlyProfitAsync.when(
+          loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
+          error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
+          data: (mp) => KKpiCard(
+            title: kpi.title,
+            value: CurrencyFormatter.formatCompact(mp.grossProfit),
+            icon: kpi.icon,
+            iconColor: kpi.color,
+            trend: 'MTD',
+          ),
+        );
+      }
+
+      if (kpi.id == 'monthly_revenue') {
+        return monthlyProfitAsync.when(
+          loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
+          error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
+          data: (mp) => KKpiCard(
+            title: kpi.title,
+            value: CurrencyFormatter.formatCompact(mp.revenue),
+            icon: kpi.icon,
+            iconColor: kpi.color,
+            trend: 'MTD',
+          ),
+        );
+      }
+
+      return todaySalesAsync.when(
+        loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
+        error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
+        data: (data) {
+          final (value, trend) = _valueFor(kpi.id, data);
+          return KKpiCard(
+            title: kpi.title,
+            value: value,
+            icon: kpi.icon,
+            iconColor: kpi.color,
+            trend: trend,
+          );
+        },
+      );
+    }
+
+    final tiles = kpis.map(buildTile).toList();
+
+    // ── Chunk into rows and insert aligned aging panels ──
+    final children = <Widget>[];
+
+    for (var r = 0; r < tiles.length; r += cols) {
+      if (children.isNotEmpty) {
+        children.add(const SizedBox(height: KSpacing.md));
+      }
+
+      final end = (r + cols).clamp(0, tiles.length);
+
+      // Build tile row
+      final rowWidgets = <Widget>[];
+      for (var c = r; c < end; c++) {
+        if (c > r) rowWidgets.add(const SizedBox(width: KSpacing.md));
+        rowWidgets.add(
+          Expanded(child: SizedBox(height: tileH, child: tiles[c])),
+        );
+      }
+      // Pad with empty Expanded slots if row is short
+      for (var c = end; c < r + cols; c++) {
+        rowWidgets.add(const SizedBox(width: KSpacing.md));
+        rowWidgets.add(Expanded(child: SizedBox(height: tileH)));
+      }
+      children.add(Row(children: rowWidgets));
+
+      // Determine if an expandable card in this row is currently expanded
+      int? expandedCol;
+      for (var c = r; c < end; c++) {
+        final id = kpis[c].id;
+        if ((id == 'receivables' && expandedAging == 'ar') ||
+            (id == 'payables' && expandedAging == 'ap')) {
+          expandedCol = c - r;
+          break;
+        }
+      }
+
+      // Only add an AnimatedSize slot for rows that contain AR/AP cards
+      final hasExpandable = kpis
+          .sublist(r, end)
+          .any((k) => k.id == 'receivables' || k.id == 'payables');
+
+      if (hasExpandable) {
+        children.add(
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: expandedCol == null
+                ? const SizedBox(width: double.infinity)
+                : Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: _buildAlignedPanel(cols, expandedCol),
+                  ),
+          ),
+        );
+      }
+    }
+
+    return Column(children: children);
+  }
+
+  /// Builds a Row with invisible spacers so the aging panel sits
+  /// exactly under the [column]-th tile, matching its width.
+  Widget _buildAlignedPanel(int cols, int column) {
+    final rowChildren = <Widget>[];
+    for (var c = 0; c < cols; c++) {
+      if (c > 0) rowChildren.add(const SizedBox(width: KSpacing.md));
+      if (c == column) {
+        rowChildren.add(
+          Expanded(child: _AgingPanelCard(type: expandedAging!)),
+        );
+      } else {
+        rowChildren.add(const Expanded(child: SizedBox.shrink()));
+      }
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: rowChildren,
     );
   }
 
-  /// Resolve a KPI tile value + trend label from the today-sales payload.
-  /// Non-sales KPIs (receivables, low-stock-count, etc.) fall back to a
-  /// neutral placeholder — they'll get their own providers later.
   (String, String) _valueFor(String id, dynamic data) {
     switch (id) {
       case 'today_sales':
@@ -419,98 +471,63 @@ class _KpiGrid extends ConsumerWidget {
   }
 }
 
-/// Inline aging drill-down panel — replaces the bottom sheet. Slides in
-/// below the KPI grid with an AnimatedSize transition, Zoho-style.
-class _InlineAgingPanel extends ConsumerWidget {
-  final String? expandedAging;
-  const _InlineAgingPanel({required this.expandedAging});
+/// Card-width aging panel that watches the appropriate provider and
+/// renders a compact [AgingBreakdown] with a thin accent-colored top bar.
+class _AgingPanelCard extends ConsumerWidget {
+  final String type;
+  const _AgingPanelCard({required this.type});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeInOut,
-      alignment: Alignment.topCenter,
-      child: expandedAging == null
-          ? const SizedBox(width: double.infinity)
-          : Padding(
-              padding: const EdgeInsets.only(top: KSpacing.md),
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: cs.surface,
-                  borderRadius:
-                      BorderRadius.circular(KSpacing.radiusLg),
-                  border: Border.all(
-                      color: cs.outlineVariant.withValues(alpha: 0.6)),
+    final isAr = type == 'ar';
+    final provider = isAr ? arAgingProvider : apAgingProvider;
+    final accentColor =
+        isAr ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
+    final title = isAr ? 'AR Aging' : 'AP Aging';
+    final route = isAr ? '/reports/ageing' : '/reports/ap-ageing';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(KSpacing.radiusLg),
+        border: Border.all(color: accentColor.withValues(alpha: 0.25)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Accent top bar — visual connection to the card above
+          Container(
+            height: 3,
+            color: accentColor,
+          ),
+          ref.watch(provider).when(
+                loading: () => const SizedBox(
+                  height: 120,
+                  child: Center(
+                      child: CircularProgressIndicator(strokeWidth: 2)),
                 ),
-                child: expandedAging == 'ar'
-                    ? const _InlineArAging()
-                    : const _InlineApAging(),
+                error: (_, __) => const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text('Failed to load'),
+                ),
+                data: (aging) => AgingBreakdown(
+                  title: title,
+                  totalOutstanding: aging.totalOutstanding,
+                  current: aging.current,
+                  days1to30: aging.days1to30,
+                  days31to60: aging.days31to60,
+                  days61to90: aging.days61to90,
+                  days90plus: aging.days90plus,
+                  reportRoute: route,
+                  accentColor: accentColor,
+                  compact: true,
+                ),
               ),
-            ),
+        ],
+      ),
     );
-  }
-}
-
-class _InlineArAging extends ConsumerWidget {
-  const _InlineArAging();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(arAgingProvider).when(
-          loading: () => const SizedBox(
-            height: 160,
-            child:
-                Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          ),
-          error: (_, __) => const SizedBox(
-            height: 100,
-            child: Center(child: Text('Failed to load aging data')),
-          ),
-          data: (ar) => AgingBreakdown(
-            title: 'Receivables Aging',
-            totalOutstanding: ar.totalOutstanding,
-            current: ar.current,
-            days1to30: ar.days1to30,
-            days31to60: ar.days31to60,
-            days61to90: ar.days61to90,
-            days90plus: ar.days90plus,
-            reportRoute: '/reports/ageing',
-            accentColor: const Color(0xFFF59E0B),
-          ),
-        );
-  }
-}
-
-class _InlineApAging extends ConsumerWidget {
-  const _InlineApAging();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(apAgingProvider).when(
-          loading: () => const SizedBox(
-            height: 160,
-            child:
-                Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          ),
-          error: (_, __) => const SizedBox(
-            height: 100,
-            child: Center(child: Text('Failed to load aging data')),
-          ),
-          data: (ap) => AgingBreakdown(
-            title: 'Payables Aging',
-            totalOutstanding: ap.totalOutstanding,
-            current: ap.current,
-            days1to30: ap.days1to30,
-            days31to60: ap.days31to60,
-            days61to90: ap.days61to90,
-            days90plus: ap.days90plus,
-            reportRoute: '/reports/ap-ageing',
-            accentColor: const Color(0xFFEF4444),
-          ),
-        );
   }
 }
 
