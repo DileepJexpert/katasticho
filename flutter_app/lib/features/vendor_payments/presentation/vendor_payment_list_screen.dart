@@ -17,18 +17,20 @@ class VendorPaymentListScreen extends ConsumerWidget {
     final paymentsAsync = ref.watch(vendorPaymentListProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Vendor Payments'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () => _showFilterSheet(context, ref),
-          ),
-        ],
-      ),
       body: Column(
         children: [
-          // Active filters banner
+          KListPageHeader(
+            title: 'Vendor Payments',
+            searchHint: 'Search payments…',
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.filter_list, size: 20),
+                tooltip: 'Filter by date',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => _showFilterSheet(context, ref),
+              ),
+            ],
+          ),
           if (filter.dateFrom != null || filter.dateTo != null)
             Container(
               width: double.infinity,
@@ -66,8 +68,6 @@ class VendorPaymentListScreen extends ConsumerWidget {
                 ],
               ),
             ),
-
-          // Payment list
           Expanded(
             child: paymentsAsync.when(
               loading: () => const KShimmerList(),
@@ -81,8 +81,7 @@ class VendorPaymentListScreen extends ConsumerWidget {
                   return const KEmptyState(
                     icon: Icons.payments_outlined,
                     title: 'No vendor payments yet',
-                    subtitle:
-                        'Payments recorded from bills will appear here',
+                    subtitle: 'Payments recorded from bills will appear here',
                   );
                 }
 
@@ -122,23 +121,17 @@ class VendorPaymentListScreen extends ConsumerWidget {
 
   String _filterSummary(VendorPaymentListFilter filter) {
     final parts = <String>[];
-    if (filter.dateFrom != null) {
-      parts.add('From: ${filter.dateFrom}');
-    }
-    if (filter.dateTo != null) {
-      parts.add('To: ${filter.dateTo}');
-    }
+    if (filter.dateFrom != null) parts.add('From: ${filter.dateFrom}');
+    if (filter.dateTo != null) parts.add('To: ${filter.dateTo}');
     return parts.join('  ·  ');
   }
 
   void _showFilterSheet(BuildContext context, WidgetRef ref) {
     final filter = ref.read(vendorPaymentFilterProvider);
-    DateTime? dateFrom = filter.dateFrom != null
-        ? DateTime.tryParse(filter.dateFrom!)
-        : null;
-    DateTime? dateTo = filter.dateTo != null
-        ? DateTime.tryParse(filter.dateTo!)
-        : null;
+    DateTime? dateFrom =
+        filter.dateFrom != null ? DateTime.tryParse(filter.dateFrom!) : null;
+    DateTime? dateTo =
+        filter.dateTo != null ? DateTime.tryParse(filter.dateTo!) : null;
 
     showModalBottomSheet(
       context: context,

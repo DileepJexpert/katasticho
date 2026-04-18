@@ -7,7 +7,6 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/expense_repository.dart';
 
-/// Common expense category buckets — shown as filter chips.
 const List<String> kExpenseCategories = [
   'Travel',
   'Meals',
@@ -43,18 +42,20 @@ class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
     final asyncExpenses = ref.watch(expenseListProvider(filters));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Expenses'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_alt_outlined),
-            tooltip: 'Filter',
-            onPressed: _openFilterSheet,
-          ),
-        ],
-      ),
       body: Column(
         children: [
+          KListPageHeader(
+            title: 'Expenses',
+            searchHint: 'Search expenses…',
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.filter_alt_outlined, size: 20),
+                tooltip: 'Filter',
+                visualDensity: VisualDensity.compact,
+                onPressed: _openFilterSheet,
+              ),
+            ],
+          ),
           if (_from != null || _to != null || _category != null)
             _FilterChipsBar(
               from: _from,

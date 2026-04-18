@@ -8,8 +8,6 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/price_list_repository.dart';
 
-/// List of org-scoped price lists. Shows the default list with a
-/// badge and routes into the detail screen for tier CRUD.
 class PriceListListScreen extends ConsumerWidget {
   const PriceListListScreen({super.key});
 
@@ -18,43 +16,47 @@ class PriceListListScreen extends ConsumerWidget {
     final listsAsync = ref.watch(priceListsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Price Lists'),
-      ),
-      body: listsAsync.when(
-        loading: () => const KShimmerList(),
-        error: (err, st) {
-          debugPrint('[PriceListList] ERROR: $err\n$st');
-          return KErrorView(
-            message: 'Failed to load price lists',
-            onRetry: () => ref.invalidate(priceListsProvider),
-          );
-        },
-        data: (lists) {
-          if (lists.isEmpty) {
-            return KEmptyState(
-              icon: Icons.sell_outlined,
-              title: 'No price lists yet',
-              subtitle:
-                  'Create a price list to apply tiered pricing to customers automatically at invoice time.',
-              actionLabel: 'Create Price List',
-              onAction: () => context.go('/price-lists/create'),
-            );
-          }
+      body: Column(
+        children: [
+          const KListPageHeader(title: 'Price Lists'),
+          Expanded(
+            child: listsAsync.when(
+              loading: () => const KShimmerList(),
+              error: (err, st) {
+                debugPrint('[PriceListList] ERROR: $err\n$st');
+                return KErrorView(
+                  message: 'Failed to load price lists',
+                  onRetry: () => ref.invalidate(priceListsProvider),
+                );
+              },
+              data: (lists) {
+                if (lists.isEmpty) {
+                  return KEmptyState(
+                    icon: Icons.sell_outlined,
+                    title: 'No price lists yet',
+                    subtitle:
+                        'Create a price list to apply tiered pricing to customers automatically at invoice time.',
+                    actionLabel: 'Create Price List',
+                    onAction: () => context.go('/price-lists/create'),
+                  );
+                }
 
-          return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(priceListsProvider),
-            child: ListView.separated(
-              padding: KSpacing.pagePadding,
-              itemCount: lists.length,
-              separatorBuilder: (_, __) => KSpacing.vGapSm,
-              itemBuilder: (context, index) {
-                final list = lists[index];
-                return _PriceListCard(list: list);
+                return RefreshIndicator(
+                  onRefresh: () async => ref.invalidate(priceListsProvider),
+                  child: ListView.separated(
+                    padding: KSpacing.pagePadding,
+                    itemCount: lists.length,
+                    separatorBuilder: (_, __) => KSpacing.vGapSm,
+                    itemBuilder: (context, index) {
+                      final list = lists[index];
+                      return _PriceListCard(list: list);
+                    },
+                  ),
+                );
               },
             ),
-          );
-        },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.go('/price-lists/create'),
@@ -106,10 +108,7 @@ class _PriceListCard extends StatelessWidget {
                     ),
                     if (isDefault) ...[
                       KSpacing.hGapSm,
-                      _Pill(
-                        label: 'Default',
-                        color: KColors.primary,
-                      ),
+                      _Pill(label: 'Default', color: KColors.primary),
                     ],
                     if (!active) ...[
                       KSpacing.hGapSm,
@@ -125,8 +124,7 @@ class _PriceListCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis),
                 ],
                 KSpacing.vGapXs,
-                Text('Currency: $currency',
-                    style: KTypography.labelSmall),
+                Text('Currency: $currency', style: KTypography.labelSmall),
               ],
             ),
           ),

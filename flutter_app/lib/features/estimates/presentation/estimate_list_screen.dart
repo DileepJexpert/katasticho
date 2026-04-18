@@ -7,21 +7,14 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/estimate_repository.dart';
 
-/// Supported status filters — maps to EstimateStatus on the backend.
-const _statusFilters = <_StatusFilter>[
-  _StatusFilter('All', null),
-  _StatusFilter('Draft', 'DRAFT'),
-  _StatusFilter('Sent', 'SENT'),
-  _StatusFilter('Accepted', 'ACCEPTED'),
-  _StatusFilter('Declined', 'DECLINED'),
-  _StatusFilter('Invoiced', 'INVOICED'),
+const _statusTabs = [
+  KListTab(label: 'All'),
+  KListTab(label: 'Draft', value: 'DRAFT'),
+  KListTab(label: 'Sent', value: 'SENT'),
+  KListTab(label: 'Accepted', value: 'ACCEPTED'),
+  KListTab(label: 'Declined', value: 'DECLINED'),
+  KListTab(label: 'Invoiced', value: 'INVOICED'),
 ];
-
-class _StatusFilter {
-  final String label;
-  final String? value;
-  const _StatusFilter(this.label, this.value);
-}
 
 class EstimateListScreen extends ConsumerStatefulWidget {
   const EstimateListScreen({super.key});
@@ -39,30 +32,15 @@ class _EstimateListScreenState extends ConsumerState<EstimateListScreen> {
     final asyncEstimates = ref.watch(estimateListProvider(filters));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Estimates')),
       body: Column(
         children: [
-          // Status filter chip row
-          SizedBox(
-            height: 52,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: KSpacing.md, vertical: KSpacing.sm),
-              scrollDirection: Axis.horizontal,
-              itemCount: _statusFilters.length,
-              separatorBuilder: (_, __) => KSpacing.hGapSm,
-              itemBuilder: (_, i) {
-                final f = _statusFilters[i];
-                final selected = _status == f.value;
-                return FilterChip(
-                  label: Text(f.label),
-                  selected: selected,
-                  onSelected: (_) => setState(() => _status = f.value),
-                );
-              },
-            ),
+          KListPageHeader(
+            title: 'Estimates',
+            searchHint: 'Search estimates…',
+            tabs: _statusTabs,
+            selectedTab: _status,
+            onTabChanged: (v) => setState(() => _status = v),
           ),
-          const Divider(height: 1),
           Expanded(
             child: asyncEstimates.when(
               loading: () => const KShimmerList(),

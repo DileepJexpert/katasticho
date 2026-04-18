@@ -7,6 +7,12 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/contact_repository.dart';
 
+const _contactTabs = [
+  KListTab(label: 'All'),
+  KListTab(label: 'Customers', value: 'CUSTOMER'),
+  KListTab(label: 'Vendors', value: 'VENDOR'),
+];
+
 class ContactListScreen extends ConsumerStatefulWidget {
   const ContactListScreen({super.key});
 
@@ -14,74 +20,27 @@ class ContactListScreen extends ConsumerStatefulWidget {
   ConsumerState<ContactListScreen> createState() => _ContactListScreenState();
 }
 
-class _ContactListScreenState extends ConsumerState<ContactListScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  final _searchController = TextEditingController();
+class _ContactListScreenState extends ConsumerState<ContactListScreen> {
+  String? _selectedType;
   String _searchQuery = '';
-
-  static const _tabs = [
-    (label: 'All', type: null),
-    (label: 'Customers', type: 'CUSTOMER'),
-    (label: 'Vendors', type: 'VENDOR'),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    _searchController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Contacts'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: _tabs.map((t) => Tab(text: t.label)).toList(),
-        ),
-      ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-                KSpacing.md, KSpacing.sm, KSpacing.md, 0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search by name, email, phone, GSTIN…',
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      )
-                    : null,
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-              ),
-              onChanged: (v) => setState(() => _searchQuery = v),
-            ),
+          KListPageHeader(
+            title: 'Contacts',
+            searchHint: 'Search by name, email, phone, GSTIN…',
+            tabs: _contactTabs,
+            selectedTab: _selectedType,
+            onTabChanged: (v) => setState(() => _selectedType = v),
+            onSearchChanged: (q) => setState(() => _searchQuery = q),
           ),
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: _tabs
-                  .map((t) => _ContactTabBody(
-                        type: t.type,
-                        search: _searchQuery,
-                      ))
-                  .toList(),
+            child: _ContactTabBody(
+              type: _selectedType,
+              search: _searchQuery,
             ),
           ),
         ],
@@ -117,7 +76,6 @@ class _ContactTabBody extends ConsumerWidget {
             ? content
             : (content is Map ? (content['content'] as List?) ?? [] : []);
 
-        // Client-side search filter (server search could be wired here too)
         if (search.isNotEmpty) {
           final q = search.toLowerCase();
           contacts = contacts.where((c) {

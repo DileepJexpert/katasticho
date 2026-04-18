@@ -14,70 +14,78 @@ class NotificationListScreen extends ConsumerWidget {
     final asyncNotifications = ref.watch(notificationListProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notifications'),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await ref
-                  .read(notificationRepositoryProvider)
-                  .markAllRead();
-              ref.invalidate(notificationListProvider);
-              ref.invalidate(unreadCountProvider);
-            },
-            child: const Text('Mark all read'),
+      body: Column(
+        children: [
+          KListPageHeader(
+            title: 'Notifications',
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  await ref
+                      .read(notificationRepositoryProvider)
+                      .markAllRead();
+                  ref.invalidate(notificationListProvider);
+                  ref.invalidate(unreadCountProvider);
+                },
+                child: const Text('Mark all read'),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: asyncNotifications.when(
-        loading: () => const KShimmerList(),
-        error: (_, __) => KErrorView(
-          message: 'Failed to load notifications',
-          onRetry: () => ref.invalidate(notificationListProvider),
-        ),
-        data: (data) {
-          final content = data['data'];
-          final notifications = content is List
-              ? content
-              : (content is Map ? (content['content'] as List?) ?? [] : []);
+          Expanded(
+            child: asyncNotifications.when(
+              loading: () => const KShimmerList(),
+              error: (_, __) => KErrorView(
+                message: 'Failed to load notifications',
+                onRetry: () => ref.invalidate(notificationListProvider),
+              ),
+              data: (data) {
+                final content = data['data'];
+                final notifications = content is List
+                    ? content
+                    : (content is Map
+                        ? (content['content'] as List?) ?? []
+                        : []);
 
-          if (notifications.isEmpty) {
-            return const KEmptyState(
-              icon: Icons.notifications_none_rounded,
-              title: 'All caught up!',
-              subtitle: 'No new notifications',
-            );
-          }
+                if (notifications.isEmpty) {
+                  return const KEmptyState(
+                    icon: Icons.notifications_none_rounded,
+                    title: 'All caught up!',
+                    subtitle: 'No new notifications',
+                  );
+                }
 
-          return RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(notificationListProvider);
-              ref.invalidate(unreadCountProvider);
-            },
-            child: ListView.separated(
-              padding: KSpacing.pagePadding,
-              itemCount: notifications.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1, indent: 60),
-              itemBuilder: (context, i) {
-                final n = notifications[i] as Map<String, dynamic>;
-                return _NotificationTile(
-                  notification: n,
-                  onTap: () async {
-                    final id = n['id']?.toString();
-                    if (id != null && n['read'] != true) {
-                      await ref
-                          .read(notificationRepositoryProvider)
-                          .markRead(id);
-                      ref.invalidate(notificationListProvider);
-                      ref.invalidate(unreadCountProvider);
-                    }
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(notificationListProvider);
+                    ref.invalidate(unreadCountProvider);
                   },
+                  child: ListView.separated(
+                    padding: KSpacing.pagePadding,
+                    itemCount: notifications.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, indent: 60),
+                    itemBuilder: (context, i) {
+                      final n = notifications[i] as Map<String, dynamic>;
+                      return _NotificationTile(
+                        notification: n,
+                        onTap: () async {
+                          final id = n['id']?.toString();
+                          if (id != null && n['read'] != true) {
+                            await ref
+                                .read(notificationRepositoryProvider)
+                                .markRead(id);
+                            ref.invalidate(notificationListProvider);
+                            ref.invalidate(unreadCountProvider);
+                          }
+                        },
+                      );
+                    },
+                  ),
                 );
               },
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }

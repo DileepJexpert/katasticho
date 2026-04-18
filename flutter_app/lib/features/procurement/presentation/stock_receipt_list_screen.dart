@@ -18,45 +18,49 @@ class StockReceiptListScreen extends ConsumerWidget {
     final receiptsAsync = ref.watch(stockReceiptListProvider(null));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Goods Receipts'),
-      ),
-      body: receiptsAsync.when(
-        loading: () => const KShimmerList(),
-        error: (err, _) => KErrorView(
-          message: 'Failed to load receipts',
-          onRetry: () => ref.invalidate(stockReceiptListProvider),
-        ),
-        data: (data) {
-          final content = data['data'];
-          final receipts = content is List
-              ? content
-              : (content is Map ? (content['content'] as List?) ?? [] : []);
+      body: Column(
+        children: [
+          const KListPageHeader(title: 'Goods Receipts'),
+          Expanded(
+            child: receiptsAsync.when(
+              loading: () => const KShimmerList(),
+              error: (err, _) => KErrorView(
+                message: 'Failed to load receipts',
+                onRetry: () => ref.invalidate(stockReceiptListProvider),
+              ),
+              data: (data) {
+                final content = data['data'];
+                final receipts = content is List
+                    ? content
+                    : (content is Map ? (content['content'] as List?) ?? [] : []);
 
-          if (receipts.isEmpty) {
-            return KEmptyState(
-              icon: Icons.local_shipping_outlined,
-              title: 'No goods receipts yet',
-              subtitle:
-                  'Record stock arrivals from your suppliers to update inventory and capture input GST.',
-              actionLabel: 'New Receipt',
-              onAction: () => context.go(Routes.stockReceiptCreate),
-            );
-          }
+                if (receipts.isEmpty) {
+                  return KEmptyState(
+                    icon: Icons.local_shipping_outlined,
+                    title: 'No goods receipts yet',
+                    subtitle:
+                        'Record stock arrivals from your suppliers to update inventory and capture input GST.',
+                    actionLabel: 'New Receipt',
+                    onAction: () => context.go(Routes.stockReceiptCreate),
+                  );
+                }
 
-          return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(stockReceiptListProvider),
-            child: ListView.separated(
-              padding: KSpacing.pagePadding,
-              itemCount: receipts.length,
-              separatorBuilder: (_, __) => KSpacing.vGapSm,
-              itemBuilder: (context, index) {
-                final receipt = receipts[index] as Map<String, dynamic>;
-                return _ReceiptCard(receipt: receipt);
+                return RefreshIndicator(
+                  onRefresh: () async => ref.invalidate(stockReceiptListProvider),
+                  child: ListView.separated(
+                    padding: KSpacing.pagePadding,
+                    itemCount: receipts.length,
+                    separatorBuilder: (_, __) => KSpacing.vGapSm,
+                    itemBuilder: (context, index) {
+                      final receipt = receipts[index] as Map<String, dynamic>;
+                      return _ReceiptCard(receipt: receipt);
+                    },
+                  ),
+                );
               },
             ),
-          );
-        },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.go(Routes.stockReceiptCreate),

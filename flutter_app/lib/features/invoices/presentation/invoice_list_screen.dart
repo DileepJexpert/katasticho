@@ -10,14 +10,13 @@ import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/invoice_providers.dart';
 
-/// Filter tabs for invoice status.
-const _statusFilters = [
-  (null, 'All'),
-  ('DRAFT', 'Draft'),
-  ('SENT', 'Sent'),
-  ('PARTIALLY_PAID', 'Partial'),
-  ('PAID', 'Paid'),
-  ('OVERDUE', 'Overdue'),
+const _statusTabs = [
+  KListTab(label: 'All'),
+  KListTab(label: 'Draft', value: 'DRAFT'),
+  KListTab(label: 'Sent', value: 'SENT'),
+  KListTab(label: 'Partial', value: 'PARTIALLY_PAID'),
+  KListTab(label: 'Paid', value: 'PAID'),
+  KListTab(label: 'Overdue', value: 'OVERDUE'),
 ];
 
 class InvoiceListScreen extends ConsumerWidget {
@@ -29,58 +28,21 @@ class InvoiceListScreen extends ConsumerWidget {
     final invoicesAsync = ref.watch(invoiceListProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Invoices'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () => _showSearch(context, ref),
-          ),
-        ],
-      ),
       body: Column(
         children: [
-          // Status filter tabs
-          Container(
-            color: KColors.surface,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(
-                horizontal: KSpacing.md,
-                vertical: KSpacing.sm,
-              ),
-              child: Row(
-                children: _statusFilters.map((f) {
-                  final isActive = filter.status == f.$1;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(f.$2),
-                      selected: isActive,
-                      onSelected: (_) {
-                        ref.read(invoiceFilterProvider.notifier).state =
-                            filter.copyWith(status: f.$1, page: 0);
-                      },
-                      selectedColor:
-                          KColors.primary.withValues(alpha: 0.12),
-                      checkmarkColor: KColors.primary,
-                      labelStyle: TextStyle(
-                        color: isActive
-                            ? KColors.primary
-                            : KColors.textSecondary,
-                        fontWeight: isActive
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
+          KListPageHeader(
+            title: 'Invoices',
+            searchHint: 'Search invoices…',
+            tabs: _statusTabs,
+            selectedTab: filter.status,
+            onTabChanged: (v) => ref
+                .read(invoiceFilterProvider.notifier)
+                .state = filter.copyWith(status: v, page: 0),
+            onSearchChanged: (q) => ref
+                .read(invoiceFilterProvider.notifier)
+                .state = filter.copyWith(
+                    search: q.isEmpty ? null : q, page: 0),
           ),
-          const Divider(height: 1),
-
-          // Invoice list
           Expanded(
             child: invoicesAsync.when(
               loading: () => const KShimmerList(),
@@ -109,7 +71,7 @@ class InvoiceListScreen extends ConsumerWidget {
                     icon: Icons.receipt_long_outlined,
                     title: 'No invoices found',
                     subtitle: filter.status != null
-                        ? 'No ${filter.status} invoices'
+                        ? 'No ${filter.status!.toLowerCase()} invoices'
                         : 'Create your first invoice',
                     actionLabel: 'Create Invoice',
                     onAction: () => context.go(Routes.invoiceCreate),
@@ -139,13 +101,6 @@ class InvoiceListScreen extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('New Invoice'),
       ),
-    );
-  }
-
-  void _showSearch(BuildContext context, WidgetRef ref) {
-    showSearch(
-      context: context,
-      delegate: _InvoiceSearchDelegate(ref),
     );
   }
 }
@@ -226,45 +181,6 @@ class _InvoiceCard extends StatelessWidget {
           const Icon(Icons.chevron_right, color: KColors.textHint),
         ],
       ),
-    );
-  }
-}
-
-class _InvoiceSearchDelegate extends SearchDelegate<String?> {
-  final WidgetRef ref;
-
-  _InvoiceSearchDelegate(this.ref);
-
-  @override
-  List<Widget>? buildActions(BuildContext context) {
-    return [
-      IconButton(
-        icon: const Icon(Icons.clear),
-        onPressed: () => query = '',
-      ),
-    ];
-  }
-
-  @override
-  Widget? buildLeading(BuildContext context) {
-    return IconButton(
-      icon: const Icon(Icons.arrow_back),
-      onPressed: () => close(context, null),
-    );
-  }
-
-  @override
-  Widget buildResults(BuildContext context) {
-    ref.read(invoiceFilterProvider.notifier).state =
-        InvoiceListFilter(search: query);
-    close(context, query);
-    return const SizedBox();
-  }
-
-  @override
-  Widget buildSuggestions(BuildContext context) {
-    return const Center(
-      child: Text('Type to search invoices...'),
     );
   }
 }
