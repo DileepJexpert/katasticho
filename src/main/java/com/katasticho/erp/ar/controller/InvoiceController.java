@@ -2,7 +2,11 @@ package com.katasticho.erp.ar.controller;
 
 import com.katasticho.erp.ar.dto.CreateInvoiceRequest;
 import com.katasticho.erp.ar.dto.InvoiceResponse;
+import com.katasticho.erp.ar.dto.PaymentResponse;
+import com.katasticho.erp.ar.dto.RecordPaymentRequest;
+import com.katasticho.erp.ar.entity.Payment;
 import com.katasticho.erp.ar.service.InvoiceService;
+import com.katasticho.erp.ar.service.PaymentService;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
 import com.katasticho.erp.common.service.DocumentShareService;
@@ -24,6 +28,7 @@ import java.util.UUID;
 public class InvoiceController {
 
     private final InvoiceService invoiceService;
+    private final PaymentService paymentService;
     private final DocumentShareService documentShareService;
 
     @PostMapping
@@ -47,6 +52,28 @@ public class InvoiceController {
         String reason = body.getOrDefault("reason", "Cancelled");
         InvoiceResponse response = invoiceService.cancelInvoice(id, reason);
         return ResponseEntity.ok(ApiResponse.ok(response, "Invoice cancelled"));
+    }
+
+    @PostMapping("/{id}/payments")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<PaymentResponse>> recordPayment(
+            @PathVariable UUID id,
+            @Valid @RequestBody RecordPaymentRequest request) {
+        RecordPaymentRequest enriched = new RecordPaymentRequest(
+                id, request.contactId(), request.paymentDate(), request.amount(),
+                request.paymentMethod(), request.referenceNumber(),
+                request.bankAccount(), request.notes());
+        Payment payment = paymentService.recordPayment(enriched);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created(paymentService.toResponse(payment)));
+    }
+
+    @GetMapping("/{id}/payments")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    public ResponseEntity<ApiResponse<java.util.List<PaymentResponse>>> listPaymentsForInvoice(@PathVariable UUID id) {
+        var payments = paymentService.getPaymentsForInvoice(id).stream()
+                .map(paymentService::toResponse).toList();
+        return ResponseEntity.ok(ApiResponse.ok(payments));
     }
 
     @GetMapping("/{id}")
