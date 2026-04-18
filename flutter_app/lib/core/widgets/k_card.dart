@@ -155,6 +155,8 @@ class KKpiCard extends StatelessWidget {
   final bool? trendPositive;
   final Widget? sparkline;
   final VoidCallback? onTap;
+  final bool showChevron;
+  final bool expanded;
 
   const KKpiCard({
     super.key,
@@ -167,6 +169,8 @@ class KKpiCard extends StatelessWidget {
     this.trendPositive,
     this.sparkline,
     this.onTap,
+    this.showChevron = false,
+    this.expanded = false,
   });
 
   @override
@@ -180,7 +184,7 @@ class KKpiCard extends StatelessWidget {
     // there throws "non-zero flex with unbounded height".
     return KCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -188,35 +192,47 @@ class KKpiCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 30,
+                height: 30,
                 decoration: BoxDecoration(
                   color: tile,
-                  borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+                  borderRadius: BorderRadius.circular(KSpacing.radiusSm),
                 ),
-                child: Icon(icon, color: accent, size: 18),
+                child: Icon(icon, color: accent, size: 16),
               ),
               const Spacer(), // OK: Row has bounded width from grid tile
               if (trend != null)
                 _TrendPill(trend: trend!, positive: trendPositive == true),
+              if (showChevron) ...[
+                const SizedBox(width: 4),
+                AnimatedRotation(
+                  turns: expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 18,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 10),
           Text(
             value,
             style: KTypography.h1.copyWith(
-              fontSize: 22,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
               color: cs.onSurface,
-              letterSpacing: -0.4,
+              letterSpacing: -0.3,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 1),
           Text(
             title,
-            style: KTypography.bodySmall.copyWith(
+            style: KTypography.labelSmall.copyWith(
               color: cs.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
@@ -224,8 +240,8 @@ class KKpiCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
           if (sparkline != null) ...[
-            const SizedBox(height: 10),
-            SizedBox(height: 28, child: sparkline),
+            const SizedBox(height: 8),
+            SizedBox(height: 24, child: sparkline),
           ],
         ],
       ),
