@@ -15,15 +15,15 @@ class CashPositionWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final salesAsync = ref.watch(todaySalesProvider);
+    final arAsync = ref.watch(arSummaryProvider);
     final apAsync = ref.watch(apSummaryProvider);
 
     return KCard(
       title: 'Cash Position',
       child: Column(
         children: [
-          // AR row
-          salesAsync.when(
+          // AR row — outstanding receivables
+          arAsync.when(
             loading: () => const _PositionRow(
               label: 'Receivables (AR)',
               value: '...',
@@ -36,11 +36,37 @@ class CashPositionWidget extends ConsumerWidget {
               icon: Icons.arrow_downward,
               color: KColors.success,
             ),
-            data: (sales) => _PositionRow(
+            data: (ar) => _PositionRow(
               label: 'Receivables (AR)',
-              value: CurrencyFormatter.formatIndian(sales.cashCollected),
+              value: CurrencyFormatter.formatIndian(ar.totalOutstanding),
               icon: Icons.arrow_downward,
               color: KColors.success,
+            ),
+          ),
+          const Divider(height: 16),
+
+          // AR due this week
+          arAsync.when(
+            loading: () => const _PositionRow(
+              label: 'AR Due This Week',
+              value: '...',
+              icon: Icons.schedule_outlined,
+              color: KColors.success,
+            ),
+            error: (_, __) => const _PositionRow(
+              label: 'AR Due This Week',
+              value: '—',
+              icon: Icons.schedule_outlined,
+              color: KColors.success,
+            ),
+            data: (ar) => _PositionRow(
+              label: 'AR Due This Week',
+              value: CurrencyFormatter.formatIndian(ar.dueThisWeek),
+              icon: Icons.schedule_outlined,
+              color: KColors.success,
+              badge: ar.dueThisWeekCount > 0
+                  ? '${ar.dueThisWeekCount} invoices'
+                  : null,
             ),
           ),
           const Divider(height: 16),
