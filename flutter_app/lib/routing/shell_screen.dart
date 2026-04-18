@@ -4,10 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/auth/auth_state.dart';
 import '../core/commands/command_registry.dart';
+import '../core/shell/shell_providers.dart';
 import '../core/theme/k_colors.dart';
 import '../core/theme/k_spacing.dart';
 import '../core/widgets/k_assistant_fab.dart';
 import '../core/widgets/k_command_palette.dart';
+import '../core/widgets/k_quick_create_menu.dart';
+import '../core/widgets/k_top_bar.dart';
 import '../core/widgets/theme_mode_switcher.dart';
 import '../features/notifications/data/notification_repository.dart';
 import 'app_router.dart';
@@ -211,19 +214,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
       shell = _MobileShell(child: widget.child);
     }
 
-    return Stack(
-      children: [
-        shell,
-        if (!_isMobile(width))
-          Positioned(
-            right: 20,
-            bottom: 20,
-            child: KAssistantFab(
-              onTap: () => KAssistantPanel.show(context),
-            ),
-          ),
-      ],
-    );
+    return shell;
   }
 }
 
@@ -237,161 +228,212 @@ class _DesktopShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final collapsed = ref.watch(sidebarCollapsedProvider);
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final notifCount =
+        ref.watch(unreadCountProvider).valueOrNull ?? 0;
+
+    final sidebarWidth =
+        collapsed ? KSpacing.sidebarCollapsedWidth : KSpacing.sidebarWidth;
 
     return Scaffold(
-      body: Row(
+      body: Column(
         children: [
-          // Sidebar — soft tinted surface (not solid brand color)
-          Container(
-            width: KSpacing.sidebarWidth,
-            decoration: BoxDecoration(
-              color: cs.surface,
-              border: Border(
-                right: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: isDark ? 0.4 : 0.6),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Column(
+          // ── Full-width top bar ──────────────────────────────────
+          KTopBar(
+            notificationCount: notifCount,
+            onNotifications: () => context.push(Routes.notifications),
+          ),
+
+          // ── Sidebar + Content row ───────────────────────────────
+          Expanded(
+            child: Row(
               children: [
-                // Logo / Brand
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [cs.primary, cs.tertiary],
-                          ),
-                          borderRadius: BorderRadius.circular(11),
-                          boxShadow: [
-                            BoxShadow(
-                              color: cs.primary.withValues(alpha: 0.25),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Center(
-                          child: Text(
-                            'K',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 18,
-                            ),
-                          ),
-                        ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  width: sidebarWidth,
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    border: Border(
+                      right: BorderSide(
+                        color: cs.outlineVariant
+                            .withValues(alpha: isDark ? 0.4 : 0.6),
+                        width: 1,
                       ),
-                      KSpacing.hGapMd,
-                      Text(
-                        'Katasticho',
-                        style: TextStyle(
-                          color: cs.onSurface,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-
-                // Nav items
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    children: [
-                      _NavSectionLabel(label: 'WORKSPACE'),
-                      ..._navItems.map((item) => _SidebarNavItem(item: item)),
-                      KSpacing.vGapMd,
-                      _NavSectionLabel(label: 'SALES'),
-                      ..._salesNavItems
-                          .map((item) => _SidebarNavItem(item: item)),
-                      KSpacing.vGapMd,
-                      _NavSectionLabel(label: 'PURCHASES'),
-                      ..._purchasesNavItems
-                          .map((item) => _SidebarNavItem(item: item)),
-                      KSpacing.vGapMd,
-                      _NavSectionLabel(label: 'MORE'),
-                      ..._secondaryNavItems
-                          .map((item) => _SidebarNavItem(item: item)),
-                    ],
-                  ),
-                ),
-
-                // Footer: theme switcher + user
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                  child: Column(
-                    children: [
-                      Divider(
-                        color: cs.outlineVariant.withValues(alpha: 0.5),
-                        height: 1,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
+                  child: OverflowBox(
+                    // Let content stay at full width during animation
+                    maxWidth: KSpacing.sidebarWidth,
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: KSpacing.sidebarWidth,
+                      child: Column(
                         children: [
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor: cs.primaryContainer,
-                            child: Text(
-                              (authState.userName ?? 'U')[0].toUpperCase(),
-                              style: TextStyle(
-                                color: cs.onPrimaryContainer,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          KSpacing.hGapSm,
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
+                          // Brand logo (always shows "K" tile)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                            child: Row(
                               children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [cs.primary, cs.tertiary],
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color:
+                                            cs.primary.withValues(alpha: 0.22),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Center(
+                                    child: Text(
+                                      'K',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 17,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
                                 Text(
-                                  authState.userName ?? 'User',
+                                  'Katasticho',
                                   style: TextStyle(
                                     color: cs.onSurface,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.3,
                                   ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                Text(
-                                  authState.orgName ?? 'Organisation',
-                                  style: TextStyle(
-                                    color: cs.onSurfaceVariant,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
                           ),
-                          const _NotificationBell(),
-                          const SizedBox(width: 4),
-                          const ThemeModeIconButton(),
+
+                          // Quick Create button
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 12),
+                            child: const KQuickCreateMenu(expanded: true),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Nav items
+                          Expanded(
+                            child: ListView(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
+                              children: [
+                                _NavSectionLabel(label: 'WORKSPACE'),
+                                ..._navItems.map(
+                                    (item) => _SidebarNavItem(item: item)),
+                                KSpacing.vGapMd,
+                                _NavSectionLabel(label: 'SALES'),
+                                ..._salesNavItems.map(
+                                    (item) => _SidebarNavItem(item: item)),
+                                KSpacing.vGapMd,
+                                _NavSectionLabel(label: 'PURCHASES'),
+                                ..._purchasesNavItems.map(
+                                    (item) => _SidebarNavItem(item: item)),
+                                KSpacing.vGapMd,
+                                _NavSectionLabel(label: 'MORE'),
+                                ..._secondaryNavItems.map(
+                                    (item) => _SidebarNavItem(item: item)),
+                              ],
+                            ),
+                          ),
+
+                          // Ask AI
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                            child: KAssistantFab(
+                              onTap: () => KAssistantPanel.show(context),
+                            ),
+                          ),
+
+                          // User footer
+                          Padding(
+                            padding:
+                                const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                            child: Column(
+                              children: [
+                                Divider(
+                                  color: cs.outlineVariant
+                                      .withValues(alpha: 0.5),
+                                  height: 1,
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 17,
+                                      backgroundColor: cs.primaryContainer,
+                                      child: Text(
+                                        (authState.userName ?? 'U')[0]
+                                            .toUpperCase(),
+                                        style: TextStyle(
+                                          color: cs.onPrimaryContainer,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            authState.userName ?? 'User',
+                                            style: TextStyle(
+                                              color: cs.onSurface,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          Text(
+                                            authState.orgName ??
+                                                'Organisation',
+                                            style: TextStyle(
+                                              color: cs.onSurfaceVariant,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
+
+                // Main content
+                Expanded(child: child),
               ],
             ),
           ),
-
-          // Main content
-          Expanded(child: child),
         ],
       ),
     );
@@ -515,63 +557,49 @@ class _TabletShell extends StatelessWidget {
     if (selectedIndex < 0) selectedIndex = 0;
 
     return Scaffold(
-      body: Row(
+      body: Column(
         children: [
-          NavigationRail(
-            selectedIndex: selectedIndex,
-            backgroundColor: cs.surface,
-            indicatorColor: cs.primaryContainer,
-            indicatorShape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            onDestinationSelected: (index) {
-              context.go(_navItems[index].route);
-            },
-            labelType: NavigationRailLabelType.all,
-            leading: Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 12),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [cs.primary, cs.tertiary],
+          const KTopBar(),
+          Expanded(
+            child: Row(
+              children: [
+                NavigationRail(
+                  selectedIndex: selectedIndex,
+                  backgroundColor: cs.surface,
+                  indicatorColor: cs.primaryContainer,
+                  indicatorShape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  borderRadius: BorderRadius.circular(11),
+                  onDestinationSelected: (index) {
+                    context.go(_navItems[index].route);
+                  },
+                  labelType: NavigationRailLabelType.all,
+                  leading: const Padding(
+                    padding: EdgeInsets.only(top: 12, bottom: 12),
+                    child: KQuickCreateMenu(expanded: false),
+                  ),
+                  trailing: const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: ThemeModeIconButton(),
+                  ),
+                  destinations: _navItems
+                      .map(
+                        (item) => NavigationRailDestination(
+                          icon: Icon(item.icon),
+                          selectedIcon: Icon(item.activeIcon),
+                          label: Text(item.label),
+                        ),
+                      )
+                      .toList(),
                 ),
-                child: const Center(
-                  child: Text(
-                    'K',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 18,
-                    ),
-                  ),
+                VerticalDivider(
+                  width: 1,
+                  color: cs.outlineVariant.withValues(alpha: 0.5),
                 ),
-              ),
+                Expanded(child: child),
+              ],
             ),
-            trailing: const Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: ThemeModeIconButton(),
-            ),
-            destinations: _navItems
-                .map(
-                  (item) => NavigationRailDestination(
-                    icon: Icon(item.icon),
-                    selectedIcon: Icon(item.activeIcon),
-                    label: Text(item.label),
-                  ),
-                )
-                .toList(),
           ),
-          VerticalDivider(
-            width: 1,
-            color: cs.outlineVariant.withValues(alpha: 0.5),
-          ),
-          Expanded(child: child),
         ],
       ),
     );
