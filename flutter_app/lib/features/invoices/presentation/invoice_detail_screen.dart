@@ -51,7 +51,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
         ),
         data: (data) {
           final invoice = (data['data'] ?? data) as Map<String, dynamic>;
-          return _InvoiceDetailBody(invoice: invoice);
+          return _InvoiceDetailBody(invoice: invoice, invoiceId: invoiceId);
         },
       ),
       bottomNavigationBar: invoiceAsync.whenOrNull(
@@ -94,7 +94,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
                       label: 'Record Payment',
                       icon: Icons.payments,
                       variant: KButtonVariant.secondary,
-                      onPressed: () => _showPaymentSheet(context, ref, invoice),
+                      onPressed: () => context.push('/invoices/$invoiceId/pay'),
                     ),
                   ],
                 ),
@@ -188,97 +188,19 @@ class InvoiceDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _showPaymentSheet(
-    BuildContext context,
-    WidgetRef ref,
-    Map<String, dynamic> invoice,
-  ) {
-    final balanceDue = (invoice['balanceDue'] as num?)?.toDouble() ?? 0;
-    final amountController =
-        TextEditingController(text: balanceDue.toStringAsFixed(2));
-    String paymentMethod = 'BANK_TRANSFER';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          left: KSpacing.md,
-          right: KSpacing.md,
-          top: KSpacing.lg,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Record Payment', style: KTypography.h2),
-            KSpacing.vGapMd,
-            KTextField.amount(
-              label: 'Amount',
-              controller: amountController,
-            ),
-            KSpacing.vGapMd,
-            DropdownButtonFormField<String>(
-              value: paymentMethod,
-              decoration: const InputDecoration(labelText: 'Payment Method'),
-              items: const [
-                DropdownMenuItem(value: 'CASH', child: Text('Cash')),
-                DropdownMenuItem(
-                    value: 'BANK_TRANSFER', child: Text('Bank Transfer')),
-                DropdownMenuItem(value: 'UPI', child: Text('UPI')),
-                DropdownMenuItem(value: 'CHEQUE', child: Text('Cheque')),
-                DropdownMenuItem(value: 'CARD', child: Text('Card')),
-              ],
-              onChanged: (v) => paymentMethod = v ?? 'BANK_TRANSFER',
-            ),
-            KSpacing.vGapLg,
-            KButton(
-              label: 'Record Payment',
-              icon: Icons.check,
-              fullWidth: true,
-              onPressed: () async {
-                Navigator.pop(ctx);
-                try {
-                  final repo = ref.read(invoiceRepositoryProvider);
-                  await repo.recordPayment(invoiceId, {
-                    'amount': double.tryParse(amountController.text) ?? 0,
-                    'paymentMethod': paymentMethod,
-                    'paymentDate':
-                        DateTime.now().toIso8601String().split('T')[0],
-                  });
-                  ref.invalidate(invoiceDetailProvider(invoiceId));
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Payment recorded successfully')),
-                    );
-                  }
-                } catch (_) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Failed to record payment')),
-                    );
-                  }
-                }
-              },
-            ),
-            KSpacing.vGapMd,
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-class _InvoiceDetailBody extends StatelessWidget {
+class _InvoiceDetailBody extends ConsumerWidget {
   final Map<String, dynamic> invoice;
+  final String invoiceId;
 
-  const _InvoiceDetailBody({required this.invoice});
+  const _InvoiceDetailBody({
+    required this.invoice,
+    required this.invoiceId,
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final status = invoice['status'] as String? ?? 'DRAFT';
     final invoiceNumber = invoice['invoiceNumber'] as String? ?? '--';
     final customerName = invoice['contactName'] as String? ?? 'Customer';
@@ -431,16 +353,103 @@ class _InvoiceDetailBody extends StatelessWidget {
                       ),
 
                 // Payments tab
-                const KEmptyState(
-                  icon: Icons.payments_outlined,
-                  title: 'No payments recorded',
-                  subtitle: 'Payments will appear here',
-                ),
+                _PaymentsTab(invoiceId: invoiceId),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+class _PaymentsTab extends ConsumerWidget {
+  final String invoiceId;
+
+  const _PaymentsTab({required this.invoiceId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final paymentsAsync = ref.watch(invoicePaymentsProvider(invoiceId));
+
+    return paymentsAsync.when(
+      loading: () => const KLoading(),
+      error: (err, _) => KErrorView(
+        message: 'Failed to load payments',
+        onRetry: () => ref.invalidate(invoicePaymentsProvider(invoiceId)),
+      ),
+      data: (payments) {
+        if (payments.isEmpty) {
+          return const KEmptyState(
+            icon: Icons.payments_outlined,
+            title: 'No payments recorded',
+            subtitle: 'Payments will appear here',
+          );
+        }
+        return ListView.builder(
+          padding: KSpacing.pagePadding,
+          itemCount: payments.length,
+          itemBuilder: (context, index) {
+            final p = payments[index];
+            final amount = (p['amount'] as num?)?.toDouble() ?? 0;
+            final method = p['paymentMethod'] as String? ?? '--';
+            final number = p['paymentNumber'] as String? ?? '';
+            final date = p['paymentDate'] as String? ?? '';
+            final reference = p['referenceNumber'] as String?;
+            return KCard(
+              margin: const EdgeInsets.only(bottom: KSpacing.sm),
+              child: Row(
+                children: [
+                  const Icon(Icons.payments, color: KColors.success),
+                  KSpacing.hGapMd,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(number, style: KTypography.labelLarge),
+                        Text(
+                          '${_methodLabel(method)} • $date',
+                          style: KTypography.bodySmall,
+                        ),
+                        if (reference != null && reference.isNotEmpty)
+                          Text(
+                            'Ref: $reference',
+                            style: KTypography.bodySmall.copyWith(
+                              color: KColors.textSecondary,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    CurrencyFormatter.formatIndian(amount),
+                    style: KTypography.amountSmall.copyWith(
+                      color: KColors.success,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _methodLabel(String method) {
+    switch (method) {
+      case 'BANK_TRANSFER':
+        return 'Bank Transfer';
+      case 'UPI':
+        return 'UPI';
+      case 'CASH':
+        return 'Cash';
+      case 'CHEQUE':
+        return 'Cheque';
+      case 'CARD':
+        return 'Card';
+      default:
+        return method;
+    }
   }
 }

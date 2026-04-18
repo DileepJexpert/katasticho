@@ -67,8 +67,13 @@ class TaxGroupDto {
       .map((r) => TaxRateDto(r as Map<String, dynamic>))
       .toList();
 
-  /// Display label: "GST 18%" or "IGST 18%"
+  /// Display label: "GST 18%" or "IGST 18%". If the group name already
+  /// contains a percentage (e.g. user named it "gst12%"), use it as-is
+  /// instead of appending the rate a second time.
   String get displayLabel {
+    if (RegExp(r'\d+(?:\.\d+)?\s*%').hasMatch(name)) {
+      return name;
+    }
     final pct = totalRate.toStringAsFixed(
         totalRate.truncateToDouble() == totalRate ? 0 : 1);
     return '$name $pct%';

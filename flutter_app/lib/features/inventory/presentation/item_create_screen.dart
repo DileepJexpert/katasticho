@@ -467,6 +467,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                           label: 'GST Rate (%)',
                           controller: _gstRateController,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          selectAllOnFocus: true,
                         ),
                       ),
                     ],

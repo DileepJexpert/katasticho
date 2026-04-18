@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../payments/data/payment_repository.dart';
 import 'invoice_repository.dart';
 
 /// Holds the current filter state for the invoice list.
@@ -39,5 +40,19 @@ final invoiceDetailProvider =
   (ref, id) async {
     final repo = ref.watch(invoiceRepositoryProvider);
     return repo.getInvoice(id);
+  },
+);
+
+/// Fetches the list of payments recorded against an invoice.
+final invoicePaymentsProvider =
+    FutureProvider.autoDispose.family<List<Map<String, dynamic>>, String>(
+  (ref, invoiceId) async {
+    final repo = ref.watch(paymentRepositoryProvider);
+    final result = await repo.listPaymentsForInvoice(invoiceId);
+    final data = result['data'];
+    if (data is List) {
+      return data.cast<Map<String, dynamic>>();
+    }
+    return const [];
   },
 );

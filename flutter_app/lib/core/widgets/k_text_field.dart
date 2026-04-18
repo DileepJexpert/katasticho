@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// Standardized text field with label, prefix, suffix, and validation.
-class KTextField extends StatelessWidget {
+class KTextField extends StatefulWidget {
   final String label;
   final String? hint;
   final TextEditingController? controller;
@@ -25,6 +25,7 @@ class KTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final VoidCallback? onTap;
   final ValueChanged<String>? onFieldSubmitted;
+  final bool selectAllOnFocus;
 
   const KTextField({
     super.key,
@@ -50,42 +51,11 @@ class KTextField extends StatelessWidget {
     this.textInputAction,
     this.onTap,
     this.onFieldSubmitted,
+    this.selectAllOnFocus = false,
   });
 
   @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      initialValue: controller == null ? initialValue : null,
-      validator: validator,
-      onChanged: onChanged,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
-      obscureText: obscureText,
-      readOnly: readOnly,
-      enabled: enabled,
-      maxLines: maxLines,
-      maxLength: maxLength,
-      focusNode: focusNode,
-      textInputAction: textInputAction,
-      onTap: onTap,
-      onFieldSubmitted: onFieldSubmitted,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefix: prefix,
-        suffix: suffix,
-        prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
-        suffixIcon: suffixIcon != null
-            ? IconButton(
-                icon: Icon(suffixIcon),
-                onPressed: onSuffixTap,
-              )
-            : suffix,
-        counterText: '',
-      ),
-    );
-  }
+  State<KTextField> createState() => _KTextFieldState();
 
   /// Convenience factory for amount fields with INR prefix.
   factory KTextField.amount({
@@ -109,6 +79,7 @@ class KTextField extends StatelessWidget {
         FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
       ],
       prefixIcon: Icons.currency_rupee,
+      selectAllOnFocus: true,
     );
   }
 
@@ -129,6 +100,92 @@ class KTextField extends StatelessWidget {
       prefixIcon: Icons.search,
       suffixIcon: controller?.text.isNotEmpty == true ? Icons.close : null,
       onSuffixTap: onClear,
+    );
+  }
+}
+
+class _KTextFieldState extends State<KTextField> {
+  FocusNode? _internalFocusNode;
+
+  FocusNode get _effectiveFocusNode =>
+      widget.focusNode ?? (_internalFocusNode ??= FocusNode());
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.selectAllOnFocus) {
+      _effectiveFocusNode.addListener(_handleFocusChange);
+    }
+  }
+
+  @override
+  void didUpdateWidget(KTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectAllOnFocus && !widget.selectAllOnFocus) {
+      _effectiveFocusNode.removeListener(_handleFocusChange);
+    } else if (!oldWidget.selectAllOnFocus && widget.selectAllOnFocus) {
+      _effectiveFocusNode.addListener(_handleFocusChange);
+    }
+  }
+
+  void _handleFocusChange() {
+    if (_effectiveFocusNode.hasFocus &&
+        widget.controller != null &&
+        widget.controller!.text.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            widget.controller != null &&
+            widget.controller!.text.isNotEmpty) {
+          widget.controller!.selection = TextSelection(
+            baseOffset: 0,
+            extentOffset: widget.controller!.text.length,
+          );
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    if (widget.selectAllOnFocus) {
+      _effectiveFocusNode.removeListener(_handleFocusChange);
+    }
+    _internalFocusNode?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: widget.controller,
+      initialValue: widget.controller == null ? widget.initialValue : null,
+      validator: widget.validator,
+      onChanged: widget.onChanged,
+      keyboardType: widget.keyboardType,
+      inputFormatters: widget.inputFormatters,
+      obscureText: widget.obscureText,
+      readOnly: widget.readOnly,
+      enabled: widget.enabled,
+      maxLines: widget.maxLines,
+      maxLength: widget.maxLength,
+      focusNode: widget.selectAllOnFocus ? _effectiveFocusNode : widget.focusNode,
+      textInputAction: widget.textInputAction,
+      onTap: widget.onTap,
+      onFieldSubmitted: widget.onFieldSubmitted,
+      decoration: InputDecoration(
+        labelText: widget.label,
+        hintText: widget.hint,
+        prefix: widget.prefix,
+        suffix: widget.suffix,
+        prefixIcon: widget.prefixIcon != null ? Icon(widget.prefixIcon) : null,
+        suffixIcon: widget.suffixIcon != null
+            ? IconButton(
+                icon: Icon(widget.suffixIcon),
+                onPressed: widget.onSuffixTap,
+              )
+            : widget.suffix,
+        counterText: '',
+      ),
     );
   }
 }
