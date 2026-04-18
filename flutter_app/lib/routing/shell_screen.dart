@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/auth/auth_state.dart';
+import '../core/commands/command_registry.dart';
 import '../core/theme/k_colors.dart';
 import '../core/theme/k_spacing.dart';
+import '../core/widgets/k_assistant_fab.dart';
+import '../core/widgets/k_command_palette.dart';
 import '../core/widgets/theme_mode_switcher.dart';
 import '../features/notifications/data/notification_repository.dart';
 import 'app_router.dart';
+
 
 /// Navigation item definition.
 class NavItem {
@@ -149,25 +154,76 @@ const _secondaryNavItems = [
   ),
 ];
 
+/// Convenience used by the shell to decide where to anchor the FAB.
+bool _isMobile(double width) => width < KSpacing.tabletBreakpoint;
+
 /// Responsive shell: sidebar on desktop/tablet, bottom nav on mobile.
-class ShellScreen extends ConsumerWidget {
+///
+/// Also installs the global Cmd/Ctrl+K shortcut for the command palette and
+/// the floating AI assistant (desktop/tablet only).
+class ShellScreen extends ConsumerStatefulWidget {
   final Widget child;
 
   const ShellScreen({super.key, required this.child});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ShellScreen> createState() => _ShellScreenState();
+}
+
+class _ShellScreenState extends ConsumerState<ShellScreen> {
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleKey);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleKey);
+    super.dispose();
+  }
+
+  bool _handleKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    if (event.logicalKey != LogicalKeyboardKey.keyK) return false;
+    final pressed = HardwareKeyboard.instance.logicalKeysPressed;
+    final mod = pressed.contains(LogicalKeyboardKey.controlLeft) ||
+        pressed.contains(LogicalKeyboardKey.controlRight) ||
+        pressed.contains(LogicalKeyboardKey.metaLeft) ||
+        pressed.contains(LogicalKeyboardKey.metaRight);
+    if (!mod) return false;
+    KCommandPalette.show(context, commands: buildAppCommands());
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= KSpacing.desktopBreakpoint;
     final isTablet = width >= KSpacing.tabletBreakpoint && !isDesktop;
 
+    final Widget shell;
     if (isDesktop) {
-      return _DesktopShell(child: child);
+      shell = _DesktopShell(child: widget.child);
     } else if (isTablet) {
-      return _TabletShell(child: child);
+      shell = _TabletShell(child: widget.child);
     } else {
-      return _MobileShell(child: child);
+      shell = _MobileShell(child: widget.child);
     }
+
+    return Stack(
+      children: [
+        shell,
+        if (!_isMobile(width))
+          Positioned(
+            right: 20,
+            bottom: 20,
+            child: KAssistantFab(
+              onTap: () => KAssistantPanel.show(context),
+            ),
+          ),
+      ],
+    );
   }
 }
 

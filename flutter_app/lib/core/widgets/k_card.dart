@@ -137,10 +137,11 @@ class KCard extends StatelessWidget {
   }
 }
 
-/// KPI card for dashboard metrics.
+/// KPI card for dashboard metrics — **Katasticho 2026** spec.
 ///
-/// Compact layout (40px tinted icon tile + amount + label) sized to fit
-/// inside a 152-158px tall grid tile without overflow.
+/// Compact tile layout: tinted icon + value + label, with an optional
+/// trend pill in the top-right and an optional sparkline slot at the
+/// bottom (e.g. a tiny line chart for the last 7 days).
 class KKpiCard extends StatelessWidget {
   final String title;
   final String value;
@@ -149,6 +150,7 @@ class KKpiCard extends StatelessWidget {
   final Color? backgroundColor;
   final String? trend;
   final bool? trendPositive;
+  final Widget? sparkline;
   final VoidCallback? onTap;
 
   const KKpiCard({
@@ -160,6 +162,7 @@ class KKpiCard extends StatelessWidget {
     this.backgroundColor,
     this.trend,
     this.trendPositive,
+    this.sparkline,
     this.onTap,
   });
 
@@ -167,16 +170,11 @@ class KKpiCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final accent = iconColor ?? cs.primary;
-    final tile = backgroundColor ?? accent.withValues(alpha: 0.12);
+    final tile = backgroundColor ?? accent.withValues(alpha: 0.10);
 
-    // NOTE: we intentionally use fixed-height SizedBox gaps (not Spacer) here.
-    // KCard wraps us in a Column(mainAxisSize: min), which forwards unbounded
-    // height to its child. Spacer = Expanded(flex: 1), and an Expanded inside
-    // a min-sized column with unbounded height throws:
-    //   "RenderFlex children have non-zero flex but incoming height
-    //    constraints are unbounded."
-    // Once that blows up, every tile renders with zero size and the whole
-    // dashboard floods the console with hit-test errors. Fixed gaps dodge it.
+    // NOTE: fixed-height SizedBox gaps (not Spacer). KCard wraps us in a
+    // Column(mainAxisSize: min) which forwards unbounded height; Spacer
+    // there throws "non-zero flex with unbounded height".
     return KCard(
       onTap: onTap,
       padding: const EdgeInsets.all(14),
@@ -187,25 +185,27 @@ class KKpiCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 38,
-                height: 38,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: tile,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(KSpacing.radiusMd),
                 ),
-                child: Icon(icon, color: accent, size: 20),
+                child: Icon(icon, color: accent, size: 18),
               ),
-              const Spacer(), // OK: Row has bounded width from the grid tile
+              const Spacer(), // OK: Row has bounded width from grid tile
               if (trend != null)
                 _TrendPill(trend: trend!, positive: trendPositive == true),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           Text(
             value,
-            style: KTypography.amountLarge.copyWith(
+            style: KTypography.h1.copyWith(
               fontSize: 22,
+              fontWeight: FontWeight.w700,
               color: cs.onSurface,
+              letterSpacing: -0.4,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -213,16 +213,119 @@ class KKpiCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             title,
-            style: KTypography.labelMedium.copyWith(
+            style: KTypography.bodySmall.copyWith(
               color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
+          if (sparkline != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(height: 28, child: sparkline),
+          ],
         ],
       ),
     );
   }
+}
+
+/// Tiny inline sparkline — pass a list of values (any range, we normalize)
+/// and an optional accent color. Renders as a smooth polyline; intended for
+/// use inside [KKpiCard.sparkline].
+class KSparkline extends StatelessWidget {
+  final List<double> values;
+  final Color? color;
+  final double strokeWidth;
+  final bool fill;
+
+  const KSparkline({
+    super.key,
+    required this.values,
+    this.color,
+    this.strokeWidth = 1.5,
+    this.fill = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? Theme.of(context).colorScheme.primary;
+    if (values.length < 2) return const SizedBox.shrink();
+    return CustomPaint(
+      painter: _SparklinePainter(
+        values: values,
+        color: c,
+        strokeWidth: strokeWidth,
+        fill: fill,
+      ),
+      size: Size.infinite,
+    );
+  }
+}
+
+class _SparklinePainter extends CustomPainter {
+  final List<double> values;
+  final Color color;
+  final double strokeWidth;
+  final bool fill;
+
+  _SparklinePainter({
+    required this.values,
+    required this.color,
+    required this.strokeWidth,
+    required this.fill,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final minV = values.reduce((a, b) => a < b ? a : b);
+    final maxV = values.reduce((a, b) => a > b ? a : b);
+    final range = (maxV - minV).abs() < 1e-6 ? 1.0 : (maxV - minV);
+    final dx = size.width / (values.length - 1);
+
+    final path = Path();
+    for (var i = 0; i < values.length; i++) {
+      final x = i * dx;
+      final y = size.height - ((values[i] - minV) / range) * size.height;
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    if (fill) {
+      final fillPath = Path.from(path)
+        ..lineTo(size.width, size.height)
+        ..lineTo(0, size.height)
+        ..close();
+      final fillPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color.withValues(alpha: 0.18),
+            color.withValues(alpha: 0.0),
+          ],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+      canvas.drawPath(fillPath, fillPaint);
+    }
+
+    final strokePaint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    canvas.drawPath(path, strokePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparklinePainter old) =>
+      old.values != values ||
+      old.color != color ||
+      old.strokeWidth != strokeWidth ||
+      old.fill != fill;
 }
 
 class _TrendPill extends StatelessWidget {

@@ -448,27 +448,17 @@ class _ActionBar extends ConsumerWidget {
   }
 
   Future<void> _runStop(BuildContext context, WidgetRef ref) async {
-    final confirm = await showDialog<bool>(
+    final confirm = await KDialog.confirm(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Stop template?'),
-        content: const Text(
-            'The scheduler will stop generating invoices from this template. '
-            'You can resume it later.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Stop',
-                style: TextStyle(color: KColors.error)),
-          ),
-        ],
-      ),
+      title: 'Stop template?',
+      message:
+          'The scheduler will stop generating invoices from this template. '
+          'You can resume it later.',
+      confirmLabel: 'Stop',
+      destructive: true,
     );
-    if (confirm != true) return;
+    if (!confirm) return;
+    if (!context.mounted) return;
     await _invoke(
       context,
       ref,
@@ -486,27 +476,17 @@ class _ActionBar extends ConsumerWidget {
       );
 
   Future<void> _runNow(BuildContext context, WidgetRef ref) async {
-    final confirm = await showDialog<bool>(
+    final confirm = await KDialog.confirm(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Generate invoice now?'),
-        content: const Text(
-            'This creates a new DRAFT invoice from the template and advances '
-            'the schedule by one cycle. If auto-send is enabled, it will be '
-            'emailed immediately.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Generate'),
-          ),
-        ],
-      ),
+      title: 'Generate invoice now?',
+      message:
+          'This creates a new DRAFT invoice from the template and advances '
+          'the schedule by one cycle. If auto-send is enabled, it will be '
+          'emailed immediately.',
+      confirmLabel: 'Generate',
     );
-    if (confirm != true) return;
+    if (!confirm) return;
+    if (!context.mounted) return;
 
     try {
       final resp = await ref
