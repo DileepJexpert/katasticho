@@ -264,119 +264,131 @@ class _DesktopShell extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  child: OverflowBox(
-                    // Let content stay at full width during animation
-                    maxWidth: KSpacing.sidebarWidth,
-                    alignment: Alignment.centerLeft,
-                    child: SizedBox(
-                      width: KSpacing.sidebarWidth,
-                      child: Column(
-                        children: [
-                          // Brand logo (always shows "K" tile)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [cs.primary, cs.tertiary],
-                                    ),
-                                    borderRadius: BorderRadius.circular(10),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color:
-                                            cs.primary.withValues(alpha: 0.22),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ],
+                  child: ClipRect(
+                    child: Column(
+                      children: [
+                        // Brand logo
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                              collapsed ? 18 : 16, 14, 16, 10),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [cs.primary, cs.tertiary],
                                   ),
-                                  child: const Center(
-                                    child: Text(
-                                      'K',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 17,
-                                      ),
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          cs.primary.withValues(alpha: 0.22),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: const Center(
+                                  child: Text(
+                                    'K',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 17,
                                     ),
                                   ),
                                 ),
+                              ),
+                              if (!collapsed) ...[
                                 const SizedBox(width: 10),
-                                Text(
-                                  'Katasticho',
-                                  style: TextStyle(
-                                    color: cs.onSurface,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.3,
+                                Expanded(
+                                  child: Text(
+                                    'Katasticho',
+                                    overflow: TextOverflow.clip,
+                                    softWrap: false,
+                                    style: TextStyle(
+                                      color: cs.onSurface,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.3,
+                                    ),
                                   ),
                                 ),
                               ],
-                            ),
+                            ],
                           ),
+                        ),
 
-                          // Quick Create button
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 12),
-                            child: const KQuickCreateMenu(expanded: true),
+                        // Quick Create button
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: collapsed ? 16 : 12),
+                          child: KQuickCreateMenu(expanded: !collapsed),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Nav items
+                        Expanded(
+                          child: ListView(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: collapsed ? 8 : 12),
+                            children: [
+                              if (!collapsed)
+                                const _NavSectionLabel(label: 'WORKSPACE'),
+                              ..._navItems.map((item) =>
+                                  _SidebarNavItem(item: item, collapsed: collapsed)),
+                              KSpacing.vGapMd,
+                              if (!collapsed)
+                                const _NavSectionLabel(label: 'SALES'),
+                              ..._salesNavItems.map((item) =>
+                                  _SidebarNavItem(item: item, collapsed: collapsed)),
+                              KSpacing.vGapMd,
+                              if (!collapsed)
+                                const _NavSectionLabel(label: 'PURCHASES'),
+                              ..._purchasesNavItems.map((item) =>
+                                  _SidebarNavItem(item: item, collapsed: collapsed)),
+                              KSpacing.vGapMd,
+                              if (!collapsed)
+                                const _NavSectionLabel(label: 'MORE'),
+                              ..._secondaryNavItems.map((item) =>
+                                  _SidebarNavItem(item: item, collapsed: collapsed)),
+                            ],
                           ),
-                          const SizedBox(height: 8),
+                        ),
 
-                          // Nav items
-                          Expanded(
-                            child: ListView(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
-                              children: [
-                                _NavSectionLabel(label: 'WORKSPACE'),
-                                ..._navItems.map(
-                                    (item) => _SidebarNavItem(item: item)),
-                                KSpacing.vGapMd,
-                                _NavSectionLabel(label: 'SALES'),
-                                ..._salesNavItems.map(
-                                    (item) => _SidebarNavItem(item: item)),
-                                KSpacing.vGapMd,
-                                _NavSectionLabel(label: 'PURCHASES'),
-                                ..._purchasesNavItems.map(
-                                    (item) => _SidebarNavItem(item: item)),
-                                KSpacing.vGapMd,
-                                _NavSectionLabel(label: 'MORE'),
-                                ..._secondaryNavItems.map(
-                                    (item) => _SidebarNavItem(item: item)),
-                              ],
-                            ),
+                        // Ask AI
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                              collapsed ? 16 : 12, 0, collapsed ? 16 : 12, 8),
+                          child: _AskAiButton(
+                            collapsed: collapsed,
+                            onTap: () => KAssistantPanel.show(context),
                           ),
+                        ),
 
-                          // Ask AI
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                            child: KAssistantFab(
-                              onTap: () => KAssistantPanel.show(context),
-                            ),
-                          ),
-
-                          // User footer
-                          Padding(
-                            padding:
-                                const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                            child: Column(
-                              children: [
-                                Divider(
-                                  color: cs.outlineVariant
-                                      .withValues(alpha: 0.5),
-                                  height: 1,
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    CircleAvatar(
+                        // User footer
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                              collapsed ? 16 : 12, 4, collapsed ? 16 : 12, 12),
+                          child: Column(
+                            children: [
+                              Divider(
+                                color: cs.outlineVariant
+                                    .withValues(alpha: 0.5),
+                                height: 1,
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Tooltip(
+                                    message: collapsed
+                                        ? (authState.userName ?? 'User')
+                                        : '',
+                                    child: CircleAvatar(
                                       radius: 17,
                                       backgroundColor: cs.primaryContainer,
                                       child: Text(
@@ -389,6 +401,8 @@ class _DesktopShell extends ConsumerWidget {
                                         ),
                                       ),
                                     ),
+                                  ),
+                                  if (!collapsed) ...[
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Column(
@@ -419,12 +433,12 @@ class _DesktopShell extends ConsumerWidget {
                                       ),
                                     ),
                                   ],
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -482,8 +496,9 @@ bool _isNavActive(String currentRoute, String itemRoute) {
 
 class _SidebarNavItem extends StatelessWidget {
   final NavItem item;
+  final bool collapsed;
 
-  const _SidebarNavItem({required this.item});
+  const _SidebarNavItem({required this.item, this.collapsed = false});
 
   @override
   Widget build(BuildContext context) {
@@ -491,44 +506,110 @@ class _SidebarNavItem extends StatelessWidget {
     final currentRoute = GoRouterState.of(context).matchedLocation;
     final isActive = _isNavActive(currentRoute, item.route);
 
+    final tile = Material(
+      color: isActive ? cs.primaryContainer : Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.go(item.route),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+              horizontal: collapsed ? 0 : 12, vertical: 11),
+          child: collapsed
+              ? Center(
+                  child: Icon(
+                    isActive ? item.activeIcon : item.icon,
+                    color: isActive ? cs.primary : cs.onSurfaceVariant,
+                    size: 22,
+                  ),
+                )
+              : Row(
+                  children: [
+                    Icon(
+                      isActive ? item.activeIcon : item.icon,
+                      color: isActive ? cs.primary : cs.onSurfaceVariant,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        item.label,
+                        overflow: TextOverflow.clip,
+                        softWrap: false,
+                        style: TextStyle(
+                          color:
+                              isActive ? cs.onPrimaryContainer : cs.onSurface,
+                          fontWeight:
+                              isActive ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    if (isActive)
+                      Container(
+                        width: 4,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: cs.primary,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                  ],
+                ),
+        ),
+      ),
+    );
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
+      child: collapsed
+          ? Tooltip(
+              message: item.label,
+              waitDuration: const Duration(milliseconds: 400),
+              child: tile,
+            )
+          : tile,
+    );
+  }
+}
+
+/// Ask-AI button — expanded variant is a full-width gradient pill with
+/// label; collapsed variant is a 40×40 gradient square with just the icon.
+class _AskAiButton extends StatelessWidget {
+  final bool collapsed;
+  final VoidCallback onTap;
+
+  const _AskAiButton({required this.collapsed, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!collapsed) {
+      return KAssistantFab(onTap: onTap);
+    }
+    final cs = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: 'Ask AI',
       child: Material(
-        color: isActive ? cs.primaryContainer : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(KSpacing.radiusMd),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => context.go(item.route),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            child: Row(
-              children: [
-                Icon(
-                  isActive ? item.activeIcon : item.icon,
-                  color: isActive ? cs.primary : cs.onSurfaceVariant,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    item.label,
-                    style: TextStyle(
-                      color: isActive ? cs.onPrimaryContainer : cs.onSurface,
-                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                if (isActive)
-                  Container(
-                    width: 4,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: cs.primary,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-              ],
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [cs.primary, cs.tertiary],
+              ),
+              borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+            ),
+            child: const Icon(
+              Icons.auto_awesome_rounded,
+              size: 18,
+              color: Colors.white,
             ),
           ),
         ),
