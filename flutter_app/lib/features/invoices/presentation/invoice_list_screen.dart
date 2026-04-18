@@ -52,8 +52,8 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
               child: const Text('Go Back')),
           FilledButton.tonal(
             style: FilledButton.styleFrom(
-              backgroundColor: KColors.danger.withValues(alpha: 0.12),
-              foregroundColor: KColors.danger,
+              backgroundColor: KColors.error.withValues(alpha: 0.12),
+              foregroundColor: KColors.error,
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Cancel Invoices'),
@@ -127,7 +127,7 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
               IconButton(
                 icon: const Icon(Icons.cancel_outlined, size: 20),
                 tooltip: 'Cancel selected',
-                color: KColors.danger,
+                color: KColors.error,
                 visualDensity: VisualDensity.compact,
                 onPressed: _bulkCancel,
               ),

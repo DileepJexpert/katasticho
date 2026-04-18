@@ -52,8 +52,8 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
           ),
           FilledButton.tonal(
             style: FilledButton.styleFrom(
-              backgroundColor: KColors.danger.withValues(alpha: 0.12),
-              foregroundColor: KColors.danger,
+              backgroundColor: KColors.error.withValues(alpha: 0.12),
+              foregroundColor: KColors.error,
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete'),
@@ -108,7 +108,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
               IconButton(
                 icon: const Icon(Icons.delete_outline_rounded, size: 20),
                 tooltip: 'Delete selected',
-                color: KColors.danger,
+                color: KColors.error,
                 visualDensity: VisualDensity.compact,
                 onPressed: _bulkDelete,
               ),

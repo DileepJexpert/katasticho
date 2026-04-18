@@ -50,22 +50,68 @@ class KTimelineEvent {
         color: color,
       );
 
-  /// Wraps a raw comment map from `/api/v1/comments/…`.
+  /// Wraps a raw comment map from `/api/v1/comments/…`. System comments (audit
+  /// events emitted by the backend on state transitions) render as a tinted
+  /// icon; user notes render as an avatar bubble.
   factory KTimelineEvent.fromComment(Map<String, dynamic> c) {
-    final author = c['createdByName'] as String?
-        ?? c['authorName'] as String?
-        ?? 'User';
+    final message = c['commentText'] as String?
+        ?? c['text'] as String?
+        ?? '';
+    final isSystem = c['system'] as bool?
+        ?? c['isSystem'] as bool?
+        ?? false;
+    final author = c['createdByName'] as String? ?? c['authorName'] as String?;
     final raw = c['createdAt'] as String? ?? c['timestamp'] as String?;
-    final ts = raw != null ? DateTime.tryParse(raw) ?? DateTime.now() : DateTime.now();
+    final ts = raw != null
+        ? DateTime.tryParse(raw)?.toLocal() ?? DateTime.now()
+        : DateTime.now();
+
     return KTimelineEvent(
       timestamp: ts,
-      message: c['text'] as String? ?? '',
-      authorName: author,
-      isSystem: false,
-      icon: Icons.chat_bubble_outline_rounded,
-      color: KColors.primary,
+      message: message,
+      authorName: isSystem ? null : (author ?? 'User'),
+      isSystem: isSystem,
+      icon: isSystem
+          ? _iconForSystemMessage(message)
+          : Icons.chat_bubble_outline_rounded,
+      color: isSystem ? _colorForSystemMessage(message) : KColors.primary,
     );
   }
+}
+
+// ── Heuristic icon/color for system events ────────────────────────────────────
+
+IconData _iconForSystemMessage(String m) {
+  final lower = m.toLowerCase();
+  if (lower.contains('payment')) return Icons.payments_rounded;
+  if (lower.contains('paid')) return Icons.check_circle_rounded;
+  if (lower.contains('overdue')) return Icons.warning_amber_rounded;
+  if (lower.contains('void') || lower.contains('cancel')) {
+    return Icons.block_rounded;
+  }
+  if (lower.contains('sent')) return Icons.send_rounded;
+  if (lower.contains('posted')) return Icons.check_circle_outline_rounded;
+  if (lower.contains('created')) return Icons.add_circle_outline_rounded;
+  if (lower.contains('updated')) return Icons.edit_note_rounded;
+  if (lower.contains('deleted')) return Icons.delete_outline_rounded;
+  return Icons.info_outline_rounded;
+}
+
+Color _colorForSystemMessage(String m) {
+  final lower = m.toLowerCase();
+  if (lower.contains('payment') || lower.contains('paid')) {
+    return KColors.success;
+  }
+  if (lower.contains('overdue') ||
+      lower.contains('void') ||
+      lower.contains('cancel') ||
+      lower.contains('deleted')) {
+    return KColors.error;
+  }
+  if (lower.contains('sent') || lower.contains('posted')) {
+    return KColors.primary;
+  }
+  return KColors.info;
 }
 
 // ── Widget ────────────────────────────────────────────────────────────────────

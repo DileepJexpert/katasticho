@@ -19,6 +19,7 @@ import com.katasticho.erp.ar.entity.InvoiceNumberSequence;
 import com.katasticho.erp.ar.repository.InvoiceNumberSequenceRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.entity.ContactType;
 import com.katasticho.erp.contact.repository.ContactRepository;
@@ -68,6 +69,7 @@ public class VendorPaymentService {
     private final PurchaseBillService billService;
     private final CurrencyService currencyService;
     private final DefaultAccountService defaultAccountService;
+    private final CommentService commentService;
 
     @Transactional
     public VendorPaymentResponse recordPayment(VendorPaymentRequest request) {
@@ -202,6 +204,9 @@ public class VendorPaymentService {
             PurchaseBill bill = billRepository.findByIdAndOrgIdAndIsDeletedFalse(allocReq.billId(), orgId)
                     .orElseThrow(() -> BusinessException.notFound("PurchaseBill", allocReq.billId()));
             billService.updatePaymentStatus(bill, allocReq.amountApplied());
+
+            commentService.addSystemComment("BILL", bill.getId(),
+                    "Payment of \u20b9" + allocReq.amountApplied() + " made (" + request.paymentMode() + ")");
         }
 
         payment = paymentRepository.save(payment);
@@ -284,6 +289,9 @@ public class VendorPaymentService {
                     bill.setStatus("PARTIALLY_PAID");
                 }
                 billRepository.save(bill);
+
+                commentService.addSystemComment("BILL", bill.getId(),
+                        "Payment of \u20b9" + alloc.getAmountApplied() + " reversed (payment voided)");
             }
         }
 

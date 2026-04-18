@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -34,7 +36,7 @@ class InvoicePdfScreen extends StatelessWidget {
   }
 }
 
-Future<List<int>> _buildPdf(
+Future<Uint8List> _buildPdf(
     PdfPageFormat format, Map<String, dynamic> inv) async {
   final doc = pw.Document(compress: true);
 
@@ -219,7 +221,7 @@ Future<List<int>> _buildPdf(
     ),
   );
 
-  return doc.save();
+  return Uint8List.fromList(await doc.save());
 }
 
 // ── Helper builders ────────────────────────────────────────────────────────────

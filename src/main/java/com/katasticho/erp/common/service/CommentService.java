@@ -1,6 +1,8 @@
 package com.katasticho.erp.common.service;
 
+import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.common.dto.EntityCommentResponse;
 import com.katasticho.erp.common.entity.EntityComment;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.repository.EntityCommentRepository;
@@ -18,9 +20,10 @@ import java.util.UUID;
 public class CommentService {
 
     private final EntityCommentRepository commentRepository;
+    private final AppUserRepository appUserRepository;
 
     @Transactional
-    public EntityComment addComment(String entityType, UUID entityId, String text) {
+    public EntityCommentResponse addComment(String entityType, UUID entityId, String text) {
         UUID orgId  = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
         EntityComment comment = EntityComment.builder()
@@ -31,13 +34,22 @@ public class CommentService {
                 .system(false)
                 .createdBy(userId)
                 .build();
-        return commentRepository.save(comment);
+        comment = commentRepository.save(comment);
+        return EntityCommentResponse.from(comment, resolveAuthorName(userId));
     }
 
     /** Called internally by services when status changes — not deletable by users. */
     @Transactional
     public EntityComment addSystemComment(String entityType, UUID entityId, String text) {
-        UUID orgId = TenantContext.getCurrentOrgId();
+        return addSystemComment(TenantContext.getCurrentOrgId(), entityType, entityId, text);
+    }
+
+    /**
+     * Overload for scheduled jobs and other contexts where {@link TenantContext}
+     * is not populated — the caller already knows which org it's operating on.
+     */
+    @Transactional
+    public EntityComment addSystemComment(UUID orgId, String entityType, UUID entityId, String text) {
         EntityComment comment = EntityComment.builder()
                 .orgId(orgId)
                 .entityType(entityType)
@@ -49,11 +61,9 @@ public class CommentService {
     }
 
     @Transactional(readOnly = true)
-    public Page<EntityComment> listComments(String entityType, UUID entityId, Pageable pageable) {
+    public Page<EntityCommentResponse> listComments(String entityType, UUID entityId, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        return commentRepository
-                .findByOrgIdAndEntityTypeAndEntityIdAndDeletedFalseOrderByCreatedAtDesc(
-                        orgId, entityType, entityId, pageable);
+        return commentRepository.findTimeline(orgId, entityType, entityId, pageable);
     }
 
     @Transactional
@@ -72,5 +82,10 @@ public class CommentService {
         }
         comment.setDeleted(true);
         commentRepository.save(comment);
+    }
+
+    private String resolveAuthorName(UUID userId) {
+        if (userId == null) return null;
+        return appUserRepository.findById(userId).map(u -> u.getFullName()).orElse(null);
     }
 }

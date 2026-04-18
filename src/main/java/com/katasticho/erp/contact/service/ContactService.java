@@ -3,6 +3,7 @@ package com.katasticho.erp.contact.service;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.contact.dto.*;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.entity.ContactPerson;
@@ -28,6 +29,7 @@ public class ContactService {
     private final ContactRepository contactRepository;
     private final ContactPersonRepository contactPersonRepository;
     private final AuditService auditService;
+    private final CommentService commentService;
 
     @Transactional
     public ContactResponse create(CreateContactRequest req) {
@@ -89,6 +91,7 @@ public class ContactService {
         contact = contactRepository.save(contact);
         auditService.log("CONTACT", contact.getId(), "CREATE", null,
                 "{\"displayName\":\"" + contact.getDisplayName() + "\",\"type\":\"" + contact.getContactType() + "\"}");
+        commentService.addSystemComment("CONTACT", contact.getId(), "Contact created");
         log.info("Contact {} created: {} ({})", contact.getId(), contact.getDisplayName(), contact.getContactType());
         return toResponse(contact);
     }
@@ -151,6 +154,7 @@ public class ContactService {
 
         contact = contactRepository.save(contact);
         auditService.log("CONTACT", contact.getId(), "UPDATE", null, null);
+        commentService.addSystemComment("CONTACT", contact.getId(), "Contact details updated");
         return toResponse(contact);
     }
 
@@ -162,6 +166,7 @@ public class ContactService {
         contact.setActive(false);
         contactRepository.save(contact);
         auditService.log("CONTACT", id, "DELETE", null, null);
+        commentService.addSystemComment("CONTACT", id, "Contact deleted");
     }
 
     @Transactional(readOnly = true)

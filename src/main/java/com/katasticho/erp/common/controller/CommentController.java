@@ -1,7 +1,7 @@
 package com.katasticho.erp.common.controller;
 
 import com.katasticho.erp.common.dto.ApiResponse;
-import com.katasticho.erp.common.entity.EntityComment;
+import com.katasticho.erp.common.dto.EntityCommentResponse;
 import com.katasticho.erp.common.service.CommentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -21,7 +21,7 @@ public class CommentController {
 
     @PostMapping("/{entityType}/{entityId}")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<EntityComment> addComment(
+    public ApiResponse<EntityCommentResponse> addComment(
             @PathVariable String entityType,
             @PathVariable UUID entityId,
             @RequestBody String text) {
@@ -29,7 +29,7 @@ public class CommentController {
     }
 
     @GetMapping("/{entityType}/{entityId}")
-    public ApiResponse<Page<EntityComment>> list(
+    public ApiResponse<Page<EntityCommentResponse>> list(
             @PathVariable String entityType,
             @PathVariable UUID entityId,
             @PageableDefault(size = 20) Pageable pageable) {
