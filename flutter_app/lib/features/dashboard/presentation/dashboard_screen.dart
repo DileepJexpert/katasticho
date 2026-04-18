@@ -31,17 +31,6 @@ class DashboardScreen extends ConsumerWidget {
     final isDesktop = width >= KSpacing.desktopBreakpoint;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        actions: const [
-          ThemeModeIconButton(),
-          IconButton(
-            icon: Icon(Icons.notifications_outlined),
-            onPressed: null,
-          ),
-          SizedBox(width: 4),
-        ],
-      ),
       body: RefreshIndicator(
         onRefresh: () async {
           // Invalidate dashboard providers so the pull-down kicks a
