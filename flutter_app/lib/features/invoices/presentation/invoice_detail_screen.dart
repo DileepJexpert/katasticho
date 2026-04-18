@@ -158,34 +158,23 @@ class InvoiceDetailScreen extends ConsumerWidget {
     }
   }
 
-  void _showCancelConfirmation(BuildContext context, WidgetRef ref) {
-    showDialog(
+  Future<void> _showCancelConfirmation(
+      BuildContext context, WidgetRef ref) async {
+    final confirmed = await KDialog.confirm(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cancel Invoice?'),
-        content: const Text(
+      title: 'Cancel Invoice?',
+      message:
           'This will reverse the journal entry. This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Keep'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                final repo = ref.read(invoiceRepositoryProvider);
-                await repo.cancelInvoice(invoiceId);
-                ref.invalidate(invoiceDetailProvider(invoiceId));
-              } catch (_) {}
-            },
-            style: TextButton.styleFrom(foregroundColor: KColors.error),
-            child: const Text('Cancel Invoice'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Cancel Invoice',
+      cancelLabel: 'Keep',
+      destructive: true,
     );
+    if (!confirmed) return;
+    try {
+      final repo = ref.read(invoiceRepositoryProvider);
+      await repo.cancelInvoice(invoiceId);
+      ref.invalidate(invoiceDetailProvider(invoiceId));
+    } catch (_) {}
   }
 
 }
