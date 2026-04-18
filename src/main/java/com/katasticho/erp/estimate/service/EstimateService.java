@@ -34,6 +34,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.katasticho.erp.common.dto.BulkOperationResult;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -356,6 +358,35 @@ public class EstimateService {
         log.info("Estimate {} converted to invoice {}",
                 estimate.getEstimateNumber(), invoice.invoiceNumber());
         return invoice;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // BULK
+    // ─────────────────────────────────────────────────────────────
+    public BulkOperationResult bulkSend(List<UUID> ids) {
+        BulkOperationResult.Accumulator acc = BulkOperationResult.accumulator();
+        for (UUID id : ids) {
+            try {
+                sendEstimate(id);
+                acc.success(id);
+            } catch (Exception e) {
+                acc.failure(id, e.getMessage());
+            }
+        }
+        return acc.build();
+    }
+
+    public BulkOperationResult bulkDelete(List<UUID> ids) {
+        BulkOperationResult.Accumulator acc = BulkOperationResult.accumulator();
+        for (UUID id : ids) {
+            try {
+                deleteEstimate(id);
+                acc.success(id);
+            } catch (Exception e) {
+                acc.failure(id, e.getMessage());
+            }
+        }
+        return acc.build();
     }
 
     // ─────────────────────────────────────────────────────────────

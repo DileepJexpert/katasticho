@@ -32,6 +32,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.katasticho.erp.common.dto.BulkOperationResult;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -426,6 +428,32 @@ public class InvoiceService {
         UUID orgId = TenantContext.getCurrentOrgId();
         return invoiceRepository.findByOrgIdAndContactIdAndIsDeletedFalseOrderByInvoiceDateDesc(orgId, contactId, pageable)
                 .map(this::toResponse);
+    }
+
+    public BulkOperationResult bulkSend(List<UUID> ids) {
+        BulkOperationResult.Accumulator acc = BulkOperationResult.accumulator();
+        for (UUID id : ids) {
+            try {
+                sendInvoice(id);
+                acc.success(id);
+            } catch (Exception e) {
+                acc.failure(id, e.getMessage());
+            }
+        }
+        return acc.build();
+    }
+
+    public BulkOperationResult bulkCancel(List<UUID> ids, String reason) {
+        BulkOperationResult.Accumulator acc = BulkOperationResult.accumulator();
+        for (UUID id : ids) {
+            try {
+                cancelInvoice(id, reason);
+                acc.success(id);
+            } catch (Exception e) {
+                acc.failure(id, e.getMessage());
+            }
+        }
+        return acc.build();
     }
 
     /**

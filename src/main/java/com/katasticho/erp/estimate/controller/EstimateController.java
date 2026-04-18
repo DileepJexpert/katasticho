@@ -2,6 +2,8 @@ package com.katasticho.erp.estimate.controller;
 
 import com.katasticho.erp.ar.dto.InvoiceResponse;
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.dto.BulkIdsRequest;
+import com.katasticho.erp.common.dto.BulkOperationResult;
 import com.katasticho.erp.common.dto.PagedResponse;
 import com.katasticho.erp.estimate.dto.CreateEstimateRequest;
 import com.katasticho.erp.estimate.dto.EstimateResponse;
@@ -109,6 +111,24 @@ public class EstimateController {
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .body(pdf);
+    }
+
+    @PostMapping("/bulk-send")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<BulkOperationResult>> bulkSend(
+            @Valid @RequestBody BulkIdsRequest request) {
+        BulkOperationResult result = estimateService.bulkSend(request.ids());
+        String msg = result.successCount() + " sent, " + result.failCount() + " failed";
+        return ResponseEntity.ok(ApiResponse.ok(result, msg));
+    }
+
+    @DeleteMapping("/bulk-delete")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<BulkOperationResult>> bulkDelete(
+            @Valid @RequestBody BulkIdsRequest request) {
+        BulkOperationResult result = estimateService.bulkDelete(request.ids());
+        String msg = result.successCount() + " deleted, " + result.failCount() + " failed";
+        return ResponseEntity.ok(ApiResponse.ok(result, msg));
     }
 
     @GetMapping("/{id}/whatsapp-link")
