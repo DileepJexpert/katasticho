@@ -481,7 +481,6 @@ class _AgingPanelCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final isAr = type == 'ar';
-    final provider = isAr ? arAgingProvider : apAgingProvider;
     final accentColor =
         isAr ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
     final title = isAr ? 'AR Aging' : 'AP Aging';
@@ -497,34 +496,55 @@ class _AgingPanelCard extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Accent top bar — visual connection to the card above
-          Container(
-            height: 3,
-            color: accentColor,
-          ),
-          ref.watch(provider).when(
-                loading: () => const SizedBox(
-                  height: 120,
-                  child: Center(
-                      child: CircularProgressIndicator(strokeWidth: 2)),
+          Container(height: 3, color: accentColor),
+          if (isAr)
+            ref.watch(arAgingProvider).when(
+                  loading: () => const SizedBox(
+                    height: 120,
+                    child: Center(
+                        child: CircularProgressIndicator(strokeWidth: 2)),
+                  ),
+                  error: (_, __) => const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text('Failed to load'),
+                  ),
+                  data: (ar) => AgingBreakdown(
+                    title: title,
+                    totalOutstanding: ar.totalOutstanding,
+                    current: ar.current,
+                    days1to30: ar.days1to30,
+                    days31to60: ar.days31to60,
+                    days61to90: ar.days61to90,
+                    days90plus: ar.days90plus,
+                    reportRoute: route,
+                    accentColor: accentColor,
+                    compact: true,
+                  ),
+                )
+          else
+            ref.watch(apAgingProvider).when(
+                  loading: () => const SizedBox(
+                    height: 120,
+                    child: Center(
+                        child: CircularProgressIndicator(strokeWidth: 2)),
+                  ),
+                  error: (_, __) => const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text('Failed to load'),
+                  ),
+                  data: (ap) => AgingBreakdown(
+                    title: title,
+                    totalOutstanding: ap.totalOutstanding,
+                    current: ap.current,
+                    days1to30: ap.days1to30,
+                    days31to60: ap.days31to60,
+                    days61to90: ap.days61to90,
+                    days90plus: ap.days90plus,
+                    reportRoute: route,
+                    accentColor: accentColor,
+                    compact: true,
+                  ),
                 ),
-                error: (_, __) => const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text('Failed to load'),
-                ),
-                data: (aging) => AgingBreakdown(
-                  title: title,
-                  totalOutstanding: aging.totalOutstanding,
-                  current: aging.current,
-                  days1to30: aging.days1to30,
-                  days31to60: aging.days31to60,
-                  days61to90: aging.days61to90,
-                  days90plus: aging.days90plus,
-                  reportRoute: route,
-                  accentColor: accentColor,
-                  compact: true,
-                ),
-              ),
         ],
       ),
     );
