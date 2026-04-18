@@ -8,25 +8,48 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/date_formatter.dart';
 import '../../data/bill_dto.dart';
 
-/// Card used in the bill list. Extracts fields via [BillDto] and
-/// navigates to the bill detail screen on tap.
 class BillCard extends StatelessWidget {
   final Map<String, dynamic> bill;
+  final bool selected;
+  final bool inSelection;
+  final VoidCallback? onToggleSelect;
 
-  const BillCard({super.key, required this.bill});
+  const BillCard({
+    super.key,
+    required this.bill,
+    this.selected = false,
+    this.inSelection = false,
+    this.onToggleSelect,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final b = BillDto(bill);
 
     return KCard(
       onTap: () {
-        if (b.id.isNotEmpty) {
-          context.go('/bills/${b.id}');
+        if (inSelection) {
+          onToggleSelect?.call();
+          return;
         }
+        if (b.id.isNotEmpty) context.go('/bills/${b.id}');
       },
+      onLongPress: onToggleSelect,
+      borderColor: selected ? cs.primary : null,
+      backgroundColor: selected ? cs.primary.withValues(alpha: 0.06) : null,
       child: Row(
         children: [
+          if (inSelection) ...[
+            Icon(
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              color: selected ? cs.primary : cs.onSurfaceVariant,
+              size: 22,
+            ),
+            KSpacing.hGapSm,
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -60,9 +83,7 @@ class BillCard extends StatelessWidget {
                   Text(
                     DateFormatter.dueStatus(DateTime.parse(b.dueDate)),
                     style: KTypography.bodySmall.copyWith(
-                      color: b.isOverdue
-                          ? KColors.error
-                          : KColors.textSecondary,
+                      color: b.isOverdue ? KColors.error : KColors.textSecondary,
                     ),
                   ),
                 ],
@@ -80,15 +101,14 @@ class BillCard extends StatelessWidget {
                 KSpacing.vGapXs,
                 Text(
                   'Due: ${CurrencyFormatter.formatIndian(b.balanceDue)}',
-                  style: KTypography.bodySmall.copyWith(
-                    color: KColors.warning,
-                  ),
+                  style: KTypography.bodySmall.copyWith(color: KColors.warning),
                 ),
               ],
             ],
           ),
           KSpacing.hGapSm,
-          const Icon(Icons.chevron_right, color: KColors.textHint),
+          if (!inSelection)
+            const Icon(Icons.chevron_right, color: KColors.textHint),
         ],
       ),
     );
