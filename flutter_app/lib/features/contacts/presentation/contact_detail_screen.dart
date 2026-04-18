@@ -39,7 +39,7 @@ class ContactDetailScreen extends ConsumerWidget {
                 : KColors.success;
 
         return DefaultTabController(
-          length: 2,
+          length: 3,
           child: Scaffold(
             appBar: AppBar(
               title: Text(displayName),
@@ -86,6 +86,7 @@ class ContactDetailScreen extends ConsumerWidget {
                 tabs: [
                   Tab(text: 'Details'),
                   Tab(text: 'Persons'),
+                  Tab(text: 'Activity'),
                 ],
               ),
             ),
@@ -94,6 +95,11 @@ class ContactDetailScreen extends ConsumerWidget {
                 _DetailsTab(contact: contact, typeColor: typeColor),
                 _PersonsTab(
                     contact: contact, contactId: contactId),
+                KActivityTimeline(
+                  entityType: 'CONTACT',
+                  entityId: contactId,
+                  systemEvents: _contactEvents(contact),
+                ),
               ],
             ),
           ),
@@ -349,5 +355,38 @@ class _InfoRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+List<KTimelineEvent> _contactEvents(Map<String, dynamic> contact) {
+  final events = <KTimelineEvent>[];
+  final createdAt = _parseTs(contact['createdAt']);
+  if (createdAt != null) {
+    events.add(KTimelineEvent.system(
+      timestamp: createdAt,
+      message: 'Contact created',
+      by: contact['createdByName'] as String?,
+      icon: Icons.person_add_alt_1_rounded,
+      color: KColors.info,
+    ));
+  }
+  final updatedAt = _parseTs(contact['updatedAt']);
+  if (updatedAt != null && updatedAt != createdAt) {
+    events.add(KTimelineEvent.system(
+      timestamp: updatedAt,
+      message: 'Contact details updated',
+      icon: Icons.edit_note_rounded,
+      color: KColors.primary,
+    ));
+  }
+  return events;
+}
+
+DateTime? _parseTs(dynamic v) {
+  if (v == null) return null;
+  try {
+    return DateTime.parse(v as String).toLocal();
+  } catch (_) {
+    return null;
   }
 }

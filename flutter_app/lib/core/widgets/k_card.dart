@@ -15,6 +15,7 @@ class KCard extends StatelessWidget {
   final EdgeInsets? padding;
   final EdgeInsets? margin;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final Color? borderColor;
   final Color? backgroundColor;
   final Gradient? gradient;
@@ -31,6 +32,7 @@ class KCard extends StatelessWidget {
     this.padding,
     this.margin,
     this.onTap,
+    this.onLongPress,
     this.borderColor,
     this.backgroundColor,
     this.gradient,
@@ -120,12 +122,13 @@ class KCard extends StatelessWidget {
       child: content,
     );
 
-    if (onTap != null) {
+    if (onTap != null || onLongPress != null) {
       return Material(
         color: Colors.transparent,
         borderRadius: br,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: br,
           splashColor: cs.primary.withValues(alpha: 0.08),
           highlightColor: cs.primary.withValues(alpha: 0.04),

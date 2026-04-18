@@ -9,6 +9,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/invoice_providers.dart';
+import '../data/invoice_repository.dart';
 
 const _statusTabs = [
   KListTab(label: 'All'),
@@ -19,13 +20,75 @@ const _statusTabs = [
   KListTab(label: 'Overdue', value: 'OVERDUE'),
 ];
 
-class InvoiceListScreen extends ConsumerWidget {
+class InvoiceListScreen extends ConsumerStatefulWidget {
   const InvoiceListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<InvoiceListScreen> createState() => _InvoiceListScreenState();
+}
+
+class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
+  final Set<String> _selectedIds = {};
+
+  void _toggleSelect(String id) => setState(() {
+        _selectedIds.contains(id)
+            ? _selectedIds.remove(id)
+            : _selectedIds.add(id);
+      });
+
+  void _clearSelection() => setState(_selectedIds.clear);
+
+  Future<void> _bulkCancel() async {
+    final count = _selectedIds.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Cancel $count invoice${count == 1 ? '' : 's'}?'),
+        content: const Text(
+            'Cancelled invoices cannot be sent or paid. This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Go Back')),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: KColors.danger.withValues(alpha: 0.12),
+              foregroundColor: KColors.danger,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cancel Invoices'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final repo = ref.read(invoiceRepositoryProvider);
+    final ids = _selectedIds.toList();
+    int success = 0, failed = 0;
+    for (final id in ids) {
+      try {
+        await repo.cancelInvoice(id);
+        success++;
+      } catch (_) {
+        failed++;
+      }
+    }
+    if (!mounted) return;
+    setState(_selectedIds.clear);
+    ref.invalidate(invoiceListProvider);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(failed == 0
+          ? 'Cancelled $success invoice${success == 1 ? '' : 's'}'
+          : 'Cancelled $success, $failed failed'),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final filter = ref.watch(invoiceFilterProvider);
     final invoicesAsync = ref.watch(invoiceListProvider);
+    final inSelection = _selectedIds.isNotEmpty;
 
     return Scaffold(
       body: Column(
@@ -40,8 +103,35 @@ class InvoiceListScreen extends ConsumerWidget {
                 .state = filter.copyWith(status: v, page: 0),
             onSearchChanged: (q) => ref
                 .read(invoiceFilterProvider.notifier)
-                .state = filter.copyWith(
-                    search: q.isEmpty ? null : q, page: 0),
+                .state = filter.copyWith(search: q.isEmpty ? null : q, page: 0),
+            actions: [
+              KSavedViewButton(
+                entityType: 'invoices',
+                currentFilters: {
+                  'status': filter.status,
+                  'search': filter.search,
+                },
+                onViewSelected: (filters) {
+                  ref.read(invoiceFilterProvider.notifier).state =
+                      filter.copyWith(
+                    status: filters['status'],
+                    search: filters['search'],
+                    page: 0,
+                  );
+                },
+              ),
+            ],
+            selectionCount: _selectedIds.length,
+            onClearSelection: _clearSelection,
+            selectionActions: [
+              IconButton(
+                icon: const Icon(Icons.cancel_outlined, size: 20),
+                tooltip: 'Cancel selected',
+                color: KColors.danger,
+                visualDensity: VisualDensity.compact,
+                onPressed: _bulkCancel,
+              ),
+            ],
           ),
           Expanded(
             child: invoicesAsync.when(
@@ -79,15 +169,20 @@ class InvoiceListScreen extends ConsumerWidget {
                 }
 
                 return RefreshIndicator(
-                  onRefresh: () async =>
-                      ref.invalidate(invoiceListProvider),
+                  onRefresh: () async => ref.invalidate(invoiceListProvider),
                   child: ListView.separated(
                     padding: KSpacing.pagePadding,
                     itemCount: invoices.length,
                     separatorBuilder: (_, __) => KSpacing.vGapSm,
                     itemBuilder: (context, index) {
                       final inv = invoices[index] as Map<String, dynamic>;
-                      return _InvoiceCard(invoice: inv);
+                      final id = inv['id']?.toString() ?? '';
+                      return _InvoiceCard(
+                        invoice: inv,
+                        selected: _selectedIds.contains(id),
+                        inSelection: inSelection,
+                        onToggleSelect: () => _toggleSelect(id),
+                      );
                     },
                   ),
                 );
@@ -96,22 +191,33 @@ class InvoiceListScreen extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go(Routes.invoiceCreate),
-        icon: const Icon(Icons.add),
-        label: const Text('New Invoice'),
-      ),
+      floatingActionButton: inSelection
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => context.go(Routes.invoiceCreate),
+              icon: const Icon(Icons.add),
+              label: const Text('New Invoice'),
+            ),
     );
   }
 }
 
 class _InvoiceCard extends StatelessWidget {
   final Map<String, dynamic> invoice;
+  final bool selected;
+  final bool inSelection;
+  final VoidCallback onToggleSelect;
 
-  const _InvoiceCard({required this.invoice});
+  const _InvoiceCard({
+    required this.invoice,
+    required this.selected,
+    required this.inSelection,
+    required this.onToggleSelect,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final status = invoice['status'] as String? ?? 'DRAFT';
     final total = (invoice['total'] as num?)?.toDouble() ?? 0;
     final balanceDue = (invoice['balanceDue'] as num?)?.toDouble() ?? total;
@@ -121,13 +227,28 @@ class _InvoiceCard extends StatelessWidget {
 
     return KCard(
       onTap: () {
-        final id = invoice['id']?.toString();
-        if (id != null) {
-          context.go('/invoices/$id');
+        if (inSelection) {
+          onToggleSelect();
+          return;
         }
+        final id = invoice['id']?.toString();
+        if (id != null) context.go('/invoices/$id');
       },
+      onLongPress: onToggleSelect,
+      borderColor: selected ? cs.primary : null,
+      backgroundColor: selected ? cs.primary.withValues(alpha: 0.06) : null,
       child: Row(
         children: [
+          if (inSelection) ...[
+            Icon(
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              color: selected ? cs.primary : cs.onSurfaceVariant,
+              size: 22,
+            ),
+            KSpacing.hGapSm,
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,15 +291,14 @@ class _InvoiceCard extends StatelessWidget {
                 KSpacing.vGapXs,
                 Text(
                   'Due: ${CurrencyFormatter.formatIndian(balanceDue)}',
-                  style: KTypography.bodySmall.copyWith(
-                    color: KColors.warning,
-                  ),
+                  style: KTypography.bodySmall.copyWith(color: KColors.warning),
                 ),
               ],
             ],
           ),
           KSpacing.hGapSm,
-          const Icon(Icons.chevron_right, color: KColors.textHint),
+          if (!inSelection)
+            const Icon(Icons.chevron_right, color: KColors.textHint),
         ],
       ),
     );

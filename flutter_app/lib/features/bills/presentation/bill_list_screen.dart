@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/bill_providers.dart';
+import '../data/bill_repository.dart';
 import 'widgets/bill_card.dart';
 
 const _statusTabs = [
@@ -17,13 +19,75 @@ const _statusTabs = [
   KListTab(label: 'Void', value: 'VOID'),
 ];
 
-class BillListScreen extends ConsumerWidget {
+class BillListScreen extends ConsumerStatefulWidget {
   const BillListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BillListScreen> createState() => _BillListScreenState();
+}
+
+class _BillListScreenState extends ConsumerState<BillListScreen> {
+  final Set<String> _selectedIds = {};
+
+  void _toggleSelect(String id) => setState(() {
+        _selectedIds.contains(id)
+            ? _selectedIds.remove(id)
+            : _selectedIds.add(id);
+      });
+
+  void _clearSelection() => setState(_selectedIds.clear);
+
+  Future<void> _bulkDelete() async {
+    final count = _selectedIds.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete $count bill${count == 1 ? '' : 's'}?'),
+        content: const Text(
+            'Only draft bills can be deleted. Bills with payments may fail.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: KColors.danger.withValues(alpha: 0.12),
+              foregroundColor: KColors.danger,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final repo = ref.read(billRepositoryProvider);
+    final ids = _selectedIds.toList();
+    int success = 0, failed = 0;
+    for (final id in ids) {
+      try {
+        await repo.deleteBill(id);
+        success++;
+      } catch (_) {
+        failed++;
+      }
+    }
+    if (!mounted) return;
+    setState(_selectedIds.clear);
+    ref.invalidate(billListProvider);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(failed == 0
+          ? 'Deleted $success bill${success == 1 ? '' : 's'}'
+          : 'Deleted $success, $failed failed'),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final filter = ref.watch(billFilterProvider);
     final billsAsync = ref.watch(billListProvider);
+    final inSelection = _selectedIds.isNotEmpty;
 
     return Scaffold(
       body: Column(
@@ -38,8 +102,18 @@ class BillListScreen extends ConsumerWidget {
                 .state = filter.copyWith(status: v, page: 0),
             onSearchChanged: (q) => ref
                 .read(billFilterProvider.notifier)
-                .state = filter.copyWith(
-                    search: q.isEmpty ? null : q, page: 0),
+                .state = filter.copyWith(search: q.isEmpty ? null : q, page: 0),
+            selectionCount: _selectedIds.length,
+            onClearSelection: _clearSelection,
+            selectionActions: [
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                tooltip: 'Delete selected',
+                color: KColors.danger,
+                visualDensity: VisualDensity.compact,
+                onPressed: _bulkDelete,
+              ),
+            ],
           ),
           Expanded(
             child: billsAsync.when(
@@ -84,7 +158,13 @@ class BillListScreen extends ConsumerWidget {
                     separatorBuilder: (_, __) => KSpacing.vGapSm,
                     itemBuilder: (context, index) {
                       final bill = bills[index] as Map<String, dynamic>;
-                      return BillCard(bill: bill);
+                      final id = bill['id']?.toString() ?? '';
+                      return BillCard(
+                        bill: bill,
+                        selected: _selectedIds.contains(id),
+                        inSelection: inSelection,
+                        onToggleSelect: () => _toggleSelect(id),
+                      );
                     },
                   ),
                 );
@@ -93,11 +173,13 @@ class BillListScreen extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go(Routes.billCreate),
-        icon: const Icon(Icons.add),
-        label: const Text('New Bill'),
-      ),
+      floatingActionButton: inSelection
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => context.go(Routes.billCreate),
+              icon: const Icon(Icons.add),
+              label: const Text('New Bill'),
+            ),
     );
   }
 }
