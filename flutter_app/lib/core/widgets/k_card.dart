@@ -41,27 +41,15 @@ class KCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final r = radius ?? KSpacing.radiusLg;
     final br = BorderRadius.circular(r);
 
-    final defaultShadow = isDark
-        ? <BoxShadow>[]
-        : const [
-            BoxShadow(
-              color: Color(0x0F0F172A),
-              blurRadius: 6,
-              offset: Offset(0, 2),
-            ),
-            BoxShadow(
-              color: Color(0x080F172A),
-              blurRadius: 2,
-              offset: Offset(0, 1),
-            ),
-          ];
+    // Katasticho 2026: borders over shadows. Shadows reserved for floating
+    // surfaces (dialogs, menus) via the caller passing an explicit `shadow`.
+    const defaultShadow = <BoxShadow>[];
 
     final content = Padding(
-      padding: padding ?? const EdgeInsets.all(18),
+      padding: padding ?? const EdgeInsets.all(KSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -123,7 +111,7 @@ class KCard extends StatelessWidget {
         borderRadius: br,
         border: gradient == null
             ? Border.all(
-                color: borderColor ?? cs.outlineVariant.withValues(alpha: 0.6),
+                color: borderColor ?? cs.outlineVariant,
                 width: 1,
               )
             : null,

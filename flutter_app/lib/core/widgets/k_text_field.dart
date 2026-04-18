@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../theme/k_typography.dart';
 
-/// Standardized text field with label, prefix, suffix, and validation.
+/// Standardized text field — **Katasticho 2026** spec.
+///
+/// • Top-aligned static label above the field (13px medium) — no
+///   Material floating-label jump.
+/// • Field height ~40px (from the old ~56px).
+/// • Content padding 12/11 (horizontal/vertical) for single-line.
 class KTextField extends StatefulWidget {
   final String label;
   final String? hint;
@@ -156,7 +162,11 @@ class _KTextFieldState extends State<KTextField> {
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
+    final cs = Theme.of(context).colorScheme;
+    final hasLabel = widget.label.isNotEmpty;
+    final isMultiline = (widget.maxLines ?? 1) > 1;
+
+    final field = TextFormField(
       controller: widget.controller,
       initialValue: widget.controller == null ? widget.initialValue : null,
       validator: widget.validator,
@@ -172,20 +182,52 @@ class _KTextFieldState extends State<KTextField> {
       textInputAction: widget.textInputAction,
       onTap: widget.onTap,
       onFieldSubmitted: widget.onFieldSubmitted,
+      style: KTypography.bodyMedium.copyWith(color: cs.onSurface),
       decoration: InputDecoration(
-        labelText: widget.label,
+        // Top-aligned label is rendered above via Column; suppress Material's
+        // floating label here.
         hintText: widget.hint,
+        hintStyle: KTypography.bodyMedium.copyWith(
+          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+        ),
         prefix: widget.prefix,
         suffix: widget.suffix,
-        prefixIcon: widget.prefixIcon != null ? Icon(widget.prefixIcon) : null,
+        prefixIcon: widget.prefixIcon != null
+            ? Icon(widget.prefixIcon, size: 18, color: cs.onSurfaceVariant)
+            : null,
         suffixIcon: widget.suffixIcon != null
             ? IconButton(
-                icon: Icon(widget.suffixIcon),
+                icon: Icon(widget.suffixIcon, size: 18),
+                color: cs.onSurfaceVariant,
                 onPressed: widget.onSuffixTap,
               )
             : widget.suffix,
         counterText: '',
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: isMultiline ? 10 : 11,
+        ),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 36,
+          minHeight: 36,
+        ),
       ),
+    );
+
+    if (!hasLabel) return field;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          widget.label,
+          style: KTypography.labelLarge.copyWith(color: cs.onSurface),
+        ),
+        const SizedBox(height: 6),
+        field,
+      ],
     );
   }
 }

@@ -55,13 +55,13 @@ class KSpacing {
   static const SizedBox hGapLg = SizedBox(width: lg);
   static const SizedBox hGapXl = SizedBox(width: xl);
 
-  // ── Border Radius (more generous, modern) ──
-  static const double radiusXs = 6;
-  static const double radiusSm = 8;
-  static const double radiusMd = 12;
-  static const double radiusLg = 16;
-  static const double radiusXl = 20;
-  static const double radius2xl = 24;
+  // ── Border Radius — **Katasticho 2026** (tighter, finance-grade) ──
+  static const double radiusXs = 4;
+  static const double radiusSm = 6;
+  static const double radiusMd = 8;
+  static const double radiusLg = 10;
+  static const double radiusXl = 14;
+  static const double radius2xl = 18;
   static const double radiusRound = 999;
 
   static final BorderRadius borderRadiusXs = BorderRadius.circular(radiusXs);
