@@ -39,7 +39,7 @@ class ContactDetailScreen extends ConsumerWidget {
                 : KColors.success;
 
         return DefaultTabController(
-          length: 2,
+          length: 3,
           child: Scaffold(
             appBar: AppBar(
               title: Text(displayName),
@@ -86,6 +86,7 @@ class ContactDetailScreen extends ConsumerWidget {
                 tabs: [
                   Tab(text: 'Details'),
                   Tab(text: 'Persons'),
+                  Tab(text: 'Activity'),
                 ],
               ),
             ),
@@ -94,6 +95,10 @@ class ContactDetailScreen extends ConsumerWidget {
                 _DetailsTab(contact: contact, typeColor: typeColor),
                 _PersonsTab(
                     contact: contact, contactId: contactId),
+                KActivityTimeline(
+                  entityType: 'CONTACT',
+                  entityId: contactId,
+                ),
               ],
             ),
           ),

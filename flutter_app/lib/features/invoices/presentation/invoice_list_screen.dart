@@ -104,6 +104,23 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
             onSearchChanged: (q) => ref
                 .read(invoiceFilterProvider.notifier)
                 .state = filter.copyWith(search: q.isEmpty ? null : q, page: 0),
+            actions: [
+              KSavedViewButton(
+                entityType: 'invoices',
+                currentFilters: {
+                  'status': filter.status,
+                  'search': filter.search,
+                },
+                onViewSelected: (filters) {
+                  ref.read(invoiceFilterProvider.notifier).state =
+                      filter.copyWith(
+                    status: filters['status'],
+                    search: filters['search'],
+                    page: 0,
+                  );
+                },
+              ),
+            ],
             selectionCount: _selectedIds.length,
             onClearSelection: _clearSelection,
             selectionActions: [

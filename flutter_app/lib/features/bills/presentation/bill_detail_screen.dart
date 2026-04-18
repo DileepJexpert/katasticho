@@ -282,7 +282,7 @@ class _BillDetailBody extends ConsumerWidget {
     final b = BillDto(bill);
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Column(
         children: [
           // Header
@@ -318,6 +318,7 @@ class _BillDetailBody extends ConsumerWidget {
               Tab(text: 'Details'),
               Tab(text: 'Lines'),
               Tab(text: 'Payments'),
+              Tab(text: 'Activity'),
             ],
           ),
 
@@ -395,6 +396,12 @@ class _BillDetailBody extends ConsumerWidget {
 
                 // Payments tab
                 _PaymentsTab(billId: billId),
+
+                // Activity tab
+                KActivityTimeline(
+                  entityType: 'BILL',
+                  entityId: billId,
+                ),
               ],
             ),
           ),

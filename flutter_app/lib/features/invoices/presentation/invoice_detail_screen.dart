@@ -13,6 +13,7 @@ import '../../../core/utils/whatsapp_share.dart';
 import '../../../routing/app_router.dart';
 import '../data/invoice_providers.dart';
 import '../data/invoice_repository.dart';
+import 'invoice_pdf_screen.dart';
 
 class InvoiceDetailScreen extends ConsumerWidget {
   final String invoiceId;
@@ -132,6 +133,18 @@ class InvoiceDetailScreen extends ConsumerWidget {
         _showCancelConfirmation(context, ref);
         break;
       case 'pdf':
+        if (context.mounted) {
+          final invoiceAsync = ref.read(invoiceDetailProvider(invoiceId));
+          invoiceAsync.whenData((data) {
+            final invoice = (data['data'] ?? data) as Map<String, dynamic>;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => InvoicePdfScreen(invoice: invoice),
+              ),
+            );
+          });
+        }
         break;
       case 'share':
         if (context.mounted) {
@@ -200,7 +213,7 @@ class _InvoiceDetailBody extends ConsumerWidget {
     final lines = (invoice['lines'] as List?) ?? [];
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Column(
         children: [
           // Header
@@ -236,6 +249,7 @@ class _InvoiceDetailBody extends ConsumerWidget {
               Tab(text: 'Details'),
               Tab(text: 'Items'),
               Tab(text: 'Payments'),
+              Tab(text: 'Activity'),
             ],
           ),
 
@@ -343,6 +357,12 @@ class _InvoiceDetailBody extends ConsumerWidget {
 
                 // Payments tab
                 _PaymentsTab(invoiceId: invoiceId),
+
+                // Activity tab
+                KActivityTimeline(
+                  entityType: 'INVOICE',
+                  entityId: invoiceId,
+                ),
               ],
             ),
           ),
