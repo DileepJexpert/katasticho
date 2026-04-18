@@ -201,6 +201,108 @@ class BranchSummary {
       );
 }
 
+/// AR aging breakdown for the expandable receivables card.
+class ArAgingData {
+  final double totalOutstanding;
+  final double current;
+  final double days1to30;
+  final double days31to60;
+  final double days61to90;
+  final double days90plus;
+
+  const ArAgingData({
+    required this.totalOutstanding,
+    required this.current,
+    required this.days1to30,
+    required this.days31to60,
+    required this.days61to90,
+    required this.days90plus,
+  });
+
+  factory ArAgingData.fromJson(Map<String, dynamic> json) => ArAgingData(
+        totalOutstanding:
+            (json['totalOutstanding'] as num?)?.toDouble() ?? 0.0,
+        current: (json['current'] as num?)?.toDouble() ?? 0.0,
+        days1to30: (json['days1to30'] as num?)?.toDouble() ?? 0.0,
+        days31to60: (json['days31to60'] as num?)?.toDouble() ?? 0.0,
+        days61to90: (json['days61to90'] as num?)?.toDouble() ?? 0.0,
+        days90plus: (json['days90plus'] as num?)?.toDouble() ?? 0.0,
+      );
+}
+
+/// AP aging breakdown for the expandable payables card.
+class ApAgingData {
+  final double totalOutstanding;
+  final double current;
+  final double days1to30;
+  final double days31to60;
+  final double days61to90;
+  final double days90plus;
+
+  const ApAgingData({
+    required this.totalOutstanding,
+    required this.current,
+    required this.days1to30,
+    required this.days31to60,
+    required this.days61to90,
+    required this.days90plus,
+  });
+
+  factory ApAgingData.fromJson(Map<String, dynamic> json) => ApAgingData(
+        totalOutstanding:
+            (json['totalOutstanding'] as num?)?.toDouble() ?? 0.0,
+        current: (json['current'] as num?)?.toDouble() ?? 0.0,
+        days1to30: (json['days1to30'] as num?)?.toDouble() ?? 0.0,
+        days31to60: (json['days31to60'] as num?)?.toDouble() ?? 0.0,
+        days61to90: (json['days61to90'] as num?)?.toDouble() ?? 0.0,
+        days90plus: (json['days90plus'] as num?)?.toDouble() ?? 0.0,
+      );
+}
+
+/// Daily revenue point for the trend chart.
+class DailyRevenue {
+  final DateTime date;
+  final double revenue;
+
+  const DailyRevenue({required this.date, required this.revenue});
+
+  factory DailyRevenue.fromJson(Map<String, dynamic> json) => DailyRevenue(
+        date: DateTime.parse(json['date'] as String),
+        revenue: (json['revenue'] as num?)?.toDouble() ?? 0.0,
+      );
+}
+
+/// Revenue trend for the bar chart widget.
+class RevenueTrendData {
+  final DateTime from;
+  final DateTime to;
+  final int days;
+  final double totalRevenue;
+  final String currency;
+  final List<DailyRevenue> trend;
+
+  const RevenueTrendData({
+    required this.from,
+    required this.to,
+    required this.days,
+    required this.totalRevenue,
+    required this.currency,
+    required this.trend,
+  });
+
+  factory RevenueTrendData.fromJson(Map<String, dynamic> json) =>
+      RevenueTrendData(
+        from: DateTime.parse(json['from'] as String),
+        to: DateTime.parse(json['to'] as String),
+        days: (json['days'] as num?)?.toInt() ?? 30,
+        totalRevenue: (json['totalRevenue'] as num?)?.toDouble() ?? 0.0,
+        currency: json['currency']?.toString() ?? 'INR',
+        trend: ((json['trend'] as List?) ?? const [])
+            .map((e) => DailyRevenue.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
 /// AR summary for the dashboard — total outstanding receivables, overdue
 /// invoice count, invoices due in the next 7 days.
 class ArSummaryData {

@@ -258,6 +258,37 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
+    public RevenueTrendResponse getRevenueTrend(int days) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        int cappedDays = Math.max(7, Math.min(days, 90));
+        LocalDate today = LocalDate.now();
+        LocalDate from = today.minusDays(cappedDays - 1);
+
+        Organisation org = organisationRepository.findById(orgId)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
+
+        List<InvoiceRepository.DailyRevenueRow> rows =
+                invoiceRepository.sumRevenueDailyByOrg(orgId, from, today);
+
+        Map<LocalDate, BigDecimal> byDate = rows.stream()
+                .collect(Collectors.toMap(
+                        InvoiceRepository.DailyRevenueRow::getDate,
+                        InvoiceRepository.DailyRevenueRow::getTotal));
+
+        List<RevenueTrendResponse.DailyPoint> trend = from.datesUntil(today.plusDays(1))
+                .map(d -> new RevenueTrendResponse.DailyPoint(
+                        d, byDate.getOrDefault(d, BigDecimal.ZERO)))
+                .toList();
+
+        BigDecimal totalRevenue = trend.stream()
+                .map(RevenueTrendResponse.DailyPoint::revenue)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new RevenueTrendResponse(from, today, cappedDays, totalRevenue,
+                org.getBaseCurrency(), trend);
+    }
+
+    @Transactional(readOnly = true)
     public MonthlyProfitResponse getMonthlyProfit(LocalDate from, LocalDate to) {
         UUID orgId = TenantContext.getCurrentOrgId();
         LocalDate today = LocalDate.now();

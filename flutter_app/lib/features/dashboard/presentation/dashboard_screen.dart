@@ -8,7 +8,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../data/dashboard_config.dart';
 import '../data/dashboard_repository.dart';
-import '../widgets/quick_action_grid.dart';
+import '../widgets/ar_aging_card.dart';
 import '../widgets/overdue_invoices_widget.dart';
 import '../widgets/sales_chart_widget.dart';
 import '../widgets/low_stock_widget.dart';
@@ -42,6 +42,12 @@ class DashboardScreen extends ConsumerWidget {
           ref.invalidate(recentBillsProvider);
           ref.invalidate(arSummaryProvider);
           ref.invalidate(monthlyProfitProvider);
+          ref.invalidate(arAgingProvider);
+          ref.invalidate(apAgingProvider);
+          // revenueTrendProvider is a family — invalidate both common windows
+          ref.invalidate(revenueTrendProvider(7));
+          ref.invalidate(revenueTrendProvider(30));
+          ref.invalidate(revenueTrendProvider(90));
           await Future.delayed(const Duration(milliseconds: 200));
         },
         child: SingleChildScrollView(
@@ -63,16 +69,25 @@ class DashboardScreen extends ConsumerWidget {
               const _FilterBar(),
               KSpacing.vGapMd,
 
-              // KPI Cards — now driven by todaySalesProvider for the
-              // "today_sales" tile; other tiles still render static
-              // placeholders until their own endpoints come online.
+              // KPI Cards
               _KpiGrid(kpis: config.kpis, isDesktop: isDesktop),
               KSpacing.vGapMd,
 
-              // Quick Actions
-              Text('Quick Actions', style: KTypography.h3),
-              KSpacing.vGapSm,
-              QuickActionGrid(actions: config.quickActions),
+              // AR / AP Aging drill-down cards
+              if (isDesktop)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Expanded(child: ArAgingCard()),
+                    SizedBox(width: 16),
+                    Expanded(child: ApAgingCard()),
+                  ],
+                )
+              else ...[
+                const ArAgingCard(),
+                KSpacing.vGapMd,
+                const ApAgingCard(),
+              ],
               KSpacing.vGapLg,
 
               // Dashboard Widgets

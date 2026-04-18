@@ -159,6 +159,24 @@ class DashboardRepository {
     return MonthlyProfitData.fromJson(_unwrap(response.data));
   }
 
+  Future<ArAgingData> getArAging() async {
+    final response = await _api.get(ApiConfig.arAgeing);
+    return ArAgingData.fromJson(_unwrap(response.data));
+  }
+
+  Future<ApAgingData> getApAging() async {
+    final response = await _api.get(ApiConfig.apAgeing);
+    return ApAgingData.fromJson(_unwrap(response.data));
+  }
+
+  Future<RevenueTrendData> getRevenueTrend({int days = 30}) async {
+    final response = await _api.get(
+      ApiConfig.dashboardRevenueTrend,
+      queryParameters: {'days': days},
+    );
+    return RevenueTrendData.fromJson(_unwrap(response.data));
+  }
+
   Future<Map<String, dynamic>> seedSharmaMedical() async {
     final response = await _api.post(ApiConfig.demoSeedSharmaMedical);
     return _unwrap(response.data);
@@ -210,4 +228,19 @@ final monthlyProfitProvider =
     FutureProvider.autoDispose<MonthlyProfitData>((ref) async {
   final filter = ref.watch(dashboardFilterProvider);
   return ref.watch(dashboardRepositoryProvider).getMonthlyProfit(filter);
+});
+
+final arAgingProvider =
+    FutureProvider.autoDispose<ArAgingData>((ref) async {
+  return ref.watch(dashboardRepositoryProvider).getArAging();
+});
+
+final apAgingProvider =
+    FutureProvider.autoDispose<ApAgingData>((ref) async {
+  return ref.watch(dashboardRepositoryProvider).getApAging();
+});
+
+final revenueTrendProvider =
+    FutureProvider.autoDispose.family<RevenueTrendData, int>((ref, days) async {
+  return ref.watch(dashboardRepositoryProvider).getRevenueTrend(days: days);
 });
