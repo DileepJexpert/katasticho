@@ -11,12 +11,14 @@ class PosTotalBar extends ConsumerWidget {
   final VoidCallback? onCashTap;
   final VoidCallback? onUpiTap;
   final VoidCallback? onCardTap;
+  final VoidCallback? onSplitTap;
 
   const PosTotalBar({
     super.key,
     this.onCashTap,
     this.onUpiTap,
     this.onCardTap,
+    this.onSplitTap,
   });
 
   @override
@@ -115,6 +117,17 @@ class PosTotalBar extends ConsumerWidget {
                     color: KColors.secondary,
                     isSelected: cart.paymentMode == 'CARD',
                     onTap: cart.isEmpty ? null : onCardTap,
+                  ),
+                ),
+                KSpacing.hGapSm,
+                Expanded(
+                  child: _PaymentButton(
+                    icon: Icons.call_split,
+                    label: 'Split',
+                    shortcut: 'F6',
+                    color: KColors.info,
+                    isSelected: false,
+                    onTap: cart.isEmpty ? null : onSplitTap,
                   ),
                 ),
               ],

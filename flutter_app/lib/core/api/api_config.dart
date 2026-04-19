@@ -235,6 +235,24 @@ class ApiConfig {
       '/api/v1/sales-receipts/$id/whatsapp-link';
   static const String posSearch = '/api/v1/items/pos-search';
 
+  // Sales Orders
+  static const String salesOrders = '/api/v1/sales-orders';
+  static String salesOrderById(String id) => '/api/v1/sales-orders/$id';
+  static String confirmSalesOrder(String id) => '/api/v1/sales-orders/$id/confirm';
+  static String cancelSalesOrder(String id) => '/api/v1/sales-orders/$id/cancel';
+  static String convertSalesOrderToInvoice(String id) => '/api/v1/sales-orders/$id/convert-to-invoice';
+  static String salesOrderFromEstimate(String estimateId) => '/api/v1/sales-orders/from-estimate/$estimateId';
+  static String salesOrderReservations(String id) => '/api/v1/sales-orders/$id/reservations';
+  static String salesOrderInvoices(String id) => '/api/v1/sales-orders/$id/invoices';
+
+  // Delivery Challans
+  static const String deliveryChallans = '/api/v1/delivery-challans';
+  static String deliveryChallanById(String id) => '/api/v1/delivery-challans/$id';
+  static String dispatchChallan(String id) => '/api/v1/delivery-challans/$id/dispatch';
+  static String deliverChallan(String id) => '/api/v1/delivery-challans/$id/deliver';
+  static String cancelChallan(String id) => '/api/v1/delivery-challans/$id/cancel';
+  static String challansBySalesOrder(String soId) => '/api/v1/delivery-challans/by-sales-order/$soId';
+
   // Pricing (v2 — F3 price lists)
   static const String priceLists = '/api/v1/price-lists';
   static String priceListById(String id) => '/api/v1/price-lists/$id';

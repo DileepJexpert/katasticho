@@ -1,0 +1,41 @@
+package com.katasticho.erp.sales.dto;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+
+public record SalesOrderResponse(
+        UUID id,
+        String salesOrderNumber,
+        UUID contactId,
+        String contactName,
+        LocalDate orderDate,
+        LocalDate expectedShipmentDate,
+        String referenceNumber,
+        String status,
+        String shippedStatus,
+        String invoicedStatus,
+        UUID estimateId,
+        UUID branchId,
+        String currency,
+        String discountType,
+        BigDecimal discountAmount,
+        BigDecimal subtotal,
+        BigDecimal taxAmount,
+        BigDecimal shippingCharge,
+        BigDecimal adjustment,
+        String adjustmentDescription,
+        BigDecimal totalAmount,
+        String deliveryMethod,
+        String placeOfSupply,
+        String notes,
+        String terms,
+        String billingAddress,
+        String shippingAddress,
+        List<SalesOrderLineResponse> lines,
+        int linkedInvoiceCount,
+        int linkedChallanCount,
+        Instant createdAt
+) {}

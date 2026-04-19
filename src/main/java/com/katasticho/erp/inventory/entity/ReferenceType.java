@@ -14,5 +14,7 @@ public enum ReferenceType {
     STOCK_COUNT,
     OPENING_BALANCE,
     STOCK_RECEIPT,
-    SALES_RECEIPT
+    SALES_RECEIPT,
+    DELIVERY_CHALLAN,
+    SALES_ORDER
 }

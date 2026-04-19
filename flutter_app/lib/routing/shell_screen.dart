@@ -78,6 +78,18 @@ const _navItems = [
 
 const _salesNavItems = [
   NavItem(
+    label: 'Sales Orders',
+    icon: Icons.assignment_outlined,
+    activeIcon: Icons.assignment_rounded,
+    route: Routes.salesOrders,
+  ),
+  NavItem(
+    label: 'Delivery Challans',
+    icon: Icons.local_shipping_outlined,
+    activeIcon: Icons.local_shipping_rounded,
+    route: Routes.deliveryChallans,
+  ),
+  NavItem(
     label: 'Quick POS',
     icon: Icons.point_of_sale_outlined,
     activeIcon: Icons.point_of_sale_rounded,

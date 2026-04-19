@@ -3,6 +3,8 @@ package com.katasticho.erp.inventory.service;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.inventory.dto.CreateItemRequest;
 import com.katasticho.erp.inventory.dto.ItemResponse;
 import com.katasticho.erp.inventory.dto.StockMovementRequest;
@@ -57,6 +59,7 @@ public class ItemService {
      * for Spring to honour it.
      */
     private final ItemGroupService itemGroupService;
+    private final ContactRepository contactRepository;
 
     public ItemService(ItemRepository itemRepository,
                        StockBalanceRepository stockBalanceRepository,
@@ -65,7 +68,8 @@ public class ItemService {
                        AuditService auditService,
                        UomService uomService,
                        ItemGroupRepository itemGroupRepository,
-                       @Lazy ItemGroupService itemGroupService) {
+                       @Lazy ItemGroupService itemGroupService,
+                       ContactRepository contactRepository) {
         this.itemRepository = itemRepository;
         this.stockBalanceRepository = stockBalanceRepository;
         this.warehouseRepository = warehouseRepository;
@@ -74,6 +78,7 @@ public class ItemService {
         this.uomService = uomService;
         this.itemGroupRepository = itemGroupRepository;
         this.itemGroupService = itemGroupService;
+        this.contactRepository = contactRepository;
     }
 
     @Transactional
@@ -161,6 +166,21 @@ public class ItemService {
                 .trackBatches(Boolean.TRUE.equals(request.trackBatches()))
                 .reorderLevel(nz(request.reorderLevel()))
                 .reorderQuantity(nz(request.reorderQuantity()))
+                .barcode(request.barcode())
+                .manufacturer(request.manufacturer())
+                .preferredVendorId(request.preferredVendorId())
+                .weight(request.weight())
+                .weightUnit(request.weightUnit())
+                .length(request.length())
+                .width(request.width())
+                .height(request.height())
+                .dimensionUnit(request.dimensionUnit())
+                .drugSchedule(request.drugSchedule())
+                .composition(request.composition())
+                .dosageForm(request.dosageForm())
+                .packSize(request.packSize())
+                .storageCondition(request.storageCondition())
+                .prescriptionRequired(Boolean.TRUE.equals(request.prescriptionRequired()))
                 .revenueAccountCode(request.revenueAccountCode())
                 .cogsAccountCode(request.cogsAccountCode())
                 .inventoryAccountCode(request.inventoryAccountCode())
@@ -263,6 +283,21 @@ public class ItemService {
         }
         if (request.reorderLevel() != null) item.setReorderLevel(request.reorderLevel());
         if (request.reorderQuantity() != null) item.setReorderQuantity(request.reorderQuantity());
+        item.setBarcode(request.barcode());
+        item.setManufacturer(request.manufacturer());
+        item.setPreferredVendorId(request.preferredVendorId());
+        item.setWeight(request.weight());
+        item.setWeightUnit(request.weightUnit());
+        item.setLength(request.length());
+        item.setWidth(request.width());
+        item.setHeight(request.height());
+        item.setDimensionUnit(request.dimensionUnit());
+        item.setDrugSchedule(request.drugSchedule());
+        item.setComposition(request.composition());
+        item.setDosageForm(request.dosageForm());
+        item.setPackSize(request.packSize());
+        item.setStorageCondition(request.storageCondition());
+        if (request.prescriptionRequired() != null) item.setPrescriptionRequired(request.prescriptionRequired());
         item.setRevenueAccountCode(request.revenueAccountCode());
         item.setCogsAccountCode(request.cogsAccountCode());
         item.setInventoryAccountCode(request.inventoryAccountCode());
@@ -335,12 +370,24 @@ public class ItemService {
         Map<String, String> attrs = i.getVariantAttributes() != null
                 ? i.getVariantAttributes()
                 : new HashMap<>();
+        String vendorName = null;
+        if (i.getPreferredVendorId() != null) {
+            vendorName = contactRepository.findById(i.getPreferredVendorId())
+                    .map(Contact::getCompanyName).orElse(null);
+        }
         return new ItemResponse(
-                i.getId(), i.getSku(), i.getName(), i.getDescription(), i.getItemType(),
-                i.getCategory(), i.getBrand(), i.getHsnCode(), i.getUnitOfMeasure(),
+                i.getId(), i.getSku(), i.getBarcode(), i.getName(), i.getDescription(),
+                i.getItemType(), i.getCategory(), i.getBrand(), i.getManufacturer(),
+                i.getHsnCode(), i.getUnitOfMeasure(),
                 i.getPurchasePrice(), i.getSalePrice(), i.getMrp(), i.getGstRate(),
+                i.getDefaultTaxGroupId(),
                 i.isTrackInventory(), i.isTrackBatches(),
                 i.getReorderLevel(), i.getReorderQuantity(),
+                i.getPreferredVendorId(), vendorName,
+                i.getWeight(), i.getWeightUnit(),
+                i.getLength(), i.getWidth(), i.getHeight(), i.getDimensionUnit(),
+                i.getDrugSchedule(), i.getComposition(), i.getDosageForm(),
+                i.getPackSize(), i.getStorageCondition(), i.isPrescriptionRequired(),
                 i.getRevenueAccountCode(), i.getCogsAccountCode(), i.getInventoryAccountCode(),
                 i.isActive(), totalOnHand, i.getCreatedAt(),
                 i.getGroupId(), attrs, groupName);

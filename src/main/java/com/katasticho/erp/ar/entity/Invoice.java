@@ -93,6 +93,9 @@ public class Invoice {
     @Column(name = "journal_entry_id")
     private UUID journalEntryId;
 
+    @Column(name = "sales_order_id")
+    private UUID salesOrderId;
+
     private String notes;
 
     @Column(name = "terms_and_conditions")

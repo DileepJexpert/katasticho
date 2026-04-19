@@ -114,6 +114,49 @@ public class Item extends BaseEntity {
     @Column(name = "inventory_account_code", length = 20)
     private String inventoryAccountCode;
 
+    @Column(length = 100)
+    private String manufacturer;
+
+    @Column(name = "preferred_vendor_id")
+    private UUID preferredVendorId;
+
+    @Column(precision = 12, scale = 4)
+    private BigDecimal weight;
+
+    @Column(name = "weight_unit", length = 10)
+    private String weightUnit;
+
+    @Column(name = "length", precision = 12, scale = 4)
+    private BigDecimal length;
+
+    @Column(name = "width", precision = 12, scale = 4)
+    private BigDecimal width;
+
+    @Column(name = "height", precision = 12, scale = 4)
+    private BigDecimal height;
+
+    @Column(name = "dimension_unit", length = 10)
+    private String dimensionUnit;
+
+    @Column(name = "drug_schedule", length = 10)
+    private String drugSchedule;
+
+    @Column(columnDefinition = "TEXT")
+    private String composition;
+
+    @Column(name = "dosage_form", length = 50)
+    private String dosageForm;
+
+    @Column(name = "pack_size", length = 50)
+    private String packSize;
+
+    @Column(name = "storage_condition", length = 100)
+    private String storageCondition;
+
+    @Column(name = "prescription_required", nullable = false)
+    @Builder.Default
+    private boolean prescriptionRequired = false;
+
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean active = true;

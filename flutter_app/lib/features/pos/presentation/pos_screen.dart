@@ -2,12 +2,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/pos_cart_state.dart';
+import '../data/pos_held_carts.dart';
+import '../data/pos_recent_transactions.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_repository.dart';
 import 'widgets/pos_search_bar.dart';
@@ -17,6 +20,10 @@ import 'widgets/pos_total_bar.dart';
 import 'widgets/pos_customer_button.dart';
 import 'widgets/pos_payment_sheet.dart';
 import 'widgets/pos_success_sheet.dart';
+import 'widgets/pos_held_carts_sheet.dart';
+import 'widgets/pos_favourites_grid.dart';
+import 'widgets/pos_barcode_scanner.dart';
+import 'widgets/pos_recent_transactions.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -104,6 +111,68 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     return 0;
   }
 
+  // ── Hold / Recall ────────────────────────────────────────────
+
+  void _holdCart() {
+    final cart = ref.read(posCartProvider);
+    if (cart.isEmpty) return;
+    final notifier = ref.read(heldCartsProvider.notifier);
+    if (!notifier.canHold) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Maximum 5 held carts reached')),
+      );
+      return;
+    }
+    notifier.hold(cart);
+    ref.read(posCartProvider.notifier).clear();
+    _searchFocusNode.requestFocus();
+    HapticFeedback.mediumImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Cart held')),
+    );
+  }
+
+  Future<void> _recallCart() async {
+    final recalled = await showHeldCartsSheet(context);
+    if (recalled == null || !mounted) return;
+    final currentCart = ref.read(posCartProvider);
+    if (!currentCart.isEmpty) {
+      ref.read(heldCartsProvider.notifier).hold(currentCart, label: 'Auto-held');
+    }
+    ref.read(posCartProvider.notifier).restore(recalled);
+    HapticFeedback.lightImpact();
+  }
+
+  // ── Barcode / Recent ─────────────────────────────────────────
+
+  Future<void> _scanBarcode() async {
+    final code = await showBarcodeScanner(context);
+    if (code == null || !mounted) return;
+    _searchController.text = code;
+    _onSearchChanged(code);
+    _onSearchSubmitted(code);
+  }
+
+  Future<void> _showRecentTransactions() async {
+    final result = await showRecentTransactionsSheet(context);
+    if (result == null || !mounted) return;
+    final receiptId = result['receiptId'] as String;
+    final action = result['action'] as String;
+    final repo = ref.read(posRepositoryProvider);
+    if (action == 'print') {
+      await _handlePrint(repo, receiptId);
+    } else if (action == 'whatsapp') {
+      try {
+        final receipt = await repo.getReceipt(receiptId);
+        final data = (receipt['data'] ?? receipt) as Map<String, dynamic>;
+        final cart = ref.read(posCartProvider);
+        await _handleWhatsApp(repo, receiptId, data, cart);
+      } catch (e) {
+        if (mounted) _showErrorSnackBar('Failed: $e');
+      }
+    }
+  }
+
   // ── Payment flow ─────────────────────────────────────────────
 
   Future<void> _onPaymentTap(String mode) async {
@@ -154,6 +223,23 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
       if (mounted && receiptId != null) {
         await _handleSuccessAction(action, receiptId, receiptData, cart);
+      }
+
+      // Track in recent transactions
+      if (receiptId != null) {
+        ref.read(recentTransactionsProvider.notifier).add(
+              RecentTransaction(
+                receiptId: receiptId,
+                receiptNumber:
+                    receiptData['receiptNumber']?.toString() ?? '',
+                total:
+                    (receiptData['total'] as num?)?.toDouble() ?? 0,
+                paymentMode:
+                    receiptData['paymentMode']?.toString() ?? 'CASH',
+                customerName: cart.contactName,
+                completedAt: DateTime.now(),
+              ),
+            );
       }
 
       // Clear cart and refocus for next sale
@@ -374,6 +460,29 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       _onPaymentTap('CARD');
       return KeyEventResult.handled;
     }
+    if (event.logicalKey == LogicalKeyboardKey.f4) {
+      _holdCart();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.f5) {
+      _recallCart();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.f6) {
+      final cart = ref.read(posCartProvider);
+      if (!cart.isEmpty) _onPaymentTap('SPLIT');
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.f7) {
+      _scanBarcode();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      if (_searchQuery != null) {
+        _clearSearch();
+        return KeyEventResult.handled;
+      }
+    }
 
     return KeyEventResult.ignored;
   }
@@ -396,6 +505,23 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               actions: [
                 const PosCustomerButton(),
                 const SizedBox(width: 8),
+                IconButton(
+                  onPressed: _scanBarcode,
+                  icon: const Icon(Icons.qr_code_scanner, size: 20),
+                  tooltip: 'Scan barcode (F7)',
+                ),
+                IconButton(
+                  onPressed: _showRecentTransactions,
+                  icon: const Icon(Icons.receipt_long, size: 20),
+                  tooltip: 'Recent sales',
+                ),
+                if (cart.items.isNotEmpty)
+                  IconButton(
+                    onPressed: _holdCart,
+                    icon: const Icon(Icons.pause_circle_outline, size: 20),
+                    tooltip: 'Hold cart (F4)',
+                  ),
+                _HeldCartsBadge(onTap: _recallCart),
                 if (cart.items.isNotEmpty)
                   TextButton.icon(
                     onPressed: () {
@@ -404,6 +530,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     icon: const Icon(Icons.clear_all, size: 18),
                     label: const Text('Clear'),
                   ),
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined, size: 20),
+                  onPressed: () => context.push('/pos/receipt-settings'),
+                  tooltip: 'Receipt settings',
+                ),
                 const SizedBox(width: 4),
               ],
             ),
@@ -425,6 +556,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   onCashTap: () => _onPaymentTap('CASH'),
                   onUpiTap: () => _onPaymentTap('UPI'),
                   onCardTap: () => _onPaymentTap('CARD'),
+                  onSplitTap: () => _onPaymentTap('SPLIT'),
                 ),
               ],
             ),
@@ -486,31 +618,46 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   Widget _buildCartView(PosCartState cart) {
     if (cart.isEmpty) {
-      return Center(
+      return SingleChildScrollView(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.point_of_sale,
-                size: 64,
-                color: Theme.of(context).colorScheme.outlineVariant),
-            KSpacing.vGapMd,
-            Text('Ready to sell',
-                style: KTypography.h3.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurfaceVariant)),
-            KSpacing.vGapSm,
-            Text('Search items above to start',
-                style: KTypography.bodySmall.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurfaceVariant)),
-            KSpacing.vGapMd,
-            Text('Ctrl+F to focus search',
-                style: KTypography.labelSmall.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .outlineVariant)),
+            PosFavouritesGrid(onItemTap: _addToCart),
+            KSpacing.vGapLg,
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.point_of_sale,
+                      size: 64,
+                      color: Theme.of(context).colorScheme.outlineVariant),
+                  KSpacing.vGapMd,
+                  Text('Ready to sell',
+                      style: KTypography.h3.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant)),
+                  KSpacing.vGapSm,
+                  Text('Search items above to start',
+                      style: KTypography.bodySmall.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant)),
+                  KSpacing.vGapMd,
+                  Wrap(
+                    spacing: 16,
+                    children: [
+                      Text('F1 Cash', style: _shortcutStyle),
+                      Text('F2 UPI', style: _shortcutStyle),
+                      Text('F3 Card', style: _shortcutStyle),
+                      Text('F4 Hold', style: _shortcutStyle),
+                      Text('F5 Recall', style: _shortcutStyle),
+                      Text('F6 Split', style: _shortcutStyle),
+                      Text('F7 Scan', style: _shortcutStyle),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       );
@@ -518,6 +665,29 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     return const SingleChildScrollView(
       child: PosCartList(),
+    );
+  }
+
+  TextStyle get _shortcutStyle => KTypography.labelSmall.copyWith(
+      color: Theme.of(context).colorScheme.outlineVariant, fontSize: 10);
+}
+
+class _HeldCartsBadge extends ConsumerWidget {
+  final VoidCallback onTap;
+  const _HeldCartsBadge({required this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(heldCartsProvider).length;
+    if (count == 0) return const SizedBox.shrink();
+
+    return Badge(
+      label: Text('$count'),
+      child: IconButton(
+        icon: const Icon(Icons.inventory_2_outlined, size: 20),
+        onPressed: onTap,
+        tooltip: 'Recall held cart (F5)',
+      ),
     );
   }
 }

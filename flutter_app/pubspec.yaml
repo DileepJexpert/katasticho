@@ -64,6 +64,9 @@ dependencies:
   # File picking (CSV bulk import)
   file_picker: ^8.0.0+1
 
+  # Barcode / QR scanning (POS)
+  mobile_scanner: ^5.1.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

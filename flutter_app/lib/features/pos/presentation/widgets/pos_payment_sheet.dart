@@ -9,6 +9,7 @@ import '../../data/pos_cart_state.dart';
 
 /// Payment bottom sheet — different content per payment mode.
 /// Returns a map with payment details on completion, or null if cancelled.
+/// Pass paymentMode='SPLIT' to open split payment mode directly.
 Future<Map<String, dynamic>?> showPosPaymentSheet(
   BuildContext context, {
   required PosCartState cart,
@@ -21,7 +22,9 @@ Future<Map<String, dynamic>?> showPosPaymentSheet(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: _PaymentSheetContent(cart: cart, paymentMode: paymentMode),
+      child: paymentMode == 'SPLIT'
+          ? _SplitPaymentContent(cart: cart)
+          : _PaymentSheetContent(cart: cart, paymentMode: paymentMode),
     ),
   );
 }
@@ -364,6 +367,254 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
         'CARD' => 'Confirm Payment & Complete',
         _ => 'Complete Sale',
       };
+}
+
+/// Split payment sheet — allows distributing total across Cash, UPI, Card.
+class _SplitPaymentContent extends StatefulWidget {
+  final PosCartState cart;
+  const _SplitPaymentContent({required this.cart});
+
+  @override
+  State<_SplitPaymentContent> createState() => _SplitPaymentContentState();
+}
+
+class _SplitPaymentContentState extends State<_SplitPaymentContent> {
+  final _cashCtrl = TextEditingController(text: '0.00');
+  final _upiCtrl = TextEditingController(text: '0.00');
+  final _cardCtrl = TextEditingController(text: '0.00');
+  final _upiRefCtrl = TextEditingController();
+
+  double get _cash => double.tryParse(_cashCtrl.text) ?? 0;
+  double get _upi => double.tryParse(_upiCtrl.text) ?? 0;
+  double get _card => double.tryParse(_cardCtrl.text) ?? 0;
+  double get _splitSum => _cash + _upi + _card;
+  double get _remaining => widget.cart.total - _splitSum;
+
+  @override
+  void dispose() {
+    _cashCtrl.dispose();
+    _upiCtrl.dispose();
+    _cardCtrl.dispose();
+    _upiRefCtrl.dispose();
+    super.dispose();
+  }
+
+  void _autoFill(String mode) {
+    final total = widget.cart.total;
+    setState(() {
+      switch (mode) {
+        case 'CASH':
+          _cashCtrl.text = (total - _upi - _card).clamp(0, total).toStringAsFixed(2);
+        case 'UPI':
+          _upiCtrl.text = (total - _cash - _card).clamp(0, total).toStringAsFixed(2);
+        case 'CARD':
+          _cardCtrl.text = (total - _cash - _upi).clamp(0, total).toStringAsFixed(2);
+      }
+    });
+  }
+
+  void _complete() {
+    if (_splitSum < widget.cart.total - 0.01) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Split total (${CurrencyFormatter.formatIndian(_splitSum)}) is less than bill total'),
+          backgroundColor: KColors.error,
+        ),
+      );
+      return;
+    }
+
+    final splits = <Map<String, dynamic>>[];
+    if (_cash > 0) splits.add({'mode': 'CASH', 'amount': _cash});
+    if (_upi > 0) {
+      splits.add({
+        'mode': 'UPI',
+        'amount': _upi,
+        if (_upiRefCtrl.text.trim().isNotEmpty) 'reference': _upiRefCtrl.text.trim(),
+      });
+    }
+    if (_card > 0) splits.add({'mode': 'CARD', 'amount': _card});
+
+    final primary = splits.reduce((a, b) =>
+        (a['amount'] as double) >= (b['amount'] as double) ? a : b);
+
+    Navigator.pop(context, {
+      'paymentMode': primary['mode'],
+      'amountReceived': _splitSum,
+      'upiReference': _upiRefCtrl.text.trim().isEmpty ? null : _upiRefCtrl.text.trim(),
+      'splits': splits,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final total = widget.cart.total;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: cs.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            KSpacing.vGapMd,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Split Payment', style: KTypography.h3),
+                Text('Total ${CurrencyFormatter.formatIndian(total)}',
+                    style: KTypography.labelLarge.copyWith(color: cs.primary)),
+              ],
+            ),
+            KSpacing.vGapLg,
+            _SplitRow(
+              icon: Icons.payments_outlined,
+              label: 'Cash',
+              color: KColors.success,
+              controller: _cashCtrl,
+              onChanged: (_) => setState(() {}),
+              onAutoFill: () => _autoFill('CASH'),
+            ),
+            KSpacing.vGapSm,
+            _SplitRow(
+              icon: Icons.qr_code_2,
+              label: 'UPI',
+              color: KColors.primary,
+              controller: _upiCtrl,
+              onChanged: (_) => setState(() {}),
+              onAutoFill: () => _autoFill('UPI'),
+            ),
+            if (_upi > 0) ...[
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 40),
+                child: KTextField(
+                  label: 'UPI Reference',
+                  hint: 'UTR / Transaction ID',
+                  controller: _upiRefCtrl,
+                  keyboardType: TextInputType.text,
+                  prefixIcon: Icons.tag,
+                ),
+              ),
+            ],
+            KSpacing.vGapSm,
+            _SplitRow(
+              icon: Icons.credit_card,
+              label: 'Card',
+              color: KColors.secondary,
+              controller: _cardCtrl,
+              onChanged: (_) => setState(() {}),
+              onAutoFill: () => _autoFill('CARD'),
+            ),
+            KSpacing.vGapMd,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _remaining.abs() < 0.01
+                    ? KColors.successLight
+                    : KColors.warningLight,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _remaining.abs() < 0.01 ? 'Fully covered' : 'Remaining',
+                    style: KTypography.labelMedium.copyWith(
+                      color: _remaining.abs() < 0.01
+                          ? KColors.success
+                          : KColors.warning,
+                    ),
+                  ),
+                  Text(
+                    CurrencyFormatter.formatIndian(_remaining.abs() < 0.01 ? 0 : _remaining),
+                    style: KTypography.h3.copyWith(
+                      color: _remaining.abs() < 0.01
+                          ? KColors.success
+                          : KColors.warning,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            KSpacing.vGapLg,
+            SizedBox(
+              height: 52,
+              child: FilledButton(
+                onPressed: _splitSum >= total - 0.01 ? _complete : null,
+                style: FilledButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text('Complete Split Payment',
+                    style: KTypography.labelLarge
+                        .copyWith(color: Colors.white, fontSize: 16)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SplitRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onAutoFill;
+
+  const _SplitRow({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.controller,
+    required this.onChanged,
+    required this.onAutoFill,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 48,
+          child: Text(label, style: KTypography.labelMedium),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: KTextField.amount(
+            label: '',
+            controller: controller,
+            onChanged: onChanged,
+          ),
+        ),
+        const SizedBox(width: 4),
+        IconButton(
+          icon: const Icon(Icons.auto_fix_high, size: 18),
+          onPressed: onAutoFill,
+          tooltip: 'Fill remaining',
+          visualDensity: VisualDensity.compact,
+        ),
+      ],
+    );
+  }
 }
 
 class _QuickAmountChip extends StatelessWidget {

@@ -308,6 +308,13 @@ public class ItemGroupService {
                 req.trackBatches(),
                 req.reorderLevel(),
                 req.reorderQuantity(),
+                req.barcode(),
+                req.manufacturer(),
+                req.preferredVendorId(),
+                req.weight(), req.weightUnit(),
+                req.length(), req.width(), req.height(), req.dimensionUnit(),
+                req.drugSchedule(), req.composition(), req.dosageForm(),
+                req.packSize(), req.storageCondition(), req.prescriptionRequired(),
                 req.revenueAccountCode(),
                 req.cogsAccountCode(),
                 req.inventoryAccountCode(),
@@ -421,6 +428,11 @@ public class ItemGroupService {
                     null,                       // trackInventory (default for GOODS = true)
                     null,                       // trackBatches
                     null, null,                 // reorder level / qty
+                    null, null, null,           // barcode, manufacturer, preferredVendorId
+                    null, null,                 // weight, weightUnit
+                    null, null, null, null,     // length, width, height, dimensionUnit
+                    null, null, null,           // drugSchedule, composition, dosageForm
+                    null, null, null,           // packSize, storageCondition, prescriptionRequired
                     null, null, null,           // accounts
                     null, null,                 // opening stock + warehouse
                     group.getId(),

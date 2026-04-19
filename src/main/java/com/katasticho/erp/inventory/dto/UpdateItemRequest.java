@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 /**
  * Update payload — does NOT include opening stock fields. Stock changes go
@@ -30,6 +31,24 @@ public record UpdateItemRequest(
         Boolean trackBatches,
         @DecimalMin("0.00") BigDecimal reorderLevel,
         @DecimalMin("0.00") BigDecimal reorderQuantity,
+        @Size(max = 50) String barcode,
+        @Size(max = 100) String manufacturer,
+        UUID preferredVendorId,
+
+        BigDecimal weight,
+        @Size(max = 10) String weightUnit,
+        BigDecimal length,
+        BigDecimal width,
+        BigDecimal height,
+        @Size(max = 10) String dimensionUnit,
+
+        @Size(max = 10) String drugSchedule,
+        String composition,
+        @Size(max = 50) String dosageForm,
+        @Size(max = 50) String packSize,
+        @Size(max = 100) String storageCondition,
+        Boolean prescriptionRequired,
+
         String revenueAccountCode,
         String cogsAccountCode,
         String inventoryAccountCode,

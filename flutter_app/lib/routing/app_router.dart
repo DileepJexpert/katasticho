@@ -66,6 +66,14 @@ import '../features/vendor_credits/presentation/vendor_credit_list_screen.dart';
 import '../features/vendor_credits/presentation/vendor_credit_detail_screen.dart';
 import '../features/vendor_credits/presentation/vendor_credit_create_screen.dart';
 import '../features/pos/presentation/pos_screen.dart';
+import '../features/sales_orders/presentation/sales_order_list_screen.dart';
+import '../features/sales_orders/presentation/sales_order_create_screen.dart';
+import '../features/sales_orders/presentation/sales_order_detail_screen.dart';
+import '../features/delivery_challans/presentation/delivery_challan_list_screen.dart';
+import '../features/delivery_challans/presentation/delivery_challan_create_screen.dart';
+import '../features/delivery_challans/presentation/delivery_challan_detail_screen.dart';
+import '../features/delivery_challans/presentation/delivery_challan_pdf_screen.dart';
+import '../features/pos/presentation/pos_receipt_settings_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -131,8 +139,18 @@ class Routes {
   static const vendorCredits = '/vendor-credits';
   static const vendorCreditCreate = '/vendor-credits/create';
   static const vendorCreditDetail = '/vendor-credits/:id';
+  // Sales Orders
+  static const salesOrders = '/sales-orders';
+  static const salesOrderCreate = '/sales-orders/create';
+  static const salesOrderDetail = '/sales-orders/:id';
+  // Delivery Challans
+  static const deliveryChallans = '/delivery-challans';
+  static const deliveryChallanCreate = '/delivery-challans/create';
+  static const deliveryChallanDetail = '/delivery-challans/:id';
+  static const deliveryChallanPdf = '/delivery-challans/:id/pdf';
   // POS
   static const pos = '/pos';
+  static const receiptSettings = '/pos/receipt-settings';
   static const aiChat = '/ai-chat';
   static const gst = '/gst';
   static const settings = '/settings';
@@ -323,6 +341,56 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => EstimateDetailScreen(
               estimateId: state.pathParameters['id']!,
             ),
+          ),
+          // Sales Orders
+          GoRoute(
+            path: Routes.salesOrders,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SalesOrderListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.salesOrderCreate,
+            builder: (context, state) => const SalesOrderCreateScreen(),
+          ),
+          GoRoute(
+            path: '/sales-orders/:id',
+            builder: (context, state) => SalesOrderDetailScreen(
+              salesOrderId: state.pathParameters['id']!,
+            ),
+          ),
+          // Delivery Challans
+          GoRoute(
+            path: Routes.deliveryChallans,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DeliveryChallanListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.deliveryChallanCreate,
+            builder: (context, state) => DeliveryChallanCreateScreen(
+              salesOrderId: state.uri.queryParameters['salesOrderId'],
+            ),
+          ),
+          GoRoute(
+            path: '/delivery-challans/:id',
+            builder: (context, state) => DeliveryChallanDetailScreen(
+              challanId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: '/delivery-challans/:id/pdf',
+            builder: (context, state) {
+              final challan =
+                  state.extra as Map<String, dynamic>? ?? {};
+              return DeliveryChallanPdfScreen(challan: challan);
+            },
+          ),
+          // Receipt Settings
+          GoRoute(
+            path: Routes.receiptSettings,
+            builder: (context, state) =>
+                const PosReceiptSettingsScreen(),
           ),
           // F8: Recurring Invoices
           GoRoute(
