@@ -10,8 +10,12 @@ class AccountDto {
   final String type;
   final String? subType;
   final String? parentId;
+  final String? parentAccountName;
   final int level;
   final bool isSystem;
+  final bool isInvolvedInTransaction;
+  final bool hasChildren;
+  final int childCount;
   final String? description;
   final double openingBalance;
   final String currency;
@@ -25,8 +29,12 @@ class AccountDto {
     required this.type,
     this.subType,
     this.parentId,
+    this.parentAccountName,
     required this.level,
     required this.isSystem,
+    this.isInvolvedInTransaction = false,
+    this.hasChildren = false,
+    this.childCount = 0,
     this.description,
     required this.openingBalance,
     required this.currency,
@@ -41,8 +49,12 @@ class AccountDto {
         type: j['type']?.toString() ?? '',
         subType: j['subType']?.toString(),
         parentId: j['parentId']?.toString(),
+        parentAccountName: j['parentAccountName']?.toString(),
         level: (j['level'] as num?)?.toInt() ?? 1,
         isSystem: j['isSystem'] as bool? ?? false,
+        isInvolvedInTransaction: j['isInvolvedInTransaction'] as bool? ?? false,
+        hasChildren: j['hasChildren'] as bool? ?? false,
+        childCount: (j['childCount'] as num?)?.toInt() ?? 0,
         description: j['description']?.toString(),
         openingBalance: (j['openingBalance'] as num?)?.toDouble() ?? 0.0,
         currency: j['currency']?.toString() ?? 'INR',
@@ -117,7 +129,62 @@ class AccountRepository {
     final resp = await _api.get('${ApiConfig.chartOfAccounts}/$id/balance');
     return resp.data as Map<String, dynamic>;
   }
+
+  Future<List<AccountTransactionDto>> getTransactions(String id) async {
+    final resp = await _api.get('${ApiConfig.chartOfAccounts}/$id/transactions');
+    final body = resp.data as Map<String, dynamic>;
+    final raw = body['data'];
+    final list = raw is List ? raw.cast<Map<String, dynamic>>() : const <Map<String, dynamic>>[];
+    return list.map(AccountTransactionDto.fromJson).toList();
+  }
 }
+
+/// One posted journal line as seen from an account's transaction history.
+class AccountTransactionDto {
+  final String lineId;
+  final String journalEntryId;
+  final String entryNumber;
+  final DateTime effectiveDate;
+  final String sourceModule;
+  final String? entryDescription;
+  final String? lineDescription;
+  final double debit;
+  final double credit;
+  final String currency;
+
+  const AccountTransactionDto({
+    required this.lineId,
+    required this.journalEntryId,
+    required this.entryNumber,
+    required this.effectiveDate,
+    required this.sourceModule,
+    this.entryDescription,
+    this.lineDescription,
+    required this.debit,
+    required this.credit,
+    required this.currency,
+  });
+
+  factory AccountTransactionDto.fromJson(Map<String, dynamic> j) => AccountTransactionDto(
+        lineId: j['lineId']?.toString() ?? '',
+        journalEntryId: j['journalEntryId']?.toString() ?? '',
+        entryNumber: j['entryNumber']?.toString() ?? '',
+        effectiveDate: DateTime.tryParse(j['effectiveDate']?.toString() ?? '') ?? DateTime.now(),
+        sourceModule: j['sourceModule']?.toString() ?? '',
+        entryDescription: j['entryDescription']?.toString(),
+        lineDescription: j['lineDescription']?.toString(),
+        debit: (j['debit'] as num?)?.toDouble() ?? 0.0,
+        credit: (j['credit'] as num?)?.toDouble() ?? 0.0,
+        currency: j['currency']?.toString() ?? 'INR',
+      );
+}
+
+final accountTransactionsProvider =
+    FutureProvider.autoDispose.family<List<AccountTransactionDto>, String>(
+  (ref, id) async {
+    return ref.watch(accountRepositoryProvider).getTransactions(id);
+  },
+);
 
 /// Cached list — invalidate on any COA change.
 final accountsProvider = FutureProvider.autoDispose<List<AccountDto>>((ref) async {

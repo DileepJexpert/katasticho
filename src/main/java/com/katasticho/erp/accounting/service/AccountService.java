@@ -1,10 +1,13 @@
 package com.katasticho.erp.accounting.service;
 
 import com.katasticho.erp.accounting.dto.AccountResponse;
+import com.katasticho.erp.accounting.dto.AccountTransactionResponse;
 import com.katasticho.erp.accounting.dto.CreateAccountRequest;
 import com.katasticho.erp.accounting.dto.UpdateAccountRequest;
 import com.katasticho.erp.accounting.entity.Account;
+import com.katasticho.erp.accounting.entity.JournalLine;
 import com.katasticho.erp.accounting.repository.AccountRepository;
+import com.katasticho.erp.accounting.repository.JournalLineRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -17,8 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -27,11 +32,28 @@ import java.util.UUID;
 public class AccountService {
 
     private final AccountRepository accountRepository;
+    private final JournalLineRepository journalLineRepository;
     private final JdbcTemplate jdbcTemplate;
 
     public List<AccountResponse> listAccounts(UUID orgId) {
-        return accountRepository.findByOrgIdAndIsDeletedFalseOrderByCode(orgId).stream()
-                .map(this::toResponse)
+        List<Account> accounts = accountRepository.findByOrgIdAndIsDeletedFalseOrderByCode(orgId);
+
+        // Build parent name + child count maps in one pass — avoids N+1 lookups
+        // when decorating the list response with hierarchy metadata.
+        Map<UUID, String> idToName = new HashMap<>();
+        Map<UUID, Integer> parentIdToChildCount = new HashMap<>();
+        for (Account a : accounts) {
+            idToName.put(a.getId(), a.getName());
+            if (a.getParentId() != null) {
+                parentIdToChildCount.merge(a.getParentId(), 1, Integer::sum);
+            }
+        }
+
+        // Set of account ids that have ≥1 posted journal line — single query.
+        Set<UUID> txAccountIds = new HashSet<>(journalLineRepository.findAccountIdsWithTransactions(orgId));
+
+        return accounts.stream()
+                .map(a -> toDecoratedResponse(a, idToName, parentIdToChildCount, txAccountIds))
                 .toList();
     }
 
@@ -173,9 +195,45 @@ public class AccountService {
         if (account.isSystem()) {
             throw new BusinessException("System accounts cannot be deleted", "ACCT_SYSTEM_DELETE", HttpStatus.BAD_REQUEST);
         }
+        if (journalLineRepository.existsByAccountAndPosted(id, orgId)) {
+            throw new BusinessException(
+                    "Account has posted transactions and cannot be deleted. Deactivate it instead.",
+                    "ACCT_HAS_TRANSACTIONS", HttpStatus.BAD_REQUEST);
+        }
+        Long childCount = accountRepository.countByOrgIdAndParentIdAndIsDeletedFalse(orgId, id);
+        if (childCount != null && childCount > 0) {
+            throw new BusinessException(
+                    "Account has child accounts and cannot be deleted. Delete children first.",
+                    "ACCT_HAS_CHILDREN", HttpStatus.BAD_REQUEST);
+        }
         account.setDeleted(true);
         accountRepository.save(account);
         log.info("Account soft-deleted: {} - {}", account.getCode(), account.getName());
+    }
+
+    public List<AccountTransactionResponse> getAccountTransactions(UUID id) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Account account = accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, id)
+                .orElseThrow(() -> new BusinessException("Account not found", "ACCT_NOT_FOUND", HttpStatus.NOT_FOUND));
+        List<JournalLine> lines = journalLineRepository.findByAccountNewestFirst(account.getId(), orgId);
+        return lines.stream().map(this::toTransactionResponse).toList();
+    }
+
+    private AccountTransactionResponse toTransactionResponse(JournalLine line) {
+        var entry = line.getJournalEntry();
+        return new AccountTransactionResponse(
+                line.getId(),
+                entry.getId(),
+                entry.getEntryNumber(),
+                entry.getEffectiveDate(),
+                entry.getSourceModule(),
+                entry.getDescription(),
+                line.getDescription(),
+                line.getDebit(),
+                line.getCredit(),
+                line.getCurrency(),
+                line.getBaseDebit(),
+                line.getBaseCredit());
     }
 
     @Transactional
@@ -189,10 +247,43 @@ public class AccountService {
     }
 
     public AccountResponse toResponse(Account account) {
+        UUID orgId = account.getOrgId();
+        String parentName = null;
+        if (account.getParentId() != null && orgId != null) {
+            parentName = accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, account.getParentId())
+                    .map(Account::getName).orElse(null);
+        }
+        Long children = (orgId != null)
+                ? accountRepository.countByOrgIdAndParentIdAndIsDeletedFalse(orgId, account.getId())
+                : 0L;
+        int childCount = children == null ? 0 : children.intValue();
+        boolean involved = (orgId != null)
+                && journalLineRepository.existsByAccountAndPosted(account.getId(), orgId);
         return new AccountResponse(
                 account.getId(), account.getCode(), account.getName(),
-                account.getType(), account.getSubType(), account.getParentId(),
-                account.getLevel(), account.isSystem(), account.getDescription(),
+                account.getType(), account.getSubType(),
+                account.getParentId(), parentName,
+                account.getLevel(), account.isSystem(),
+                involved, childCount > 0, childCount,
+                account.getDescription(),
+                account.getOpeningBalance(), account.getCurrency(), account.isActive());
+    }
+
+    private AccountResponse toDecoratedResponse(
+            Account account,
+            Map<UUID, String> idToName,
+            Map<UUID, Integer> parentIdToChildCount,
+            Set<UUID> txAccountIds) {
+        String parentName = account.getParentId() != null ? idToName.get(account.getParentId()) : null;
+        int childCount = parentIdToChildCount.getOrDefault(account.getId(), 0);
+        boolean involved = txAccountIds.contains(account.getId());
+        return new AccountResponse(
+                account.getId(), account.getCode(), account.getName(),
+                account.getType(), account.getSubType(),
+                account.getParentId(), parentName,
+                account.getLevel(), account.isSystem(),
+                involved, childCount > 0, childCount,
+                account.getDescription(),
                 account.getOpeningBalance(), account.getCurrency(), account.isActive());
     }
 }

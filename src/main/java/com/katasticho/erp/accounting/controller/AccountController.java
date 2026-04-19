@@ -1,6 +1,7 @@
 package com.katasticho.erp.accounting.controller;
 
 import com.katasticho.erp.accounting.dto.AccountResponse;
+import com.katasticho.erp.accounting.dto.AccountTransactionResponse;
 import com.katasticho.erp.accounting.dto.CreateAccountRequest;
 import com.katasticho.erp.accounting.dto.UpdateAccountRequest;
 import com.katasticho.erp.accounting.service.AccountService;
@@ -84,6 +85,12 @@ public class AccountController {
     public ResponseEntity<ApiResponse<Void>> deactivateAccount(@PathVariable UUID id) {
         accountService.setActive(id, false);
         return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @GetMapping("/{id}/transactions")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<List<AccountTransactionResponse>>> getAccountTransactions(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(accountService.getAccountTransactions(id)));
     }
 
     @GetMapping("/{id}/balance")

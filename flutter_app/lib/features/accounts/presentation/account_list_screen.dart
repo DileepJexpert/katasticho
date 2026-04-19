@@ -26,6 +26,21 @@ class AccountListScreen extends ConsumerStatefulWidget {
 class _AccountListScreenState extends ConsumerState<AccountListScreen> {
   String? _selectedType;
   String _searchQuery = '';
+  final Set<String> _collapsed = <String>{};
+
+  bool _matchesType(AccountDto a) {
+    if (_selectedType == null) return true;
+    final t = a.type.toUpperCase();
+    if (_selectedType == 'REVENUE') return t == 'REVENUE' || t == 'INCOME';
+    return t == _selectedType;
+  }
+
+  bool _matchesSearch(AccountDto a) {
+    if (_searchQuery.isEmpty) return true;
+    final q = _searchQuery.toLowerCase();
+    return a.name.toLowerCase().contains(q) ||
+        a.code.toLowerCase().contains(q);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,12 +55,7 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
             onTabChanged: (v) => setState(() => _selectedType = v),
             onSearchChanged: (q) => setState(() => _searchQuery = q),
           ),
-          Expanded(
-            child: _AccountTabBody(
-              type: _selectedType,
-              search: _searchQuery,
-            ),
-          ),
+          Expanded(child: _buildBody()),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -55,115 +65,158 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
       ),
     );
   }
-}
 
-class _AccountTabBody extends ConsumerWidget {
-  final String? type;
-  final String search;
-
-  const _AccountTabBody({required this.type, required this.search});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final asyncAccounts = ref.watch(accountListProvider(type));
-
-    return asyncAccounts.when(
+  Widget _buildBody() {
+    final async = ref.watch(accountsProvider);
+    return async.when(
       loading: () => const KShimmerList(),
-      error: (err, _) => KErrorView(
+      error: (e, _) => KErrorView(
         message: 'Failed to load accounts',
-        onRetry: () => ref.invalidate(accountListProvider(type)),
+        onRetry: () => ref.invalidate(accountsProvider),
       ),
-      data: (data) {
-        final content = data['data'];
-        List<dynamic> accounts = content is List
-            ? content
-            : (content is Map ? (content['content'] as List?) ?? [] : []);
-
-        // Client-side filter: deleted rows
-        accounts = accounts.where((a) {
-          final m = a as Map<String, dynamic>;
-          return m['isDeleted'] != true;
-        }).toList();
-
-        // Type filter
-        if (type != null) {
-          accounts = accounts.where((a) {
-            final m = a as Map<String, dynamic>;
-            final t = (m['type'] as String? ?? '').toUpperCase();
-            // Map REVENUE → Income tab
-            if (type == 'REVENUE') return t == 'REVENUE' || t == 'INCOME';
-            return t == type;
-          }).toList();
-        }
-
-        // Search
-        if (search.isNotEmpty) {
-          final q = search.toLowerCase();
-          accounts = accounts.where((a) {
-            final m = a as Map<String, dynamic>;
-            return (m['name'] as String? ?? '').toLowerCase().contains(q) ||
-                (m['code'] as String? ?? '').toLowerCase().contains(q);
-          }).toList();
-        }
-
-        if (accounts.isEmpty) {
+      data: (all) {
+        final filtered = all.where((a) => !a.isDeleted).toList();
+        final rows = _searchQuery.isNotEmpty
+            ? _flatSearch(filtered)
+            : _tree(filtered);
+        if (rows.isEmpty) {
           return KEmptyState(
             icon: Icons.account_balance_outlined,
-            title: search.isNotEmpty
-                ? 'No accounts match "$search"'
+            title: _searchQuery.isNotEmpty
+                ? 'No accounts match "$_searchQuery"'
                 : 'No accounts yet',
-            subtitle: search.isEmpty
+            subtitle: _searchQuery.isEmpty
                 ? 'Add accounts or seed from a template'
                 : null,
-            actionLabel: search.isEmpty ? 'Add Account' : null,
-            onAction: search.isEmpty ? () => context.push('/accounts/create') : null,
+            actionLabel: _searchQuery.isEmpty ? 'Add Account' : null,
+            onAction:
+                _searchQuery.isEmpty ? () => context.push('/accounts/create') : null,
           );
         }
-
         return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(accountListProvider(type)),
+          onRefresh: () async => ref.invalidate(accountsProvider),
           child: ListView.separated(
             padding: KSpacing.pagePadding,
-            itemCount: accounts.length,
+            itemCount: rows.length,
             separatorBuilder: (_, __) => KSpacing.vGapSm,
-            itemBuilder: (context, index) {
-              final account = accounts[index] as Map<String, dynamic>;
-              return _AccountCard(account: account);
+            itemBuilder: (context, i) {
+              final row = rows[i];
+              return _AccountCard(
+                account: row.account,
+                depth: row.depth,
+                isCollapsed: _collapsed.contains(row.account.id),
+                onToggle: row.account.hasChildren
+                    ? () => setState(() {
+                          if (!_collapsed.remove(row.account.id)) {
+                            _collapsed.add(row.account.id);
+                          }
+                        })
+                    : null,
+              );
             },
           ),
         );
       },
     );
   }
+
+  /// Build a tree: keep a node if it matches the type filter OR has a
+  /// descendant that does. Renders root → children depth-first.
+  List<_Row> _tree(List<AccountDto> accounts) {
+    final byParent = <String?, List<AccountDto>>{};
+    for (final a in accounts) {
+      byParent.putIfAbsent(a.parentId, () => []).add(a);
+    }
+    for (final list in byParent.values) {
+      list.sort((a, b) => a.code.compareTo(b.code));
+    }
+
+    // Determine which nodes (or ancestors) match the type filter.
+    final include = <String>{};
+    bool visit(AccountDto a) {
+      bool any = _matchesType(a);
+      for (final c in byParent[a.id] ?? const <AccountDto>[]) {
+        if (visit(c)) any = true;
+      }
+      if (any) include.add(a.id);
+      return any;
+    }
+
+    for (final root in byParent[null] ?? const <AccountDto>[]) {
+      visit(root);
+    }
+
+    final out = <_Row>[];
+    void walk(AccountDto a, int depth) {
+      if (!include.contains(a.id)) return;
+      out.add(_Row(a, depth));
+      if (_collapsed.contains(a.id)) return;
+      for (final c in byParent[a.id] ?? const <AccountDto>[]) {
+        walk(c, depth + 1);
+      }
+    }
+
+    for (final root in byParent[null] ?? const <AccountDto>[]) {
+      walk(root, 0);
+    }
+    return out;
+  }
+
+  /// While searching, flatten and show only rows that match search + type.
+  List<_Row> _flatSearch(List<AccountDto> accounts) {
+    return accounts
+        .where((a) => _matchesType(a) && _matchesSearch(a))
+        .map((a) => _Row(a, 0))
+        .toList()
+      ..sort((a, b) => a.account.code.compareTo(b.account.code));
+  }
+}
+
+class _Row {
+  final AccountDto account;
+  final int depth;
+  const _Row(this.account, this.depth);
 }
 
 class _AccountCard extends StatelessWidget {
-  final Map<String, dynamic> account;
+  final AccountDto account;
+  final int depth;
+  final bool isCollapsed;
+  final VoidCallback? onToggle;
 
-  const _AccountCard({required this.account});
+  const _AccountCard({
+    required this.account,
+    required this.depth,
+    required this.isCollapsed,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final code = account['code'] as String? ?? '';
-    final name = account['name'] as String? ?? 'Unknown';
-    final type = (account['type'] as String? ?? '').toUpperCase();
-    final subType = account['subType'] as String?;
-    final isActive = account['isActive'] as bool? ?? true;
-    final isSystem = account['isSystem'] as bool? ?? false;
-    final level = (account['level'] as num?)?.toInt() ?? 1;
-    final id = account['id']?.toString() ?? '';
-
+    final type = account.type.toUpperCase();
     final typeColor = _typeColor(type);
 
     return KCard(
-      onTap: () {
-        if (id.isNotEmpty) context.push('/accounts/$id');
-      },
+      onTap: () => context.push('/accounts/${account.id}'),
       child: Row(
         children: [
-          // Indent for hierarchy
-          if (level > 1) SizedBox(width: (level - 1) * 16.0),
+          SizedBox(width: depth * 20.0),
+          SizedBox(
+            width: 28,
+            child: account.hasChildren
+                ? InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: onToggle,
+                    child: Icon(
+                      isCollapsed
+                          ? Icons.chevron_right
+                          : Icons.keyboard_arrow_down,
+                      size: 20,
+                      color: KColors.textSecondary,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
           Container(
             width: 40,
             height: 40,
@@ -173,8 +226,11 @@ class _AccountCard extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                code.isNotEmpty ? code.substring(0, code.length.clamp(0, 2)) : '?',
-                style: KTypography.labelSmall.copyWith(color: typeColor, fontWeight: FontWeight.w700),
+                account.code.isNotEmpty
+                    ? account.code.substring(0, account.code.length.clamp(0, 2))
+                    : '?',
+                style: KTypography.labelSmall
+                    .copyWith(color: typeColor, fontWeight: FontWeight.w700),
               ),
             ),
           ),
@@ -183,17 +239,23 @@ class _AccountCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: KTypography.labelLarge),
+                Text(account.name, style: KTypography.labelLarge),
                 KSpacing.vGapXs,
                 Row(
                   children: [
-                    Text(code, style: KTypography.bodySmall),
-                    if (subType != null && subType.isNotEmpty) ...[
+                    Text(account.code, style: KTypography.bodySmall),
+                    if (account.subType != null && account.subType!.isNotEmpty) ...[
                       Text(' · ', style: KTypography.bodySmall),
                       Text(
-                        subType.replaceAll('_', ' ').toLowerCase(),
+                        account.subType!.replaceAll('_', ' ').toLowerCase(),
                         style: KTypography.bodySmall,
                       ),
+                    ],
+                    if (account.hasChildren) ...[
+                      Text(' · ', style: KTypography.bodySmall),
+                      Text('${account.childCount} sub',
+                          style: KTypography.bodySmall
+                              .copyWith(color: KColors.textHint)),
                     ],
                   ],
                 ),
@@ -216,25 +278,38 @@ class _AccountCard extends StatelessWidget {
               ),
               KSpacing.vGapXs,
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (isSystem)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4),
+                  if (account.isSystem)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 4),
                       child: Tooltip(
                         message: 'System account',
-                        child: Icon(Icons.lock_outline, size: 12, color: KColors.textHint),
+                        child: Icon(Icons.lock_outline,
+                            size: 12, color: KColors.textHint),
                       ),
                     ),
-                  if (!isActive)
+                  if (account.isInvolvedInTransaction)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 4),
+                      child: Tooltip(
+                        message: 'Has posted transactions',
+                        child: Icon(Icons.receipt_long_outlined,
+                            size: 12, color: KColors.textHint),
+                      ),
+                    ),
+                  if (!account.isActive)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: KColors.draftBg,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         'Inactive',
-                        style: KTypography.labelSmall.copyWith(color: KColors.draft),
+                        style: KTypography.labelSmall
+                            .copyWith(color: KColors.draft),
                       ),
                     ),
                 ],

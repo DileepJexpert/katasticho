@@ -37,7 +37,7 @@ class AccountDetailScreen extends ConsumerWidget {
         final typeColor = _typeColor(type);
 
         return DefaultTabController(
-          length: 2,
+          length: 3,
           child: Scaffold(
             appBar: AppBar(
               title: Text(name),
@@ -78,6 +78,7 @@ class AccountDetailScreen extends ConsumerWidget {
                 tabs: [
                   Tab(text: 'Details'),
                   Tab(text: 'Balance'),
+                  Tab(text: 'Transactions'),
                 ],
               ),
             ),
@@ -85,6 +86,7 @@ class AccountDetailScreen extends ConsumerWidget {
               children: [
                 _DetailsTab(account: account, typeColor: typeColor),
                 _BalanceTab(accountId: accountId),
+                _TransactionsTab(accountId: accountId),
               ],
             ),
           ),
@@ -387,6 +389,100 @@ class _SectionHeader extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: KSpacing.sm),
         child: Text(title, style: KTypography.h3),
       );
+}
+
+class _TransactionsTab extends ConsumerWidget {
+  final String accountId;
+
+  const _TransactionsTab({required this.accountId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(accountTransactionsProvider(accountId));
+    return async.when(
+      loading: () => const KLoading(),
+      error: (e, _) => KErrorView(
+        message: 'Failed to load transactions',
+        onRetry: () => ref.invalidate(accountTransactionsProvider(accountId)),
+      ),
+      data: (txns) {
+        if (txns.isEmpty) {
+          return const KEmptyState(
+            icon: Icons.receipt_long_outlined,
+            title: 'No transactions yet',
+            subtitle: 'Posted journal entries touching this account appear here.',
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: () async =>
+              ref.invalidate(accountTransactionsProvider(accountId)),
+          child: ListView.separated(
+            padding: KSpacing.pagePadding,
+            itemCount: txns.length,
+            separatorBuilder: (_, __) => KSpacing.vGapSm,
+            itemBuilder: (context, i) => _TransactionTile(txn: txns[i]),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TransactionTile extends StatelessWidget {
+  final AccountTransactionDto txn;
+  const _TransactionTile({required this.txn});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDebit = txn.debit > 0;
+    final amount = isDebit ? txn.debit : txn.credit;
+    final amountColor = isDebit ? KColors.info : KColors.success;
+    final dateStr =
+        '${txn.effectiveDate.year}-${txn.effectiveDate.month.toString().padLeft(2, '0')}-${txn.effectiveDate.day.toString().padLeft(2, '0')}';
+    final title = txn.lineDescription?.isNotEmpty == true
+        ? txn.lineDescription!
+        : (txn.entryDescription?.isNotEmpty == true
+            ? txn.entryDescription!
+            : txn.sourceModule);
+    return KCard(
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: KTypography.labelLarge),
+                KSpacing.vGapXs,
+                Row(
+                  children: [
+                    Text(txn.entryNumber, style: KTypography.bodySmall),
+                    Text(' · ', style: KTypography.bodySmall),
+                    Text(dateStr, style: KTypography.bodySmall),
+                    Text(' · ', style: KTypography.bodySmall),
+                    Text(
+                      txn.sourceModule.toLowerCase(),
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.textHint),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${isDebit ? "Dr" : "Cr"} ₹${amount.toStringAsFixed(2)}',
+                style: KTypography.labelLarge.copyWith(color: amountColor),
+              ),
+              Text(txn.currency, style: KTypography.labelSmall),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _InfoRow extends StatelessWidget {

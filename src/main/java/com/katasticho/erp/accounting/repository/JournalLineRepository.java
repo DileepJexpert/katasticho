@@ -84,4 +84,42 @@ public interface JournalLineRepository extends JpaRepository<JournalLine, UUID> 
         ORDER BY je.effectiveDate, je.entryNumber
     """)
     List<JournalLine> findByAccountAndPeriod(UUID accountId, UUID orgId, LocalDate startDate, LocalDate endDate);
+
+    /**
+     * Does this account have any POSTED journal lines? Used to block deletion
+     * of accounts that have been involved in transactions.
+     */
+    @Query("""
+        SELECT CASE WHEN COUNT(jl) > 0 THEN true ELSE false END
+        FROM JournalLine jl JOIN jl.journalEntry je
+        WHERE jl.accountId = :accountId
+          AND je.orgId = :orgId
+          AND je.status = 'POSTED'
+    """)
+    boolean existsByAccountAndPosted(UUID accountId, UUID orgId);
+
+    /**
+     * Distinct set of account ids that have at least one POSTED line (org scope).
+     * Used to mark `isInvolvedInTransaction` on account list responses without N+1.
+     */
+    @Query("""
+        SELECT DISTINCT jl.accountId
+        FROM JournalLine jl JOIN jl.journalEntry je
+        WHERE je.orgId = :orgId
+          AND je.status = 'POSTED'
+    """)
+    List<UUID> findAccountIdsWithTransactions(UUID orgId);
+
+    /**
+     * All posted journal lines for an account, newest first. Used by the
+     * per-account transaction history endpoint.
+     */
+    @Query("""
+        SELECT jl FROM JournalLine jl JOIN FETCH jl.journalEntry je
+        WHERE jl.accountId = :accountId
+          AND je.orgId = :orgId
+          AND je.status = 'POSTED'
+        ORDER BY je.effectiveDate DESC, je.entryNumber DESC
+    """)
+    List<JournalLine> findByAccountNewestFirst(UUID accountId, UUID orgId);
 }

@@ -56,10 +56,10 @@ class _AccountCreateScreenState extends ConsumerState<AccountCreateScreen> {
   final _nameCtrl = TextEditingController();
   final _descriptionCtrl = TextEditingController();
   final _openingBalanceCtrl = TextEditingController(text: '0');
-  final _parentCodeCtrl = TextEditingController();
 
   String _accountType = 'ASSET';
   String? _subType;
+  String? _parentCode;
 
   bool _loading = false;
   bool _isEdit = false;
@@ -79,7 +79,6 @@ class _AccountCreateScreenState extends ConsumerState<AccountCreateScreen> {
     _nameCtrl.dispose();
     _descriptionCtrl.dispose();
     _openingBalanceCtrl.dispose();
-    _parentCodeCtrl.dispose();
     super.dispose();
   }
 
@@ -206,11 +205,10 @@ class _AccountCreateScreenState extends ConsumerState<AccountCreateScreen> {
               ),
               if (!_isEdit) ...[
                 KSpacing.vGapMd,
-                KTextField(
-                  label: 'Parent Account Code',
-                  controller: _parentCodeCtrl,
-                  prefixIcon: Icons.account_tree_outlined,
-                  hint: 'Leave blank for root account',
+                _ParentAccountPicker(
+                  accountType: _accountType,
+                  value: _parentCode,
+                  onChanged: (v) => setState(() => _parentCode = v),
                 ),
               ],
               KSpacing.vGapXl,
@@ -245,8 +243,8 @@ class _AccountCreateScreenState extends ConsumerState<AccountCreateScreen> {
             'description': _descriptionCtrl.text.trim(),
           'openingBalance':
               double.tryParse(_openingBalanceCtrl.text) ?? 0.0,
-          if (_parentCodeCtrl.text.isNotEmpty)
-            'parentCode': _parentCodeCtrl.text.trim(),
+          if (_parentCode != null && _parentCode!.isNotEmpty)
+            'parentCode': _parentCode,
         };
         await repo.createAccount(data);
       }
@@ -270,4 +268,55 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(text, style: KTypography.h3);
+}
+
+/// Dropdown of candidate parents. Filters to same type, active, level < 5.
+class _ParentAccountPicker extends ConsumerWidget {
+  final String accountType;
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  const _ParentAccountPicker({
+    required this.accountType,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(accountsProvider);
+    return async.when(
+      loading: () => const LinearProgressIndicator(),
+      error: (e, _) => Text('Failed to load parents: $e'),
+      data: (all) {
+        final candidates = all
+            .where((a) =>
+                a.type.toUpperCase() == accountType.toUpperCase() &&
+                a.isActive &&
+                !a.isDeleted &&
+                a.level < 5)
+            .toList()
+          ..sort((a, b) => a.code.compareTo(b.code));
+        return DropdownButtonFormField<String?>(
+          value: value,
+          decoration: const InputDecoration(
+            labelText: 'Parent Account',
+            prefixIcon: Icon(Icons.account_tree_outlined),
+            helperText: 'Leave blank for a root-level account',
+          ),
+          items: [
+            const DropdownMenuItem<String?>(
+              value: null,
+              child: Text('— Root (no parent) —'),
+            ),
+            ...candidates.map((a) => DropdownMenuItem<String?>(
+                  value: a.code,
+                  child: Text('${a.code} — ${a.name}'),
+                )),
+          ],
+          onChanged: onChanged,
+        );
+      },
+    );
+  }
 }
