@@ -134,7 +134,7 @@ class _BatchPickerSheetState extends ConsumerState<_BatchPickerSheet> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Icon(Icons.inbox_outlined,
-                            size: 48, color: KColors.textTertiary),
+                            size: 48, color: KColors.textSecondary),
                         KSpacing.vGapMd,
                         Text('No batch stock available',
                             style: KTypography.labelLarge),
@@ -225,7 +225,7 @@ class _BatchTile extends StatelessWidget {
         child: Row(
           children: [
             const Icon(Icons.calendar_today_outlined,
-                size: 12, color: KColors.textTertiary),
+                size: 12, color: KColors.textSecondary),
             const SizedBox(width: 4),
             Text(
               expiry != null ? 'Expires $expiry' : 'No expiry',
@@ -238,7 +238,7 @@ class _BatchTile extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             const Icon(Icons.currency_rupee,
-                size: 12, color: KColors.textTertiary),
+                size: 12, color: KColors.textSecondary),
             Text(
               unitCost.toStringAsFixed(2),
               style: KTypography.bodySmall
@@ -257,7 +257,7 @@ class _BatchTile extends StatelessWidget {
           ),
           Text('available',
               style: KTypography.labelSmall
-                  .copyWith(color: KColors.textTertiary)),
+                  .copyWith(color: KColors.textSecondary)),
         ],
       ),
     );

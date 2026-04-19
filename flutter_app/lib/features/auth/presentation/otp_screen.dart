@@ -164,7 +164,6 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: KColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

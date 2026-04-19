@@ -97,7 +97,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: KColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

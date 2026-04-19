@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 ///
 /// ### One-line theme change
 /// Change [brandSeed] to re-theme the entire app. All derived colors
-/// ([primaryHover], [primaryLight], [primarySoft], gradients) and the
+/// ([primaryLight], [primarySoft], [primaryDark], gradients) and the
 /// Material [ColorScheme] (via `k_theme.dart`) recompute automatically.
 ///
 /// For secondary/tertiary accents, change [secondarySeed] / [accentSeed].
@@ -23,22 +23,16 @@ class KColors {
 
   // ── Primary palette (all derived from brandSeed) ──────────────────
   static const Color primary = brandSeed;
-  static final Color primaryHover = _darken(brandSeed, 0.08);
-  static final Color primaryPressed = _darken(brandSeed, 0.15);
   static final Color primaryLight = _lighten(brandSeed, 0.25);
   static final Color primarySoft = _tint(brandSeed, 0.92);
-  static const Color onPrimary = Colors.white;
   static final Color primaryDark = _lighten(brandSeed, 0.25);
 
   // ── Secondary palette (derived from secondarySeed) ────────────────
   static const Color secondary = secondarySeed;
-  static final Color secondarySoft = _tint(secondarySeed, 0.88);
-  static const Color onSecondary = Colors.white;
   static final Color secondaryDark = _lighten(secondarySeed, 0.15);
 
   // ── Accent/Tertiary palette (derived from accentSeed) ─────────────
   static const Color accent = accentSeed;
-  static final Color accentSoft = _tint(accentSeed, 0.88);
   static final Color accentDark = _lighten(accentSeed, 0.10);
 
   // ── Semantic — fixed across all themes ──
@@ -74,18 +68,11 @@ class KColors {
 
   // ── Neutral aliases — light-mode values ──
   // For dark-mode support, use context.cs.surface / context.cs.onSurface.
-  static const Color background = Color(0xFFF8FAFC);     // slate-50
-  static const Color backgroundAlt = Color(0xFFF1F5F9);  // slate-100
   static const Color surface = Colors.white;
-  static const Color surfaceVariant = Color(0xFFF8FAFC);
   static const Color divider = Color(0xFFE2E8F0);        // slate-200
-  static const Color dividerSoft = Color(0xFFF1F5F9);
-  static const Color disabled = Color(0xFFCBD5E1);
   static const Color textPrimary = Color(0xFF0F172A);    // slate-900
   static const Color textSecondary = Color(0xFF475569);  // slate-600
-  static const Color textTertiary = Color(0xFF64748B);   // slate-500
   static const Color textHint = Color(0xFF94A3B8);       // slate-400
-  static const Color textOnDark = Colors.white;
 
   // ── Gradients (derived from seeds) ──
   static final LinearGradient primaryGradient = LinearGradient(
@@ -107,11 +94,6 @@ class KColors {
   );
 
   // ── Palette helpers ──────────────────────────────────────────────
-
-  static Color _darken(Color c, double amount) {
-    final hsl = HSLColor.fromColor(c);
-    return hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0)).toColor();
-  }
 
   static Color _lighten(Color c, double amount) {
     final hsl = HSLColor.fromColor(c);
