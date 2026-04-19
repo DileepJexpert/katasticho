@@ -1,7 +1,9 @@
 package com.katasticho.erp.accounting.controller;
 
 import com.katasticho.erp.accounting.dto.AccountResponse;
+import com.katasticho.erp.accounting.dto.AccountTransactionResponse;
 import com.katasticho.erp.accounting.dto.CreateAccountRequest;
+import com.katasticho.erp.accounting.dto.UpdateAccountRequest;
 import com.katasticho.erp.accounting.service.AccountService;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.common.context.TenantContext;
@@ -48,6 +50,47 @@ public class AccountController {
         String industry = request.getOrDefault("industry", "TRADING");
         var result = accountService.seedFromTemplate(TenantContext.getCurrentOrgId(), industry);
         return ResponseEntity.ok(ApiResponse.ok(Map.of("result", result, "industry", industry)));
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<AccountResponse>> getAccount(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(accountService.getAccount(id)));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<AccountResponse>> updateAccount(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateAccountRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(accountService.updateAccount(id, request)));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<Void>> deleteAccount(@PathVariable UUID id) {
+        accountService.deleteAccount(id);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @PatchMapping("/{id}/activate")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<Void>> activateAccount(@PathVariable UUID id) {
+        accountService.setActive(id, true);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @PatchMapping("/{id}/deactivate")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<Void>> deactivateAccount(@PathVariable UUID id) {
+        accountService.setActive(id, false);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @GetMapping("/{id}/transactions")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<List<AccountTransactionResponse>>> getAccountTransactions(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(accountService.getAccountTransactions(id)));
     }
 
     @GetMapping("/{id}/balance")

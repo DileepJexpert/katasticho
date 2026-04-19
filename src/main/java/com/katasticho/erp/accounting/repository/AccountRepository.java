@@ -20,6 +20,8 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
 
     boolean existsByOrgIdAndCodeAndIsDeletedFalse(UUID orgId, String code);
 
+    Long countByOrgIdAndParentIdAndIsDeletedFalse(UUID orgId, UUID parentId);
+
     @Query("SELECT a FROM Account a WHERE a.orgId = :orgId AND a.type = :type AND a.isDeleted = false ORDER BY a.code")
     List<Account> findByOrgIdAndType(UUID orgId, String type);
 }

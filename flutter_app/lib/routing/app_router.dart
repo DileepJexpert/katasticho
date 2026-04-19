@@ -13,6 +13,9 @@ import '../features/invoices/presentation/invoice_detail_screen.dart';
 import '../features/contacts/presentation/contact_list_screen.dart';
 import '../features/contacts/presentation/contact_create_screen.dart';
 import '../features/contacts/presentation/contact_detail_screen.dart';
+import '../features/accounts/presentation/account_list_screen.dart';
+import '../features/accounts/presentation/account_create_screen.dart';
+import '../features/accounts/presentation/account_detail_screen.dart';
 
 import '../features/expenses/presentation/expense_list_screen.dart';
 import '../features/expenses/presentation/expense_create_screen.dart';
@@ -135,6 +138,11 @@ class Routes {
   static const settings = '/settings';
   static const defaultAccounts = '/settings/default-accounts';
   static const taxAccountMappings = '/settings/tax-accounts';
+  // Accounting — Chart of Accounts
+  static const chartOfAccounts = '/accounts';
+  static const accountCreate = '/accounts/create';
+  static const accountDetail = '/accounts/:id';
+  static const accountEdit = '/accounts/:id/edit';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -252,6 +260,29 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/contacts/:id',
             builder: (context, state) => ContactDetailScreen(
               contactId: state.pathParameters['id']!,
+            ),
+          ),
+          // Chart of Accounts
+          GoRoute(
+            path: Routes.chartOfAccounts,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: AccountListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.accountCreate,
+            builder: (context, state) => const AccountCreateScreen(),
+          ),
+          GoRoute(
+            path: '/accounts/:id/edit',
+            builder: (context, state) => AccountCreateScreen(
+              accountId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: '/accounts/:id',
+            builder: (context, state) => AccountDetailScreen(
+              accountId: state.pathParameters['id']!,
             ),
           ),
           // F6: Notifications

@@ -10,8 +10,13 @@ public record AccountResponse(
         String type,
         String subType,
         UUID parentId,
+        String parentAccountName,
         int level,
         boolean isSystem,
+        boolean isInvolvedInTransaction,
+        boolean hasChildren,
+        int childCount,
+        String description,
         BigDecimal openingBalance,
         String currency,
         boolean isActive

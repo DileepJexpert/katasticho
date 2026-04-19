@@ -106,6 +106,15 @@ const _purchasesNavItems = [
   ),
 ];
 
+const _accountingNavItems = [
+  NavItem(
+    label: 'Chart of Accounts',
+    icon: Icons.account_balance_outlined,
+    activeIcon: Icons.account_balance_rounded,
+    route: Routes.chartOfAccounts,
+  ),
+];
+
 const _secondaryNavItems = [
   NavItem(
     label: 'Estimates',
@@ -383,6 +392,11 @@ class _DesktopShell extends ConsumerWidget {
                                   _SidebarNavItem(item: item, collapsed: collapsed)),
                               KSpacing.vGapMd,
                               if (!collapsed)
+                                const _NavSectionLabel(label: 'ACCOUNTING'),
+                              ..._accountingNavItems.map((item) =>
+                                  _SidebarNavItem(item: item, collapsed: collapsed)),
+                              KSpacing.vGapMd,
+                              if (!collapsed)
                                 const _NavSectionLabel(label: 'MORE'),
                               ..._secondaryNavItems.map((item) =>
                                   _SidebarNavItem(item: item, collapsed: collapsed)),
@@ -517,7 +531,7 @@ bool _isNavActive(String currentRoute, String itemRoute) {
   bool matchesSelfOrChild(String r) =>
       currentRoute == r || currentRoute.startsWith('$r/');
   if (!matchesSelfOrChild(itemRoute)) return false;
-  for (final other in [..._navItems, ..._salesNavItems, ..._purchasesNavItems, ..._secondaryNavItems]) {
+  for (final other in [..._navItems, ..._salesNavItems, ..._purchasesNavItems, ..._accountingNavItems, ..._secondaryNavItems]) {
     if (other.route == itemRoute) continue;
     if (other.route.length > itemRoute.length && matchesSelfOrChild(other.route)) {
       return false;
