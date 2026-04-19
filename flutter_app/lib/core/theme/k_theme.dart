@@ -167,9 +167,9 @@ class KTheme {
   static ThemeData get dark {
     final theme = FlexThemeData.dark(
       colors: FlexSchemeColor.from(
-        primary: const Color(0xFF818CF8), // indigo-400 reads better on dark
-        secondary: const Color(0xFF38BDF8), // sky-400
-        tertiary: const Color(0xFFFBBF24),
+        primary: KColors.primaryDark,
+        secondary: KColors.secondaryDark,
+        tertiary: KColors.accentDark,
         error: const Color(0xFFF87171),
         brightness: Brightness.dark,
       ),
