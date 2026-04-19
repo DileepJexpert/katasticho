@@ -46,7 +46,7 @@ CREATE TABLE sales_order (
     shipping_address        JSONB,
     payment_mode            VARCHAR(20),
     delivery_method         VARCHAR(50),
-    currency                CHAR(3) NOT NULL DEFAULT 'INR',
+    currency                VARCHAR(3) NOT NULL DEFAULT 'INR',
     place_of_supply         VARCHAR(50),
     notes                   VARCHAR(2000),
     terms                   VARCHAR(2000),
