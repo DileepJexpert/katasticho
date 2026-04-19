@@ -37,16 +37,25 @@ static const Brightness sidebarBrightness = Brightness.dark;
 
 ### Blues (recommended for ERP/finance)
 
-| Name         | Hex       | Use case                    |
-|--------------|-----------|-----------------------------|
-| Indigo 600   | `#4F46E5` | Default. Stripe/Linear vibe |
-| Blue 600     | `#2563EB` | Classic enterprise          |
-| Sky 600      | `#0284C7` | Salesforce/Zoho feel        |
-| Slate Blue   | `#4361EE` | Modern SaaS                 |
-| Royal Blue   | `#3B5BDB` | Fintech/banking             |
-| Cobalt       | `#1D4ED8` | Bold, trustworthy           |
-| Ocean        | `#0369A1` | Dark teal-blue, banking     |
-| Navy         | `#1E3A8A` | Premium/luxury              |
+Visual comparison: [`docs/blue_palette_comparison.png`](docs/blue_palette_comparison.png)
+
+| Name           | Hex       | Use case                    |
+|----------------|-----------|-----------------------------|
+| Sky 300        | `#93C5FD` | Very light, soft            |
+| Blue 400       | `#60A5FA` | Light, friendly             |
+| Cornflower     | `#6495ED` | Soft, airy (low contrast)   |
+| Cornflower+    | `#4A7FE0` | Accessible version of above |
+| Blue 500       | `#3B82F6` | Balanced mid-blue           |
+| Slate Blue     | `#4361EE` | Modern SaaS                 |
+| Royal Blue     | `#3B5BDB` | Fintech classic             |
+| Indigo 600     | `#4F46E5` | **Current default**         |
+| Blue 600       | `#2563EB` | Classic enterprise          |
+| Cobalt         | `#1D4ED8` | Bold, trustworthy           |
+| Blue 800       | `#1E40AF` | Deep corporate              |
+| Navy           | `#1E3A8A` | Premium/luxury              |
+
+> **Tip:** Lighter shades (top row) struggle with WCAG contrast on white-text
+> buttons. For primary action buttons, prefer mid/deep shades (rows 2-3).
 
 ### Greens
 
