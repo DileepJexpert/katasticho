@@ -72,6 +72,8 @@ import '../features/sales_orders/presentation/sales_order_detail_screen.dart';
 import '../features/delivery_challans/presentation/delivery_challan_list_screen.dart';
 import '../features/delivery_challans/presentation/delivery_challan_create_screen.dart';
 import '../features/delivery_challans/presentation/delivery_challan_detail_screen.dart';
+import '../features/delivery_challans/presentation/delivery_challan_pdf_screen.dart';
+import '../features/pos/presentation/pos_receipt_settings_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -145,8 +147,10 @@ class Routes {
   static const deliveryChallans = '/delivery-challans';
   static const deliveryChallanCreate = '/delivery-challans/create';
   static const deliveryChallanDetail = '/delivery-challans/:id';
+  static const deliveryChallanPdf = '/delivery-challans/:id/pdf';
   // POS
   static const pos = '/pos';
+  static const receiptSettings = '/pos/receipt-settings';
   static const aiChat = '/ai-chat';
   static const gst = '/gst';
   static const settings = '/settings';
@@ -373,6 +377,20 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => DeliveryChallanDetailScreen(
               challanId: state.pathParameters['id']!,
             ),
+          ),
+          GoRoute(
+            path: '/delivery-challans/:id/pdf',
+            builder: (context, state) {
+              final challan =
+                  state.extra as Map<String, dynamic>? ?? {};
+              return DeliveryChallanPdfScreen(challan: challan);
+            },
+          ),
+          // Receipt Settings
+          GoRoute(
+            path: Routes.receiptSettings,
+            builder: (context, state) =>
+                const PosReceiptSettingsScreen(),
           ),
           // F8: Recurring Invoices
           GoRoute(

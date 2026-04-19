@@ -30,6 +30,8 @@ class DeliveryChallanDetailScreen extends ConsumerWidget {
                 onSelected: (value) =>
                     _handleAction(context, ref, value, status),
                 itemBuilder: (context) => [
+                  const PopupMenuItem(
+                      value: 'pdf', child: Text('Download PDF')),
                   if (status == 'DRAFT') ...[
                     const PopupMenuItem(
                         value: 'dispatch', child: Text('Dispatch')),
@@ -111,6 +113,13 @@ class DeliveryChallanDetailScreen extends ConsumerWidget {
     final repo = ref.read(deliveryChallanRepositoryProvider);
 
     switch (action) {
+      case 'pdf':
+        final detail = ref.read(deliveryChallanDetailProvider(challanId));
+        detail.whenData((data) {
+          final challan = (data['data'] ?? data) as Map<String, dynamic>;
+          context.push('/delivery-challans/$challanId/pdf', extra: challan);
+        });
+        break;
       case 'dispatch':
         try {
           await repo.dispatchChallan(challanId);
