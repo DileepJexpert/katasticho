@@ -302,7 +302,7 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 24),
           decoration: BoxDecoration(
-            color: KColors.secondarySoft,
+            color: KColors.secondary.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(

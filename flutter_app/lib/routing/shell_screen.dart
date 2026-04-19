@@ -270,7 +270,7 @@ class _DesktopShell extends ConsumerWidget {
                         // Brand logo
                         Padding(
                           padding: EdgeInsets.fromLTRB(
-                              collapsed ? 18 : 16, 14, 16, 10),
+                              collapsed ? 12 : 16, 14, collapsed ? 12 : 16, 10),
                           child: Row(
                             children: [
                               Container(
@@ -326,7 +326,7 @@ class _DesktopShell extends ConsumerWidget {
                         // Quick Create button
                         Padding(
                           padding: EdgeInsets.symmetric(
-                              horizontal: collapsed ? 16 : 12),
+                              horizontal: collapsed ? 8 : 12),
                           child: KQuickCreateMenu(expanded: !collapsed),
                         ),
                         const SizedBox(height: 8),
@@ -363,7 +363,7 @@ class _DesktopShell extends ConsumerWidget {
                         // Ask AI
                         Padding(
                           padding: EdgeInsets.fromLTRB(
-                              collapsed ? 16 : 12, 0, collapsed ? 16 : 12, 8),
+                              collapsed ? 8 : 12, 0, collapsed ? 8 : 12, 8),
                           child: _AskAiButton(
                             collapsed: collapsed,
                             onTap: () => KAssistantPanel.show(context),
@@ -373,7 +373,7 @@ class _DesktopShell extends ConsumerWidget {
                         // User footer
                         Padding(
                           padding: EdgeInsets.fromLTRB(
-                              collapsed ? 16 : 12, 4, collapsed ? 16 : 12, 12),
+                              collapsed ? 8 : 12, 4, collapsed ? 8 : 12, 12),
                           child: Column(
                             children: [
                               Divider(
