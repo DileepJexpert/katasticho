@@ -512,6 +512,20 @@ CREATE TABLE item (
     group_id                UUID REFERENCES item_group(id),
     variant_attributes      JSONB         NOT NULL DEFAULT '{}'::jsonb,
     barcode                 VARCHAR(50),
+    manufacturer            VARCHAR(100),
+    preferred_vendor_id     UUID,
+    weight                  NUMERIC(12,4),
+    weight_unit             VARCHAR(10),
+    length                  NUMERIC(12,4),
+    width                   NUMERIC(12,4),
+    height                  NUMERIC(12,4),
+    dimension_unit          VARCHAR(10),
+    drug_schedule           VARCHAR(10),
+    composition             TEXT,
+    dosage_form             VARCHAR(50),
+    pack_size               VARCHAR(50),
+    storage_condition       VARCHAR(100),
+    prescription_required   BOOLEAN       NOT NULL DEFAULT FALSE,
     is_active               BOOLEAN       NOT NULL DEFAULT TRUE,
     is_deleted              BOOLEAN       NOT NULL DEFAULT FALSE,
     created_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -535,6 +549,8 @@ CREATE UNIQUE INDEX idx_item_group_variant_unique ON item(group_id, variant_attr
     WHERE group_id IS NOT NULL AND NOT is_deleted;
 CREATE INDEX        idx_item_group_id         ON item(group_id)             WHERE group_id IS NOT NULL AND NOT is_deleted;
 CREATE INDEX        idx_item_barcode          ON item(barcode)              WHERE barcode IS NOT NULL;
+CREATE INDEX        idx_item_preferred_vendor ON item(preferred_vendor_id)  WHERE preferred_vendor_id IS NOT NULL;
+CREATE INDEX        idx_item_manufacturer     ON item(org_id, manufacturer) WHERE manufacturer IS NOT NULL;
 
 
 -- ─────────────────────────────────────────────────────────────
