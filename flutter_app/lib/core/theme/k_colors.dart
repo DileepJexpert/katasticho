@@ -17,9 +17,9 @@ class KColors {
   KColors._();
 
   // ── Brand seeds — change THESE to re-theme the entire app ─────────
-  static const Color brandSeed = Color(0xFF0D9488);     // teal
+  static const Color brandSeed = Color(0xFF8B5CF6);     // violet
   static const Color secondarySeed = Color(0xFFEC4899); // pink
-  static const Color accentSeed = Color(0xFF8B5CF6);    // violet
+  static const Color accentSeed = Color(0xFF0D9488);    // teal
 
   // ── Sidebar seed — independent from brand. Admin chrome (sidebar,
   //    nav rail) runs on its own palette so the content area can
