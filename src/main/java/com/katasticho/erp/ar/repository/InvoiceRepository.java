@@ -119,4 +119,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
         LocalDate getDate();
         BigDecimal getTotal();
     }
+
+    List<Invoice> findBySalesOrderIdAndOrgId(UUID salesOrderId, UUID orgId);
+
+    int countBySalesOrderId(UUID salesOrderId);
 }

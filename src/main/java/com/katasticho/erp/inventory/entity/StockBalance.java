@@ -45,6 +45,10 @@ public class StockBalance {
     @Builder.Default
     private BigDecimal quantityOnHand = BigDecimal.ZERO;
 
+    @Column(name = "reserved_qty", nullable = false)
+    @Builder.Default
+    private BigDecimal reservedQty = BigDecimal.ZERO;
+
     @Column(name = "average_cost", nullable = false)
     @Builder.Default
     private BigDecimal averageCost = BigDecimal.ZERO;

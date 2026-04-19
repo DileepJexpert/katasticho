@@ -270,6 +270,11 @@ public class InvoiceService {
      */
     @Transactional
     public InvoiceResponse sendInvoice(UUID invoiceId) {
+        return sendInvoice(invoiceId, false);
+    }
+
+    @Transactional
+    public InvoiceResponse sendInvoice(UUID invoiceId, boolean skipStockMovement) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
         Invoice invoice = invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)
@@ -330,9 +335,11 @@ public class InvoiceService {
         JournalEntry journalEntry = journalService.postJournal(journalRequest);
 
         // Deduct stock for any itemised lines (free-text lines are silently
-        // skipped). Runs after the journal post so a journal failure aborts
-        // the whole transaction without leaving a stock movement orphan.
-        inventoryService.deductStockForInvoice(invoice);
+        // skipped). Skip when invoice originates from a Sales Order — stock
+        // was already deducted on delivery challan dispatch (PGI).
+        if (!skipStockMovement && invoice.getSalesOrderId() == null) {
+            inventoryService.deductStockForInvoice(invoice);
+        }
 
         // Update invoice status
         invoice.setStatus("SENT");
