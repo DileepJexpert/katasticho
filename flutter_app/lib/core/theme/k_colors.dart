@@ -17,9 +17,9 @@ class KColors {
   KColors._();
 
   // ── Brand seeds — change THESE to re-theme the entire app ─────────
-  static const Color brandSeed = Color(0xFF4F46E5);     // indigo-600
-  static const Color secondarySeed = Color(0xFF0EA5E9); // sky-500
-  static const Color accentSeed = Color(0xFFF59E0B);    // amber-500
+  static const Color brandSeed = Color(0xFF0D9488);     // teal
+  static const Color secondarySeed = Color(0xFFEC4899); // pink
+  static const Color accentSeed = Color(0xFF8B5CF6);    // violet
 
   // ── Primary palette (all derived from brandSeed) ──────────────────
   static const Color primary = brandSeed;
