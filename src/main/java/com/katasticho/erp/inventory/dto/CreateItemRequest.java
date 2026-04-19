@@ -60,6 +60,25 @@ public record CreateItemRequest(
         @DecimalMin(value = "0.00", message = "Reorder quantity must be >= 0")
         BigDecimal reorderQuantity,
 
+        @Size(max = 50) String barcode,
+        @Size(max = 100) String manufacturer,
+        UUID preferredVendorId,
+
+        BigDecimal weight,
+        @Size(max = 10) String weightUnit,
+        BigDecimal length,
+        BigDecimal width,
+        BigDecimal height,
+        @Size(max = 10) String dimensionUnit,
+
+        // Pharmacy-specific (when organisation.industry = 'PHARMACY')
+        @Size(max = 10) String drugSchedule,
+        String composition,
+        @Size(max = 50) String dosageForm,
+        @Size(max = 50) String packSize,
+        @Size(max = 100) String storageCondition,
+        Boolean prescriptionRequired,
+
         String revenueAccountCode,
         String cogsAccountCode,
         String inventoryAccountCode,

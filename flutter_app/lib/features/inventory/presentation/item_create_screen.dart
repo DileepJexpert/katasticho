@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -34,13 +35,34 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   final _uomController = TextEditingController(text: 'PCS');
   final _purchasePriceController = TextEditingController(text: '0');
   final _salePriceController = TextEditingController(text: '0');
+  final _mrpController = TextEditingController();
   final _gstRateController = TextEditingController(text: '18');
   final _reorderLevelController = TextEditingController(text: '0');
   final _reorderQtyController = TextEditingController(text: '0');
   final _openingStockController = TextEditingController(text: '0');
+  final _barcodeController = TextEditingController();
+  final _brandController = TextEditingController();
+  final _manufacturerController = TextEditingController();
+  final _weightController = TextEditingController();
+  final _weightUnitController = TextEditingController(text: 'kg');
+  final _lengthController = TextEditingController();
+  final _widthController = TextEditingController();
+  final _heightController = TextEditingController();
+  final _dimensionUnitController = TextEditingController(text: 'cm');
+  final _revenueAccountController = TextEditingController();
+  final _cogsAccountController = TextEditingController();
+  final _inventoryAccountController = TextEditingController();
+  // Pharmacy
+  final _drugScheduleController = TextEditingController();
+  final _compositionController = TextEditingController();
+  final _dosageFormController = TextEditingController();
+  final _packSizeController = TextEditingController();
+  final _storageConditionController = TextEditingController();
 
   String _itemType = 'GOODS';
   bool _trackInventory = true;
+  bool _trackBatches = false;
+  bool _prescriptionRequired = false;
   bool _saving = false;
   bool _loading = false;
   Map<String, String> _serverErrors = {};
@@ -92,6 +114,26 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     _gstRateController.text = (data['gstRate'] ?? 18).toString();
     _reorderLevelController.text = (data['reorderLevel'] ?? 0).toString();
     _reorderQtyController.text = (data['reorderQuantity'] ?? 0).toString();
+    _mrpController.text = data['mrp'] != null ? data['mrp'].toString() : '';
+    _barcodeController.text = data['barcode']?.toString() ?? '';
+    _brandController.text = data['brand']?.toString() ?? '';
+    _manufacturerController.text = data['manufacturer']?.toString() ?? '';
+    _weightController.text = data['weight'] != null ? data['weight'].toString() : '';
+    _weightUnitController.text = data['weightUnit']?.toString() ?? 'kg';
+    _lengthController.text = data['length'] != null ? data['length'].toString() : '';
+    _widthController.text = data['width'] != null ? data['width'].toString() : '';
+    _heightController.text = data['height'] != null ? data['height'].toString() : '';
+    _dimensionUnitController.text = data['dimensionUnit']?.toString() ?? 'cm';
+    _revenueAccountController.text = data['revenueAccountCode']?.toString() ?? '';
+    _cogsAccountController.text = data['cogsAccountCode']?.toString() ?? '';
+    _inventoryAccountController.text = data['inventoryAccountCode']?.toString() ?? '';
+    _drugScheduleController.text = data['drugSchedule']?.toString() ?? '';
+    _compositionController.text = data['composition']?.toString() ?? '';
+    _dosageFormController.text = data['dosageForm']?.toString() ?? '';
+    _packSizeController.text = data['packSize']?.toString() ?? '';
+    _storageConditionController.text = data['storageCondition']?.toString() ?? '';
+    _trackBatches = data['trackBatches'] as bool? ?? false;
+    _prescriptionRequired = data['prescriptionRequired'] as bool? ?? false;
     _itemType = data['itemType']?.toString() ?? 'GOODS';
     _trackInventory = data['trackInventory'] as bool? ?? true;
     _groupId = data['groupId']?.toString();
@@ -129,10 +171,28 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     _uomController.dispose();
     _purchasePriceController.dispose();
     _salePriceController.dispose();
+    _mrpController.dispose();
     _gstRateController.dispose();
     _reorderLevelController.dispose();
     _reorderQtyController.dispose();
     _openingStockController.dispose();
+    _barcodeController.dispose();
+    _brandController.dispose();
+    _manufacturerController.dispose();
+    _weightController.dispose();
+    _weightUnitController.dispose();
+    _lengthController.dispose();
+    _widthController.dispose();
+    _heightController.dispose();
+    _dimensionUnitController.dispose();
+    _revenueAccountController.dispose();
+    _cogsAccountController.dispose();
+    _inventoryAccountController.dispose();
+    _drugScheduleController.dispose();
+    _compositionController.dispose();
+    _dosageFormController.dispose();
+    _packSizeController.dispose();
+    _storageConditionController.dispose();
     super.dispose();
   }
 
@@ -143,26 +203,48 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     setState(() => _saving = true);
     final repo = ref.read(itemRepositoryProvider);
 
+    String? _nullIfEmpty(String s) => s.trim().isEmpty ? null : s.trim();
+    double? _doubleOrNull(TextEditingController c) {
+      final v = double.tryParse(c.text);
+      return v != null && v != 0 ? v : null;
+    }
+
     final payload = <String, dynamic>{
       'sku': _skuController.text.trim(),
       'name': _nameController.text.trim(),
-      'description': _descriptionController.text.trim().isEmpty
-          ? null
-          : _descriptionController.text.trim(),
-      'category': _categoryController.text.trim().isEmpty
-          ? null
-          : _categoryController.text.trim(),
-      'hsnCode': _hsnController.text.trim().isEmpty ? null : _hsnController.text.trim(),
+      'description': _nullIfEmpty(_descriptionController.text),
+      'category': _nullIfEmpty(_categoryController.text),
+      'brand': _nullIfEmpty(_brandController.text),
+      'hsnCode': _nullIfEmpty(_hsnController.text),
       'unitOfMeasure': _itemType == 'SERVICE'
           ? null
           : (_uomController.text.trim().isEmpty ? 'PCS' : _uomController.text.trim()),
       'itemType': _itemType,
       'purchasePrice': double.tryParse(_purchasePriceController.text) ?? 0,
       'salePrice': double.tryParse(_salePriceController.text) ?? 0,
+      'mrp': _doubleOrNull(_mrpController),
       'gstRate': double.tryParse(_gstRateController.text) ?? 0,
       'trackInventory': _trackInventory && _itemType == 'GOODS',
+      'trackBatches': _trackBatches && _itemType == 'GOODS',
       'reorderLevel': double.tryParse(_reorderLevelController.text) ?? 0,
       'reorderQuantity': double.tryParse(_reorderQtyController.text) ?? 0,
+      'barcode': _nullIfEmpty(_barcodeController.text),
+      'manufacturer': _nullIfEmpty(_manufacturerController.text),
+      'weight': _doubleOrNull(_weightController),
+      'weightUnit': _nullIfEmpty(_weightUnitController.text),
+      'length': _doubleOrNull(_lengthController),
+      'width': _doubleOrNull(_widthController),
+      'height': _doubleOrNull(_heightController),
+      'dimensionUnit': _nullIfEmpty(_dimensionUnitController.text),
+      'drugSchedule': _nullIfEmpty(_drugScheduleController.text),
+      'composition': _nullIfEmpty(_compositionController.text),
+      'dosageForm': _nullIfEmpty(_dosageFormController.text),
+      'packSize': _nullIfEmpty(_packSizeController.text),
+      'storageCondition': _nullIfEmpty(_storageConditionController.text),
+      'prescriptionRequired': _prescriptionRequired,
+      'revenueAccountCode': _nullIfEmpty(_revenueAccountController.text),
+      'cogsAccountCode': _nullIfEmpty(_cogsAccountController.text),
+      'inventoryAccountCode': _nullIfEmpty(_inventoryAccountController.text),
     };
 
     if (!_isEdit && _itemType == 'GOODS' && _trackInventory) {
@@ -367,6 +449,12 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                   ),
                   KSpacing.vGapMd,
                   KTextField(
+                    label: 'Barcode',
+                    controller: _barcodeController,
+                    prefixIcon: Icons.barcode_reader,
+                  ),
+                  KSpacing.vGapMd,
+                  KTextField(
                     label: 'Name *',
                     controller: _nameController,
                     prefixIcon: Icons.label_outline,
@@ -393,7 +481,20 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                       ),
                       KSpacing.hGapMd,
                       Expanded(
-                        child: DropdownButtonFormField<String>(
+                        child: KTextField(
+                          label: 'Brand',
+                          controller: _brandController,
+                        ),
+                      ),
+                    ],
+                  ),
+                  KSpacing.vGapMd,
+                  KTextField(
+                    label: 'Manufacturer',
+                    controller: _manufacturerController,
+                  ),
+                  KSpacing.vGapMd,
+                  DropdownButtonFormField<String>(
                           value: _itemType,
                           decoration: const InputDecoration(labelText: 'Type'),
                           items: const [
@@ -402,27 +503,17 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                             DropdownMenuItem(
                                 value: 'COMPOSITE', child: Text('Composite (kit)')),
                           ],
-                          onChanged: (v) {
-                            setState(() {
-                              _itemType = v ?? 'GOODS';
-                              // Non-goods types never track stock directly.
-                              // For COMPOSITE the parent is an abstraction
-                              // over its BOM children; the backend rejects
-                              // trackInventory=true for this type.
-                              if (_itemType != 'GOODS') {
-                                _trackInventory = false;
-                                // F5: groups are GOODS-only in v1, so
-                                // clear any selection when switching
-                                // away — the section disappears too.
-                                _groupId = null;
-                                _selectedGroup = null;
-                                _variantAttrs.clear();
-                              }
-                            });
-                          },
-                        ),
-                      ),
-                    ],
+                    onChanged: (v) {
+                      setState(() {
+                        _itemType = v ?? 'GOODS';
+                        if (_itemType != 'GOODS') {
+                          _trackInventory = false;
+                          _groupId = null;
+                          _selectedGroup = null;
+                          _variantAttrs.clear();
+                        }
+                      });
+                    },
                   ),
                   KSpacing.vGapLg,
 
@@ -453,6 +544,11 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  KSpacing.vGapMd,
+                  KTextField.amount(
+                    label: 'MRP',
+                    controller: _mrpController,
                   ),
                   KSpacing.vGapMd,
                   Row(
@@ -518,6 +614,15 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                     ),
                     if (_trackInventory) ...[
                       KSpacing.vGapMd,
+                      SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Track batches (FEFO)'),
+                        subtitle: const Text(
+                            'Enable batch/lot tracking with expiry dates'),
+                        value: _trackBatches,
+                        onChanged: (v) => setState(() => _trackBatches = v),
+                      ),
+                      KSpacing.vGapMd,
                       Row(
                         children: [
                           Expanded(
@@ -548,6 +653,145 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                       ],
                     ],
                   ],
+                  KSpacing.vGapLg,
+
+                  // ── Physical Properties ──
+                  Text('Physical Properties', style: KTypography.h3),
+                  KSpacing.vGapMd,
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: KTextField(
+                          label: 'Weight',
+                          controller: _weightController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                      KSpacing.hGapMd,
+                      Expanded(
+                        child: KTextField(
+                          label: 'Unit',
+                          controller: _weightUnitController,
+                        ),
+                      ),
+                    ],
+                  ),
+                  KSpacing.vGapMd,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: KTextField(
+                          label: 'L',
+                          controller: _lengthController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                      KSpacing.hGapSm,
+                      Expanded(
+                        child: KTextField(
+                          label: 'W',
+                          controller: _widthController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                      KSpacing.hGapSm,
+                      Expanded(
+                        child: KTextField(
+                          label: 'H',
+                          controller: _heightController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                      KSpacing.hGapSm,
+                      SizedBox(
+                        width: 60,
+                        child: KTextField(
+                          label: 'Unit',
+                          controller: _dimensionUnitController,
+                        ),
+                      ),
+                    ],
+                  ),
+                  KSpacing.vGapLg,
+
+                  // ── Accounting ──
+                  Text('Accounting', style: KTypography.h3),
+                  KSpacing.vGapMd,
+                  KTextField(
+                    label: 'Revenue Account Code',
+                    controller: _revenueAccountController,
+                    prefixIcon: Icons.account_balance_outlined,
+                  ),
+                  KSpacing.vGapMd,
+                  KTextField(
+                    label: 'COGS Account Code',
+                    controller: _cogsAccountController,
+                    prefixIcon: Icons.account_balance_outlined,
+                  ),
+                  KSpacing.vGapMd,
+                  KTextField(
+                    label: 'Inventory Account Code',
+                    controller: _inventoryAccountController,
+                    prefixIcon: Icons.account_balance_outlined,
+                  ),
+                  KSpacing.vGapLg,
+
+                  // ── Pharmacy (conditional) ──
+                  if (ref.watch(authProvider).industry?.toUpperCase() == 'PHARMACY') ...[
+                    Text('Pharmacy', style: KTypography.h3),
+                    KSpacing.vGapMd,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: KTextField(
+                            label: 'Drug Schedule',
+                            controller: _drugScheduleController,
+                          ),
+                        ),
+                        KSpacing.hGapMd,
+                        Expanded(
+                          child: KTextField(
+                            label: 'Dosage Form',
+                            controller: _dosageFormController,
+                          ),
+                        ),
+                      ],
+                    ),
+                    KSpacing.vGapMd,
+                    KTextField(
+                      label: 'Composition / Salt',
+                      controller: _compositionController,
+                      maxLines: 2,
+                    ),
+                    KSpacing.vGapMd,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: KTextField(
+                            label: 'Pack Size',
+                            controller: _packSizeController,
+                          ),
+                        ),
+                        KSpacing.hGapMd,
+                        Expanded(
+                          child: KTextField(
+                            label: 'Storage Condition',
+                            controller: _storageConditionController,
+                          ),
+                        ),
+                      ],
+                    ),
+                    KSpacing.vGapMd,
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Prescription Required'),
+                      value: _prescriptionRequired,
+                      onChanged: (v) => setState(() => _prescriptionRequired = v),
+                    ),
+                    KSpacing.vGapLg,
+                  ],
+
                   KSpacing.vGapXl,
                   KButton(
                     label: _isEdit ? 'Save Changes' : 'Create Item',

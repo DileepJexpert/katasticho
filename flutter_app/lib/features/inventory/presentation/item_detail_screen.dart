@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -112,11 +113,16 @@ class _ItemDetailBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final name = item['name']?.toString() ?? 'Item';
     final sku = item['sku']?.toString() ?? '';
+    final barcode = item['barcode']?.toString() ?? '';
+    final brand = item['brand']?.toString() ?? '';
+    final manufacturer = item['manufacturer']?.toString() ?? '';
     final itemType = item['itemType']?.toString() ?? 'GOODS';
     final trackInventory = item['trackInventory'] as bool? ?? true;
+    final trackBatches = item['trackBatches'] as bool? ?? false;
     final onHand = (item['totalOnHand'] as num?)?.toDouble() ?? 0;
     final reorderLevel = (item['reorderLevel'] as num?)?.toDouble() ?? 0;
     final isLowStock = trackInventory && reorderLevel > 0 && onHand <= reorderLevel;
+    final isPharmacy = ref.watch(authProvider).industry?.toUpperCase() == 'PHARMACY';
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -145,6 +151,13 @@ class _ItemDetailBody extends ConsumerWidget {
                 KSpacing.vGapSm,
                 Text(name, style: KTypography.h1, textAlign: TextAlign.center),
                 Text('SKU: $sku', style: KTypography.bodySmall),
+                if (barcode.isNotEmpty)
+                  Text('Barcode: $barcode', style: KTypography.bodySmall),
+                if (brand.isNotEmpty || manufacturer.isNotEmpty)
+                  Text(
+                    [if (brand.isNotEmpty) brand, if (manufacturer.isNotEmpty) manufacturer].join(' · '),
+                    style: KTypography.bodySmall,
+                  ),
               ],
             ),
           ),
@@ -223,6 +236,13 @@ class _ItemDetailBody extends ConsumerWidget {
                     (item['purchasePrice'] as num?)?.toDouble() ?? 0,
                   ),
                 ),
+                if (item['mrp'] != null)
+                  KDetailRow(
+                    label: 'MRP',
+                    value: CurrencyFormatter.formatIndian(
+                      (item['mrp'] as num).toDouble(),
+                    ),
+                  ),
                 KDetailRow(
                   label: 'GST Rate',
                   value: '${(item['gstRate'] as num?)?.toString() ?? '0'}%',
@@ -235,10 +255,93 @@ class _ItemDetailBody extends ConsumerWidget {
                   label: 'Unit',
                   value: item['unitOfMeasure']?.toString() ?? 'PCS',
                 ),
+                if (trackBatches)
+                  const KDetailRow(
+                    label: 'Batch Tracking',
+                    value: 'Enabled (FEFO)',
+                  ),
               ],
             ),
           ),
           KSpacing.vGapMd,
+
+          // Physical properties
+          if (_hasPhysical(item)) ...[
+            KCard(
+              title: 'Physical Properties',
+              child: Column(
+                children: [
+                  if (item['weight'] != null)
+                    KDetailRow(
+                      label: 'Weight',
+                      value: '${item['weight']} ${item['weightUnit'] ?? 'kg'}',
+                    ),
+                  if (item['length'] != null || item['width'] != null || item['height'] != null)
+                    KDetailRow(
+                      label: 'Dimensions (L×W×H)',
+                      value:
+                          '${item['length'] ?? '-'} × ${item['width'] ?? '-'} × ${item['height'] ?? '-'}'
+                          ' ${item['dimensionUnit'] ?? 'cm'}',
+                    ),
+                ],
+              ),
+            ),
+            KSpacing.vGapMd,
+          ],
+
+          // Vendor
+          if (item['preferredVendorName'] != null) ...[
+            KCard(
+              title: 'Vendor',
+              child: KDetailRow(
+                label: 'Preferred Vendor',
+                value: item['preferredVendorName'].toString(),
+              ),
+            ),
+            KSpacing.vGapMd,
+          ],
+
+          // Accounting
+          if (_hasAccounting(item)) ...[
+            KCard(
+              title: 'Accounting',
+              child: Column(
+                children: [
+                  if (item['revenueAccountCode'] != null)
+                    KDetailRow(label: 'Revenue Account', value: item['revenueAccountCode'].toString()),
+                  if (item['cogsAccountCode'] != null)
+                    KDetailRow(label: 'COGS Account', value: item['cogsAccountCode'].toString()),
+                  if (item['inventoryAccountCode'] != null)
+                    KDetailRow(label: 'Inventory Account', value: item['inventoryAccountCode'].toString()),
+                ],
+              ),
+            ),
+            KSpacing.vGapMd,
+          ],
+
+          // Pharmacy
+          if (isPharmacy && _hasPharmacy(item)) ...[
+            KCard(
+              title: 'Pharmacy',
+              child: Column(
+                children: [
+                  if ((item['drugSchedule']?.toString() ?? '').isNotEmpty)
+                    KDetailRow(label: 'Drug Schedule', value: item['drugSchedule'].toString()),
+                  if ((item['composition']?.toString() ?? '').isNotEmpty)
+                    KDetailRow(label: 'Composition', value: item['composition'].toString()),
+                  if ((item['dosageForm']?.toString() ?? '').isNotEmpty)
+                    KDetailRow(label: 'Dosage Form', value: item['dosageForm'].toString()),
+                  if ((item['packSize']?.toString() ?? '').isNotEmpty)
+                    KDetailRow(label: 'Pack Size', value: item['packSize'].toString()),
+                  if ((item['storageCondition']?.toString() ?? '').isNotEmpty)
+                    KDetailRow(label: 'Storage', value: item['storageCondition'].toString()),
+                  if (item['prescriptionRequired'] == true)
+                    const KDetailRow(label: 'Prescription', value: 'Required'),
+                ],
+              ),
+            ),
+            KSpacing.vGapMd,
+          ],
 
           // Movements (FutureBuilder, lazy load)
           if (trackInventory) ...[
@@ -271,6 +374,20 @@ class _ItemDetailBody extends ConsumerWidget {
     if (q == q.truncateToDouble()) return q.toStringAsFixed(0);
     return q.toStringAsFixed(2);
   }
+
+  static bool _hasPhysical(Map<String, dynamic> item) =>
+      item['weight'] != null || item['length'] != null || item['width'] != null || item['height'] != null;
+
+  static bool _hasAccounting(Map<String, dynamic> item) =>
+      item['revenueAccountCode'] != null || item['cogsAccountCode'] != null || item['inventoryAccountCode'] != null;
+
+  static bool _hasPharmacy(Map<String, dynamic> item) =>
+      (item['drugSchedule']?.toString() ?? '').isNotEmpty ||
+      (item['composition']?.toString() ?? '').isNotEmpty ||
+      (item['dosageForm']?.toString() ?? '').isNotEmpty ||
+      (item['packSize']?.toString() ?? '').isNotEmpty ||
+      (item['storageCondition']?.toString() ?? '').isNotEmpty ||
+      item['prescriptionRequired'] == true;
 }
 
 class _MovementsList extends ConsumerWidget {

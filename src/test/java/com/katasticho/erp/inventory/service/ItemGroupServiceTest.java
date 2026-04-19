@@ -226,9 +226,12 @@ class ItemGroupServiceTest {
                 null,           // purchase → inherit
                 new BigDecimal("249"), // sale price EXPLICIT → must NOT inherit
                 null, null,     // mrp, gstRate (gst → inherit)
-                null, null, null, null,
-                null, null, null,
-                null, null,
+                null, null, null, null, // trackInventory, trackBatches, reorderLevel, reorderQuantity
+                null, null, null,       // barcode, manufacturer, preferredVendorId
+                null, null, null, null, null, null, // weight, weightUnit, length, width, height, dimensionUnit
+                null, null, null, null, null, null, // drugSchedule, composition, dosageForm, packSize, storageCondition, prescriptionRequired
+                null, null, null,       // revenueAccountCode, cogsAccountCode, inventoryAccountCode
+                null, null,             // openingStock, openingWarehouseId
                 UUID.randomUUID(),
                 Map.of("size", "M", "color", "Red")
         );
@@ -337,11 +340,15 @@ class ItemGroupServiceTest {
     private ItemResponse stubItemResponse(
             String sku, String name, UUID groupId, Map<String, String> attrs) {
         return new ItemResponse(
-                UUID.randomUUID(), sku, name, null, ItemType.GOODS,
-                null, null, "6109", "PCS",
+                UUID.randomUUID(), sku, null, name, null, ItemType.GOODS,
+                null, null, null, "6109", "PCS",
                 new BigDecimal("100"), new BigDecimal("199"), null, new BigDecimal("12"),
+                null,
                 true, false,
                 BigDecimal.ZERO, BigDecimal.ZERO,
+                null, null,
+                null, null, null, null, null, null,
+                null, null, null, null, null, false,
                 null, null, null,
                 true, BigDecimal.ZERO, Instant.now(),
                 groupId, attrs, "Tee");
