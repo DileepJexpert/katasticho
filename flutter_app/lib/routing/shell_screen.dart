@@ -680,14 +680,16 @@ class _AskAiButton extends StatelessWidget {
 
 // ── Tablet: Rail navigation + content ────────────────────────────────
 
-class _TabletShell extends StatelessWidget {
+class _TabletShell extends ConsumerWidget {
   final Widget child;
 
   const _TabletShell({required this.child});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final currentRoute = GoRouterState.of(context).matchedLocation;
+    final notifCount =
+        ref.watch(unreadCountProvider).valueOrNull ?? 0;
 
     int selectedIndex = _navItems.indexWhere(
       (item) =>
@@ -699,7 +701,10 @@ class _TabletShell extends StatelessWidget {
     return Scaffold(
       body: Column(
         children: [
-          const KTopBar(),
+          KTopBar(
+            notificationCount: notifCount,
+            onNotifications: () => context.push(Routes.notifications),
+          ),
           Expanded(
             child: Row(
               children: [
@@ -794,49 +799,7 @@ class _MobileShell extends StatelessWidget {
 }
 
 // ── Notification Bell ─────────────────────────────────────────────────
-
-class _NotificationBell extends ConsumerWidget {
-  const _NotificationBell();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final countAsync = ref.watch(unreadCountProvider);
-    final count = countAsync.valueOrNull ?? 0;
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.notifications_outlined, size: 20),
-          tooltip: 'Notifications',
-          onPressed: () => context.push(Routes.notifications),
-        ),
-        if (count > 0)
-          Positioned(
-            right: 6,
-            top: 6,
-            child: IgnorePointer(
-              child: Container(
-                width: 16,
-                height: 16,
-                decoration: const BoxDecoration(
-                  color: KColors.error,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    count > 9 ? '9+' : '$count',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
+// The standalone NotificationBell widget lives in
+// features/notifications/presentation/notification_bell.dart and is
+// used by KTopBar (desktop/tablet). The private _NotificationBell class
+// that was previously here has been replaced by the public widget.

@@ -57,4 +57,7 @@ public interface VendorPaymentRepository extends JpaRepository<VendorPayment, UU
         ORDER BY p.paymentDate DESC
     """)
     List<VendorPayment> findByOrgIdAndBillId(@Param("orgId") UUID orgId, @Param("billId") UUID billId);
+
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM VendorPayment p WHERE p.orgId = :orgId AND p.paymentDate = :date AND p.isDeleted = false")
+    java.math.BigDecimal sumAmountByOrgAndDate(UUID orgId, LocalDate date);
 }

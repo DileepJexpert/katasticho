@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
@@ -12,7 +14,10 @@ class NotificationRepository {
 
   NotificationRepository(this._api);
 
-  Future<Map<String, dynamic>> listNotifications({int page = 0, int size = 20}) async {
+  Future<Map<String, dynamic>> getNotifications({
+    int page = 0,
+    int size = 20,
+  }) async {
     final response = await _api.get(
       ApiConfig.notifications,
       queryParameters: {'page': page, 'size': size},
@@ -32,22 +37,51 @@ class NotificationRepository {
     }
   }
 
-  Future<void> markRead(String id) async {
+  Future<void> markAsRead(String id) async {
     await _api.put('${ApiConfig.notifications}/$id/read', data: {});
   }
 
-  Future<void> markAllRead() async {
-    await _api.put('${ApiConfig.notificationsReadAll}', data: {});
+  Future<void> markAllAsRead() async {
+    await _api.put(ApiConfig.notificationsReadAll, data: {});
   }
 }
 
 // ── Providers ──
 
-final unreadCountProvider = FutureProvider.autoDispose<int>((ref) async {
-  return ref.watch(notificationRepositoryProvider).getUnreadCount();
-});
+/// Unread count that auto-refreshes every 60 seconds.
+final unreadCountProvider =
+    AutoDisposeAsyncNotifierProvider<UnreadCountNotifier, int>(
+  UnreadCountNotifier.new,
+);
 
-final notificationListProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
-  return ref.watch(notificationRepositoryProvider).listNotifications();
+class UnreadCountNotifier extends AutoDisposeAsyncNotifier<int> {
+  Timer? _timer;
+
+  @override
+  Future<int> build() async {
+    ref.onDispose(() => _timer?.cancel());
+
+    // Start periodic refresh
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 60), (_) {
+      _refresh();
+    });
+
+    return _fetch();
+  }
+
+  Future<int> _fetch() {
+    return ref.read(notificationRepositoryProvider).getUnreadCount();
+  }
+
+  Future<void> _refresh() async {
+    state = const AsyncLoading<int>().copyWithPrevious(state);
+    state = await AsyncValue.guard(_fetch);
+  }
+}
+
+/// Notification list — family by page number.
+final notificationListProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>, int>((ref, page) async {
+  return ref.watch(notificationRepositoryProvider).getNotifications(page: page);
 });

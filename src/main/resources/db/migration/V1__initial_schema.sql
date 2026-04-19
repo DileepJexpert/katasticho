@@ -686,6 +686,7 @@ CREATE TABLE stock_batch (
     unit_cost           NUMERIC(15,4) NOT NULL DEFAULT 0,
     supplier_id         UUID REFERENCES supplier(id),
     notes               TEXT,
+    is_expired          BOOLEAN       NOT NULL DEFAULT FALSE,
     is_active           BOOLEAN       NOT NULL DEFAULT TRUE,
     is_deleted          BOOLEAN       NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -694,6 +695,7 @@ CREATE TABLE stock_batch (
 );
 
 CREATE UNIQUE INDEX idx_stock_batch_org_item_number ON stock_batch(org_id, item_id, batch_number) WHERE NOT is_deleted;
+CREATE INDEX        idx_stock_batch_expiry          ON stock_batch(expiry_date) WHERE expiry_date IS NOT NULL AND NOT is_deleted AND NOT is_expired;
 CREATE INDEX        idx_stock_batch_fefo             ON stock_batch(org_id, item_id, expiry_date NULLS LAST)
     WHERE is_active AND NOT is_deleted;
 CREATE INDEX        idx_stock_batch_org_item         ON stock_batch(org_id, item_id) WHERE NOT is_deleted;

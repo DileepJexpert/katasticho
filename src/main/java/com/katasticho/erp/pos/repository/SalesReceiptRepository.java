@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,4 +30,10 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
     Page<SalesReceipt> findFiltered(UUID orgId, UUID branchId,
                                      LocalDate dateFrom, LocalDate dateTo,
                                      String paymentMode, Pageable pageable);
+
+    @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate = :date AND r.isDeleted = false")
+    BigDecimal sumTotalByOrgAndDate(UUID orgId, LocalDate date);
+
+    @Query("SELECT COUNT(r) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate = :date AND r.isDeleted = false")
+    long countByOrgAndDate(UUID orgId, LocalDate date);
 }

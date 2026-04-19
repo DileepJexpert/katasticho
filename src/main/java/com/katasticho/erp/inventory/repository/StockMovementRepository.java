@@ -43,4 +43,23 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, UU
                              @Param("itemId") UUID itemId,
                              @Param("warehouseId") UUID warehouseId,
                              @Param("asOfDate") LocalDate asOfDate);
+
+    @Query("""
+        SELECT m.itemId AS itemId, ABS(SUM(m.quantity)) AS qtySold
+        FROM StockMovement m
+        WHERE m.orgId = :orgId
+          AND m.movementType = 'SALE'
+          AND m.movementDate = :date
+          AND m.isReversal = false
+          AND m.isReversed = false
+        GROUP BY m.itemId
+        ORDER BY ABS(SUM(m.quantity)) DESC
+        LIMIT 5
+    """)
+    List<TopSellingRow> findTopSellingByDate(@Param("orgId") UUID orgId, @Param("date") LocalDate date);
+
+    interface TopSellingRow {
+        UUID getItemId();
+        BigDecimal getQtySold();
+    }
 }

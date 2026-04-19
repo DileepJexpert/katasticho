@@ -59,6 +59,10 @@ public class StockBatch extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "is_expired", nullable = false)
+    @Builder.Default
+    private boolean expired = false;
+
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean active = true;

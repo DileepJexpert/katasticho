@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.UUID;
 
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
@@ -17,7 +18,11 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
     long countByOrgIdAndUserIdAndReadFalse(UUID orgId, UUID userId);
 
+    boolean existsByOrgIdAndTypeAndEntityIdAndCreatedAtAfter(
+            UUID orgId, String type, UUID entityId, Instant after);
+
     @Modifying
-    @Query("UPDATE Notification n SET n.read = true WHERE n.orgId = :orgId AND n.userId = :userId AND n.read = false")
+    @Query("UPDATE Notification n SET n.read = true, n.readAt = CURRENT_TIMESTAMP " +
+           "WHERE n.orgId = :orgId AND n.userId = :userId AND n.read = false")
     void markAllReadForUser(@Param("orgId") UUID orgId, @Param("userId") UUID userId);
 }

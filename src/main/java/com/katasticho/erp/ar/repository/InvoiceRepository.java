@@ -123,4 +123,22 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     List<Invoice> findBySalesOrderIdAndOrgId(UUID salesOrderId, UUID orgId);
 
     int countBySalesOrderId(UUID salesOrderId);
+
+    @Query("""
+        SELECT i FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.status IN ('SENT','PARTIALLY_PAID','OVERDUE')
+          AND i.isDeleted = false
+          AND i.dueDate IN :dates
+    """)
+    List<Invoice> findDueOnDates(UUID orgId, List<LocalDate> dates);
+
+    @Query("""
+        SELECT COUNT(i) FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.isDeleted = false
+          AND i.status <> 'CANCELLED'
+          AND i.invoiceDate = :date
+    """)
+    long countByOrgAndDate(UUID orgId, LocalDate date);
 }
