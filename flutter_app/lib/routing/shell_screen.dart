@@ -160,6 +160,29 @@ const _secondaryNavItems = [
 /// Convenience used by the shell to decide where to anchor the FAB.
 bool _isMobile(double width) => width < KSpacing.tabletBreakpoint;
 
+/// Wraps its child in a local [Theme] override driven by
+/// [KColors.sidebarSeed] / [KColors.sidebarBrightness], so the sidebar
+/// (and tablet rail) can run on a palette that's independent of the
+/// app-wide brand seed. All `Theme.of(context).colorScheme.*` calls
+/// inside the child resolve to the sidebar palette.
+class _SidebarTheme extends StatelessWidget {
+  final Widget child;
+  const _SidebarTheme({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: KColors.sidebarSeed,
+          brightness: KColors.sidebarBrightness,
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
 /// Responsive shell: sidebar on desktop/tablet, bottom nav on mobile.
 ///
 /// Also installs the global Cmd/Ctrl+K shortcut for the command palette and
@@ -229,8 +252,6 @@ class _DesktopShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
     final collapsed = ref.watch(sidebarCollapsedProvider);
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final notifCount =
         ref.watch(unreadCountProvider).valueOrNull ?? 0;
 
@@ -250,16 +271,21 @@ class _DesktopShell extends ConsumerWidget {
           Expanded(
             child: Row(
               children: [
-                AnimatedContainer(
+                _SidebarTheme(
+                  child: Builder(builder: (context) {
+                    final scs = Theme.of(context).colorScheme;
+                    final sIsDark =
+                        Theme.of(context).brightness == Brightness.dark;
+                    return AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeOutCubic,
                   width: sidebarWidth,
                   decoration: BoxDecoration(
-                    color: cs.surface,
+                    color: scs.surface,
                     border: Border(
                       right: BorderSide(
-                        color: cs.outlineVariant
-                            .withValues(alpha: isDark ? 0.4 : 0.6),
+                        color: scs.outlineVariant
+                            .withValues(alpha: sIsDark ? 0.4 : 0.6),
                         width: 1,
                       ),
                     ),
@@ -267,7 +293,8 @@ class _DesktopShell extends ConsumerWidget {
                   child: ClipRect(
                     child: Column(
                       children: [
-                        // Brand logo
+                        // Brand logo — always uses brand seeds (identity),
+                        // independent of sidebar palette.
                         Padding(
                           padding: EdgeInsets.fromLTRB(
                               collapsed ? 12 : 16, 14, collapsed ? 12 : 16, 10),
@@ -277,16 +304,19 @@ class _DesktopShell extends ConsumerWidget {
                                 width: 36,
                                 height: 36,
                                 decoration: BoxDecoration(
-                                  gradient: LinearGradient(
+                                  gradient: const LinearGradient(
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
-                                    colors: [cs.primary, cs.tertiary],
+                                    colors: [
+                                      KColors.brandSeed,
+                                      KColors.accentSeed,
+                                    ],
                                   ),
                                   borderRadius: BorderRadius.circular(10),
                                   boxShadow: [
                                     BoxShadow(
-                                      color:
-                                          cs.primary.withValues(alpha: 0.22),
+                                      color: KColors.brandSeed
+                                          .withValues(alpha: 0.22),
                                       blurRadius: 10,
                                       offset: const Offset(0, 3),
                                     ),
@@ -311,7 +341,7 @@ class _DesktopShell extends ConsumerWidget {
                                     overflow: TextOverflow.clip,
                                     softWrap: false,
                                     style: TextStyle(
-                                      color: cs.onSurface,
+                                      color: scs.onSurface,
                                       fontSize: 17,
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: -0.3,
@@ -377,7 +407,7 @@ class _DesktopShell extends ConsumerWidget {
                           child: Column(
                             children: [
                               Divider(
-                                color: cs.outlineVariant
+                                color: scs.outlineVariant
                                     .withValues(alpha: 0.5),
                                 height: 1,
                               ),
@@ -390,12 +420,12 @@ class _DesktopShell extends ConsumerWidget {
                                         : '',
                                     child: CircleAvatar(
                                       radius: 17,
-                                      backgroundColor: cs.primaryContainer,
+                                      backgroundColor: scs.primaryContainer,
                                       child: Text(
                                         (authState.userName ?? 'U')[0]
                                             .toUpperCase(),
                                         style: TextStyle(
-                                          color: cs.onPrimaryContainer,
+                                          color: scs.onPrimaryContainer,
                                           fontWeight: FontWeight.w700,
                                           fontSize: 13,
                                         ),
@@ -413,7 +443,7 @@ class _DesktopShell extends ConsumerWidget {
                                           Text(
                                             authState.userName ?? 'User',
                                             style: TextStyle(
-                                              color: cs.onSurface,
+                                              color: scs.onSurface,
                                               fontSize: 13,
                                               fontWeight: FontWeight.w700,
                                             ),
@@ -423,7 +453,7 @@ class _DesktopShell extends ConsumerWidget {
                                             authState.orgName ??
                                                 'Organisation',
                                             style: TextStyle(
-                                              color: cs.onSurfaceVariant,
+                                              color: scs.onSurfaceVariant,
                                               fontSize: 11,
                                               fontWeight: FontWeight.w500,
                                             ),
@@ -441,6 +471,8 @@ class _DesktopShell extends ConsumerWidget {
                       ],
                     ),
                   ),
+                );
+                  }),
                 ),
 
                 // Main content
@@ -575,6 +607,9 @@ class _SidebarNavItem extends StatelessWidget {
 
 /// Ask-AI button — expanded variant is a full-width gradient pill with
 /// label; collapsed variant is a 40×40 gradient square with just the icon.
+///
+/// The gradient uses brand seeds directly so the "AI moment" stays brand-
+/// colored even when hosted inside a sidebar running on a different palette.
 class _AskAiButton extends StatelessWidget {
   final bool collapsed;
   final VoidCallback onTap;
@@ -586,7 +621,6 @@ class _AskAiButton extends StatelessWidget {
     if (!collapsed) {
       return KAssistantFab(onTap: onTap);
     }
-    final cs = Theme.of(context).colorScheme;
     return Tooltip(
       message: 'Ask AI',
       child: Material(
@@ -599,10 +633,10 @@ class _AskAiButton extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [cs.primary, cs.tertiary],
+                colors: [KColors.brandSeed, KColors.accentSeed],
               ),
               borderRadius: BorderRadius.circular(KSpacing.radiusMd),
             ),
@@ -627,7 +661,6 @@ class _TabletShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final currentRoute = GoRouterState.of(context).matchedLocation;
 
     int selectedIndex = _navItems.indexWhere(
@@ -644,38 +677,48 @@ class _TabletShell extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                NavigationRail(
-                  selectedIndex: selectedIndex,
-                  backgroundColor: cs.surface,
-                  indicatorColor: cs.primaryContainer,
-                  indicatorShape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  onDestinationSelected: (index) {
-                    context.go(_navItems[index].route);
-                  },
-                  labelType: NavigationRailLabelType.all,
-                  leading: const Padding(
-                    padding: EdgeInsets.only(top: 12, bottom: 12),
-                    child: KQuickCreateMenu(expanded: false),
-                  ),
-                  trailing: const Padding(
-                    padding: EdgeInsets.only(bottom: 12),
-                    child: ThemeModeIconButton(),
-                  ),
-                  destinations: _navItems
-                      .map(
-                        (item) => NavigationRailDestination(
-                          icon: Icon(item.icon),
-                          selectedIcon: Icon(item.activeIcon),
-                          label: Text(item.label),
+                _SidebarTheme(
+                  child: Builder(builder: (context) {
+                    final scs = Theme.of(context).colorScheme;
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        NavigationRail(
+                          selectedIndex: selectedIndex,
+                          backgroundColor: scs.surface,
+                          indicatorColor: scs.primaryContainer,
+                          indicatorShape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          onDestinationSelected: (index) {
+                            context.go(_navItems[index].route);
+                          },
+                          labelType: NavigationRailLabelType.all,
+                          leading: const Padding(
+                            padding: EdgeInsets.only(top: 12, bottom: 12),
+                            child: KQuickCreateMenu(expanded: false),
+                          ),
+                          trailing: const Padding(
+                            padding: EdgeInsets.only(bottom: 12),
+                            child: ThemeModeIconButton(),
+                          ),
+                          destinations: _navItems
+                              .map(
+                                (item) => NavigationRailDestination(
+                                  icon: Icon(item.icon),
+                                  selectedIcon: Icon(item.activeIcon),
+                                  label: Text(item.label),
+                                ),
+                              )
+                              .toList(),
                         ),
-                      )
-                      .toList(),
-                ),
-                VerticalDivider(
-                  width: 1,
-                  color: cs.outlineVariant.withValues(alpha: 0.5),
+                        VerticalDivider(
+                          width: 1,
+                          color: scs.outlineVariant.withValues(alpha: 0.5),
+                        ),
+                      ],
+                    );
+                  }),
                 ),
                 Expanded(child: child),
               ],
