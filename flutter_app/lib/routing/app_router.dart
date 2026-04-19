@@ -69,6 +69,9 @@ import '../features/pos/presentation/pos_screen.dart';
 import '../features/sales_orders/presentation/sales_order_list_screen.dart';
 import '../features/sales_orders/presentation/sales_order_create_screen.dart';
 import '../features/sales_orders/presentation/sales_order_detail_screen.dart';
+import '../features/delivery_challans/presentation/delivery_challan_list_screen.dart';
+import '../features/delivery_challans/presentation/delivery_challan_create_screen.dart';
+import '../features/delivery_challans/presentation/delivery_challan_detail_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -138,6 +141,10 @@ class Routes {
   static const salesOrders = '/sales-orders';
   static const salesOrderCreate = '/sales-orders/create';
   static const salesOrderDetail = '/sales-orders/:id';
+  // Delivery Challans
+  static const deliveryChallans = '/delivery-challans';
+  static const deliveryChallanCreate = '/delivery-challans/create';
+  static const deliveryChallanDetail = '/delivery-challans/:id';
   // POS
   static const pos = '/pos';
   static const aiChat = '/ai-chat';
@@ -346,6 +353,25 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/sales-orders/:id',
             builder: (context, state) => SalesOrderDetailScreen(
               salesOrderId: state.pathParameters['id']!,
+            ),
+          ),
+          // Delivery Challans
+          GoRoute(
+            path: Routes.deliveryChallans,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DeliveryChallanListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.deliveryChallanCreate,
+            builder: (context, state) => DeliveryChallanCreateScreen(
+              salesOrderId: state.uri.queryParameters['salesOrderId'],
+            ),
+          ),
+          GoRoute(
+            path: '/delivery-challans/:id',
+            builder: (context, state) => DeliveryChallanDetailScreen(
+              challanId: state.pathParameters['id']!,
             ),
           ),
           // F8: Recurring Invoices

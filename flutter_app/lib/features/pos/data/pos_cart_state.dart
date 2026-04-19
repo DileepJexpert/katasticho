@@ -73,12 +73,34 @@ class CartItem {
   }
 }
 
+/// A single payment split in a mixed-payment sale.
+class PaymentSplit {
+  final String mode; // CASH, UPI, CARD
+  final double amount;
+  final String? reference;
+
+  const PaymentSplit({
+    required this.mode,
+    required this.amount,
+    this.reference,
+  });
+
+  PaymentSplit copyWith({String? mode, double? amount, String? reference}) {
+    return PaymentSplit(
+      mode: mode ?? this.mode,
+      amount: amount ?? this.amount,
+      reference: reference ?? this.reference,
+    );
+  }
+}
+
 /// Full cart state — items + payment mode + amounts + customer.
 class PosCartState {
   final List<CartItem> items;
-  final String paymentMode; // CASH, UPI, CARD
+  final String paymentMode; // CASH, UPI, CARD — primary mode
   final double amountReceived;
   final String? upiReference;
+  final List<PaymentSplit> paymentSplits;
   final String? contactId;
   final String? contactName;
   final String? contactPhone;
@@ -89,6 +111,7 @@ class PosCartState {
     this.paymentMode = 'CASH',
     this.amountReceived = 0,
     this.upiReference,
+    this.paymentSplits = const [],
     this.contactId,
     this.contactName,
     this.contactPhone,
@@ -108,11 +131,16 @@ class PosCartState {
   /// Whether a customer is selected (not walk-in).
   bool get hasCustomer => contactId != null;
 
+  bool get isSplitPayment => paymentSplits.isNotEmpty;
+  double get splitTotal =>
+      paymentSplits.fold(0.0, (sum, s) => sum + s.amount);
+
   PosCartState copyWith({
     List<CartItem>? items,
     String? paymentMode,
     double? amountReceived,
     String? upiReference,
+    List<PaymentSplit>? paymentSplits,
     String? contactId,
     bool clearContact = false,
     String? contactName,
@@ -124,6 +152,7 @@ class PosCartState {
       paymentMode: paymentMode ?? this.paymentMode,
       amountReceived: amountReceived ?? this.amountReceived,
       upiReference: upiReference ?? this.upiReference,
+      paymentSplits: paymentSplits ?? this.paymentSplits,
       contactId: clearContact ? null : (contactId ?? this.contactId),
       contactName: clearContact ? null : (contactName ?? this.contactName),
       contactPhone: clearContact ? null : (contactPhone ?? this.contactPhone),
@@ -235,9 +264,24 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
     state = state.copyWith(notes: notes);
   }
 
+  /// Set payment splits for mixed payment.
+  void setPaymentSplits(List<PaymentSplit> splits) {
+    state = state.copyWith(paymentSplits: splits);
+  }
+
+  /// Clear payment splits.
+  void clearPaymentSplits() {
+    state = state.copyWith(paymentSplits: []);
+  }
+
   /// Clear cart — after successful sale.
   void clear() {
     state = const PosCartState();
+  }
+
+  /// Restore a held cart.
+  void restore(PosCartState cart) {
+    state = cart;
   }
 }
 
