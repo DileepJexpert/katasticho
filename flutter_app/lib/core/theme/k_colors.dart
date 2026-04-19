@@ -120,6 +120,10 @@ class KColors {
       'CANCELLED' => cancelled,
       'ISSUED' => sent,
       'APPLIED' => paid,
+      'CONFIRMED' => info,
+      'PARTIALLY_SHIPPED' => warning,
+      'SHIPPED' => const Color(0xFF0D9488),
+      'INVOICED' => paid,
       _ => textSecondary,
     };
   }
@@ -135,6 +139,10 @@ class KColors {
       'CANCELLED' => cancelledBg,
       'ISSUED' => sentBg,
       'APPLIED' => paidBg,
+      'CONFIRMED' => infoLight,
+      'PARTIALLY_SHIPPED' => warningLight,
+      'SHIPPED' => const Color(0xFFCCFBF1),
+      'INVOICED' => paidBg,
       _ => draftBg,
     };
   }

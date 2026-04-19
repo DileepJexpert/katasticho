@@ -66,6 +66,9 @@ import '../features/vendor_credits/presentation/vendor_credit_list_screen.dart';
 import '../features/vendor_credits/presentation/vendor_credit_detail_screen.dart';
 import '../features/vendor_credits/presentation/vendor_credit_create_screen.dart';
 import '../features/pos/presentation/pos_screen.dart';
+import '../features/sales_orders/presentation/sales_order_list_screen.dart';
+import '../features/sales_orders/presentation/sales_order_create_screen.dart';
+import '../features/sales_orders/presentation/sales_order_detail_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -131,6 +134,10 @@ class Routes {
   static const vendorCredits = '/vendor-credits';
   static const vendorCreditCreate = '/vendor-credits/create';
   static const vendorCreditDetail = '/vendor-credits/:id';
+  // Sales Orders
+  static const salesOrders = '/sales-orders';
+  static const salesOrderCreate = '/sales-orders/create';
+  static const salesOrderDetail = '/sales-orders/:id';
   // POS
   static const pos = '/pos';
   static const aiChat = '/ai-chat';
@@ -322,6 +329,23 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/estimates/:id',
             builder: (context, state) => EstimateDetailScreen(
               estimateId: state.pathParameters['id']!,
+            ),
+          ),
+          // Sales Orders
+          GoRoute(
+            path: Routes.salesOrders,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SalesOrderListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.salesOrderCreate,
+            builder: (context, state) => const SalesOrderCreateScreen(),
+          ),
+          GoRoute(
+            path: '/sales-orders/:id',
+            builder: (context, state) => SalesOrderDetailScreen(
+              salesOrderId: state.pathParameters['id']!,
             ),
           ),
           // F8: Recurring Invoices

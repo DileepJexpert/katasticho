@@ -30,6 +30,7 @@ import com.katasticho.erp.sales.dto.*;
 import com.katasticho.erp.sales.entity.SalesOrder;
 import com.katasticho.erp.sales.entity.SalesOrderLine;
 import com.katasticho.erp.sales.entity.StockReservation;
+import com.katasticho.erp.sales.repository.DeliveryChallanRepository;
 import com.katasticho.erp.sales.repository.SalesOrderRepository;
 import com.katasticho.erp.sales.repository.StockReservationRepository;
 import com.katasticho.erp.tax.GenericTaxEngine;
@@ -70,6 +71,7 @@ public class SalesOrderService {
     private final DefaultAccountService defaultAccountService;
     private final GenericTaxEngine taxEngine;
     private final CommentService commentService;
+    private final DeliveryChallanRepository challanRepository;
 
     // ── CREATE ──────────────────────────────────────────────────
 
@@ -570,7 +572,7 @@ public class SalesOrderService {
                 so.getNotes(), so.getTerms(),
                 so.getBillingAddress(), so.getShippingAddress(),
                 lineResponses,
-                invoiceCount, 0,
+                invoiceCount, challanRepository.countBySalesOrderIdAndIsDeletedFalse(so.getId()),
                 so.getCreatedAt());
     }
 }
