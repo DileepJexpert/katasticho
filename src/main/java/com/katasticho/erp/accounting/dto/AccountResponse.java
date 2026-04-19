@@ -12,6 +12,7 @@ public record AccountResponse(
         UUID parentId,
         int level,
         boolean isSystem,
+        String description,
         BigDecimal openingBalance,
         String currency,
         boolean isActive

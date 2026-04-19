@@ -2,6 +2,7 @@ package com.katasticho.erp.accounting.service;
 
 import com.katasticho.erp.accounting.dto.AccountResponse;
 import com.katasticho.erp.accounting.dto.CreateAccountRequest;
+import com.katasticho.erp.accounting.dto.UpdateAccountRequest;
 import com.katasticho.erp.accounting.entity.Account;
 import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.common.context.TenantContext;
@@ -143,11 +144,55 @@ public class AccountService {
         };
     }
 
+    public AccountResponse getAccount(UUID id) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Account account = accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, id)
+                .orElseThrow(() -> new BusinessException("Account not found", "ACCT_NOT_FOUND", HttpStatus.NOT_FOUND));
+        return toResponse(account);
+    }
+
+    @Transactional
+    public AccountResponse updateAccount(UUID id, UpdateAccountRequest request) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Account account = accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, id)
+                .orElseThrow(() -> new BusinessException("Account not found", "ACCT_NOT_FOUND", HttpStatus.NOT_FOUND));
+        account.setName(request.name());
+        if (request.subType() != null) account.setSubType(request.subType());
+        if (request.description() != null) account.setDescription(request.description());
+        if (request.openingBalance() != null) account.setOpeningBalance(request.openingBalance());
+        account = accountRepository.save(account);
+        log.info("Account updated: {} - {}", account.getCode(), account.getName());
+        return toResponse(account);
+    }
+
+    @Transactional
+    public void deleteAccount(UUID id) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Account account = accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, id)
+                .orElseThrow(() -> new BusinessException("Account not found", "ACCT_NOT_FOUND", HttpStatus.NOT_FOUND));
+        if (account.isSystem()) {
+            throw new BusinessException("System accounts cannot be deleted", "ACCT_SYSTEM_DELETE", HttpStatus.BAD_REQUEST);
+        }
+        account.setDeleted(true);
+        accountRepository.save(account);
+        log.info("Account soft-deleted: {} - {}", account.getCode(), account.getName());
+    }
+
+    @Transactional
+    public void setActive(UUID id, boolean active) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Account account = accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, id)
+                .orElseThrow(() -> new BusinessException("Account not found", "ACCT_NOT_FOUND", HttpStatus.NOT_FOUND));
+        account.setActive(active);
+        accountRepository.save(account);
+        log.info("Account {} active={}", account.getCode(), active);
+    }
+
     public AccountResponse toResponse(Account account) {
         return new AccountResponse(
                 account.getId(), account.getCode(), account.getName(),
                 account.getType(), account.getSubType(), account.getParentId(),
-                account.getLevel(), account.isSystem(), account.getOpeningBalance(),
-                account.getCurrency(), account.isActive());
+                account.getLevel(), account.isSystem(), account.getDescription(),
+                account.getOpeningBalance(), account.getCurrency(), account.isActive());
     }
 }
