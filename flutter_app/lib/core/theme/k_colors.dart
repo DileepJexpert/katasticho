@@ -21,6 +21,12 @@ class KColors {
   static const Color secondarySeed = Color(0xFFEC4899); // pink
   static const Color accentSeed = Color(0xFF8B5CF6);    // violet
 
+  // ── Sidebar seed — independent from brand. Admin chrome (sidebar,
+  //    nav rail) runs on its own palette so the content area can
+  //    re-brand freely without fighting the navigation.
+  static const Color sidebarSeed = Color(0xFF0F172A);   // slate-900
+  static const Brightness sidebarBrightness = Brightness.dark;
+
   // ── Primary palette (all derived from brandSeed) ──────────────────
   static const Color primary = brandSeed;
   static final Color primaryLight = _lighten(brandSeed, 0.25);
