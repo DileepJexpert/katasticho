@@ -52,7 +52,7 @@ public class ExpiryAlertJob {
             List<StockBatch> expiring = batchRepository.findExpiringWithStock(org.getId(), horizon);
             if (expiring.isEmpty()) continue;
 
-            AppUser admin = userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(org.getId(), "ADMIN")
+            AppUser admin = userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(org.getId(), "OWNER")
                     .orElse(null);
             if (admin == null) continue;
 

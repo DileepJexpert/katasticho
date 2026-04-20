@@ -104,10 +104,10 @@ class AutomationJobsTest {
         AppUser admin = new AppUser();
         admin.setId(adminId);
         admin.setOrgId(orgId);
-        admin.setRole("ADMIN");
+        admin.setRole("OWNER");
 
         when(orgRepository.findByIsDeletedFalseAndIsActiveTrue()).thenReturn(List.of(org));
-        when(userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(orgId, "ADMIN"))
+        when(userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(orgId, "OWNER"))
                 .thenReturn(Optional.of(admin));
     }
 

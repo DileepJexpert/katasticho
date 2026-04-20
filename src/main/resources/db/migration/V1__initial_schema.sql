@@ -30,6 +30,7 @@ CREATE TABLE organisation (
                               email               VARCHAR(255),
                               logo_url            VARCHAR(500),
                               is_active           BOOLEAN      NOT NULL DEFAULT TRUE,
+                              is_deleted          BOOLEAN      NOT NULL DEFAULT FALSE,
                               created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
                               updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
                               created_by          UUID

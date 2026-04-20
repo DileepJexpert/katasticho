@@ -49,7 +49,7 @@ public class OverdueBillJob {
             List<PurchaseBill> overdue = billRepository.findOverdueBills(org.getId(), today);
             if (overdue.isEmpty()) continue;
 
-            AppUser admin = userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(org.getId(), "ADMIN")
+            AppUser admin = userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(org.getId(), "OWNER")
                     .orElse(null);
             if (admin == null) continue;
 

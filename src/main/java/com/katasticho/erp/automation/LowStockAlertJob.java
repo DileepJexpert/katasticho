@@ -45,7 +45,7 @@ public class LowStockAlertJob {
             List<StockBalance> lowStock = stockBalanceRepository.findLowStock(org.getId());
             if (lowStock.isEmpty()) continue;
 
-            AppUser admin = userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(org.getId(), "ADMIN")
+            AppUser admin = userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(org.getId(), "OWNER")
                     .orElse(null);
             if (admin == null) continue;
 

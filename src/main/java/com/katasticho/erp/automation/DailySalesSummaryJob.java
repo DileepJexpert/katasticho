@@ -50,7 +50,7 @@ public class DailySalesSummaryJob {
         int orgCount = 0;
 
         for (Organisation org : orgs) {
-            AppUser admin = userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(org.getId(), "ADMIN")
+            AppUser admin = userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(org.getId(), "OWNER")
                     .orElse(null);
             if (admin == null) continue;
 
