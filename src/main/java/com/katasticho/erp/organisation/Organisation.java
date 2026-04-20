@@ -75,6 +75,7 @@ public class Organisation {
     @Column(length = 50)
     private String industry;
     @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
     private Boolean isDeleted = false;
     @Column(name = "plan_tier", length = 20)
     @Builder.Default
@@ -107,7 +108,7 @@ public class Organisation {
     // -- Lifecycle --
     @Column(name = "is_active", nullable = false)
     @Builder.Default
-    private boolean active = true;
+    private Boolean isActive = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
