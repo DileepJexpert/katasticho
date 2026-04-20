@@ -55,7 +55,7 @@ public class PaymentReminderJob {
             List<Invoice> invoices = invoiceRepository.findDueOnDates(org.getId(), dates);
             if (invoices.isEmpty()) continue;
 
-            AppUser admin = userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(org.getId(), "ADMIN")
+            AppUser admin = userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(org.getId(), "OWNER")
                     .orElse(null);
             if (admin == null) continue;
 
