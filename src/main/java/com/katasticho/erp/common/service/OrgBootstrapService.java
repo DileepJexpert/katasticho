@@ -8,6 +8,7 @@ import com.katasticho.erp.inventory.service.UomService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.tax.TaxSeedService;
+import com.katasticho.erp.common.service.FeatureFlagService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -65,6 +66,7 @@ public class OrgBootstrapService {
     private final AccountService accountService;
     private final DefaultAccountService defaultAccountService;
     private final TaxSeedService taxSeedService;
+    private final FeatureFlagService featureFlagService;
     private final OrgBootstrapStatusRepository statusRepository;
 
     private final ConcurrentHashMap<UUID, Boolean> verifiedOrgs = new ConcurrentHashMap<>();
@@ -115,9 +117,13 @@ public class OrgBootstrapService {
 
     public BootstrapResult bootstrap(Organisation org) {
         UUID orgId = org.getId();
+        String industryCode = org.getIndustryCode();
+        List<String> subCats = org.getSubCategories();
+        boolean hasSubCats = subCats != null && !subCats.isEmpty();
 
-        StepOutcome uoms = runStep("UoMs", orgId,
-                () -> uomService.seedDefaultsForOrg(orgId));
+        StepOutcome uoms = hasSubCats
+                ? runStep("UoMs", orgId, () -> uomService.seedDefaultsForOrg(orgId, subCats))
+                : runStep("UoMs", orgId, () -> uomService.seedDefaultsForOrg(orgId, industryCode));
 
         StepOutcome accounts = runStep("CoA", orgId,
                 () -> accountService.seedFromTemplate(orgId, org.getIndustry()));
@@ -128,12 +134,21 @@ public class OrgBootstrapService {
         StepOutcome tax = runStep("TaxConfig", orgId,
                 () -> taxSeedService.seedForOrg(org));
 
+        StepOutcome features = runStep("FeatureFlags", orgId, () -> {
+            if (hasSubCats) {
+                featureFlagService.seedForSubCategories(orgId, subCats);
+            } else {
+                featureFlagService.seedForIndustry(orgId, industryCode);
+            }
+            return SeedResult.CREATED_NEW;
+        });
+
         boolean allOk = uoms.succeeded() && accounts.succeeded()
-                && defaults.succeeded() && tax.succeeded();
+                && defaults.succeeded() && tax.succeeded() && features.succeeded();
 
         String summary = String.format(
-                "Org %s bootstrap: UoMs=%s, CoA=%s, DefaultAccounts=%s, TaxConfig=%s",
-                orgId, format(uoms), format(accounts), format(defaults), format(tax));
+                "Org %s bootstrap: UoMs=%s, CoA=%s, DefaultAccounts=%s, TaxConfig=%s, Features=%s",
+                orgId, format(uoms), format(accounts), format(defaults), format(tax), format(features));
         log.info(summary);
 
         recordStatus(orgId, uoms, accounts, defaults, tax, allOk, summary);

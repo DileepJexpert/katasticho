@@ -20,6 +20,10 @@ CREATE TABLE organisation (
                               state_code          VARCHAR(5),
                               region_code         VARCHAR(20),
                               industry            VARCHAR(50),
+                              business_type       VARCHAR(20)  NOT NULL DEFAULT 'RETAILER'
+                                  CHECK (business_type IN ('RETAILER','DISTRIBUTOR','MANUFACTURER','SERVICE_PROVIDER')),
+                              industry_code       VARCHAR(30)  NOT NULL DEFAULT 'OTHER_RETAIL',
+                              sub_categories      JSONB        NOT NULL DEFAULT '[]'::jsonb,
                               plan_tier           VARCHAR(20)  NOT NULL DEFAULT 'FREE_BETA',
                               address_line1       VARCHAR(255),
                               address_line2       VARCHAR(255),
@@ -1666,8 +1670,26 @@ CREATE TABLE org_bootstrap_status (
                                       tax_config_seeded_at        TIMESTAMPTZ,
                                       last_bootstrap_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
                                       last_bootstrap_status       VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-                                      last_error_message          TEXT
+                                      last_error_message          TEXT,
+                                      onboarding_completed        BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+
+-- ─────────────────────────────────────────────────────────────
+-- 43b. ORG FEATURE FLAG
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE org_feature_flag (
+                                  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                  org_id      UUID         NOT NULL REFERENCES organisation(id),
+                                  feature     VARCHAR(50)  NOT NULL,
+                                  is_enabled  BOOLEAN      NOT NULL DEFAULT FALSE,
+                                  config      JSONB        DEFAULT '{}'::jsonb,
+                                  created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+                                  updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+                                  UNIQUE(org_id, feature)
+);
+
+CREATE INDEX idx_org_feature_flag_org ON org_feature_flag(org_id);
 
 
 -- ─────────────────────────────────────────────────────────────

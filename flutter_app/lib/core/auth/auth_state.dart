@@ -14,6 +14,8 @@ class AuthState {
   final String? orgId;
   final String? orgName;
   final String? industry;
+  final String? industryCode;
+  final bool onboardingCompleted;
   final String? errorMessage;
 
   const AuthState({
@@ -24,6 +26,8 @@ class AuthState {
     this.orgId,
     this.orgName,
     this.industry,
+    this.industryCode,
+    this.onboardingCompleted = false,
     this.errorMessage,
   });
 
@@ -38,6 +42,8 @@ class AuthState {
     String? orgId,
     String? orgName,
     String? industry,
+    String? industryCode,
+    bool? onboardingCompleted,
     String? errorMessage,
   }) {
     return AuthState(
@@ -48,6 +54,8 @@ class AuthState {
       orgId: orgId ?? this.orgId,
       orgName: orgName ?? this.orgName,
       industry: industry ?? this.industry,
+      industryCode: industryCode ?? this.industryCode,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       errorMessage: errorMessage,
     );
   }
@@ -73,8 +81,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final orgId = await _storage.getOrgId();
       final orgName = await _storage.getOrgName();
       final industry = await _storage.getIndustry();
+      final industryCode = await _storage.getIndustryCode();
+      final onboardingCompleted = await _storage.getOnboardingCompleted();
 
-      debugPrint('[AuthNotifier] Restored session -> userId: $userId, userName: $userName, role: $role, orgId: $orgId, orgName: $orgName, industry: $industry');
+      debugPrint('[AuthNotifier] Restored session -> userId: $userId, orgId: $orgId, onboardingCompleted: $onboardingCompleted');
 
       state = AuthState(
         status: AuthStatus.authenticated,
@@ -84,6 +94,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         orgId: orgId,
         orgName: orgName,
         industry: industry,
+        industryCode: industryCode,
+        onboardingCompleted: onboardingCompleted,
       );
     } else {
       debugPrint('[AuthNotifier] No valid session, setting unauthenticated');
@@ -100,35 +112,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String orgId,
     required String orgName,
     String? industry,
+    String? industryCode,
+    bool onboardingCompleted = false,
   }) async {
     debugPrint('[AuthNotifier] onLoginSuccess called');
-    debugPrint('[AuthNotifier] accessToken: ${accessToken.substring(0, accessToken.length > 20 ? 20 : accessToken.length)}...');
-    debugPrint('[AuthNotifier] refreshToken: ${refreshToken.substring(0, refreshToken.length > 20 ? 20 : refreshToken.length)}...');
-    debugPrint('[AuthNotifier] userId: $userId, userName: $userName, role: $role');
-    debugPrint('[AuthNotifier] orgId: $orgId, orgName: $orgName, industry: $industry');
+    debugPrint('[AuthNotifier] orgId: $orgId, orgName: $orgName, onboardingCompleted: $onboardingCompleted');
 
-    debugPrint('[AuthNotifier] Saving tokens...');
-    await _storage.saveTokens(
-      accessToken: accessToken,
-      refreshToken: refreshToken,
-    );
-    debugPrint('[AuthNotifier] Tokens saved');
-
-    debugPrint('[AuthNotifier] Saving user info...');
-    await _storage.saveUserInfo(
-      userId: userId,
-      userName: userName,
-      role: role,
-    );
-    debugPrint('[AuthNotifier] User info saved');
-
-    debugPrint('[AuthNotifier] Saving org info...');
+    await _storage.saveTokens(accessToken: accessToken, refreshToken: refreshToken);
+    await _storage.saveUserInfo(userId: userId, userName: userName, role: role);
     await _storage.saveOrgInfo(
       orgId: orgId,
       orgName: orgName,
       industry: industry,
+      industryCode: industryCode,
+      onboardingCompleted: onboardingCompleted,
     );
-    debugPrint('[AuthNotifier] Org info saved');
 
     state = AuthState(
       status: AuthStatus.authenticated,
@@ -138,8 +136,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
       orgId: orgId,
       orgName: orgName,
       industry: industry,
+      industryCode: industryCode,
+      onboardingCompleted: onboardingCompleted,
     );
     debugPrint('[AuthNotifier] State set to authenticated');
+  }
+
+  void markOnboardingComplete() {
+    state = state.copyWith(onboardingCompleted: true);
+    _storage.saveOnboardingCompleted(completed: true);
   }
 
   Future<void> logout() async {

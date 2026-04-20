@@ -36,8 +36,14 @@ import '../features/reports/presentation/ageing_report_screen.dart';
 import '../features/reports/presentation/ap_ageing_screen.dart';
 import '../features/ai_chat/presentation/ai_chat_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
+import '../features/settings/presentation/inventory_features_screen.dart';
 import '../features/default_accounts/presentation/default_accounts_screen.dart';
 import '../features/tax_account_mapping/presentation/tax_account_mapping_screen.dart';
+import '../features/onboarding/presentation/business_type_screen.dart';
+import '../features/onboarding/presentation/industry_screen.dart';
+import '../features/onboarding/presentation/sub_category_screen.dart';
+import '../features/onboarding/presentation/business_details_screen.dart';
+import '../features/onboarding/presentation/setup_complete_screen.dart';
 import '../features/gst/presentation/gst_dashboard_screen.dart';
 import '../features/credit_notes/presentation/credit_note_list_screen.dart';
 import '../features/credit_notes/presentation/credit_note_detail_screen.dart';
@@ -156,6 +162,13 @@ class Routes {
   static const settings = '/settings';
   static const defaultAccounts = '/settings/default-accounts';
   static const taxAccountMappings = '/settings/tax-accounts';
+  static const inventoryFeatures = '/settings/inventory-features';
+  // Onboarding wizard
+  static const onboardingBusinessType = '/onboarding/business-type';
+  static const onboardingIndustry = '/onboarding/industry';
+  static const onboardingSubCategory = '/onboarding/sub-category';
+  static const onboardingDetails = '/onboarding/details';
+  static const onboardingComplete = '/onboarding/complete';
   // Accounting — Chart of Accounts
   static const chartOfAccounts = '/accounts';
   static const accountCreate = '/accounts/create';
@@ -171,29 +184,33 @@ final routerProvider = Provider<GoRouter>((ref) {
     debugLogDiagnostics: true,
     redirect: (context, state) {
       final isAuthenticated = authState.isAuthenticated;
-      final isAuthRoute = state.matchedLocation == Routes.login ||
-          state.matchedLocation == Routes.otp ||
-          state.matchedLocation == Routes.signup;
+      final onboardingCompleted = authState.onboardingCompleted;
+      final loc = state.matchedLocation;
 
-      debugPrint('[Router] redirect check -> location: ${state.matchedLocation}, authStatus: ${authState.status}, isAuthenticated: $isAuthenticated, isAuthRoute: $isAuthRoute');
+      final isAuthRoute = loc == Routes.login ||
+          loc == Routes.otp ||
+          loc == Routes.signup;
+      final isOnboardingRoute = loc.startsWith('/onboarding');
+
+      debugPrint('[Router] redirect -> loc: $loc, auth: ${authState.status}, onboarded: $onboardingCompleted');
 
       if (authState.status == AuthStatus.initial ||
           authState.status == AuthStatus.loading) {
-        debugPrint('[Router] Auth still loading, no redirect');
-        return null; // Still loading, don't redirect
+        return null;
       }
 
       if (!isAuthenticated && !isAuthRoute) {
-        debugPrint('[Router] Not authenticated, redirecting to login');
         return Routes.login;
       }
 
       if (isAuthenticated && isAuthRoute) {
-        debugPrint('[Router] Authenticated on auth route, redirecting to dashboard');
-        return Routes.dashboard;
+        return onboardingCompleted ? Routes.dashboard : Routes.onboardingBusinessType;
       }
 
-      debugPrint('[Router] No redirect needed');
+      if (isAuthenticated && !onboardingCompleted && !isOnboardingRoute) {
+        return Routes.onboardingBusinessType;
+      }
+
       return null;
     },
     routes: [
@@ -223,6 +240,28 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.signup,
         builder: (context, state) => const SignupScreen(),
+      ),
+
+      // ── Onboarding wizard (no shell, no nav bar) ──
+      GoRoute(
+        path: Routes.onboardingBusinessType,
+        builder: (context, state) => const BusinessTypeScreen(),
+      ),
+      GoRoute(
+        path: Routes.onboardingIndustry,
+        builder: (context, state) => const IndustryScreen(),
+      ),
+      GoRoute(
+        path: Routes.onboardingSubCategory,
+        builder: (context, state) => const SubCategoryScreen(),
+      ),
+      GoRoute(
+        path: Routes.onboardingDetails,
+        builder: (context, state) => const BusinessDetailsScreen(),
+      ),
+      GoRoute(
+        path: Routes.onboardingComplete,
+        builder: (context, state) => const SetupCompleteScreen(),
       ),
 
       // ── App Shell with navigation ──
@@ -616,6 +655,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.taxAccountMappings,
             builder: (context, state) => const TaxAccountMappingScreen(),
+          ),
+          GoRoute(
+            path: Routes.inventoryFeatures,
+            builder: (context, state) => const InventoryFeaturesScreen(),
           ),
         ],
       ),

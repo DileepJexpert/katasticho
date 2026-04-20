@@ -23,6 +23,9 @@ public class CacheConfig {
         Map<String, RedisCacheConfiguration> cacheConfigs = Map.of(
                 "pos-search", RedisCacheConfiguration.defaultCacheConfig()
                         .entryTtl(Duration.ofMinutes(5))
+                        .disableCachingNullValues(),
+                "features", RedisCacheConfiguration.defaultCacheConfig()
+                        .entryTtl(Duration.ofHours(1))
                         .disableCachingNullValues()
         );
 
