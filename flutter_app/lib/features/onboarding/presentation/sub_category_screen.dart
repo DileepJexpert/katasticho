@@ -51,22 +51,23 @@ class SubCategoryScreen extends ConsumerWidget {
                 )
               else
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: subCats.length,
-                    itemBuilder: (context, i) {
-                      final cat = subCats[i];
-                      final code = cat['code']!;
-                      final isChecked = selected.contains(code);
-                      return CheckboxListTile(
-                        value: isChecked,
-                        title: Text(cat['label']!, style: KTypography.bodyMedium),
-                        activeColor: KColors.primary,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                        onChanged: (_) => ref
-                            .read(onboardingProvider.notifier)
-                            .toggleSubCategory(code),
-                      );
-                    },
+                  child: SingleChildScrollView(
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: subCats.map((cat) {
+                        final code = cat['code']!;
+                        final label = cat['label']!;
+                        final isChecked = selected.contains(code);
+                        return _SubCategoryChip(
+                          label: label,
+                          selected: isChecked,
+                          onTap: () => ref
+                              .read(onboardingProvider.notifier)
+                              .toggleSubCategory(code),
+                        );
+                      }).toList(),
+                    ),
                   ),
                 ),
               KSpacing.vGapLg,
@@ -87,6 +88,61 @@ class SubCategoryScreen extends ConsumerWidget {
                 ),
               ),
               KSpacing.vGapMd,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SubCategoryChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SubCategoryChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: selected
+                ? KColors.primary.withValues(alpha: 0.08)
+                : Theme.of(context).cardColor,
+            border: Border.all(
+              color: selected ? KColors.primary : KColors.divider,
+              width: selected ? 1.5 : 1,
+            ),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected) ...[
+                const Icon(Icons.check_rounded,
+                    size: 16, color: KColors.primary),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                style: KTypography.bodySmall.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: selected ? KColors.primary : KColors.textPrimary,
+                ),
+              ),
             ],
           ),
         ),

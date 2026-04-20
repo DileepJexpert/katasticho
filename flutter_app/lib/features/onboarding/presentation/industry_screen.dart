@@ -12,15 +12,15 @@ class IndustryScreen extends ConsumerWidget {
   const IndustryScreen({super.key});
 
   static const _industries = [
-    {'code': 'PHARMACY', 'label': 'Pharmacy', 'icon': Icons.local_pharmacy_outlined},
-    {'code': 'GROCERY', 'label': 'Grocery', 'icon': Icons.local_grocery_store_outlined},
-    {'code': 'ELECTRONICS', 'label': 'Electronics', 'icon': Icons.devices_outlined},
-    {'code': 'HARDWARE', 'label': 'Hardware', 'icon': Icons.hardware_outlined},
-    {'code': 'GARMENTS', 'label': 'Garments', 'icon': Icons.checkroom_outlined},
-    {'code': 'FOOD_RESTAURANT', 'label': 'Food & Restaurant', 'icon': Icons.restaurant_outlined},
-    {'code': 'AUTO_PARTS', 'label': 'Auto Parts', 'icon': Icons.directions_car_outlined},
-    {'code': 'SERVICE', 'label': 'Services', 'icon': Icons.miscellaneous_services_outlined},
-    {'code': 'OTHER_RETAIL', 'label': 'General Retail', 'icon': Icons.storefront_outlined},
+    {'code': 'PHARMACY', 'label': 'Pharmacy', 'icon': Icons.local_pharmacy_rounded},
+    {'code': 'GROCERY', 'label': 'Grocery', 'icon': Icons.shopping_basket_rounded},
+    {'code': 'ELECTRONICS', 'label': 'Electronics', 'icon': Icons.devices_rounded},
+    {'code': 'HARDWARE', 'label': 'Hardware', 'icon': Icons.build_rounded},
+    {'code': 'GARMENTS', 'label': 'Garments', 'icon': Icons.checkroom_rounded},
+    {'code': 'FOOD_RESTAURANT', 'label': 'Food', 'icon': Icons.restaurant_rounded},
+    {'code': 'AUTO_PARTS', 'label': 'Auto Parts', 'icon': Icons.directions_car_rounded},
+    {'code': 'SERVICE', 'label': 'Services', 'icon': Icons.handyman_rounded},
+    {'code': 'OTHER_RETAIL', 'label': 'General', 'icon': Icons.storefront_rounded},
   ];
 
   @override
@@ -52,9 +52,9 @@ class IndustryScreen extends ConsumerWidget {
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 3,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 0.9,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.0,
                   children: _industries.map((ind) {
                     final isSelected = selected == ind['code'];
                     return _IndustryCard(
@@ -99,37 +99,56 @@ class _IndustryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          color: selected
-              ? KColors.primary.withValues(alpha: 0.08)
-              : Theme.of(context).cardColor,
-          border: Border.all(
-            color: selected ? KColors.primary : KColors.divider,
-            width: selected ? 2 : 1,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: KSpacing.borderRadiusLg,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          decoration: BoxDecoration(
+            color: selected
+                ? KColors.primary.withValues(alpha: 0.06)
+                : Theme.of(context).cardColor,
+            border: Border.all(
+              color: selected ? KColors.primary : KColors.divider,
+              width: selected ? 1.5 : 1,
+            ),
+            borderRadius: KSpacing.borderRadiusLg,
           ),
-          borderRadius: KSpacing.borderRadiusMd,
-        ),
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon,
-                size: 28,
-                color: selected ? KColors.primary : KColors.textSecondary),
-            const SizedBox(height: 6),
-            Text(label,
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected
+                      ? KColors.primary.withValues(alpha: 0.12)
+                      : KColors.divider.withValues(alpha: 0.4),
+                ),
+                child: Icon(
+                  icon,
+                  size: 22,
+                  color: selected ? KColors.primary : KColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
                 style: KTypography.bodySmall.copyWith(
                   fontWeight: FontWeight.w600,
                   color: selected ? KColors.primary : KColors.textPrimary,
                 ),
                 textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis),
-          ],
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );
