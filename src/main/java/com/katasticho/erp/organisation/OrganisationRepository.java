@@ -9,5 +9,5 @@ import java.util.UUID;
 @Repository
 public interface OrganisationRepository extends JpaRepository<Organisation, UUID> {
 
-    List<Organisation> findByIsDeletedFalseAndIsActiveTrue();
+    List<Organisation> findByIsDeletedFalseAndActiveTrue();
 }

@@ -41,7 +41,7 @@ public class OverdueBillJob {
     @Transactional(readOnly = true)
     public void run() {
         LocalDate today = LocalDate.now();
-        List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndIsActiveTrue();
+        List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
         int count = 0;
         int orgCount = 0;
 

@@ -47,7 +47,7 @@ public class PaymentReminderJob {
                 today.minusDays(30)
         );
 
-        List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndIsActiveTrue();
+        List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
         int total = 0;
         int orgCount = 0;
 

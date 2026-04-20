@@ -106,7 +106,7 @@ class AutomationJobsTest {
         admin.setOrgId(orgId);
         admin.setRole("OWNER");
 
-        when(orgRepository.findByIsDeletedFalseAndIsActiveTrue()).thenReturn(List.of(org));
+        when(orgRepository.findByIsDeletedFalseAndActiveTrue()).thenReturn(List.of(org));
         when(userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(orgId, "OWNER"))
                 .thenReturn(Optional.of(admin));
     }
@@ -332,7 +332,7 @@ class AutomationJobsTest {
 
     @Test
     void schedulers_skipDeletedOrgs() {
-        when(orgRepository.findByIsDeletedFalseAndIsActiveTrue()).thenReturn(List.of());
+        when(orgRepository.findByIsDeletedFalseAndActiveTrue()).thenReturn(List.of());
 
         paymentReminderJob.run();
         expiryAlertJob.run();
