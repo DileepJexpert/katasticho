@@ -10,6 +10,46 @@ import '../../../routing/app_router.dart';
 import '../data/onboarding_state.dart';
 import '../data/organisation_repository.dart';
 
+const _indianStates = [
+  {'code': '01', 'name': 'Jammu & Kashmir'},
+  {'code': '02', 'name': 'Himachal Pradesh'},
+  {'code': '03', 'name': 'Punjab'},
+  {'code': '04', 'name': 'Chandigarh'},
+  {'code': '05', 'name': 'Uttarakhand'},
+  {'code': '06', 'name': 'Haryana'},
+  {'code': '07', 'name': 'Delhi'},
+  {'code': '08', 'name': 'Rajasthan'},
+  {'code': '09', 'name': 'Uttar Pradesh'},
+  {'code': '10', 'name': 'Bihar'},
+  {'code': '11', 'name': 'Sikkim'},
+  {'code': '12', 'name': 'Arunachal Pradesh'},
+  {'code': '13', 'name': 'Nagaland'},
+  {'code': '14', 'name': 'Manipur'},
+  {'code': '15', 'name': 'Mizoram'},
+  {'code': '16', 'name': 'Tripura'},
+  {'code': '17', 'name': 'Meghalaya'},
+  {'code': '18', 'name': 'Assam'},
+  {'code': '19', 'name': 'West Bengal'},
+  {'code': '20', 'name': 'Jharkhand'},
+  {'code': '21', 'name': 'Odisha'},
+  {'code': '22', 'name': 'Chhattisgarh'},
+  {'code': '23', 'name': 'Madhya Pradesh'},
+  {'code': '24', 'name': 'Gujarat'},
+  {'code': '25', 'name': 'Daman & Diu'},
+  {'code': '26', 'name': 'Dadra & Nagar Haveli'},
+  {'code': '27', 'name': 'Maharashtra'},
+  {'code': '29', 'name': 'Karnataka'},
+  {'code': '30', 'name': 'Goa'},
+  {'code': '31', 'name': 'Lakshadweep'},
+  {'code': '32', 'name': 'Kerala'},
+  {'code': '33', 'name': 'Tamil Nadu'},
+  {'code': '34', 'name': 'Puducherry'},
+  {'code': '35', 'name': 'Andaman & Nicobar'},
+  {'code': '36', 'name': 'Telangana'},
+  {'code': '37', 'name': 'Andhra Pradesh'},
+  {'code': '38', 'name': 'Ladakh'},
+];
+
 class BusinessDetailsScreen extends ConsumerStatefulWidget {
   const BusinessDetailsScreen({super.key});
 
@@ -20,17 +60,22 @@ class BusinessDetailsScreen extends ConsumerStatefulWidget {
 
 class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
   final _gstinController = TextEditingController();
-  final _stateController = TextEditingController();
-  final _stateCodeController = TextEditingController();
   final _phoneController = TextEditingController();
+  String? _selectedStateCode;
   bool _saving = false;
   String? _error;
+
+  String get _selectedStateName {
+    if (_selectedStateCode == null) return '';
+    final match = _indianStates
+        .where((s) => s['code'] == _selectedStateCode)
+        .firstOrNull;
+    return match?['name'] ?? '';
+  }
 
   @override
   void dispose() {
     _gstinController.dispose();
-    _stateController.dispose();
-    _stateCodeController.dispose();
     _phoneController.dispose();
     super.dispose();
   }
@@ -49,7 +94,7 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
             );
       }
     } catch (_) {
-      // ignore — proceed to complete regardless
+      // proceed to complete regardless
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -70,8 +115,8 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
 
       ref.read(onboardingProvider.notifier).setDetails(
             gstin: _gstinController.text.trim(),
-            stateName: _stateController.text.trim(),
-            stateCode: _stateCodeController.text.trim(),
+            stateName: _selectedStateName,
+            stateCode: _selectedStateCode ?? '',
             phone: _phoneController.text.trim(),
           );
 
@@ -81,8 +126,8 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
             industryCode: onboarding.industryCode,
             subCategories: onboarding.subCategories,
             gstin: _gstinController.text.trim(),
-            state: _stateController.text.trim(),
-            stateCode: _stateCodeController.text.trim(),
+            state: _selectedStateName,
+            stateCode: _selectedStateCode ?? '',
             phone: _phoneController.text.trim(),
           );
 
@@ -132,18 +177,22 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
                 prefixIcon: Icons.receipt_long_outlined,
               ),
               KSpacing.vGapMd,
-              KTextField(
-                label: 'State',
-                controller: _stateController,
-                hint: 'e.g. Maharashtra',
-                prefixIcon: Icons.location_on_outlined,
-              ),
-              KSpacing.vGapMd,
-              KTextField(
-                label: 'State Code',
-                controller: _stateCodeController,
-                hint: 'e.g. 27',
-                prefixIcon: Icons.tag,
+              DropdownButtonFormField<String>(
+                value: _selectedStateCode,
+                decoration: InputDecoration(
+                  labelText: 'State',
+                  prefixIcon: const Icon(Icons.location_on_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: KSpacing.borderRadiusMd,
+                  ),
+                ),
+                items: _indianStates.map((s) {
+                  return DropdownMenuItem(
+                    value: s['code'],
+                    child: Text('${s['name']} (${s['code']})'),
+                  );
+                }).toList(),
+                onChanged: (v) => setState(() => _selectedStateCode = v),
               ),
               KSpacing.vGapMd,
               KTextField(
