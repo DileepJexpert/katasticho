@@ -24,6 +24,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -60,7 +61,7 @@ class OrgBootstrapServiceTest {
 
     @Test
     void bootstrap_freshOrg_allSeedersRunInOrder() {
-        when(uomService.seedDefaultsForOrg(eq(orgId), any())).thenReturn(SeedResult.CREATED_NEW);
+        when(uomService.seedDefaultsForOrg(eq(orgId), nullable(String.class))).thenReturn(SeedResult.CREATED_NEW);
         when(accountService.seedFromTemplate(orgId, "TRADING")).thenReturn(SeedResult.CREATED_NEW);
         when(defaultAccountService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.CREATED_NEW);
         when(taxSeedService.seedForOrg(org)).thenReturn(SeedResult.CREATED_NEW);
@@ -74,7 +75,7 @@ class OrgBootstrapServiceTest {
         assertEquals(SeedResult.CREATED_NEW, result.taxConfig().result());
 
         InOrder order = inOrder(uomService, accountService, defaultAccountService, taxSeedService);
-        order.verify(uomService).seedDefaultsForOrg(eq(orgId), any());
+        order.verify(uomService).seedDefaultsForOrg(eq(orgId), nullable(String.class));
         order.verify(accountService).seedFromTemplate(orgId, "TRADING");
         order.verify(defaultAccountService).seedDefaultsForOrg(orgId);
         order.verify(taxSeedService).seedForOrg(org);
@@ -82,7 +83,7 @@ class OrgBootstrapServiceTest {
 
     @Test
     void bootstrap_existingOrg_idempotent_noDuplicates() {
-        when(uomService.seedDefaultsForOrg(eq(orgId), any())).thenReturn(SeedResult.ALREADY_EXISTS);
+        when(uomService.seedDefaultsForOrg(eq(orgId), nullable(String.class))).thenReturn(SeedResult.ALREADY_EXISTS);
         when(accountService.seedFromTemplate(orgId, "TRADING")).thenReturn(SeedResult.ALREADY_EXISTS);
         when(defaultAccountService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.ALREADY_EXISTS);
         when(taxSeedService.seedForOrg(org)).thenReturn(SeedResult.ALREADY_EXISTS);
@@ -97,7 +98,7 @@ class OrgBootstrapServiceTest {
         assertEquals(SeedResult.ALREADY_EXISTS, second.defaultAccounts().result());
         assertEquals(SeedResult.ALREADY_EXISTS, second.taxConfig().result());
 
-        verify(uomService, times(2)).seedDefaultsForOrg(eq(orgId), any());
+        verify(uomService, times(2)).seedDefaultsForOrg(eq(orgId), nullable(String.class));
         verify(accountService, times(2)).seedFromTemplate(orgId, "TRADING");
         verify(defaultAccountService, times(2)).seedDefaultsForOrg(orgId);
         verify(taxSeedService, times(2)).seedForOrg(org);
@@ -105,7 +106,7 @@ class OrgBootstrapServiceTest {
 
     @Test
     void bootstrap_taxSeederFailure_otherSeedersSucceed_orgFlagged() {
-        when(uomService.seedDefaultsForOrg(eq(orgId), any())).thenReturn(SeedResult.CREATED_NEW);
+        when(uomService.seedDefaultsForOrg(eq(orgId), nullable(String.class))).thenReturn(SeedResult.CREATED_NEW);
         when(accountService.seedFromTemplate(orgId, "TRADING")).thenReturn(SeedResult.CREATED_NEW);
         when(defaultAccountService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.CREATED_NEW);
         when(taxSeedService.seedForOrg(org)).thenThrow(new RuntimeException("DB connection lost"));
@@ -132,7 +133,7 @@ class OrgBootstrapServiceTest {
 
     @Test
     void bootstrap_repair_afterPartialFailure_fixesRemaining() {
-        when(uomService.seedDefaultsForOrg(eq(orgId), any())).thenReturn(SeedResult.ALREADY_EXISTS);
+        when(uomService.seedDefaultsForOrg(eq(orgId), nullable(String.class))).thenReturn(SeedResult.ALREADY_EXISTS);
         when(accountService.seedFromTemplate(orgId, "TRADING")).thenReturn(SeedResult.ALREADY_EXISTS);
         when(defaultAccountService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.ALREADY_EXISTS);
         when(taxSeedService.seedForOrg(org)).thenReturn(SeedResult.CREATED_NEW);
@@ -165,19 +166,19 @@ class OrgBootstrapServiceTest {
         when(organisationRepository.findAll()).thenReturn(List.of(org, org2, org3));
 
         // org1: already exists (OK)
-        when(uomService.seedDefaultsForOrg(eq(orgId), any())).thenReturn(SeedResult.ALREADY_EXISTS);
+        when(uomService.seedDefaultsForOrg(eq(orgId), nullable(String.class))).thenReturn(SeedResult.ALREADY_EXISTS);
         when(accountService.seedFromTemplate(orgId, "TRADING")).thenReturn(SeedResult.ALREADY_EXISTS);
         when(defaultAccountService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.ALREADY_EXISTS);
         when(taxSeedService.seedForOrg(org)).thenReturn(SeedResult.ALREADY_EXISTS);
 
         // org2: repaired (some new data seeded)
-        when(uomService.seedDefaultsForOrg(eq(orgId2), any())).thenReturn(SeedResult.ALREADY_EXISTS);
+        when(uomService.seedDefaultsForOrg(eq(orgId2), nullable(String.class))).thenReturn(SeedResult.ALREADY_EXISTS);
         when(accountService.seedFromTemplate(orgId2, "RETAIL")).thenReturn(SeedResult.REPAIRED_PARTIAL);
         when(defaultAccountService.seedDefaultsForOrg(orgId2)).thenReturn(SeedResult.REPAIRED_PARTIAL);
         when(taxSeedService.seedForOrg(org2)).thenReturn(SeedResult.REPAIRED_PARTIAL);
 
         // org3: failure (tax throws)
-        when(uomService.seedDefaultsForOrg(eq(orgId3), any())).thenReturn(SeedResult.CREATED_NEW);
+        when(uomService.seedDefaultsForOrg(eq(orgId3), nullable(String.class))).thenReturn(SeedResult.CREATED_NEW);
         when(accountService.seedFromTemplate(orgId3, "SERVICES")).thenReturn(SeedResult.CREATED_NEW);
         when(defaultAccountService.seedDefaultsForOrg(orgId3)).thenReturn(SeedResult.CREATED_NEW);
         when(taxSeedService.seedForOrg(org3)).thenThrow(new RuntimeException("fail"));
@@ -193,7 +194,7 @@ class OrgBootstrapServiceTest {
 
     @Test
     void bootstrap_repairedPartial_reportedCorrectly() {
-        when(uomService.seedDefaultsForOrg(eq(orgId), any())).thenReturn(SeedResult.ALREADY_EXISTS);
+        when(uomService.seedDefaultsForOrg(eq(orgId), nullable(String.class))).thenReturn(SeedResult.ALREADY_EXISTS);
         when(accountService.seedFromTemplate(orgId, "TRADING")).thenReturn(SeedResult.ALREADY_EXISTS);
         when(defaultAccountService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.REPAIRED_PARTIAL);
         when(taxSeedService.seedForOrg(org)).thenReturn(SeedResult.REPAIRED_PARTIAL);
