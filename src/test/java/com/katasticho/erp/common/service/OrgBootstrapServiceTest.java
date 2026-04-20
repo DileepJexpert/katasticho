@@ -4,6 +4,7 @@ import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.service.AccountService;
 import com.katasticho.erp.common.entity.OrgBootstrapStatus;
 import com.katasticho.erp.common.repository.OrgBootstrapStatusRepository;
+import com.katasticho.erp.common.service.FeatureFlagService;
 import com.katasticho.erp.inventory.service.UomService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
@@ -33,6 +34,7 @@ class OrgBootstrapServiceTest {
     @Mock private AccountService accountService;
     @Mock private DefaultAccountService defaultAccountService;
     @Mock private TaxSeedService taxSeedService;
+    @Mock private FeatureFlagService featureFlagService;
     @Mock private OrgBootstrapStatusRepository statusRepository;
 
     private OrgBootstrapService bootstrapService;
@@ -44,12 +46,13 @@ class OrgBootstrapServiceTest {
     void setUp() {
         bootstrapService = new OrgBootstrapService(
                 organisationRepository, uomService, accountService,
-                defaultAccountService, taxSeedService, statusRepository);
+                defaultAccountService, taxSeedService, featureFlagService, statusRepository);
 
         orgId = UUID.randomUUID();
         org = mock(Organisation.class);
         when(org.getId()).thenReturn(orgId);
         when(org.getIndustry()).thenReturn("TRADING");
+        lenient().when(org.getIndustryCode()).thenReturn("OTHER_RETAIL");
 
         lenient().when(statusRepository.findById(any())).thenReturn(Optional.empty());
         lenient().when(statusRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -57,7 +60,7 @@ class OrgBootstrapServiceTest {
 
     @Test
     void bootstrap_freshOrg_allSeedersRunInOrder() {
-        when(uomService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.CREATED_NEW);
+        when(uomService.seedDefaultsForOrg(eq(orgId), any())).thenReturn(SeedResult.CREATED_NEW);
         when(accountService.seedFromTemplate(orgId, "TRADING")).thenReturn(SeedResult.CREATED_NEW);
         when(defaultAccountService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.CREATED_NEW);
         when(taxSeedService.seedForOrg(org)).thenReturn(SeedResult.CREATED_NEW);
@@ -71,7 +74,7 @@ class OrgBootstrapServiceTest {
         assertEquals(SeedResult.CREATED_NEW, result.taxConfig().result());
 
         InOrder order = inOrder(uomService, accountService, defaultAccountService, taxSeedService);
-        order.verify(uomService).seedDefaultsForOrg(orgId);
+        order.verify(uomService).seedDefaultsForOrg(eq(orgId), any());
         order.verify(accountService).seedFromTemplate(orgId, "TRADING");
         order.verify(defaultAccountService).seedDefaultsForOrg(orgId);
         order.verify(taxSeedService).seedForOrg(org);
@@ -79,7 +82,7 @@ class OrgBootstrapServiceTest {
 
     @Test
     void bootstrap_existingOrg_idempotent_noDuplicates() {
-        when(uomService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.ALREADY_EXISTS);
+        when(uomService.seedDefaultsForOrg(eq(orgId), any())).thenReturn(SeedResult.ALREADY_EXISTS);
         when(accountService.seedFromTemplate(orgId, "TRADING")).thenReturn(SeedResult.ALREADY_EXISTS);
         when(defaultAccountService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.ALREADY_EXISTS);
         when(taxSeedService.seedForOrg(org)).thenReturn(SeedResult.ALREADY_EXISTS);
@@ -94,7 +97,7 @@ class OrgBootstrapServiceTest {
         assertEquals(SeedResult.ALREADY_EXISTS, second.defaultAccounts().result());
         assertEquals(SeedResult.ALREADY_EXISTS, second.taxConfig().result());
 
-        verify(uomService, times(2)).seedDefaultsForOrg(orgId);
+        verify(uomService, times(2)).seedDefaultsForOrg(eq(orgId), any());
         verify(accountService, times(2)).seedFromTemplate(orgId, "TRADING");
         verify(defaultAccountService, times(2)).seedDefaultsForOrg(orgId);
         verify(taxSeedService, times(2)).seedForOrg(org);
@@ -102,7 +105,7 @@ class OrgBootstrapServiceTest {
 
     @Test
     void bootstrap_taxSeederFailure_otherSeedersSucceed_orgFlagged() {
-        when(uomService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.CREATED_NEW);
+        when(uomService.seedDefaultsForOrg(eq(orgId), any())).thenReturn(SeedResult.CREATED_NEW);
         when(accountService.seedFromTemplate(orgId, "TRADING")).thenReturn(SeedResult.CREATED_NEW);
         when(defaultAccountService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.CREATED_NEW);
         when(taxSeedService.seedForOrg(org)).thenThrow(new RuntimeException("DB connection lost"));
@@ -129,7 +132,7 @@ class OrgBootstrapServiceTest {
 
     @Test
     void bootstrap_repair_afterPartialFailure_fixesRemaining() {
-        when(uomService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.ALREADY_EXISTS);
+        when(uomService.seedDefaultsForOrg(eq(orgId), any())).thenReturn(SeedResult.ALREADY_EXISTS);
         when(accountService.seedFromTemplate(orgId, "TRADING")).thenReturn(SeedResult.ALREADY_EXISTS);
         when(defaultAccountService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.ALREADY_EXISTS);
         when(taxSeedService.seedForOrg(org)).thenReturn(SeedResult.CREATED_NEW);
@@ -151,28 +154,30 @@ class OrgBootstrapServiceTest {
         UUID orgId2 = UUID.randomUUID();
         when(org2.getId()).thenReturn(orgId2);
         when(org2.getIndustry()).thenReturn("RETAIL");
+        when(org2.getIndustryCode()).thenReturn("OTHER_RETAIL");
 
         Organisation org3 = mock(Organisation.class);
         UUID orgId3 = UUID.randomUUID();
         when(org3.getId()).thenReturn(orgId3);
         when(org3.getIndustry()).thenReturn("SERVICES");
+        when(org3.getIndustryCode()).thenReturn("OTHER_RETAIL");
 
         when(organisationRepository.findAll()).thenReturn(List.of(org, org2, org3));
 
         // org1: already exists (OK)
-        when(uomService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.ALREADY_EXISTS);
+        when(uomService.seedDefaultsForOrg(eq(orgId), any())).thenReturn(SeedResult.ALREADY_EXISTS);
         when(accountService.seedFromTemplate(orgId, "TRADING")).thenReturn(SeedResult.ALREADY_EXISTS);
         when(defaultAccountService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.ALREADY_EXISTS);
         when(taxSeedService.seedForOrg(org)).thenReturn(SeedResult.ALREADY_EXISTS);
 
         // org2: repaired (some new data seeded)
-        when(uomService.seedDefaultsForOrg(orgId2)).thenReturn(SeedResult.ALREADY_EXISTS);
+        when(uomService.seedDefaultsForOrg(eq(orgId2), any())).thenReturn(SeedResult.ALREADY_EXISTS);
         when(accountService.seedFromTemplate(orgId2, "RETAIL")).thenReturn(SeedResult.REPAIRED_PARTIAL);
         when(defaultAccountService.seedDefaultsForOrg(orgId2)).thenReturn(SeedResult.REPAIRED_PARTIAL);
         when(taxSeedService.seedForOrg(org2)).thenReturn(SeedResult.REPAIRED_PARTIAL);
 
         // org3: failure (tax throws)
-        when(uomService.seedDefaultsForOrg(orgId3)).thenReturn(SeedResult.CREATED_NEW);
+        when(uomService.seedDefaultsForOrg(eq(orgId3), any())).thenReturn(SeedResult.CREATED_NEW);
         when(accountService.seedFromTemplate(orgId3, "SERVICES")).thenReturn(SeedResult.CREATED_NEW);
         when(defaultAccountService.seedDefaultsForOrg(orgId3)).thenReturn(SeedResult.CREATED_NEW);
         when(taxSeedService.seedForOrg(org3)).thenThrow(new RuntimeException("fail"));
@@ -188,7 +193,7 @@ class OrgBootstrapServiceTest {
 
     @Test
     void bootstrap_repairedPartial_reportedCorrectly() {
-        when(uomService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.ALREADY_EXISTS);
+        when(uomService.seedDefaultsForOrg(eq(orgId), any())).thenReturn(SeedResult.ALREADY_EXISTS);
         when(accountService.seedFromTemplate(orgId, "TRADING")).thenReturn(SeedResult.ALREADY_EXISTS);
         when(defaultAccountService.seedDefaultsForOrg(orgId)).thenReturn(SeedResult.REPAIRED_PARTIAL);
         when(taxSeedService.seedForOrg(org)).thenReturn(SeedResult.REPAIRED_PARTIAL);

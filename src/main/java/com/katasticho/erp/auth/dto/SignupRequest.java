@@ -21,5 +21,11 @@ public record SignupRequest(
         @Size(min = 2, max = 255)
         String orgName,
 
-        String industry
+        String industry,
+
+        String businessType,
+
+        String industryCode,
+
+        String subCategoryCode
 ) {}

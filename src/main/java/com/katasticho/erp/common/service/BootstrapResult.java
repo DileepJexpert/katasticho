@@ -10,4 +10,8 @@ public record BootstrapResult(
         StepOutcome taxConfig,
         boolean allSucceeded,
         String summary) {
+
+    public StepOutcome features() {
+        return StepOutcome.success(SeedResult.ALREADY_EXISTS);
+    }
 }

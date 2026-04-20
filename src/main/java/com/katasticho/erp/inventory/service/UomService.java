@@ -252,7 +252,7 @@ public class UomService {
 
         // Self-heal: seed defaults if bootstrap missed this org
         log.warn("PCS UoM missing for org {} — seeding defaults now", orgId);
-        seedDefaultsForOrg(orgId);
+        seedDefaultsForOrg(orgId, null);
 
         return uomRepository
                 .findByOrgIdAndAbbreviationIgnoreCaseAndIsDeletedFalse(orgId, "PCS")
@@ -270,24 +270,70 @@ public class UomService {
      * Called from signup flow so items can be created immediately.
      */
     @Transactional
-    public SeedResult seedDefaultsForOrg(UUID orgId) {
+    public SeedResult seedDefaultsForOrg(UUID orgId, String industryCode) {
         if (uomRepository.existsByOrgIdAndAbbreviationIgnoreCaseAndIsDeletedFalse(orgId, "PCS")) {
             return SeedResult.ALREADY_EXISTS;
         }
+        seedCommonUoms(orgId);
+        seedIndustryUoms(orgId, industryCode);
+        log.info("Seeded UoMs for org {} (industry={})", orgId, industryCode);
+        return SeedResult.CREATED_NEW;
+    }
+
+    private void seedCommonUoms(UUID orgId) {
         seedUom(orgId, "Pieces",      "PCS",    UomCategory.COUNT,     true);
         seedUom(orgId, "Dozen",       "DOZEN",  UomCategory.COUNT,     false);
         seedUom(orgId, "Box",         "BOX",    UomCategory.PACKAGING, true);
-        seedUom(orgId, "Pack",        "PACK",   UomCategory.PACKAGING, false);
-        seedUom(orgId, "Strip",       "STRIP",  UomCategory.PACKAGING, false);
-        seedUom(orgId, "Bottle",      "BOTTLE", UomCategory.PACKAGING, false);
-        seedUom(orgId, "Bag",         "BAG",    UomCategory.PACKAGING, false);
         seedUom(orgId, "Kilogram",    "KG",     UomCategory.WEIGHT,    true);
         seedUom(orgId, "Gram",        "GM",     UomCategory.WEIGHT,    false);
         seedUom(orgId, "Litre",       "LTR",    UomCategory.VOLUME,    true);
         seedUom(orgId, "Millilitre",  "ML",     UomCategory.VOLUME,    false);
-        seedUom(orgId, "Metre",       "MTR",    UomCategory.LENGTH,    true);
-        log.info("Seeded default UoMs for org {}", orgId);
-        return SeedResult.CREATED_NEW;
+        seedUom(orgId, "Set",         "SET",    UomCategory.COUNT,     false);
+    }
+
+    private void seedIndustryUoms(UUID orgId, String industryCode) {
+        if (industryCode == null) {
+            seedUom(orgId, "Pack",     "PACK",   UomCategory.PACKAGING, false);
+            seedUom(orgId, "Metre",    "MTR",    UomCategory.LENGTH,    true);
+            return;
+        }
+        switch (industryCode) {
+            case "PHARMACY", "AYURVEDIC", "PHARMA_MANUFACTURER" -> {
+                seedUom(orgId, "Strip",       "STRIP",  UomCategory.PACKAGING, false);
+                seedUom(orgId, "Bottle",      "BOTTLE", UomCategory.PACKAGING, false);
+                seedUom(orgId, "Tube",        "TUBE",   UomCategory.PACKAGING, false);
+                seedUom(orgId, "Vial",        "VIAL",   UomCategory.PACKAGING, false);
+                seedUom(orgId, "Sachet",      "SACHET", UomCategory.PACKAGING, false);
+                seedUom(orgId, "Tablet",      "TAB",    UomCategory.COUNT,     false);
+                seedUom(orgId, "Milligram",   "MG",     UomCategory.WEIGHT,    false);
+            }
+            case "GROCERY", "SUPERMARKET", "FRUITS_VEG", "ORGANIC" -> {
+                seedUom(orgId, "Pack",        "PACK",   UomCategory.PACKAGING, false);
+                seedUom(orgId, "Bag",         "BAG",    UomCategory.PACKAGING, false);
+            }
+            case "ELECTRONICS", "MOBILE", "APPLIANCES", "LED", "CCTV", "ELECTRONICS_MANUFACTURER" -> {
+                seedUom(orgId, "Pair",        "PAIR",   UomCategory.COUNT,     false);
+            }
+            case "HARDWARE", "PLUMBING", "ELECTRICAL", "PAINT", "BUILDING" -> {
+                seedUom(orgId, "Metre",       "MTR",    UomCategory.LENGTH,    true);
+                seedUom(orgId, "Feet",        "FT",     UomCategory.LENGTH,    false);
+                seedUom(orgId, "Square Feet", "SQFT",   UomCategory.LENGTH,    false);
+                seedUom(orgId, "Cubic Feet",  "CUFT",   UomCategory.LENGTH,    false);
+                seedUom(orgId, "Bag",         "BAG",    UomCategory.PACKAGING, false);
+            }
+            case "GARMENTS", "FABRIC", "FOOTWEAR", "JEWELRY", "COSMETICS", "GARMENT_MANUFACTURER" -> {
+                seedUom(orgId, "Pair",        "PAIR",   UomCategory.COUNT,     false);
+                seedUom(orgId, "Metre",       "MTR",    UomCategory.LENGTH,    true);
+            }
+            case "FOOD", "BAKERY", "CATERING", "CLOUD_KITCHEN", "JUICE", "FOOD_MANUFACTURER" -> {
+                seedUom(orgId, "Plate",       "PLATE",  UomCategory.COUNT,     false);
+                seedUom(orgId, "Glass",       "GLASS",  UomCategory.COUNT,     false);
+            }
+            default -> {
+                seedUom(orgId, "Pack",        "PACK",   UomCategory.PACKAGING, false);
+                seedUom(orgId, "Metre",       "MTR",    UomCategory.LENGTH,    true);
+            }
+        }
     }
 
     private void seedUom(UUID orgId, String name, String abbr, UomCategory cat, boolean isBase) {

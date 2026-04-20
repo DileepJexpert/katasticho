@@ -74,6 +74,18 @@ public class Organisation {
     // -- Business details --
     @Column(length = 50)
     private String industry;
+
+    @Column(name = "business_type", nullable = false, length = 20)
+    @Builder.Default
+    private String businessType = "RETAILER";
+
+    @Column(name = "industry_code", nullable = false, length = 30)
+    @Builder.Default
+    private String industryCode = "OTHER_RETAIL";
+
+    @Column(name = "sub_category_code", length = 50)
+    private String subCategoryCode;
+
     @Column(name = "is_deleted", nullable = false)
     @Builder.Default
     private Boolean isDeleted = false;

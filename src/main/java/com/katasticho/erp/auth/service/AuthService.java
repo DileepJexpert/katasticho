@@ -94,6 +94,9 @@ public class AuthService {
         Organisation org = Organisation.builder()
                 .name(request.orgName())
                 .industry(request.industry())
+                .businessType(request.businessType() != null ? request.businessType() : "RETAILER")
+                .industryCode(request.industryCode() != null ? request.industryCode() : "OTHER_RETAIL")
+                .subCategoryCode(request.subCategoryCode())
                 .build();
         org = organisationRepository.saveAndFlush(org);
 
@@ -300,7 +303,8 @@ public class AuthService {
 
         return new AuthResponse.UserInfo(
                 user.getId(), user.getOrgId(), user.getFullName(),
-                user.getEmail(), user.getPhone(), user.getRole(), org.getName());
+                user.getEmail(), user.getPhone(), user.getRole(), org.getName(),
+                org.getIndustry(), org.getIndustryCode());
     }
 
     private AuthResponse buildAuthResponse(AppUser user, Organisation org) {
@@ -317,7 +321,8 @@ public class AuthService {
 
         AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
                 user.getId(), user.getOrgId(), user.getFullName(),
-                user.getEmail(), user.getPhone(), user.getRole(), org.getName());
+                user.getEmail(), user.getPhone(), user.getRole(), org.getName(),
+                org.getIndustry(), org.getIndustryCode());
 
         return new AuthResponse(accessToken, refreshToken, userInfo);
     }

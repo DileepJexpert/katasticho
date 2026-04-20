@@ -14,6 +14,8 @@ public record AuthResponse(
             String email,
             String phone,
             String role,
-            String orgName
+            String orgName,
+            String industry,
+            String industryCode
     ) {}
 }
