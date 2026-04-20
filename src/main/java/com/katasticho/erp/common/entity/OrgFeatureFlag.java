@@ -2,8 +2,12 @@ package com.katasticho.erp.common.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -30,8 +34,9 @@ public class OrgFeatureFlag {
     private boolean enabled = false;
 
     @Column(columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
     @Builder.Default
-    private String config = "{}";
+    private Map<String, Object> config = new HashMap<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
