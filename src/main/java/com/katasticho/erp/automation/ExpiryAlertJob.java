@@ -42,7 +42,7 @@ public class ExpiryAlertJob {
         LocalDate today = LocalDate.now();
         LocalDate horizon = today.plusDays(30);
 
-        List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndIsActiveTrue();
+        List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
         int batchCount = 0;
         int orgCount = 0;
 

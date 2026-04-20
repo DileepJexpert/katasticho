@@ -50,8 +50,8 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, UU
         WHERE m.orgId = :orgId
           AND m.movementType = 'SALE'
           AND m.movementDate = :date
-          AND m.isReversal = false
-          AND m.isReversed = false
+          AND m.reversal = false
+          AND m.reversed = false
         GROUP BY m.itemId
         ORDER BY ABS(SUM(m.quantity)) DESC
         LIMIT 5

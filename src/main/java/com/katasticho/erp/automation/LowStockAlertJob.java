@@ -37,7 +37,7 @@ public class LowStockAlertJob {
     @Scheduled(cron = "${app.automation.low-stock-alert.cron:0 0 8 * * *}")
     @Transactional(readOnly = true)
     public void run() {
-        List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndIsActiveTrue();
+        List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
         int itemCount = 0;
         int orgCount = 0;
 

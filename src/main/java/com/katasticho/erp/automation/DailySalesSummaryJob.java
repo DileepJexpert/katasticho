@@ -46,7 +46,7 @@ public class DailySalesSummaryJob {
     @Transactional(readOnly = true)
     public void run() {
         LocalDate today = LocalDate.now();
-        List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndIsActiveTrue();
+        List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
         int orgCount = 0;
 
         for (Organisation org : orgs) {
