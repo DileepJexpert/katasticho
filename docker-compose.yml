@@ -51,7 +51,7 @@ services:
     container_name: katasticho-mail
     ports:
       - "51025:1025"   # SMTP
-      - "58025:8025"   # Web UI — http://localhost:58025
+      - "8085:8025"   # Web UI — http://localhost:58025
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
