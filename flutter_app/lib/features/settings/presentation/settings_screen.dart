@@ -92,6 +92,17 @@ class SettingsScreen extends ConsumerWidget {
             ),
             KSpacing.vGapLg,
 
+            // Inventory
+            Text('Inventory', style: KTypography.h3),
+            KSpacing.vGapSm,
+            _SettingsTile(
+              icon: Icons.tune,
+              title: 'Inventory Features',
+              subtitle: 'Enable batch tracking, MRP, variants & more',
+              onTap: () => context.push(Routes.inventoryFeatures),
+            ),
+            KSpacing.vGapLg,
+
             // Tax & Compliance
             Text('Tax & Compliance', style: KTypography.h3),
             KSpacing.vGapSm,

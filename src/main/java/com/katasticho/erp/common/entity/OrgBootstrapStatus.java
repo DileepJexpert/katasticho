@@ -46,4 +46,8 @@ public class OrgBootstrapStatus {
 
     @Column(name = "last_error_message")
     private String lastErrorMessage;
+
+    @Column(name = "onboarding_completed", nullable = false)
+    @Builder.Default
+    private boolean onboardingCompleted = false;
 }

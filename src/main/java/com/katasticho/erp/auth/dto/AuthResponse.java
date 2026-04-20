@@ -16,6 +16,7 @@ public record AuthResponse(
             String role,
             String orgName,
             String industry,
-            String industryCode
+            String industryCode,
+            boolean onboardingCompleted
     ) {}
 }

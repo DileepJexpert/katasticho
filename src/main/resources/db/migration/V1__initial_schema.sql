@@ -1670,7 +1670,8 @@ CREATE TABLE org_bootstrap_status (
                                       tax_config_seeded_at        TIMESTAMPTZ,
                                       last_bootstrap_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
                                       last_bootstrap_status       VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-                                      last_error_message          TEXT
+                                      last_error_message          TEXT,
+                                      onboarding_completed        BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 

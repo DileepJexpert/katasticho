@@ -21,6 +21,8 @@ class AuthStorage {
   static const _userNameKey = '${_prefix}user_name';
   static const _userRoleKey = '${_prefix}user_role';
   static const _industryKey = '${_prefix}industry';
+  static const _industryCodeKey = '${_prefix}industry_code';
+  static const _onboardingCompletedKey = '${_prefix}onboarding_completed';
 
   // Mobile: encrypted secure storage
   final FlutterSecureStorage? _secureStorage = kIsWeb
@@ -126,14 +128,22 @@ class AuthStorage {
     required String orgId,
     required String orgName,
     String? industry,
+    String? industryCode,
+    bool onboardingCompleted = false,
   }) async {
-    debugPrint('[AuthStorage] saveOrgInfo -> orgId: $orgId, orgName: $orgName, industry: $industry');
+    debugPrint('[AuthStorage] saveOrgInfo -> orgId: $orgId, onboardingCompleted: $onboardingCompleted');
     await Future.wait([
       _write(_orgIdKey, orgId),
       _write(_orgNameKey, orgName),
       if (industry != null) _write(_industryKey, industry),
+      if (industryCode != null) _write(_industryCodeKey, industryCode),
+      _write(_onboardingCompletedKey, onboardingCompleted.toString()),
     ]);
     debugPrint('[AuthStorage] Org info saved successfully');
+  }
+
+  Future<void> saveOnboardingCompleted({required bool completed}) async {
+    await _write(_onboardingCompletedKey, completed.toString());
   }
 
   Future<String?> getOrgId() async {
@@ -152,6 +162,15 @@ class AuthStorage {
     final v = await _read(_industryKey);
     debugPrint('[AuthStorage] getIndustry: $v');
     return v;
+  }
+
+  Future<String?> getIndustryCode() async {
+    return _read(_industryCodeKey);
+  }
+
+  Future<bool> getOnboardingCompleted() async {
+    final v = await _read(_onboardingCompletedKey);
+    return v == 'true';
   }
 
   // ── Clear ──

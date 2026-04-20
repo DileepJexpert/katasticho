@@ -3,8 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
+import '../../settings/data/feature_flag_repository.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
@@ -737,8 +737,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                   ),
                   KSpacing.vGapLg,
 
-                  // ── Pharmacy (conditional) ──
-                  if (ref.watch(authProvider).industry?.toUpperCase() == 'PHARMACY') ...[
+                  // ── Pharmacy (conditional on DRUG_SCHEDULE_FIELDS feature flag) ──
+                  if (ref.watch(featureFlagsProvider).valueOrNull?.contains('DRUG_SCHEDULE_FIELDS') == true) ...[
                     Text('Pharmacy', style: KTypography.h3),
                     KSpacing.vGapMd,
                     Row(

@@ -118,6 +118,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
       debugPrint('[OtpScreen] Extracted values -> userId: ${user['id']}, userName: ${user['fullName']}, role: ${user['role']}, orgId: ${user['orgId']}, orgName: ${user['orgName']}, industry: ${user['industry']}');
 
+      final onboardingCompleted = user['onboardingCompleted'] as bool? ?? false;
+
       await ref.read(authProvider.notifier).onLoginSuccess(
             accessToken: data['accessToken'] as String,
             refreshToken: data['refreshToken'] as String,
@@ -127,12 +129,18 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             orgId: user['orgId'].toString(),
             orgName: user['orgName'] as String,
             industry: user['industry'] as String?,
+            industryCode: user['industryCode'] as String?,
+            onboardingCompleted: onboardingCompleted,
           );
 
-      debugPrint('[OtpScreen] onLoginSuccess completed, navigating to dashboard');
+      debugPrint('[OtpScreen] onLoginSuccess completed, onboardingCompleted: $onboardingCompleted');
 
       if (mounted) {
-        context.go(Routes.dashboard);
+        if (widget.isSignup || !onboardingCompleted) {
+          context.go(Routes.onboardingBusinessType);
+        } else {
+          context.go(Routes.dashboard);
+        }
       }
     } catch (e, st) {
       debugPrint('[OtpScreen] Verify/Signup FAILED: $e');

@@ -8,7 +8,9 @@ import com.katasticho.erp.auth.entity.UserInvitation;
 import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.auth.repository.RefreshTokenRepository;
 import com.katasticho.erp.auth.repository.UserInvitationRepository;
+import com.katasticho.erp.common.entity.OrgBootstrapStatus;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.repository.OrgBootstrapStatusRepository;
 import com.katasticho.erp.common.service.OrgBootstrapService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
@@ -42,6 +44,7 @@ public class AuthService {
     private final AuditService auditService;
     private final JdbcTemplate jdbcTemplate;
     private final OrgBootstrapService bootstrapService;
+    private final OrgBootstrapStatusRepository bootstrapStatusRepository;
 
     public void requestOtp(OtpRequest request) {
         otpService.generateAndStore(request.phone());
@@ -302,10 +305,13 @@ public class AuthService {
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
+        boolean onboardingCompleted = bootstrapStatusRepository.findById(org.getId())
+                .map(OrgBootstrapStatus::isOnboardingCompleted)
+                .orElse(false);
         return new AuthResponse.UserInfo(
                 user.getId(), user.getOrgId(), user.getFullName(),
                 user.getEmail(), user.getPhone(), user.getRole(), org.getName(),
-                org.getIndustry(), org.getIndustryCode());
+                org.getIndustry(), org.getIndustryCode(), onboardingCompleted);
     }
 
     private AuthResponse buildAuthResponse(AppUser user, Organisation org) {
@@ -320,10 +326,13 @@ public class AuthService {
                 .build();
         refreshTokenRepository.save(tokenEntity);
 
+        boolean onboardingCompleted = bootstrapStatusRepository.findById(org.getId())
+                .map(OrgBootstrapStatus::isOnboardingCompleted)
+                .orElse(false);
         AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
                 user.getId(), user.getOrgId(), user.getFullName(),
                 user.getEmail(), user.getPhone(), user.getRole(), org.getName(),
-                org.getIndustry(), org.getIndustryCode());
+                org.getIndustry(), org.getIndustryCode(), onboardingCompleted);
 
         return new AuthResponse(accessToken, refreshToken, userInfo);
     }
