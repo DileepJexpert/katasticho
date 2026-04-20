@@ -1,12 +1,13 @@
 package com.katasticho.erp.organisation;
 
-import com.katasticho.erp.common.converter.StringListConverter;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -87,7 +88,7 @@ public class Organisation {
     private String industryCode = "OTHER_RETAIL";
 
     @Column(name = "sub_categories", columnDefinition = "jsonb")
-    @Convert(converter = StringListConverter.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Builder.Default
     private List<String> subCategories = new ArrayList<>();
 
