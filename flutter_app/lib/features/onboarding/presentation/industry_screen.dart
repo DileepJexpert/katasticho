@@ -12,15 +12,15 @@ class IndustryScreen extends ConsumerWidget {
   const IndustryScreen({super.key});
 
   static const _industries = [
-    {'code': 'PHARMACY', 'label': 'Pharmacy', 'icon': Icons.local_pharmacy_rounded},
-    {'code': 'GROCERY', 'label': 'Grocery', 'icon': Icons.shopping_basket_rounded},
-    {'code': 'ELECTRONICS', 'label': 'Electronics', 'icon': Icons.devices_rounded},
-    {'code': 'HARDWARE', 'label': 'Hardware', 'icon': Icons.build_rounded},
-    {'code': 'GARMENTS', 'label': 'Garments', 'icon': Icons.checkroom_rounded},
-    {'code': 'FOOD_RESTAURANT', 'label': 'Food', 'icon': Icons.restaurant_rounded},
-    {'code': 'AUTO_PARTS', 'label': 'Auto Parts', 'icon': Icons.directions_car_rounded},
-    {'code': 'SERVICE', 'label': 'Services', 'icon': Icons.handyman_rounded},
-    {'code': 'OTHER_RETAIL', 'label': 'General', 'icon': Icons.storefront_rounded},
+    {'code': 'PHARMACY', 'label': 'Pharmacy', 'subtitle': 'Medicines, drugs, healthcare', 'icon': Icons.local_pharmacy_rounded},
+    {'code': 'GROCERY', 'label': 'Grocery', 'subtitle': 'Food, kirana, supermarket', 'icon': Icons.shopping_basket_rounded},
+    {'code': 'ELECTRONICS', 'label': 'Electronics', 'subtitle': 'Devices, appliances, mobile', 'icon': Icons.devices_rounded},
+    {'code': 'HARDWARE', 'label': 'Hardware', 'subtitle': 'Tools, paint, plumbing', 'icon': Icons.build_rounded},
+    {'code': 'GARMENTS', 'label': 'Garments', 'subtitle': 'Clothing, fabric, footwear', 'icon': Icons.checkroom_rounded},
+    {'code': 'FOOD_RESTAURANT', 'label': 'Food & Restaurant', 'subtitle': 'Bakery, catering, cafe', 'icon': Icons.restaurant_rounded},
+    {'code': 'AUTO_PARTS', 'label': 'Auto Parts', 'subtitle': 'Vehicle parts & accessories', 'icon': Icons.directions_car_rounded},
+    {'code': 'SERVICE', 'label': 'Services', 'subtitle': 'Repairs, consulting, rentals', 'icon': Icons.handyman_rounded},
+    {'code': 'OTHER_RETAIL', 'label': 'General Retail', 'subtitle': 'Something else', 'icon': Icons.storefront_rounded},
   ];
 
   @override
@@ -50,22 +50,23 @@ class IndustryScreen extends ConsumerWidget {
               ),
               KSpacing.vGapLg,
               Expanded(
-                child: GridView.count(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.0,
-                  children: _industries.map((ind) {
+                child: ListView.separated(
+                  padding: EdgeInsets.zero,
+                  itemCount: _industries.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) {
+                    final ind = _industries[i];
                     final isSelected = selected == ind['code'];
-                    return _IndustryCard(
+                    return _IndustryRow(
                       label: ind['label'] as String,
+                      subtitle: ind['subtitle'] as String,
                       icon: ind['icon'] as IconData,
                       selected: isSelected,
                       onTap: () => ref
                           .read(onboardingProvider.notifier)
                           .setIndustry(ind['code'] as String, ind['label'] as String),
                     );
-                  }).toList(),
+                  },
                 ),
               ),
               KSpacing.vGapLg,
@@ -84,14 +85,16 @@ class IndustryScreen extends ConsumerWidget {
   }
 }
 
-class _IndustryCard extends StatelessWidget {
+class _IndustryRow extends StatelessWidget {
   final String label;
+  final String subtitle;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
-  const _IndustryCard({
+  const _IndustryRow({
     required this.label,
+    required this.subtitle,
     required this.icon,
     required this.selected,
     required this.onTap,
@@ -117,35 +120,63 @@ class _IndustryCard extends StatelessWidget {
             ),
             borderRadius: KSpacing.borderRadiusLg,
           ),
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
                   color: selected
                       ? KColors.primary.withValues(alpha: 0.12)
                       : KColors.divider.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   icon,
-                  size: 22,
+                  size: 20,
                   color: selected ? KColors.primary : KColors.textSecondary,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: KTypography.bodySmall.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: selected ? KColors.primary : KColors.textPrimary,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: KTypography.bodyMedium.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: KColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(width: 8),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? KColors.primary : Colors.transparent,
+                  border: Border.all(
+                    color: selected ? KColors.primary : KColors.divider,
+                    width: 1.5,
+                  ),
+                ),
+                child: selected
+                    ? const Icon(Icons.check, size: 13, color: Colors.white)
+                    : null,
               ),
             ],
           ),
