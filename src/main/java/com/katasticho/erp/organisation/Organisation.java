@@ -108,7 +108,7 @@ public class Organisation {
     // -- Lifecycle --
     @Column(name = "is_active", nullable = false)
     @Builder.Default
-    private boolean active = true;
+    private Boolean isActive = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
