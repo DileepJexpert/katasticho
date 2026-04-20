@@ -23,7 +23,7 @@ CREATE TABLE organisation (
                               business_type       VARCHAR(20)  NOT NULL DEFAULT 'RETAILER'
                                   CHECK (business_type IN ('RETAILER','DISTRIBUTOR','MANUFACTURER','SERVICE_PROVIDER')),
                               industry_code       VARCHAR(30)  NOT NULL DEFAULT 'OTHER_RETAIL',
-                              sub_category_code   VARCHAR(50),
+                              sub_categories      JSONB        NOT NULL DEFAULT '[]'::jsonb,
                               plan_tier           VARCHAR(20)  NOT NULL DEFAULT 'FREE_BETA',
                               address_line1       VARCHAR(255),
                               address_line2       VARCHAR(255),

@@ -4,6 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
+
 public record SignupRequest(
         @NotBlank(message = "Phone number is required")
         @Pattern(regexp = "^\\+?[1-9]\\d{6,14}$", message = "Invalid phone number format")
@@ -27,5 +29,5 @@ public record SignupRequest(
 
         String industryCode,
 
-        String subCategoryCode
+        List<String> subCategories
 ) {}

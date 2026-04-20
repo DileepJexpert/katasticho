@@ -252,7 +252,7 @@ public class UomService {
 
         // Self-heal: seed defaults if bootstrap missed this org
         log.warn("PCS UoM missing for org {} — seeding defaults now", orgId);
-        seedDefaultsForOrg(orgId, null);
+        seedDefaultsForOrg(orgId, (String) null);
 
         return uomRepository
                 .findByOrgIdAndAbbreviationIgnoreCaseAndIsDeletedFalse(orgId, "PCS")
@@ -277,6 +277,23 @@ public class UomService {
         seedCommonUoms(orgId);
         seedIndustryUoms(orgId, industryCode);
         log.info("Seeded UoMs for org {} (industry={})", orgId, industryCode);
+        return SeedResult.CREATED_NEW;
+    }
+
+    @Transactional
+    public SeedResult seedDefaultsForOrg(UUID orgId, List<String> subCategories) {
+        if (uomRepository.existsByOrgIdAndAbbreviationIgnoreCaseAndIsDeletedFalse(orgId, "PCS")) {
+            return SeedResult.ALREADY_EXISTS;
+        }
+        seedCommonUoms(orgId);
+        if (subCategories == null || subCategories.isEmpty()) {
+            seedIndustryUoms(orgId, null);
+        } else {
+            for (String code : subCategories) {
+                seedIndustryUoms(orgId, code);
+            }
+        }
+        log.info("Seeded UoMs for org {} (subCategories={})", orgId, subCategories);
         return SeedResult.CREATED_NEW;
     }
 

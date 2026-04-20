@@ -118,9 +118,12 @@ public class OrgBootstrapService {
     public BootstrapResult bootstrap(Organisation org) {
         UUID orgId = org.getId();
         String industryCode = org.getIndustryCode();
+        List<String> subCats = org.getSubCategories();
+        boolean hasSubCats = subCats != null && !subCats.isEmpty();
 
-        StepOutcome uoms = runStep("UoMs", orgId,
-                () -> uomService.seedDefaultsForOrg(orgId, industryCode));
+        StepOutcome uoms = hasSubCats
+                ? runStep("UoMs", orgId, () -> uomService.seedDefaultsForOrg(orgId, subCats))
+                : runStep("UoMs", orgId, () -> uomService.seedDefaultsForOrg(orgId, industryCode));
 
         StepOutcome accounts = runStep("CoA", orgId,
                 () -> accountService.seedFromTemplate(orgId, org.getIndustry()));
@@ -131,8 +134,14 @@ public class OrgBootstrapService {
         StepOutcome tax = runStep("TaxConfig", orgId,
                 () -> taxSeedService.seedForOrg(org));
 
-        StepOutcome features = runStep("FeatureFlags", orgId,
-                () -> { featureFlagService.seedForIndustry(orgId, industryCode); return SeedResult.CREATED_NEW; });
+        StepOutcome features = runStep("FeatureFlags", orgId, () -> {
+            if (hasSubCats) {
+                featureFlagService.seedForSubCategories(orgId, subCats);
+            } else {
+                featureFlagService.seedForIndustry(orgId, industryCode);
+            }
+            return SeedResult.CREATED_NEW;
+        });
 
         boolean allOk = uoms.succeeded() && accounts.succeeded()
                 && defaults.succeeded() && tax.succeeded() && features.succeeded();

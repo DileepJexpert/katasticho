@@ -23,6 +23,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
+import java.util.List;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
@@ -96,7 +97,7 @@ public class AuthService {
                 .industry(request.industry())
                 .businessType(request.businessType() != null ? request.businessType() : "RETAILER")
                 .industryCode(request.industryCode() != null ? request.industryCode() : "OTHER_RETAIL")
-                .subCategoryCode(request.subCategoryCode())
+                .subCategories(request.subCategories() != null ? request.subCategories() : List.of())
                 .build();
         org = organisationRepository.saveAndFlush(org);
 

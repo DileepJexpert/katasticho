@@ -24,8 +24,7 @@ public class FeatureFlagService {
     private static final Duration CACHE_TTL = Duration.ofHours(1);
 
     public boolean isEnabled(UUID orgId, String feature) {
-        Set<String> enabled = getCachedEnabled(orgId);
-        return enabled.contains(feature);
+        return getCachedEnabled(orgId).contains(feature);
     }
 
     public List<OrgFeatureFlag> listAll(UUID orgId) {
@@ -39,10 +38,7 @@ public class FeatureFlagService {
     @Transactional
     public void enable(UUID orgId, String feature) {
         OrgFeatureFlag flag = flagRepository.findByOrgIdAndFeature(orgId, feature)
-                .orElseGet(() -> OrgFeatureFlag.builder()
-                        .orgId(orgId)
-                        .feature(feature)
-                        .build());
+                .orElseGet(() -> OrgFeatureFlag.builder().orgId(orgId).feature(feature).build());
         flag.setEnabled(true);
         flagRepository.save(flag);
         invalidateCache(orgId);
@@ -57,27 +53,50 @@ public class FeatureFlagService {
         invalidateCache(orgId);
     }
 
+    /**
+     * Seeds feature flags for an org based on one or more sub-category codes.
+     * Flags from all sub-categories are merged with OR logic — if any sub-category
+     * enables a flag, the flag is enabled.
+     */
     @Transactional
     public void seedForIndustry(UUID orgId, String industryCode) {
+        seedForSubCategories(orgId, industryCode == null
+                ? List.of("OTHER_RETAIL")
+                : List.of(industryCode));
+    }
+
+    @Transactional
+    public void seedForSubCategories(UUID orgId, List<String> subCategoryCodes) {
         flagRepository.deleteByOrgId(orgId);
 
-        Map<String, Boolean> flags = buildFlagsForIndustry(industryCode);
-        for (var entry : flags.entrySet()) {
-            OrgFeatureFlag flag = OrgFeatureFlag.builder()
+        // Start with all flags OFF
+        Map<String, Boolean> merged = defaultFlags();
+
+        // OR-merge flags from each sub-category
+        if (subCategoryCodes != null) {
+            for (String code : subCategoryCodes) {
+                Map<String, Boolean> subFlags = flagsForSubCategory(code);
+                subFlags.forEach((feature, enabled) -> {
+                    if (enabled) merged.put(feature, true);
+                });
+            }
+        }
+
+        for (var entry : merged.entrySet()) {
+            flagRepository.save(OrgFeatureFlag.builder()
                     .orgId(orgId)
                     .feature(entry.getKey())
                     .enabled(entry.getValue())
-                    .build();
-            flagRepository.save(flag);
+                    .build());
         }
 
         invalidateCache(orgId);
-        log.info("Seeded {} feature flags for org {} (industry={})", flags.size(), orgId, industryCode);
+        log.info("Seeded {} feature flags for org {} (subCategories={})",
+                merged.size(), orgId, subCategoryCodes);
     }
 
-    private Map<String, Boolean> buildFlagsForIndustry(String industryCode) {
+    private Map<String, Boolean> defaultFlags() {
         Map<String, Boolean> flags = new LinkedHashMap<>();
-
         flags.put("BATCH_TRACKING", false);
         flags.put("EXPIRY_TRACKING", false);
         flags.put("MRP_PRICING", false);
@@ -89,59 +108,85 @@ public class FeatureFlagService {
         flags.put("BOM_ASSEMBLY", false);
         flags.put("MULTI_WAREHOUSE", false);
         flags.put("MULTI_BRANCH", false);
+        return flags;
+    }
 
-        if (industryCode == null) return flags;
+    private Map<String, Boolean> flagsForSubCategory(String code) {
+        Map<String, Boolean> flags = defaultFlags();
+        if (code == null) return flags;
 
-        switch (industryCode) {
-            case "PHARMACY", "AYURVEDIC" -> {
+        switch (code) {
+            case "PHARMACY", "AYURVEDIC", "ALLOPATHIC_MEDICINE", "AYURVEDIC_HERBAL",
+                 "SINGLE_MEDICAL_STORE", "MEDICAL_SHOP_CHAIN" -> {
                 flags.put("BATCH_TRACKING", true);
                 flags.put("EXPIRY_TRACKING", true);
                 flags.put("MRP_PRICING", true);
                 flags.put("DRUG_SCHEDULE_FIELDS", true);
             }
-            case "GROCERY", "SUPERMARKET", "FRUITS_VEG", "ORGANIC" -> {
+            case "NUTRACEUTICALS", "SURGICAL_CONSUMABLES", "SURGICAL_EQUIPMENT" -> {
+                flags.put("BATCH_TRACKING", true);
+                flags.put("EXPIRY_TRACKING", true);
+                flags.put("MRP_PRICING", true);
+                flags.put("SERIAL_TRACKING", true);
+                flags.put("WARRANTY_MANAGEMENT", true);
+            }
+            case "GROCERY", "SUPERMARKET", "FRUITS_VEG", "ORGANIC",
+                 "KIRANA_STORE", "SUPERMARKET_CHAIN", "FRUITS_VEGETABLES", "ORGANIC_STORE" -> {
                 flags.put("BATCH_TRACKING", true);
                 flags.put("EXPIRY_TRACKING", true);
                 flags.put("MRP_PRICING", true);
                 flags.put("WEIGHT_BASED_BILLING", true);
             }
-            case "ELECTRONICS", "MOBILE", "APPLIANCES", "LED", "CCTV" -> {
+            case "ELECTRONICS", "MOBILE", "APPLIANCES", "LED", "CCTV",
+                 "COMPUTER_LAPTOP", "MOBILE_ACCESSORIES", "HOME_APPLIANCES",
+                 "LED_LIGHTING", "CCTV_SECURITY" -> {
                 flags.put("SERIAL_TRACKING", true);
                 flags.put("WARRANTY_MANAGEMENT", true);
             }
-            case "HARDWARE", "PLUMBING", "ELECTRICAL", "PAINT", "BUILDING" -> {
+            case "HARDWARE", "PLUMBING", "ELECTRICAL", "PAINT", "BUILDING",
+                 "HARDWARE_STORE", "PLUMBING_SANITARY", "ELECTRICAL_SHOP",
+                 "PAINT_HARDWARE", "BUILDING_MATERIALS" -> {
                 flags.put("WEIGHT_BASED_BILLING", true);
             }
-            case "GARMENTS", "FABRIC", "FOOTWEAR", "JEWELRY", "COSMETICS" -> {
+            case "GARMENTS", "FABRIC", "FOOTWEAR", "JEWELRY", "COSMETICS",
+                 "READYMADE_GARMENTS", "FABRIC_STORE", "FOOTWEAR_SHOP",
+                 "JEWELLERY_SHOP", "COSMETICS_BEAUTY" -> {
                 flags.put("SIZE_COLOR_VARIANTS", true);
             }
-            case "FOOD", "BAKERY", "CATERING", "CLOUD_KITCHEN", "JUICE" -> {
+            case "FOOD", "BAKERY", "CATERING", "CLOUD_KITCHEN", "JUICE",
+                 "RESTAURANT", "BAKERY_CONFECTIONERY", "CATERING_SERVICE",
+                 "CLOUD_KITCHEN_BRAND", "JUICE_BEVERAGE" -> {
                 flags.put("BATCH_TRACKING", true);
                 flags.put("EXPIRY_TRACKING", true);
                 flags.put("BOM_ASSEMBLY", true);
                 flags.put("WEIGHT_BASED_BILLING", true);
             }
-            case "AUTO_PARTS" -> {
+            case "AUTO_PARTS", "AUTO_PARTS_SHOP", "AUTOMOBILE_ACCESSORIES" -> {
                 flags.put("SERIAL_TRACKING", true);
                 flags.put("WARRANTY_MANAGEMENT", true);
             }
-            case "PHARMA_MANUFACTURER" -> {
+            case "PHARMA_MANUFACTURER", "ALLOPATHIC_MANUFACTURER" -> {
                 flags.put("BATCH_TRACKING", true);
                 flags.put("EXPIRY_TRACKING", true);
                 flags.put("BOM_ASSEMBLY", true);
                 flags.put("DRUG_SCHEDULE_FIELDS", true);
             }
-            case "FOOD_MANUFACTURER" -> {
+            case "NUTRACEUTICALS_MANUFACTURER" -> {
+                flags.put("BATCH_TRACKING", true);
+                flags.put("EXPIRY_TRACKING", true);
+                flags.put("BOM_ASSEMBLY", true);
+            }
+            case "FOOD_MANUFACTURER", "FOOD_PROCESSING" -> {
                 flags.put("BATCH_TRACKING", true);
                 flags.put("EXPIRY_TRACKING", true);
                 flags.put("BOM_ASSEMBLY", true);
                 flags.put("WEIGHT_BASED_BILLING", true);
             }
-            case "GARMENT_MANUFACTURER" -> {
+            case "GARMENT_MANUFACTURER", "APPAREL_MANUFACTURER" -> {
                 flags.put("SIZE_COLOR_VARIANTS", true);
                 flags.put("BOM_ASSEMBLY", true);
             }
-            case "ELECTRONICS_MANUFACTURER" -> {
+            case "ELECTRONICS_MANUFACTURER", "ELECTRONICS_MFG" -> {
                 flags.put("SERIAL_TRACKING", true);
                 flags.put("BOM_ASSEMBLY", true);
                 flags.put("WARRANTY_MANAGEMENT", true);
@@ -156,9 +201,7 @@ public class FeatureFlagService {
         String key = CACHE_PREFIX + orgId;
         try {
             Set<String> members = redisTemplate.opsForSet().members(key);
-            if (members != null && !members.isEmpty()) {
-                return members;
-            }
+            if (members != null && !members.isEmpty()) return members;
         } catch (Exception e) {
             log.debug("Redis cache miss for features:{}: {}", orgId, e.getMessage());
         }

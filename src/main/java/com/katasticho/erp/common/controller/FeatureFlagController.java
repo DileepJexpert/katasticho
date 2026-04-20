@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+
 @RestController
 @RequestMapping("/api/v1/settings/features")
 @RequiredArgsConstructor
@@ -56,7 +57,12 @@ public class FeatureFlagController {
     public ResponseEntity<Map<String, String>> resetToDefaults() {
         UUID orgId = TenantContext.getCurrentOrgId();
         Organisation org = organisationRepository.findById(orgId).orElseThrow();
-        featureFlagService.seedForIndustry(orgId, org.getIndustryCode());
+        List<String> subCats = org.getSubCategories();
+        if (subCats != null && !subCats.isEmpty()) {
+            featureFlagService.seedForSubCategories(orgId, subCats);
+        } else {
+            featureFlagService.seedForIndustry(orgId, org.getIndustryCode());
+        }
         return ResponseEntity.ok(Map.of("status", "reset"));
     }
 }

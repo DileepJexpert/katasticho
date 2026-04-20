@@ -1,5 +1,6 @@
 package com.katasticho.erp.organisation;
 
+import com.katasticho.erp.common.converter.StringListConverter;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -8,6 +9,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -83,8 +86,10 @@ public class Organisation {
     @Builder.Default
     private String industryCode = "OTHER_RETAIL";
 
-    @Column(name = "sub_category_code", length = 50)
-    private String subCategoryCode;
+    @Column(name = "sub_categories", columnDefinition = "jsonb")
+    @Convert(converter = StringListConverter.class)
+    @Builder.Default
+    private List<String> subCategories = new ArrayList<>();
 
     @Column(name = "is_deleted", nullable = false)
     @Builder.Default
