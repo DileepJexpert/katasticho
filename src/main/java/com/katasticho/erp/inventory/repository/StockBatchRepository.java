@@ -2,10 +2,12 @@ package com.katasticho.erp.inventory.repository;
 
 import com.katasticho.erp.inventory.entity.StockBatch;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -61,4 +63,23 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, UUID> {
      */
     List<StockBatch> findByOrgIdAndItemIdAndIsDeletedFalseOrderByExpiryDateAsc(
             UUID orgId, UUID itemId);
+
+    @Query("""
+            SELECT b
+              FROM StockBatch b, StockBatchBalance bb
+             WHERE b.orgId        = :orgId
+               AND bb.batchId     = b.id
+               AND bb.quantityOnHand > 0
+               AND b.expiryDate  IS NOT NULL
+               AND b.expiryDate  <= :horizon
+               AND b.isDeleted    = false
+             ORDER BY b.expiryDate ASC
+            """)
+    List<StockBatch> findExpiringWithStock(
+            @Param("orgId") UUID orgId,
+            @Param("horizon") LocalDate horizon);
+
+    @Modifying
+    @Query("UPDATE StockBatch b SET b.expired = true WHERE b.orgId = :orgId AND b.expiryDate < :today AND b.expired = false AND b.isDeleted = false")
+    int markExpired(@Param("orgId") UUID orgId, @Param("today") LocalDate today);
 }

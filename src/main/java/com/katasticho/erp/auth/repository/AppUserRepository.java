@@ -4,6 +4,7 @@ import com.katasticho.erp.auth.entity.AppUser;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,4 +22,8 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
     boolean existsByPhoneAndIsDeletedFalse(String phone);
 
     boolean existsByEmailAndOrgIdAndIsDeletedFalse(String email, UUID orgId);
+
+    Optional<AppUser> findFirstByOrgIdAndRoleAndIsDeletedFalse(UUID orgId, String role);
+
+    List<AppUser> findByOrgIdAndRoleAndIsDeletedFalse(UUID orgId, String role);
 }

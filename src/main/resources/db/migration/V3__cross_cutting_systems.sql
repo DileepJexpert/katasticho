@@ -81,11 +81,16 @@ CREATE TABLE notification (
     message     TEXT,
     severity    VARCHAR(10)  NOT NULL DEFAULT 'INFO'
                 CHECK (severity IN ('INFO','WARNING','CRITICAL')),
+    type        VARCHAR(30)  NOT NULL DEFAULT 'SYSTEM'
+                CHECK (type IN ('PAYMENT_REMINDER','EXPIRY_ALERT','LOW_STOCK_ALERT',
+                                'DAILY_SUMMARY','BILL_OVERDUE','SYSTEM','INFO','WARNING')),
     entity_type VARCHAR(30),
     entity_id   UUID,
+    metadata    JSONB        NOT NULL DEFAULT '{}'::jsonb,
     channel     VARCHAR(20)  NOT NULL DEFAULT 'IN_APP'
                 CHECK (channel IN ('IN_APP','EMAIL','WHATSAPP','SMS','PUSH')),
     is_read     BOOLEAN      NOT NULL DEFAULT FALSE,
+    read_at     TIMESTAMPTZ,
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 

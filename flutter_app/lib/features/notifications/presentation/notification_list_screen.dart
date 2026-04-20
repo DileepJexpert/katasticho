@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -11,7 +13,7 @@ class NotificationListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final asyncNotifications = ref.watch(notificationListProvider);
+    final asyncNotifications = ref.watch(notificationListProvider(0));
 
     return Scaffold(
       body: Column(
@@ -23,7 +25,7 @@ class NotificationListScreen extends ConsumerWidget {
                 onPressed: () async {
                   await ref
                       .read(notificationRepositoryProvider)
-                      .markAllRead();
+                      .markAllAsRead();
                   ref.invalidate(notificationListProvider);
                   ref.invalidate(unreadCountProvider);
                 },
@@ -73,9 +75,13 @@ class NotificationListScreen extends ConsumerWidget {
                           if (id != null && n['read'] != true) {
                             await ref
                                 .read(notificationRepositoryProvider)
-                                .markRead(id);
+                                .markAsRead(id);
                             ref.invalidate(notificationListProvider);
                             ref.invalidate(unreadCountProvider);
+                          }
+                          // Navigate to the related entity if possible
+                          if (context.mounted) {
+                            _navigateToEntity(context, n);
                           }
                         },
                       );
@@ -89,28 +95,56 @@ class NotificationListScreen extends ConsumerWidget {
       ),
     );
   }
+
+  void _navigateToEntity(BuildContext context, Map<String, dynamic> n) {
+    final entityType = n['entityType'] as String?;
+    final entityId = n['entityId'] as String?;
+    if (entityType == null || entityId == null) return;
+
+    final route = switch (entityType.toUpperCase()) {
+      'INVOICE' => '/invoices/$entityId',
+      'BILL' => '/bills/$entityId',
+      'ESTIMATE' => '/estimates/$entityId',
+      'CONTACT' => '/contacts/$entityId',
+      'ITEM' => '/items/$entityId',
+      'EXPENSE' => '/expenses/$entityId',
+      'CREDIT_NOTE' => '/credit-notes/$entityId',
+      'SALES_ORDER' => '/sales-orders/$entityId',
+      'VENDOR_PAYMENT' => '/vendor-payments/$entityId',
+      'VENDOR_CREDIT' => '/vendor-credits/$entityId',
+      'STOCK_RECEIPT' => '/stock-receipts/$entityId',
+      'DELIVERY_CHALLAN' => '/delivery-challans/$entityId',
+      'RECURRING_INVOICE' => '/recurring-invoices/$entityId',
+      _ => null,
+    };
+
+    if (route != null) {
+      context.push(route);
+    }
+  }
 }
 
 class _NotificationTile extends StatelessWidget {
   final Map<String, dynamic> notification;
   final VoidCallback onTap;
 
-  const _NotificationTile(
-      {required this.notification, required this.onTap});
+  const _NotificationTile({
+    required this.notification,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final title = notification['title'] as String? ?? '';
     final message = notification['message'] as String? ?? '';
     final severity = notification['severity'] as String? ?? 'INFO';
+    final type = notification['type'] as String? ?? '';
     final isRead = notification['read'] as bool? ?? false;
     final createdAt = notification['createdAt'] as String?;
+    final metadata = notification['metadata'] as Map<String, dynamic>?;
+    final whatsappLink = metadata?['whatsappLink'] as String?;
 
-    final iconColor = switch (severity) {
-      'CRITICAL' => KColors.error,
-      'WARNING' => KColors.warning,
-      _ => KColors.info,
-    };
+    final dotColor = _dotColor(severity, type);
 
     final icon = switch (severity) {
       'CRITICAL' => Icons.error_outline_rounded,
@@ -121,7 +155,7 @@ class _NotificationTile extends StatelessWidget {
     return Material(
       color: isRead
           ? Colors.transparent
-          : iconColor.withValues(alpha: 0.05),
+          : dotColor.withValues(alpha: 0.05),
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -130,14 +164,15 @@ class _NotificationTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Colored dot + icon
               Container(
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.12),
+                  color: dotColor.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 18, color: iconColor),
+                child: Icon(icon, size: 18, color: dotColor),
               ),
               KSpacing.hGapMd,
               Expanded(
@@ -161,7 +196,7 @@ class _NotificationTile extends StatelessWidget {
                             width: 8,
                             height: 8,
                             decoration: BoxDecoration(
-                              color: iconColor,
+                              color: dotColor,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -169,13 +204,20 @@ class _NotificationTile extends StatelessWidget {
                     ),
                     KSpacing.vGapXs,
                     Text(message, style: KTypography.bodySmall),
-                    if (createdAt != null) ...[
-                      KSpacing.vGapXs,
-                      Text(
-                        _formatDate(createdAt),
-                        style: KTypography.labelSmall,
-                      ),
-                    ],
+                    KSpacing.vGapXs,
+                    Row(
+                      children: [
+                        if (createdAt != null)
+                          Expanded(
+                            child: Text(
+                              _formatRelativeTime(createdAt),
+                              style: KTypography.labelSmall,
+                            ),
+                          ),
+                        if (whatsappLink != null && whatsappLink.isNotEmpty)
+                          _WhatsAppButton(link: whatsappLink),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -186,18 +228,84 @@ class _NotificationTile extends StatelessWidget {
     );
   }
 
-  String _formatDate(String iso) {
+  /// Returns the dot color based on severity and notification type.
+  ///
+  /// Red: CRITICAL severity, PAYMENT_REMINDER, EXPIRY_ALERT
+  /// Yellow/amber: WARNING severity, LOW_STOCK_ALERT, BILL_OVERDUE
+  /// Green: INFO severity, DAILY_SUMMARY
+  Color _dotColor(String severity, String type) {
+    // Type-based overrides first
+    switch (type.toUpperCase()) {
+      case 'PAYMENT_REMINDER':
+      case 'EXPIRY_ALERT':
+        return KColors.error;
+      case 'LOW_STOCK_ALERT':
+      case 'BILL_OVERDUE':
+        return KColors.warning;
+      case 'DAILY_SUMMARY':
+        return KColors.success;
+    }
+    // Fall back to severity
+    return switch (severity.toUpperCase()) {
+      'CRITICAL' => KColors.error,
+      'WARNING' => KColors.warning,
+      _ => KColors.success,
+    };
+  }
+
+  String _formatRelativeTime(String iso) {
     try {
       final dt = DateTime.parse(iso).toLocal();
       final now = DateTime.now();
       final diff = now.difference(dt);
-      if (diff.inMinutes < 1) return 'Just now';
-      if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-      if (diff.inDays < 1) return '${diff.inHours}h ago';
-      if (diff.inDays < 7) return '${diff.inDays}d ago';
+
+      if (diff.isNegative) return 'Just now';
+      if (diff.inSeconds < 60) return 'Just now';
+      if (diff.inMinutes < 60) {
+        final m = diff.inMinutes;
+        return '$m ${m == 1 ? 'minute' : 'minutes'} ago';
+      }
+      if (diff.inHours < 24) {
+        final h = diff.inHours;
+        return '$h ${h == 1 ? 'hour' : 'hours'} ago';
+      }
+      if (diff.inDays == 1) return 'Yesterday';
+      if (diff.inDays < 7) return '${diff.inDays} days ago';
+      if (diff.inDays < 30) {
+        final w = diff.inDays ~/ 7;
+        return '$w ${w == 1 ? 'week' : 'weeks'} ago';
+      }
       return '${dt.day}/${dt.month}/${dt.year}';
     } catch (_) {
       return '';
     }
+  }
+}
+
+class _WhatsAppButton extends StatelessWidget {
+  final String link;
+
+  const _WhatsAppButton({required this.link});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 28,
+      child: TextButton.icon(
+        onPressed: () async {
+          final uri = Uri.parse(link);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        },
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          visualDensity: VisualDensity.compact,
+          foregroundColor: const Color(0xFF25D366),
+        ),
+        icon: const Icon(Icons.chat_rounded, size: 14),
+        label: Text('WhatsApp', style: KTypography.labelSmall),
+      ),
+    );
   }
 }
