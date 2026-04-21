@@ -18,6 +18,7 @@ class CartItem {
   final double currentStock;
   final bool isWeightBased;
   final double? mrp;
+  final double? purchasePrice;
   double quantity;
   final String? unitUomId;
   final double? unitConversionFactor;
@@ -40,6 +41,7 @@ class CartItem {
     this.currentStock = 0,
     this.isWeightBased = false,
     this.mrp,
+    this.purchasePrice,
     this.quantity = 1,
     this.unitUomId,
     this.unitConversionFactor,
@@ -67,6 +69,7 @@ class CartItem {
     double? currentStock,
     bool? isWeightBased,
     double? mrp,
+    double? purchasePrice,
     double? quantity,
     String? unitUomId,
     double? unitConversionFactor,
@@ -89,6 +92,7 @@ class CartItem {
       currentStock: currentStock ?? this.currentStock,
       isWeightBased: isWeightBased ?? this.isWeightBased,
       mrp: mrp ?? this.mrp,
+      purchasePrice: purchasePrice ?? this.purchasePrice,
       quantity: quantity ?? this.quantity,
       unitUomId: unitUomId ?? this.unitUomId,
       unitConversionFactor: unitConversionFactor ?? this.unitConversionFactor,
@@ -145,6 +149,8 @@ class PosCartState {
   double get subtotal => items.fold(0.0, (sum, item) => sum + item.lineTotal);
   double get taxAmount => items.fold(0.0, (sum, item) => sum + item.taxAmount);
   double get total => subtotal + taxAmount;
+  double get totalCost => items.fold(
+      0.0, (sum, item) => sum + (item.purchasePrice ?? 0) * item.quantity);
   int get itemCount => items.length;
   int get totalQuantity =>
       items.fold(0, (sum, item) => sum + item.quantity.ceil());

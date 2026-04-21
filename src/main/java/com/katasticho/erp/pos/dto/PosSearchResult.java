@@ -14,6 +14,7 @@ public record PosSearchResult(
         String barcode,
         BigDecimal rate,
         BigDecimal mrp,
+        BigDecimal purchasePrice,
         UUID taxGroupId,
         String taxGroupName,
         String hsnCode,
