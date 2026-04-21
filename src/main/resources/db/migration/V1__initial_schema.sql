@@ -455,6 +455,10 @@ CREATE TABLE item (
                       pack_size               VARCHAR(50),
                       storage_condition       VARCHAR(100),
                       prescription_required   BOOLEAN       NOT NULL DEFAULT FALSE,
+                      weight_based_billing    BOOLEAN       NOT NULL DEFAULT FALSE,
+                      purchase_uom_id         UUID REFERENCES uom(id),
+                      purchase_uom_conversion NUMERIC(15,4),
+                      purchase_price_per_uom  NUMERIC(15,2),
                       is_active               BOOLEAN       NOT NULL DEFAULT TRUE,
                       is_deleted              BOOLEAN       NOT NULL DEFAULT FALSE,
                       created_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -480,6 +484,7 @@ CREATE INDEX        idx_item_group_id         ON item(group_id)             WHER
 CREATE INDEX        idx_item_barcode          ON item(barcode)              WHERE barcode IS NOT NULL;
 CREATE INDEX        idx_item_preferred_vendor ON item(preferred_vendor_id)  WHERE preferred_vendor_id IS NOT NULL;
 CREATE INDEX        idx_item_manufacturer     ON item(org_id, manufacturer) WHERE manufacturer IS NOT NULL;
+CREATE INDEX        idx_item_purchase_uom     ON item(purchase_uom_id)      WHERE purchase_uom_id IS NOT NULL;
 
 
 -- ─────────────────────────────────────────────────────────────
@@ -504,6 +509,23 @@ CREATE UNIQUE INDEX idx_uom_conv_org_wide ON uom_conversion(org_id, from_uom_id,
 CREATE UNIQUE INDEX idx_uom_conv_per_item ON uom_conversion(org_id, item_id, from_uom_id, to_uom_id)
     WHERE item_id IS NOT NULL AND NOT is_deleted;
 CREATE INDEX idx_uom_conv_org ON uom_conversion(org_id) WHERE NOT is_deleted;
+
+-- Per-item secondary selling/buying unit prices
+CREATE TABLE item_unit_price (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id            UUID          NOT NULL REFERENCES organisation(id),
+    item_id           UUID          NOT NULL REFERENCES item(id),
+    uom_id            UUID          NOT NULL REFERENCES uom(id),
+    conversion_factor NUMERIC(15,4) NOT NULL CHECK (conversion_factor > 0),
+    custom_price      NUMERIC(15,2),
+    is_deleted        BOOLEAN       NOT NULL DEFAULT FALSE,
+    created_at        TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    created_by        UUID,
+    CONSTRAINT item_unit_price_unique UNIQUE (org_id, item_id, uom_id)
+);
+
+CREATE INDEX idx_item_unit_price_item ON item_unit_price(org_id, item_id) WHERE NOT is_deleted;
 
 
 -- ─────────────────────────────────────────────────────────────
@@ -1471,6 +1493,9 @@ CREATE TABLE purchase_bill_line (
                                     base_taxable_amount  NUMERIC(15,2) NOT NULL DEFAULT 0,
                                     base_tax_amount      NUMERIC(15,2) NOT NULL DEFAULT 0,
                                     base_line_total      NUMERIC(15,2) NOT NULL DEFAULT 0,
+                                    unit_uom_id          UUID          REFERENCES uom(id),
+                                    unit_conversion_factor NUMERIC(15,4),
+                                    base_quantity        NUMERIC(15,4),
                                     created_at           TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
@@ -1636,7 +1661,10 @@ CREATE TABLE sales_receipt_line (
                                     hsn_code          VARCHAR(8),
                                     amount            DECIMAL(15,2) NOT NULL DEFAULT 0,
                                     batch_id          UUID REFERENCES stock_batch(id),
-                                    stock_movement_id UUID REFERENCES stock_movement(id)
+                                    stock_movement_id UUID REFERENCES stock_movement(id),
+                                    unit_uom_id       UUID REFERENCES uom(id),
+                                    unit_conversion_factor DECIMAL(15,4),
+                                    base_quantity     DECIMAL(15,4)
 );
 
 CREATE INDEX idx_srl_receipt ON sales_receipt_line(receipt_id);
