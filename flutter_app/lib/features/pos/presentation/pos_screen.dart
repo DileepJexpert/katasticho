@@ -134,6 +134,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           currentStock: stock,
           isWeightBased: isWeightBased,
           mrp: mrp,
+          purchasePrice: (item['purchasePrice'] as num?)?.toDouble(),
           quantity: quantity,
           availableUnits: secUnits,
         ));

@@ -145,6 +145,11 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
                 ),
               ],
             ),
+            KSpacing.vGapMd,
+
+            // Margin hint
+            _MarginHintBanner(cart: widget.cart),
+
             KSpacing.vGapLg,
 
             // Mode-specific content
@@ -476,6 +481,8 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
                     style: KTypography.labelLarge.copyWith(color: cs.primary)),
               ],
             ),
+            KSpacing.vGapMd,
+            _MarginHintBanner(cart: widget.cart),
             KSpacing.vGapLg,
             _SplitRow(
               icon: Icons.payments_outlined,
@@ -650,6 +657,87 @@ class _QuickAmountChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _MarginHintBanner extends StatelessWidget {
+  final PosCartState cart;
+  const _MarginHintBanner({required this.cart});
+
+  @override
+  Widget build(BuildContext context) {
+    final totalCost = cart.totalCost;
+    if (totalCost <= 0) return const SizedBox.shrink();
+
+    final sellingTotal = cart.subtotal;
+    final margin = sellingTotal - totalCost;
+    final marginPct = (margin / totalCost * 100);
+    final isBelowCost = margin < 0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isBelowCost
+            ? KColors.error.withValues(alpha: 0.08)
+            : KColors.successLight,
+        borderRadius: BorderRadius.circular(10),
+        border: isBelowCost
+            ? Border.all(color: KColors.error.withValues(alpha: 0.3))
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isBelowCost ? Icons.warning_amber_rounded : Icons.insights,
+                size: 16,
+                color: isBelowCost ? KColors.error : KColors.success,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                isBelowCost ? 'Selling below cost!' : 'Margin summary',
+                style: KTypography.labelSmall.copyWith(
+                  color: isBelowCost ? KColors.error : KColors.success,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(child: _field('Cost', CurrencyFormatter.formatIndian(totalCost))),
+              Expanded(child: _field('Selling', CurrencyFormatter.formatIndian(sellingTotal))),
+              Expanded(
+                child: _field(
+                  'Margin',
+                  '${CurrencyFormatter.formatIndian(margin.abs())} (${marginPct.abs().toStringAsFixed(0)}%)',
+                  color: isBelowCost ? KColors.error : KColors.success,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _field(String label, String value, {Color? color}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: KTypography.labelSmall
+                .copyWith(color: KColors.textSecondary, fontSize: 10)),
+        Text(value,
+            style: KTypography.labelSmall.copyWith(
+              color: color ?? KColors.textPrimary,
+              fontWeight: FontWeight.w600,
+            )),
+      ],
     );
   }
 }
