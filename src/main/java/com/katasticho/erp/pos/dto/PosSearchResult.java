@@ -22,5 +22,6 @@ public record PosSearchResult(
         BigDecimal currentStock,
         boolean weightBasedBilling,
         UUID batchId,
-        LocalDate batchExpiryDate
+        LocalDate batchExpiryDate,
+        DiscountThresholds discountThresholds
 ) {}

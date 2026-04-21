@@ -9,6 +9,7 @@ import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
+import com.katasticho.erp.pos.dto.DiscountThresholds;
 import com.katasticho.erp.pos.dto.PosSearchResult;
 import com.katasticho.erp.tax.repository.TaxGroupRepository;
 import com.katasticho.erp.tax.entity.TaxGroup;
@@ -119,6 +120,10 @@ public class PosSearchService {
                 }
             }
 
+            DiscountThresholds thresholds = DiscountThresholds.compute(
+                    item.getSalePrice().doubleValue(),
+                    item.getPurchasePrice().doubleValue());
+
             return new PosSearchResult(
                     item.getId(),
                     item.getName(),
@@ -135,7 +140,8 @@ public class PosSearchService {
                     currentStock,
                     item.isWeightBasedBilling(),
                     batchId,
-                    batchExpiry);
+                    batchExpiry,
+                    thresholds);
         }).toList();
     }
 }

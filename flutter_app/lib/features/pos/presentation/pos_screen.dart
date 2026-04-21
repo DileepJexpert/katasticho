@@ -137,6 +137,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           purchasePrice: (item['purchasePrice'] as num?)?.toDouble(),
           quantity: quantity,
           availableUnits: secUnits,
+          discountThresholds: item['discountThresholds'] as Map<String, dynamic>?,
         ));
 
     _clearSearch();
@@ -219,6 +220,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   Future<void> _onPaymentTap(String mode) async {
     final cart = ref.read(posCartProvider);
     if (cart.isEmpty) return;
+
+    if (cart.hasBlockedItems) {
+      _showErrorSnackBar('Cannot complete sale — one or more items are below cost. Adjust discount or remove the item.');
+      return;
+    }
 
     ref.read(posCartProvider.notifier).setPaymentMode(mode);
 
@@ -322,7 +328,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 'description': item.name,
                 'quantity': item.quantity,
                 if (item.unit != null) 'unit': item.unit,
-                'rate': item.rate,
+                'rate': item.effectiveRate,
+                if (item.discountPct > 0) 'discountPct': item.discountPct,
                 if (item.taxGroupId != null) 'taxGroupId': item.taxGroupId,
                 if (item.hsnCode != null) 'hsnCode': item.hsnCode,
                 if (item.batchId != null) 'batchId': item.batchId,
