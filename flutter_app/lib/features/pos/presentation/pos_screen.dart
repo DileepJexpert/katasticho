@@ -24,6 +24,7 @@ import 'widgets/pos_held_carts_sheet.dart';
 import 'widgets/pos_favourites_grid.dart';
 import 'widgets/pos_barcode_scanner.dart';
 import 'widgets/pos_recent_transactions.dart';
+import 'widgets/pos_weight_popup.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -76,26 +77,57 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   // ── Cart operations ──────────────────────────────────────────
 
-  void _addToCart(Map<String, dynamic> item) {
+  void _addToCart(Map<String, dynamic> item) async {
     final stock = (item['currentStock'] as num?)?.toDouble() ?? 0;
     if (stock <= 0) return;
 
+    final batchExpiry = item['batchExpiryDate'] as String?;
+    if (batchExpiry != null && batchExpiry.isNotEmpty) {
+      final expiry = DateTime.tryParse(batchExpiry);
+      if (expiry != null && expiry.isBefore(DateTime.now())) {
+        _showErrorSnackBar('Batch expired ($batchExpiry) — sale blocked');
+        return;
+      }
+    }
+
     final taxRate = _parseTaxRate(item['taxGroupName'] as String?);
+    final isWeightBased = item['weightBasedBilling'] == true;
+    final rate = (item['rate'] as num?)?.toDouble() ?? 0;
+    final mrp = (item['mrp'] as num?)?.toDouble();
+    final itemName = item['name'] as String? ?? 'Item';
+
+    double quantity = 1;
+    String? unit = item['unit'] as String?;
+
+    if (isWeightBased) {
+      final weightKg = await showWeightPopup(
+        context,
+        itemName: itemName,
+        ratePerKg: rate,
+      );
+      if (weightKg == null || !mounted) return;
+      quantity = weightKg;
+      unit = 'KG';
+    }
 
     ref.read(posCartProvider.notifier).addItem(CartItem(
           itemId: item['id'] as String?,
-          name: item['name'] as String? ?? 'Item',
+          name: itemName,
           sku: item['sku'] as String?,
           barcode: item['barcode'] as String?,
-          rate: (item['rate'] as num?)?.toDouble() ?? 0,
-          unit: item['unit'] as String?,
+          rate: rate,
+          unit: unit,
           taxGroupId: item['taxGroupId'] as String?,
           taxGroupName: item['taxGroupName'] as String?,
           hsnCode: item['hsnCode'] as String?,
           batchId: item['batchId'] as String?,
+          batchNumber: item['batchNumber'] as String?,
           taxRate: taxRate,
-          batchExpiry: item['batchExpiryDate'] as String?,
+          batchExpiry: batchExpiry,
           currentStock: stock,
+          isWeightBased: isWeightBased,
+          mrp: mrp,
+          quantity: quantity,
         ));
 
     _clearSearch();
@@ -285,6 +317,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 if (item.taxGroupId != null) 'taxGroupId': item.taxGroupId,
                 if (item.hsnCode != null) 'hsnCode': item.hsnCode,
                 if (item.batchId != null) 'batchId': item.batchId,
+                if (item.isWeightBased) 'weightBased': true,
               })
           .toList(),
     };
@@ -487,6 +520,92 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     return KeyEventResult.ignored;
   }
 
+  // ── AppBar actions ───────────────────────────────────────────
+
+  List<Widget> _buildAppBarActions(BuildContext context, PosCartState posCartState) {
+    final narrow = MediaQuery.of(context).size.width < 430;
+    final hasItems = posCartState.items.isNotEmpty;
+
+    final primary = <Widget>[
+      const PosCustomerButton(),
+      const SizedBox(width: 4),
+      IconButton(
+        onPressed: _scanBarcode,
+        icon: const Icon(Icons.qr_code_scanner, size: 20),
+        tooltip: 'Scan barcode (F7)',
+      ),
+      IconButton(
+        onPressed: _showRecentTransactions,
+        icon: const Icon(Icons.receipt_long, size: 20),
+        tooltip: 'Recent sales',
+      ),
+      if (hasItems)
+        IconButton(
+          onPressed: _holdCart,
+          icon: const Icon(Icons.pause_circle_outline, size: 20),
+          tooltip: 'Hold cart (F4)',
+        ),
+      _HeldCartsBadge(onTap: _recallCart),
+    ];
+
+    if (narrow) {
+      // Collapse Clear + Settings into overflow menu on small screens
+      return [
+        ...primary,
+        PopupMenuButton<_PosOverflowAction>(
+          icon: const Icon(Icons.more_vert, size: 20),
+          onSelected: (action) {
+            switch (action) {
+              case _PosOverflowAction.clear:
+                ref.read(posCartProvider.notifier).clear();
+              case _PosOverflowAction.settings:
+                context.push('/pos/receipt-settings');
+            }
+          },
+          itemBuilder: (_) => [
+            if (hasItems)
+              const PopupMenuItem(
+                value: _PosOverflowAction.clear,
+                child: ListTile(
+                  leading: Icon(Icons.clear_all),
+                  title: Text('Clear cart'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+            const PopupMenuItem(
+              value: _PosOverflowAction.settings,
+              child: ListTile(
+                leading: Icon(Icons.settings_outlined),
+                title: Text('Receipt settings'),
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(width: 4),
+      ];
+    }
+
+    // Wide screen — show all actions inline
+    return [
+      ...primary,
+      if (hasItems)
+        TextButton.icon(
+          onPressed: () => ref.read(posCartProvider.notifier).clear(),
+          icon: const Icon(Icons.clear_all, size: 18),
+          label: const Text('Clear'),
+        ),
+      IconButton(
+        icon: const Icon(Icons.settings_outlined, size: 20),
+        onPressed: () => context.push('/pos/receipt-settings'),
+        tooltip: 'Receipt settings',
+      ),
+      const SizedBox(width: 4),
+    ];
+  }
+
   // ── Build ────────────────────────────────────────────────────
 
   @override
@@ -502,41 +621,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           Scaffold(
             appBar: AppBar(
               title: const Text('Quick POS'),
-              actions: [
-                const PosCustomerButton(),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: _scanBarcode,
-                  icon: const Icon(Icons.qr_code_scanner, size: 20),
-                  tooltip: 'Scan barcode (F7)',
-                ),
-                IconButton(
-                  onPressed: _showRecentTransactions,
-                  icon: const Icon(Icons.receipt_long, size: 20),
-                  tooltip: 'Recent sales',
-                ),
-                if (cart.items.isNotEmpty)
-                  IconButton(
-                    onPressed: _holdCart,
-                    icon: const Icon(Icons.pause_circle_outline, size: 20),
-                    tooltip: 'Hold cart (F4)',
-                  ),
-                _HeldCartsBadge(onTap: _recallCart),
-                if (cart.items.isNotEmpty)
-                  TextButton.icon(
-                    onPressed: () {
-                      ref.read(posCartProvider.notifier).clear();
-                    },
-                    icon: const Icon(Icons.clear_all, size: 18),
-                    label: const Text('Clear'),
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.settings_outlined, size: 20),
-                  onPressed: () => context.push('/pos/receipt-settings'),
-                  tooltip: 'Receipt settings',
-                ),
-                const SizedBox(width: 4),
-              ],
+              actions: _buildAppBarActions(context, cart),
             ),
             body: Column(
               children: [
@@ -671,6 +756,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   TextStyle get _shortcutStyle => KTypography.labelSmall.copyWith(
       color: Theme.of(context).colorScheme.outlineVariant, fontSize: 10);
 }
+
+enum _PosOverflowAction { clear, settings }
 
 class _HeldCartsBadge extends ConsumerWidget {
   final VoidCallback onTap;

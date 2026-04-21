@@ -12,6 +12,8 @@ import '../core/widgets/k_command_palette.dart';
 import '../core/widgets/k_quick_create_menu.dart';
 import '../core/widgets/k_top_bar.dart';
 import '../core/widgets/theme_mode_switcher.dart';
+import '../features/auth/data/auth_repository.dart';
+import '../features/dashboard/data/dashboard_repository.dart';
 import '../features/notifications/data/notification_repository.dart';
 import 'app_router.dart';
 
@@ -128,6 +130,12 @@ const _accountingNavItems = [
 ];
 
 const _secondaryNavItems = [
+  NavItem(
+    label: 'Credit Ledger',
+    icon: Icons.menu_book_outlined,
+    activeIcon: Icons.menu_book_rounded,
+    route: Routes.creditLedger,
+  ),
   NavItem(
     label: 'Estimates',
     icon: Icons.request_quote_outlined,
@@ -438,58 +446,81 @@ class _DesktopShell extends ConsumerWidget {
                                 height: 1,
                               ),
                               const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Tooltip(
-                                    message: collapsed
-                                        ? (authState.userName ?? 'User')
-                                        : '',
-                                    child: CircleAvatar(
-                                      radius: 17,
-                                      backgroundColor: scs.primaryContainer,
-                                      child: Text(
-                                        (authState.userName ?? 'U')[0]
-                                            .toUpperCase(),
-                                        style: TextStyle(
-                                          color: scs.onPrimaryContainer,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  if (!collapsed) ...[
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            authState.userName ?? 'User',
-                                            style: TextStyle(
-                                              color: scs.onSurface,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w700,
+                              Material(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: collapsed
+                                      ? null
+                                      : () => _showOrgSwitcher(context, ref),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 4, vertical: 4),
+                                    child: Row(
+                                      children: [
+                                        Tooltip(
+                                          message: collapsed
+                                              ? (authState.userName ?? 'User')
+                                              : '',
+                                          child: CircleAvatar(
+                                            radius: 17,
+                                            backgroundColor:
+                                                scs.primaryContainer,
+                                            child: Text(
+                                              (authState.userName ?? 'U')[0]
+                                                  .toUpperCase(),
+                                              style: TextStyle(
+                                                color: scs.onPrimaryContainer,
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 13,
+                                              ),
                                             ),
-                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          Text(
-                                            authState.orgName ??
-                                                'Organisation',
-                                            style: TextStyle(
-                                              color: scs.onSurfaceVariant,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w500,
+                                        ),
+                                        if (!collapsed) ...[
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  authState.userName ?? 'User',
+                                                  style: TextStyle(
+                                                    color: scs.onSurface,
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                Text(
+                                                  authState.orgName ??
+                                                      'Organisation',
+                                                  style: TextStyle(
+                                                    color:
+                                                        scs.onSurfaceVariant,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ],
                                             ),
-                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          Icon(
+                                            Icons.unfold_more_rounded,
+                                            size: 16,
+                                            color: scs.onSurfaceVariant,
                                           ),
                                         ],
-                                      ),
+                                      ],
                                     ),
-                                  ],
-                                ],
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -795,6 +826,167 @@ class _MobileShell extends StatelessWidget {
             .toList(),
       ),
     );
+  }
+}
+
+// ── Org Switcher ──────────────────────────────────────────────────────
+
+void _showOrgSwitcher(BuildContext context, WidgetRef ref) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (_) => ProviderScope(
+      parent: ProviderScope.containerOf(context),
+      child: const _OrgSwitcherSheet(),
+    ),
+  );
+}
+
+class _OrgSwitcherSheet extends ConsumerStatefulWidget {
+  const _OrgSwitcherSheet();
+
+  @override
+  ConsumerState<_OrgSwitcherSheet> createState() => _OrgSwitcherSheetState();
+}
+
+class _OrgSwitcherSheetState extends ConsumerState<_OrgSwitcherSheet> {
+  bool _switching = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final orgsAsync = ref.watch(myOrgsProvider);
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Switch Organisation',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            orgsAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (_, __) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'Failed to load organisations',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+              data: (orgs) => Column(
+                children: orgs.map((org) {
+                  final orgId = org['orgId'] as String;
+                  final orgName = org['orgName'] as String? ?? 'Organisation';
+                  final role = org['role'] as String? ?? '';
+                  final isCurrent = orgId == authState.orgId;
+
+                  return ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    leading: CircleAvatar(
+                      radius: 20,
+                      backgroundColor: isCurrent
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: Text(
+                        orgName[0].toUpperCase(),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: isCurrent
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    title: Text(orgName,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Text(role,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant,
+                        )),
+                    trailing: isCurrent
+                        ? Icon(Icons.check_circle_rounded,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 20)
+                        : null,
+                    onTap: isCurrent || _switching
+                        ? null
+                        : () => _doSwitch(orgId),
+                  );
+                }).toList(),
+              ),
+            ),
+            const Divider(height: 24),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              leading: CircleAvatar(
+                radius: 20,
+                backgroundColor:
+                    Theme.of(context).colorScheme.secondaryContainer,
+                child: Icon(
+                  Icons.add_rounded,
+                  color: Theme.of(context).colorScheme.secondary,
+                  size: 20,
+                ),
+              ),
+              title: const Text('Add New Organisation',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Create a separate workspace'),
+              onTap: _switching
+                  ? null
+                  : () {
+                      Navigator.pop(context);
+                      context.go(Routes.onboardingBusinessType);
+                    },
+            ),
+            if (_switching)
+              const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _doSwitch(String targetOrgId) async {
+    setState(() => _switching = true);
+    final authRepo = ref.read(authRepositoryProvider);
+    final success = await ref.read(authProvider.notifier).switchOrg(
+          targetOrgId: targetOrgId,
+          switchFn: authRepo.switchOrg,
+        );
+    if (!mounted) return;
+    if (success) {
+      // Clear org-scoped providers that survive navigation (not autoDispose or
+      // kept alive by the shell). Screen-specific autoDispose providers clear
+      // themselves when the screen unmounts via context.go().
+      ref.invalidate(unreadCountProvider);
+      ref.invalidate(dashboardFilterProvider);
+      Navigator.pop(context);
+      context.go(Routes.dashboard);
+    } else {
+      setState(() => _switching = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to switch organisation')),
+      );
+    }
   }
 }
 

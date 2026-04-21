@@ -42,6 +42,7 @@ public record ItemResponse(
         String packSize,
         String storageCondition,
         boolean prescriptionRequired,
+        boolean weightBasedBilling,
         String revenueAccountCode,
         String cogsAccountCode,
         String inventoryAccountCode,

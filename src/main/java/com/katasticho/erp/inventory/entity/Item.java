@@ -157,6 +157,10 @@ public class Item extends BaseEntity {
     @Builder.Default
     private boolean prescriptionRequired = false;
 
+    @Column(name = "weight_based_billing", nullable = false)
+    @Builder.Default
+    private boolean weightBasedBilling = false;
+
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean active = true;

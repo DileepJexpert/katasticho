@@ -125,12 +125,14 @@ public class PosSearchService {
                     item.getSku(),
                     item.getBarcode(),
                     item.getSalePrice(),
+                    item.getMrp(),
                     item.getDefaultTaxGroupId(),
                     item.getDefaultTaxGroupId() != null
                             ? taxGroupNames.get(item.getDefaultTaxGroupId()) : null,
                     item.getHsnCode(),
                     item.getUnitOfMeasure(),
                     currentStock,
+                    item.isWeightBasedBilling(),
                     batchId,
                     batchExpiry);
         }).toList();

@@ -18,9 +18,12 @@ class ApiConfig {
   static const String signup = '/api/v1/auth/signup';
   static const String refreshToken = '/api/v1/auth/refresh';
   static const String me = '/api/v1/auth/me';
+  static const String myOrgs = '/api/v1/users/me/organisations';
+  static const String switchOrg = '/api/v1/users/me/switch-org';
 
   // Organisation
   static const String organisations = '/api/v1/organisations';
+  static String organisationById(String id) => '/api/v1/organisations/$id';
 
   // Accounting
   static const String chartOfAccounts = '/api/v1/accounts';
@@ -59,6 +62,7 @@ class ApiConfig {
   static String itemById(String id) => '/api/v1/items/$id';
   static const String itemImport = '/api/v1/items/import';
   static const String itemImportPreview = '/api/v1/items/import/preview';
+  static const String itemImportTemplate = '/api/v1/items/import/template';
   // F4 BOM — composite item bill of materials (only valid for
   // itemType=COMPOSITE parents; the resolver at invoice-send time is
   // server-side and never hit over HTTP).
@@ -141,6 +145,9 @@ class ApiConfig {
   // F6: Contacts (unified customer + vendor)
   static const String contacts = '/api/v1/contacts';
   static String contactById(String id) => '/api/v1/contacts/$id';
+  static const String contactImport = '/api/v1/contacts/import';
+  static const String contactImportPreview = '/api/v1/contacts/import/preview';
+  static const String contactImportTemplate = '/api/v1/contacts/import/template';
   static String contactPersons(String contactId) =>
       '/api/v1/contacts/$contactId/persons';
   static String contactPersonById(String contactId, String personId) =>
@@ -187,6 +194,7 @@ class ApiConfig {
       '/api/v1/bills/$id/whatsapp-link';
   static String postBill(String id) => '/api/v1/bills/$id/post';
   static String voidBill(String id) => '/api/v1/bills/$id/void';
+  static String billPdf(String id) => '/api/v1/bills/$id/pdf';
   static String billPayments(String id) => '/api/v1/bills/$id/payments';
   static String billComments(String id) => '/api/v1/bills/$id/comments';
   static String billAttachments(String id) => '/api/v1/bills/$id/attachments';

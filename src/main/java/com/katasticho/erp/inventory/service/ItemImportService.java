@@ -10,8 +10,10 @@ import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.entity.ItemType;
 import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.ReferenceType;
+import com.katasticho.erp.inventory.entity.StockBatch;
 import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +28,7 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -34,7 +37,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Bulk item import from CSV. Supports a two-phase flow:
+ * Bulk item import from CSV / XLSX. Supports a two-phase flow:
  *
  *   1. {@link #previewImport(MultipartFile)} — dry-run, parses + validates
  *      every row and returns a row-level verdict for the UI preview grid.
@@ -47,21 +50,26 @@ import java.util.UUID;
  * preview grid and the committed import can never drift out of sync.
  *
  * Expected columns (case-insensitive headers):
- *   sku            (required)
- *   name           (required)
- *   description    (optional)
- *   item_type      (optional, default GOODS — values: GOODS / SERVICE)
- *   category       (optional)
- *   brand          (optional)
- *   hsn_code       (optional)
- *   unit_of_measure (optional, default PCS)
- *   purchase_price (optional, default 0)
- *   sale_price     (optional, default 0)
- *   mrp            (optional)
- *   gst_rate       (optional, default 0)
- *   reorder_level  (optional, default 0)
+ *   sku              (required)
+ *   name             (required)
+ *   description      (optional)
+ *   item_type        (optional, default GOODS — values: GOODS / SERVICE)
+ *   category         (optional)
+ *   brand            (optional)
+ *   hsn_code         (optional)
+ *   unit_of_measure  (optional, default PCS)
+ *   purchase_price   (optional, default 0)
+ *   sale_price       (optional, default 0)
+ *   mrp              (optional)
+ *   gst_rate         (optional, default 0)
+ *   reorder_level    (optional, default 0)
  *   reorder_quantity (optional, default 0)
- *   opening_stock  (optional, default 0)
+ *   opening_stock    (optional, default 0)
+ *   barcode          (optional)
+ *   manufacturer     (optional)
+ *   batch_number     (optional — triggers batch creation when non-empty)
+ *   mfg_date         (optional, ISO yyyy-MM-dd)
+ *   expiry_date      (optional, ISO yyyy-MM-dd)
  */
 @Service
 @RequiredArgsConstructor
@@ -71,16 +79,27 @@ public class ItemImportService {
     private static final String STATUS_OK = "OK";
     private static final String STATUS_ERROR = "ERROR";
 
+    private static final Set<String> XLSX_CONTENT_TYPES = Set.of(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-excel"
+    );
+
     private final ItemRepository itemRepository;
     private final WarehouseRepository warehouseRepository;
     private final InventoryService inventoryService;
+    private final StockBatchRepository stockBatchRepository;
     private final AuditService auditService;
     private final UomService uomService;
 
+    public static final String TEMPLATE_HEADER =
+            "sku,name,description,item_type,category,brand,hsn_code,"
+            + "unit_of_measure,purchase_price,sale_price,mrp,gst_rate,"
+            + "reorder_level,reorder_quantity,opening_stock,"
+            + "barcode,manufacturer,batch_number,mfg_date,expiry_date";
+
     /**
-     * Dry-run validator — parse the CSV, validate every row, return a
-     * per-row verdict so the UI can show a preview grid. NO database
-     * writes, NO audit log entry.
+     * Dry-run validator — parse the file, validate every row, return a
+     * per-row verdict so the UI can show a preview grid.
      */
     public ItemImportPreview previewImport(MultipartFile file) {
         UUID orgId = TenantContext.getCurrentOrgId();
@@ -128,9 +147,32 @@ public class ItemImportService {
             Item saved = itemRepository.save(p.itemTemplate);
             created++;
 
-            // Opening stock goes through the single inventory gate so bulk
-            // import behaves identically to the manual create flow.
-            if (p.trackInventory && p.openingStock != null
+            if (p.batchNumber != null && !p.batchNumber.isBlank()) {
+                StockBatch batch = StockBatch.builder()
+                        .itemId(saved.getId())
+                        .batchNumber(p.batchNumber.trim())
+                        .manufacturingDate(p.mfgDate)
+                        .expiryDate(p.expiryDate)
+                        .unitCost(p.itemTemplate.getPurchasePrice())
+                        .build();
+                stockBatchRepository.save(batch);
+
+                if (p.trackInventory && p.openingStock != null
+                        && p.openingStock.compareTo(BigDecimal.ZERO) > 0) {
+                    inventoryService.recordMovement(new StockMovementRequest(
+                            saved.getId(),
+                            defaultWarehouse.getId(),
+                            MovementType.OPENING,
+                            p.openingStock,
+                            p.itemTemplate.getPurchasePrice(),
+                            LocalDate.now(),
+                            ReferenceType.OPENING_BALANCE,
+                            null,
+                            null,
+                            "Opening stock from bulk import for " + p.preview.sku(),
+                            batch.getId()));
+                }
+            } else if (p.trackInventory && p.openingStock != null
                     && p.openingStock.compareTo(BigDecimal.ZERO) > 0) {
                 inventoryService.recordMovement(new StockMovementRequest(
                         saved.getId(),
@@ -158,33 +200,20 @@ public class ItemImportService {
 
     // ── Shared parse + validate pipeline ─────────────────────────────
 
-    /**
-     * Parse the CSV once, validate every row, and return a list of
-     * {@link ParsedRow} holding BOTH a UI-ready preview DTO and (for
-     * valid rows) a fully-built but unsaved {@link Item} entity. Shared
-     * by preview and commit so they stay aligned.
-     */
     private List<ParsedRow> parseAndValidate(MultipartFile file, UUID orgId) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException("Upload file is required",
                     "IMPORT_EMPTY_FILE", HttpStatus.BAD_REQUEST);
         }
 
-        List<Map<String, String>> rows;
-        try (Reader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8)) {
-            rows = SimpleCsvParser.parse(reader);
-        } catch (IOException e) {
-            log.error("Failed to parse CSV file", e);
-            throw new BusinessException("Failed to parse CSV: " + e.getMessage(),
-                    "IMPORT_PARSE_FAILED", HttpStatus.BAD_REQUEST);
-        }
+        List<Map<String, String>> rows = parseFile(file);
 
         List<ParsedRow> out = new ArrayList<>(rows.size());
         Set<String> seenSkusInFile = new HashSet<>();
 
         for (int i = 0; i < rows.size(); i++) {
             Map<String, String> row = rows.get(i);
-            int rowNumber = i + 2; // +1 for header, +1 because rows are 1-indexed for humans
+            int rowNumber = i + 2;
 
             String sku = get(row, "sku");
             String name = get(row, "name");
@@ -193,7 +222,6 @@ public class ItemImportService {
             String hsn = get(row, "hsn_code");
             String uom = orDefault(get(row, "unit_of_measure"), "PCS");
 
-            // ── Required fields ──────────────────────────────────
             if (sku == null || sku.isBlank()) {
                 out.add(ParsedRow.error(rowNumber, null, name, itemTypeRaw,
                         category, hsn, uom, "SKU is required"));
@@ -205,7 +233,6 @@ public class ItemImportService {
                 continue;
             }
 
-            // ── Duplicate detection ──────────────────────────────
             if (!seenSkusInFile.add(sku)) {
                 out.add(ParsedRow.error(rowNumber, sku, name, itemTypeRaw,
                         category, hsn, uom, "Duplicate SKU within file"));
@@ -217,7 +244,6 @@ public class ItemImportService {
                 continue;
             }
 
-            // ── item_type ────────────────────────────────────────
             ItemType itemType;
             try {
                 itemType = (itemTypeRaw == null || itemTypeRaw.isBlank())
@@ -229,7 +255,6 @@ public class ItemImportService {
                 continue;
             }
 
-            // ── Numeric fields ───────────────────────────────────
             BigDecimal purchasePrice;
             BigDecimal salePrice;
             BigDecimal mrp;
@@ -251,11 +276,30 @@ public class ItemImportService {
                 continue;
             }
 
-            boolean trackInventory = itemType == ItemType.GOODS;
+            String barcode = get(row, "barcode");
+            String manufacturer = get(row, "manufacturer");
+            String batchNumber = get(row, "batch_number");
+            LocalDate mfgDate = null;
+            LocalDate expiryDate = null;
 
-            // Resolve base_uom_id FK from the legacy abbreviation string so
-            // bulk-imported items match the invariant enforced by ItemService
-            // (every new row has a non-null base_uom_id, falling back to PCS).
+            String mfgDateRaw = get(row, "mfg_date");
+            String expiryDateRaw = get(row, "expiry_date");
+            try {
+                if (mfgDateRaw != null && !mfgDateRaw.isBlank()) {
+                    mfgDate = LocalDate.parse(mfgDateRaw.trim());
+                }
+                if (expiryDateRaw != null && !expiryDateRaw.isBlank()) {
+                    expiryDate = LocalDate.parse(expiryDateRaw.trim());
+                }
+            } catch (DateTimeParseException e) {
+                out.add(ParsedRow.error(rowNumber, sku, name, itemTypeRaw,
+                        category, hsn, uom, "Invalid date (use yyyy-MM-dd): " + e.getMessage()));
+                continue;
+            }
+
+            boolean trackInventory = itemType == ItemType.GOODS;
+            boolean hasBatch = batchNumber != null && !batchNumber.isBlank();
+
             UUID baseUomId = uomService.resolveBaseUomIdOrPcs(uom);
 
             Item item = Item.builder()
@@ -266,6 +310,8 @@ public class ItemImportService {
                     .category(category)
                     .brand(get(row, "brand"))
                     .hsnCode(hsn)
+                    .barcode(barcode)
+                    .manufacturer(manufacturer)
                     .unitOfMeasure(uom)
                     .baseUomId(baseUomId)
                     .purchasePrice(purchasePrice)
@@ -273,6 +319,7 @@ public class ItemImportService {
                     .mrp(mrp)
                     .gstRate(gstRate)
                     .trackInventory(trackInventory)
+                    .trackBatches(hasBatch)
                     .reorderLevel(reorderLevel)
                     .reorderQuantity(reorderQty)
                     .active(true)
@@ -293,22 +340,47 @@ public class ItemImportService {
                     STATUS_OK,
                     null);
 
-            out.add(new ParsedRow(preview, item, openingStock, trackInventory));
+            out.add(new ParsedRow(preview, item, openingStock, trackInventory,
+                    batchNumber, mfgDate, expiryDate));
         }
 
         return out;
     }
 
-    /**
-     * Intermediate struct shared between preview and commit. For valid
-     * rows, {@code itemTemplate} is a fully-built but UNSAVED entity;
-     * for error rows it's null and {@code preview.status() == ERROR}.
-     */
+    private List<Map<String, String>> parseFile(MultipartFile file) {
+        String filename = file.getOriginalFilename();
+        String contentType = file.getContentType();
+
+        boolean isExcel = (filename != null && filename.toLowerCase().endsWith(".xlsx"))
+                || (contentType != null && XLSX_CONTENT_TYPES.contains(contentType));
+
+        if (isExcel) {
+            try {
+                return ExcelParser.parse(file.getInputStream());
+            } catch (IOException e) {
+                log.error("Failed to parse Excel file", e);
+                throw new BusinessException("Failed to parse Excel file: " + e.getMessage(),
+                        "IMPORT_PARSE_FAILED", HttpStatus.BAD_REQUEST);
+            }
+        }
+
+        try (Reader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8)) {
+            return SimpleCsvParser.parse(reader);
+        } catch (IOException e) {
+            log.error("Failed to parse CSV file", e);
+            throw new BusinessException("Failed to parse CSV: " + e.getMessage(),
+                    "IMPORT_PARSE_FAILED", HttpStatus.BAD_REQUEST);
+        }
+    }
+
     private record ParsedRow(
             ItemImportPreview.RowPreview preview,
             Item itemTemplate,
             BigDecimal openingStock,
-            boolean trackInventory
+            boolean trackInventory,
+            String batchNumber,
+            LocalDate mfgDate,
+            LocalDate expiryDate
     ) {
         static ParsedRow error(int rowNumber, String sku, String name,
                                String itemType, String category, String hsn,
@@ -320,7 +392,10 @@ public class ItemImportService {
                             STATUS_ERROR, message),
                     null,
                     null,
-                    false);
+                    false,
+                    null,
+                    null,
+                    null);
         }
     }
 

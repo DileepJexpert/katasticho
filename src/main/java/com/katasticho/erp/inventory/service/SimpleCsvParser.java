@@ -21,11 +21,11 @@ import java.util.Map;
  * Returns a list of {@code Map<header, value>} — small files only (a few
  * thousand items at most, which is the realistic ceiling for one upload).
  */
-final class SimpleCsvParser {
+public final class SimpleCsvParser {
 
     private SimpleCsvParser() {}
 
-    static List<Map<String, String>> parse(Reader reader) throws IOException {
+    public static List<Map<String, String>> parse(Reader reader) throws IOException {
         List<List<String>> rows = readAllRows(reader);
         if (rows.isEmpty()) {
             return Collections.emptyList();

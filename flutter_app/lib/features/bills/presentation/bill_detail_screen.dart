@@ -13,6 +13,7 @@ import '../../../core/utils/whatsapp_share.dart';
 import '../data/bill_dto.dart';
 import '../data/bill_providers.dart';
 import '../data/bill_repository.dart';
+import 'bill_pdf_screen.dart';
 import 'widgets/bill_status_chip.dart';
 import 'widgets/record_payment_bottom_sheet.dart';
 
@@ -37,6 +38,9 @@ class BillDetailScreen extends ConsumerWidget {
                     onSelected: (value) =>
                         _handleAction(context, ref, value, b),
                     itemBuilder: (context) => [
+                      const PopupMenuItem(
+                          value: 'pdf',
+                          child: Text('Download PDF')),
                       const PopupMenuItem(
                           value: 'share',
                           child: Text('Share via WhatsApp')),
@@ -129,6 +133,20 @@ class BillDetailScreen extends ConsumerWidget {
     final repo = ref.read(billRepositoryProvider);
 
     switch (action) {
+      case 'pdf':
+        if (context.mounted) {
+          final billAsync = ref.read(billDetailProvider(billId));
+          billAsync.whenData((data) {
+            final bill = (data['data'] ?? data) as Map<String, dynamic>;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => BillPdfScreen(bill: bill),
+              ),
+            );
+          });
+        }
+        break;
       case 'share':
         if (context.mounted) {
           final api = ref.read(apiClientProvider);

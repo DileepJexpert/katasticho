@@ -13,6 +13,7 @@ import '../features/invoices/presentation/invoice_detail_screen.dart';
 import '../features/contacts/presentation/contact_list_screen.dart';
 import '../features/contacts/presentation/contact_create_screen.dart';
 import '../features/contacts/presentation/contact_detail_screen.dart';
+import '../features/contacts/presentation/contact_import_screen.dart';
 import '../features/accounts/presentation/account_list_screen.dart';
 import '../features/accounts/presentation/account_create_screen.dart';
 import '../features/accounts/presentation/account_detail_screen.dart';
@@ -37,6 +38,8 @@ import '../features/reports/presentation/ap_ageing_screen.dart';
 import '../features/ai_chat/presentation/ai_chat_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/settings/presentation/inventory_features_screen.dart';
+import '../features/settings/presentation/org_details_screen.dart';
+import '../features/settings/presentation/branches_screen.dart';
 import '../features/default_accounts/presentation/default_accounts_screen.dart';
 import '../features/tax_account_mapping/presentation/tax_account_mapping_screen.dart';
 import '../features/onboarding/presentation/business_type_screen.dart';
@@ -80,6 +83,8 @@ import '../features/delivery_challans/presentation/delivery_challan_create_scree
 import '../features/delivery_challans/presentation/delivery_challan_detail_screen.dart';
 import '../features/delivery_challans/presentation/delivery_challan_pdf_screen.dart';
 import '../features/pos/presentation/pos_receipt_settings_screen.dart';
+import '../features/credit_ledger/presentation/credit_ledger_screen.dart';
+import '../features/credit_ledger/presentation/credit_ledger_detail_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -95,6 +100,7 @@ class Routes {
   static const invoiceDetail = '/invoices/:id';
   static const contacts = '/contacts';
   static const contactCreate = '/contacts/create';
+  static const contactImport = '/contacts/import';
   static const contactDetail = '/contacts/:id';
   static const contactEdit = '/contacts/:id/edit';
   static const notifications = '/notifications';
@@ -160,6 +166,8 @@ class Routes {
   static const aiChat = '/ai-chat';
   static const gst = '/gst';
   static const settings = '/settings';
+  static const orgDetails = '/settings/org-details';
+  static const branches = '/settings/branches';
   static const defaultAccounts = '/settings/default-accounts';
   static const taxAccountMappings = '/settings/tax-accounts';
   static const inventoryFeatures = '/settings/inventory-features';
@@ -174,6 +182,9 @@ class Routes {
   static const accountCreate = '/accounts/create';
   static const accountDetail = '/accounts/:id';
   static const accountEdit = '/accounts/:id/edit';
+  // Credit Ledger (Udhar Khata)
+  static const creditLedger = '/credit-ledger';
+  static const creditLedgerDetail = '/credit-ledger/:id';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -308,6 +319,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ContactCreateScreen(),
           ),
           GoRoute(
+            path: Routes.contactImport,
+            builder: (context, state) => const ContactImportScreen(),
+          ),
+          GoRoute(
             path: '/contacts/:id/edit',
             builder: (context, state) => ContactCreateScreen(
               contactId: state.pathParameters['id']!,
@@ -317,6 +332,20 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/contacts/:id',
             builder: (context, state) => ContactDetailScreen(
               contactId: state.pathParameters['id']!,
+            ),
+          ),
+          // Credit Ledger (Udhar Khata)
+          GoRoute(
+            path: Routes.creditLedger,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: CreditLedgerScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/credit-ledger/:id',
+            builder: (context, state) => CreditLedgerDetailScreen(
+              contactId: state.pathParameters['id']!,
+              contactData: state.extra as Map<String, dynamic>?,
             ),
           ),
           // Chart of Accounts
@@ -647,6 +676,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => const NoTransitionPage(
               child: SettingsScreen(),
             ),
+          ),
+          GoRoute(
+            path: Routes.orgDetails,
+            builder: (context, state) => const OrgDetailsScreen(),
+          ),
+          GoRoute(
+            path: Routes.branches,
+            builder: (context, state) => const BranchesScreen(),
           ),
           GoRoute(
             path: Routes.defaultAccounts,

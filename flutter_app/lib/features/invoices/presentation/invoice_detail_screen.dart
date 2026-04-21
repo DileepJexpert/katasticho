@@ -326,6 +326,13 @@ class _InvoiceDetailBody extends ConsumerWidget {
                           final lineTotal =
                               (line['lineTotal'] as num?)?.toDouble() ?? 0;
 
+                          final batchNum =
+                              line['batchNumber'] as String?;
+                          final batchExp =
+                              line['batchExpiry'] as String?;
+                          final itemMrp =
+                              (line['itemMrp'] as num?)?.toDouble();
+
                           return KCard(
                             margin:
                                 const EdgeInsets.only(bottom: KSpacing.sm),
@@ -342,6 +349,36 @@ class _InvoiceDetailBody extends ConsumerWidget {
                                         '${qty.toStringAsFixed(0)} x ${CurrencyFormatter.formatIndian(price)}',
                                         style: KTypography.bodySmall,
                                       ),
+                                      if (itemMrp != null && itemMrp > 0)
+                                        Text(
+                                          'MRP ${CurrencyFormatter.formatIndian(itemMrp)}',
+                                          style: KTypography.labelSmall
+                                              .copyWith(
+                                            fontSize: 10,
+                                            color: KColors.textHint,
+                                          ),
+                                        ),
+                                      if (batchNum != null &&
+                                          batchNum.isNotEmpty)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 2),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.science_outlined,
+                                                size: 12,
+                                                color: KColors.textHint,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Batch: $batchNum${batchExp != null && batchExp.isNotEmpty ? ' · Exp: $batchExp' : ''}',
+                                                style: KTypography.bodySmall
+                                                    .copyWith(fontSize: 11),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                     ],
                                   ),
                                 ),

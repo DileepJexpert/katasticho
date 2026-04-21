@@ -5,6 +5,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../routing/app_router.dart';
 import '../data/contact_repository.dart';
 
 const _contactTabs = [
@@ -104,6 +105,16 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
             onSearchChanged: (q) => setState(() => _searchQuery = q),
             selectionCount: _selectedIds.length,
             onClearSelection: _clearSelection,
+            actions: inSelection
+                ? null
+                : [
+                    IconButton(
+                      icon: const Icon(Icons.upload_file_outlined, size: 20),
+                      tooltip: 'Import contacts',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => context.push(Routes.contactImport),
+                    ),
+                  ],
             selectionActions: [
               IconButton(
                 icon: const Icon(Icons.delete_outline_rounded, size: 20),

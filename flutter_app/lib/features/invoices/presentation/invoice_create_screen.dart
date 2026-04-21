@@ -651,6 +651,8 @@ class _LineItem {
   double quantity = 1;
   double unitPrice = 0;
   double gstRate = 18;
+  bool weightBasedBilling = false;
+  String weightUnit = 'KG';
 
   /// True if the linked item has `trackBatches = true`. When set, the
   /// line MUST carry [batchId] before the invoice can be sent — the
@@ -733,6 +735,10 @@ class _LineItemCardState extends State<_LineItemCard> {
         widget.item.taxGroupId = pickedTaxGroupId;
       }
       widget.item.trackBatches = picked['trackBatches'] == true;
+      widget.item.weightBasedBilling = picked['weightBasedBilling'] == true;
+      if (widget.item.weightBasedBilling) {
+        widget.item.weightUnit = 'KG';
+      }
       // New item means any prior batch selection is stale.
       widget.item.batchId = null;
       widget.item.batchNumber = null;
@@ -782,6 +788,7 @@ class _LineItemCardState extends State<_LineItemCard> {
     setState(() {
       widget.item.itemId = null;
       widget.item.trackBatches = false;
+      widget.item.weightBasedBilling = false;
       widget.item.batchId = null;
       widget.item.batchNumber = null;
       widget.item.batchExpiry = null;
@@ -976,16 +983,70 @@ class _LineItemCardState extends State<_LineItemCard> {
               ),
               KSpacing.hGapSm,
               Expanded(
-                child: KTextField(
-                  label: 'Quantity',
-                  controller: _qtyCtl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (v) {
-                    widget.item.quantity = double.tryParse(v) ?? 1;
-                    widget.onChanged();
-                  },
-                ),
+                child: widget.item.weightBasedBilling
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: KTextField(
+                              label: 'Weight',
+                              controller: _qtyCtl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              onChanged: (v) {
+                                final raw = double.tryParse(v) ?? 0;
+                                widget.item.quantity =
+                                    widget.item.weightUnit == 'GM'
+                                        ? raw / 1000
+                                        : raw;
+                                widget.onChanged();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          DropdownButton<String>(
+                            value: widget.item.weightUnit,
+                            underline: const SizedBox.shrink(),
+                            items: const [
+                              DropdownMenuItem(
+                                  value: 'KG', child: Text('KG')),
+                              DropdownMenuItem(
+                                  value: 'GM', child: Text('GM')),
+                            ],
+                            onChanged: (unit) {
+                              if (unit == null) return;
+                              final currentRaw =
+                                  double.tryParse(_qtyCtl.text) ?? 0;
+                              setState(() {
+                                widget.item.weightUnit = unit;
+                                if (currentRaw > 0) {
+                                  final converted = unit == 'GM'
+                                      ? currentRaw * 1000
+                                      : currentRaw / 1000;
+                                  _qtyCtl.text = unit == 'GM'
+                                      ? converted.toStringAsFixed(0)
+                                      : converted.toStringAsFixed(3);
+                                  widget.item.quantity = unit == 'GM'
+                                      ? converted / 1000
+                                      : converted;
+                                }
+                              });
+                              widget.onChanged();
+                            },
+                          ),
+                        ],
+                      )
+                    : KTextField(
+                        label: 'Quantity',
+                        controller: _qtyCtl,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(
+                                decimal: true),
+                        onChanged: (v) {
+                          widget.item.quantity = double.tryParse(v) ?? 1;
+                          widget.onChanged();
+                        },
+                      ),
               ),
             ],
           ),
@@ -994,7 +1055,9 @@ class _LineItemCardState extends State<_LineItemCard> {
             children: [
               Expanded(
                 child: KTextField.amount(
-                  label: 'Unit Price',
+                  label: widget.item.weightBasedBilling
+                      ? 'Rate / kg'
+                      : 'Unit Price',
                   controller: _priceCtl,
                   onChanged: (v) {
                     widget.item.unitPrice = double.tryParse(v) ?? 0;

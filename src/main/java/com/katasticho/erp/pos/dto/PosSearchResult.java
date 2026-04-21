@@ -13,11 +13,13 @@ public record PosSearchResult(
         String sku,
         String barcode,
         BigDecimal rate,
+        BigDecimal mrp,
         UUID taxGroupId,
         String taxGroupName,
         String hsnCode,
         String unit,
         BigDecimal currentStock,
+        boolean weightBasedBilling,
         UUID batchId,
         LocalDate batchExpiryDate
 ) {}

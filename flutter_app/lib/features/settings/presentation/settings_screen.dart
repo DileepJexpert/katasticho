@@ -69,20 +69,26 @@ class SettingsScreen extends ConsumerWidget {
             _SettingsTile(
               icon: Icons.business,
               title: authState.orgName ?? 'Organisation',
-              subtitle: 'Business profile & details',
-              onTap: () {},
-            ),
-            _SettingsTile(
-              icon: Icons.people_outline,
-              title: 'Team Members',
-              subtitle: 'Manage users & roles',
-              onTap: () {},
+              subtitle: 'Business name, address, GSTIN',
+              onTap: () => context.push(Routes.orgDetails),
             ),
             _SettingsTile(
               icon: Icons.account_tree_outlined,
+              title: 'Branches',
+              subtitle: 'Add and manage branch locations',
+              onTap: () => context.push(Routes.branches),
+            ),
+            _SettingsTile(
+              icon: Icons.manage_accounts_outlined,
+              title: 'Team Members',
+              subtitle: 'Manage users & roles',
+              onTap: () => _showComingSoon(context, 'Team Members'),
+            ),
+            _SettingsTile(
+              icon: Icons.table_chart_outlined,
               title: 'Chart of Accounts',
               subtitle: 'Manage account structure',
-              onTap: () {},
+              onTap: () => context.push(Routes.chartOfAccounts),
             ),
             _SettingsTile(
               icon: Icons.account_balance_outlined,
@@ -110,25 +116,36 @@ class SettingsScreen extends ConsumerWidget {
               icon: Icons.receipt_long_outlined,
               title: 'GST Settings',
               subtitle: 'GSTIN, filing frequency',
-              onTap: () {},
+              onTap: () => _showComingSoon(context, 'GST Settings'),
             ),
             _SettingsTile(
               icon: Icons.format_list_numbered,
               title: 'Invoice Numbering',
               subtitle: 'Prefix, sequence, format',
-              onTap: () {},
+              onTap: () => _showComingSoon(context, 'Invoice Numbering'),
             ),
             _SettingsTile(
               icon: Icons.percent,
               title: 'Tax Rates',
               subtitle: 'GST slabs & HSN mapping',
-              onTap: () {},
+              onTap: () => _showComingSoon(context, 'Tax Rates'),
             ),
             _SettingsTile(
               icon: Icons.swap_horiz_outlined,
               title: 'Tax Account Mapping',
               subtitle: 'Bind tax rates to GL accounts',
               onTap: () => context.push(Routes.taxAccountMappings),
+            ),
+            KSpacing.vGapLg,
+
+            // POS
+            Text('Point of Sale', style: KTypography.h3),
+            KSpacing.vGapSm,
+            _SettingsTile(
+              icon: Icons.receipt_outlined,
+              title: 'Receipt Template',
+              subtitle: 'Paper size, logo, footer, HSN codes',
+              onTap: () => context.push(Routes.receiptSettings),
             ),
             KSpacing.vGapLg,
 
@@ -139,19 +156,19 @@ class SettingsScreen extends ConsumerWidget {
               icon: Icons.notifications_outlined,
               title: 'Notifications',
               subtitle: 'Push, email & SMS alerts',
-              onTap: () {},
+              onTap: () => _showComingSoon(context, 'Notifications'),
             ),
             _SettingsTile(
               icon: Icons.language,
               title: 'Language',
               subtitle: 'English',
-              onTap: () {},
+              onTap: () => _showComingSoon(context, 'Language'),
             ),
             _SettingsTile(
               icon: Icons.currency_rupee,
               title: 'Currency',
               subtitle: 'INR - Indian Rupee',
-              onTap: () {},
+              onTap: () => _showComingSoon(context, 'Currency'),
             ),
             KSpacing.vGapLg,
 
@@ -187,6 +204,12 @@ class SettingsScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _showComingSoon(BuildContext context, String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$feature — coming soon')),
     );
   }
 

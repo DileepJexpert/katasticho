@@ -96,4 +96,25 @@ class AuthRepository {
       rethrow;
     }
   }
+
+  /// List all organisations the current user belongs to.
+  Future<List<Map<String, dynamic>>> getMyOrgs() async {
+    final response = await _apiClient.get(ApiConfig.myOrgs);
+    final data = (response.data as Map<String, dynamic>)['data'];
+    if (data is List) return data.cast<Map<String, dynamic>>();
+    return [];
+  }
+
+  /// Switch to a different organisation and return a new auth token pair.
+  Future<Map<String, dynamic>> switchOrg(String targetOrgId) async {
+    final response = await _apiClient.post(
+      ApiConfig.switchOrg,
+      data: {'targetOrgId': targetOrgId},
+    );
+    return response.data as Map<String, dynamic>;
+  }
 }
+
+final myOrgsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  return ref.watch(authRepositoryProvider).getMyOrgs();
+});

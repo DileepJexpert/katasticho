@@ -26,4 +26,8 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
     Optional<AppUser> findFirstByOrgIdAndRoleAndIsDeletedFalse(UUID orgId, String role);
 
     List<AppUser> findByOrgIdAndRoleAndIsDeletedFalse(UUID orgId, String role);
+
+    List<AppUser> findAllByPhoneAndIsDeletedFalse(String phone);
+
+    List<AppUser> findAllByEmailAndIsDeletedFalse(String email);
 }

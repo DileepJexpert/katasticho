@@ -81,12 +81,14 @@ public class ArReportService {
                 custTotal = custTotal.add(balance);
 
                 invoiceAgeings.add(new AgeingReportResponse.InvoiceAgeing(
-                        inv.getId(), inv.getInvoiceNumber(), balance,
-                        Math.max(0, daysOverdue), bucket));
+                        inv.getId(), inv.getInvoiceNumber(),
+                        inv.getInvoiceDate(), inv.getTotalAmount(),
+                        balance, Math.max(0, daysOverdue), bucket));
             }
 
+            String phone = contact.getMobile() != null ? contact.getMobile() : contact.getPhone();
             contactAgeings.add(new AgeingReportResponse.ContactAgeing(
-                    contact.getId(), contact.getDisplayName(), custTotal,
+                    contact.getId(), contact.getDisplayName(), phone, custTotal,
                     custCurrent, cust1to30, cust31to60, cust61to90, cust90plus,
                     invoiceAgeings));
 

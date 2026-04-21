@@ -13,21 +13,20 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
-import '../data/item_repository.dart';
+import '../data/contact_repository.dart';
 
-class ItemImportScreen extends ConsumerStatefulWidget {
-  const ItemImportScreen({super.key});
+class ContactImportScreen extends ConsumerStatefulWidget {
+  const ContactImportScreen({super.key});
 
   @override
-  ConsumerState<ItemImportScreen> createState() => _ItemImportScreenState();
+  ConsumerState<ContactImportScreen> createState() =>
+      _ContactImportScreenState();
 }
 
-class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
+class _ContactImportScreenState extends ConsumerState<ContactImportScreen> {
   static const _template =
-      'sku,name,description,item_type,category,brand,hsn_code,'
-      'unit_of_measure,purchase_price,sale_price,mrp,gst_rate,'
-      'reorder_level,reorder_quantity,opening_stock,'
-      'barcode,manufacturer,batch_number,mfg_date,expiry_date';
+      'display_name,type,phone,email,gstin,'
+      'billing_address,city,state,payment_terms_days,opening_balance';
 
   final _pasteCtl = TextEditingController();
 
@@ -61,9 +60,8 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
         return;
       }
 
-      int dataRows = 0;
-      final isXlsx = file.name.toLowerCase().endsWith('.xlsx');
-      if (!isXlsx) {
+      int? dataRows;
+      if (!file.name.toLowerCase().endsWith('.xlsx')) {
         var text = utf8.decode(bytes, allowMalformed: true);
         if (text.startsWith('﻿')) text = text.substring(1);
         final lines = text
@@ -71,19 +69,17 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
             .where((l) => l.trim().isNotEmpty)
             .toList();
         dataRows = lines.length > 0 ? lines.length - 1 : 0;
-      } else {
-        dataRows = -1;
       }
 
       setState(() {
         _pickedFileName = file.name;
         _pickedFileBytes = bytes;
-        _pickedFileDataRows = dataRows < 0 ? null : dataRows;
+        _pickedFileDataRows = dataRows;
         _result = null;
         _error = null;
       });
     } catch (e, st) {
-      debugPrint('[ItemImport] pick FAILED: $e\n$st');
+      debugPrint('[ContactImport] pick FAILED: $e\n$st');
       setState(() => _error = 'Could not open file picker: $e');
     }
   }
@@ -108,11 +104,10 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
     try {
       final api = ref.read(apiClientProvider);
       final response = await api.dio.get(
-        ApiConfig.itemImportTemplate,
+        ApiConfig.contactImportTemplate,
         options: Options(responseType: ResponseType.bytes),
       );
-      final bytes = response.data as List<int>;
-      final text = utf8.decode(bytes, allowMalformed: true);
+      final text = utf8.decode(response.data as List<int>, allowMalformed: true);
       setState(() {
         _pasteCtl.text = text;
         _error = null;
@@ -123,7 +118,7 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
         );
       }
     } catch (e) {
-      debugPrint('[ItemImport] template download FAILED: $e');
+      debugPrint('[ContactImport] template download FAILED: $e');
       setState(() => _error = 'Failed to download template');
     } finally {
       if (mounted) setState(() => _isDownloadingTemplate = false);
@@ -132,10 +127,10 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
 
   Future<void> _upload() async {
     FormData form;
-    String filename = 'items.csv';
+    String filename = 'contacts.csv';
 
     if (_pickedFileBytes != null && _pickedFileBytes!.isNotEmpty) {
-      filename = _pickedFileName ?? 'items.csv';
+      filename = _pickedFileName ?? 'contacts.csv';
       form = FormData.fromMap({
         'file': MultipartFile.fromBytes(
           _pickedFileBytes!.toList(),
@@ -160,18 +155,16 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
     try {
       final api = ref.read(apiClientProvider);
       final response = await api.dio.post(
-        ApiConfig.itemImport,
+        ApiConfig.contactImport,
         data: form,
-        options: Options(
-          headers: {'Content-Type': 'multipart/form-data'},
-        ),
+        options: Options(headers: {'Content-Type': 'multipart/form-data'}),
       );
       final body = response.data as Map<String, dynamic>;
       final result = (body['data'] ?? body) as Map<String, dynamic>;
-      ref.invalidate(itemListProvider);
+      ref.invalidate(contactListProvider(null));
       setState(() => _result = result);
     } catch (e, st) {
-      debugPrint('[ItemImport] upload FAILED: $e\n$st');
+      debugPrint('[ContactImport] upload FAILED: $e\n$st');
       setState(() =>
           _error = 'Upload failed. Check the file format and try again.');
     } finally {
@@ -186,10 +179,10 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bulk Import Items'),
+        title: const Text('Import Contacts'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go(Routes.items),
+          onPressed: () => context.go(Routes.contacts),
         ),
       ),
       body: SingleChildScrollView(
@@ -211,25 +204,16 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
                   ),
                   KSpacing.vGapSm,
                   Text(
-                    'Accepts CSV (.csv) or Excel (.xlsx) files. '
-                    'Required columns: sku, name. Optional: description, '
-                    'item_type (GOODS/SERVICE), category, brand, hsn_code, '
-                    'unit_of_measure, purchase_price, sale_price, mrp, '
-                    'gst_rate, reorder_level, reorder_quantity, opening_stock, '
-                    'barcode, manufacturer, batch_number, mfg_date, expiry_date.',
+                    'Accepts CSV (.csv) or Excel (.xlsx). '
+                    'Required columns: display_name, type (CUSTOMER / VENDOR / BOTH). '
+                    'Optional: phone, email, gstin, billing_address, city, '
+                    'state, payment_terms_days, opening_balance.',
                     style: KTypography.bodySmall,
-                  ),
-                  KSpacing.vGapSm,
-                  Text(
-                    'Rows with batch_number will auto-create a stock batch. '
-                    'Dates should be in yyyy-MM-dd format.',
-                    style: KTypography.bodySmall.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
                   ),
                   KSpacing.vGapMd,
                   OutlinedButton.icon(
-                    onPressed: _isDownloadingTemplate ? null : _downloadTemplate,
+                    onPressed:
+                        _isDownloadingTemplate ? null : _downloadTemplate,
                     icon: _isDownloadingTemplate
                         ? const SizedBox(
                             width: 16,
@@ -252,7 +236,7 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
               KSpacing.vGapMd,
             ],
 
-            // ── Option 1: Upload file ───────────────────────────
+            // ── Option 1: Upload file ─────────────────────────────
             _SectionHeader(
               number: '1',
               title: 'Upload CSV or Excel file',
@@ -270,11 +254,11 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
             _OrDivider(),
             KSpacing.vGapLg,
 
-            // ── Option 2: Paste CSV ──────────────────────────────
+            // ── Option 2: Paste CSV ───────────────────────────────
             _SectionHeader(
               number: '2',
               title: 'Copy / paste CSV content here',
-              subtitle: 'For quick tests or Tally/BUSY exports',
+              subtitle: 'For quick tests or exports from another system',
             ),
             KSpacing.vGapSm,
             Container(
@@ -282,18 +266,14 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
                 color: cs.surface,
                 borderRadius: BorderRadius.circular(KSpacing.radiusMd),
                 border: Border.all(
-                  color: cs.outlineVariant.withValues(alpha: 0.6),
-                ),
+                    color: cs.outlineVariant.withValues(alpha: 0.6)),
               ),
               padding: const EdgeInsets.all(8),
               child: TextField(
                 controller: _pasteCtl,
                 maxLines: 12,
                 minLines: 8,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                ),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   hintText: 'Paste CSV here…',
@@ -312,7 +292,6 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
 
             KSpacing.vGapLg,
 
-            // ── Single Import button ─────────────────────────────
             Row(
               children: [
                 const Spacer(),
@@ -338,17 +317,14 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
   }
 }
 
-// ── Section header with numbered badge ─────────────────────────────
+// ── Reusable sub-widgets ──────────────────────────────────────────
+
 class _SectionHeader extends StatelessWidget {
   final String number;
   final String title;
   final String subtitle;
-
-  const _SectionHeader({
-    required this.number,
-    required this.title,
-    required this.subtitle,
-  });
+  const _SectionHeader(
+      {required this.number, required this.title, required this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -363,14 +339,11 @@ class _SectionHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           alignment: Alignment.center,
-          child: Text(
-            number,
-            style: TextStyle(
-              color: cs.onPrimaryContainer,
-              fontWeight: FontWeight.w800,
-              fontSize: 13,
-            ),
-          ),
+          child: Text(number,
+              style: TextStyle(
+                  color: cs.onPrimaryContainer,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13)),
         ),
         KSpacing.hGapSm,
         Expanded(
@@ -379,12 +352,9 @@ class _SectionHeader extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(title, style: KTypography.labelLarge),
-              Text(
-                subtitle,
-                style: KTypography.bodySmall.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
+              Text(subtitle,
+                  style: KTypography.bodySmall
+                      .copyWith(color: cs.onSurfaceVariant)),
             ],
           ),
         ),
@@ -393,7 +363,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// ── "OR" divider between the two options ──────────────────────────
 class _OrDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -401,53 +370,40 @@ class _OrDivider extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Divider(
-            color: cs.outlineVariant.withValues(alpha: 0.6),
-            thickness: 1,
-          ),
-        ),
+            child: Divider(
+                color: cs.outlineVariant.withValues(alpha: 0.6), thickness: 1)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            'OR',
-            style: TextStyle(
-              color: cs.onSurfaceVariant,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-            ),
-          ),
+          child: Text('OR',
+              style: TextStyle(
+                  color: cs.onSurfaceVariant,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2)),
         ),
         Expanded(
-          child: Divider(
-            color: cs.outlineVariant.withValues(alpha: 0.6),
-            thickness: 1,
-          ),
-        ),
+            child: Divider(
+                color: cs.outlineVariant.withValues(alpha: 0.6), thickness: 1)),
       ],
     );
   }
 }
 
-// ── File picker drop-zone card ────────────────────────────────────
 class _FilePickerCard extends StatelessWidget {
   final String? fileName;
   final int? dataRows;
   final VoidCallback onPick;
   final VoidCallback onClear;
-
-  const _FilePickerCard({
-    required this.fileName,
-    required this.dataRows,
-    required this.onPick,
-    required this.onClear,
-  });
+  const _FilePickerCard(
+      {required this.fileName,
+      required this.dataRows,
+      required this.onPick,
+      required this.onClear});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final hasFile = fileName != null;
-
     return InkWell(
       onTap: hasFile ? null : onPick,
       borderRadius: BorderRadius.circular(KSpacing.radiusMd),
@@ -464,140 +420,89 @@ class _FilePickerCard extends StatelessWidget {
                 ? cs.primary.withValues(alpha: 0.5)
                 : cs.outlineVariant.withValues(alpha: 0.7),
             width: hasFile ? 1.5 : 1,
-            style: hasFile ? BorderStyle.solid : BorderStyle.solid,
           ),
         ),
         child: hasFile
-            ? _PickedFileRow(
-                fileName: fileName!,
-                dataRows: dataRows,
-                onReplace: onPick,
-                onClear: onClear,
+            ? Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      fileName!.toLowerCase().endsWith('.xlsx')
+                          ? Icons.table_chart_outlined
+                          : Icons.description_outlined,
+                      color: cs.primary,
+                      size: 22,
+                    ),
+                  ),
+                  KSpacing.hGapMd,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(fileName!,
+                            style: KTypography.labelLarge,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 2),
+                        Text(
+                          dataRows != null
+                              ? '$dataRows data row${dataRows == 1 ? '' : 's'} detected'
+                              : 'Excel file selected',
+                          style: KTypography.bodySmall
+                              .copyWith(color: cs.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: onPick,
+                    icon: const Icon(Icons.swap_horiz, size: 16),
+                    label: const Text('Replace'),
+                  ),
+                  IconButton(
+                    onPressed: onClear,
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
               )
-            : _PickPrompt(onPick: onPick),
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(Icons.cloud_upload_outlined,
+                        color: cs.primary, size: 28),
+                  ),
+                  KSpacing.vGapSm,
+                  Text('Click to choose a file',
+                      style: KTypography.labelLarge,
+                      textAlign: TextAlign.center),
+                  const SizedBox(height: 2),
+                  Text('Accepted: .csv, .xlsx, .txt',
+                      style: KTypography.bodySmall
+                          .copyWith(color: cs.onSurfaceVariant),
+                      textAlign: TextAlign.center),
+                  KSpacing.vGapSm,
+                  FilledButton.tonalIcon(
+                    onPressed: onPick,
+                    icon: const Icon(Icons.folder_open_outlined, size: 18),
+                    label: const Text('Browse files'),
+                  ),
+                ],
+              ),
       ),
-    );
-  }
-}
-
-class _PickPrompt extends StatelessWidget {
-  final VoidCallback onPick;
-  const _PickPrompt({required this.onPick});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: cs.primary.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(
-            Icons.cloud_upload_outlined,
-            color: cs.primary,
-            size: 28,
-          ),
-        ),
-        KSpacing.vGapSm,
-        Text(
-          'Click to choose a file',
-          style: KTypography.labelLarge,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 2),
-        Text(
-          'Accepted: .csv, .xlsx, .txt',
-          style: KTypography.bodySmall.copyWith(
-            color: cs.onSurfaceVariant,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        KSpacing.vGapSm,
-        FilledButton.tonalIcon(
-          onPressed: onPick,
-          icon: const Icon(Icons.folder_open_outlined, size: 18),
-          label: const Text('Browse files'),
-        ),
-      ],
-    );
-  }
-}
-
-class _PickedFileRow extends StatelessWidget {
-  final String fileName;
-  final int? dataRows;
-  final VoidCallback onReplace;
-  final VoidCallback onClear;
-
-  const _PickedFileRow({
-    required this.fileName,
-    required this.dataRows,
-    required this.onReplace,
-    required this.onClear,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isXlsx = fileName.toLowerCase().endsWith('.xlsx');
-    return Row(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: cs.primary.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(
-            isXlsx ? Icons.table_chart_outlined : Icons.description_outlined,
-            color: cs.primary,
-            size: 22,
-          ),
-        ),
-        KSpacing.hGapMd,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                fileName,
-                style: KTypography.labelLarge,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                dataRows != null
-                    ? '$dataRows data row${dataRows == 1 ? '' : 's'} detected'
-                    : isXlsx
-                        ? 'Excel file selected'
-                        : 'File selected',
-                style: KTypography.bodySmall.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-        KSpacing.hGapSm,
-        TextButton.icon(
-          onPressed: onReplace,
-          icon: const Icon(Icons.swap_horiz, size: 16),
-          label: const Text('Replace'),
-        ),
-        IconButton(
-          tooltip: 'Remove file',
-          onPressed: onClear,
-          icon: const Icon(Icons.close_rounded),
-        ),
-      ],
     );
   }
 }
@@ -621,28 +526,24 @@ class _ImportResultPanel extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _StatTile(
-                label: 'Total rows',
-                value: '$total',
-                color: KColors.textSecondary,
-              ),
-            ),
+                child: _StatTile(
+                    label: 'Total rows',
+                    value: '$total',
+                    color: KColors.textSecondary)),
             KSpacing.hGapSm,
             Expanded(
-              child: _StatTile(
-                label: 'Created',
-                value: '$created',
-                color: KColors.success,
-              ),
-            ),
+                child: _StatTile(
+                    label: 'Created',
+                    value: '$created',
+                    color: KColors.success)),
             KSpacing.hGapSm,
             Expanded(
-              child: _StatTile(
-                label: 'Skipped',
-                value: '$skipped',
-                color: skipped > 0 ? KColors.warning : KColors.textSecondary,
-              ),
-            ),
+                child: _StatTile(
+                    label: 'Skipped',
+                    value: '$skipped',
+                    color: skipped > 0
+                        ? KColors.warning
+                        : KColors.textSecondary)),
           ],
         ),
         if (errors.isNotEmpty) ...[
@@ -652,7 +553,7 @@ class _ImportResultPanel extends StatelessWidget {
           ...errors.map((e) {
             final err = e as Map<String, dynamic>;
             final row = err['rowNumber'];
-            final sku = err['sku'] as String?;
+            final name = err['displayName'] as String?;
             final msg = err['message'] as String? ?? 'Unknown error';
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -664,7 +565,7 @@ class _ImportResultPanel extends StatelessWidget {
                   KSpacing.hGapSm,
                   Expanded(
                     child: Text(
-                      'Row $row${sku != null ? " ($sku)" : ""}: $msg',
+                      'Row $row${name != null ? " ($name)" : ""}: $msg',
                       style: KTypography.bodySmall,
                     ),
                   ),
@@ -682,11 +583,8 @@ class _StatTile extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
-  const _StatTile({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+  const _StatTile(
+      {required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
