@@ -9,7 +9,10 @@ import '../data/contact_repository.dart';
 
 /// Modal contact picker. Returns the selected contact map
 /// (with id, displayName, phone, etc.) or null if cancelled.
-Future<Map<String, dynamic>?> showContactPicker(BuildContext context) {
+Future<Map<String, dynamic>?> showContactPicker(
+  BuildContext context, {
+  bool showQuickCreate = false,
+}) {
   return showModalBottomSheet<Map<String, dynamic>>(
     context: context,
     isScrollControlled: true,
@@ -20,6 +23,7 @@ Future<Map<String, dynamic>?> showContactPicker(BuildContext context) {
       expand: false,
       builder: (ctx, scrollController) => _ContactPickerSheet(
         scrollController: scrollController,
+        showQuickCreate: showQuickCreate,
       ),
     ),
   );
@@ -27,7 +31,11 @@ Future<Map<String, dynamic>?> showContactPicker(BuildContext context) {
 
 class _ContactPickerSheet extends ConsumerStatefulWidget {
   final ScrollController scrollController;
-  const _ContactPickerSheet({required this.scrollController});
+  final bool showQuickCreate;
+  const _ContactPickerSheet({
+    required this.scrollController,
+    this.showQuickCreate = false,
+  });
 
   @override
   ConsumerState<_ContactPickerSheet> createState() =>
@@ -42,6 +50,17 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _quickCreateCustomer() async {
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _QuickCreateCustomerSheet(),
+    );
+    if (result != null && mounted) {
+      Navigator.pop(context, result);
+    }
   }
 
   @override
@@ -62,7 +81,28 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Select Customer', style: KTypography.h3),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.showQuickCreate
+                            ? 'Customer (optional — leave empty for walk-in)'
+                            : 'Select Customer',
+                        style: KTypography.h3,
+                      ),
+                    ),
+                    if (widget.showQuickCreate)
+                      FilledButton.tonalIcon(
+                        onPressed: _quickCreateCustomer,
+                        icon: const Icon(Icons.person_add, size: 16),
+                        label: const Text('New'),
+                        style: FilledButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                      ),
+                  ],
+                ),
                 KSpacing.vGapSm,
                 KTextField.search(
                   controller: _searchController,
@@ -97,11 +137,24 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Text(
-                        _query == null
-                            ? 'No customers yet'
-                            : 'No matches',
-                        style: KTypography.bodyMedium,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _query == null
+                                ? 'No customers yet'
+                                : 'No matches for "$_query"',
+                            style: KTypography.bodyMedium,
+                          ),
+                          if (widget.showQuickCreate) ...[
+                            KSpacing.vGapMd,
+                            FilledButton.icon(
+                              onPressed: _quickCreateCustomer,
+                              icon: const Icon(Icons.person_add),
+                              label: const Text('Create New Customer'),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   );
@@ -155,6 +208,109 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
               },
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Minimal quick-create customer sheet for POS flow.
+class _QuickCreateCustomerSheet extends ConsumerStatefulWidget {
+  const _QuickCreateCustomerSheet();
+
+  @override
+  ConsumerState<_QuickCreateCustomerSheet> createState() =>
+      _QuickCreateCustomerSheetState();
+}
+
+class _QuickCreateCustomerSheetState
+    extends ConsumerState<_QuickCreateCustomerSheet> {
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = 'Name is required');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    try {
+      final repo = ref.read(contactRepositoryProvider);
+      final response = await repo.createContact({
+        'displayName': name,
+        'contactType': 'CUSTOMER',
+        if (_phoneController.text.trim().isNotEmpty)
+          'phone': _phoneController.text.trim(),
+      });
+      if (!mounted) return;
+      final data = response['data'] is Map
+          ? response['data'] as Map<String, dynamic>
+          : response;
+      Navigator.pop(context, data);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = 'Failed to create customer: $e';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: KSpacing.md,
+        right: KSpacing.md,
+        top: KSpacing.md,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('New Customer', style: KTypography.h3),
+          KSpacing.vGapMd,
+          KTextField(
+            label: 'Display Name *',
+            hint: 'e.g. Rajesh Kumar',
+            controller: _nameController,
+            onFieldSubmitted: (_) => _save(),
+          ),
+          KSpacing.vGapSm,
+          KTextField(
+            label: 'Phone',
+            hint: 'e.g. 9876543210',
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            onFieldSubmitted: (_) => _save(),
+          ),
+          if (_error != null) ...[
+            KSpacing.vGapSm,
+            Text(_error!, style: TextStyle(color: KColors.error, fontSize: 12)),
+          ],
+          KSpacing.vGapMd,
+          KButton(
+            label: 'Save & Select',
+            icon: Icons.check,
+            isLoading: _saving,
+            onPressed: _saving ? null : _save,
+          ),
+          KSpacing.vGapLg,
         ],
       ),
     );

@@ -25,7 +25,7 @@ class PosSearchBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: KTextField(
         label: '',
-        hint: 'Search items or scan barcode',
+        hint: 'Search item name, SKU or scan barcode...',
         controller: controller,
         onChanged: onChanged,
         onFieldSubmitted: onSubmitted,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_typography.dart';
+import '../../../contacts/data/contact_repository.dart';
 import '../../../contacts/presentation/contact_picker_sheet.dart';
 import '../../data/pos_cart_state.dart';
 
@@ -25,7 +26,7 @@ class PosCustomerButton extends ConsumerWidget {
           : null,
       child: ActionChip(
         avatar: Icon(
-          hasCustomer ? Icons.person : Icons.person_add_alt_1,
+          hasCustomer ? Icons.person : Icons.person_outline,
           size: 16,
           color: hasCustomer ? cs.primary : cs.onSurfaceVariant,
         ),
@@ -62,7 +63,7 @@ class PosCustomerButton extends ConsumerWidget {
   }
 
   Future<void> _pickCustomer(BuildContext context, WidgetRef ref) async {
-    final contact = await showContactPicker(context);
+    final contact = await showContactPicker(context, showQuickCreate: true);
     if (contact != null) {
       ref.read(posCartProvider.notifier).setContact(
             contact['id']?.toString(),

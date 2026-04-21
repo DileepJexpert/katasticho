@@ -52,9 +52,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   void _onSearchChanged(String value) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 200), () {
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      final q = value.trim();
       setState(() {
-        _searchQuery = value.trim().isEmpty ? null : value.trim();
+        _searchQuery = q.length < 2 ? null : q;
       });
     });
   }
