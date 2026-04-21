@@ -8,6 +8,8 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../contacts/data/contact_repository.dart';
+import '../../tax_groups/data/tax_group_repository.dart';
+import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/estimate_repository.dart';
 
 /// Local draft model for a single line item on the create form.
@@ -17,13 +19,14 @@ class _LineDraft {
   final TextEditingController rateCtrl;
   double discountPct;
   double taxRate;
+  String? taxGroupId;
 
   _LineDraft({
     String? description,
     double quantity = 1,
     double rate = 0,
     this.discountPct = 0,
-    this.taxRate = 18,
+    this.taxRate = 0,
   })  : descriptionCtrl = TextEditingController(text: description ?? ''),
         quantityCtrl =
             TextEditingController(text: quantity.toString()),
@@ -67,8 +70,6 @@ class _EstimateCreateScreenState extends ConsumerState<EstimateCreateScreen> {
   bool _submitting = false;
 
   final List<_LineDraft> _lines = [_LineDraft()];
-
-  static const _gstRates = [0.0, 5.0, 12.0, 18.0, 28.0];
 
   @override
   void dispose() {
@@ -178,7 +179,6 @@ class _EstimateCreateScreenState extends ConsumerState<EstimateCreateScreen> {
                 child: _LineCard(
                   index: i,
                   line: _lines[i],
-                  gstRates: _gstRates,
                   canRemove: _lines.length > 1,
                   onRemove: () => setState(() {
                     _lines[i].dispose();
@@ -334,6 +334,7 @@ class _EstimateCreateScreenState extends ConsumerState<EstimateCreateScreen> {
                   'rate': l.rate,
                   'discountPct': l.discountPct,
                   'taxRate': l.taxRate,
+                  if (l.taxGroupId != null) 'taxGroupId': l.taxGroupId,
                 })
             .toList(),
       };
@@ -365,7 +366,6 @@ class _EstimateCreateScreenState extends ConsumerState<EstimateCreateScreen> {
 class _LineCard extends StatelessWidget {
   final int index;
   final _LineDraft line;
-  final List<double> gstRates;
   final bool canRemove;
   final VoidCallback onRemove;
   final VoidCallback onChanged;
@@ -373,7 +373,6 @@ class _LineCard extends StatelessWidget {
   const _LineCard({
     required this.index,
     required this.line,
-    required this.gstRates,
     required this.canRemove,
     required this.onRemove,
     required this.onChanged,
@@ -430,20 +429,13 @@ class _LineCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<double>(
-                  value: line.taxRate,
-                  decoration: const InputDecoration(labelText: 'GST %'),
-                  items: gstRates
-                      .map((r) => DropdownMenuItem(
-                            value: r,
-                            child: Text('${r.toInt()}%'),
-                          ))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) {
-                      line.taxRate = v;
-                      onChanged();
-                    }
+                child: TaxGroupPicker(
+                  value: line.taxGroupId,
+                  label: 'Tax',
+                  onChanged: (group) {
+                    line.taxGroupId = group?.id;
+                    line.taxRate = group?.totalRate ?? 0;
+                    onChanged();
                   },
                 ),
               ),

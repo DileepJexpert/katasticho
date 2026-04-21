@@ -9,6 +9,8 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../contacts/data/contact_repository.dart';
+import '../../tax_groups/data/tax_group_repository.dart';
+import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/expense_repository.dart';
 import 'expense_list_screen.dart' show kExpenseCategories;
 
@@ -43,6 +45,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
   String? _expenseAccountId;
   String? _paidThroughId;
   double _gstRate = 0;
+  String? _taxGroupId;
   String? _vendorContactId;
   String? _vendorContactName;
   bool _billable = false;
@@ -54,8 +57,6 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     ('UPI', 'UPI', Icons.qr_code_2_outlined),
     ('CREDIT_CARD', 'Credit Card', Icons.credit_card_outlined),
   ];
-
-  static const _gstRates = [0.0, 5.0, 12.0, 18.0, 28.0];
 
   @override
   void dispose() {
@@ -146,18 +147,14 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                 ),
                 KSpacing.vGapMd,
 
-                // GST rate
-                Text('GST rate', style: KTypography.labelLarge),
-                KSpacing.vGapSm,
-                Wrap(
-                  spacing: 8,
-                  children: _gstRates
-                      .map((r) => ChoiceChip(
-                            label: Text('${r.toInt()}%'),
-                            selected: _gstRate == r,
-                            onSelected: (_) => setState(() => _gstRate = r),
-                          ))
-                      .toList(),
+                // Tax group
+                TaxGroupPicker(
+                  value: _taxGroupId,
+                  label: 'Tax (GST)',
+                  onChanged: (group) => setState(() {
+                    _taxGroupId = group?.id;
+                    _gstRate = group?.totalRate ?? 0;
+                  }),
                 ),
                 KSpacing.vGapMd,
 
@@ -330,6 +327,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
         'description': _descriptionCtrl.text.trim(),
         'amount': double.parse(_amountCtrl.text),
         'gstRate': _gstRate,
+        if (_taxGroupId != null) 'taxGroupId': _taxGroupId,
         'currency': 'INR',
         'contactId': _vendorContactId,
         'paymentMode': _paymentMode,

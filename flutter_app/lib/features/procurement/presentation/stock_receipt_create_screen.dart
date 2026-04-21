@@ -10,6 +10,8 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
+import '../../tax_groups/data/tax_group_repository.dart';
+import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/stock_receipt_repository.dart';
 import 'supplier_picker_sheet.dart';
 
@@ -92,6 +94,7 @@ class _StockReceiptCreateScreenState
                   'quantity': l.quantity,
                   'unitPrice': l.unitPrice,
                   'gstRate': l.gstRate,
+                  if (l.taxGroupId != null) 'taxGroupId': l.taxGroupId,
                   if (l.batchNumber.isNotEmpty) 'batchNumber': l.batchNumber,
                   if (l.expiryDate != null)
                     'expiryDate':
@@ -495,7 +498,8 @@ class _GrnLine {
   String uom = 'PCS';
   double quantity = 1;
   double unitPrice = 0;
-  double gstRate = 18;
+  double gstRate = 0;
+  String? taxGroupId;
   String batchNumber = '';
   DateTime? expiryDate;
 
@@ -632,26 +636,16 @@ class _GrnLineCardState extends State<_GrnLineCard> {
               ],
             ),
             KSpacing.vGapSm,
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<double>(
-                    value: widget.line.gstRate,
-                    decoration: const InputDecoration(labelText: 'GST Rate'),
-                    items: const [
-                      DropdownMenuItem(value: 0, child: Text('0%')),
-                      DropdownMenuItem(value: 5, child: Text('5%')),
-                      DropdownMenuItem(value: 12, child: Text('12%')),
-                      DropdownMenuItem(value: 18, child: Text('18%')),
-                      DropdownMenuItem(value: 28, child: Text('28%')),
-                    ],
-                    onChanged: (v) {
-                      setState(() => widget.line.gstRate = v ?? 18);
-                      widget.onChanged();
-                    },
-                  ),
-                ),
-              ],
+            TaxGroupPicker(
+              value: widget.line.taxGroupId,
+              label: 'Tax (GST)',
+              onChanged: (group) {
+                setState(() {
+                  widget.line.taxGroupId = group?.id;
+                  widget.line.gstRate = group?.totalRate ?? 0;
+                });
+                widget.onChanged();
+              },
             ),
             KSpacing.vGapSm,
             Row(

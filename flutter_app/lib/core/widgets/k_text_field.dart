@@ -57,7 +57,7 @@ class KTextField extends StatefulWidget {
     this.textInputAction,
     this.onTap,
     this.onFieldSubmitted,
-    this.selectAllOnFocus = false,
+    this.selectAllOnFocus = true,
   });
 
   @override

@@ -9,18 +9,11 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../contacts/data/contact_repository.dart';
+import '../../tax_groups/data/tax_group_repository.dart';
+import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/credit_note_repository.dart';
 import '../data/credit_note_providers.dart';
 
-/// GST rate options for India.
-const _gstRates = [0.0, 5.0, 12.0, 18.0, 28.0];
-
-/// Common revenue account codes.
-const _accountCodes = [
-  ('4000', 'Sales Revenue'),
-  ('4010', 'Service Revenue'),
-  ('4020', 'Other Income'),
-];
 
 class CreditNoteCreateScreen extends ConsumerStatefulWidget {
   const CreditNoteCreateScreen({super.key});
@@ -95,6 +88,7 @@ class _CreditNoteCreateScreenState
                       0,
                   'gstRate': line.gstRate,
                   'accountCode': line.accountCode,
+                  if (line.taxGroupId != null) 'taxGroupId': line.taxGroupId,
                 })
             .toList(),
       };
@@ -385,41 +379,13 @@ class _CreditNoteCreateScreenState
           ),
           KSpacing.vGapSm,
 
-          // GST Rate + Account Code
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<double>(
-                  value: line.gstRate,
-                  decoration: const InputDecoration(labelText: 'GST Rate'),
-                  items: _gstRates
-                      .map((r) => DropdownMenuItem(
-                            value: r,
-                            child: Text('${r.toStringAsFixed(0)}%'),
-                          ))
-                      .toList(),
-                  onChanged: (v) => setState(() {
-                    line.gstRate = v ?? 0;
-                  }),
-                ),
-              ),
-              KSpacing.hGapMd,
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: line.accountCode,
-                  decoration:
-                      const InputDecoration(labelText: 'Account'),
-                  items: _accountCodes
-                      .map((a) => DropdownMenuItem(
-                            value: a.$1,
-                            child: Text(a.$2),
-                          ))
-                      .toList(),
-                  onChanged: (v) =>
-                      setState(() => line.accountCode = v ?? '4000'),
-                ),
-              ),
-            ],
+          TaxGroupPicker(
+            value: line.taxGroupId,
+            label: 'Tax',
+            onChanged: (group) => setState(() {
+              line.taxGroupId = group?.id;
+              line.gstRate = group?.totalRate ?? 0;
+            }),
           ),
           KSpacing.vGapSm,
 
@@ -445,8 +411,9 @@ class _LineItem {
   final hsnController = TextEditingController();
   final qtyController = TextEditingController(text: '1');
   final priceController = TextEditingController();
-  double gstRate = 18.0;
+  double gstRate = 0.0;
   String accountCode = '4000';
+  String? taxGroupId;
 
   double get _qty => double.tryParse(qtyController.text) ?? 0;
   double get _price => double.tryParse(priceController.text) ?? 0;
