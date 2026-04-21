@@ -116,6 +116,9 @@ class _PosCartListState extends ConsumerState<PosCartList> {
                             );
                       }
                     : null,
+                onDiscountChanged: (pct) {
+                  ref.read(posCartProvider.notifier).setDiscount(index, pct);
+                },
               );
             },
           ),

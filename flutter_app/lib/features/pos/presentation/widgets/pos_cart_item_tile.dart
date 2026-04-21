@@ -14,6 +14,7 @@ class PosCartItemTile extends StatelessWidget {
   final ValueChanged<double> onQuantityChanged;
   final VoidCallback onRemove;
   final void Function(String unit, String? uomId, double? conversionFactor, double? customPrice)? onUnitChanged;
+  final ValueChanged<double>? onDiscountChanged;
 
   const PosCartItemTile({
     super.key,
@@ -22,7 +23,15 @@ class PosCartItemTile extends StatelessWidget {
     required this.onQuantityChanged,
     required this.onRemove,
     this.onUnitChanged,
+    this.onDiscountChanged,
   });
+
+  static bool _isBlocked(CartItem item) {
+    final t = item.discountThresholds;
+    if (t == null) return false;
+    final blockAt = (t['blockAt'] as num?)?.toDouble() ?? 100;
+    return item.discountPct > blockAt;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +49,13 @@ class PosCartItemTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: Row(
           children: [
+            // Color dot indicating margin band
+            _MarginDot(
+              discountPct: item.discountPct,
+              thresholds: item.discountThresholds,
+            ),
+            const SizedBox(width: 8),
+
             // Item info
             Expanded(
               child: Column(
@@ -117,6 +133,20 @@ class PosCartItemTile extends StatelessWidget {
                         fontSize: 10,
                       ),
                     ),
+                  if (_isBlocked(item))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(
+                        children: [
+                          Icon(Icons.warning_amber_rounded, size: 12, color: KColors.error),
+                          const SizedBox(width: 3),
+                          Text('Cannot sell below cost',
+                            style: KTypography.labelSmall.copyWith(
+                              fontSize: 10, color: KColors.error, fontWeight: FontWeight.w600,
+                            )),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -144,6 +174,17 @@ class PosCartItemTile extends StatelessWidget {
                 onChanged: onQuantityChanged,
               ),
             KSpacing.hGapMd,
+
+            // Discount input
+            SizedBox(
+              width: 52,
+              child: _DiscountField(
+                discountPct: item.discountPct,
+                onChanged: onDiscountChanged,
+                isBlocked: _isBlocked(item),
+              ),
+            ),
+            KSpacing.hGapSm,
 
             // Line total (with tax)
             SizedBox(
@@ -540,6 +581,90 @@ class _BatchInfoRow extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _MarginDot extends StatelessWidget {
+  final double discountPct;
+  final Map<String, dynamic>? thresholds;
+
+  const _MarginDot({required this.discountPct, this.thresholds});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: _dotColor(),
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+
+  Color _dotColor() {
+    if (thresholds == null) return const Color(0xFF22C55E); // green if no data
+
+    final blockAt = (thresholds!['blockAt'] as num?)?.toDouble() ?? 100;
+    final redMax = (thresholds!['redMax'] as num?)?.toDouble() ?? 100;
+    final yellowMax = (thresholds!['yellowMax'] as num?)?.toDouble() ?? 100;
+    final blueMax = (thresholds!['blueMax'] as num?)?.toDouble() ?? 100;
+
+    if (discountPct > blockAt) return const Color(0xFF1F2937);  // Black - LOSS
+    if (discountPct > redMax) return const Color(0xFFEF4444);   // Red
+    if (discountPct > yellowMax) return const Color(0xFFEAB308); // Yellow
+    if (discountPct > blueMax) return const Color(0xFF3B82F6);  // Blue
+    return const Color(0xFF22C55E);                              // Green
+  }
+}
+
+class _DiscountField extends StatelessWidget {
+  final double discountPct;
+  final ValueChanged<double>? onChanged;
+  final bool isBlocked;
+
+  const _DiscountField({
+    required this.discountPct,
+    this.onChanged,
+    this.isBlocked = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return TextField(
+      controller: TextEditingController(text: discountPct > 0 ? discountPct.toStringAsFixed(0) : ''),
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textAlign: TextAlign.center,
+      style: KTypography.labelSmall.copyWith(
+        color: isBlocked ? KColors.error : null,
+        fontSize: 11,
+      ),
+      decoration: InputDecoration(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        suffixText: '%',
+        suffixStyle: KTypography.labelSmall.copyWith(fontSize: 10),
+        hintText: '0',
+        hintStyle: KTypography.labelSmall.copyWith(color: KColors.textHint, fontSize: 11),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: BorderSide(color: isBlocked ? KColors.error : cs.outlineVariant),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: BorderSide(color: isBlocked ? KColors.error : cs.outlineVariant),
+        ),
+      ),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^\d{0,2}\.?\d{0,1}')),
+      ],
+      onChanged: (v) {
+        final pct = double.tryParse(v) ?? 0;
+        onChanged?.call(pct.clamp(0, 99));
+      },
     );
   }
 }

@@ -23,6 +23,8 @@ class CartItem {
   final String? unitUomId;
   final double? unitConversionFactor;
   final List<Map<String, dynamic>> availableUnits;
+  final double discountPct;
+  final Map<String, dynamic>? discountThresholds;
 
   CartItem({
     this.itemId,
@@ -46,9 +48,12 @@ class CartItem {
     this.unitUomId,
     this.unitConversionFactor,
     this.availableUnits = const [],
+    this.discountPct = 0,
+    this.discountThresholds,
   });
 
-  double get lineTotal => rate * quantity;
+  double get effectiveRate => rate * (1 - discountPct / 100);
+  double get lineTotal => effectiveRate * quantity;
   double get taxAmount => lineTotal * taxRate / 100;
   double get lineTotalWithTax => lineTotal + taxAmount;
 
@@ -74,6 +79,8 @@ class CartItem {
     String? unitUomId,
     double? unitConversionFactor,
     List<Map<String, dynamic>>? availableUnits,
+    double? discountPct,
+    Map<String, dynamic>? discountThresholds,
   }) {
     return CartItem(
       itemId: itemId ?? this.itemId,
@@ -97,6 +104,8 @@ class CartItem {
       unitUomId: unitUomId ?? this.unitUomId,
       unitConversionFactor: unitConversionFactor ?? this.unitConversionFactor,
       availableUnits: availableUnits ?? this.availableUnits,
+      discountPct: discountPct ?? this.discountPct,
+      discountThresholds: discountThresholds ?? this.discountThresholds,
     );
   }
 }
@@ -160,6 +169,13 @@ class PosCartState {
 
   /// Whether a customer is selected (not walk-in).
   bool get hasCustomer => contactId != null;
+
+  bool get hasBlockedItems => items.any((item) {
+    final t = item.discountThresholds;
+    if (t == null) return false;
+    final blockAt = (t['blockAt'] as num?)?.toDouble() ?? 100;
+    return item.discountPct > blockAt;
+  });
 
   bool get isSplitPayment => paymentSplits.isNotEmpty;
   double get splitTotal =>
@@ -248,6 +264,14 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
     } else {
       updated[index] = updated[index].copyWith(quantity: newQty);
     }
+    state = state.copyWith(items: updated);
+  }
+
+  /// Set discount percentage for item at index.
+  void setDiscount(int index, double discountPct) {
+    if (index < 0 || index >= state.items.length) return;
+    final updated = List<CartItem>.from(state.items);
+    updated[index] = updated[index].copyWith(discountPct: discountPct);
     state = state.copyWith(items: updated);
   }
 
