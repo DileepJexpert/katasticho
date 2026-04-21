@@ -305,7 +305,7 @@ class _BranchCreateSheetState extends ConsumerState<_BranchCreateSheet> {
                 child: KButton(
                   label: 'Create Branch',
                   fullWidth: true,
-                  loading: _saving,
+                  isLoading: _saving,
                   onPressed: _saving ? null : _save,
                 ),
               ),
