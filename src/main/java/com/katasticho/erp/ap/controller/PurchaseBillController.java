@@ -4,6 +4,7 @@ import com.katasticho.erp.ap.dto.CreatePurchaseBillRequest;
 import com.katasticho.erp.ap.dto.PurchaseBillResponse;
 import com.katasticho.erp.ap.dto.UpdatePurchaseBillRequest;
 import com.katasticho.erp.ap.dto.VendorPaymentResponse;
+import com.katasticho.erp.ap.service.BillPdfService;
 import com.katasticho.erp.ap.service.PurchaseBillService;
 import com.katasticho.erp.ap.service.VendorPaymentService;
 import com.katasticho.erp.common.dto.ApiResponse;
@@ -20,7 +21,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -41,6 +44,7 @@ public class PurchaseBillController {
     private final CommentService commentService;
     private final AttachmentService attachmentService;
     private final DocumentShareService documentShareService;
+    private final BillPdfService billPdfService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
@@ -68,6 +72,18 @@ public class PurchaseBillController {
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<PurchaseBillResponse>> getBill(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(billService.getBillResponse(id)));
+    }
+
+    @GetMapping("/{id}/pdf")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<byte[]> downloadPdf(@PathVariable UUID id) {
+        PurchaseBillResponse bill = billService.getBillResponse(id);
+        byte[] pdf = billPdfService.generatePdf(bill);
+        String filename = "bill-" + bill.billNumber().replaceAll("[/\\\\:*?\"<>|]", "-") + ".pdf";
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .body(pdf);
     }
 
     @PutMapping("/{id}")

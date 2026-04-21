@@ -194,6 +194,7 @@ class ApiConfig {
       '/api/v1/bills/$id/whatsapp-link';
   static String postBill(String id) => '/api/v1/bills/$id/post';
   static String voidBill(String id) => '/api/v1/bills/$id/void';
+  static String billPdf(String id) => '/api/v1/bills/$id/pdf';
   static String billPayments(String id) => '/api/v1/bills/$id/payments';
   static String billComments(String id) => '/api/v1/bills/$id/comments';
   static String billAttachments(String id) => '/api/v1/bills/$id/attachments';

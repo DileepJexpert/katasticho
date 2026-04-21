@@ -9,6 +9,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/estimate_repository.dart';
+import 'estimate_pdf_screen.dart';
 
 /// Pulls comments for a given estimate.
 final _commentsProvider = FutureProvider.autoDispose
@@ -53,18 +54,38 @@ class EstimateDetailScreen extends ConsumerWidget {
             appBar: AppBar(
               title: Text(number),
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  tooltip: 'Share via WhatsApp',
-                  onPressed: () {
-                    final api = ref.read(apiClientProvider);
-                    launchWhatsAppShare(
-                      context,
-                      fetchShareData: () => api.get(
-                        ApiConfig.estimateWhatsAppLink(estimateId),
-                      ).then((r) => r.data as Map<String, dynamic>),
-                    );
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'pdf':
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                EstimatePdfScreen(estimate: estimate),
+                          ),
+                        );
+                        break;
+                      case 'share':
+                        final api = ref.read(apiClientProvider);
+                        launchWhatsAppShare(
+                          context,
+                          fetchShareData: () => api
+                              .get(ApiConfig.estimateWhatsAppLink(
+                                  estimateId))
+                              .then((r) =>
+                                  r.data as Map<String, dynamic>),
+                        );
+                        break;
+                    }
                   },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                        value: 'pdf', child: Text('Download PDF')),
+                    PopupMenuItem(
+                        value: 'share',
+                        child: Text('Share via WhatsApp')),
+                  ],
                 ),
               ],
               bottom: const TabBar(
