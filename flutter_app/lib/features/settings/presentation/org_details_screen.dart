@@ -253,7 +253,7 @@ class _OrgDetailsScreenState extends ConsumerState<OrgDetailsScreen> {
                   child: KButton(
                     label: 'Save',
                     fullWidth: true,
-                    loading: _saving,
+                    isLoading: _saving,
                     onPressed: _saving ? null : () => _save(orgId),
                   ),
                 ),
