@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -91,21 +92,28 @@ public record CreateItemRequest(
         /** Optional warehouse for the opening movement. Defaults to org's default warehouse. */
         UUID openingWarehouseId,
 
-        /**
-         * Optional FK to {@code item_group}. When present, this item
-         * becomes a variant of that group: missing fields (HSN, GST,
-         * UoM, default purchase/sale price) inherit from the group at
-         * create time, and {@link #variantAttributes} must satisfy the
-         * group's attribute_definitions list.
-         */
+        /** Purchase UoM abbreviation when buying in a different unit (e.g. "BORA"). */
+        @Size(max = 20)
+        String purchaseUom,
+
+        /** How many base units make up 1 purchase unit (e.g. 1 Bora = 50 KG → factor = 50). */
+        @DecimalMin(value = "0.0001", message = "Conversion factor must be > 0")
+        BigDecimal purchaseUomConversion,
+
+        /** Price per purchase unit (e.g. ₹2750 per Bora). */
+        @DecimalMin(value = "0.00")
+        BigDecimal purchasePricePerUom,
+
+        /** Additional selling/buying units with optional custom prices. */
+        List<UnitPriceEntry> secondaryUnits,
+
         UUID groupId,
 
-        /**
-         * Variant attributes, e.g. {@code {"size":"M","color":"Red"}}.
-         * Must be empty when {@link #groupId} is null and non-empty
-         * when it isn't (the DB CHECK and ItemGroupService validator
-         * both enforce this; the second message wins on user-facing
-         * errors).
-         */
         Map<String, String> variantAttributes
-) {}
+) {
+    public record UnitPriceEntry(
+            @NotBlank String uomAbbreviation,
+            @NotNull @DecimalMin(value = "0.0001") BigDecimal conversionFactor,
+            @DecimalMin(value = "0.00") BigDecimal customPrice
+    ) {}
+}

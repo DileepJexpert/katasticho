@@ -4,6 +4,7 @@ import com.katasticho.erp.inventory.entity.ItemType;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -49,15 +50,19 @@ public record ItemResponse(
         boolean active,
         BigDecimal totalOnHand,
         Instant createdAt,
-        /** Optional FK to {@code item_group} — present only when this
-         * item is a variant of a group. The Flutter picker uses it to
-         * collapse siblings under their parent. */
         UUID groupId,
-        /** Variant attributes when {@link #groupId} is non-null,
-         * otherwise empty. */
         Map<String, String> variantAttributes,
-        /** Group display name resolved at response-build time so the
-         * Flutter picker doesn't need an N+1 fetch. NULL when
-         * {@link #groupId} is NULL. */
-        String groupName
-) {}
+        String groupName,
+        String purchaseUom,
+        BigDecimal purchaseUomConversion,
+        BigDecimal purchasePricePerUom,
+        List<UnitPriceInfo> secondaryUnits
+) {
+    public record UnitPriceInfo(
+            UUID uomId,
+            String uomAbbreviation,
+            String uomName,
+            BigDecimal conversionFactor,
+            BigDecimal customPrice
+    ) {}
+}

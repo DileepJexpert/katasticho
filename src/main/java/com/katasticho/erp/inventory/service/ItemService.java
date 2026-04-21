@@ -12,13 +12,19 @@ import com.katasticho.erp.inventory.dto.UpdateItemRequest;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.entity.ItemGroup;
 import com.katasticho.erp.inventory.entity.ItemType;
+import com.katasticho.erp.inventory.entity.ItemUnitPrice;
 import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.ReferenceType;
 import com.katasticho.erp.inventory.entity.StockBalance;
+import com.katasticho.erp.inventory.entity.Uom;
+import com.katasticho.erp.inventory.entity.UomConversion;
 import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.ItemGroupRepository;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.ItemUnitPriceRepository;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
+import com.katasticho.erp.inventory.repository.UomConversionRepository;
+import com.katasticho.erp.inventory.repository.UomRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
@@ -29,10 +35,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -60,6 +69,9 @@ public class ItemService {
      */
     private final ItemGroupService itemGroupService;
     private final ContactRepository contactRepository;
+    private final UomConversionRepository uomConversionRepository;
+    private final ItemUnitPriceRepository itemUnitPriceRepository;
+    private final UomRepository uomRepository;
 
     public ItemService(ItemRepository itemRepository,
                        StockBalanceRepository stockBalanceRepository,
@@ -69,7 +81,10 @@ public class ItemService {
                        UomService uomService,
                        ItemGroupRepository itemGroupRepository,
                        @Lazy ItemGroupService itemGroupService,
-                       ContactRepository contactRepository) {
+                       ContactRepository contactRepository,
+                       UomConversionRepository uomConversionRepository,
+                       ItemUnitPriceRepository itemUnitPriceRepository,
+                       UomRepository uomRepository) {
         this.itemRepository = itemRepository;
         this.stockBalanceRepository = stockBalanceRepository;
         this.warehouseRepository = warehouseRepository;
@@ -79,6 +94,9 @@ public class ItemService {
         this.itemGroupRepository = itemGroupRepository;
         this.itemGroupService = itemGroupService;
         this.contactRepository = contactRepository;
+        this.uomConversionRepository = uomConversionRepository;
+        this.itemUnitPriceRepository = itemUnitPriceRepository;
+        this.uomRepository = uomRepository;
     }
 
     @Transactional
@@ -192,7 +210,62 @@ public class ItemService {
                         : new HashMap<>())
                 .build();
 
+        // Purchase UoM handling — set fields before save
+        if (request.purchaseUom() != null && !request.purchaseUom().isBlank()
+                && request.purchaseUomConversion() != null) {
+            UUID purchaseUomId = uomService.resolveBaseUomIdOrPcs(request.purchaseUom());
+            item.setPurchaseUomId(purchaseUomId);
+            item.setPurchaseUomConversion(request.purchaseUomConversion());
+            item.setPurchasePricePerUom(request.purchasePricePerUom());
+            // Store per-base-unit purchase price: purchasePricePerUom / conversionFactor
+            if (request.purchasePricePerUom() != null
+                    && request.purchaseUomConversion().compareTo(BigDecimal.ZERO) > 0) {
+                item.setPurchasePrice(request.purchasePricePerUom()
+                        .divide(request.purchaseUomConversion(), 2, RoundingMode.HALF_UP));
+            }
+        }
+
         item = itemRepository.save(item);
+
+        // Create per-item UoM conversion record for purchase unit
+        if (item.getPurchaseUomId() != null && item.getBaseUomId() != null
+                && !item.getPurchaseUomId().equals(item.getBaseUomId())) {
+            UomConversion conv = UomConversion.builder()
+                    .itemId(item.getId())
+                    .fromUomId(item.getPurchaseUomId())
+                    .toUomId(item.getBaseUomId())
+                    .factor(item.getPurchaseUomConversion())
+                    .build();
+            uomConversionRepository.save(conv);
+        }
+
+        // Secondary units (additional selling/buying units with optional custom prices)
+        if (request.secondaryUnits() != null) {
+            for (CreateItemRequest.UnitPriceEntry entry : request.secondaryUnits()) {
+                Optional<Uom> uom = uomService.findByAbbreviation(entry.uomAbbreviation());
+                if (uom.isEmpty()) continue;
+                UUID secUomId = uom.get().getId();
+
+                ItemUnitPrice iup = ItemUnitPrice.builder()
+                        .itemId(item.getId())
+                        .uomId(secUomId)
+                        .conversionFactor(entry.conversionFactor())
+                        .customPrice(entry.customPrice())
+                        .build();
+                itemUnitPriceRepository.save(iup);
+
+                // Also create a UoM conversion record for this secondary unit
+                if (!secUomId.equals(item.getBaseUomId())) {
+                    UomConversion secConv = UomConversion.builder()
+                            .itemId(item.getId())
+                            .fromUomId(item.getBaseUomId())
+                            .toUomId(secUomId)
+                            .factor(BigDecimal.ONE.divide(entry.conversionFactor(), 6, RoundingMode.HALF_UP))
+                            .build();
+                    uomConversionRepository.save(secConv);
+                }
+            }
+        }
 
         // Optional opening stock — recorded as an OPENING movement so it shows
         // up in the ledger and audit log just like every other change.
@@ -305,7 +378,75 @@ public class ItemService {
         item.setInventoryAccountCode(request.inventoryAccountCode());
         if (request.active() != null) item.setActive(request.active());
 
+        // Purchase UoM update
+        if (request.purchaseUom() != null && !request.purchaseUom().isBlank()
+                && request.purchaseUomConversion() != null) {
+            UUID purchaseUomId = uomService.resolveBaseUomIdOrPcs(request.purchaseUom());
+            item.setPurchaseUomId(purchaseUomId);
+            item.setPurchaseUomConversion(request.purchaseUomConversion());
+            item.setPurchasePricePerUom(request.purchasePricePerUom());
+            if (request.purchasePricePerUom() != null
+                    && request.purchaseUomConversion().compareTo(BigDecimal.ZERO) > 0) {
+                item.setPurchasePrice(request.purchasePricePerUom()
+                        .divide(request.purchaseUomConversion(), 2, RoundingMode.HALF_UP));
+            }
+        } else if (request.purchaseUom() == null || request.purchaseUom().isBlank()) {
+            item.setPurchaseUomId(null);
+            item.setPurchaseUomConversion(null);
+            item.setPurchasePricePerUom(null);
+        }
+
         item = itemRepository.save(item);
+
+        // Rebuild per-item purchase UoM conversion
+        List<UomConversion> existingConversions =
+                uomConversionRepository.findByOrgIdAndItemIdAndIsDeletedFalse(orgId, item.getId());
+        for (UomConversion c : existingConversions) {
+            c.setDeleted(true);
+            uomConversionRepository.save(c);
+        }
+        if (item.getPurchaseUomId() != null && item.getBaseUomId() != null
+                && !item.getPurchaseUomId().equals(item.getBaseUomId())) {
+            UomConversion conv = UomConversion.builder()
+                    .itemId(item.getId())
+                    .fromUomId(item.getPurchaseUomId())
+                    .toUomId(item.getBaseUomId())
+                    .factor(item.getPurchaseUomConversion())
+                    .build();
+            uomConversionRepository.save(conv);
+        }
+
+        // Rebuild secondary units
+        List<ItemUnitPrice> existingPrices =
+                itemUnitPriceRepository.findByOrgIdAndItemIdAndIsDeletedFalse(orgId, item.getId());
+        for (ItemUnitPrice p : existingPrices) {
+            p.setDeleted(true);
+            itemUnitPriceRepository.save(p);
+        }
+        if (request.secondaryUnits() != null) {
+            for (CreateItemRequest.UnitPriceEntry entry : request.secondaryUnits()) {
+                Optional<Uom> uom = uomService.findByAbbreviation(entry.uomAbbreviation());
+                if (uom.isEmpty()) continue;
+                UUID secUomId = uom.get().getId();
+                ItemUnitPrice iup = ItemUnitPrice.builder()
+                        .itemId(item.getId())
+                        .uomId(secUomId)
+                        .conversionFactor(entry.conversionFactor())
+                        .customPrice(entry.customPrice())
+                        .build();
+                itemUnitPriceRepository.save(iup);
+                if (!secUomId.equals(item.getBaseUomId())) {
+                    UomConversion secConv = UomConversion.builder()
+                            .itemId(item.getId())
+                            .fromUomId(item.getBaseUomId())
+                            .toUomId(secUomId)
+                            .factor(BigDecimal.ONE.divide(entry.conversionFactor(), 6, RoundingMode.HALF_UP))
+                            .build();
+                    uomConversionRepository.save(secConv);
+                }
+            }
+        }
+
         auditService.log("ITEM", item.getId(), "UPDATE", null, null);
         return toResponse(item);
     }
@@ -356,12 +497,6 @@ public class ItemService {
     public ItemResponse toResponse(Item i) {
         UUID orgId = TenantContext.getCurrentOrgId();
         BigDecimal totalOnHand = i.isTrackInventory() ? totalOnHand(orgId, i.getId()) : BigDecimal.ZERO;
-        // Per-row group lookup is fine for the single-item path. The
-        // list path takes the same hit; if it ever becomes a hot spot
-        // we'll add a bulk enrichment helper similar to the BOM one.
-        // Today the variant population is small (a handful of groups
-        // per org) and the index on item.group_id keeps each lookup at
-        // a single B-tree probe.
         String groupName = null;
         if (i.getGroupId() != null) {
             groupName = itemGroupRepository
@@ -377,6 +512,28 @@ public class ItemService {
             vendorName = contactRepository.findById(i.getPreferredVendorId())
                     .map(Contact::getCompanyName).orElse(null);
         }
+
+        // Purchase UoM abbreviation
+        String purchaseUomAbbr = null;
+        if (i.getPurchaseUomId() != null) {
+            purchaseUomAbbr = uomRepository.findById(i.getPurchaseUomId())
+                    .map(Uom::getAbbreviation).orElse(null);
+        }
+
+        // Secondary units
+        List<ItemResponse.UnitPriceInfo> secondaryUnits = new ArrayList<>();
+        if (i.getId() != null) {
+            List<ItemUnitPrice> prices = itemUnitPriceRepository
+                    .findByOrgIdAndItemIdAndIsDeletedFalse(orgId, i.getId());
+            for (ItemUnitPrice p : prices) {
+                Uom uom = uomRepository.findById(p.getUomId()).orElse(null);
+                if (uom == null) continue;
+                secondaryUnits.add(new ItemResponse.UnitPriceInfo(
+                        uom.getId(), uom.getAbbreviation(), uom.getName(),
+                        p.getConversionFactor(), p.getCustomPrice()));
+            }
+        }
+
         return new ItemResponse(
                 i.getId(), i.getSku(), i.getBarcode(), i.getName(), i.getDescription(),
                 i.getItemType(), i.getCategory(), i.getBrand(), i.getManufacturer(),
@@ -393,7 +550,9 @@ public class ItemService {
                 i.isWeightBasedBilling(),
                 i.getRevenueAccountCode(), i.getCogsAccountCode(), i.getInventoryAccountCode(),
                 i.isActive(), totalOnHand, i.getCreatedAt(),
-                i.getGroupId(), attrs, groupName);
+                i.getGroupId(), attrs, groupName,
+                purchaseUomAbbr, i.getPurchaseUomConversion(), i.getPurchasePricePerUom(),
+                secondaryUnits);
     }
 
     private BigDecimal totalOnHand(UUID orgId, UUID itemId) {

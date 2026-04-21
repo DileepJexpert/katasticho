@@ -160,7 +160,6 @@ public class PurchaseBillService {
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             BigDecimal taxableAmount = grossAmount.subtract(discountAmt);
 
-            // Resolve tax group: prefer explicit taxGroupId, else resolve from legacy gstRate
             UUID lineTaxGroupId = lineReq.taxGroupId();
             if (lineTaxGroupId == null && lineReq.gstRate() != null
                     && lineReq.gstRate().compareTo(BigDecimal.ZERO) > 0) {
@@ -178,6 +177,13 @@ public class PurchaseBillService {
             BigDecimal baseTax = lineTax.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP);
             BigDecimal baseTotal = lineTotal.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP);
 
+            BigDecimal convFactor = lineReq.unitConversionFactor();
+            BigDecimal baseQty = lineReq.quantity();
+            if (convFactor != null && convFactor.compareTo(BigDecimal.ONE) > 0) {
+                baseQty = lineReq.quantity().multiply(convFactor)
+                        .setScale(4, RoundingMode.HALF_UP);
+            }
+
             PurchaseBillLine line = PurchaseBillLine.builder()
                     .lineNumber(i + 1)
                     .description(lineReq.description())
@@ -193,6 +199,9 @@ public class PurchaseBillService {
                     .taxGroupId(lineTaxGroupId)
                     .taxAmount(lineTax)
                     .lineTotal(lineTotal)
+                    .unitUomId(lineReq.unitUomId())
+                    .unitConversionFactor(convFactor)
+                    .baseQuantity(baseQty)
                     .baseTaxableAmount(baseTaxable)
                     .baseTaxAmount(baseTax)
                     .baseLineTotal(baseTotal)
@@ -608,6 +617,13 @@ public class PurchaseBillService {
             BigDecimal baseTax = lineTax.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP);
             BigDecimal baseTotal = lineTotal.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP);
 
+            BigDecimal convFactor = lineReq.unitConversionFactor();
+            BigDecimal baseQty = lineReq.quantity();
+            if (convFactor != null && convFactor.compareTo(BigDecimal.ONE) > 0) {
+                baseQty = lineReq.quantity().multiply(convFactor)
+                        .setScale(4, RoundingMode.HALF_UP);
+            }
+
             PurchaseBillLine line = PurchaseBillLine.builder()
                     .lineNumber(i + 1)
                     .description(lineReq.description())
@@ -623,6 +639,9 @@ public class PurchaseBillService {
                     .taxGroupId(lineTaxGroupId)
                     .taxAmount(lineTax)
                     .lineTotal(lineTotal)
+                    .unitUomId(lineReq.unitUomId())
+                    .unitConversionFactor(convFactor)
+                    .baseQuantity(baseQty)
                     .baseTaxableAmount(baseTaxable)
                     .baseTaxAmount(baseTax)
                     .baseLineTotal(baseTotal)
@@ -710,12 +729,23 @@ public class PurchaseBillService {
                 continue;
             }
 
+            // Use base quantity (converted to base UoM) for stock movements
+            BigDecimal stockQty = line.getBaseQuantity() != null
+                    ? line.getBaseQuantity() : line.getQuantity();
+            BigDecimal unitCost = line.getUnitPrice();
+            // When bought in bulk unit, compute cost per base unit for valuation
+            if (line.getUnitConversionFactor() != null
+                    && line.getUnitConversionFactor().compareTo(BigDecimal.ONE) > 0) {
+                unitCost = line.getUnitPrice().divide(
+                        line.getUnitConversionFactor(), 4, RoundingMode.HALF_UP);
+            }
+
             inventoryService.recordMovement(new StockMovementRequest(
                     line.getItemId(),
                     defaultWarehouse.getId(),
                     MovementType.PURCHASE,
-                    line.getQuantity(),
-                    line.getUnitPrice(),
+                    stockQty,
+                    unitCost,
                     bill.getBillDate(),
                     ReferenceType.BILL,
                     bill.getId(),
@@ -739,12 +769,20 @@ public class PurchaseBillService {
                 continue;
             }
 
+            BigDecimal stockQty = line.getBaseQuantity() != null
+                    ? line.getBaseQuantity() : line.getQuantity();
+            BigDecimal unitCost = line.getUnitPrice();
+            if (line.getUnitConversionFactor() != null
+                    && line.getUnitConversionFactor().compareTo(BigDecimal.ONE) > 0) {
+                unitCost = line.getUnitPrice().divide(
+                        line.getUnitConversionFactor(), 4, RoundingMode.HALF_UP);
+            }
             inventoryService.recordMovement(new StockMovementRequest(
                     line.getItemId(),
                     defaultWarehouse.getId(),
                     MovementType.REVERSAL,
-                    line.getQuantity().negate(),
-                    line.getUnitPrice(),
+                    stockQty.negate(),
+                    unitCost,
                     bill.getBillDate(),
                     ReferenceType.BILL,
                     bill.getId(),

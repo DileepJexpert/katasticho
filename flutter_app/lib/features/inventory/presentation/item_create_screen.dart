@@ -12,6 +12,7 @@ import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/item_group_repository.dart';
 import '../data/item_repository.dart';
+import '../data/uom_repository.dart';
 
 /// Form for creating a new inventory item or editing an existing one.
 /// When [itemId] is provided, the screen loads that item and updates it on save.
@@ -68,6 +69,14 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   bool _loading = false;
   Map<String, String> _serverErrors = {};
 
+  // Purchase & Sales Units
+  bool _hasDifferentPurchaseUnit = false;
+  String? _purchaseUomAbbr;
+  final _purchaseConversionController = TextEditingController();
+  final _purchasePricePerUomController = TextEditingController();
+  List<_SecondaryUnit> _secondaryUnits = [];
+  List<Map<String, dynamic>> _availableUoms = [];
+
   /// F5: when set, the item is created as a variant of this group.
   /// `_selectedGroup` is the cached group map (carries name + defs +
   /// defaults) so the attribute editor can render without an extra
@@ -82,11 +91,20 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   @override
   void initState() {
     super.initState();
+    _loadUoms();
     if (widget.initial != null) {
       _populateFromMap(widget.initial!);
     } else if (_isEdit) {
       _loadItem();
     }
+  }
+
+  Future<void> _loadUoms() async {
+    try {
+      final repo = ref.read(uomRepositoryProvider);
+      final uoms = await repo.listUoms();
+      if (mounted) setState(() => _availableUoms = uoms);
+    } catch (_) {}
   }
 
   Future<void> _loadItem() async {
@@ -143,8 +161,27 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
       _variantAttrs.clear();
       attrs.forEach((k, v) => _variantAttrs[k.toString()] = v.toString());
     }
+    // Purchase UoM
+    final pUom = data['purchaseUom']?.toString();
+    if (pUom != null && pUom.isNotEmpty) {
+      _hasDifferentPurchaseUnit = true;
+      _purchaseUomAbbr = pUom;
+      _purchaseConversionController.text = (data['purchaseUomConversion'] ?? '').toString();
+      _purchasePricePerUomController.text = (data['purchasePricePerUom'] ?? '').toString();
+    }
+    // Secondary units
+    final secUnits = data['secondaryUnits'] as List?;
+    if (secUnits != null && secUnits.isNotEmpty) {
+      _secondaryUnits = secUnits.map((u) {
+        final su = _SecondaryUnit();
+        su.uomAbbr = u['uomAbbreviation']?.toString();
+        su.conversionController.text = (u['conversionFactor'] ?? '').toString();
+        su.priceController.text = (u['customPrice'] ?? '').toString();
+        return su;
+      }).toList();
+    }
+
     if (_groupId != null) {
-      // Defer the group fetch — initState/_load is already async.
       // ignore: discarded_futures
       _loadGroupCache(_groupId!);
     }
@@ -194,6 +231,12 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     _dosageFormController.dispose();
     _packSizeController.dispose();
     _storageConditionController.dispose();
+    _purchaseConversionController.dispose();
+    _purchasePricePerUomController.dispose();
+    for (final su in _secondaryUnits) {
+      su.conversionController.dispose();
+      su.priceController.dispose();
+    }
     super.dispose();
   }
 
@@ -252,6 +295,29 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
       payload['openingStock'] = double.tryParse(_openingStockController.text) ?? 0;
     }
 
+    // Purchase UoM
+    if (_hasDifferentPurchaseUnit && _purchaseUomAbbr != null) {
+      payload['purchaseUom'] = _purchaseUomAbbr;
+      payload['purchaseUomConversion'] = double.tryParse(_purchaseConversionController.text);
+      payload['purchasePricePerUom'] = double.tryParse(_purchasePricePerUomController.text);
+    }
+
+    // Secondary units
+    if (_secondaryUnits.isNotEmpty) {
+      payload['secondaryUnits'] = _secondaryUnits
+          .where((su) => su.uomAbbr != null && su.uomAbbr!.isNotEmpty)
+          .map((su) => {
+            final m = <String, dynamic>{
+              'uomAbbreviation': su.uomAbbr,
+              'conversionFactor': double.tryParse(su.conversionController.text) ?? 1,
+            };
+            final p = double.tryParse(su.priceController.text);
+            if (p != null && p > 0) m['customPrice'] = p;
+            return m;
+          })
+          .toList();
+    }
+
     // F5: variant linkage. The backend rejects variant_attributes
     // without a group_id and vice-versa; we mirror that here so the
     // operator gets a snackbar instead of a 400.
@@ -308,6 +374,228 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Widget _buildPurchaseSalesUnitsSection() {
+    final baseUnit = _uomController.text.trim().isEmpty ? 'PCS' : _uomController.text.trim();
+    final uomItems = _availableUoms
+        .map((u) => u['abbreviation']?.toString() ?? '')
+        .where((a) => a.isNotEmpty)
+        .toList();
+
+    // Auto-calculate cost per base unit
+    String costPerBase = '';
+    final conv = double.tryParse(_purchaseConversionController.text) ?? 0;
+    final pricePerUom = double.tryParse(_purchasePricePerUomController.text) ?? 0;
+    if (conv > 0 && pricePerUom > 0) {
+      costPerBase = CurrencyFormatter.formatIndian(pricePerUom / conv);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Purchase & Sales Units', style: KTypography.h3),
+        KSpacing.vGapXs,
+        Text('How do you buy & sell this item?', style: KTypography.bodySmall),
+        KSpacing.vGapMd,
+
+        // Selling unit (base unit)
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: uomItems.contains(baseUnit.toUpperCase()) ? baseUnit.toUpperCase()
+                    : (uomItems.contains(baseUnit) ? baseUnit : null),
+                decoration: const InputDecoration(
+                  labelText: 'Selling Unit (base)',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: [
+                  if (!uomItems.contains(baseUnit) && !uomItems.contains(baseUnit.toUpperCase()))
+                    DropdownMenuItem(value: baseUnit, child: Text(baseUnit)),
+                  ...uomItems.map((a) => DropdownMenuItem(value: a, child: Text(a))),
+                ],
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() => _uomController.text = v);
+                  }
+                },
+              ),
+            ),
+            KSpacing.hGapMd,
+            Expanded(
+              child: KTextField.amount(
+                label: 'Selling Price',
+                controller: _salePriceController,
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+          ],
+        ),
+        KSpacing.vGapMd,
+
+        // Purchase unit toggle
+        DropdownButtonFormField<bool>(
+          value: _hasDifferentPurchaseUnit,
+          decoration: const InputDecoration(
+            labelText: 'Purchase Unit',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+          items: const [
+            DropdownMenuItem(value: false, child: Text('Same as selling unit')),
+            DropdownMenuItem(value: true, child: Text('Different unit')),
+          ],
+          onChanged: (v) => setState(() {
+            _hasDifferentPurchaseUnit = v ?? false;
+            if (!_hasDifferentPurchaseUnit) {
+              _purchaseUomAbbr = null;
+              _purchaseConversionController.clear();
+              _purchasePricePerUomController.clear();
+            }
+          }),
+        ),
+
+        if (_hasDifferentPurchaseUnit) ...[
+          KSpacing.vGapMd,
+          KCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: _purchaseUomAbbr,
+                  decoration: const InputDecoration(
+                    labelText: 'Purchase Unit',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: uomItems
+                      .where((a) => a != baseUnit && a != baseUnit.toUpperCase())
+                      .map((a) => DropdownMenuItem(value: a, child: Text(a)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _purchaseUomAbbr = v),
+                ),
+                KSpacing.vGapMd,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text('1 ${_purchaseUomAbbr ?? '?'} = ', style: KTypography.labelLarge),
+                    Expanded(
+                      child: KTextField(
+                        label: baseUnit,
+                        controller: _purchaseConversionController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                  ],
+                ),
+                KSpacing.vGapMd,
+                KTextField.amount(
+                  label: 'Purchase Price per ${_purchaseUomAbbr ?? 'unit'}',
+                  controller: _purchasePricePerUomController,
+                  onChanged: (_) => setState(() {}),
+                ),
+                if (costPerBase.isNotEmpty) ...[
+                  KSpacing.vGapSm,
+                  Row(
+                    children: [
+                      Icon(Icons.calculate_outlined, size: 14, color: KColors.success),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Auto-calculated: $costPerBase per $baseUnit',
+                        style: KTypography.labelSmall.copyWith(
+                          color: KColors.success,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+
+        // Secondary selling units
+        KSpacing.vGapMd,
+        if (_secondaryUnits.isNotEmpty)
+          ..._secondaryUnits.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final su = entry.value;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: KSpacing.md),
+              child: KCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            idx == 0 ? 'Also sold as' : 'Additional unit',
+                            style: KTypography.labelLarge,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () {
+                            setState(() {
+                              _secondaryUnits[idx].conversionController.dispose();
+                              _secondaryUnits[idx].priceController.dispose();
+                              _secondaryUnits.removeAt(idx);
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    KSpacing.vGapSm,
+                    DropdownButtonFormField<String>(
+                      value: su.uomAbbr,
+                      decoration: const InputDecoration(
+                        labelText: 'Unit',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: uomItems
+                          .where((a) => a != baseUnit && a != baseUnit.toUpperCase())
+                          .map((a) => DropdownMenuItem(value: a, child: Text(a)))
+                          .toList(),
+                      onChanged: (v) => setState(() => su.uomAbbr = v),
+                    ),
+                    KSpacing.vGapSm,
+                    Row(
+                      children: [
+                        Text('1 $baseUnit = ', style: KTypography.labelLarge),
+                        Expanded(
+                          child: KTextField(
+                            label: su.uomAbbr ?? 'units',
+                            controller: su.conversionController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                        ),
+                      ],
+                    ),
+                    KSpacing.vGapSm,
+                    KTextField.amount(
+                      label: 'Custom price per ${su.uomAbbr ?? 'unit'} (optional)',
+                      controller: su.priceController,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        OutlinedButton.icon(
+          onPressed: () {
+            setState(() => _secondaryUnits.add(_SecondaryUnit()));
+          },
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('Add another selling unit'),
+        ),
+      ],
+    );
   }
 
   Widget _buildMrpMarginHint() {
@@ -656,12 +944,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                     ],
                   ),
                   if (_itemType != 'SERVICE') ...[
-                    KSpacing.vGapMd,
-                    KTextField(
-                      label: 'Unit of Measure',
-                      controller: _uomController,
-                      prefixIcon: Icons.straighten,
-                    ),
+                    KSpacing.vGapLg,
+                    _buildPurchaseSalesUnitsSection(),
                   ],
                   KSpacing.vGapLg,
 
@@ -892,9 +1176,12 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   }
 }
 
-/// Bottom sheet that lists item groups for selection. Returns the
-/// picked group map (so the caller can read attributeDefinitions
-/// without an extra round-trip) or null on dismiss.
+class _SecondaryUnit {
+  String? uomAbbr;
+  final conversionController = TextEditingController();
+  final priceController = TextEditingController();
+}
+
 class _GroupPickerSheet extends ConsumerWidget {
   final ScrollController scrollController;
   const _GroupPickerSheet({required this.scrollController});

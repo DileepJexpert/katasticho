@@ -161,6 +161,15 @@ public class Item extends BaseEntity {
     @Builder.Default
     private boolean weightBasedBilling = false;
 
+    @Column(name = "purchase_uom_id")
+    private UUID purchaseUomId;
+
+    @Column(name = "purchase_uom_conversion", precision = 15, scale = 4)
+    private BigDecimal purchaseUomConversion;
+
+    @Column(name = "purchase_price_per_uom", precision = 15, scale = 2)
+    private BigDecimal purchasePricePerUom;
+
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean active = true;

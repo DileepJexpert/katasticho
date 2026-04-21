@@ -110,6 +110,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       unit = 'KG';
     }
 
+    // Secondary units for multi-unit selling
+    final secUnits = (item['secondaryUnits'] as List?)
+            ?.map((u) => u as Map<String, dynamic>)
+            .toList() ??
+        const <Map<String, dynamic>>[];
+
     ref.read(posCartProvider.notifier).addItem(CartItem(
           itemId: item['id'] as String?,
           name: itemName,
@@ -128,6 +134,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           isWeightBased: isWeightBased,
           mrp: mrp,
           quantity: quantity,
+          availableUnits: secUnits,
         ));
 
     _clearSearch();
@@ -318,6 +325,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 if (item.hsnCode != null) 'hsnCode': item.hsnCode,
                 if (item.batchId != null) 'batchId': item.batchId,
                 if (item.isWeightBased) 'weightBased': true,
+                if (item.unitUomId != null) 'unitUomId': item.unitUomId,
+                if (item.unitConversionFactor != null)
+                  'unitConversionFactor': item.unitConversionFactor,
               })
           .toList(),
     };

@@ -29,7 +29,9 @@ public record UpdatePurchaseBillRequest(
             @NotNull BigDecimal unitPrice,
             BigDecimal discountPercent,
             BigDecimal gstRate,
-            UUID taxGroupId
+            UUID taxGroupId,
+            UUID unitUomId,
+            BigDecimal unitConversionFactor
     ) {
         public BillLineRequest {
             if (discountPercent == null) discountPercent = BigDecimal.ZERO;

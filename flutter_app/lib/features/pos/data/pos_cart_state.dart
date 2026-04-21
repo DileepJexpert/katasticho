@@ -13,12 +13,15 @@ class CartItem {
   final String? hsnCode;
   final String? batchId;
   final String? batchNumber;
-  final double taxRate; // combined tax % (e.g. 18.0 for 18% GST)
-  final String? batchExpiry; // ISO date string for batch expiry
-  final double currentStock; // available qty from search result
+  final double taxRate;
+  final String? batchExpiry;
+  final double currentStock;
   final bool isWeightBased;
   final double? mrp;
   double quantity;
+  final String? unitUomId;
+  final double? unitConversionFactor;
+  final List<Map<String, dynamic>> availableUnits;
 
   CartItem({
     this.itemId,
@@ -38,6 +41,9 @@ class CartItem {
     this.isWeightBased = false,
     this.mrp,
     this.quantity = 1,
+    this.unitUomId,
+    this.unitConversionFactor,
+    this.availableUnits = const [],
   });
 
   double get lineTotal => rate * quantity;
@@ -62,6 +68,9 @@ class CartItem {
     bool? isWeightBased,
     double? mrp,
     double? quantity,
+    String? unitUomId,
+    double? unitConversionFactor,
+    List<Map<String, dynamic>>? availableUnits,
   }) {
     return CartItem(
       itemId: itemId ?? this.itemId,
@@ -81,6 +90,9 @@ class CartItem {
       isWeightBased: isWeightBased ?? this.isWeightBased,
       mrp: mrp ?? this.mrp,
       quantity: quantity ?? this.quantity,
+      unitUomId: unitUomId ?? this.unitUomId,
+      unitConversionFactor: unitConversionFactor ?? this.unitConversionFactor,
+      availableUnits: availableUnits ?? this.availableUnits,
     );
   }
 }
@@ -284,6 +296,26 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
   /// Clear payment splits.
   void clearPaymentSplits() {
     state = state.copyWith(paymentSplits: []);
+  }
+
+  /// Change the unit for a cart item (e.g. switch from PCS to DOZEN).
+  void changeUnit(int index, String unit, String? uomId, double? conversionFactor, double? customPrice) {
+    if (index < 0 || index >= state.items.length) return;
+    final updated = List<CartItem>.from(state.items);
+    final item = updated[index];
+    double newRate = item.rate;
+    if (customPrice != null && customPrice > 0) {
+      newRate = customPrice;
+    } else if (conversionFactor != null && conversionFactor > 0) {
+      newRate = item.rate * conversionFactor;
+    }
+    updated[index] = item.copyWith(
+      unit: unit,
+      rate: newRate,
+      unitUomId: uomId,
+      unitConversionFactor: conversionFactor,
+    );
+    state = state.copyWith(items: updated);
   }
 
   /// Clear cart — after successful sale.

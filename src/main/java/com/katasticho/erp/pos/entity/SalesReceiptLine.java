@@ -59,6 +59,15 @@ public class SalesReceiptLine {
     @Column(name = "batch_id")
     private UUID batchId;
 
+    @Column(name = "unit_uom_id")
+    private UUID unitUomId;
+
+    @Column(name = "unit_conversion_factor", precision = 15, scale = 4)
+    private BigDecimal unitConversionFactor;
+
+    @Column(name = "base_quantity", precision = 15, scale = 4)
+    private BigDecimal baseQuantity;
+
     @Column(name = "stock_movement_id")
     private UUID stockMovementId;
 }

@@ -105,6 +105,17 @@ class _PosCartListState extends ConsumerState<PosCartList> {
                 onRemove: () {
                   ref.read(posCartProvider.notifier).removeItem(index);
                 },
+                onUnitChanged: item.availableUnits.isNotEmpty
+                    ? (unit, uomId, conversionFactor, customPrice) {
+                        ref.read(posCartProvider.notifier).changeUnit(
+                              index,
+                              unit,
+                              uomId,
+                              conversionFactor,
+                              customPrice,
+                            );
+                      }
+                    : null,
               );
             },
           ),

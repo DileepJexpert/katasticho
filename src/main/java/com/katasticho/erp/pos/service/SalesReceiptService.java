@@ -139,6 +139,13 @@ public class SalesReceiptService {
                     orgId, taxGroupId, lineAmount, TaxEngine.TransactionType.SALE);
             BigDecimal lineTax = taxResult.totalTaxAmount();
 
+            BigDecimal convFactor = lineReq.unitConversionFactor();
+            BigDecimal baseQty = lineReq.quantity();
+            if (convFactor != null && convFactor.compareTo(BigDecimal.ONE) > 0) {
+                baseQty = lineReq.quantity().multiply(convFactor)
+                        .setScale(4, RoundingMode.HALF_UP);
+            }
+
             SalesReceiptLine line = SalesReceiptLine.builder()
                     .lineNumber(i + 1)
                     .itemId(lineReq.itemId())
@@ -152,6 +159,9 @@ public class SalesReceiptService {
                     .hsnCode(lineReq.hsnCode())
                     .amount(lineAmount)
                     .batchId(lineReq.batchId())
+                    .unitUomId(lineReq.unitUomId())
+                    .unitConversionFactor(convFactor)
+                    .baseQuantity(baseQty)
                     .build();
             receipt.addLine(line);
 
@@ -307,11 +317,15 @@ public class SalesReceiptService {
                 }
             }
 
+            // Use base quantity for stock deduction (converted to base UoM)
+            BigDecimal stockQty = line.getBaseQuantity() != null
+                    ? line.getBaseQuantity() : line.getQuantity();
+
             StockMovementRequest req = new StockMovementRequest(
                     line.getItemId(),
                     warehouse.getId(),
                     MovementType.SALE,
-                    line.getQuantity().negate(),
+                    stockQty.negate(),
                     line.getRate(),
                     receipt.getReceiptDate(),
                     ReferenceType.SALES_RECEIPT,

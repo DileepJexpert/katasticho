@@ -13,6 +13,7 @@ class PosCartItemTile extends StatelessWidget {
   final int index;
   final ValueChanged<double> onQuantityChanged;
   final VoidCallback onRemove;
+  final void Function(String unit, String? uomId, double? conversionFactor, double? customPrice)? onUnitChanged;
 
   const PosCartItemTile({
     super.key,
@@ -20,6 +21,7 @@ class PosCartItemTile extends StatelessWidget {
     required this.index,
     required this.onQuantityChanged,
     required this.onRemove,
+    this.onUnitChanged,
   });
 
   @override
@@ -119,6 +121,16 @@ class PosCartItemTile extends StatelessWidget {
               ),
             ),
             KSpacing.hGapSm,
+
+            // Unit selector (only when multiple selling units available)
+            if (item.availableUnits.isNotEmpty && onUnitChanged != null)
+              _UnitSelector(
+                currentUnit: item.unit ?? '',
+                availableUnits: item.availableUnits,
+                onUnitChanged: onUnitChanged!,
+              ),
+            if (item.availableUnits.isNotEmpty && onUnitChanged != null)
+              const SizedBox(width: 6),
 
             // Quantity stepper or weight display
             if (item.isWeightBased)
@@ -392,6 +404,80 @@ class _WeightDisplay extends StatelessWidget {
                 decorationStyle: TextDecorationStyle.dotted,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UnitSelector extends StatelessWidget {
+  final String currentUnit;
+  final List<Map<String, dynamic>> availableUnits;
+  final void Function(String unit, String? uomId, double? conversionFactor, double? customPrice) onUnitChanged;
+
+  const _UnitSelector({
+    required this.currentUnit,
+    required this.availableUnits,
+    required this.onUnitChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final allUnits = [
+      {'abbreviation': currentUnit, 'uomId': null, 'conversionFactor': null, 'customPrice': null},
+      ...availableUnits,
+    ];
+    final seen = <String>{};
+    final uniqueUnits = allUnits.where((u) {
+      final abbr = (u['abbreviation'] ?? '') as String;
+      return abbr.isNotEmpty && seen.add(abbr.toUpperCase());
+    }).toList();
+
+    if (uniqueUnits.length < 2) return const SizedBox.shrink();
+
+    return PopupMenuButton<int>(
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(),
+      position: PopupMenuPosition.under,
+      onSelected: (idx) {
+        final u = uniqueUnits[idx];
+        onUnitChanged(
+          u['abbreviation'] as String,
+          u['uomId'] as String?,
+          (u['conversionFactor'] as num?)?.toDouble(),
+          (u['customPrice'] as num?)?.toDouble(),
+        );
+      },
+      itemBuilder: (_) => uniqueUnits.asMap().entries.map((e) {
+        final u = e.value;
+        final abbr = u['abbreviation'] as String;
+        final isSelected = abbr.toUpperCase() == currentUnit.toUpperCase();
+        return PopupMenuItem<int>(
+          value: e.key,
+          child: Text(
+            abbr,
+            style: TextStyle(
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+              color: isSelected ? cs.primary : null,
+            ),
+          ),
+        );
+      }).toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          border: Border.all(color: cs.outlineVariant),
+          borderRadius: BorderRadius.circular(6),
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(currentUnit, style: KTypography.labelSmall),
+            const SizedBox(width: 2),
+            Icon(Icons.arrow_drop_down, size: 14, color: cs.onSurfaceVariant),
           ],
         ),
       ),

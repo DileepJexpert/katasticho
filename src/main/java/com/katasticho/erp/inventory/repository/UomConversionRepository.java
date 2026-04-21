@@ -48,4 +48,6 @@ public interface UomConversionRepository extends JpaRepository<UomConversion, UU
             @Param("toUomId") UUID toUomId);
 
     List<UomConversion> findByOrgIdAndIsDeletedFalse(UUID orgId);
+
+    List<UomConversion> findByOrgIdAndItemIdAndIsDeletedFalse(UUID orgId, UUID itemId);
 }

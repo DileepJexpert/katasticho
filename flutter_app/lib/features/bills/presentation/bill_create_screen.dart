@@ -147,6 +147,9 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen> {
                   'gstRate': l.taxRate,
                   if (l.taxGroupId != null) 'taxGroupId': l.taxGroupId,
                   if (l.itemId != null) 'itemId': l.itemId,
+                  if (l.unitUomId != null) 'unitUomId': l.unitUomId,
+                  if (l.unitConversionFactor != null)
+                    'unitConversionFactor': l.unitConversionFactor,
                   if (l.trackBatches && l.batchNumber.isNotEmpty)
                     'batchNumber': l.batchNumber,
                   if (l.manufacturingDate != null)
@@ -625,6 +628,12 @@ class _BillLineItem {
   String batchNumber = '';
   DateTime? manufacturingDate;
   DateTime? expiryDate;
+  String? unitUomId;
+  double? unitConversionFactor;
+  String? baseUom;
+  String? purchaseUom;
+  double? purchaseUomConversion;
+  List<Map<String, dynamic>> availableUnits = [];
 
   double get taxableAmount => quantity * unitPrice;
   double get taxAmount => taxableAmount * taxRate / 100;
@@ -652,6 +661,32 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
   late final TextEditingController _descCtl;
   late final TextEditingController _qtyCtl;
   late final TextEditingController _priceCtl;
+  String? _selectedUnitAbbr;
+
+  List<Map<String, dynamic>> get _unitOptions {
+    final units = <Map<String, dynamic>>[];
+    final base = widget.item.baseUom;
+    if (base != null && base.isNotEmpty) {
+      units.add({'abbreviation': base, 'uomId': null, 'conversionFactor': 1.0, 'customPrice': null});
+    }
+    final pUom = widget.item.purchaseUom;
+    final pConv = widget.item.purchaseUomConversion;
+    if (pUom != null && pConv != null && pConv > 0) {
+      units.add({'abbreviation': pUom, 'uomId': null, 'conversionFactor': pConv, 'customPrice': null});
+    }
+    for (final u in widget.item.availableUnits) {
+      final abbr = u['uomAbbreviation'] ?? u['abbreviation'];
+      if (abbr != null && units.every((x) => x['abbreviation'] != abbr)) {
+        units.add({
+          'abbreviation': abbr,
+          'uomId': u['uomId'],
+          'conversionFactor': (u['conversionFactor'] as num?)?.toDouble(),
+          'customPrice': (u['customPrice'] as num?)?.toDouble(),
+        });
+      }
+    }
+    return units;
+  }
 
   @override
   void initState() {
@@ -659,6 +694,7 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
     _descCtl = TextEditingController(text: widget.item.description);
     _qtyCtl = TextEditingController(text: widget.item.quantity.toString());
     _priceCtl = TextEditingController(text: widget.item.unitPrice.toString());
+    _selectedUnitAbbr = widget.item.purchaseUom ?? widget.item.baseUom;
   }
 
   @override
@@ -689,6 +725,27 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
     if (item.weightBasedBilling) {
       item.weightUnit = 'KG';
     }
+    item.baseUom = picked['unitOfMeasure'] as String?;
+    final pUom = picked['purchaseUom'] as String?;
+    final pConv = (picked['purchaseUomConversion'] as num?)?.toDouble();
+    final pPrice = (picked['purchasePricePerUom'] as num?)?.toDouble();
+    if (pUom != null && pConv != null && pConv > 0) {
+      item.purchaseUom = pUom;
+      item.purchaseUomConversion = pConv;
+      item.unitUomId = null;
+      item.unitConversionFactor = pConv;
+      if (pPrice != null && pPrice > 0 && item.unitPrice == 0) {
+        item.unitPrice = pPrice;
+        _priceCtl.text = pPrice.toString();
+      }
+    }
+    final secondary = picked['secondaryUnits'] as List?;
+    if (secondary != null) {
+      item.availableUnits = secondary.cast<Map<String, dynamic>>();
+    }
+    setState(() {
+      _selectedUnitAbbr = item.purchaseUom ?? item.baseUom;
+    });
     widget.onChanged();
   }
 
@@ -727,6 +784,39 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
               widget.onChanged();
             },
           ),
+          if (_unitOptions.length > 1) ...[
+            KSpacing.vGapSm,
+            DropdownButtonFormField<String>(
+              value: _selectedUnitAbbr,
+              decoration: const InputDecoration(
+                labelText: 'Unit',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              items: _unitOptions.map((u) {
+                final abbr = u['abbreviation'] as String;
+                return DropdownMenuItem(value: abbr, child: Text(abbr));
+              }).toList(),
+              onChanged: (abbr) {
+                if (abbr == null) return;
+                final u = _unitOptions.firstWhere(
+                    (x) => x['abbreviation'] == abbr,
+                    orElse: () => _unitOptions.first);
+                setState(() {
+                  _selectedUnitAbbr = abbr;
+                  widget.item.unitUomId = u['uomId'] as String?;
+                  widget.item.unitConversionFactor =
+                      (u['conversionFactor'] as num?)?.toDouble();
+                  final customPrice = (u['customPrice'] as num?)?.toDouble();
+                  if (customPrice != null && customPrice > 0) {
+                    widget.item.unitPrice = customPrice;
+                    _priceCtl.text = customPrice.toString();
+                  }
+                });
+                widget.onChanged();
+              },
+            ),
+          ],
           KSpacing.vGapSm,
           Row(
             children: [

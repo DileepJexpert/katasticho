@@ -233,6 +233,7 @@ class ItemGroupServiceTest {
                 null,                   // weightBasedBilling
                 null, null, null,       // revenueAccountCode, cogsAccountCode, inventoryAccountCode
                 null, null,             // openingStock, openingWarehouseId
+                null, null, null, null, // purchaseUom, purchaseUomConversion, purchasePricePerUom, secondaryUnits
                 UUID.randomUUID(),
                 Map.of("size", "M", "color", "Red")
         );
@@ -353,6 +354,7 @@ class ItemGroupServiceTest {
                 false, // weightBasedBilling
                 null, null, null,
                 true, BigDecimal.ZERO, Instant.now(),
-                groupId, attrs, "Tee");
+                groupId, attrs, "Tee",
+                null, null, null, List.of());
     }
 }

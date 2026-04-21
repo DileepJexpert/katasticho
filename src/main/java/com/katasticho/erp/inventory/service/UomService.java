@@ -324,9 +324,19 @@ public class UomService {
                 seedUom(orgId, "Tablet",      "TAB",    UomCategory.COUNT,     false);
                 seedUom(orgId, "Milligram",   "MG",     UomCategory.WEIGHT,    false);
             }
-            case "GROCERY", "SUPERMARKET", "FRUITS_VEG", "ORGANIC" -> {
+            case "GROCERY", "SUPERMARKET", "FRUITS_VEG", "ORGANIC", "KIRANA" -> {
                 seedUom(orgId, "Pack",        "PACK",   UomCategory.PACKAGING, false);
+                seedUom(orgId, "Packet",      "PKT",    UomCategory.PACKAGING, false);
                 seedUom(orgId, "Bag",         "BAG",    UomCategory.PACKAGING, false);
+                seedUom(orgId, "Bora",        "BORA",   UomCategory.PACKAGING, false);
+                seedUom(orgId, "Katta",       "KATTA",  UomCategory.PACKAGING, false);
+                seedUom(orgId, "Carton",      "CTN",    UomCategory.PACKAGING, false);
+                seedUom(orgId, "Tin",         "TIN",    UomCategory.PACKAGING, false);
+                seedUom(orgId, "Tray",        "TRAY",   UomCategory.PACKAGING, false);
+                seedUom(orgId, "Peti",        "PETI",   UomCategory.PACKAGING, false);
+                seedUom(orgId, "Bundle",      "BUNDLE", UomCategory.PACKAGING, false);
+                seedUom(orgId, "Bottle",      "BOTTLE", UomCategory.PACKAGING, false);
+                seedUom(orgId, "Pair",        "PAIR",   UomCategory.COUNT,     false);
             }
             case "ELECTRONICS", "MOBILE", "APPLIANCES", "LED", "CCTV", "ELECTRONICS_MANUFACTURER" -> {
                 seedUom(orgId, "Pair",        "PAIR",   UomCategory.COUNT,     false);

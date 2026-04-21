@@ -76,6 +76,15 @@ public class PurchaseBillLine {
     @Column(name = "line_total", nullable = false)
     private BigDecimal lineTotal;
 
+    @Column(name = "unit_uom_id")
+    private UUID unitUomId;
+
+    @Column(name = "unit_conversion_factor", precision = 15, scale = 4)
+    private BigDecimal unitConversionFactor;
+
+    @Column(name = "base_quantity", precision = 15, scale = 4)
+    private BigDecimal baseQuantity;
+
     // ── Base currency ────────────────────────────────────────
 
     @Column(name = "base_taxable_amount")

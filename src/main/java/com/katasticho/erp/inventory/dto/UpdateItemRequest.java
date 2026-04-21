@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -53,5 +54,10 @@ public record UpdateItemRequest(
         String revenueAccountCode,
         String cogsAccountCode,
         String inventoryAccountCode,
-        Boolean active
+        Boolean active,
+
+        @Size(max = 20) String purchaseUom,
+        @DecimalMin(value = "0.0001") BigDecimal purchaseUomConversion,
+        @DecimalMin(value = "0.00") BigDecimal purchasePricePerUom,
+        List<CreateItemRequest.UnitPriceEntry> secondaryUnits
 ) {}

@@ -51,6 +51,8 @@ public record CreateSalesReceiptRequest(
 
             UUID taxGroupId,
             String hsnCode,
-            UUID batchId
+            UUID batchId,
+            UUID unitUomId,
+            BigDecimal unitConversionFactor
     ) {}
 }
