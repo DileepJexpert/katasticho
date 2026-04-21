@@ -23,6 +23,7 @@ class ApiConfig {
 
   // Organisation
   static const String organisations = '/api/v1/organisations';
+  static String organisationById(String id) => '/api/v1/organisations/$id';
 
   // Accounting
   static const String chartOfAccounts = '/api/v1/accounts';

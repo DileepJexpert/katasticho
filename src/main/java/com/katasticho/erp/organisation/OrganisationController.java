@@ -1,16 +1,21 @@
 package com.katasticho.erp.organisation;
 
 import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.entity.OrgBootstrapStatus;
 import com.katasticho.erp.common.entity.OrgFeatureFlag;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.repository.OrgBootstrapStatusRepository;
 import com.katasticho.erp.common.service.FeatureFlagService;
 import com.katasticho.erp.inventory.service.UomService;
+import com.katasticho.erp.organisation.dto.OrgDetailsResponse;
 import com.katasticho.erp.organisation.dto.UpdateIndustryRequest;
+import com.katasticho.erp.organisation.dto.UpdateOrgRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,6 +31,43 @@ public class OrganisationController {
     private final FeatureFlagService featureFlagService;
     private final UomService uomService;
     private final OrgBootstrapStatusRepository bootstrapStatusRepository;
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<OrgDetailsResponse>> getOrg(@PathVariable UUID id) {
+        UUID callerOrgId = TenantContext.getCurrentOrgId();
+        if (!callerOrgId.equals(id)) {
+            throw new BusinessException("Forbidden", "ORG_FORBIDDEN", HttpStatus.FORBIDDEN);
+        }
+        Organisation org = organisationRepository.findById(id)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", id));
+        return ResponseEntity.ok(ApiResponse.ok(OrgDetailsResponse.from(org)));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<OrgDetailsResponse>> updateOrg(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateOrgRequest req) {
+        UUID callerOrgId = TenantContext.getCurrentOrgId();
+        if (!callerOrgId.equals(id)) {
+            throw new BusinessException("Forbidden", "ORG_FORBIDDEN", HttpStatus.FORBIDDEN);
+        }
+        Organisation org = organisationRepository.findById(id)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", id));
+        if (req.name() != null && !req.name().isBlank()) org.setName(req.name());
+        if (req.phone() != null) org.setPhone(req.phone());
+        if (req.email() != null) org.setEmail(req.email());
+        if (req.gstin() != null) org.setGstin(req.gstin());
+        if (req.addressLine1() != null) org.setAddressLine1(req.addressLine1());
+        if (req.addressLine2() != null) org.setAddressLine2(req.addressLine2());
+        if (req.city() != null) org.setCity(req.city());
+        if (req.state() != null) org.setState(req.state());
+        if (req.postalCode() != null) org.setPostalCode(req.postalCode());
+        if (req.stateCode() != null) org.setStateCode(req.stateCode());
+        organisationRepository.save(org);
+        return ResponseEntity.ok(ApiResponse.ok(OrgDetailsResponse.from(org)));
+    }
 
     @PutMapping("/{id}/industry")
     public ResponseEntity<Map<String, Object>> updateIndustry(

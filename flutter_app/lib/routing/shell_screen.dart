@@ -13,6 +13,7 @@ import '../core/widgets/k_quick_create_menu.dart';
 import '../core/widgets/k_top_bar.dart';
 import '../core/widgets/theme_mode_switcher.dart';
 import '../features/auth/data/auth_repository.dart';
+import '../features/dashboard/data/dashboard_repository.dart';
 import '../features/notifications/data/notification_repository.dart';
 import 'app_router.dart';
 
@@ -973,6 +974,11 @@ class _OrgSwitcherSheetState extends ConsumerState<_OrgSwitcherSheet> {
         );
     if (!mounted) return;
     if (success) {
+      // Clear org-scoped providers that survive navigation (not autoDispose or
+      // kept alive by the shell). Screen-specific autoDispose providers clear
+      // themselves when the screen unmounts via context.go().
+      ref.invalidate(unreadCountProvider);
+      ref.invalidate(dashboardFilterProvider);
       Navigator.pop(context);
       context.go(Routes.dashboard);
     } else {

@@ -38,6 +38,8 @@ import '../features/reports/presentation/ap_ageing_screen.dart';
 import '../features/ai_chat/presentation/ai_chat_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/settings/presentation/inventory_features_screen.dart';
+import '../features/settings/presentation/org_details_screen.dart';
+import '../features/settings/presentation/branches_screen.dart';
 import '../features/default_accounts/presentation/default_accounts_screen.dart';
 import '../features/tax_account_mapping/presentation/tax_account_mapping_screen.dart';
 import '../features/onboarding/presentation/business_type_screen.dart';
@@ -164,6 +166,8 @@ class Routes {
   static const aiChat = '/ai-chat';
   static const gst = '/gst';
   static const settings = '/settings';
+  static const orgDetails = '/settings/org-details';
+  static const branches = '/settings/branches';
   static const defaultAccounts = '/settings/default-accounts';
   static const taxAccountMappings = '/settings/tax-accounts';
   static const inventoryFeatures = '/settings/inventory-features';
@@ -672,6 +676,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => const NoTransitionPage(
               child: SettingsScreen(),
             ),
+          ),
+          GoRoute(
+            path: Routes.orgDetails,
+            builder: (context, state) => const OrgDetailsScreen(),
+          ),
+          GoRoute(
+            path: Routes.branches,
+            builder: (context, state) => const BranchesScreen(),
           ),
           GoRoute(
             path: Routes.defaultAccounts,
