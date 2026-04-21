@@ -16,7 +16,6 @@ import com.katasticho.erp.inventory.entity.ItemUnitPrice;
 import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.ReferenceType;
 import com.katasticho.erp.inventory.entity.StockBalance;
-import com.katasticho.erp.inventory.entity.StockBatch;
 import com.katasticho.erp.inventory.entity.Uom;
 import com.katasticho.erp.inventory.entity.UomConversion;
 import com.katasticho.erp.inventory.entity.Warehouse;
@@ -53,7 +52,6 @@ public class ItemService {
     private final StockBalanceRepository stockBalanceRepository;
     private final WarehouseRepository warehouseRepository;
     private final InventoryService inventoryService;
-    private final BatchService batchService;
     private final AuditService auditService;
     private final UomService uomService;
     private final ItemGroupRepository itemGroupRepository;
@@ -79,7 +77,6 @@ public class ItemService {
                        StockBalanceRepository stockBalanceRepository,
                        WarehouseRepository warehouseRepository,
                        InventoryService inventoryService,
-                       BatchService batchService,
                        AuditService auditService,
                        UomService uomService,
                        ItemGroupRepository itemGroupRepository,
@@ -92,7 +89,6 @@ public class ItemService {
         this.stockBalanceRepository = stockBalanceRepository;
         this.warehouseRepository = warehouseRepository;
         this.inventoryService = inventoryService;
-        this.batchService = batchService;
         this.auditService = auditService;
         this.uomService = uomService;
         this.itemGroupRepository = itemGroupRepository;
@@ -284,19 +280,6 @@ public class ItemService {
                                 "INV_NO_DEFAULT_WAREHOUSE", HttpStatus.BAD_REQUEST));
                 warehouseId = defaultWh.getId();
             }
-
-            UUID batchId = null;
-            if (item.isTrackBatches()) {
-                StockBatch batch = batchService.upsertBatch(
-                        item.getId(),
-                        "OPENING-" + item.getSku(),
-                        null,
-                        null,
-                        item.getPurchasePrice(),
-                        null);
-                batchId = batch.getId();
-            }
-
             inventoryService.recordMovement(new StockMovementRequest(
                     item.getId(),
                     warehouseId,
@@ -307,8 +290,7 @@ public class ItemService {
                     ReferenceType.OPENING_BALANCE,
                     null,
                     null,
-                    "Opening stock for " + item.getSku(),
-                    batchId));
+                    "Opening stock for " + item.getSku()));
         }
 
         auditService.log("ITEM", item.getId(), "CREATE", null,
