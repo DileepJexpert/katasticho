@@ -61,6 +61,11 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   final _packSizeController = TextEditingController();
   final _storageConditionController = TextEditingController();
 
+  // Opening batch fields (shown when trackBatches=true AND openingStock > 0)
+  final _openingBatchNumberController = TextEditingController();
+  DateTime? _openingMfgDate;
+  DateTime? _openingExpiryDate;
+
   String _itemType = 'GOODS';
   bool _trackInventory = true;
   bool _trackBatches = false;
@@ -241,6 +246,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     _dosageFormController.dispose();
     _packSizeController.dispose();
     _storageConditionController.dispose();
+    _openingBatchNumberController.dispose();
     _purchaseConversionController.dispose();
     _purchasePricePerUomController.dispose();
     for (final su in _secondaryUnits) {
@@ -302,7 +308,17 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     };
 
     if (!_isEdit && _itemType == 'GOODS' && _trackInventory) {
-      payload['openingStock'] = double.tryParse(_openingStockController.text) ?? 0;
+      final openingStock = double.tryParse(_openingStockController.text) ?? 0;
+      payload['openingStock'] = openingStock;
+      if (_trackBatches && openingStock > 0) {
+        payload['openingBatchNumber'] = _openingBatchNumberController.text.trim();
+        if (_openingMfgDate != null) {
+          payload['openingMfgDate'] = _openingMfgDate!.toIso8601String().substring(0, 10);
+        }
+        if (_openingExpiryDate != null) {
+          payload['openingExpiryDate'] = _openingExpiryDate!.toIso8601String().substring(0, 10);
+        }
+      }
     }
 
     // Purchase UoM
@@ -1028,7 +1044,52 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                           controller: _openingStockController,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           prefixIcon: Icons.inventory_outlined,
+                          onChanged: (_) => setState(() {}),
                         ),
+                        if (_trackBatches && (double.tryParse(_openingStockController.text) ?? 0) > 0) ...[
+                          KSpacing.vGapMd,
+                          KCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Opening Stock Batch Details', style: KTypography.labelLarge),
+                                KSpacing.vGapSm,
+                                KTextField(
+                                  label: 'Batch Number *',
+                                  controller: _openingBatchNumberController,
+                                  prefixIcon: Icons.confirmation_number_outlined,
+                                  hint: 'Enter batch number from product packaging',
+                                  validator: (v) {
+                                    if (_trackBatches && (double.tryParse(_openingStockController.text) ?? 0) > 0) {
+                                      if (v == null || v.trim().isEmpty) return 'Batch number is required';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                KSpacing.vGapMd,
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _DatePickerField(
+                                        label: 'Mfg Date',
+                                        value: _openingMfgDate,
+                                        onPicked: (d) => setState(() => _openingMfgDate = d),
+                                      ),
+                                    ),
+                                    KSpacing.hGapMd,
+                                    Expanded(
+                                      child: _DatePickerField(
+                                        label: 'Expiry Date',
+                                        value: _openingExpiryDate,
+                                        onPicked: (d) => setState(() => _openingExpiryDate = d),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ],
                   ],
@@ -1190,6 +1251,52 @@ class _SecondaryUnit {
   String? uomAbbr;
   final conversionController = TextEditingController();
   final priceController = TextEditingController();
+}
+
+class _DatePickerField extends StatelessWidget {
+  final String label;
+  final DateTime? value;
+  final ValueChanged<DateTime?> onPicked;
+
+  const _DatePickerField({
+    required this.label,
+    required this.value,
+    required this.onPicked,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final display = value != null
+        ? '${value!.day.toString().padLeft(2, '0')}-${value!.month.toString().padLeft(2, '0')}-${value!.year}'
+        : '';
+    return GestureDetector(
+      onTap: () async {
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: value ?? DateTime.now(),
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2100),
+        );
+        onPicked(picked);
+      },
+      child: AbsorbPointer(
+        child: TextFormField(
+          decoration: InputDecoration(
+            labelText: label,
+            border: const OutlineInputBorder(),
+            isDense: true,
+            suffixIcon: value != null
+                ? IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => onPicked(null),
+                  )
+                : const Icon(Icons.calendar_today, size: 18),
+          ),
+          controller: TextEditingController(text: display),
+        ),
+      ),
+    );
+  }
 }
 
 class _GroupPickerSheet extends ConsumerWidget {

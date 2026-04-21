@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -91,6 +92,16 @@ public record CreateItemRequest(
 
         /** Optional warehouse for the opening movement. Defaults to org's default warehouse. */
         UUID openingWarehouseId,
+
+        /** Batch number for opening stock when trackBatches=true. Required if openingStock > 0 and trackBatches=true. */
+        @Size(max = 100)
+        String openingBatchNumber,
+
+        /** Manufacturing date for the opening batch. Optional. */
+        LocalDate openingMfgDate,
+
+        /** Expiry date for the opening batch. Optional. */
+        LocalDate openingExpiryDate,
 
         /** Purchase UoM abbreviation when buying in a different unit (e.g. "BORA"). */
         @Size(max = 20)

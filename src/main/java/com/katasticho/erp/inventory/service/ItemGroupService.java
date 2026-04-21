@@ -321,6 +321,9 @@ public class ItemGroupService {
                 req.inventoryAccountCode(),
                 req.openingStock(),
                 req.openingWarehouseId(),
+                req.openingBatchNumber(),
+                req.openingMfgDate(),
+                req.openingExpiryDate(),
                 req.purchaseUom(),
                 req.purchaseUomConversion(),
                 req.purchasePricePerUom(),
@@ -441,6 +444,7 @@ public class ItemGroupService {
                     null,                       // weightBasedBilling
                     null, null, null,           // accounts
                     null, null,                 // opening stock + warehouse
+                    null, null, null,           // openingBatchNumber, mfgDate, expiryDate
                     null, null, null, null,     // purchaseUom, conversion, pricePerUom, secondaryUnits
                     group.getId(),
                     combo
