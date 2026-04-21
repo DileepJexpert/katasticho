@@ -19,6 +19,7 @@ Future<SuccessAction?> showPosSuccessSheet(
     context: context,
     isDismissible: false,
     enableDrag: false,
+    isScrollControlled: true,
     builder: (_) => _SuccessSheetContent(
       receipt: receipt,
       customerPhone: customerPhone,
@@ -94,7 +95,8 @@ class _SuccessSheetContentState extends State<_SuccessSheetContent>
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Animated checkmark
@@ -168,6 +170,7 @@ class _SuccessSheetContentState extends State<_SuccessSheetContent>
               ),
             ),
           ],
+        ),
         ),
       ),
     );
