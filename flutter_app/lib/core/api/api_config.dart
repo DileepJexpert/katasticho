@@ -18,6 +18,8 @@ class ApiConfig {
   static const String signup = '/api/v1/auth/signup';
   static const String refreshToken = '/api/v1/auth/refresh';
   static const String me = '/api/v1/auth/me';
+  static const String myOrgs = '/api/v1/users/me/organisations';
+  static const String switchOrg = '/api/v1/users/me/switch-org';
 
   // Organisation
   static const String organisations = '/api/v1/organisations';

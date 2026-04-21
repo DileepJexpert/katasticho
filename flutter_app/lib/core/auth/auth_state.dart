@@ -147,6 +147,35 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _storage.saveOnboardingCompleted(completed: true);
   }
 
+  /// Switch to a different org using a pre-fetched [AuthRepository].
+  /// Returns true on success, false on failure.
+  Future<bool> switchOrg({
+    required String targetOrgId,
+    required Future<Map<String, dynamic>> Function(String) switchFn,
+  }) async {
+    try {
+      final result = await switchFn(targetOrgId);
+      final data = result['data'] as Map<String, dynamic>;
+      final user = data['user'] as Map<String, dynamic>;
+      await onLoginSuccess(
+        accessToken: data['accessToken'] as String,
+        refreshToken: data['refreshToken'] as String,
+        userId: user['id'].toString(),
+        userName: user['fullName'] as String,
+        role: user['role'] as String,
+        orgId: user['orgId'].toString(),
+        orgName: user['orgName'] as String,
+        industry: user['industry'] as String?,
+        industryCode: user['industryCode'] as String?,
+        onboardingCompleted: user['onboardingCompleted'] as bool? ?? true,
+      );
+      return true;
+    } catch (e) {
+      debugPrint('[AuthNotifier] switchOrg failed: $e');
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     debugPrint('[AuthNotifier] logout called');
     await _storage.clearAll();

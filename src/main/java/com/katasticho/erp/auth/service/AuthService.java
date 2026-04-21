@@ -27,6 +27,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Instant;
 import java.util.List;
 import java.time.temporal.ChronoUnit;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -312,6 +313,56 @@ public class AuthService {
                 user.getId(), user.getOrgId(), user.getFullName(),
                 user.getEmail(), user.getPhone(), user.getRole(), org.getName(),
                 org.getIndustry(), org.getIndustryCode(), onboardingCompleted);
+    }
+
+    public List<OrgSummary> listMyOrgs(UUID currentUserId) {
+        AppUser currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> BusinessException.notFound("User", currentUserId));
+
+        List<AppUser> peers;
+        if (currentUser.getPhone() != null) {
+            peers = userRepository.findAllByPhoneAndIsDeletedFalse(currentUser.getPhone());
+        } else if (currentUser.getEmail() != null) {
+            peers = userRepository.findAllByEmailAndIsDeletedFalse(currentUser.getEmail());
+        } else {
+            peers = List.of(currentUser);
+        }
+
+        return peers.stream()
+                .map(u -> {
+                    Organisation org = organisationRepository.findById(u.getOrgId()).orElse(null);
+                    if (org == null || Boolean.TRUE.equals(org.getIsDeleted())) return null;
+                    return new OrgSummary(u.getOrgId(), org.getName(), u.getId(), u.getRole());
+                })
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    @Transactional
+    public AuthResponse switchOrg(UUID targetOrgId, UUID currentUserId) {
+        AppUser currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> BusinessException.notFound("User", currentUserId));
+
+        AppUser targetUser;
+        if (currentUser.getPhone() != null) {
+            targetUser = userRepository.findByPhoneAndOrgIdAndIsDeletedFalse(currentUser.getPhone(), targetOrgId)
+                    .orElseThrow(() -> new BusinessException(
+                            "No account found in target organisation", "AUTH_ORG_NOT_FOUND", HttpStatus.NOT_FOUND));
+        } else {
+            targetUser = userRepository.findByEmailAndOrgIdAndIsDeletedFalse(currentUser.getEmail(), targetOrgId)
+                    .orElseThrow(() -> new BusinessException(
+                            "No account found in target organisation", "AUTH_ORG_NOT_FOUND", HttpStatus.NOT_FOUND));
+        }
+
+        if (!targetUser.isActive()) {
+            throw new BusinessException("Account is deactivated in this organisation",
+                    "AUTH_ACCOUNT_INACTIVE", HttpStatus.FORBIDDEN);
+        }
+
+        Organisation org = organisationRepository.findById(targetOrgId)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", targetOrgId));
+
+        return buildAuthResponse(targetUser, org);
     }
 
     private AuthResponse buildAuthResponse(AppUser user, Organisation org) {
