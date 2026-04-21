@@ -67,6 +67,22 @@ class PosCartItemTile extends StatelessWidget {
                       ],
                     ],
                   ),
+                  if (item.mrp != null && item.mrp! > 0 && item.mrp != item.rate)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Row(
+                        children: [
+                          Text(
+                            'MRP ${CurrencyFormatter.formatIndian(item.mrp!)}',
+                            style: KTypography.labelSmall.copyWith(
+                              fontSize: 10,
+                              color: KColors.textHint,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   if (item.batchNumber != null || item.batchExpiry != null)
                     _BatchInfoRow(
                       batchNumber: item.batchNumber,

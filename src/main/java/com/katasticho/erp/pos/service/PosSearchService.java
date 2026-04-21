@@ -125,6 +125,7 @@ public class PosSearchService {
                     item.getSku(),
                     item.getBarcode(),
                     item.getSalePrice(),
+                    item.getMrp(),
                     item.getDefaultTaxGroupId(),
                     item.getDefaultTaxGroupId() != null
                             ? taxGroupNames.get(item.getDefaultTaxGroupId()) : null,

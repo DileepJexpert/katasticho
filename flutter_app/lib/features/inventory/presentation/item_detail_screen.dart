@@ -241,13 +241,49 @@ class _ItemDetailBody extends ConsumerWidget {
                     (item['purchasePrice'] as num?)?.toDouble() ?? 0,
                   ),
                 ),
-                if (item['mrp'] != null)
+                if (item['mrp'] != null) ...[
                   KDetailRow(
                     label: 'MRP',
                     value: CurrencyFormatter.formatIndian(
                       (item['mrp'] as num).toDouble(),
                     ),
                   ),
+                  Builder(builder: (_) {
+                    final mrp = (item['mrp'] as num).toDouble();
+                    final purchase =
+                        (item['purchasePrice'] as num?)?.toDouble() ?? 0;
+                    if (purchase <= 0 || mrp <= 0) return const SizedBox.shrink();
+                    final margin = ((mrp - purchase) / mrp * 100);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 0),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Icon(Icons.trending_up, size: 14,
+                                    color: margin >= 0
+                                        ? KColors.success
+                                        : KColors.error),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Margin: ${margin.toStringAsFixed(1)}%',
+                                  style: KTypography.labelSmall.copyWith(
+                                    color: margin >= 0
+                                        ? KColors.success
+                                        : KColors.error,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
                 KDetailRow(
                   label: 'GST Rate',
                   value: '${(item['gstRate'] as num?)?.toString() ?? '0'}%',

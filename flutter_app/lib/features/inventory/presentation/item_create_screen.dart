@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../settings/data/feature_flag_repository.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -309,6 +310,66 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     }
   }
 
+  Widget _buildMrpMarginHint() {
+    final mrp = double.tryParse(_mrpController.text) ?? 0;
+    final purchasePrice = double.tryParse(_purchasePriceController.text) ?? 0;
+    final salePrice = double.tryParse(_salePriceController.text) ?? 0;
+
+    if (mrp <= 0) return const SizedBox.shrink();
+
+    final margin = ((mrp - purchasePrice) / mrp * 100);
+    final sellingAtLoss = salePrice > 0 && salePrice < purchasePrice;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (purchasePrice > 0)
+            Row(
+              children: [
+                Icon(Icons.trending_up, size: 14, color: KColors.success),
+                const SizedBox(width: 4),
+                Text(
+                  'Margin: ${margin.toStringAsFixed(1)}%',
+                  style: KTypography.labelSmall.copyWith(
+                    color: margin >= 0 ? KColors.success : KColors.error,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '(MRP ${CurrencyFormatter.formatIndian(mrp)} − Cost ${CurrencyFormatter.formatIndian(purchasePrice)})',
+                  style: KTypography.labelSmall.copyWith(
+                    color: KColors.textHint,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          if (sellingAtLoss)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded,
+                      size: 14, color: KColors.warning),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Sale price is below purchase price — selling at loss',
+                    style: KTypography.labelSmall.copyWith(
+                      color: KColors.warning,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   /// "Group & Variant" section. Tap-to-pick a group from the list,
   /// then render a dropdown per attribute key. Clearing the group
   /// resets `variantAttributes` so the payload doesn't smuggle stale
@@ -532,6 +593,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                         child: KTextField.amount(
                           label: 'Purchase Price',
                           controller: _purchasePriceController,
+                          onChanged: (_) => setState(() {}),
                           validator: (v) => _serverErrors['purchasePrice'],
                         ),
                       ),
@@ -540,16 +602,39 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                         child: KTextField.amount(
                           label: 'Sale Price',
                           controller: _salePriceController,
-                          validator: (v) => _serverErrors['salePrice'],
+                          onChanged: (_) => setState(() {}),
+                          validator: (v) {
+                            if (_serverErrors.containsKey('salePrice')) {
+                              return _serverErrors['salePrice'];
+                            }
+                            final salePrice = double.tryParse(v ?? '') ?? 0;
+                            final mrp = double.tryParse(_mrpController.text) ?? 0;
+                            if (mrp > 0 && salePrice > mrp) {
+                              return 'Cannot exceed MRP';
+                            }
+                            return null;
+                          },
                         ),
                       ),
                     ],
                   ),
-                  KSpacing.vGapMd,
-                  KTextField.amount(
-                    label: 'MRP',
-                    controller: _mrpController,
-                  ),
+                  if (ref.watch(featureFlagsProvider).valueOrNull?.contains('MRP_PRICING') == true) ...[
+                    KSpacing.vGapMd,
+                    KTextField.amount(
+                      label: 'MRP (Maximum Retail Price)',
+                      controller: _mrpController,
+                      onChanged: (_) => setState(() {}),
+                      validator: (v) {
+                        final mrp = double.tryParse(v ?? '') ?? 0;
+                        final salePrice = double.tryParse(_salePriceController.text) ?? 0;
+                        if (mrp > 0 && salePrice > mrp) {
+                          return 'Sale price cannot exceed MRP';
+                        }
+                        return null;
+                      },
+                    ),
+                    _buildMrpMarginHint(),
+                  ],
                   KSpacing.vGapMd,
                   Row(
                     children: [

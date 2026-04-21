@@ -330,6 +330,8 @@ class _InvoiceDetailBody extends ConsumerWidget {
                               line['batchNumber'] as String?;
                           final batchExp =
                               line['batchExpiry'] as String?;
+                          final itemMrp =
+                              (line['itemMrp'] as num?)?.toDouble();
 
                           return KCard(
                             margin:
@@ -347,6 +349,15 @@ class _InvoiceDetailBody extends ConsumerWidget {
                                         '${qty.toStringAsFixed(0)} x ${CurrencyFormatter.formatIndian(price)}',
                                         style: KTypography.bodySmall,
                                       ),
+                                      if (itemMrp != null && itemMrp > 0)
+                                        Text(
+                                          'MRP ${CurrencyFormatter.formatIndian(itemMrp)}',
+                                          style: KTypography.labelSmall
+                                              .copyWith(
+                                            fontSize: 10,
+                                            color: KColors.textHint,
+                                          ),
+                                        ),
                                       if (batchNum != null &&
                                           batchNum.isNotEmpty)
                                         Padding(

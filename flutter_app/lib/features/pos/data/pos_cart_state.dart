@@ -17,6 +17,7 @@ class CartItem {
   final String? batchExpiry; // ISO date string for batch expiry
   final double currentStock; // available qty from search result
   final bool isWeightBased;
+  final double? mrp;
   double quantity;
 
   CartItem({
@@ -35,6 +36,7 @@ class CartItem {
     this.batchExpiry,
     this.currentStock = 0,
     this.isWeightBased = false,
+    this.mrp,
     this.quantity = 1,
   });
 
@@ -58,6 +60,7 @@ class CartItem {
     String? batchExpiry,
     double? currentStock,
     bool? isWeightBased,
+    double? mrp,
     double? quantity,
   }) {
     return CartItem(
@@ -76,6 +79,7 @@ class CartItem {
       batchExpiry: batchExpiry ?? this.batchExpiry,
       currentStock: currentStock ?? this.currentStock,
       isWeightBased: isWeightBased ?? this.isWeightBased,
+      mrp: mrp ?? this.mrp,
       quantity: quantity ?? this.quantity,
     );
   }

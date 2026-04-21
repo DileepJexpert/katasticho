@@ -93,6 +93,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final taxRate = _parseTaxRate(item['taxGroupName'] as String?);
     final isWeightBased = item['weightBasedBilling'] == true;
     final rate = (item['rate'] as num?)?.toDouble() ?? 0;
+    final mrp = (item['mrp'] as num?)?.toDouble();
     final itemName = item['name'] as String? ?? 'Item';
 
     double quantity = 1;
@@ -125,6 +126,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           batchExpiry: batchExpiry,
           currentStock: stock,
           isWeightBased: isWeightBased,
+          mrp: mrp,
           quantity: quantity,
         ));
 

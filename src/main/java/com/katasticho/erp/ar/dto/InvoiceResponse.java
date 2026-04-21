@@ -41,7 +41,10 @@ public record InvoiceResponse(
             BigDecimal gstRate,
             BigDecimal taxAmount,
             BigDecimal lineTotal,
-            String accountCode
+            String accountCode,
+            BigDecimal itemMrp,
+            String batchNumber,
+            String batchExpiry
     ) {}
 
     public record TaxLineResponse(

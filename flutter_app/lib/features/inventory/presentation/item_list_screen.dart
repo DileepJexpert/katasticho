@@ -316,6 +316,32 @@ class _ItemCard extends StatelessWidget {
                 style: KTypography.amountSmall,
               ),
               Text('Sale price', style: KTypography.labelSmall),
+              if (item['mrp'] != null &&
+                  (item['mrp'] as num).toDouble() > 0) ...[
+                const SizedBox(height: 2),
+                Text(
+                  'MRP ${CurrencyFormatter.formatIndian((item['mrp'] as num).toDouble())}',
+                  style: KTypography.labelSmall.copyWith(
+                    color: KColors.textHint,
+                    fontSize: 10,
+                  ),
+                ),
+                Builder(builder: (_) {
+                  final mrp = (item['mrp'] as num).toDouble();
+                  final purchase =
+                      (item['purchasePrice'] as num?)?.toDouble() ?? 0;
+                  if (purchase <= 0 || mrp <= 0) return const SizedBox.shrink();
+                  final margin = ((mrp - purchase) / mrp * 100);
+                  return Text(
+                    '${margin.toStringAsFixed(1)}% margin',
+                    style: KTypography.labelSmall.copyWith(
+                      color: margin >= 0 ? KColors.success : KColors.error,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  );
+                }),
+              ],
             ],
           ),
           if (!inSelection)

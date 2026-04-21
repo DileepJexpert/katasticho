@@ -17,6 +17,10 @@ import com.katasticho.erp.common.service.DocumentEmailService;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.currency.CurrencyService;
+import com.katasticho.erp.inventory.entity.Item;
+import com.katasticho.erp.inventory.entity.StockBatch;
+import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Branch;
 import com.katasticho.erp.organisation.BranchRepository;
@@ -38,9 +42,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Invoice lifecycle: DRAFT → SENT (posts journal) → PARTIALLY_PAID / PAID → CANCELLED
@@ -72,6 +75,8 @@ public class InvoiceService {
     private final CommentService commentService;
     private final DefaultAccountService defaultAccountService;
     private final DocumentEmailService documentEmailService;
+    private final ItemRepository itemRepository;
+    private final StockBatchRepository stockBatchRepository;
 
     /**
      * Create a DRAFT invoice with tax calculation via TaxEngine.
@@ -485,12 +490,34 @@ public class InvoiceService {
         Contact contact = contactRepository.findById(inv.getContactId()).orElse(null);
         List<TaxLineItem> taxLines = taxLineItemRepository.findBySourceTypeAndSourceId("INVOICE", inv.getId());
 
+        Set<UUID> itemIds = inv.getLines().stream()
+                .map(InvoiceLine::getItemId).filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<UUID, Item> itemMap = itemIds.isEmpty() ? Map.of()
+                : itemRepository.findAllById(itemIds).stream()
+                .collect(Collectors.toMap(Item::getId, i -> i));
+
+        Set<UUID> batchIds = inv.getLines().stream()
+                .map(InvoiceLine::getBatchId).filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<UUID, StockBatch> batchMap = batchIds.isEmpty() ? Map.of()
+                : stockBatchRepository.findAllById(batchIds).stream()
+                .collect(Collectors.toMap(StockBatch::getId, b -> b));
+
         List<InvoiceResponse.LineResponse> lineResponses = inv.getLines().stream()
-                .map(l -> new InvoiceResponse.LineResponse(
+                .map(l -> {
+                    Item item = l.getItemId() != null ? itemMap.get(l.getItemId()) : null;
+                    StockBatch batch = l.getBatchId() != null ? batchMap.get(l.getBatchId()) : null;
+                    return new InvoiceResponse.LineResponse(
                         l.getId(), l.getLineNumber(), l.getDescription(), l.getHsnCode(),
                         l.getQuantity(), l.getUnitPrice(), l.getDiscountPercent(), l.getDiscountAmount(),
                         l.getTaxableAmount(), l.getGstRate(), l.getTaxAmount(), l.getLineTotal(),
-                        l.getAccountCode()))
+                        l.getAccountCode(),
+                        item != null ? item.getMrp() : null,
+                        batch != null ? batch.getBatchNumber() : null,
+                        batch != null && batch.getExpiryDate() != null
+                                ? batch.getExpiryDate().toString() : null);
+                })
                 .toList();
 
         List<InvoiceResponse.TaxLineResponse> taxLineResponses = taxLines.stream()

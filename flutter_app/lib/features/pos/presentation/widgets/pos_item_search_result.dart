@@ -28,6 +28,7 @@ class PosItemSearchResult extends StatelessWidget {
     final expiryStr = item['batchExpiryDate'] as String?;
     final taxGroupName = item['taxGroupName'] as String?;
 
+    final mrp = (item['mrp'] as num?)?.toDouble();
     final isOutOfStock = stock <= 0;
     final isWeightBased = item['weightBasedBilling'] == true;
     final expiryStatus = _expiryStatus(expiryStr);
@@ -114,6 +115,15 @@ class PosItemSearchResult extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  if (mrp != null && mrp > 0 && mrp != rate)
+                    Text(
+                      'MRP ${CurrencyFormatter.formatIndian(mrp)}',
+                      style: KTypography.labelSmall.copyWith(
+                        color: KColors.textHint,
+                        fontSize: 9,
+                        decoration: TextDecoration.lineThrough,
+                      ),
+                    ),
                   Text(
                     isWeightBased
                         ? '${CurrencyFormatter.formatIndian(rate)}/kg'
