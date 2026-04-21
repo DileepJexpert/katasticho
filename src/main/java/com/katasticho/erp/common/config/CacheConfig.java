@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.RedisSerializationContext;
 
 import java.time.Duration;
 import java.util.Map;
@@ -16,17 +18,24 @@ public class CacheConfig {
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+        var jsonSerializer = new GenericJackson2JsonRedisSerializer();
+        var serializationPair = RedisSerializationContext.SerializationPair
+                .fromSerializer(jsonSerializer);
+
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(30))
-                .disableCachingNullValues();
+                .disableCachingNullValues()
+                .serializeValuesWith(serializationPair);
 
         Map<String, RedisCacheConfiguration> cacheConfigs = Map.of(
                 "pos-search", RedisCacheConfiguration.defaultCacheConfig()
                         .entryTtl(Duration.ofMinutes(5))
-                        .disableCachingNullValues(),
+                        .disableCachingNullValues()
+                        .serializeValuesWith(serializationPair),
                 "features", RedisCacheConfiguration.defaultCacheConfig()
                         .entryTtl(Duration.ofHours(1))
                         .disableCachingNullValues()
+                        .serializeValuesWith(serializationPair)
         );
 
         return RedisCacheManager.builder(connectionFactory)
