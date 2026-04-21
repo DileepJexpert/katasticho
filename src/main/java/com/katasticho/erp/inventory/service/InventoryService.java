@@ -93,11 +93,12 @@ public class InventoryService {
         validateSign(request.movementType(), qty);
 
         // Step 3b: batch-tracking invariant. Items with track_batches=true
-        // MUST carry a batchId on every movement so the per-batch balance
-        // stays consistent. Items without the flag MUST NOT carry one —
-        // that would strand the movement against a batch the aggregate
-        // path can't see. This is the single place we enforce it.
-        if (item.isTrackBatches() && request.batchId() == null) {
+        // should carry a batchId so per-batch balance stays consistent.
+        // For SALE movements we tolerate a missing batch — the POS FEFO
+        // auto-pick may find nothing, and blocking checkout is worse than
+        // recording an unbatched sale the operator can reconcile later.
+        if (item.isTrackBatches() && request.batchId() == null
+                && request.movementType() != MovementType.SALE) {
             throw new BusinessException(
                     "Item " + item.getSku() + " has track_batches=true — batchId is required",
                     "INV_BATCH_REQUIRED", HttpStatus.BAD_REQUEST);
