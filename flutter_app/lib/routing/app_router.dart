@@ -13,6 +13,7 @@ import '../features/invoices/presentation/invoice_detail_screen.dart';
 import '../features/contacts/presentation/contact_list_screen.dart';
 import '../features/contacts/presentation/contact_create_screen.dart';
 import '../features/contacts/presentation/contact_detail_screen.dart';
+import '../features/contacts/presentation/contact_import_screen.dart';
 import '../features/accounts/presentation/account_list_screen.dart';
 import '../features/accounts/presentation/account_create_screen.dart';
 import '../features/accounts/presentation/account_detail_screen.dart';
@@ -97,6 +98,7 @@ class Routes {
   static const invoiceDetail = '/invoices/:id';
   static const contacts = '/contacts';
   static const contactCreate = '/contacts/create';
+  static const contactImport = '/contacts/import';
   static const contactDetail = '/contacts/:id';
   static const contactEdit = '/contacts/:id/edit';
   static const notifications = '/notifications';
@@ -311,6 +313,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.contactCreate,
             builder: (context, state) => const ContactCreateScreen(),
+          ),
+          GoRoute(
+            path: Routes.contactImport,
+            builder: (context, state) => const ContactImportScreen(),
           ),
           GoRoute(
             path: '/contacts/:id/edit',

@@ -144,6 +144,9 @@ class ApiConfig {
   // F6: Contacts (unified customer + vendor)
   static const String contacts = '/api/v1/contacts';
   static String contactById(String id) => '/api/v1/contacts/$id';
+  static const String contactImport = '/api/v1/contacts/import';
+  static const String contactImportPreview = '/api/v1/contacts/import/preview';
+  static const String contactImportTemplate = '/api/v1/contacts/import/template';
   static String contactPersons(String contactId) =>
       '/api/v1/contacts/$contactId/persons';
   static String contactPersonById(String contactId, String personId) =>

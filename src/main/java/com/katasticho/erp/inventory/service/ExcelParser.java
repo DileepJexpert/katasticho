@@ -11,11 +11,11 @@ import java.util.*;
  * Parses XLSX files into the same {@code List<Map<String, String>>} shape
  * as {@link SimpleCsvParser} so the import pipeline is format-agnostic.
  */
-final class ExcelParser {
+public final class ExcelParser {
 
     private ExcelParser() {}
 
-    static List<Map<String, String>> parse(InputStream is) throws IOException {
+    public static List<Map<String, String>> parse(InputStream is) throws IOException {
         try (Workbook wb = new XSSFWorkbook(is)) {
             Sheet sheet = wb.getSheetAt(0);
             if (sheet == null || sheet.getPhysicalNumberOfRows() == 0) {
