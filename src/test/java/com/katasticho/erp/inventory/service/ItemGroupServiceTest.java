@@ -230,6 +230,7 @@ class ItemGroupServiceTest {
                 null, null, null,       // barcode, manufacturer, preferredVendorId
                 null, null, null, null, null, null, // weight, weightUnit, length, width, height, dimensionUnit
                 null, null, null, null, null, null, // drugSchedule, composition, dosageForm, packSize, storageCondition, prescriptionRequired
+                null,                   // weightBasedBilling
                 null, null, null,       // revenueAccountCode, cogsAccountCode, inventoryAccountCode
                 null, null,             // openingStock, openingWarehouseId
                 UUID.randomUUID(),
@@ -349,6 +350,7 @@ class ItemGroupServiceTest {
                 null, null,
                 null, null, null, null, null, null,
                 null, null, null, null, null, false,
+                false, // weightBasedBilling
                 null, null, null,
                 true, BigDecimal.ZERO, Instant.now(),
                 groupId, attrs, "Tee");
