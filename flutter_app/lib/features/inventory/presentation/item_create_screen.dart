@@ -306,7 +306,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     if (_secondaryUnits.isNotEmpty) {
       payload['secondaryUnits'] = _secondaryUnits
           .where((su) => su.uomAbbr != null && su.uomAbbr!.isNotEmpty)
-          .map((su) => {
+          .map((su) {
             final m = <String, dynamic>{
               'uomAbbreviation': su.uomAbbr,
               'conversionFactor': double.tryParse(su.conversionController.text) ?? 1,
