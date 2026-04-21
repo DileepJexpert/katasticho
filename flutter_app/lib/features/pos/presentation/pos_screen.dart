@@ -24,6 +24,7 @@ import 'widgets/pos_held_carts_sheet.dart';
 import 'widgets/pos_favourites_grid.dart';
 import 'widgets/pos_barcode_scanner.dart';
 import 'widgets/pos_recent_transactions.dart';
+import 'widgets/pos_weight_popup.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -76,7 +77,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   // ── Cart operations ──────────────────────────────────────────
 
-  void _addToCart(Map<String, dynamic> item) {
+  void _addToCart(Map<String, dynamic> item) async {
     final stock = (item['currentStock'] as num?)?.toDouble() ?? 0;
     if (stock <= 0) return;
 
@@ -90,14 +91,31 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     }
 
     final taxRate = _parseTaxRate(item['taxGroupName'] as String?);
+    final isWeightBased = item['weightBasedBilling'] == true;
+    final rate = (item['rate'] as num?)?.toDouble() ?? 0;
+    final itemName = item['name'] as String? ?? 'Item';
+
+    double quantity = 1;
+    String? unit = item['unit'] as String?;
+
+    if (isWeightBased) {
+      final weightKg = await showWeightPopup(
+        context,
+        itemName: itemName,
+        ratePerKg: rate,
+      );
+      if (weightKg == null || !mounted) return;
+      quantity = weightKg;
+      unit = 'KG';
+    }
 
     ref.read(posCartProvider.notifier).addItem(CartItem(
           itemId: item['id'] as String?,
-          name: item['name'] as String? ?? 'Item',
+          name: itemName,
           sku: item['sku'] as String?,
           barcode: item['barcode'] as String?,
-          rate: (item['rate'] as num?)?.toDouble() ?? 0,
-          unit: item['unit'] as String?,
+          rate: rate,
+          unit: unit,
           taxGroupId: item['taxGroupId'] as String?,
           taxGroupName: item['taxGroupName'] as String?,
           hsnCode: item['hsnCode'] as String?,
@@ -106,6 +124,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           taxRate: taxRate,
           batchExpiry: batchExpiry,
           currentStock: stock,
+          isWeightBased: isWeightBased,
+          quantity: quantity,
         ));
 
     _clearSearch();
@@ -295,6 +315,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 if (item.taxGroupId != null) 'taxGroupId': item.taxGroupId,
                 if (item.hsnCode != null) 'hsnCode': item.hsnCode,
                 if (item.batchId != null) 'batchId': item.batchId,
+                if (item.isWeightBased) 'weightBased': true,
               })
           .toList(),
     };

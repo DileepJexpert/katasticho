@@ -29,6 +29,7 @@ class PosItemSearchResult extends StatelessWidget {
     final taxGroupName = item['taxGroupName'] as String?;
 
     final isOutOfStock = stock <= 0;
+    final isWeightBased = item['weightBasedBilling'] == true;
     final expiryStatus = _expiryStatus(expiryStr);
 
     return Opacity(
@@ -86,6 +87,12 @@ class PosItemSearchResult extends StatelessWidget {
                       runSpacing: 4,
                       children: [
                         _StockBadge(stock: stock, unit: unit),
+                        if (isWeightBased)
+                          _Badge(
+                            label: '/kg',
+                            color: KColors.primary,
+                            bgColor: KColors.primaryLight,
+                          ),
                         if (taxGroupName != null && taxGroupName.isNotEmpty)
                           _Badge(
                             label: taxGroupName,
@@ -107,8 +114,12 @@ class PosItemSearchResult extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(CurrencyFormatter.formatIndian(rate),
-                      style: KTypography.amountSmall),
+                  Text(
+                    isWeightBased
+                        ? '${CurrencyFormatter.formatIndian(rate)}/kg'
+                        : CurrencyFormatter.formatIndian(rate),
+                    style: KTypography.amountSmall,
+                  ),
                 ],
               ),
               KSpacing.hGapSm,

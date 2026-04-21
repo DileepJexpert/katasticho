@@ -16,6 +16,7 @@ class CartItem {
   final double taxRate; // combined tax % (e.g. 18.0 for 18% GST)
   final String? batchExpiry; // ISO date string for batch expiry
   final double currentStock; // available qty from search result
+  final bool isWeightBased;
   double quantity;
 
   CartItem({
@@ -33,6 +34,7 @@ class CartItem {
     this.taxRate = 0,
     this.batchExpiry,
     this.currentStock = 0,
+    this.isWeightBased = false,
     this.quantity = 1,
   });
 
@@ -55,6 +57,7 @@ class CartItem {
     double? taxRate,
     String? batchExpiry,
     double? currentStock,
+    bool? isWeightBased,
     double? quantity,
   }) {
     return CartItem(
@@ -72,6 +75,7 @@ class CartItem {
       taxRate: taxRate ?? this.taxRate,
       batchExpiry: batchExpiry ?? this.batchExpiry,
       currentStock: currentStock ?? this.currentStock,
+      isWeightBased: isWeightBased ?? this.isWeightBased,
       quantity: quantity ?? this.quantity,
     );
   }

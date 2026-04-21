@@ -48,6 +48,7 @@ public record UpdateItemRequest(
         @Size(max = 50) String packSize,
         @Size(max = 100) String storageCondition,
         Boolean prescriptionRequired,
+        Boolean weightBasedBilling,
 
         String revenueAccountCode,
         String cogsAccountCode,

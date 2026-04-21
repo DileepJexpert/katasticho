@@ -131,6 +131,7 @@ public class PosSearchService {
                     item.getHsnCode(),
                     item.getUnitOfMeasure(),
                     currentStock,
+                    item.isWeightBasedBilling(),
                     batchId,
                     batchExpiry);
         }).toList();

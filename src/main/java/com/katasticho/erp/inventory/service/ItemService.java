@@ -181,6 +181,7 @@ public class ItemService {
                 .packSize(request.packSize())
                 .storageCondition(request.storageCondition())
                 .prescriptionRequired(Boolean.TRUE.equals(request.prescriptionRequired()))
+                .weightBasedBilling(Boolean.TRUE.equals(request.weightBasedBilling()))
                 .revenueAccountCode(request.revenueAccountCode())
                 .cogsAccountCode(request.cogsAccountCode())
                 .inventoryAccountCode(request.inventoryAccountCode())
@@ -298,6 +299,7 @@ public class ItemService {
         item.setPackSize(request.packSize());
         item.setStorageCondition(request.storageCondition());
         if (request.prescriptionRequired() != null) item.setPrescriptionRequired(request.prescriptionRequired());
+        if (request.weightBasedBilling() != null) item.setWeightBasedBilling(request.weightBasedBilling());
         item.setRevenueAccountCode(request.revenueAccountCode());
         item.setCogsAccountCode(request.cogsAccountCode());
         item.setInventoryAccountCode(request.inventoryAccountCode());
@@ -388,6 +390,7 @@ public class ItemService {
                 i.getLength(), i.getWidth(), i.getHeight(), i.getDimensionUnit(),
                 i.getDrugSchedule(), i.getComposition(), i.getDosageForm(),
                 i.getPackSize(), i.getStorageCondition(), i.isPrescriptionRequired(),
+                i.isWeightBasedBilling(),
                 i.getRevenueAccountCode(), i.getCogsAccountCode(), i.getInventoryAccountCode(),
                 i.isActive(), totalOnHand, i.getCreatedAt(),
                 i.getGroupId(), attrs, groupName);

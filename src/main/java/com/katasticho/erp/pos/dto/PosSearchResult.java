@@ -18,6 +18,7 @@ public record PosSearchResult(
         String hsnCode,
         String unit,
         BigDecimal currentStock,
+        boolean weightBasedBilling,
         UUID batchId,
         LocalDate batchExpiryDate
 ) {}
