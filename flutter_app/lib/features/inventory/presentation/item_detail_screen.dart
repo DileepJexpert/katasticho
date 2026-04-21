@@ -9,6 +9,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../data/batch_repository.dart';
 import '../data/bom_repository.dart';
 import '../data/item_repository.dart';
 import 'item_create_screen.dart';
@@ -211,9 +212,13 @@ class _ItemDetailBody extends ConsumerWidget {
             KSpacing.vGapMd,
           ],
 
-          // Bill of Materials — only for composite items. Sits between
-          // Stock (which is hidden for composites) and Pricing so editors
-          // naturally see it as the "what's inside" section.
+          // Batches — only for batch-tracked items
+          if (trackBatches) ...[
+            _BatchesCard(itemId: itemId),
+            KSpacing.vGapMd,
+          ],
+
+          // Bill of Materials — only for composite items.
           if (itemType == 'COMPOSITE') ...[
             _BomEditorCard(parentId: itemId, parentSku: sku),
             KSpacing.vGapMd,
@@ -492,6 +497,140 @@ class _MovementTile extends StatelessWidget {
     );
   }
 }
+
+class _BatchesCard extends ConsumerWidget {
+  final String itemId;
+  const _BatchesCard({required this.itemId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: ref.read(batchRepositoryProvider).allForItem(itemId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const KCard(
+            title: 'Batches',
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: KShimmerCard(height: 80),
+            ),
+          );
+        }
+        final batches = snapshot.data ?? [];
+        if (batches.isEmpty) {
+          return KCard(
+            title: 'Batches',
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text('No batches received yet',
+                    style: KTypography.bodySmall),
+              ),
+            ),
+          );
+        }
+
+        return KCard(
+          title: 'Batches (${batches.length})',
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              for (var i = 0; i < batches.length; i++) ...[
+                if (i > 0) const Divider(height: 1),
+                _BatchRow(batch: batches[i]),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BatchRow extends StatelessWidget {
+  final Map<String, dynamic> batch;
+  const _BatchRow({required this.batch});
+
+  @override
+  Widget build(BuildContext context) {
+    final batchNumber = batch['batchNumber']?.toString() ?? '';
+    final mfgDate = batch['manufacturingDate']?.toString() ?? '';
+    final expiryDate = batch['expiryDate']?.toString() ?? '';
+    final qty = (batch['quantityAvailable'] as num?)?.toDouble() ?? 0;
+
+    _BatchStatus status = _BatchStatus.ok;
+    if (expiryDate.isNotEmpty) {
+      final expiry = DateTime.tryParse(expiryDate);
+      if (expiry != null) {
+        final daysUntil = expiry.difference(DateTime.now()).inDays;
+        if (daysUntil < 0) {
+          status = _BatchStatus.expired;
+        } else if (daysUntil <= 30) {
+          status = _BatchStatus.expiringSoon;
+        }
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(batchNumber, style: KTypography.labelMedium),
+                if (mfgDate.isNotEmpty || expiryDate.isNotEmpty)
+                  Text(
+                    [
+                      if (mfgDate.isNotEmpty) 'Mfg: $mfgDate',
+                      if (expiryDate.isNotEmpty) 'Exp: $expiryDate',
+                    ].join(' · '),
+                    style: KTypography.bodySmall.copyWith(
+                      color: status == _BatchStatus.expired
+                          ? KColors.error
+                          : status == _BatchStatus.expiringSoon
+                              ? KColors.warning
+                              : null,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: 50,
+            child: Text(
+              _fmtQty(qty),
+              textAlign: TextAlign.right,
+              style: KTypography.amountSmall,
+            ),
+          ),
+          const SizedBox(width: 8),
+          _statusBadge(status),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusBadge(_BatchStatus status) {
+    switch (status) {
+      case _BatchStatus.ok:
+        return const Text('✅', style: TextStyle(fontSize: 14));
+      case _BatchStatus.expiringSoon:
+        return const Text('🟡', style: TextStyle(fontSize: 14));
+      case _BatchStatus.expired:
+        return const Text('🔴', style: TextStyle(fontSize: 14));
+    }
+  }
+
+  static String _fmtQty(double q) {
+    if (q == q.truncateToDouble()) return q.toStringAsFixed(0);
+    return q.toStringAsFixed(2);
+  }
+}
+
+enum _BatchStatus { ok, expiringSoon, expired }
 
 /// Bill of Materials editor for a composite (kit) item. Watches
 /// `bomComponentsProvider` and renders one row per child with a delete

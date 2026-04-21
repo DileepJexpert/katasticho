@@ -12,6 +12,7 @@ class CartItem {
   final String? taxGroupName;
   final String? hsnCode;
   final String? batchId;
+  final String? batchNumber;
   final double taxRate; // combined tax % (e.g. 18.0 for 18% GST)
   final String? batchExpiry; // ISO date string for batch expiry
   final double currentStock; // available qty from search result
@@ -28,6 +29,7 @@ class CartItem {
     this.taxGroupName,
     this.hsnCode,
     this.batchId,
+    this.batchNumber,
     this.taxRate = 0,
     this.batchExpiry,
     this.currentStock = 0,
@@ -49,6 +51,7 @@ class CartItem {
     String? taxGroupName,
     String? hsnCode,
     String? batchId,
+    String? batchNumber,
     double? taxRate,
     String? batchExpiry,
     double? currentStock,
@@ -65,6 +68,7 @@ class CartItem {
       taxGroupName: taxGroupName ?? this.taxGroupName,
       hsnCode: hsnCode ?? this.hsnCode,
       batchId: batchId ?? this.batchId,
+      batchNumber: batchNumber ?? this.batchNumber,
       taxRate: taxRate ?? this.taxRate,
       batchExpiry: batchExpiry ?? this.batchExpiry,
       currentStock: currentStock ?? this.currentStock,

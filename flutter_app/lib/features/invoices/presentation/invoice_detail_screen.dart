@@ -326,6 +326,11 @@ class _InvoiceDetailBody extends ConsumerWidget {
                           final lineTotal =
                               (line['lineTotal'] as num?)?.toDouble() ?? 0;
 
+                          final batchNum =
+                              line['batchNumber'] as String?;
+                          final batchExp =
+                              line['batchExpiry'] as String?;
+
                           return KCard(
                             margin:
                                 const EdgeInsets.only(bottom: KSpacing.sm),
@@ -342,6 +347,27 @@ class _InvoiceDetailBody extends ConsumerWidget {
                                         '${qty.toStringAsFixed(0)} x ${CurrencyFormatter.formatIndian(price)}',
                                         style: KTypography.bodySmall,
                                       ),
+                                      if (batchNum != null &&
+                                          batchNum.isNotEmpty)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 2),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.science_outlined,
+                                                size: 12,
+                                                color: KColors.textHint,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Batch: $batchNum${batchExp != null && batchExp.isNotEmpty ? ' · Exp: $batchExp' : ''}',
+                                                style: KTypography.bodySmall
+                                                    .copyWith(fontSize: 11),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                     ],
                                   ),
                                 ),

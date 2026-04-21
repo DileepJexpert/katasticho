@@ -80,6 +80,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final stock = (item['currentStock'] as num?)?.toDouble() ?? 0;
     if (stock <= 0) return;
 
+    final batchExpiry = item['batchExpiryDate'] as String?;
+    if (batchExpiry != null && batchExpiry.isNotEmpty) {
+      final expiry = DateTime.tryParse(batchExpiry);
+      if (expiry != null && expiry.isBefore(DateTime.now())) {
+        _showErrorSnackBar('Batch expired ($batchExpiry) — sale blocked');
+        return;
+      }
+    }
+
     final taxRate = _parseTaxRate(item['taxGroupName'] as String?);
 
     ref.read(posCartProvider.notifier).addItem(CartItem(
@@ -93,8 +102,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           taxGroupName: item['taxGroupName'] as String?,
           hsnCode: item['hsnCode'] as String?,
           batchId: item['batchId'] as String?,
+          batchNumber: item['batchNumber'] as String?,
           taxRate: taxRate,
-          batchExpiry: item['batchExpiryDate'] as String?,
+          batchExpiry: batchExpiry,
           currentStock: stock,
         ));
 

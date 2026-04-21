@@ -67,6 +67,11 @@ class PosCartItemTile extends StatelessWidget {
                       ],
                     ],
                   ),
+                  if (item.batchNumber != null || item.batchExpiry != null)
+                    _BatchInfoRow(
+                      batchNumber: item.batchNumber,
+                      batchExpiry: item.batchExpiry,
+                    ),
                   if (item.taxAmount > 0)
                     Text(
                       '${CurrencyFormatter.formatIndian(item.rate)} × ${_fmtQty(item.quantity)} + tax ${CurrencyFormatter.formatIndian(item.taxAmount)}',
@@ -226,6 +231,65 @@ class _StepButton extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(6),
         child: Icon(icon, size: 18),
+      ),
+    );
+  }
+}
+
+class _BatchInfoRow extends StatelessWidget {
+  final String? batchNumber;
+  final String? batchExpiry;
+
+  const _BatchInfoRow({this.batchNumber, this.batchExpiry});
+
+  @override
+  Widget build(BuildContext context) {
+    Color expiryColor = KColors.textHint;
+    String? expiryLabel;
+
+    if (batchExpiry != null && batchExpiry!.isNotEmpty) {
+      final expiry = DateTime.tryParse(batchExpiry!);
+      if (expiry != null) {
+        final daysUntil = expiry.difference(DateTime.now()).inDays;
+        if (daysUntil < 0) {
+          expiryColor = KColors.error;
+          expiryLabel = 'EXPIRED';
+        } else if (daysUntil <= 30) {
+          expiryColor = KColors.warning;
+          expiryLabel = 'Exp $batchExpiry';
+        } else {
+          expiryLabel = 'Exp $batchExpiry';
+        }
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(
+        children: [
+          Icon(Icons.science_outlined, size: 11, color: expiryColor),
+          const SizedBox(width: 3),
+          if (batchNumber != null)
+            Text(
+              batchNumber!,
+              style: KTypography.labelSmall
+                  .copyWith(fontSize: 10, color: expiryColor),
+            ),
+          if (batchNumber != null && expiryLabel != null)
+            Text(' · ',
+                style: KTypography.labelSmall
+                    .copyWith(fontSize: 10, color: expiryColor)),
+          if (expiryLabel != null)
+            Text(
+              expiryLabel,
+              style: KTypography.labelSmall.copyWith(
+                fontSize: 10,
+                color: expiryColor,
+                fontWeight:
+                    expiryColor == KColors.error ? FontWeight.w700 : null,
+              ),
+            ),
+        ],
       ),
     );
   }
