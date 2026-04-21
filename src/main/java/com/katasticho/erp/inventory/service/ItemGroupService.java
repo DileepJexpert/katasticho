@@ -315,6 +315,7 @@ public class ItemGroupService {
                 req.length(), req.width(), req.height(), req.dimensionUnit(),
                 req.drugSchedule(), req.composition(), req.dosageForm(),
                 req.packSize(), req.storageCondition(), req.prescriptionRequired(),
+                req.weightBasedBilling(),
                 req.revenueAccountCode(),
                 req.cogsAccountCode(),
                 req.inventoryAccountCode(),
@@ -433,6 +434,7 @@ public class ItemGroupService {
                     null, null, null, null,     // length, width, height, dimensionUnit
                     null, null, null,           // drugSchedule, composition, dosageForm
                     null, null, null,           // packSize, storageCondition, prescriptionRequired
+                    null,                       // weightBasedBilling
                     null, null, null,           // accounts
                     null, null,                 // opening stock + warehouse
                     group.getId(),

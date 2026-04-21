@@ -16,6 +16,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -100,6 +101,21 @@ public class ItemController {
         ItemImportPreview preview = itemImportService.previewImport(file);
         String message = preview.validRows() + " valid, " + preview.errorRows() + " with errors";
         return ResponseEntity.ok(ApiResponse.ok(preview, message));
+    }
+
+    /**
+     * Download a CSV template with all supported column headers plus one
+     * example row. The Flutter app links to this so users always get the
+     * latest column set without a client update.
+     */
+    @GetMapping(value = "/import/template", produces = "text/csv")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<byte[]> downloadImportTemplate() {
+        String csv = ItemImportService.TEMPLATE_HEADER + "\n"
+                + "SKU001,Widget A,Sample item,GOODS,General,,8471,PCS,100,150,180,18,10,20,50,,,,,\n";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"item_import_template.csv\"")
+                .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     // ── Composite items / BOM (Feature 4) ───────────────────────────────

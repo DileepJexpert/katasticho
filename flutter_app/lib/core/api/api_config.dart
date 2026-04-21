@@ -61,6 +61,7 @@ class ApiConfig {
   static String itemById(String id) => '/api/v1/items/$id';
   static const String itemImport = '/api/v1/items/import';
   static const String itemImportPreview = '/api/v1/items/import/preview';
+  static const String itemImportTemplate = '/api/v1/items/import/template';
   // F4 BOM — composite item bill of materials (only valid for
   // itemType=COMPOSITE parents; the resolver at invoice-send time is
   // server-side and never hit over HTTP).

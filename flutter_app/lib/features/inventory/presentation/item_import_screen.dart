@@ -15,12 +15,6 @@ import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/item_repository.dart';
 
-/// Bulk item import via CSV. Two separate input controls on the same page:
-///  1. Upload CSV file (file picker — works on web & native via `withData`)
-///  2. Paste CSV content (textarea)
-///
-/// A single Import button sends whichever source has content. If both are
-/// populated, the picked file wins. Uploads multipart/form-data via Dio.
 class ItemImportScreen extends ConsumerStatefulWidget {
   const ItemImportScreen({super.key});
 
@@ -32,16 +26,17 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
   static const _template =
       'sku,name,description,item_type,category,brand,hsn_code,'
       'unit_of_measure,purchase_price,sale_price,mrp,gst_rate,'
-      'reorder_level,reorder_quantity,opening_stock';
+      'reorder_level,reorder_quantity,opening_stock,'
+      'barcode,manufacturer,batch_number,mfg_date,expiry_date';
 
   final _pasteCtl = TextEditingController();
 
-  // Picked file state
   String? _pickedFileName;
-  String? _pickedFileContent;
+  Uint8List? _pickedFileBytes;
   int? _pickedFileDataRows;
 
   bool _isUploading = false;
+  bool _isDownloadingTemplate = false;
   Map<String, dynamic>? _result;
   String? _error;
 
@@ -55,7 +50,7 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
     try {
       final picked = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: const ['csv', 'txt'],
+        allowedExtensions: const ['csv', 'txt', 'xlsx'],
         withData: true,
       );
       if (picked == null || picked.files.isEmpty) return;
@@ -65,22 +60,25 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
         setState(() => _error = 'Could not read file contents');
         return;
       }
-      // Strip UTF-8 BOM if present so the first header cell doesn't get
-      // a hidden \uFEFF prefix that breaks `sku` column detection.
-      var text = utf8.decode(bytes, allowMalformed: true);
-      if (text.startsWith('\uFEFF')) text = text.substring(1);
 
-      // Count data rows (non-blank minus header).
-      final lines = text
-          .split(RegExp(r'\r?\n'))
-          .where((l) => l.trim().isNotEmpty)
-          .toList();
-      final dataRows = lines.length > 0 ? lines.length - 1 : 0;
+      int dataRows = 0;
+      final isXlsx = file.name.toLowerCase().endsWith('.xlsx');
+      if (!isXlsx) {
+        var text = utf8.decode(bytes, allowMalformed: true);
+        if (text.startsWith('﻿')) text = text.substring(1);
+        final lines = text
+            .split(RegExp(r'\r?\n'))
+            .where((l) => l.trim().isNotEmpty)
+            .toList();
+        dataRows = lines.length > 0 ? lines.length - 1 : 0;
+      } else {
+        dataRows = -1;
+      }
 
       setState(() {
         _pickedFileName = file.name;
-        _pickedFileContent = text;
-        _pickedFileDataRows = dataRows < 0 ? 0 : dataRows;
+        _pickedFileBytes = bytes;
+        _pickedFileDataRows = dataRows < 0 ? null : dataRows;
         _result = null;
         _error = null;
       });
@@ -93,7 +91,7 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
   void _clearPickedFile() {
     setState(() {
       _pickedFileName = null;
-      _pickedFileContent = null;
+      _pickedFileBytes = null;
       _pickedFileDataRows = null;
     });
   }
@@ -105,20 +103,52 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
     });
   }
 
-  Future<void> _upload() async {
-    // Prefer picked file if present; else fall back to paste textarea.
-    String? csv;
-    String filename = 'items.csv';
-    if (_pickedFileContent != null && _pickedFileContent!.trim().isNotEmpty) {
-      csv = _pickedFileContent;
-      filename = _pickedFileName ?? 'items.csv';
-    } else if (_pasteCtl.text.trim().isNotEmpty) {
-      csv = _pasteCtl.text;
+  Future<void> _downloadTemplate() async {
+    setState(() => _isDownloadingTemplate = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      final response = await api.dio.get(
+        ApiConfig.itemImportTemplate,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final bytes = response.data as List<int>;
+      final text = utf8.decode(bytes, allowMalformed: true);
+      setState(() {
+        _pasteCtl.text = text;
+        _error = null;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Template loaded into paste area')),
+        );
+      }
+    } catch (e) {
+      debugPrint('[ItemImport] template download FAILED: $e');
+      setState(() => _error = 'Failed to download template');
+    } finally {
+      if (mounted) setState(() => _isDownloadingTemplate = false);
     }
+  }
 
-    if (csv == null) {
+  Future<void> _upload() async {
+    FormData form;
+    String filename = 'items.csv';
+
+    if (_pickedFileBytes != null && _pickedFileBytes!.isNotEmpty) {
+      filename = _pickedFileName ?? 'items.csv';
+      form = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          _pickedFileBytes!.toList(),
+          filename: filename,
+        ),
+      });
+    } else if (_pasteCtl.text.trim().isNotEmpty) {
+      form = FormData.fromMap({
+        'file': MultipartFile.fromString(_pasteCtl.text, filename: filename),
+      });
+    } else {
       setState(() => _error =
-          'Upload a CSV file or paste CSV content before importing.');
+          'Upload a file or paste CSV content before importing.');
       return;
     }
 
@@ -129,9 +159,6 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
     });
     try {
       final api = ref.read(apiClientProvider);
-      final form = FormData.fromMap({
-        'file': MultipartFile.fromString(csv, filename: filename),
-      });
       final response = await api.dio.post(
         ApiConfig.itemImport,
         data: form,
@@ -146,7 +173,7 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
     } catch (e, st) {
       debugPrint('[ItemImport] upload FAILED: $e\n$st');
       setState(() =>
-          _error = 'Upload failed. Check the CSV format and try again.');
+          _error = 'Upload failed. Check the file format and try again.');
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -179,24 +206,38 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
                     children: [
                       Icon(Icons.info_outline, size: 20, color: cs.primary),
                       KSpacing.hGapSm,
-                      Text('CSV format', style: KTypography.labelLarge),
+                      Text('Import format', style: KTypography.labelLarge),
                     ],
                   ),
                   KSpacing.vGapSm,
                   Text(
+                    'Accepts CSV (.csv) or Excel (.xlsx) files. '
                     'Required columns: sku, name. Optional: description, '
-                    'item_type (GOODS or SERVICE), category, brand, hsn_code, '
+                    'item_type (GOODS/SERVICE), category, brand, hsn_code, '
                     'unit_of_measure, purchase_price, sale_price, mrp, '
-                    'gst_rate, reorder_level, reorder_quantity, opening_stock.',
+                    'gst_rate, reorder_level, reorder_quantity, opening_stock, '
+                    'barcode, manufacturer, batch_number, mfg_date, expiry_date.',
                     style: KTypography.bodySmall,
                   ),
                   KSpacing.vGapSm,
                   Text(
-                    'Items with a positive opening_stock automatically get an '
-                    'OPENING movement posted to your default warehouse.',
+                    'Rows with batch_number will auto-create a stock batch. '
+                    'Dates should be in yyyy-MM-dd format.',
                     style: KTypography.bodySmall.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
+                  ),
+                  KSpacing.vGapMd,
+                  OutlinedButton.icon(
+                    onPressed: _isDownloadingTemplate ? null : _downloadTemplate,
+                    icon: _isDownloadingTemplate
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download, size: 18),
+                    label: const Text('Download Template'),
                   ),
                 ],
               ),
@@ -211,11 +252,11 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
               KSpacing.vGapMd,
             ],
 
-            // ── Option 1: Upload CSV file ────────────────────────
+            // ── Option 1: Upload file ───────────────────────────
             _SectionHeader(
               number: '1',
-              title: 'Upload CSV file',
-              subtitle: 'Pick a .csv file from your computer',
+              title: 'Upload CSV or Excel file',
+              subtitle: 'Pick a .csv or .xlsx file from your device',
             ),
             KSpacing.vGapSm,
             _FilePickerCard(
@@ -429,7 +470,7 @@ class _FilePickerCard extends StatelessWidget {
         child: hasFile
             ? _PickedFileRow(
                 fileName: fileName!,
-                dataRows: dataRows ?? 0,
+                dataRows: dataRows,
                 onReplace: onPick,
                 onClear: onClear,
               )
@@ -464,13 +505,13 @@ class _PickPrompt extends StatelessWidget {
         ),
         KSpacing.vGapSm,
         Text(
-          'Click to choose a CSV file',
+          'Click to choose a file',
           style: KTypography.labelLarge,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 2),
         Text(
-          'Accepted: .csv, .txt (UTF-8)',
+          'Accepted: .csv, .xlsx, .txt',
           style: KTypography.bodySmall.copyWith(
             color: cs.onSurfaceVariant,
           ),
@@ -489,7 +530,7 @@ class _PickPrompt extends StatelessWidget {
 
 class _PickedFileRow extends StatelessWidget {
   final String fileName;
-  final int dataRows;
+  final int? dataRows;
   final VoidCallback onReplace;
   final VoidCallback onClear;
 
@@ -503,6 +544,7 @@ class _PickedFileRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isXlsx = fileName.toLowerCase().endsWith('.xlsx');
     return Row(
       children: [
         Container(
@@ -513,7 +555,7 @@ class _PickedFileRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
-            Icons.description_outlined,
+            isXlsx ? Icons.table_chart_outlined : Icons.description_outlined,
             color: cs.primary,
             size: 22,
           ),
@@ -532,7 +574,11 @@ class _PickedFileRow extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                '$dataRows data row${dataRows == 1 ? '' : 's'} detected',
+                dataRows != null
+                    ? '$dataRows data row${dataRows == 1 ? '' : 's'} detected'
+                    : isXlsx
+                        ? 'Excel file selected'
+                        : 'File selected',
                 style: KTypography.bodySmall.copyWith(
                   color: cs.onSurfaceVariant,
                 ),
