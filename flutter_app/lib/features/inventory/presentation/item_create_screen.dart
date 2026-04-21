@@ -107,6 +107,16 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     } catch (_) {}
   }
 
+  void _syncPurchasePrice() {
+    final conv = double.tryParse(_purchaseConversionController.text) ?? 0;
+    final pricePerUom = double.tryParse(_purchasePricePerUomController.text) ?? 0;
+    if (conv > 0 && pricePerUom > 0) {
+      final perBase = (pricePerUom / conv).toStringAsFixed(2);
+      _purchasePriceController.text = perBase;
+    }
+    setState(() {});
+  }
+
   Future<void> _loadItem() async {
     setState(() => _loading = true);
     try {
@@ -486,7 +496,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                         label: baseUnit,
                         controller: _purchaseConversionController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        onChanged: (_) => setState(() {}),
+                        onChanged: (_) => _syncPurchasePrice(),
                       ),
                     ),
                   ],
@@ -495,7 +505,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                 KTextField.amount(
                   label: 'Purchase Price per ${_purchaseUomAbbr ?? 'unit'}',
                   controller: _purchasePricePerUomController,
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) => _syncPurchasePrice(),
                 ),
                 if (costPerBase.isNotEmpty) ...[
                   KSpacing.vGapSm,
