@@ -130,6 +130,12 @@ const _accountingNavItems = [
 
 const _secondaryNavItems = [
   NavItem(
+    label: 'Credit Ledger',
+    icon: Icons.menu_book_outlined,
+    activeIcon: Icons.menu_book_rounded,
+    route: Routes.creditLedger,
+  ),
+  NavItem(
     label: 'Estimates',
     icon: Icons.request_quote_outlined,
     activeIcon: Icons.request_quote_rounded,

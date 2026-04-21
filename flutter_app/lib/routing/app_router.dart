@@ -80,6 +80,8 @@ import '../features/delivery_challans/presentation/delivery_challan_create_scree
 import '../features/delivery_challans/presentation/delivery_challan_detail_screen.dart';
 import '../features/delivery_challans/presentation/delivery_challan_pdf_screen.dart';
 import '../features/pos/presentation/pos_receipt_settings_screen.dart';
+import '../features/credit_ledger/presentation/credit_ledger_screen.dart';
+import '../features/credit_ledger/presentation/credit_ledger_detail_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -174,6 +176,9 @@ class Routes {
   static const accountCreate = '/accounts/create';
   static const accountDetail = '/accounts/:id';
   static const accountEdit = '/accounts/:id/edit';
+  // Credit Ledger (Udhar Khata)
+  static const creditLedger = '/credit-ledger';
+  static const creditLedgerDetail = '/credit-ledger/:id';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -317,6 +322,20 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/contacts/:id',
             builder: (context, state) => ContactDetailScreen(
               contactId: state.pathParameters['id']!,
+            ),
+          ),
+          // Credit Ledger (Udhar Khata)
+          GoRoute(
+            path: Routes.creditLedger,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: CreditLedgerScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/credit-ledger/:id',
+            builder: (context, state) => CreditLedgerDetailScreen(
+              contactId: state.pathParameters['id']!,
+              contactData: state.extra as Map<String, dynamic>?,
             ),
           ),
           // Chart of Accounts
