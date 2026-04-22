@@ -2,6 +2,7 @@ package com.katasticho.erp.dashboard;
 
 import com.katasticho.erp.ap.entity.PurchaseBill;
 import com.katasticho.erp.ap.repository.PurchaseBillRepository;
+import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.repository.InvoiceLineRepository;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.repository.PaymentRepository;
@@ -10,13 +11,15 @@ import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.dashboard.dto.*;
-import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.organisation.Branch;
 import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
+import com.katasticho.erp.pos.entity.SalesReceipt;
+import com.katasticho.erp.pos.repository.SalesReceiptLineRepository;
+import com.katasticho.erp.pos.repository.SalesReceiptRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -27,19 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Dashboard aggregation service. Read-only — reaches into AR/inventory
- * repositories and rolls numbers up for the owner-view dashboard.
- *
- * All queries are org-scoped via TenantContext and honour optional branch +
- * date-range filters supplied by the caller.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -53,15 +46,9 @@ public class DashboardService {
     private final OrganisationRepository organisationRepository;
     private final PurchaseBillRepository purchaseBillRepository;
     private final ContactRepository contactRepository;
+    private final SalesReceiptRepository salesReceiptRepository;
+    private final SalesReceiptLineRepository salesReceiptLineRepository;
 
-    /**
-     * Today-sales snapshot for the dashboard. Returns revenue + cash
-     * collected for the date range, plus per-branch rollup.
-     *
-     * @param from          start of window (inclusive). null = today.
-     * @param to            end of window (inclusive). null = today.
-     * @param branchId      optional branch filter. null = all branches.
-     */
     @Transactional(readOnly = true)
     public TodaySalesResponse getTodaySales(LocalDate from, LocalDate to, UUID branchId) {
         UUID orgId = TenantContext.getCurrentOrgId();
@@ -77,63 +64,81 @@ public class DashboardService {
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
-        BigDecimal revenue;
-        BigDecimal cashCollected;
+        BigDecimal posSales;
+        BigDecimal paidInvoices;
+        BigDecimal creditSales;
+        long posCount;
+        long invoiceCount;
+
         if (branchId != null) {
-            // Validate the branch belongs to this org before using it.
             branchRepository.findByIdAndOrgIdAndIsDeletedFalse(branchId, orgId)
                     .orElseThrow(() -> BusinessException.notFound("Branch", branchId));
-            revenue = invoiceRepository.sumRevenueByOrgBranchAndDateRange(
+            posSales = salesReceiptRepository.sumTotalByOrgBranchAndDateRange(
                     orgId, branchId, effectiveFrom, effectiveTo);
-            cashCollected = paymentRepository.sumCollectedByOrgBranchAndDateRange(
+            paidInvoices = invoiceRepository.sumPaidInvoicesByOrgBranchAndDateRange(
+                    orgId, branchId, effectiveFrom, effectiveTo);
+            creditSales = invoiceRepository.sumCreditSalesByOrgBranchAndDateRange(
                     orgId, branchId, effectiveFrom, effectiveTo);
         } else {
-            revenue = invoiceRepository.sumRevenueByOrgAndDateRange(
+            posSales = salesReceiptRepository.sumTotalByOrgAndDateRange(
                     orgId, effectiveFrom, effectiveTo);
-            cashCollected = paymentRepository.sumCollectedByOrgAndDateRange(
+            paidInvoices = invoiceRepository.sumPaidInvoicesByOrgAndDateRange(
+                    orgId, effectiveFrom, effectiveTo);
+            creditSales = invoiceRepository.sumCreditSalesByOrgAndDateRange(
                     orgId, effectiveFrom, effectiveTo);
         }
 
-        // Build per-branch rollup. Even when a branch filter is active we
-        // still return the filtered branch as a single row so the client
-        // can render the breakdown widget uniformly.
-        List<BranchSalesRow> byBranch = buildBranchRollup(orgId, effectiveFrom, effectiveTo, branchId, revenue);
+        posCount = salesReceiptRepository.countByOrgAndDateRange(orgId, effectiveFrom, effectiveTo);
+        invoiceCount = invoiceRepository.countByOrgAndDateRange(orgId, effectiveFrom, effectiveTo);
+
+        BigDecimal cashUpiTotal = posSales.add(paidInvoices);
+        BigDecimal totalSales = cashUpiTotal.add(creditSales);
+        int transactionCount = (int) (posCount + invoiceCount);
+
+        List<BranchSalesRow> byBranch = buildBranchRollup(
+                orgId, effectiveFrom, effectiveTo, branchId, totalSales);
 
         return new TodaySalesResponse(
                 effectiveFrom, effectiveTo, branchId,
-                revenue, cashCollected, org.getBaseCurrency(), byBranch);
+                totalSales, cashUpiTotal, creditSales, transactionCount,
+                org.getBaseCurrency(), byBranch);
     }
 
     private List<BranchSalesRow> buildBranchRollup(
-            UUID orgId, LocalDate from, LocalDate to, UUID branchFilter, BigDecimal totalRevenue) {
-        // Pull every branch (so we can show zero-sales branches too in the
-        // "All branches" view) and attach aggregated revenue.
+            UUID orgId, LocalDate from, LocalDate to, UUID branchFilter, BigDecimal totalSales) {
         List<Branch> branches = branchRepository.findByOrgIdAndIsDeletedFalseOrderByName(orgId);
         if (branches.isEmpty()) {
             return List.of();
         }
 
-        Map<UUID, BigDecimal> revenueByBranchId = invoiceRepository
+        Map<UUID, BigDecimal> invoiceByBranch = invoiceRepository
                 .sumRevenueByBranch(orgId, from, to)
                 .stream()
                 .collect(Collectors.toMap(
                         InvoiceRepository.RevenueByBranchRow::getBranchId,
                         InvoiceRepository.RevenueByBranchRow::getTotal));
 
-        BigDecimal denominator = totalRevenue != null && totalRevenue.signum() > 0
-                ? totalRevenue
-                : BigDecimal.ONE;
+        Map<UUID, BigDecimal> posByBranch = salesReceiptRepository
+                .sumTotalByBranch(orgId, from, to)
+                .stream()
+                .collect(Collectors.toMap(
+                        SalesReceiptRepository.RevenueByBranchRow::getBranchId,
+                        SalesReceiptRepository.RevenueByBranchRow::getTotal));
+
+        BigDecimal denominator = totalSales != null && totalSales.signum() > 0
+                ? totalSales : BigDecimal.ONE;
 
         return branches.stream()
-                // If a branch filter is active, only return that single row.
                 .filter(b -> branchFilter == null || branchFilter.equals(b.getId()))
                 .map(b -> {
-                    BigDecimal rev = revenueByBranchId.getOrDefault(b.getId(), BigDecimal.ZERO);
-                    BigDecimal pct = totalRevenue != null && totalRevenue.signum() > 0
-                            ? rev.multiply(BigDecimal.valueOf(100))
+                    BigDecimal invRev = invoiceByBranch.getOrDefault(b.getId(), BigDecimal.ZERO);
+                    BigDecimal posRev = posByBranch.getOrDefault(b.getId(), BigDecimal.ZERO);
+                    BigDecimal combined = invRev.add(posRev);
+                    BigDecimal pct = totalSales != null && totalSales.signum() > 0
+                            ? combined.multiply(BigDecimal.valueOf(100))
                                  .divide(denominator, 2, RoundingMode.HALF_UP)
                             : BigDecimal.ZERO;
-                    return new BranchSalesRow(b.getId(), b.getCode(), b.getName(), rev, pct);
+                    return new BranchSalesRow(b.getId(), b.getCode(), b.getName(), combined, pct);
                 })
                 .sorted(Comparator.comparing(BranchSalesRow::revenue).reversed())
                 .toList();
@@ -203,7 +208,7 @@ public class DashboardService {
         Page<PurchaseBill> page = purchaseBillRepository
                 .findByOrgIdAndIsDeletedFalseOrderByBillDateDesc(orgId, PageRequest.of(0, capped));
 
-        Map<UUID, String> contactNames = new java.util.HashMap<>();
+        Map<UUID, String> contactNames = new HashMap<>();
 
         return page.getContent().stream().map(bill -> {
             String vendorName = "Unknown";
@@ -267,17 +272,26 @@ public class DashboardService {
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
-        List<InvoiceRepository.DailyRevenueRow> rows =
-                invoiceRepository.sumRevenueDailyByOrg(orgId, from, today);
-
-        Map<LocalDate, BigDecimal> byDate = rows.stream()
+        Map<LocalDate, BigDecimal> invoiceByDate = invoiceRepository
+                .sumRevenueDailyByOrg(orgId, from, today)
+                .stream()
                 .collect(Collectors.toMap(
                         InvoiceRepository.DailyRevenueRow::getDate,
                         InvoiceRepository.DailyRevenueRow::getTotal));
 
+        Map<LocalDate, BigDecimal> posByDate = salesReceiptRepository
+                .sumTotalDailyByOrg(orgId, from, today)
+                .stream()
+                .collect(Collectors.toMap(
+                        SalesReceiptRepository.DailyRevenueRow::getDate,
+                        SalesReceiptRepository.DailyRevenueRow::getTotal));
+
         List<RevenueTrendResponse.DailyPoint> trend = from.datesUntil(today.plusDays(1))
-                .map(d -> new RevenueTrendResponse.DailyPoint(
-                        d, byDate.getOrDefault(d, BigDecimal.ZERO)))
+                .map(d -> {
+                    BigDecimal invRev = invoiceByDate.getOrDefault(d, BigDecimal.ZERO);
+                    BigDecimal posRev = posByDate.getOrDefault(d, BigDecimal.ZERO);
+                    return new RevenueTrendResponse.DailyPoint(d, invRev.add(posRev));
+                })
                 .toList();
 
         BigDecimal totalRevenue = trend.stream()
@@ -304,8 +318,11 @@ public class DashboardService {
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
-        BigDecimal revenue = invoiceRepository.sumRevenueByOrgAndDateRange(
+        BigDecimal invoiceRevenue = invoiceRepository.sumRevenueByOrgAndDateRange(
                 orgId, effectiveFrom, effectiveTo);
+        BigDecimal posRevenue = salesReceiptRepository.sumTotalByOrgAndDateRange(
+                orgId, effectiveFrom, effectiveTo);
+        BigDecimal revenue = invoiceRevenue.add(posRevenue);
         BigDecimal cogs = purchaseBillRepository.sumCogsByOrgAndDateRange(
                 orgId, effectiveFrom, effectiveTo);
         BigDecimal grossProfit = revenue.subtract(cogs);
@@ -315,10 +332,6 @@ public class DashboardService {
                 org.getBaseCurrency());
     }
 
-    /**
-     * Top-selling items by quantity over the given date range. Free-text
-     * lines (no itemId) are excluded. Returns up to {@code limit} rows.
-     */
     @Transactional(readOnly = true)
     public List<TopSellingItem> getTopSelling(LocalDate from, LocalDate to, int limit) {
         UUID orgId = TenantContext.getCurrentOrgId();
@@ -327,35 +340,118 @@ public class DashboardService {
         LocalDate effectiveTo = to != null ? to : today;
         int cappedLimit = Math.max(1, Math.min(limit, 20));
 
-        List<InvoiceLineRepository.TopSellingRow> rows = invoiceLineRepository.findTopSelling(
-                orgId, effectiveFrom, effectiveTo, PageRequest.of(0, cappedLimit));
+        List<InvoiceLineRepository.TopSellingRow> invoiceRows = invoiceLineRepository
+                .findTopSelling(orgId, effectiveFrom, effectiveTo, PageRequest.of(0, cappedLimit));
 
-        if (rows.isEmpty()) {
+        List<SalesReceiptLineRepository.TopSellingRow> posRows = salesReceiptLineRepository
+                .findTopSelling(orgId, effectiveFrom, effectiveTo, PageRequest.of(0, cappedLimit));
+
+        // Merge by itemId: combine qty + revenue from both sources
+        Map<UUID, MergedTopSelling> merged = new LinkedHashMap<>();
+        for (InvoiceLineRepository.TopSellingRow row : invoiceRows) {
+            merged.computeIfAbsent(row.getItemId(), k -> new MergedTopSelling(k, row.getDescription()))
+                    .add(row.getTotalQty(), row.getTotalRevenue());
+        }
+        for (SalesReceiptLineRepository.TopSellingRow row : posRows) {
+            merged.computeIfAbsent(row.getItemId(), k -> new MergedTopSelling(k, row.getDescription()))
+                    .add(row.getTotalQty(), row.getTotalRevenue());
+        }
+
+        if (merged.isEmpty()) {
             return List.of();
         }
 
-        // Batch-load items for names, SKUs and units.
-        List<UUID> itemIds = rows.stream()
-                .map(InvoiceLineRepository.TopSellingRow::getItemId)
+        List<MergedTopSelling> sorted = merged.values().stream()
+                .sorted(Comparator.comparing(MergedTopSelling::getTotalQty).reversed())
+                .limit(cappedLimit)
                 .toList();
+
+        List<UUID> itemIds = sorted.stream().map(MergedTopSelling::getItemId).toList();
         Map<UUID, Item> itemsById = itemRepository
                 .findByOrgIdAndIsDeletedFalseAndIdIn(orgId, itemIds)
                 .stream()
                 .collect(Collectors.toMap(Item::getId, i -> i));
 
-        List<TopSellingItem> result = new java.util.ArrayList<>(rows.size());
+        List<TopSellingItem> result = new ArrayList<>(sorted.size());
         int rank = 1;
-        for (InvoiceLineRepository.TopSellingRow row : rows) {
-            Item item = itemsById.get(row.getItemId());
+        for (MergedTopSelling m : sorted) {
+            Item item = itemsById.get(m.getItemId());
             result.add(new TopSellingItem(
                     rank++,
-                    row.getItemId(),
+                    m.getItemId(),
                     item != null ? item.getSku() : null,
-                    item != null ? item.getName() : row.getDescription(),
+                    item != null ? item.getName() : m.getDescription(),
                     item != null ? item.getUnitOfMeasure() : null,
-                    row.getTotalQty(),
-                    row.getTotalRevenue()));
+                    m.getTotalQty(),
+                    m.getTotalRevenue()));
         }
         return result;
+    }
+
+    @Transactional(readOnly = true)
+    public List<RecentTransactionResponse> getRecentTransactions(LocalDate from, LocalDate to, int limit) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        LocalDate today = LocalDate.now();
+        LocalDate effectiveFrom = from != null ? from : today;
+        LocalDate effectiveTo = to != null ? to : today;
+        int capped = Math.max(1, Math.min(limit, 20));
+
+        List<SalesReceipt> receipts = salesReceiptRepository
+                .findRecentByOrgAndDateRange(orgId, effectiveFrom, effectiveTo, PageRequest.of(0, capped));
+        List<Invoice> invoices = invoiceRepository
+                .findRecentByOrgAndDateRange(orgId, effectiveFrom, effectiveTo, PageRequest.of(0, capped));
+
+        Map<UUID, String> contactNames = new HashMap<>();
+
+        List<RecentTransactionResponse> all = new ArrayList<>();
+
+        for (SalesReceipt r : receipts) {
+            String name = "Walk-in";
+            if (r.getContactId() != null) {
+                name = contactNames.computeIfAbsent(r.getContactId(), cid ->
+                        contactRepository.findById(cid)
+                                .map(Contact::getDisplayName)
+                                .orElse("Walk-in"));
+            }
+            all.add(new RecentTransactionResponse(
+                    r.getId(), "POS", r.getReceiptNumber(), name,
+                    r.getTotal(), r.getPaymentMode().name(), r.getCreatedAt()));
+        }
+
+        for (Invoice inv : invoices) {
+            String name = contactNames.computeIfAbsent(inv.getContactId(), cid ->
+                    contactRepository.findById(cid)
+                            .map(Contact::getDisplayName)
+                            .orElse("Unknown"));
+            String mode = "PAID".equals(inv.getStatus()) ? "PAID" : "CREDIT";
+            all.add(new RecentTransactionResponse(
+                    inv.getId(), "INVOICE", inv.getInvoiceNumber(), name,
+                    inv.getTotalAmount(), mode, inv.getCreatedAt()));
+        }
+
+        all.sort(Comparator.comparing(RecentTransactionResponse::createdAt).reversed());
+        return all.stream().limit(capped).toList();
+    }
+
+    private static class MergedTopSelling {
+        private final UUID itemId;
+        private final String description;
+        private BigDecimal totalQty = BigDecimal.ZERO;
+        private BigDecimal totalRevenue = BigDecimal.ZERO;
+
+        MergedTopSelling(UUID itemId, String description) {
+            this.itemId = itemId;
+            this.description = description;
+        }
+
+        void add(BigDecimal qty, BigDecimal revenue) {
+            this.totalQty = this.totalQty.add(qty);
+            this.totalRevenue = this.totalRevenue.add(revenue);
+        }
+
+        UUID getItemId() { return itemId; }
+        String getDescription() { return description; }
+        BigDecimal getTotalQty() { return totalQty; }
+        BigDecimal getTotalRevenue() { return totalRevenue; }
     }
 }

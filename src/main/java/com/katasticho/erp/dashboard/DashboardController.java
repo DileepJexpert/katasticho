@@ -5,6 +5,7 @@ import com.katasticho.erp.dashboard.dto.ApSummaryResponse;
 import com.katasticho.erp.dashboard.dto.ArSummaryResponse;
 import com.katasticho.erp.dashboard.dto.MonthlyProfitResponse;
 import com.katasticho.erp.dashboard.dto.RecentBillResponse;
+import com.katasticho.erp.dashboard.dto.RecentTransactionResponse;
 import com.katasticho.erp.dashboard.dto.RevenueTrendResponse;
 import com.katasticho.erp.dashboard.dto.TodaySalesResponse;
 import com.katasticho.erp.dashboard.dto.TopSellingItem;
@@ -89,5 +90,14 @@ public class DashboardController {
     public ResponseEntity<ApiResponse<List<RecentBillResponse>>> recentBills(
             @RequestParam(required = false, defaultValue = "5") int limit) {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.getRecentBills(limit)));
+    }
+
+    @GetMapping("/recent-transactions")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<List<RecentTransactionResponse>>> recentTransactions(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false, defaultValue = "10") int limit) {
+        return ResponseEntity.ok(ApiResponse.ok(dashboardService.getRecentTransactions(from, to, limit)));
     }
 }

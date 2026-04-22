@@ -141,4 +141,61 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
           AND i.invoiceDate = :date
     """)
     long countByOrgAndDate(UUID orgId, LocalDate date);
+
+    @Query("""
+        SELECT COUNT(i) FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.isDeleted = false
+          AND i.status NOT IN ('DRAFT','CANCELLED')
+          AND i.invoiceDate BETWEEN :from AND :to
+    """)
+    long countByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
+
+    @Query("""
+        SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.isDeleted = false
+          AND i.status NOT IN ('DRAFT','PAID','CANCELLED')
+          AND i.invoiceDate BETWEEN :from AND :to
+    """)
+    BigDecimal sumCreditSalesByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
+
+    @Query("""
+        SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.branchId = :branchId
+          AND i.isDeleted = false
+          AND i.status NOT IN ('DRAFT','PAID','CANCELLED')
+          AND i.invoiceDate BETWEEN :from AND :to
+    """)
+    BigDecimal sumCreditSalesByOrgBranchAndDateRange(UUID orgId, UUID branchId, LocalDate from, LocalDate to);
+
+    @Query("""
+        SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.isDeleted = false
+          AND i.status = 'PAID'
+          AND i.invoiceDate BETWEEN :from AND :to
+    """)
+    BigDecimal sumPaidInvoicesByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
+
+    @Query("""
+        SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.branchId = :branchId
+          AND i.isDeleted = false
+          AND i.status = 'PAID'
+          AND i.invoiceDate BETWEEN :from AND :to
+    """)
+    BigDecimal sumPaidInvoicesByOrgBranchAndDateRange(UUID orgId, UUID branchId, LocalDate from, LocalDate to);
+
+    @Query("""
+        SELECT i FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.isDeleted = false
+          AND i.status NOT IN ('DRAFT','CANCELLED')
+          AND i.invoiceDate BETWEEN :from AND :to
+        ORDER BY i.createdAt DESC
+    """)
+    List<Invoice> findRecentByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to, Pageable pageable);
 }

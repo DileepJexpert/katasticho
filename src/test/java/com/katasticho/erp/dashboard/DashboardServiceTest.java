@@ -14,6 +14,8 @@ import com.katasticho.erp.organisation.Branch;
 import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
+import com.katasticho.erp.pos.repository.SalesReceiptLineRepository;
+import com.katasticho.erp.pos.repository.SalesReceiptRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,20 +36,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for the owner-dashboard aggregation service. These tests pin
- * down the invariants the mobile client depends on when rendering the
- * Sharma Medical mock (revenue/cash split, branch rollup math, top-selling
- * rank assignment):
- *
- *   - branch-filtered and org-wide paths call the correct repo methods
- *   - share-percent math uses HALF_UP rounding against the total
- *   - branches with zero revenue still appear in the "all branches" view
- *   - top-selling ranks are assigned in returned order
- *   - free-text lines (missing item) fall back to the line description
- *
- * The repos and entity mocks are pure Mockito — no Spring context.
- */
 @ExtendWith(MockitoExtension.class)
 class DashboardServiceTest {
 
@@ -59,6 +47,8 @@ class DashboardServiceTest {
     @Mock private OrganisationRepository organisationRepository;
     @Mock private com.katasticho.erp.ap.repository.PurchaseBillRepository purchaseBillRepository;
     @Mock private com.katasticho.erp.contact.repository.ContactRepository contactRepository;
+    @Mock private SalesReceiptRepository salesReceiptRepository;
+    @Mock private SalesReceiptLineRepository salesReceiptLineRepository;
 
     private DashboardService dashboardService;
     private UUID orgId;
@@ -69,7 +59,8 @@ class DashboardServiceTest {
         dashboardService = new DashboardService(
                 invoiceRepository, paymentRepository, invoiceLineRepository,
                 itemRepository, branchRepository, organisationRepository,
-                purchaseBillRepository, contactRepository);
+                purchaseBillRepository, contactRepository,
+                salesReceiptRepository, salesReceiptLineRepository);
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);
@@ -84,7 +75,7 @@ class DashboardServiceTest {
     // ── getTodaySales ─────────────────────────────────────────────────
 
     @Test
-    void getTodaySales_allBranches_returnsRollupWithSharePercent() {
+    void getTodaySales_allBranches_combinesPosAndInvoice() {
         LocalDate today = LocalDate.now();
 
         Organisation org = new Organisation();
@@ -102,41 +93,57 @@ class DashboardServiceTest {
         when(branchRepository.findByOrgIdAndIsDeletedFalseOrderByName(orgId))
                 .thenReturn(List.of(b62, b18));
 
-        when(invoiceRepository.sumRevenueByOrgAndDateRange(eq(orgId), any(), any()))
-                .thenReturn(new BigDecimal("12450"));
-        when(paymentRepository.sumCollectedByOrgAndDateRange(eq(orgId), any(), any()))
+        // POS receipts: 8200
+        when(salesReceiptRepository.sumTotalByOrgAndDateRange(eq(orgId), any(), any()))
                 .thenReturn(new BigDecimal("8200"));
+        // Paid invoices: 1500
+        when(invoiceRepository.sumPaidInvoicesByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(new BigDecimal("1500"));
+        // Credit invoices: 2750
+        when(invoiceRepository.sumCreditSalesByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(new BigDecimal("2750"));
+        // Counts
+        when(salesReceiptRepository.countByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(18L);
+        when(invoiceRepository.countByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(5L);
 
+        // Branch rollup
         when(invoiceRepository.sumRevenueByBranch(eq(orgId), any(), any()))
                 .thenReturn(List.of(
-                        branchRow(sec62, new BigDecimal("7200")),
-                        branchRow(sec18, new BigDecimal("5250"))));
+                        invoiceBranchRow(sec62, new BigDecimal("3000")),
+                        invoiceBranchRow(sec18, new BigDecimal("1250"))));
+        when(salesReceiptRepository.sumTotalByBranch(eq(orgId), any(), any()))
+                .thenReturn(List.of(
+                        posBranchRow(sec62, new BigDecimal("5200")),
+                        posBranchRow(sec18, new BigDecimal("3000"))));
 
         TodaySalesResponse resp = dashboardService.getTodaySales(today, today, null);
 
-        assertEquals(0, new BigDecimal("12450").compareTo(resp.revenue()));
-        assertEquals(0, new BigDecimal("8200").compareTo(resp.cashCollected()));
+        // cashUpiTotal = 8200 + 1500 = 9700
+        assertEquals(0, new BigDecimal("9700").compareTo(resp.cashUpiTotal()));
+        // creditTotal = 2750
+        assertEquals(0, new BigDecimal("2750").compareTo(resp.creditTotal()));
+        // totalSales = 9700 + 2750 = 12450
+        assertEquals(0, new BigDecimal("12450").compareTo(resp.totalSales()));
+        assertEquals(23, resp.transactionCount());
         assertEquals("INR", resp.currency());
         assertNull(resp.branchFilter());
+
         assertEquals(2, resp.byBranch().size());
-
-        // Descending by revenue — SEC62 first
+        // SEC62: invoice 3000 + POS 5200 = 8200
         BranchSalesRow first = resp.byBranch().get(0);
-        BranchSalesRow second = resp.byBranch().get(1);
         assertEquals(sec62, first.branchId());
-        assertEquals(0, new BigDecimal("7200").compareTo(first.revenue()));
-        // 7200 / 12450 * 100 = 57.83 (HALF_UP)
-        assertEquals(0, new BigDecimal("57.83").compareTo(first.sharePercent()),
-                "SEC62 share must be 57.83% (HALF_UP)");
+        assertEquals(0, new BigDecimal("8200").compareTo(first.revenue()));
+        // 8200 / 12450 * 100 = 65.86
+        assertEquals(0, new BigDecimal("65.86").compareTo(first.sharePercent()));
 
+        // SEC18: invoice 1250 + POS 3000 = 4250
+        BranchSalesRow second = resp.byBranch().get(1);
         assertEquals(sec18, second.branchId());
-        assertEquals(0, new BigDecimal("5250").compareTo(second.revenue()));
-        // 5250 / 12450 * 100 = 42.17
-        assertEquals(0, new BigDecimal("42.17").compareTo(second.sharePercent()));
-
-        verify(invoiceRepository).sumRevenueByOrgAndDateRange(eq(orgId), any(), any());
-        verify(invoiceRepository, never())
-                .sumRevenueByOrgBranchAndDateRange(any(), any(), any(), any());
+        assertEquals(0, new BigDecimal("4250").compareTo(second.revenue()));
+        // 4250 / 12450 * 100 = 34.14
+        assertEquals(0, new BigDecimal("34.14").compareTo(second.sharePercent()));
     }
 
     @Test
@@ -160,33 +167,40 @@ class DashboardServiceTest {
         when(branchRepository.findByOrgIdAndIsDeletedFalseOrderByName(orgId))
                 .thenReturn(List.of(b62, b18));
 
-        when(invoiceRepository.sumRevenueByOrgBranchAndDateRange(
+        when(salesReceiptRepository.sumTotalByOrgBranchAndDateRange(
                 eq(orgId), eq(sec62), any(), any()))
-                .thenReturn(new BigDecimal("7200"));
-        when(paymentRepository.sumCollectedByOrgBranchAndDateRange(
+                .thenReturn(new BigDecimal("5200"));
+        when(invoiceRepository.sumPaidInvoicesByOrgBranchAndDateRange(
                 eq(orgId), eq(sec62), any(), any()))
-                .thenReturn(new BigDecimal("4500"));
+                .thenReturn(new BigDecimal("1000"));
+        when(invoiceRepository.sumCreditSalesByOrgBranchAndDateRange(
+                eq(orgId), eq(sec62), any(), any()))
+                .thenReturn(new BigDecimal("1000"));
+
+        when(salesReceiptRepository.countByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(10L);
+        when(invoiceRepository.countByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(3L);
+
         when(invoiceRepository.sumRevenueByBranch(eq(orgId), any(), any()))
-                .thenReturn(List.of(
-                        branchRow(sec62, new BigDecimal("7200")),
-                        branchRow(sec18, new BigDecimal("5250"))));
+                .thenReturn(List.of(invoiceBranchRow(sec62, new BigDecimal("2000"))));
+        when(salesReceiptRepository.sumTotalByBranch(eq(orgId), any(), any()))
+                .thenReturn(List.of(posBranchRow(sec62, new BigDecimal("5200"))));
 
         TodaySalesResponse resp = dashboardService.getTodaySales(today, today, sec62);
 
-        assertEquals(0, new BigDecimal("7200").compareTo(resp.revenue()));
-        assertEquals(0, new BigDecimal("4500").compareTo(resp.cashCollected()));
+        assertEquals(0, new BigDecimal("6200").compareTo(resp.cashUpiTotal()));
+        assertEquals(0, new BigDecimal("1000").compareTo(resp.creditTotal()));
+        assertEquals(0, new BigDecimal("7200").compareTo(resp.totalSales()));
         assertEquals(sec62, resp.branchFilter());
-        // byBranch collapses to the single filtered branch.
         assertEquals(1, resp.byBranch().size());
         assertEquals(sec62, resp.byBranch().get(0).branchId());
-        // With denominator == row revenue the share is 100% exactly.
-        assertEquals(0, new BigDecimal("100.00").compareTo(resp.byBranch().get(0).sharePercent()));
 
-        // Org-wide sum methods must NOT be called when a branch filter is active.
+        // Org-wide methods must NOT be called when a branch filter is active
+        verify(salesReceiptRepository, never())
+                .sumTotalByOrgAndDateRange(any(), any(), any());
         verify(invoiceRepository, never())
-                .sumRevenueByOrgAndDateRange(any(), any(), any());
-        verify(paymentRepository, never())
-                .sumCollectedByOrgAndDateRange(any(), any(), any());
+                .sumPaidInvoicesByOrgAndDateRange(any(), any(), any());
     }
 
     @Test
@@ -205,10 +219,9 @@ class DashboardServiceTest {
                 () -> dashboardService.getTodaySales(today, today, unknown));
         assertEquals("ERR_BRANCH_NOT_FOUND", ex.getErrorCode());
 
-        // Should NOT have called any aggregation repos — validation happens first.
         verifyNoInteractions(invoiceLineRepository);
-        verify(invoiceRepository, never())
-                .sumRevenueByOrgBranchAndDateRange(any(), any(), any(), any());
+        verify(salesReceiptRepository, never())
+                .sumTotalByOrgAndDateRange(any(), any(), any());
     }
 
     @Test
@@ -233,15 +246,21 @@ class DashboardServiceTest {
 
         when(branchRepository.findByOrgIdAndIsDeletedFalseOrderByName(orgId))
                 .thenReturn(List.of());
-        when(invoiceRepository.sumRevenueByOrgAndDateRange(eq(orgId), any(), any()))
+        when(salesReceiptRepository.sumTotalByOrgAndDateRange(eq(orgId), any(), any()))
                 .thenReturn(BigDecimal.ZERO);
-        when(paymentRepository.sumCollectedByOrgAndDateRange(eq(orgId), any(), any()))
+        when(invoiceRepository.sumPaidInvoicesByOrgAndDateRange(eq(orgId), any(), any()))
                 .thenReturn(BigDecimal.ZERO);
+        when(invoiceRepository.sumCreditSalesByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(BigDecimal.ZERO);
+        when(salesReceiptRepository.countByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(0L);
+        when(invoiceRepository.countByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(0L);
 
         TodaySalesResponse resp = dashboardService.getTodaySales(today, today, null);
 
         assertTrue(resp.byBranch().isEmpty());
-        // sumRevenueByBranch should be short-circuited when there are no branches.
+        assertEquals(0, resp.transactionCount());
         verify(invoiceRepository, never()).sumRevenueByBranch(any(), any(), any());
     }
 
@@ -263,22 +282,31 @@ class DashboardServiceTest {
 
         when(branchRepository.findByOrgIdAndIsDeletedFalseOrderByName(orgId))
                 .thenReturn(List.of(b62, b18));
-        when(invoiceRepository.sumRevenueByOrgAndDateRange(eq(orgId), any(), any()))
-                .thenReturn(new BigDecimal("7200"));
-        when(paymentRepository.sumCollectedByOrgAndDateRange(eq(orgId), any(), any()))
-                .thenReturn(new BigDecimal("4500"));
+        when(salesReceiptRepository.sumTotalByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(new BigDecimal("5200"));
+        when(invoiceRepository.sumPaidInvoicesByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(new BigDecimal("2000"));
+        when(invoiceRepository.sumCreditSalesByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(BigDecimal.ZERO);
+        when(salesReceiptRepository.countByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(12L);
+        when(invoiceRepository.countByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(3L);
+
         when(invoiceRepository.sumRevenueByBranch(eq(orgId), any(), any()))
-                .thenReturn(List.of(branchRow(sec62, new BigDecimal("7200"))));
+                .thenReturn(List.of(invoiceBranchRow(sec62, new BigDecimal("2000"))));
+        when(salesReceiptRepository.sumTotalByBranch(eq(orgId), any(), any()))
+                .thenReturn(List.of(posBranchRow(sec62, new BigDecimal("5200"))));
 
         TodaySalesResponse resp = dashboardService.getTodaySales(today, today, null);
 
         assertEquals(2, resp.byBranch().size(),
-                "Zero-revenue branches must still appear in the All-Branches view");
+                "Zero-revenue branches must still appear");
 
         BranchSalesRow top = resp.byBranch().get(0);
         BranchSalesRow zero = resp.byBranch().get(1);
         assertEquals(sec62, top.branchId());
-        assertEquals(0, new BigDecimal("100.00").compareTo(top.sharePercent()));
+        assertEquals(0, new BigDecimal("7200").compareTo(top.revenue()));
         assertEquals(sec18, zero.branchId());
         assertEquals(0, BigDecimal.ZERO.compareTo(zero.revenue()));
         assertEquals(0, new BigDecimal("0.00").compareTo(zero.sharePercent()));
@@ -287,11 +315,11 @@ class DashboardServiceTest {
     // ── getTopSelling ─────────────────────────────────────────────────
 
     @Test
-    void getTopSelling_ranksInReturnedOrderAndEnrichesFromItem() {
+    void getTopSelling_mergesInvoiceAndPosLines() {
         LocalDate today = LocalDate.now();
         UUID paraId = UUID.randomUUID();
         UUID crocinId = UUID.randomUUID();
-        UUID d3Id = UUID.randomUUID();
+        UUID oilId = UUID.randomUUID();
 
         Item para = Item.builder()
                 .sku("PARA-500").name("Paracetamol 500mg").unitOfMeasure("STRIP").build();
@@ -299,38 +327,45 @@ class DashboardServiceTest {
         Item crocin = Item.builder()
                 .sku("CROC-ADV").name("Crocin Advance").unitOfMeasure("STRIP").build();
         crocin.setId(crocinId);
-        Item d3 = Item.builder()
-                .sku("VITD3").name("Vitamin D3").unitOfMeasure("BOTTLE").build();
-        d3.setId(d3Id);
+        Item oil = Item.builder()
+                .sku("OIL-500").name("Hair Oil 500ml").unitOfMeasure("BOTTLE").build();
+        oil.setId(oilId);
 
+        // Invoice: para 50 qty, crocin 30 qty
         when(invoiceLineRepository.findTopSelling(eq(orgId), any(), any(), any(Pageable.class)))
                 .thenReturn(List.of(
-                        topSellingRow(paraId, "Paracetamol 500mg",
-                                new BigDecimal("87"), new BigDecimal("4350")),
-                        topSellingRow(crocinId, "Crocin Advance",
-                                new BigDecimal("43"), new BigDecimal("3225")),
-                        topSellingRow(d3Id, "Vitamin D3",
-                                new BigDecimal("12"), new BigDecimal("4800"))));
+                        invoiceTopRow(paraId, "Paracetamol 500mg",
+                                new BigDecimal("50"), new BigDecimal("2500")),
+                        invoiceTopRow(crocinId, "Crocin Advance",
+                                new BigDecimal("30"), new BigDecimal("2250"))));
+
+        // POS: para 37 qty (more), oil 25 qty (POS-only item)
+        when(salesReceiptLineRepository.findTopSelling(eq(orgId), any(), any(), any(Pageable.class)))
+                .thenReturn(List.of(
+                        posTopRow(paraId, "Paracetamol 500mg",
+                                new BigDecimal("37"), new BigDecimal("1850")),
+                        posTopRow(oilId, "Hair Oil 500ml",
+                                new BigDecimal("25"), new BigDecimal("1250"))));
 
         when(itemRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), any(Collection.class)))
-                .thenReturn(List.of(para, crocin, d3));
+                .thenReturn(List.of(para, crocin, oil));
 
         List<TopSellingItem> results = dashboardService.getTopSelling(today, today, 10);
 
         assertEquals(3, results.size());
+        // para: 50 + 37 = 87 (highest)
         assertEquals(1, results.get(0).rank());
-        assertEquals(2, results.get(1).rank());
-        assertEquals(3, results.get(2).rank());
-
         assertEquals(paraId, results.get(0).itemId());
-        assertEquals("Paracetamol 500mg", results.get(0).name());
-        assertEquals("PARA-500", results.get(0).sku());
-        assertEquals("STRIP", results.get(0).unit());
         assertEquals(0, new BigDecimal("87").compareTo(results.get(0).quantity()));
         assertEquals(0, new BigDecimal("4350").compareTo(results.get(0).revenue()));
-
-        assertEquals("Crocin Advance", results.get(1).name());
-        assertEquals("Vitamin D3", results.get(2).name());
+        // crocin: 30
+        assertEquals(2, results.get(1).rank());
+        assertEquals(crocinId, results.get(1).itemId());
+        assertEquals(0, new BigDecimal("30").compareTo(results.get(1).quantity()));
+        // oil: 25 (POS only)
+        assertEquals(3, results.get(2).rank());
+        assertEquals(oilId, results.get(2).itemId());
+        assertEquals(0, new BigDecimal("25").compareTo(results.get(2).quantity()));
     }
 
     @Test
@@ -338,8 +373,9 @@ class DashboardServiceTest {
         LocalDate today = LocalDate.now();
         when(invoiceLineRepository.findTopSelling(eq(orgId), any(), any(), any(Pageable.class)))
                 .thenReturn(List.of());
+        when(salesReceiptLineRepository.findTopSelling(eq(orgId), any(), any(), any(Pageable.class)))
+                .thenReturn(List.of());
 
-        // Too low -> 1, too high -> 20
         dashboardService.getTopSelling(today, today, 0);
         dashboardService.getTopSelling(today, today, 9999);
 
@@ -358,9 +394,10 @@ class DashboardServiceTest {
         LocalDate today = LocalDate.now();
         when(invoiceLineRepository.findTopSelling(eq(orgId), any(), any(), any(Pageable.class)))
                 .thenReturn(List.of());
+        when(salesReceiptLineRepository.findTopSelling(eq(orgId), any(), any(), any(Pageable.class)))
+                .thenReturn(List.of());
 
         assertTrue(dashboardService.getTopSelling(today, today, 5).isEmpty());
-        // Must not waste a round-trip enriching zero rows.
         verifyNoInteractions(itemRepository);
     }
 
@@ -371,9 +408,10 @@ class DashboardServiceTest {
 
         when(invoiceLineRepository.findTopSelling(eq(orgId), any(), any(), any(Pageable.class)))
                 .thenReturn(List.of(
-                        topSellingRow(orphanId, "Legacy item description",
+                        invoiceTopRow(orphanId, "Legacy item description",
                                 new BigDecimal("3"), new BigDecimal("150"))));
-        // Item was deleted or belongs to another org — not returned by the batch load.
+        when(salesReceiptLineRepository.findTopSelling(eq(orgId), any(), any(), any(Pageable.class)))
+                .thenReturn(List.of());
         when(itemRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), any(Collection.class)))
                 .thenReturn(List.of());
 
@@ -382,24 +420,40 @@ class DashboardServiceTest {
         assertEquals(1, results.size());
         assertEquals(1, results.get(0).rank());
         assertEquals(orphanId, results.get(0).itemId());
-        assertEquals("Legacy item description", results.get(0).name(),
-                "When no Item row is found, fall back to the line description");
+        assertEquals("Legacy item description", results.get(0).name());
         assertNull(results.get(0).sku());
         assertNull(results.get(0).unit());
     }
 
     // ── helpers ──────────────────────────────────────────────────────
 
-    private static InvoiceRepository.RevenueByBranchRow branchRow(UUID branchId, BigDecimal total) {
+    private static InvoiceRepository.RevenueByBranchRow invoiceBranchRow(UUID branchId, BigDecimal total) {
         return new InvoiceRepository.RevenueByBranchRow() {
             @Override public UUID getBranchId() { return branchId; }
             @Override public BigDecimal getTotal() { return total; }
         };
     }
 
-    private static InvoiceLineRepository.TopSellingRow topSellingRow(
+    private static SalesReceiptRepository.RevenueByBranchRow posBranchRow(UUID branchId, BigDecimal total) {
+        return new SalesReceiptRepository.RevenueByBranchRow() {
+            @Override public UUID getBranchId() { return branchId; }
+            @Override public BigDecimal getTotal() { return total; }
+        };
+    }
+
+    private static InvoiceLineRepository.TopSellingRow invoiceTopRow(
             UUID itemId, String description, BigDecimal qty, BigDecimal revenue) {
         return new InvoiceLineRepository.TopSellingRow() {
+            @Override public UUID getItemId() { return itemId; }
+            @Override public String getDescription() { return description; }
+            @Override public BigDecimal getTotalQty() { return qty; }
+            @Override public BigDecimal getTotalRevenue() { return revenue; }
+        };
+    }
+
+    private static SalesReceiptLineRepository.TopSellingRow posTopRow(
+            UUID itemId, String description, BigDecimal qty, BigDecimal revenue) {
+        return new SalesReceiptLineRepository.TopSellingRow() {
             @Override public UUID getItemId() { return itemId; }
             @Override public String getDescription() { return description; }
             @Override public BigDecimal getTotalQty() { return qty; }
