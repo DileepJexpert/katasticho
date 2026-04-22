@@ -20,7 +20,7 @@ class KErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(48),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -31,6 +31,8 @@ class KErrorView extends StatelessWidget {
               message,
               style: KTypography.bodyLarge.copyWith(color: cs.onSurfaceVariant),
               textAlign: TextAlign.center,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
             ),
             if (onRetry != null) ...[
               KSpacing.vGapLg,
