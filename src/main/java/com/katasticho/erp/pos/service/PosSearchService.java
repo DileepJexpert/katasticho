@@ -51,9 +51,17 @@ public class PosSearchService {
         String q = query.trim();
         List<Item> candidates = new ArrayList<>();
 
-        // 1. Exact barcode match
+        // 1. Exact barcode match (raw value first, then GS1-extracted)
         itemRepository.findByOrgIdAndBarcodeAndIsDeletedFalse(orgId, q)
                 .ifPresent(candidates::add);
+
+        if (candidates.isEmpty()) {
+            String extracted = extractGs1Barcode(q);
+            if (extracted != null) {
+                itemRepository.findByOrgIdAndBarcodeAndIsDeletedFalse(orgId, extracted)
+                        .ifPresent(candidates::add);
+            }
+        }
 
         // 2. Exact SKU match
         if (candidates.isEmpty()) {
@@ -143,5 +151,22 @@ public class PosSearchService {
                     batchExpiry,
                     thresholds);
         }).toList();
+    }
+
+    /**
+     * Extract barcode from GS1 format (GS1-128, DataMatrix).
+     * AI 01 = GTIN-14 (14 digits). Leading '0' in GTIN-14 is packaging indicator;
+     * strip it to get EAN-13.
+     */
+    private static String extractGs1Barcode(String raw) {
+        if (raw == null || raw.length() < 16) return null;
+        if (!raw.startsWith("01")) return null;
+        if (!raw.substring(2, 16).chars().allMatch(Character::isDigit)) return null;
+
+        String gtin14 = raw.substring(2, 16);
+        if (gtin14.charAt(0) == '0') {
+            return gtin14.substring(1); // EAN-13
+        }
+        return gtin14;
     }
 }
