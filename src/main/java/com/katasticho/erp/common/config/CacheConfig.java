@@ -3,7 +3,11 @@ package com.katasticho.erp.common.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
+import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
@@ -17,7 +21,34 @@ import java.util.Map;
 
 @Configuration
 @EnableCaching
-public class CacheConfig {
+@Slf4j
+public class CacheConfig implements CachingConfigurer {
+
+    @Override
+    public CacheErrorHandler errorHandler() {
+        return new CacheErrorHandler() {
+            @Override
+            public void handleCacheGetError(RuntimeException ex, Cache cache, Object key) {
+                log.warn("Cache get error [{}] key={}: {}", cache.getName(), key, ex.getMessage());
+                cache.evict(key);
+            }
+
+            @Override
+            public void handleCachePutError(RuntimeException ex, Cache cache, Object key, Object value) {
+                log.warn("Cache put error [{}] key={}: {}", cache.getName(), key, ex.getMessage());
+            }
+
+            @Override
+            public void handleCacheEvictError(RuntimeException ex, Cache cache, Object key) {
+                log.warn("Cache evict error [{}] key={}: {}", cache.getName(), key, ex.getMessage());
+            }
+
+            @Override
+            public void handleCacheClearError(RuntimeException ex, Cache cache) {
+                log.warn("Cache clear error [{}]: {}", cache.getName(), ex.getMessage());
+            }
+        };
+    }
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
