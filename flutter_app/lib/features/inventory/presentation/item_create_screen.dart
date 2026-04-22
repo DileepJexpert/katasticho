@@ -1234,7 +1234,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
 
                   KSpacing.vGapXl,
                   KButton(
-                    label: _isEdit ? 'Save Changes' : 'Create Item',
+                    label: _isEdit ? 'Update' : 'Create Item',
                     fullWidth: true,
                     isLoading: _saving,
                     onPressed: _save,

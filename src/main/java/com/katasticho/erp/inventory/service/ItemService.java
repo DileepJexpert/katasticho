@@ -40,9 +40,11 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -424,19 +426,28 @@ public class ItemService {
         // Rebuild per-item purchase UoM conversion
         List<UomConversion> existingConversions =
                 uomConversionRepository.findByOrgIdAndItemIdAndIsDeletedFalse(orgId, item.getId());
-        for (UomConversion c : existingConversions) {
-            c.setDeleted(true);
-            uomConversionRepository.save(c);
-        }
+
+        Set<UUID> keepConversionIds = new HashSet<>();
+
         if (item.getPurchaseUomId() != null && item.getBaseUomId() != null
                 && !item.getPurchaseUomId().equals(item.getBaseUomId())) {
-            UomConversion conv = UomConversion.builder()
-                    .itemId(item.getId())
-                    .fromUomId(item.getPurchaseUomId())
-                    .toUomId(item.getBaseUomId())
-                    .factor(item.getPurchaseUomConversion())
-                    .build();
-            uomConversionRepository.save(conv);
+            Optional<UomConversion> existing = uomConversionRepository.findPerItem(
+                    orgId, item.getId(), item.getPurchaseUomId(), item.getBaseUomId());
+            if (existing.isPresent()) {
+                UomConversion conv = existing.get();
+                conv.setFactor(item.getPurchaseUomConversion());
+                uomConversionRepository.save(conv);
+                keepConversionIds.add(conv.getId());
+            } else {
+                UomConversion conv = UomConversion.builder()
+                        .itemId(item.getId())
+                        .fromUomId(item.getPurchaseUomId())
+                        .toUomId(item.getBaseUomId())
+                        .factor(item.getPurchaseUomConversion())
+                        .build();
+                uomConversionRepository.save(conv);
+                keepConversionIds.add(conv.getId());
+            }
         }
 
         // Rebuild secondary units
@@ -459,14 +470,32 @@ public class ItemService {
                         .build();
                 itemUnitPriceRepository.save(iup);
                 if (!secUomId.equals(item.getBaseUomId())) {
-                    UomConversion secConv = UomConversion.builder()
-                            .itemId(item.getId())
-                            .fromUomId(item.getBaseUomId())
-                            .toUomId(secUomId)
-                            .factor(BigDecimal.ONE.divide(entry.conversionFactor(), 6, RoundingMode.HALF_UP))
-                            .build();
-                    uomConversionRepository.save(secConv);
+                    Optional<UomConversion> existingSec = uomConversionRepository.findPerItem(
+                            orgId, item.getId(), item.getBaseUomId(), secUomId);
+                    if (existingSec.isPresent()) {
+                        UomConversion secConv = existingSec.get();
+                        secConv.setFactor(BigDecimal.ONE.divide(entry.conversionFactor(), 6, RoundingMode.HALF_UP));
+                        uomConversionRepository.save(secConv);
+                        keepConversionIds.add(secConv.getId());
+                    } else {
+                        UomConversion secConv = UomConversion.builder()
+                                .itemId(item.getId())
+                                .fromUomId(item.getBaseUomId())
+                                .toUomId(secUomId)
+                                .factor(BigDecimal.ONE.divide(entry.conversionFactor(), 6, RoundingMode.HALF_UP))
+                                .build();
+                        uomConversionRepository.save(secConv);
+                        keepConversionIds.add(secConv.getId());
+                    }
                 }
+            }
+        }
+
+        // Soft-delete conversions that are no longer needed
+        for (UomConversion c : existingConversions) {
+            if (!keepConversionIds.contains(c.getId())) {
+                c.setDeleted(true);
+                uomConversionRepository.save(c);
             }
         }
 
