@@ -5,11 +5,13 @@ import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.repository.PaymentRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
-import com.katasticho.erp.dashboard.dto.BranchSalesRow;
-import com.katasticho.erp.dashboard.dto.TodaySalesResponse;
-import com.katasticho.erp.dashboard.dto.TopSellingItem;
+import com.katasticho.erp.dashboard.dto.*;
 import com.katasticho.erp.inventory.entity.Item;
+import com.katasticho.erp.inventory.entity.StockBatch;
+import com.katasticho.erp.inventory.entity.StockBatchBalance;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.StockBatchBalanceRepository;
+import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.organisation.Branch;
 import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Organisation;
@@ -49,6 +51,8 @@ class DashboardServiceTest {
     @Mock private com.katasticho.erp.contact.repository.ContactRepository contactRepository;
     @Mock private SalesReceiptRepository salesReceiptRepository;
     @Mock private SalesReceiptLineRepository salesReceiptLineRepository;
+    @Mock private StockBatchRepository stockBatchRepository;
+    @Mock private StockBatchBalanceRepository stockBatchBalanceRepository;
 
     private DashboardService dashboardService;
     private UUID orgId;
@@ -60,7 +64,8 @@ class DashboardServiceTest {
                 invoiceRepository, paymentRepository, invoiceLineRepository,
                 itemRepository, branchRepository, organisationRepository,
                 purchaseBillRepository, contactRepository,
-                salesReceiptRepository, salesReceiptLineRepository);
+                salesReceiptRepository, salesReceiptLineRepository,
+                stockBatchRepository, stockBatchBalanceRepository);
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);
@@ -423,6 +428,122 @@ class DashboardServiceTest {
         assertEquals("Legacy item description", results.get(0).name());
         assertNull(results.get(0).sku());
         assertNull(results.get(0).unit());
+    }
+
+    // ── getDailySummary ────────────────────────────────────────────
+
+    @Test
+    void getDailySummary_computesTodaySnapshotAndWeekComparison() {
+        LocalDate today = LocalDate.now();
+
+        Organisation org = new Organisation();
+        org.setId(orgId);
+        org.setBaseCurrency("INR");
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+
+        // Today: POS 5000, paid invoices 1000, credit invoices 500
+        when(salesReceiptRepository.sumTotalByOrgAndDateRange(eq(orgId), eq(today), eq(today)))
+                .thenReturn(new BigDecimal("5000"));
+        when(invoiceRepository.sumPaidInvoicesByOrgAndDateRange(eq(orgId), eq(today), eq(today)))
+                .thenReturn(new BigDecimal("1000"));
+        when(invoiceRepository.sumCreditSalesByOrgAndDateRange(eq(orgId), eq(today), eq(today)))
+                .thenReturn(new BigDecimal("500"));
+        // Today cost: POS cost 3000, invoice cost 600
+        when(salesReceiptLineRepository.sumCostByOrgAndDateRange(eq(orgId), eq(today), eq(today)))
+                .thenReturn(new BigDecimal("3000"));
+        when(invoiceLineRepository.sumCostByOrgAndDateRange(eq(orgId), eq(today), eq(today)))
+                .thenReturn(new BigDecimal("600"));
+        // Today counts
+        when(salesReceiptRepository.countByOrgAndDateRange(eq(orgId), eq(today), eq(today)))
+                .thenReturn(12L);
+        when(invoiceRepository.countByOrgAndDateRange(eq(orgId), eq(today), eq(today)))
+                .thenReturn(3L);
+
+        // Daily trend (empty for simplicity — just verify structure)
+        when(salesReceiptRepository.sumTotalDailyByOrg(eq(orgId), any(), any()))
+                .thenReturn(List.of());
+        when(invoiceRepository.sumRevenueDailyByOrg(eq(orgId), any(), any()))
+                .thenReturn(List.of());
+        when(salesReceiptLineRepository.sumCostDailyByOrg(eq(orgId), any(), any()))
+                .thenReturn(List.of());
+        when(invoiceLineRepository.sumCostDailyByOrg(eq(orgId), any(), any()))
+                .thenReturn(List.of());
+
+        // Last week totals (for comparison)
+        when(salesReceiptRepository.sumTotalByOrgAndDateRange(eq(orgId),
+                eq(today.minusDays(13)), eq(today.minusDays(7))))
+                .thenReturn(new BigDecimal("30000"));
+        when(invoiceRepository.sumRevenueByOrgAndDateRange(eq(orgId),
+                eq(today.minusDays(13)), eq(today.minusDays(7))))
+                .thenReturn(new BigDecimal("10000"));
+        when(salesReceiptLineRepository.sumCostByOrgAndDateRange(eq(orgId),
+                eq(today.minusDays(13)), eq(today.minusDays(7))))
+                .thenReturn(new BigDecimal("25000"));
+        when(invoiceLineRepository.sumCostByOrgAndDateRange(eq(orgId),
+                eq(today.minusDays(13)), eq(today.minusDays(7))))
+                .thenReturn(new BigDecimal("8000"));
+
+        DailySummaryResponse resp = dashboardService.getDailySummary(7);
+
+        // Today snapshot: sale = 5000+1000+500 = 6500, cost = 3600, earning = 2900
+        assertEquals(0, new BigDecimal("6500").compareTo(resp.today().totalSale()));
+        assertEquals(0, new BigDecimal("3600").compareTo(resp.today().totalCost()));
+        assertEquals(0, new BigDecimal("2900").compareTo(resp.today().earning()));
+        assertEquals(0, new BigDecimal("6000").compareTo(resp.today().cashUpiIn()));
+        assertEquals(0, new BigDecimal("500").compareTo(resp.today().creditSale()));
+        assertEquals(15, resp.today().billCount());
+        assertEquals("INR", resp.currency());
+
+        // 7 daily rows
+        assertEquals(7, resp.daily().size());
+        assertNotNull(resp.thisWeek());
+    }
+
+    // ── getExpiringSoon ──────────────────────────────────────────────
+
+    @Test
+    void getExpiringSoon_returnsItemsWithBatchDetails() {
+        LocalDate today = LocalDate.now();
+        UUID itemId = UUID.randomUUID();
+        UUID batchId = UUID.randomUUID();
+
+        StockBatch batch = new StockBatch();
+        batch.setId(batchId);
+        batch.setOrgId(orgId);
+        batch.setItemId(itemId);
+        batch.setBatchNumber("BATCH-001");
+        batch.setExpiryDate(today.plusDays(15));
+
+        when(stockBatchRepository.findExpiringWithStock(eq(orgId), any()))
+                .thenReturn(List.of(batch));
+
+        Item item = Item.builder().sku("PARA-500").name("Paracetamol 500mg")
+                .unitOfMeasure("STRIP").build();
+        item.setId(itemId);
+        when(itemRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), any(Collection.class)))
+                .thenReturn(List.of(item));
+
+        StockBatchBalance bal = new StockBatchBalance();
+        bal.setQuantityOnHand(new BigDecimal("50"));
+        when(stockBatchBalanceRepository.findByOrgIdAndBatchId(orgId, batchId))
+                .thenReturn(List.of(bal));
+
+        List<ExpiringSoonResponse> results = dashboardService.getExpiringSoon(90);
+
+        assertEquals(1, results.size());
+        assertEquals("Paracetamol 500mg", results.get(0).itemName());
+        assertEquals("BATCH-001", results.get(0).batchNumber());
+        assertEquals(15, results.get(0).daysLeft());
+        assertEquals(0, new BigDecimal("50").compareTo(results.get(0).quantityOnHand()));
+    }
+
+    @Test
+    void getExpiringSoon_noBatches_returnsEmpty() {
+        when(stockBatchRepository.findExpiringWithStock(eq(orgId), any()))
+                .thenReturn(List.of());
+
+        assertTrue(dashboardService.getExpiringSoon(90).isEmpty());
+        verifyNoInteractions(itemRepository);
     }
 
     // ── helpers ──────────────────────────────────────────────────────

@@ -44,4 +44,36 @@ public interface InvoiceLineRepository extends JpaRepository<InvoiceLine, UUID> 
         BigDecimal getTotalQty();
         BigDecimal getTotalRevenue();
     }
+
+    @Query("""
+        SELECT COALESCE(SUM(l.quantity * i.purchasePrice), 0)
+        FROM InvoiceLine l, Item i
+        WHERE l.invoice.orgId = :orgId
+          AND l.invoice.isDeleted = false
+          AND l.invoice.status <> 'CANCELLED'
+          AND l.invoice.invoiceDate BETWEEN :from AND :to
+          AND l.itemId IS NOT NULL
+          AND i.id = l.itemId
+    """)
+    BigDecimal sumCostByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
+
+    @Query("""
+        SELECT l.invoice.invoiceDate AS date,
+               COALESCE(SUM(l.quantity * i.purchasePrice), 0) AS cost
+        FROM InvoiceLine l, Item i
+        WHERE l.invoice.orgId = :orgId
+          AND l.invoice.isDeleted = false
+          AND l.invoice.status <> 'CANCELLED'
+          AND l.invoice.invoiceDate BETWEEN :from AND :to
+          AND l.itemId IS NOT NULL
+          AND i.id = l.itemId
+        GROUP BY l.invoice.invoiceDate
+        ORDER BY l.invoice.invoiceDate
+    """)
+    List<DailyCostRow> sumCostDailyByOrg(UUID orgId, LocalDate from, LocalDate to);
+
+    interface DailyCostRow {
+        LocalDate getDate();
+        BigDecimal getCost();
+    }
 }

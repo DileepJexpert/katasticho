@@ -364,3 +364,134 @@ class MonthlyProfitData {
         currency: json['currency']?.toString() ?? 'INR',
       );
 }
+
+class DailySummaryData {
+  final TodaySnapshot today;
+  final List<DailySummaryRow> daily;
+  final WeekComparison thisWeek;
+  final String currency;
+
+  const DailySummaryData({
+    required this.today,
+    required this.daily,
+    required this.thisWeek,
+    required this.currency,
+  });
+
+  factory DailySummaryData.fromJson(Map<String, dynamic> json) =>
+      DailySummaryData(
+        today: TodaySnapshot.fromJson(
+            json['today'] as Map<String, dynamic>? ?? const {}),
+        daily: ((json['daily'] as List?) ?? const [])
+            .map((e) => DailySummaryRow.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        thisWeek: WeekComparison.fromJson(
+            json['thisWeek'] as Map<String, dynamic>? ?? const {}),
+        currency: json['currency']?.toString() ?? 'INR',
+      );
+}
+
+class TodaySnapshot {
+  final double totalSale;
+  final double totalCost;
+  final double earning;
+  final double cashUpiIn;
+  final double creditSale;
+  final int billCount;
+
+  const TodaySnapshot({
+    required this.totalSale,
+    required this.totalCost,
+    required this.earning,
+    required this.cashUpiIn,
+    required this.creditSale,
+    required this.billCount,
+  });
+
+  factory TodaySnapshot.fromJson(Map<String, dynamic> json) => TodaySnapshot(
+        totalSale: (json['totalSale'] as num?)?.toDouble() ?? 0.0,
+        totalCost: (json['totalCost'] as num?)?.toDouble() ?? 0.0,
+        earning: (json['earning'] as num?)?.toDouble() ?? 0.0,
+        cashUpiIn: (json['cashUpiIn'] as num?)?.toDouble() ?? 0.0,
+        creditSale: (json['creditSale'] as num?)?.toDouble() ?? 0.0,
+        billCount: (json['billCount'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class DailySummaryRow {
+  final DateTime date;
+  final double sale;
+  final double cost;
+  final double earning;
+
+  const DailySummaryRow({
+    required this.date,
+    required this.sale,
+    required this.cost,
+    required this.earning,
+  });
+
+  factory DailySummaryRow.fromJson(Map<String, dynamic> json) =>
+      DailySummaryRow(
+        date: DateTime.parse(json['date'] as String),
+        sale: (json['sale'] as num?)?.toDouble() ?? 0.0,
+        cost: (json['cost'] as num?)?.toDouble() ?? 0.0,
+        earning: (json['earning'] as num?)?.toDouble() ?? 0.0,
+      );
+}
+
+class WeekComparison {
+  final double totalSale;
+  final double totalEarning;
+  final double vsLastWeekSalePct;
+  final double vsLastWeekEarningPct;
+
+  const WeekComparison({
+    required this.totalSale,
+    required this.totalEarning,
+    required this.vsLastWeekSalePct,
+    required this.vsLastWeekEarningPct,
+  });
+
+  factory WeekComparison.fromJson(Map<String, dynamic> json) =>
+      WeekComparison(
+        totalSale: (json['totalSale'] as num?)?.toDouble() ?? 0.0,
+        totalEarning: (json['totalEarning'] as num?)?.toDouble() ?? 0.0,
+        vsLastWeekSalePct:
+            (json['vsLastWeekSalePct'] as num?)?.toDouble() ?? 0.0,
+        vsLastWeekEarningPct:
+            (json['vsLastWeekEarningPct'] as num?)?.toDouble() ?? 0.0,
+      );
+}
+
+class ExpiringSoonItem {
+  final String itemId;
+  final String itemName;
+  final String? sku;
+  final String batchNumber;
+  final DateTime expiryDate;
+  final int daysLeft;
+  final double quantityOnHand;
+
+  const ExpiringSoonItem({
+    required this.itemId,
+    required this.itemName,
+    required this.sku,
+    required this.batchNumber,
+    required this.expiryDate,
+    required this.daysLeft,
+    required this.quantityOnHand,
+  });
+
+  factory ExpiringSoonItem.fromJson(Map<String, dynamic> json) =>
+      ExpiringSoonItem(
+        itemId: json['itemId']?.toString() ?? '',
+        itemName: json['itemName']?.toString() ?? '',
+        sku: json['sku']?.toString(),
+        batchNumber: json['batchNumber']?.toString() ?? '',
+        expiryDate: DateTime.parse(json['expiryDate'] as String),
+        daysLeft: (json['daysLeft'] as num?)?.toInt() ?? 0,
+        quantityOnHand:
+            (json['quantityOnHand'] as num?)?.toDouble() ?? 0.0,
+      );
+}

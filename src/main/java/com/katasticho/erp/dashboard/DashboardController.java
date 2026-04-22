@@ -1,14 +1,7 @@
 package com.katasticho.erp.dashboard;
 
 import com.katasticho.erp.common.dto.ApiResponse;
-import com.katasticho.erp.dashboard.dto.ApSummaryResponse;
-import com.katasticho.erp.dashboard.dto.ArSummaryResponse;
-import com.katasticho.erp.dashboard.dto.MonthlyProfitResponse;
-import com.katasticho.erp.dashboard.dto.RecentBillResponse;
-import com.katasticho.erp.dashboard.dto.RecentTransactionResponse;
-import com.katasticho.erp.dashboard.dto.RevenueTrendResponse;
-import com.katasticho.erp.dashboard.dto.TodaySalesResponse;
-import com.katasticho.erp.dashboard.dto.TopSellingItem;
+import com.katasticho.erp.dashboard.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -99,5 +92,19 @@ public class DashboardController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false, defaultValue = "10") int limit) {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.getRecentTransactions(from, to, limit)));
+    }
+
+    @GetMapping("/daily-summary")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<DailySummaryResponse>> dailySummary(
+            @RequestParam(required = false, defaultValue = "7") int days) {
+        return ResponseEntity.ok(ApiResponse.ok(dashboardService.getDailySummary(days)));
+    }
+
+    @GetMapping("/expiring-soon")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<List<ExpiringSoonResponse>>> expiringSoon(
+            @RequestParam(required = false, defaultValue = "90") int withinDays) {
+        return ResponseEntity.ok(ApiResponse.ok(dashboardService.getExpiringSoon(withinDays)));
     }
 }

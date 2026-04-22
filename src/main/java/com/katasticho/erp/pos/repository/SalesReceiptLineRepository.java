@@ -37,4 +37,34 @@ public interface SalesReceiptLineRepository extends JpaRepository<SalesReceiptLi
         BigDecimal getTotalQty();
         BigDecimal getTotalRevenue();
     }
+
+    @Query("""
+        SELECT COALESCE(SUM(l.quantity * i.purchasePrice), 0)
+        FROM SalesReceiptLine l, Item i
+        WHERE l.receipt.orgId = :orgId
+          AND l.receipt.isDeleted = false
+          AND l.receipt.receiptDate BETWEEN :from AND :to
+          AND l.itemId IS NOT NULL
+          AND i.id = l.itemId
+    """)
+    BigDecimal sumCostByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
+
+    @Query("""
+        SELECT l.receipt.receiptDate AS date,
+               COALESCE(SUM(l.quantity * i.purchasePrice), 0) AS cost
+        FROM SalesReceiptLine l, Item i
+        WHERE l.receipt.orgId = :orgId
+          AND l.receipt.isDeleted = false
+          AND l.receipt.receiptDate BETWEEN :from AND :to
+          AND l.itemId IS NOT NULL
+          AND i.id = l.itemId
+        GROUP BY l.receipt.receiptDate
+        ORDER BY l.receipt.receiptDate
+    """)
+    List<DailyCostRow> sumCostDailyByOrg(UUID orgId, LocalDate from, LocalDate to);
+
+    interface DailyCostRow {
+        LocalDate getDate();
+        BigDecimal getCost();
+    }
 }

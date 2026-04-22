@@ -180,6 +180,8 @@ class ApiConfig {
   static const String dashboardReceivables = '/api/v1/dashboard/receivables';
   static const String dashboardMonthlyProfit = '/api/v1/dashboard/monthly-profit';
   static const String dashboardRevenueTrend = '/api/v1/dashboard/revenue-trend';
+  static const String dashboardDailySummary = '/api/v1/dashboard/daily-summary';
+  static const String dashboardExpiringSoon = '/api/v1/dashboard/expiring-soon';
   static const String arAgeing = '/api/v1/ar/reports/ageing';
   static const String apAgeing = '/api/v1/ap/reports/ageing';
 

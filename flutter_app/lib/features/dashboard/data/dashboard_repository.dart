@@ -177,6 +177,24 @@ class DashboardRepository {
     return RevenueTrendData.fromJson(_unwrap(response.data));
   }
 
+  Future<DailySummaryData> getDailySummary({int days = 7}) async {
+    final response = await _api.get(
+      ApiConfig.dashboardDailySummary,
+      queryParameters: {'days': days},
+    );
+    return DailySummaryData.fromJson(_unwrap(response.data));
+  }
+
+  Future<List<ExpiringSoonItem>> getExpiringSoon({int withinDays = 90}) async {
+    final response = await _api.get(
+      ApiConfig.dashboardExpiringSoon,
+      queryParameters: {'withinDays': withinDays},
+    );
+    return _unwrapList(response.data)
+        .map((e) => ExpiringSoonItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<Map<String, dynamic>> seedSharmaMedical() async {
     final response = await _api.post(ApiConfig.demoSeedSharmaMedical);
     return _unwrap(response.data);
@@ -243,4 +261,14 @@ final apAgingProvider =
 final revenueTrendProvider =
     FutureProvider.autoDispose.family<RevenueTrendData, int>((ref, days) async {
   return ref.watch(dashboardRepositoryProvider).getRevenueTrend(days: days);
+});
+
+final dailySummaryProvider =
+    FutureProvider.autoDispose<DailySummaryData>((ref) async {
+  return ref.watch(dashboardRepositoryProvider).getDailySummary();
+});
+
+final expiringSoonProvider =
+    FutureProvider.autoDispose<List<ExpiringSoonItem>>((ref) async {
+  return ref.watch(dashboardRepositoryProvider).getExpiringSoon();
 });

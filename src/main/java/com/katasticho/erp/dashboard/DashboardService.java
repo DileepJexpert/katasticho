@@ -12,7 +12,11 @@ import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.dashboard.dto.*;
 import com.katasticho.erp.inventory.entity.Item;
+import com.katasticho.erp.inventory.entity.StockBatch;
+import com.katasticho.erp.inventory.entity.StockBatchBalance;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.StockBatchBalanceRepository;
+import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.organisation.Branch;
 import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Organisation;
@@ -30,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -48,6 +53,8 @@ public class DashboardService {
     private final ContactRepository contactRepository;
     private final SalesReceiptRepository salesReceiptRepository;
     private final SalesReceiptLineRepository salesReceiptLineRepository;
+    private final StockBatchRepository stockBatchRepository;
+    private final StockBatchBalanceRepository stockBatchBalanceRepository;
 
     @Transactional(readOnly = true)
     public TodaySalesResponse getTodaySales(LocalDate from, LocalDate to, UUID branchId) {
@@ -431,6 +438,148 @@ public class DashboardService {
 
         all.sort(Comparator.comparing(RecentTransactionResponse::createdAt).reversed());
         return all.stream().limit(capped).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public DailySummaryResponse getDailySummary(int days) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        int cappedDays = Math.max(1, Math.min(days, 30));
+        LocalDate today = LocalDate.now();
+        LocalDate weekStart = today.minusDays(6);
+        LocalDate rangeStart = today.minusDays(cappedDays - 1);
+
+        Organisation org = organisationRepository.findById(orgId)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
+
+        // --- today snapshot ---
+        BigDecimal posSalesToday = salesReceiptRepository.sumTotalByOrgAndDateRange(orgId, today, today);
+        BigDecimal paidInvToday = invoiceRepository.sumPaidInvoicesByOrgAndDateRange(orgId, today, today);
+        BigDecimal creditInvToday = invoiceRepository.sumCreditSalesByOrgAndDateRange(orgId, today, today);
+        BigDecimal cashUpiToday = posSalesToday.add(paidInvToday);
+        BigDecimal todaySale = cashUpiToday.add(creditInvToday);
+
+        BigDecimal posCostToday = salesReceiptLineRepository.sumCostByOrgAndDateRange(orgId, today, today);
+        BigDecimal invCostToday = invoiceLineRepository.sumCostByOrgAndDateRange(orgId, today, today);
+        BigDecimal todayCost = posCostToday.add(invCostToday);
+        BigDecimal todayEarning = todaySale.subtract(todayCost);
+
+        long posCountToday = salesReceiptRepository.countByOrgAndDateRange(orgId, today, today);
+        long invCountToday = invoiceRepository.countByOrgAndDateRange(orgId, today, today);
+        int billCount = (int) (posCountToday + invCountToday);
+
+        var todaySnapshot = new DailySummaryResponse.TodaySnapshot(
+                todaySale, todayCost, todayEarning, cashUpiToday, creditInvToday, billCount);
+
+        // --- daily trend ---
+        Map<LocalDate, BigDecimal> posSaleByDate = salesReceiptRepository
+                .sumTotalDailyByOrg(orgId, rangeStart, today).stream()
+                .collect(Collectors.toMap(SalesReceiptRepository.DailyRevenueRow::getDate,
+                        SalesReceiptRepository.DailyRevenueRow::getTotal));
+
+        Map<LocalDate, BigDecimal> invSaleByDate = invoiceRepository
+                .sumRevenueDailyByOrg(orgId, rangeStart, today).stream()
+                .collect(Collectors.toMap(InvoiceRepository.DailyRevenueRow::getDate,
+                        InvoiceRepository.DailyRevenueRow::getTotal));
+
+        Map<LocalDate, BigDecimal> posCostByDate = salesReceiptLineRepository
+                .sumCostDailyByOrg(orgId, rangeStart, today).stream()
+                .collect(Collectors.toMap(SalesReceiptLineRepository.DailyCostRow::getDate,
+                        SalesReceiptLineRepository.DailyCostRow::getCost));
+
+        Map<LocalDate, BigDecimal> invCostByDate = invoiceLineRepository
+                .sumCostDailyByOrg(orgId, rangeStart, today).stream()
+                .collect(Collectors.toMap(InvoiceLineRepository.DailyCostRow::getDate,
+                        InvoiceLineRepository.DailyCostRow::getCost));
+
+        List<DailySummaryResponse.DailyRow> daily = rangeStart.datesUntil(today.plusDays(1))
+                .map(d -> {
+                    BigDecimal sale = posSaleByDate.getOrDefault(d, BigDecimal.ZERO)
+                            .add(invSaleByDate.getOrDefault(d, BigDecimal.ZERO));
+                    BigDecimal cost = posCostByDate.getOrDefault(d, BigDecimal.ZERO)
+                            .add(invCostByDate.getOrDefault(d, BigDecimal.ZERO));
+                    return new DailySummaryResponse.DailyRow(d, sale, cost, sale.subtract(cost));
+                })
+                .toList();
+
+        // --- this week vs last week ---
+        BigDecimal thisWeekSale = BigDecimal.ZERO;
+        BigDecimal thisWeekEarning = BigDecimal.ZERO;
+        for (DailySummaryResponse.DailyRow row : daily) {
+            if (!row.date().isBefore(weekStart)) {
+                thisWeekSale = thisWeekSale.add(row.sale());
+                thisWeekEarning = thisWeekEarning.add(row.earning());
+            }
+        }
+
+        LocalDate lastWeekStart = weekStart.minusDays(7);
+        LocalDate lastWeekEnd = weekStart.minusDays(1);
+        BigDecimal lastWeekSale = salesReceiptRepository.sumTotalByOrgAndDateRange(orgId, lastWeekStart, lastWeekEnd)
+                .add(invoiceRepository.sumRevenueByOrgAndDateRange(orgId, lastWeekStart, lastWeekEnd));
+        BigDecimal lastWeekCost = salesReceiptLineRepository.sumCostByOrgAndDateRange(orgId, lastWeekStart, lastWeekEnd)
+                .add(invoiceLineRepository.sumCostByOrgAndDateRange(orgId, lastWeekStart, lastWeekEnd));
+        BigDecimal lastWeekEarning = lastWeekSale.subtract(lastWeekCost);
+
+        BigDecimal vsLastWeekSalePct = lastWeekSale.signum() > 0
+                ? thisWeekSale.subtract(lastWeekSale)
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(lastWeekSale, 1, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        BigDecimal vsLastWeekEarningPct = lastWeekEarning.signum() > 0
+                ? thisWeekEarning.subtract(lastWeekEarning)
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(lastWeekEarning, 1, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        var weekComp = new DailySummaryResponse.WeekComparison(
+                thisWeekSale, thisWeekEarning, vsLastWeekSalePct, vsLastWeekEarningPct);
+
+        return new DailySummaryResponse(todaySnapshot, daily, weekComp, org.getBaseCurrency());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ExpiringSoonResponse> getExpiringSoon(int withinDays) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        int capped = Math.max(1, Math.min(withinDays, 365));
+        LocalDate horizon = LocalDate.now().plusDays(capped);
+
+        List<StockBatch> batches = stockBatchRepository.findExpiringWithStock(orgId, horizon);
+        if (batches.isEmpty()) {
+            return List.of();
+        }
+
+        List<UUID> itemIds = batches.stream().map(StockBatch::getItemId).distinct().toList();
+        Map<UUID, Item> itemsById = itemRepository
+                .findByOrgIdAndIsDeletedFalseAndIdIn(orgId, itemIds)
+                .stream()
+                .collect(Collectors.toMap(Item::getId, i -> i));
+
+        List<UUID> batchIds = batches.stream().map(StockBatch::getId).toList();
+        Map<UUID, BigDecimal> qtyByBatch = new HashMap<>();
+        for (UUID batchId : batchIds) {
+            List<StockBatchBalance> balances = stockBatchBalanceRepository
+                    .findByOrgIdAndBatchId(orgId, batchId);
+            BigDecimal total = balances.stream()
+                    .map(StockBatchBalance::getQuantityOnHand)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            qtyByBatch.put(batchId, total);
+        }
+
+        LocalDate today = LocalDate.now();
+        return batches.stream()
+                .map(b -> {
+                    Item item = itemsById.get(b.getItemId());
+                    long daysLeft = ChronoUnit.DAYS.between(today, b.getExpiryDate());
+                    return new ExpiringSoonResponse(
+                            b.getItemId(),
+                            item != null ? item.getName() : "Unknown",
+                            item != null ? item.getSku() : null,
+                            b.getBatchNumber(),
+                            b.getExpiryDate(),
+                            daysLeft,
+                            qtyByBatch.getOrDefault(b.getId(), BigDecimal.ZERO));
+                })
+                .toList();
     }
 
     private static class MergedTopSelling {
