@@ -97,6 +97,12 @@ const _salesNavItems = [
     activeIcon: Icons.point_of_sale_rounded,
     route: Routes.pos,
   ),
+  NavItem(
+    label: 'Sales Receipts',
+    icon: Icons.receipt_long_outlined,
+    activeIcon: Icons.receipt_long_rounded,
+    route: Routes.salesReceipts,
+  ),
 ];
 
 const _purchasesNavItems = [
