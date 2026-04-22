@@ -84,6 +84,8 @@ import '../features/delivery_challans/presentation/delivery_challan_create_scree
 import '../features/delivery_challans/presentation/delivery_challan_detail_screen.dart';
 import '../features/delivery_challans/presentation/delivery_challan_pdf_screen.dart';
 import '../features/pos/presentation/pos_receipt_settings_screen.dart';
+import '../features/pos/presentation/sales_receipt_list_screen.dart';
+import '../features/pos/presentation/sales_receipt_detail_screen.dart';
 import '../features/credit_ledger/presentation/credit_ledger_screen.dart';
 import '../features/credit_ledger/presentation/credit_ledger_detail_screen.dart';
 import 'shell_screen.dart';
@@ -163,6 +165,8 @@ class Routes {
   static const deliveryChallanPdf = '/delivery-challans/:id/pdf';
   // POS
   static const pos = '/pos';
+  static const salesReceipts = '/sales-receipts';
+  static const salesReceiptDetail = '/sales-receipts/:id';
   static const receiptSettings = '/pos/receipt-settings';
   static const aiChat = '/ai-chat';
   static const gst = '/gst';
@@ -470,6 +474,19 @@ final routerProvider = Provider<GoRouter>((ref) {
                   state.extra as Map<String, dynamic>? ?? {};
               return DeliveryChallanPdfScreen(challan: challan);
             },
+          ),
+          // Sales Receipts
+          GoRoute(
+            path: Routes.salesReceipts,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SalesReceiptListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/sales-receipts/:id',
+            builder: (context, state) => SalesReceiptDetailScreen(
+              receiptId: state.pathParameters['id']!,
+            ),
           ),
           // Receipt Settings
           GoRoute(
