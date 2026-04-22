@@ -34,8 +34,10 @@ class TodaySalesData {
   final DateTime from;
   final DateTime to;
   final String? branchFilter;
-  final double revenue;
-  final double cashCollected;
+  final double totalSales;
+  final double cashUpiTotal;
+  final double creditTotal;
+  final int transactionCount;
   final String currency;
   final List<BranchSalesRow> byBranch;
 
@@ -43,8 +45,10 @@ class TodaySalesData {
     required this.from,
     required this.to,
     required this.branchFilter,
-    required this.revenue,
-    required this.cashCollected,
+    required this.totalSales,
+    required this.cashUpiTotal,
+    required this.creditTotal,
+    required this.transactionCount,
     required this.currency,
     required this.byBranch,
   });
@@ -53,8 +57,10 @@ class TodaySalesData {
         from: DateTime.parse(json['from'] as String),
         to: DateTime.parse(json['to'] as String),
         branchFilter: json['branchFilter']?.toString(),
-        revenue: (json['revenue'] as num?)?.toDouble() ?? 0.0,
-        cashCollected: (json['cashCollected'] as num?)?.toDouble() ?? 0.0,
+        totalSales: (json['totalSales'] as num?)?.toDouble() ?? 0.0,
+        cashUpiTotal: (json['cashUpiTotal'] as num?)?.toDouble() ?? 0.0,
+        creditTotal: (json['creditTotal'] as num?)?.toDouble() ?? 0.0,
+        transactionCount: (json['transactionCount'] as num?)?.toInt() ?? 0,
         currency: json['currency']?.toString() ?? 'INR',
         byBranch: ((json['byBranch'] as List?) ?? const [])
             .map((e) => BranchSalesRow.fromJson(e as Map<String, dynamic>))

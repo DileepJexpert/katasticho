@@ -69,7 +69,7 @@ class RevenueByBranchWidget extends ConsumerWidget {
                   ),
                   const Spacer(),
                   Text(
-                    CurrencyFormatter.formatIndian(data.revenue),
+                    CurrencyFormatter.formatIndian(data.totalSales),
                     style: KTypography.amountMedium,
                   ),
                 ],

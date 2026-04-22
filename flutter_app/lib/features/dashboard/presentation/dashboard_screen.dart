@@ -460,11 +460,13 @@ class _KpiGrid extends ConsumerWidget {
   (String, String) _valueFor(String id, dynamic data) {
     switch (id) {
       case 'today_sales':
-        return (CurrencyFormatter.formatCompact(data.revenue as double), 'Today');
+        return (CurrencyFormatter.formatCompact(data.totalSales as double), 'Today');
       case 'cash_collected':
-        return (CurrencyFormatter.formatCompact(data.cashCollected as double), 'Today');
+        return (CurrencyFormatter.formatCompact(data.cashUpiTotal as double), 'Today');
       case 'avg_order_value':
-        return (CurrencyFormatter.formatCompact(data.revenue as double), 'Avg');
+        final count = (data.transactionCount as int);
+        final avg = count > 0 ? (data.totalSales as double) / count : 0.0;
+        return (CurrencyFormatter.formatCompact(avg), 'Avg');
       default:
         return (CurrencyFormatter.formatCompact(0), '--');
     }
