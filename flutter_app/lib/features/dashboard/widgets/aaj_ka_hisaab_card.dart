@@ -8,8 +8,8 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/dashboard_repository.dart';
 
-class AajKaHisaabCard extends ConsumerWidget {
-  const AajKaHisaabCard({super.key});
+class TodaySummaryCard extends ConsumerWidget {
+  const TodaySummaryCard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -17,11 +17,11 @@ class AajKaHisaabCard extends ConsumerWidget {
 
     return async.when(
       loading: () => const KCard(
-        title: 'Aaj Ka Hisaab',
+        title: "Today's Summary",
         child: SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
       ),
       error: (err, _) => KCard(
-        title: 'Aaj Ka Hisaab',
+        title: "Today's Summary",
         child: KErrorBanner(message: 'Failed to load: $err'),
       ),
       data: (data) {
@@ -29,12 +29,11 @@ class AajKaHisaabCard extends ConsumerWidget {
         final cs = Theme.of(context).colorScheme;
 
         return KCard(
-          title: 'Aaj Ka Hisaab',
-          subtitle: "Today's Summary",
+          title: "Today's Summary",
           child: Column(
             children: [
               _HeroRow(
-                label: 'Aaj Ki Kamai',
+                label: "Today's Earning",
                 value: t.earning,
                 color: t.earning >= 0 ? KColors.success : KColors.error,
                 icon: t.earning >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
@@ -43,14 +42,14 @@ class AajKaHisaabCard extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(child: _MiniStat(
-                    label: 'Bechaan (Sale)',
+                    label: 'Total Sale',
                     value: CurrencyFormatter.formatCompact(t.totalSale),
                     icon: Icons.point_of_sale_rounded,
                     color: cs.primary,
                   )),
                   const SizedBox(width: 8),
                   Expanded(child: _MiniStat(
-                    label: 'Lagat (Cost)',
+                    label: 'Total Cost',
                     value: CurrencyFormatter.formatCompact(t.totalCost),
                     icon: Icons.shopping_bag_outlined,
                     color: KColors.warning,
@@ -61,14 +60,14 @@ class AajKaHisaabCard extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(child: _MiniStat(
-                    label: 'Naqad/UPI',
+                    label: 'Cash / UPI',
                     value: CurrencyFormatter.formatCompact(t.cashUpiIn),
                     icon: Icons.payments_outlined,
                     color: KColors.success,
                   )),
                   const SizedBox(width: 8),
                   Expanded(child: _MiniStat(
-                    label: 'Udhari (Credit)',
+                    label: 'Credit Sale',
                     value: CurrencyFormatter.formatCompact(t.creditSale),
                     icon: Icons.credit_card_outlined,
                     color: KColors.error,

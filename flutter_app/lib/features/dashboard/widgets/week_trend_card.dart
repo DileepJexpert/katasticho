@@ -18,11 +18,11 @@ class WeekTrendCard extends ConsumerWidget {
 
     return async.when(
       loading: () => const KCard(
-        title: 'Last 7 Din',
+        title: 'Last 7 Days',
         child: SizedBox(height: 160, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
       ),
       error: (err, _) => KCard(
-        title: 'Last 7 Din',
+        title: 'Last 7 Days',
         child: KErrorBanner(message: 'Failed to load: $err'),
       ),
       data: (data) {
@@ -30,8 +30,8 @@ class WeekTrendCard extends ConsumerWidget {
         final week = data.thisWeek;
 
         return KCard(
-          title: 'Last 7 Din',
-          subtitle: 'Weekly Trend',
+          title: 'Last 7 Days',
+          subtitle: 'Week-on-week comparison',
           child: Column(
             children: [
               Row(

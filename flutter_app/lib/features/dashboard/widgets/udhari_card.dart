@@ -8,8 +8,8 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/dashboard_repository.dart';
 
-class UdhariCard extends ConsumerWidget {
-  const UdhariCard({super.key});
+class CreditDueCard extends ConsumerWidget {
+  const CreditDueCard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -17,11 +17,11 @@ class UdhariCard extends ConsumerWidget {
 
     return async.when(
       loading: () => const KCard(
-        title: 'Udhari (Credit)',
+        title: 'Credit Due',
         child: SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
       ),
       error: (err, _) => KCard(
-        title: 'Udhari (Credit)',
+        title: 'Credit Due',
         child: KErrorBanner(message: 'Failed to load: $err'),
       ),
       data: (ar) {
@@ -29,8 +29,8 @@ class UdhariCard extends ConsumerWidget {
         final hasOverdue = ar.overdueCount > 0;
 
         return KCard(
-          title: 'Udhari (Credit)',
-          subtitle: 'Customers owe you',
+          title: 'Credit Due',
+          subtitle: 'Outstanding receivables',
           action: TextButton(
             onPressed: () => context.go('/reports/ageing'),
             child: const Text('Details'),
@@ -59,7 +59,7 @@ class UdhariCard extends ConsumerWidget {
                           style: KTypography.amountMedium.copyWith(fontSize: 20),
                         ),
                         Text(
-                          'total baaki',
+                          'total outstanding',
                           style: KTypography.labelSmall.copyWith(color: cs.onSurfaceVariant),
                         ),
                       ],

@@ -76,7 +76,7 @@ class WidgetConfig {
 
 const _kirana = DashboardConfig(
   industry: 'KIRANA',
-  greeting: 'Namaste',
+  greeting: 'Welcome',
   kpis: [
     KpiConfig(
       id: 'today_sales',
