@@ -1,7 +1,11 @@
 package com.katasticho.erp.dashboard;
 
+import com.katasticho.erp.accounting.entity.JournalEntry;
+import com.katasticho.erp.accounting.entity.JournalLine;
+import com.katasticho.erp.accounting.repository.JournalEntryRepository;
 import com.katasticho.erp.ap.entity.PurchaseBill;
 import com.katasticho.erp.ap.repository.PurchaseBillRepository;
+import com.katasticho.erp.ap.repository.VendorPaymentRepository;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.repository.InvoiceLineRepository;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
@@ -55,6 +59,8 @@ public class DashboardService {
     private final SalesReceiptLineRepository salesReceiptLineRepository;
     private final StockBatchRepository stockBatchRepository;
     private final StockBatchBalanceRepository stockBatchBalanceRepository;
+    private final VendorPaymentRepository vendorPaymentRepository;
+    private final JournalEntryRepository journalEntryRepository;
 
     @Transactional(readOnly = true)
     public TodaySalesResponse getTodaySales(LocalDate from, LocalDate to, UUID branchId) {
@@ -580,6 +586,103 @@ public class DashboardService {
                             qtyByBatch.getOrDefault(b.getId(), BigDecimal.ZERO));
                 })
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public OutstandingReceivableResponse getOutstandingReceivable() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Organisation org = organisationRepository.findById(orgId)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
+
+        List<Invoice> outstanding = invoiceRepository.findOutstandingInvoices(orgId);
+        BigDecimal totalOutstanding = BigDecimal.ZERO;
+        int overdueCount = 0;
+        BigDecimal overdueAmount = BigDecimal.ZERO;
+        LocalDate today = LocalDate.now();
+
+        Map<UUID, BigDecimal> byContact = new LinkedHashMap<>();
+        Map<UUID, Integer> countByContact = new LinkedHashMap<>();
+
+        for (Invoice inv : outstanding) {
+            totalOutstanding = totalOutstanding.add(inv.getBalanceDue());
+            if (inv.getDueDate() != null && inv.getDueDate().isBefore(today)) {
+                overdueCount++;
+                overdueAmount = overdueAmount.add(inv.getBalanceDue());
+            }
+            if (inv.getContactId() != null) {
+                byContact.merge(inv.getContactId(), inv.getBalanceDue(), BigDecimal::add);
+                countByContact.merge(inv.getContactId(), 1, Integer::sum);
+            }
+        }
+
+        List<Map.Entry<UUID, BigDecimal>> sorted = byContact.entrySet().stream()
+                .sorted(Map.Entry.<UUID, BigDecimal>comparingByValue().reversed())
+                .limit(3)
+                .toList();
+
+        Map<UUID, String> contactNames = new HashMap<>();
+        for (Map.Entry<UUID, BigDecimal> entry : sorted) {
+            contactNames.computeIfAbsent(entry.getKey(), cid ->
+                    contactRepository.findById(cid)
+                            .map(Contact::getDisplayName)
+                            .orElse("Unknown"));
+        }
+
+        List<OutstandingReceivableResponse.TopCustomer> topCustomers = sorted.stream()
+                .map(e -> new OutstandingReceivableResponse.TopCustomer(
+                        e.getKey(),
+                        contactNames.getOrDefault(e.getKey(), "Unknown"),
+                        e.getValue(),
+                        countByContact.getOrDefault(e.getKey(), 0)))
+                .toList();
+
+        return new OutstandingReceivableResponse(
+                totalOutstanding, overdueCount, overdueAmount,
+                org.getBaseCurrency(), topCustomers);
+    }
+
+    @Transactional(readOnly = true)
+    public CashFlowResponse getCashFlow(LocalDate from, LocalDate to) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        LocalDate today = LocalDate.now();
+        LocalDate effectiveFrom = from != null ? from : today.withDayOfMonth(1);
+        LocalDate effectiveTo = to != null ? to : today;
+
+        Organisation org = organisationRepository.findById(orgId)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
+
+        BigDecimal cashIn = paymentRepository.sumCollectedByOrgAndDateRange(
+                orgId, effectiveFrom, effectiveTo);
+        BigDecimal cashOut = vendorPaymentRepository.sumAmountByOrgAndDateRange(
+                orgId, effectiveFrom, effectiveTo);
+        BigDecimal netCashFlow = cashIn.subtract(cashOut);
+
+        return new CashFlowResponse(
+                effectiveFrom, effectiveTo, cashIn, cashOut, netCashFlow,
+                org.getBaseCurrency());
+    }
+
+    @Transactional(readOnly = true)
+    public List<RecentJournalResponse> getRecentJournals(int limit) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        int capped = Math.max(1, Math.min(limit, 20));
+
+        Page<JournalEntry> page = journalEntryRepository
+                .findByOrgIdOrderByEffectiveDateDesc(orgId, PageRequest.of(0, capped));
+
+        return page.getContent().stream().map(je -> {
+            BigDecimal totalDebit = je.getLines().stream()
+                    .map(JournalLine::getBaseDebit)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            return new RecentJournalResponse(
+                    je.getId(),
+                    je.getEntryNumber(),
+                    je.getEffectiveDate(),
+                    je.getDescription(),
+                    je.getSourceModule(),
+                    je.getStatus(),
+                    totalDebit);
+        }).toList();
     }
 
     private static class MergedTopSelling {

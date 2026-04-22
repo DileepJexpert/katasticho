@@ -1,10 +1,16 @@
 package com.katasticho.erp.dashboard;
 
+import com.katasticho.erp.accounting.entity.JournalEntry;
+import com.katasticho.erp.accounting.entity.JournalLine;
+import com.katasticho.erp.accounting.repository.JournalEntryRepository;
+import com.katasticho.erp.ap.repository.VendorPaymentRepository;
+import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.repository.InvoiceLineRepository;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.repository.PaymentRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.dashboard.dto.*;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.entity.StockBatch;
@@ -53,6 +59,8 @@ class DashboardServiceTest {
     @Mock private SalesReceiptLineRepository salesReceiptLineRepository;
     @Mock private StockBatchRepository stockBatchRepository;
     @Mock private StockBatchBalanceRepository stockBatchBalanceRepository;
+    @Mock private VendorPaymentRepository vendorPaymentRepository;
+    @Mock private JournalEntryRepository journalEntryRepository;
 
     private DashboardService dashboardService;
     private UUID orgId;
@@ -65,7 +73,8 @@ class DashboardServiceTest {
                 itemRepository, branchRepository, organisationRepository,
                 purchaseBillRepository, contactRepository,
                 salesReceiptRepository, salesReceiptLineRepository,
-                stockBatchRepository, stockBatchBalanceRepository);
+                stockBatchRepository, stockBatchBalanceRepository,
+                vendorPaymentRepository, journalEntryRepository);
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);
@@ -546,7 +555,120 @@ class DashboardServiceTest {
         verifyNoInteractions(itemRepository);
     }
 
+    // ── getOutstandingReceivable ──────────────────────────────────────
+
+    @Test
+    void getOutstandingReceivable_returnsTopCustomersAndOverdue() {
+        Organisation org = new Organisation();
+        org.setId(orgId);
+        org.setBaseCurrency("INR");
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+
+        UUID c1 = UUID.randomUUID(), c2 = UUID.randomUUID(), c3 = UUID.randomUUID(), c4 = UUID.randomUUID();
+
+        Invoice inv1 = buildInvoice(c1, new BigDecimal("5000"), LocalDate.now().minusDays(5));
+        Invoice inv2 = buildInvoice(c1, new BigDecimal("3000"), LocalDate.now().plusDays(5));
+        Invoice inv3 = buildInvoice(c2, new BigDecimal("7000"), LocalDate.now().minusDays(1));
+        Invoice inv4 = buildInvoice(c3, new BigDecimal("2000"), LocalDate.now().plusDays(10));
+        Invoice inv5 = buildInvoice(c4, new BigDecimal("1000"), LocalDate.now().plusDays(10));
+
+        when(invoiceRepository.findOutstandingInvoices(orgId))
+                .thenReturn(List.of(inv1, inv2, inv3, inv4, inv5));
+
+        Contact contact1 = new Contact(); contact1.setId(c1); contact1.setDisplayName("Alpha Corp");
+        Contact contact2 = new Contact(); contact2.setId(c2); contact2.setDisplayName("Beta Ltd");
+        Contact contact3 = new Contact(); contact3.setId(c3); contact3.setDisplayName("Gamma Inc");
+
+        when(contactRepository.findById(c1)).thenReturn(Optional.of(contact1));
+        when(contactRepository.findById(c2)).thenReturn(Optional.of(contact2));
+        when(contactRepository.findById(c3)).thenReturn(Optional.of(contact3));
+
+        OutstandingReceivableResponse resp = dashboardService.getOutstandingReceivable();
+
+        assertEquals(0, new BigDecimal("18000").compareTo(resp.totalOutstanding()));
+        assertEquals(2, resp.overdueCount());
+        assertEquals(0, new BigDecimal("12000").compareTo(resp.overdueAmount()));
+        assertEquals(3, resp.topCustomers().size());
+
+        assertEquals("Alpha Corp", resp.topCustomers().get(0).name());
+        assertEquals(0, new BigDecimal("8000").compareTo(resp.topCustomers().get(0).outstanding()));
+        assertEquals(2, resp.topCustomers().get(0).invoiceCount());
+    }
+
+    // ── getCashFlow ──────────────────────────────────────────────────
+
+    @Test
+    void getCashFlow_returnsNetCashFlow() {
+        Organisation org = new Organisation();
+        org.setId(orgId);
+        org.setBaseCurrency("INR");
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+
+        LocalDate from = LocalDate.of(2026, 4, 1);
+        LocalDate to = LocalDate.of(2026, 4, 22);
+
+        when(paymentRepository.sumCollectedByOrgAndDateRange(orgId, from, to))
+                .thenReturn(new BigDecimal("50000"));
+        when(vendorPaymentRepository.sumAmountByOrgAndDateRange(orgId, from, to))
+                .thenReturn(new BigDecimal("30000"));
+
+        CashFlowResponse resp = dashboardService.getCashFlow(from, to);
+
+        assertEquals(0, new BigDecimal("50000").compareTo(resp.cashIn()));
+        assertEquals(0, new BigDecimal("30000").compareTo(resp.cashOut()));
+        assertEquals(0, new BigDecimal("20000").compareTo(resp.netCashFlow()));
+        assertEquals("INR", resp.currency());
+    }
+
+    // ── getRecentJournals ─────────────────────────────────────────────
+
+    @Test
+    void getRecentJournals_returnsEntries() {
+        JournalEntry je = JournalEntry.builder()
+                .orgId(orgId)
+                .entryNumber("JE-001")
+                .effectiveDate(LocalDate.of(2026, 4, 20))
+                .description("Sales revenue")
+                .sourceModule("INVOICE")
+                .status("POSTED")
+                .periodYear(2026)
+                .periodMonth(4)
+                .createdBy(userId)
+                .build();
+        je.setId(UUID.randomUUID());
+
+        JournalLine line1 = new JournalLine();
+        line1.setBaseDebit(new BigDecimal("1000"));
+        line1.setBaseCredit(BigDecimal.ZERO);
+        JournalLine line2 = new JournalLine();
+        line2.setBaseDebit(BigDecimal.ZERO);
+        line2.setBaseCredit(new BigDecimal("1000"));
+        je.addLine(line1);
+        je.addLine(line2);
+
+        when(journalEntryRepository.findByOrgIdOrderByEffectiveDateDesc(eq(orgId), any(Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(je)));
+
+        List<RecentJournalResponse> results = dashboardService.getRecentJournals(10);
+
+        assertEquals(1, results.size());
+        assertEquals("JE-001", results.get(0).entryNumber());
+        assertEquals("POSTED", results.get(0).status());
+        assertEquals(0, new BigDecimal("1000").compareTo(results.get(0).totalDebit()));
+    }
+
     // ── helpers ──────────────────────────────────────────────────────
+
+    private Invoice buildInvoice(UUID contactId, BigDecimal balanceDue, LocalDate dueDate) {
+        Invoice inv = new Invoice();
+        inv.setId(UUID.randomUUID());
+        inv.setOrgId(orgId);
+        inv.setContactId(contactId);
+        inv.setBalanceDue(balanceDue);
+        inv.setDueDate(dueDate);
+        return inv;
+    }
+
 
     private static InvoiceRepository.RevenueByBranchRow invoiceBranchRow(UUID branchId, BigDecimal total) {
         return new InvoiceRepository.RevenueByBranchRow() {

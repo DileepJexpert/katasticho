@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_state.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
@@ -16,6 +17,8 @@ import '../widgets/udhari_card.dart';
 import '../widgets/low_stock_widget.dart';
 import '../widgets/bills_to_pay_card.dart';
 import '../widgets/expiring_soon_widget.dart';
+import '../widgets/outstanding_receivable_card.dart';
+import '../widgets/quick_action_grid.dart';
 import '../widgets/overdue_invoices_widget.dart';
 import '../widgets/sales_chart_widget.dart';
 import '../widgets/revenue_by_branch_widget.dart';
@@ -33,6 +36,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   String? _expandedAging;
+  bool _redirected = false;
 
   void _toggleAging(String id) {
     setState(() {
@@ -49,6 +53,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= KSpacing.desktopBreakpoint;
     final isRetail = _retailIndustries.contains(authState.industry);
+    final role = authState.role?.toUpperCase() ?? 'OWNER';
+
+    // Accountant role redirects to accounting dashboard
+    if (role == 'ACCOUNTANT' && !_redirected) {
+      _redirected = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.go('/accounting/dashboard');
+      });
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Cashier/Operator sees simplified POS-only view
+    final isCashier = role == 'OPERATOR' || role == 'CASHIER';
 
     return Scaffold(
       body: RefreshIndicator(
@@ -64,6 +83,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ref.invalidate(arAgingProvider);
           ref.invalidate(apAgingProvider);
           ref.invalidate(expiringSoonProvider);
+          ref.invalidate(outstandingReceivableProvider);
           ref.invalidate(revenueTrendProvider(7));
           ref.invalidate(revenueTrendProvider(30));
           ref.invalidate(revenueTrendProvider(90));
@@ -81,8 +101,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               KSpacing.vGapMd,
 
-              if (isRetail)
-                _RetailDashboard(isDesktop: isDesktop)
+              if (isCashier)
+                _CashierDashboard(isDesktop: isDesktop)
+              else if (isRetail)
+                _RetailDashboard(isDesktop: isDesktop, config: config)
               else
                 _AccountingDashboard(
                   config: config,
@@ -95,21 +117,140 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go(isRetail ? '/pos' : '/invoices/create'),
-        icon: Icon(isRetail ? Icons.point_of_sale_rounded : Icons.add),
-        label: Text(isRetail ? 'New Sale' : 'New Invoice'),
+        onPressed: () => context.go(
+          isCashier || isRetail ? '/pos' : '/invoices/create',
+        ),
+        icon: Icon(
+          isCashier || isRetail ? Icons.point_of_sale_rounded : Icons.add,
+        ),
+        label: Text(
+          isCashier || isRetail ? 'New Sale' : 'New Invoice',
+        ),
       ),
     );
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  RETAIL DASHBOARD — for KIRANA / PHARMACY
+//  CASHIER DASHBOARD — simplified POS-only view (no cost/earning)
+// ═══════════════════════════════════════════════════════════════════
+
+class _CashierDashboard extends ConsumerWidget {
+  final bool isDesktop;
+  const _CashierDashboard({required this.isDesktop});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final todaySalesAsync = ref.watch(todaySalesProvider);
+    final cs = Theme.of(context).colorScheme;
+
+    return Column(
+      children: [
+        todaySalesAsync.when(
+          loading: () => const KCard(
+            title: "Today's Sales",
+            child: SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+          ),
+          error: (err, _) => KCard(
+            title: "Today's Sales",
+            child: KErrorBanner(message: 'Failed to load: $err'),
+          ),
+          data: (data) => KCard(
+            title: "Today's Sales",
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.point_of_sale_rounded, color: cs.primary, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            CurrencyFormatter.formatIndian(data.totalSales),
+                            style: KTypography.amountMedium.copyWith(fontSize: 22),
+                          ),
+                          Text(
+                            '${data.transactionCount} transactions',
+                            style: KTypography.labelSmall.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: _CashierStat(
+                      label: 'Cash / UPI',
+                      value: CurrencyFormatter.formatCompact(data.cashUpiTotal),
+                      color: KColors.success,
+                    )),
+                    const SizedBox(width: 8),
+                    Expanded(child: _CashierStat(
+                      label: 'Credit',
+                      value: CurrencyFormatter.formatCompact(data.creditTotal),
+                      color: KColors.warning,
+                    )),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        const TopSellingWidget(),
+      ],
+    );
+  }
+}
+
+class _CashierStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _CashierStat({required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value, style: KTypography.amountSmall.copyWith(color: cs.onSurface)),
+          Text(label, style: KTypography.labelSmall.copyWith(color: cs.onSurfaceVariant, fontSize: 10)),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RETAIL DASHBOARD — for KIRANA / PHARMACY (Owner view)
 // ═══════════════════════════════════════════════════════════════════
 
 class _RetailDashboard extends StatelessWidget {
   final bool isDesktop;
-  const _RetailDashboard({required this.isDesktop});
+  final DashboardConfig config;
+  const _RetailDashboard({required this.isDesktop, required this.config});
 
   @override
   Widget build(BuildContext context) {
@@ -119,54 +260,66 @@ class _RetailDashboard extends StatelessWidget {
 
   Widget _buildMobile() {
     return Column(
-      children: const [
-        TodaySummaryCard(),
-        SizedBox(height: 12),
-        WeekTrendCard(),
-        SizedBox(height: 12),
-        TopSellingWidget(),
-        SizedBox(height: 12),
-        CreditDueCard(),
-        SizedBox(height: 12),
-        LowStockWidget(),
-        SizedBox(height: 12),
-        BillsToPayCard(),
-        SizedBox(height: 12),
-        ExpiringSoonWidget(),
+      children: [
+        QuickActionGrid(actions: config.quickActions),
+        const SizedBox(height: 12),
+        const TodaySummaryCard(),
+        const SizedBox(height: 12),
+        const WeekTrendCard(),
+        const SizedBox(height: 12),
+        const OutstandingReceivableCard(),
+        const SizedBox(height: 12),
+        const TopSellingWidget(),
+        const SizedBox(height: 12),
+        const CreditDueCard(),
+        const SizedBox(height: 12),
+        const LowStockWidget(),
+        const SizedBox(height: 12),
+        const BillsToPayCard(),
+        const SizedBox(height: 12),
+        const ExpiringSoonWidget(),
       ],
     );
   }
 
   Widget _buildDesktop() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
       children: [
-        Expanded(
-          flex: 3,
-          child: Column(
-            children: const [
-              TodaySummaryCard(),
-              SizedBox(height: 12),
-              WeekTrendCard(),
-              SizedBox(height: 12),
-              TopSellingWidget(),
-              SizedBox(height: 12),
-              ExpiringSoonWidget(),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: Column(
-            children: const [
-              CreditDueCard(),
-              SizedBox(height: 12),
-              LowStockWidget(),
-              SizedBox(height: 12),
-              BillsToPayCard(),
-            ],
-          ),
+        QuickActionGrid(actions: config.quickActions),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Expanded(
+              flex: 3,
+              child: Column(
+                children: [
+                  TodaySummaryCard(),
+                  SizedBox(height: 12),
+                  WeekTrendCard(),
+                  SizedBox(height: 12),
+                  TopSellingWidget(),
+                  SizedBox(height: 12),
+                  ExpiringSoonWidget(),
+                ],
+              ),
+            ),
+            SizedBox(width: 16),
+            Expanded(
+              flex: 2,
+              child: Column(
+                children: [
+                  OutstandingReceivableCard(),
+                  SizedBox(height: 12),
+                  CreditDueCard(),
+                  SizedBox(height: 12),
+                  LowStockWidget(),
+                  SizedBox(height: 12),
+                  BillsToPayCard(),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -195,6 +348,8 @@ class _AccountingDashboard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        QuickActionGrid(actions: config.quickActions),
+        KSpacing.vGapMd,
         const _FilterBar(),
         KSpacing.vGapMd,
 
@@ -229,6 +384,8 @@ class _AccountingDashboard extends StatelessWidget {
               const Expanded(
                 child: Column(
                   children: [
+                    OutstandingReceivableCard(),
+                    SizedBox(height: 16),
                     TopSellingWidget(),
                     SizedBox(height: 16),
                     OverdueInvoicesWidget(),
@@ -240,6 +397,8 @@ class _AccountingDashboard extends StatelessWidget {
             ],
           )
         else ...[
+          const OutstandingReceivableCard(),
+          KSpacing.vGapMd,
           const SalesChartWidget(),
           KSpacing.vGapMd,
           const RevenueByBranchWidget(),

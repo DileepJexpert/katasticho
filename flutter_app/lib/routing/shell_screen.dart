@@ -122,10 +122,22 @@ const _purchasesNavItems = [
 
 const _accountingNavItems = [
   NavItem(
+    label: 'Accounting Dashboard',
+    icon: Icons.analytics_outlined,
+    activeIcon: Icons.analytics_rounded,
+    route: '/accounting/dashboard',
+  ),
+  NavItem(
     label: 'Chart of Accounts',
     icon: Icons.account_balance_outlined,
     activeIcon: Icons.account_balance_rounded,
     route: Routes.chartOfAccounts,
+  ),
+  NavItem(
+    label: 'Journal Entries',
+    icon: Icons.menu_book_outlined,
+    activeIcon: Icons.menu_book_rounded,
+    route: '/accounting/journal-entries',
   ),
 ];
 
@@ -395,32 +407,10 @@ class _DesktopShell extends ConsumerWidget {
                           child: ListView(
                             padding: EdgeInsets.symmetric(
                                 horizontal: collapsed ? 8 : 12),
-                            children: [
-                              if (!collapsed)
-                                const _NavSectionLabel(label: 'WORKSPACE'),
-                              ..._navItems.map((item) =>
-                                  _SidebarNavItem(item: item, collapsed: collapsed)),
-                              KSpacing.vGapMd,
-                              if (!collapsed)
-                                const _NavSectionLabel(label: 'SALES'),
-                              ..._salesNavItems.map((item) =>
-                                  _SidebarNavItem(item: item, collapsed: collapsed)),
-                              KSpacing.vGapMd,
-                              if (!collapsed)
-                                const _NavSectionLabel(label: 'PURCHASES'),
-                              ..._purchasesNavItems.map((item) =>
-                                  _SidebarNavItem(item: item, collapsed: collapsed)),
-                              KSpacing.vGapMd,
-                              if (!collapsed)
-                                const _NavSectionLabel(label: 'ACCOUNTING'),
-                              ..._accountingNavItems.map((item) =>
-                                  _SidebarNavItem(item: item, collapsed: collapsed)),
-                              KSpacing.vGapMd,
-                              if (!collapsed)
-                                const _NavSectionLabel(label: 'MORE'),
-                              ..._secondaryNavItems.map((item) =>
-                                  _SidebarNavItem(item: item, collapsed: collapsed)),
-                            ],
+                            children: _buildSidebarSections(
+                              collapsed: collapsed,
+                              role: authState.role?.toUpperCase() ?? 'OWNER',
+                            ),
                           ),
                         ),
 
@@ -541,6 +531,34 @@ class _DesktopShell extends ConsumerWidget {
       ),
     );
   }
+}
+
+List<Widget> _buildSidebarSections({
+  required bool collapsed,
+  required String role,
+}) {
+  final isCashier = role == 'OPERATOR' || role == 'CASHIER';
+
+  return [
+    if (!collapsed) const _NavSectionLabel(label: 'WORKSPACE'),
+    ..._navItems.map((item) => _SidebarNavItem(item: item, collapsed: collapsed)),
+    KSpacing.vGapMd,
+    if (!collapsed) const _NavSectionLabel(label: 'SALES'),
+    ..._salesNavItems.map((item) => _SidebarNavItem(item: item, collapsed: collapsed)),
+    KSpacing.vGapMd,
+    if (!isCashier) ...[
+      if (!collapsed) const _NavSectionLabel(label: 'PURCHASES'),
+      ..._purchasesNavItems.map((item) => _SidebarNavItem(item: item, collapsed: collapsed)),
+      KSpacing.vGapMd,
+      if (!collapsed) const _NavSectionLabel(label: 'ACCOUNTING'),
+      ..._accountingNavItems.map((item) => _SidebarNavItem(item: item, collapsed: collapsed)),
+      KSpacing.vGapMd,
+    ],
+    if (!collapsed) const _NavSectionLabel(label: 'MORE'),
+    ..._secondaryNavItems
+        .where((item) => !isCashier || item.route == Routes.settings || item.route == Routes.pos)
+        .map((item) => _SidebarNavItem(item: item, collapsed: collapsed)),
+  ];
 }
 
 class _NavSectionLabel extends StatelessWidget {

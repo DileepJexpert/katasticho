@@ -182,6 +182,10 @@ class ApiConfig {
   static const String dashboardRevenueTrend = '/api/v1/dashboard/revenue-trend';
   static const String dashboardDailySummary = '/api/v1/dashboard/daily-summary';
   static const String dashboardExpiringSoon = '/api/v1/dashboard/expiring-soon';
+  static const String dashboardOutstandingReceivable = '/api/v1/dashboard/outstanding-receivable';
+  static const String dashboardCashFlow = '/api/v1/dashboard/cash-flow';
+  static const String dashboardRecentJournals = '/api/v1/dashboard/recent-journals';
+  static const String profitLossReport = '/api/v1/reports/profit-loss';
   static const String arAgeing = '/api/v1/ar/reports/ageing';
   static const String apAgeing = '/api/v1/ap/reports/ageing';
 

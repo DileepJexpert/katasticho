@@ -7,6 +7,7 @@ import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/otp_screen.dart';
 import '../features/auth/presentation/signup_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
+import '../features/dashboard/presentation/accounting_dashboard_screen.dart';
 import '../features/invoices/presentation/invoice_list_screen.dart';
 import '../features/invoices/presentation/invoice_create_screen.dart';
 import '../features/invoices/presentation/invoice_detail_screen.dart';
@@ -286,6 +287,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/accounting/dashboard',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: AccountingDashboardScreen(),
+            ),
+          ),
+          GoRoute(
             path: Routes.invoices,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: InvoiceListScreen(),
@@ -346,6 +353,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => CreditLedgerDetailScreen(
               contactId: state.pathParameters['id']!,
               contactData: state.extra as Map<String, dynamic>?,
+            ),
+          ),
+          // Journal Entries (placeholder — will link to full journal module)
+          GoRoute(
+            path: '/accounting/journal-entries',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: Scaffold(
+                appBar: AppBar(title: const Text('Journal Entries')),
+                body: const Center(child: Text('Journal Entries — coming soon')),
+              ),
             ),
           ),
           // Chart of Accounts

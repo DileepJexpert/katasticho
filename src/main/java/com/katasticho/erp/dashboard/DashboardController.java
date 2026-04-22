@@ -107,4 +107,25 @@ public class DashboardController {
             @RequestParam(required = false, defaultValue = "90") int withinDays) {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.getExpiringSoon(withinDays)));
     }
+
+    @GetMapping("/outstanding-receivable")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    public ResponseEntity<ApiResponse<OutstandingReceivableResponse>> outstandingReceivable() {
+        return ResponseEntity.ok(ApiResponse.ok(dashboardService.getOutstandingReceivable()));
+    }
+
+    @GetMapping("/cash-flow")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    public ResponseEntity<ApiResponse<CashFlowResponse>> cashFlow(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(ApiResponse.ok(dashboardService.getCashFlow(from, to)));
+    }
+
+    @GetMapping("/recent-journals")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<List<RecentJournalResponse>>> recentJournals(
+            @RequestParam(required = false, defaultValue = "10") int limit) {
+        return ResponseEntity.ok(ApiResponse.ok(dashboardService.getRecentJournals(limit)));
+    }
 }

@@ -464,6 +464,134 @@ class WeekComparison {
       );
 }
 
+class OutstandingReceivableData {
+  final double totalOutstanding;
+  final int overdueCount;
+  final double overdueAmount;
+  final String currency;
+  final List<TopCustomerData> topCustomers;
+
+  const OutstandingReceivableData({
+    required this.totalOutstanding,
+    required this.overdueCount,
+    required this.overdueAmount,
+    required this.currency,
+    required this.topCustomers,
+  });
+
+  factory OutstandingReceivableData.fromJson(Map<String, dynamic> json) =>
+      OutstandingReceivableData(
+        totalOutstanding: (json['totalOutstanding'] as num?)?.toDouble() ?? 0.0,
+        overdueCount: (json['overdueCount'] as num?)?.toInt() ?? 0,
+        overdueAmount: (json['overdueAmount'] as num?)?.toDouble() ?? 0.0,
+        currency: json['currency']?.toString() ?? 'INR',
+        topCustomers: ((json['topCustomers'] as List?) ?? const [])
+            .map((e) => TopCustomerData.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+class TopCustomerData {
+  final String contactId;
+  final String name;
+  final double outstanding;
+  final int invoiceCount;
+
+  const TopCustomerData({
+    required this.contactId,
+    required this.name,
+    required this.outstanding,
+    required this.invoiceCount,
+  });
+
+  factory TopCustomerData.fromJson(Map<String, dynamic> json) =>
+      TopCustomerData(
+        contactId: json['contactId']?.toString() ?? '',
+        name: json['name']?.toString() ?? 'Unknown',
+        outstanding: (json['outstanding'] as num?)?.toDouble() ?? 0.0,
+        invoiceCount: (json['invoiceCount'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class CashFlowData {
+  final DateTime from;
+  final DateTime to;
+  final double cashIn;
+  final double cashOut;
+  final double netCashFlow;
+  final String currency;
+
+  const CashFlowData({
+    required this.from,
+    required this.to,
+    required this.cashIn,
+    required this.cashOut,
+    required this.netCashFlow,
+    required this.currency,
+  });
+
+  factory CashFlowData.fromJson(Map<String, dynamic> json) => CashFlowData(
+        from: DateTime.parse(json['from'] as String),
+        to: DateTime.parse(json['to'] as String),
+        cashIn: (json['cashIn'] as num?)?.toDouble() ?? 0.0,
+        cashOut: (json['cashOut'] as num?)?.toDouble() ?? 0.0,
+        netCashFlow: (json['netCashFlow'] as num?)?.toDouble() ?? 0.0,
+        currency: json['currency']?.toString() ?? 'INR',
+      );
+}
+
+class RecentJournalData {
+  final String id;
+  final String entryNumber;
+  final DateTime effectiveDate;
+  final String? description;
+  final String sourceModule;
+  final String status;
+  final double totalDebit;
+
+  const RecentJournalData({
+    required this.id,
+    required this.entryNumber,
+    required this.effectiveDate,
+    required this.description,
+    required this.sourceModule,
+    required this.status,
+    required this.totalDebit,
+  });
+
+  factory RecentJournalData.fromJson(Map<String, dynamic> json) =>
+      RecentJournalData(
+        id: json['id']?.toString() ?? '',
+        entryNumber: json['entryNumber']?.toString() ?? '',
+        effectiveDate: DateTime.parse(json['effectiveDate'] as String),
+        description: json['description']?.toString(),
+        sourceModule: json['sourceModule']?.toString() ?? '',
+        status: json['status']?.toString() ?? 'DRAFT',
+        totalDebit: (json['totalDebit'] as num?)?.toDouble() ?? 0.0,
+      );
+}
+
+class ProfitLossData {
+  final double totalRevenue;
+  final double totalExpenses;
+  final double netProfit;
+  final String currency;
+
+  const ProfitLossData({
+    required this.totalRevenue,
+    required this.totalExpenses,
+    required this.netProfit,
+    required this.currency,
+  });
+
+  factory ProfitLossData.fromJson(Map<String, dynamic> json) => ProfitLossData(
+        totalRevenue: (json['totalRevenue'] as num?)?.toDouble() ?? 0.0,
+        totalExpenses: (json['totalExpenses'] as num?)?.toDouble() ?? 0.0,
+        netProfit: (json['netProfit'] as num?)?.toDouble() ?? 0.0,
+        currency: json['currency']?.toString() ?? 'INR',
+      );
+}
+
 class ExpiringSoonItem {
   final String itemId;
   final String itemName;

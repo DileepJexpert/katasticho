@@ -60,4 +60,7 @@ public interface VendorPaymentRepository extends JpaRepository<VendorPayment, UU
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM VendorPayment p WHERE p.orgId = :orgId AND p.paymentDate = :date AND p.isDeleted = false")
     java.math.BigDecimal sumAmountByOrgAndDate(UUID orgId, LocalDate date);
+
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM VendorPayment p WHERE p.orgId = :orgId AND p.isDeleted = false AND p.paymentDate BETWEEN :from AND :to")
+    java.math.BigDecimal sumAmountByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
 }

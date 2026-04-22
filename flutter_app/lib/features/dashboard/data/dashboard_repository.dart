@@ -195,6 +195,43 @@ class DashboardRepository {
         .toList();
   }
 
+  Future<OutstandingReceivableData> getOutstandingReceivable() async {
+    final response = await _api.get(ApiConfig.dashboardOutstandingReceivable);
+    return OutstandingReceivableData.fromJson(_unwrap(response.data));
+  }
+
+  Future<CashFlowData> getCashFlow({DateTime? from, DateTime? to}) async {
+    final response = await _api.get(
+      ApiConfig.dashboardCashFlow,
+      queryParameters: {
+        if (from != null) 'from': _fmtDate(from),
+        if (to != null) 'to': _fmtDate(to),
+      },
+    );
+    return CashFlowData.fromJson(_unwrap(response.data));
+  }
+
+  Future<List<RecentJournalData>> getRecentJournals({int limit = 10}) async {
+    final response = await _api.get(
+      ApiConfig.dashboardRecentJournals,
+      queryParameters: {'limit': limit},
+    );
+    return _unwrapList(response.data)
+        .map((e) => RecentJournalData.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ProfitLossData> getProfitLoss({DateTime? from, DateTime? to}) async {
+    final response = await _api.get(
+      ApiConfig.profitLossReport,
+      queryParameters: {
+        if (from != null) 'startDate': _fmtDate(from),
+        if (to != null) 'endDate': _fmtDate(to),
+      },
+    );
+    return ProfitLossData.fromJson(_unwrap(response.data));
+  }
+
   Future<Map<String, dynamic>> seedSharmaMedical() async {
     final response = await _api.post(ApiConfig.demoSeedSharmaMedical);
     return _unwrap(response.data);
@@ -271,4 +308,24 @@ final dailySummaryProvider =
 final expiringSoonProvider =
     FutureProvider.autoDispose<List<ExpiringSoonItem>>((ref) async {
   return ref.watch(dashboardRepositoryProvider).getExpiringSoon();
+});
+
+final outstandingReceivableProvider =
+    FutureProvider.autoDispose<OutstandingReceivableData>((ref) async {
+  return ref.watch(dashboardRepositoryProvider).getOutstandingReceivable();
+});
+
+final cashFlowProvider =
+    FutureProvider.autoDispose<CashFlowData>((ref) async {
+  return ref.watch(dashboardRepositoryProvider).getCashFlow();
+});
+
+final recentJournalsProvider =
+    FutureProvider.autoDispose<List<RecentJournalData>>((ref) async {
+  return ref.watch(dashboardRepositoryProvider).getRecentJournals();
+});
+
+final profitLossProvider =
+    FutureProvider.autoDispose<ProfitLossData>((ref) async {
+  return ref.watch(dashboardRepositoryProvider).getProfitLoss();
 });
