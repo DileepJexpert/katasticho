@@ -290,6 +290,11 @@ public class InvoiceService {
                     "AR_INVOICE_NOT_DRAFT", HttpStatus.BAD_REQUEST);
         }
 
+        if (invoice.getLines() == null || invoice.getLines().isEmpty()) {
+            throw new BusinessException("Cannot send an invoice with no line items",
+                    "AR_INVOICE_NO_LINES", HttpStatus.BAD_REQUEST);
+        }
+
         // Build journal lines
         List<JournalLineRequest> journalLines = new ArrayList<>();
 
