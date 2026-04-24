@@ -434,8 +434,12 @@ public class InvoiceService {
     }
 
     @Transactional(readOnly = true)
-    public Page<InvoiceResponse> listInvoiceResponses(Pageable pageable) {
+    public Page<InvoiceResponse> listInvoiceResponses(String status, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
+        if (status != null && !status.isBlank()) {
+            return invoiceRepository.findByOrgIdAndStatusAndIsDeletedFalseOrderByInvoiceDateDesc(
+                    orgId, status.toUpperCase(), pageable).map(this::toResponse);
+        }
         return invoiceRepository.findByOrgIdAndIsDeletedFalseOrderByInvoiceDateDesc(orgId, pageable)
                 .map(this::toResponse);
     }

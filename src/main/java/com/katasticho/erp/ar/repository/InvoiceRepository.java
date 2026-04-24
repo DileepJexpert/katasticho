@@ -20,6 +20,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
 
     Page<Invoice> findByOrgIdAndIsDeletedFalseOrderByInvoiceDateDesc(UUID orgId, Pageable pageable);
 
+    Page<Invoice> findByOrgIdAndStatusAndIsDeletedFalseOrderByInvoiceDateDesc(UUID orgId, String status, Pageable pageable);
+
     Page<Invoice> findByOrgIdAndContactIdAndIsDeletedFalseOrderByInvoiceDateDesc(UUID orgId, UUID contactId, Pageable pageable);
 
     @Query("""
