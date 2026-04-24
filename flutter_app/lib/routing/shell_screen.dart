@@ -338,7 +338,12 @@ class _DesktopShell extends ConsumerWidget {
                     ),
                   ),
                   child: ClipRect(
-                    child: Column(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                      // Derive display mode from actual animated width so
+                      // labels don't appear before the container is wide enough.
+                      final collapsed = constraints.maxWidth < 160;
+                      return Column(
                       children: [
                         // Brand logo — always uses brand seeds (identity),
                         // independent of sidebar palette.
@@ -522,6 +527,8 @@ class _DesktopShell extends ConsumerWidget {
                           ),
                         ),
                       ],
+                      );
+                      },
                     ),
                   ),
                 );
