@@ -12,7 +12,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
-import '../../contacts/data/contact_repository.dart';
+import '../../contacts/presentation/contact_picker_sheet.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../pricing/data/price_list_repository.dart';
@@ -37,64 +37,33 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
   // Customer step
   String? _selectedContactId;
   String _contactName = '';
-  List<Map<String, dynamic>> _customers = [];
-  List<Map<String, dynamic>> _filteredCustomers = [];
-  bool _loadingCustomers = true;
-  String _customerSearch = '';
+  String? _contactGstin;
+  String? _contactPhone;
+  Map<String, dynamic>? _selectedCustomer;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadCustomers();
-  }
-
-  Future<void> _loadCustomers() async {
-    try {
-      final repo = ref.read(contactRepositoryProvider);
-      final result = await repo.listContacts(size: 200);
-      final content = result['data'];
-      final list = content is List
-          ? content.cast<Map<String, dynamic>>()
-          : (content is Map
-              ? ((content['content'] as List?)
-                      ?.cast<Map<String, dynamic>>() ??
-                  [])
-              : <Map<String, dynamic>>[]);
-      final customers = list
-          .where((c) {
-            final type = (c['contactType'] as String? ?? '').toUpperCase();
-            return type == 'CUSTOMER' || type == 'BOTH';
-          })
-          .toList();
-      if (mounted) {
-        setState(() {
-          _customers = customers;
-          _filteredCustomers = customers;
-          _loadingCustomers = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _loadingCustomers = false);
-    }
-  }
-
-  void _filterCustomers(String query) {
+  Future<void> _openCustomerPicker() async {
+    final picked = await showContactPicker(context);
+    if (picked == null || !mounted) return;
     setState(() {
-      _customerSearch = query;
-      if (query.isEmpty) {
-        _filteredCustomers = _customers;
-      } else {
-        final lower = query.toLowerCase();
-        _filteredCustomers = _customers
-            .where((c) =>
-                (c['displayName'] as String? ?? '').toLowerCase().contains(lower) ||
-                (c['companyName'] as String? ?? '').toLowerCase().contains(lower) ||
-                (c['phone'] as String? ?? '').contains(lower) ||
-                (c['mobile'] as String? ?? '').contains(lower) ||
-                (c['gstin'] as String? ?? '').toLowerCase().contains(lower))
-            .toList();
-      }
+      _selectedCustomer = picked;
+      _selectedContactId = picked['id']?.toString();
+      _contactName = picked['displayName'] as String? ??
+          picked['companyName'] as String? ??
+          'Unknown';
+      _contactGstin = picked['gstin'] as String?;
+      _contactPhone = picked['phone'] as String? ??
+          picked['mobile'] as String?;
+      _errorMessage = null;
     });
+  }
+
+  String _customerSubtitle() {
+    final parts = <String>[
+      if (_contactGstin != null && _contactGstin!.isNotEmpty)
+        'GSTIN: $_contactGstin',
+      if (_contactPhone != null && _contactPhone!.isNotEmpty) _contactPhone!,
+    ];
+    return parts.isEmpty ? 'Tap to change' : parts.join(' · ');
   }
 
   // Line items
@@ -309,68 +278,75 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
 
   // ── Step 0: Customer Selection ──
   Widget _buildCustomerStep() {
+    final hasCustomer = _selectedContactId != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Select Customer', style: KTypography.h2),
+        Text('Customer', style: KTypography.h2),
         KSpacing.vGapMd,
 
-        // Customer search
-        KTextField(
-          label: 'Search customers',
-          hint: 'Type customer name, phone or GSTIN...',
-          prefixIcon: Icons.search,
-          onChanged: _filterCustomers,
-        ),
-        KSpacing.vGapMd,
-
-        Text(
-          'Your Customers',
-          style: KTypography.labelLarge.copyWith(color: KColors.textSecondary),
-        ),
-        KSpacing.vGapSm,
-
-        if (_loadingCustomers)
-          const Center(child: Padding(
-            padding: EdgeInsets.all(24),
-            child: CircularProgressIndicator(),
-          ))
-        else if (_filteredCustomers.isEmpty)
-          _CustomerSelectTile(
-            name: _customers.isEmpty
-                ? 'No customers yet'
-                : 'No matching customers',
-            gstin: _customers.isEmpty
-                ? 'Add customers from the Customers tab first'
-                : 'Try a different search term',
-            isSelected: false,
-            onTap: () {},
-          )
-        else
-          ..._filteredCustomers.map((customer) {
-            final id = customer['id']?.toString() ?? '';
-            final name = customer['displayName'] as String? ??
-                customer['companyName'] as String? ?? 'Unknown';
-            final gstin = customer['gstin'] as String? ?? '';
-            final phone = customer['phone'] as String? ??
-                customer['mobile'] as String? ?? '';
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _CustomerSelectTile(
-                name: name,
-                gstin: gstin.isNotEmpty
-                    ? 'GSTIN: $gstin'
-                    : (phone.isNotEmpty ? phone : 'No details'),
-                isSelected: _selectedContactId == id,
-                onTap: () {
-                  setState(() {
-                    _selectedContactId = id;
-                    _contactName = name;
-                  });
-                },
+        // Compact selected-customer card OR "Select customer" CTA
+        InkWell(
+          onTap: _openCustomerPicker,
+          borderRadius: KSpacing.borderRadiusMd,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: KSpacing.md, vertical: KSpacing.md),
+            decoration: BoxDecoration(
+              color: hasCustomer
+                  ? KColors.primary.withValues(alpha: 0.05)
+                  : KColors.surface,
+              borderRadius: KSpacing.borderRadiusMd,
+              border: Border.all(
+                color: hasCustomer ? KColors.primary : KColors.divider,
+                width: hasCustomer ? 1.5 : 1,
               ),
-            );
-          }),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor:
+                      KColors.primary.withValues(alpha: 0.12),
+                  child: Icon(
+                    hasCustomer ? Icons.person : Icons.person_add_alt_1,
+                    color: KColors.primary,
+                  ),
+                ),
+                KSpacing.hGapMd,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hasCustomer ? _contactName : 'Select customer',
+                        style: KTypography.labelLarge,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      KSpacing.vGapXs,
+                      Text(
+                        hasCustomer
+                            ? _customerSubtitle()
+                            : 'Tap to search from your contacts',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  hasCustomer ? 'Change' : 'Pick',
+                  style: KTypography.labelMedium
+                      .copyWith(color: KColors.primary),
+                ),
+                KSpacing.hGapXs,
+                const Icon(Icons.chevron_right,
+                    color: KColors.primary, size: 18),
+              ],
+            ),
+          ),
+        ),
 
         KSpacing.vGapLg,
         const Divider(),
@@ -409,10 +385,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
   Map<String, dynamic>? _effectivePriceList(
       List<Map<String, dynamic>> lists) {
     if (_selectedContactId == null) return null;
-    final customer = _customers.firstWhere(
-      (c) => c['id']?.toString() == _selectedContactId,
-      orElse: () => const <String, dynamic>{},
-    );
+    final customer = _selectedCustomer ?? const <String, dynamic>{};
     final pinned = customer['defaultPriceListId']?.toString();
     if (pinned != null) {
       for (final l in lists) {
@@ -1078,64 +1051,6 @@ class _LineItemCardState extends State<_LineItemCard> {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CustomerSelectTile extends StatelessWidget {
-  final String name;
-  final String gstin;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _CustomerSelectTile({
-    required this.name,
-    required this.gstin,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: KSpacing.borderRadiusMd,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? KColors.primary.withValues(alpha: 0.06)
-              : KColors.surface,
-          borderRadius: KSpacing.borderRadiusMd,
-          border: Border.all(
-            color: isSelected ? KColors.primary : KColors.divider,
-          ),
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: KColors.primaryLight.withValues(alpha: 0.15),
-              child: Icon(
-                Icons.person,
-                color: KColors.primary,
-              ),
-            ),
-            KSpacing.hGapMd,
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name, style: KTypography.bodyMedium),
-                  Text(gstin, style: KTypography.bodySmall),
-                ],
-              ),
-            ),
-            if (isSelected)
-              const Icon(Icons.check_circle, color: KColors.primary),
-          ],
-        ),
       ),
     );
   }
