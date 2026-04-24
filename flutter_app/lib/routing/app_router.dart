@@ -88,6 +88,9 @@ import '../features/pos/presentation/sales_receipt_list_screen.dart';
 import '../features/pos/presentation/sales_receipt_detail_screen.dart';
 import '../features/credit_ledger/presentation/credit_ledger_screen.dart';
 import '../features/credit_ledger/presentation/credit_ledger_detail_screen.dart';
+import '../features/journals/presentation/journal_list_screen.dart';
+import '../features/journals/presentation/journal_detail_screen.dart';
+import '../features/journals/presentation/journal_create_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -190,6 +193,10 @@ class Routes {
   // Credit Ledger (Udhar Khata)
   static const creditLedger = '/credit-ledger';
   static const creditLedgerDetail = '/credit-ledger/:id';
+  // Journal Entries
+  static const journalEntries = '/accounting/journal-entries';
+  static const journalEntryCreate = '/accounting/journal-entries/create';
+  static const journalEntryDetail = '/accounting/journal-entries/:id';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -359,14 +366,21 @@ final routerProvider = Provider<GoRouter>((ref) {
               contactData: state.extra as Map<String, dynamic>?,
             ),
           ),
-          // Journal Entries (placeholder — will link to full journal module)
+          // Journal Entries
           GoRoute(
-            path: '/accounting/journal-entries',
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: Scaffold(
-                appBar: AppBar(title: const Text('Journal Entries')),
-                body: const Center(child: Text('Journal Entries — coming soon')),
-              ),
+            path: Routes.journalEntries,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: JournalListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.journalEntryCreate,
+            builder: (context, state) => const JournalCreateScreen(),
+          ),
+          GoRoute(
+            path: '/accounting/journal-entries/:id',
+            builder: (context, state) => JournalDetailScreen(
+              journalId: state.pathParameters['id']!,
             ),
           ),
           // Chart of Accounts

@@ -265,16 +265,46 @@ public class JournalService {
                             line.getTaxComponentCode());
                 }).toList();
 
+        BigDecimal totalDebit = entry.getLines().stream()
+                .map(JournalLine::getDebit)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         return new JournalEntryResponse(
                 entry.getId(), entry.getEntryNumber(), entry.getEffectiveDate(),
                 entry.getCreatedAt(), entry.getDescription(), entry.getSourceModule(),
-                entry.getStatus(), entry.isReversal(), entry.isReversed(),
+                entry.getSourceId(), entry.getStatus(), entry.isReversal(), entry.isReversed(),
                 entry.getReversalOfId(), entry.getPeriodYear(), entry.getPeriodMonth(),
-                lineResponses);
+                totalDebit, lineResponses);
     }
 
     public Page<JournalEntry> listEntries(UUID orgId, Pageable pageable) {
         return journalEntryRepository.findByOrgIdOrderByEffectiveDateDesc(orgId, pageable);
+    }
+
+    public Page<JournalEntry> listEntries(UUID orgId, String sourceModule, LocalDate dateFrom, LocalDate dateTo,
+                                           String search, Pageable pageable) {
+        return journalEntryRepository.findFiltered(orgId, sourceModule, dateFrom, dateTo, search, pageable);
+    }
+
+    @Transactional
+    public void deleteEntry(UUID entryId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        JournalEntry entry = journalEntryRepository.findByIdAndOrgId(entryId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("JournalEntry", entryId));
+
+        if (!"MANUAL".equals(entry.getSourceModule())) {
+            throw new BusinessException("Only manual journal entries can be deleted",
+                    "ACCT_CANNOT_DELETE_AUTO", HttpStatus.BAD_REQUEST);
+        }
+        if ("POSTED".equals(entry.getStatus())) {
+            throw new BusinessException("Posted entries cannot be deleted. Create a reversal instead.",
+                    "ACCT_CANNOT_DELETE_POSTED", HttpStatus.BAD_REQUEST);
+        }
+
+        journalEntryRepository.delete(entry);
+        auditService.log("JOURNAL_ENTRY", entryId, "DELETE", null,
+                "{\"entryNumber\":\"" + entry.getEntryNumber() + "\"}");
+        log.info("Manual journal {} deleted", entry.getEntryNumber());
     }
 
     public JournalEntry getEntry(UUID entryId, UUID orgId) {
