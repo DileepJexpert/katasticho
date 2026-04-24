@@ -94,82 +94,99 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
             child: ListView(
               padding: KSpacing.pagePadding,
               children: [
-                // Amount
-                KTextField.amount(
-                  label: 'Amount *',
-                  controller: _amountCtrl,
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Required';
-                    final n = double.tryParse(v);
-                    if (n == null || n <= 0) return 'Enter a positive amount';
-                    return null;
-                  },
-                ),
-                KSpacing.vGapMd,
-
-                // Date
-                KDatePicker(
-                  label: 'Expense date *',
-                  value: _expenseDate,
-                  onChanged: (d) => setState(() => _expenseDate = d),
-                ),
-                KSpacing.vGapMd,
-
-                // Category
-                DropdownButtonFormField<String>(
-                  value: _category,
-                  decoration: const InputDecoration(labelText: 'Category'),
-                  items: kExpenseCategories
-                      .map((c) =>
-                          DropdownMenuItem(value: c, child: Text(c)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _category = v),
-                ),
-                KSpacing.vGapMd,
-
-                // Expense GL account
-                DropdownButtonFormField<String>(
-                  value: _expenseAccountId,
-                  isExpanded: true,
-                  decoration:
-                      const InputDecoration(labelText: 'Expense account *'),
-                  items: expenseAccounts.map((a) {
-                    return DropdownMenuItem<String>(
-                      value: a['id']?.toString(),
-                      child: Text(
-                        '${a['code']} — ${a['name']}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList(),
-                  validator: (v) => v == null ? 'Required' : null,
-                  onChanged: (v) => setState(() => _expenseAccountId = v),
-                ),
-                KSpacing.vGapMd,
-
-                // Tax group
-                TaxGroupPicker(
-                  value: _taxGroupId,
-                  label: 'Tax (GST)',
-                  onChanged: (group) => setState(() {
-                    _taxGroupId = group?.id;
-                    _gstRate = group?.totalRate ?? 0;
-                  }),
-                ),
-                KSpacing.vGapMd,
-
-                // Payment mode
-                Text('Payment mode *', style: KTypography.labelLarge),
+                // Amount + Date side-by-side
+                KCompactRow(children: [
+                  KTextField.amount(
+                    label: 'Amount *',
+                    controller: _amountCtrl,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Required';
+                      final n = double.tryParse(v);
+                      if (n == null || n <= 0) return 'Enter a positive amount';
+                      return null;
+                    },
+                  ),
+                  KDatePicker(
+                    label: 'Expense date *',
+                    value: _expenseDate,
+                    onChanged: (d) => setState(() => _expenseDate = d),
+                  ),
+                ]),
                 KSpacing.vGapSm,
+
+                // Category + Expense account side-by-side
+                KCompactRow(children: [
+                  DropdownButtonFormField<String>(
+                    value: _category,
+                    decoration: const InputDecoration(labelText: 'Category'),
+                    items: kExpenseCategories
+                        .map((c) =>
+                            DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _category = v),
+                  ),
+                  DropdownButtonFormField<String>(
+                    value: _expenseAccountId,
+                    isExpanded: true,
+                    decoration:
+                        const InputDecoration(labelText: 'Expense account *'),
+                    items: expenseAccounts.map((a) {
+                      return DropdownMenuItem<String>(
+                        value: a['id']?.toString(),
+                        child: Text(
+                          '${a['code']} — ${a['name']}',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }).toList(),
+                    validator: (v) => v == null ? 'Required' : null,
+                    onChanged: (v) => setState(() => _expenseAccountId = v),
+                  ),
+                ]),
+                KSpacing.vGapSm,
+
+                // Tax + Paid through side-by-side
+                KCompactRow(children: [
+                  TaxGroupPicker(
+                    value: _taxGroupId,
+                    label: 'Tax (GST)',
+                    onChanged: (group) => setState(() {
+                      _taxGroupId = group?.id;
+                      _gstRate = group?.totalRate ?? 0;
+                    }),
+                  ),
+                  DropdownButtonFormField<String>(
+                    value: _paidThroughId,
+                    isExpanded: true,
+                    decoration:
+                        const InputDecoration(labelText: 'Paid through *'),
+                    items: assetAccounts.map((a) {
+                      return DropdownMenuItem<String>(
+                        value: a['id']?.toString(),
+                        child: Text(
+                          '${a['code']} — ${a['name']}',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }).toList(),
+                    validator: (v) => v == null ? 'Required' : null,
+                    onChanged: (v) => setState(() => _paidThroughId = v),
+                  ),
+                ]),
+                KSpacing.vGapSm,
+
+                // Payment mode chips
+                Text('Payment mode *', style: KTypography.labelLarge),
+                KSpacing.vGapXs,
                 Wrap(
                   spacing: 8,
-                  runSpacing: 8,
+                  runSpacing: 4,
                   children: _paymentModes.map((m) {
                     return ChoiceChip(
                       label: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(m.$3, size: 16),
+                          Icon(m.$3, size: 14),
                           KSpacing.hGapXs,
                           Text(m.$2),
                         ],
@@ -180,29 +197,9 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                     );
                   }).toList(),
                 ),
-                KSpacing.vGapMd,
+                KSpacing.vGapSm,
 
-                // Paid-through (Cash / Bank)
-                DropdownButtonFormField<String>(
-                  value: _paidThroughId,
-                  isExpanded: true,
-                  decoration:
-                      const InputDecoration(labelText: 'Paid through *'),
-                  items: assetAccounts.map((a) {
-                    return DropdownMenuItem<String>(
-                      value: a['id']?.toString(),
-                      child: Text(
-                        '${a['code']} — ${a['name']}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList(),
-                  validator: (v) => v == null ? 'Required' : null,
-                  onChanged: (v) => setState(() => _paidThroughId = v),
-                ),
-                KSpacing.vGapMd,
-
-                // Vendor picker (optional)
+                // Vendor picker
                 InkWell(
                   onTap: _pickVendor,
                   child: InputDecorator(
@@ -224,25 +221,26 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                     ),
                   ),
                 ),
-                KSpacing.vGapMd,
+                KSpacing.vGapSm,
 
-                // Notes / description
+                // Notes
                 KTextField(
                   label: 'Notes',
                   controller: _descriptionCtrl,
-                  maxLines: 3,
+                  maxLines: 2,
                 ),
-                KSpacing.vGapMd,
+                KSpacing.vGapSm,
 
                 SwitchListTile(
                   title: const Text('Billable to customer'),
                   subtitle: const Text(
-                      'Mark this expense so it can be added to a customer invoice'),
+                      'Mark so it can be added to a customer invoice'),
                   value: _billable,
                   onChanged: (v) => setState(() => _billable = v),
                   contentPadding: EdgeInsets.zero,
+                  dense: true,
                 ),
-                KSpacing.vGapLg,
+                KSpacing.vGapMd,
 
                 KButton(
                   label: 'Record Expense',
@@ -250,7 +248,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                   isLoading: _submitting,
                   onPressed: _submit,
                 ),
-                KSpacing.vGapMd,
+                KSpacing.vGapSm,
               ],
             ),
           );
@@ -287,21 +285,46 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: ListView.separated(
-          shrinkWrap: true,
-          itemCount: filtered.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (_, i) {
-            final c = filtered[i] as Map<String, dynamic>;
-            return ListTile(
-              leading: const CircleAvatar(
-                  child: Icon(Icons.store_outlined, size: 18)),
-              title: Text(c['displayName'] as String? ?? 'Vendor'),
-              subtitle: Text(c['email'] as String? ?? ''),
-              onTap: () => Navigator.pop(ctx, c),
-            );
-          },
+      builder: (ctx) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.6,
+          minHeight: 120,
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Text('Select Vendor',
+                    style: KTypography.h3),
+              ),
+              const Divider(),
+              if (filtered.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text('No vendors found. Add a vendor contact first.'),
+                )
+              else
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (_, i) {
+                      final c = filtered[i] as Map<String, dynamic>;
+                      return ListTile(
+                        leading: const CircleAvatar(
+                            child: Icon(Icons.store_outlined, size: 18)),
+                        title: Text(c['displayName'] as String? ?? 'Vendor'),
+                        subtitle: Text(c['email'] as String? ?? ''),
+                        onTap: () => Navigator.pop(ctx, c),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

@@ -4,12 +4,15 @@ import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
 import com.katasticho.erp.sales.dto.CreateDeliveryChallanRequest;
 import com.katasticho.erp.sales.dto.DeliveryChallanResponse;
+import com.katasticho.erp.sales.service.DeliveryChallanPdfService;
 import com.katasticho.erp.sales.service.DeliveryChallanService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +26,7 @@ import java.util.UUID;
 public class DeliveryChallanController {
 
     private final DeliveryChallanService challanService;
+    private final DeliveryChallanPdfService challanPdfService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
@@ -46,6 +50,18 @@ public class DeliveryChallanController {
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<DeliveryChallanResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(challanService.get(id)));
+    }
+
+    @GetMapping("/{id}/pdf")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<byte[]> downloadPdf(@PathVariable UUID id) {
+        DeliveryChallanResponse dc = challanService.get(id);
+        byte[] pdf = challanPdfService.generatePdf(dc);
+        String filename = "challan-" + dc.challanNumber().replaceAll("[/\\\\:*?\"<>|]", "-") + ".pdf";
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .body(pdf);
     }
 
     @PostMapping("/{id}/dispatch")

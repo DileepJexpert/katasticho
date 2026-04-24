@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -31,6 +32,8 @@ class SalesOrderDetailScreen extends ConsumerWidget {
                 onSelected: (value) =>
                     _handleAction(context, ref, value, status),
                 itemBuilder: (context) => [
+                  const PopupMenuItem(
+                      value: 'pdf', child: Text('Download PDF')),
                   if (status == 'DRAFT') ...[
                     const PopupMenuItem(
                         value: 'confirm', child: Text('Confirm')),
@@ -109,6 +112,25 @@ class SalesOrderDetailScreen extends ConsumerWidget {
     final repo = ref.read(salesOrderRepositoryProvider);
 
     switch (action) {
+      case 'pdf':
+        if (context.mounted) {
+          final orderAsync = ref.read(salesOrderDetailProvider(salesOrderId));
+          orderAsync.whenData((data) {
+            final order = (data['data'] ?? data) as Map<String, dynamic>;
+            final number = order['salesOrderNumber'] as String? ?? 'sales-order';
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => KPdfPreviewScreen(
+                  title: number,
+                  pdfEndpoint: ApiConfig.salesOrderPdf(salesOrderId),
+                  fileName: '$number.pdf',
+                ),
+              ),
+            );
+          });
+        }
+        break;
       case 'confirm':
         try {
           await repo.confirmSalesOrder(salesOrderId);

@@ -810,66 +810,57 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
               child: ListView(
                 padding: KSpacing.pagePadding,
                 children: [
-                  Text('Identification', style: KTypography.h3),
-                  KSpacing.vGapMd,
-                  KTextField(
-                    label: 'SKU *',
-                    controller: _skuController,
-                    prefixIcon: Icons.qr_code,
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'SKU is required';
-                      if (_serverErrors.containsKey('sku')) return _serverErrors['sku'];
-                      return null;
-                    },
-                  ),
-                  KSpacing.vGapMd,
-                  KTextField(
-                    label: 'Barcode',
-                    controller: _barcodeController,
-                    prefixIcon: Icons.barcode_reader,
-                  ),
-                  KSpacing.vGapMd,
-                  KTextField(
-                    label: 'Name *',
-                    controller: _nameController,
-                    prefixIcon: Icons.label_outline,
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Name is required';
-                      if (_serverErrors.containsKey('name')) return _serverErrors['name'];
-                      return null;
-                    },
-                  ),
-                  KSpacing.vGapMd,
-                  KTextField(
-                    label: 'Description',
-                    controller: _descriptionController,
-                    maxLines: 2,
-                  ),
-                  KSpacing.vGapMd,
-                  Row(
+                  // ── Basic Info (always open) ──
+                  KCollapsibleSection(
+                    title: 'Basic Info',
+                    icon: Icons.info_outline,
+                    initiallyExpanded: true,
                     children: [
-                      Expanded(
-                        child: KTextField(
+                      KCompactRow(children: [
+                        KTextField(
+                          label: 'SKU *',
+                          controller: _skuController,
+                          prefixIcon: Icons.qr_code,
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) return 'SKU is required';
+                            if (_serverErrors.containsKey('sku')) return _serverErrors['sku'];
+                            return null;
+                          },
+                        ),
+                        KTextField(
+                          label: 'Barcode',
+                          controller: _barcodeController,
+                          prefixIcon: Icons.barcode_reader,
+                        ),
+                      ]),
+                      KSpacing.vGapSm,
+                      KTextField(
+                        label: 'Name *',
+                        controller: _nameController,
+                        prefixIcon: Icons.label_outline,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Name is required';
+                          if (_serverErrors.containsKey('name')) return _serverErrors['name'];
+                          return null;
+                        },
+                      ),
+                      KSpacing.vGapSm,
+                      KTextField(
+                        label: 'Description',
+                        controller: _descriptionController,
+                        maxLines: 2,
+                      ),
+                      KSpacing.vGapSm,
+                      KCompactRow(flex: const [1, 1, 1], children: [
+                        KTextField(
                           label: 'Category',
                           controller: _categoryController,
                         ),
-                      ),
-                      KSpacing.hGapMd,
-                      Expanded(
-                        child: KTextField(
+                        KTextField(
                           label: 'Brand',
                           controller: _brandController,
                         ),
-                      ),
-                    ],
-                  ),
-                  KSpacing.vGapMd,
-                  KTextField(
-                    label: 'Manufacturer',
-                    controller: _manufacturerController,
-                  ),
-                  KSpacing.vGapMd,
-                  DropdownButtonFormField<String>(
+                        DropdownButtonFormField<String>(
                           value: _itemType,
                           decoration: const InputDecoration(labelText: 'Type'),
                           items: const [
@@ -878,42 +869,45 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                             DropdownMenuItem(
                                 value: 'COMPOSITE', child: Text('Composite (kit)')),
                           ],
-                    onChanged: (v) {
-                      setState(() {
-                        _itemType = v ?? 'GOODS';
-                        if (_itemType != 'GOODS') {
-                          _trackInventory = false;
-                          _groupId = null;
-                          _selectedGroup = null;
-                          _variantAttrs.clear();
-                        }
-                      });
-                    },
+                          onChanged: (v) {
+                            setState(() {
+                              _itemType = v ?? 'GOODS';
+                              if (_itemType != 'GOODS') {
+                                _trackInventory = false;
+                                _groupId = null;
+                                _selectedGroup = null;
+                                _variantAttrs.clear();
+                              }
+                            });
+                          },
+                        ),
+                      ]),
+                      KSpacing.vGapSm,
+                      KTextField(
+                        label: 'Manufacturer',
+                        controller: _manufacturerController,
+                      ),
+                      if (_itemType == 'GOODS') ...[
+                        KSpacing.vGapSm,
+                        _buildGroupSection(),
+                      ],
+                    ],
                   ),
-                  KSpacing.vGapLg,
 
-                  // F5 — group picker. Only shown for GOODS items (the
-                  // backend rejects composites in groups for v1).
-                  if (_itemType == 'GOODS') ...[
-                    _buildGroupSection(),
-                    KSpacing.vGapLg,
-                  ],
-
-                  Text('Pricing & Tax', style: KTypography.h3),
-                  KSpacing.vGapMd,
-                  Row(
+                  // ── Pricing & Tax (always open) ──
+                  KCollapsibleSection(
+                    title: 'Pricing & Tax',
+                    icon: Icons.currency_rupee,
+                    initiallyExpanded: true,
                     children: [
-                      Expanded(
-                        child: KTextField.amount(
+                      KCompactRow(children: [
+                        KTextField.amount(
                           label: 'Purchase Price',
                           controller: _purchasePriceController,
                           onChanged: (_) => setState(() {}),
                           validator: (v) => _serverErrors['purchasePrice'],
                         ),
-                      ),
-                      KSpacing.hGapMd,
-                      Expanded(
-                        child: KTextField.amount(
+                        KTextField.amount(
                           label: 'Sale Price',
                           controller: _salePriceController,
                           onChanged: (_) => setState(() {}),
@@ -929,53 +923,46 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                             return null;
                           },
                         ),
-                      ),
-                    ],
-                  ),
-                  if (ref.watch(featureFlagsProvider).valueOrNull?.contains('MRP_PRICING') == true) ...[
-                    KSpacing.vGapMd,
-                    KTextField.amount(
-                      label: 'MRP (Maximum Retail Price)',
-                      controller: _mrpController,
-                      onChanged: (_) => setState(() {}),
-                      validator: (v) {
-                        final mrp = double.tryParse(v ?? '') ?? 0;
-                        final salePrice = double.tryParse(_salePriceController.text) ?? 0;
-                        if (mrp > 0 && salePrice > mrp) {
-                          return 'Sale price cannot exceed MRP';
-                        }
-                        return null;
-                      },
-                    ),
-                    _buildMrpMarginHint(),
-                  ],
-                  KSpacing.vGapMd,
-                  Row(
-                    children: [
-                      Expanded(
-                        child: KTextField(
+                      ]),
+                      if (ref.watch(featureFlagsProvider).valueOrNull?.contains('MRP_PRICING') == true) ...[
+                        KSpacing.vGapSm,
+                        KTextField.amount(
+                          label: 'MRP (Maximum Retail Price)',
+                          controller: _mrpController,
+                          onChanged: (_) => setState(() {}),
+                          validator: (v) {
+                            final mrp = double.tryParse(v ?? '') ?? 0;
+                            final salePrice = double.tryParse(_salePriceController.text) ?? 0;
+                            if (mrp > 0 && salePrice > mrp) {
+                              return 'Sale price cannot exceed MRP';
+                            }
+                            return null;
+                          },
+                        ),
+                        _buildMrpMarginHint(),
+                      ],
+                      KSpacing.vGapSm,
+                      KCompactRow(children: [
+                        KTextField(
                           label: _itemType == 'SERVICE' ? 'SAC Code' : 'HSN Code',
                           controller: _hsnController,
                         ),
-                      ),
-                      KSpacing.hGapMd,
-                      Expanded(
-                        child: KTextField(
+                        KTextField(
                           label: 'GST Rate (%)',
                           controller: _gstRateController,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           selectAllOnFocus: true,
                         ),
-                      ),
+                      ]),
+                      if (_itemType != 'SERVICE') ...[
+                        KSpacing.vGapSm,
+                        _buildPurchaseSalesUnitsSection(),
+                      ],
                     ],
                   ),
-                  if (_itemType != 'SERVICE') ...[
-                    KSpacing.vGapLg,
-                    _buildPurchaseSalesUnitsSection(),
-                  ],
-                  KSpacing.vGapLg,
 
                   if (_itemType == 'COMPOSITE') ...[
+                    KSpacing.vGapSm,
                     KCard(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -994,245 +981,211 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                         ],
                       ),
                     ),
-                    KSpacing.vGapLg,
                   ],
-                  if (_itemType == 'GOODS') ...[
-                    Text('Inventory', style: KTypography.h3),
-                    KSpacing.vGapMd,
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Track inventory'),
-                      subtitle: const Text(
-                          'Stock levels will be tracked through invoices and adjustments'),
-                      value: _trackInventory,
-                      onChanged: (v) => setState(() => _trackInventory = v),
-                    ),
-                    if (_trackInventory) ...[
-                      KSpacing.vGapMd,
-                      SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Track batches (FEFO)'),
-                        subtitle: const Text(
-                            'Enable batch/lot tracking with expiry dates'),
-                        value: _trackBatches,
-                        onChanged: (v) => setState(() => _trackBatches = v),
-                      ),
-                      KSpacing.vGapMd,
-                      Row(
-                        children: [
-                          Expanded(
-                            child: KTextField(
+
+                  // ── Inventory (collapsed by default) ──
+                  if (_itemType == 'GOODS')
+                    KCollapsibleSection(
+                      title: 'Inventory',
+                      icon: Icons.inventory_2_outlined,
+                      initiallyExpanded: false,
+                      children: [
+                        SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          title: const Text('Track inventory'),
+                          subtitle: const Text(
+                              'Stock levels tracked through invoices and adjustments'),
+                          value: _trackInventory,
+                          onChanged: (v) => setState(() => _trackInventory = v),
+                        ),
+                        if (_trackInventory) ...[
+                          SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                            title: const Text('Track batches (FEFO)'),
+                            subtitle: const Text(
+                                'Batch/lot tracking with expiry dates'),
+                            value: _trackBatches,
+                            onChanged: (v) => setState(() => _trackBatches = v),
+                          ),
+                          KSpacing.vGapSm,
+                          KCompactRow(children: [
+                            KTextField(
                               label: 'Reorder Level',
                               controller: _reorderLevelController,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             ),
-                          ),
-                          KSpacing.hGapMd,
-                          Expanded(
-                            child: KTextField(
+                            KTextField(
                               label: 'Reorder Qty',
                               controller: _reorderQtyController,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             ),
-                          ),
-                        ],
-                      ),
-                      if (!_isEdit) ...[
-                        KSpacing.vGapMd,
-                        KTextField(
-                          label: 'Opening Stock',
-                          controller: _openingStockController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          prefixIcon: Icons.inventory_outlined,
-                          onChanged: (_) => setState(() {}),
-                        ),
-                        if (_trackBatches && (double.tryParse(_openingStockController.text) ?? 0) > 0) ...[
-                          KSpacing.vGapMd,
-                          KCard(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Opening Stock Batch Details', style: KTypography.labelLarge),
-                                KSpacing.vGapSm,
-                                KTextField(
-                                  label: 'Batch Number *',
-                                  controller: _openingBatchNumberController,
-                                  prefixIcon: Icons.confirmation_number_outlined,
-                                  hint: 'Enter batch number from product packaging',
-                                  validator: (v) {
-                                    if (_trackBatches && (double.tryParse(_openingStockController.text) ?? 0) > 0) {
-                                      if (v == null || v.trim().isEmpty) return 'Batch number is required';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                KSpacing.vGapMd,
-                                Row(
+                          ]),
+                          if (!_isEdit) ...[
+                            KSpacing.vGapSm,
+                            KTextField(
+                              label: 'Opening Stock',
+                              controller: _openingStockController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              prefixIcon: Icons.inventory_outlined,
+                              onChanged: (_) => setState(() {}),
+                            ),
+                            if (_trackBatches && (double.tryParse(_openingStockController.text) ?? 0) > 0) ...[
+                              KSpacing.vGapSm,
+                              KCard(
+                                padding: const EdgeInsets.all(KSpacing.sm),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Expanded(
-                                      child: _DatePickerField(
+                                    Text('Opening Batch', style: KTypography.labelLarge),
+                                    KSpacing.vGapSm,
+                                    KTextField(
+                                      label: 'Batch Number *',
+                                      controller: _openingBatchNumberController,
+                                      prefixIcon: Icons.confirmation_number_outlined,
+                                      hint: 'From product packaging',
+                                      validator: (v) {
+                                        if (_trackBatches && (double.tryParse(_openingStockController.text) ?? 0) > 0) {
+                                          if (v == null || v.trim().isEmpty) return 'Batch number is required';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                    KSpacing.vGapSm,
+                                    KCompactRow(children: [
+                                      _DatePickerField(
                                         label: 'Mfg Date',
                                         value: _openingMfgDate,
                                         onPicked: (d) => setState(() => _openingMfgDate = d),
                                       ),
-                                    ),
-                                    KSpacing.hGapMd,
-                                    Expanded(
-                                      child: _DatePickerField(
+                                      _DatePickerField(
                                         label: 'Expiry Date',
                                         value: _openingExpiryDate,
                                         onPicked: (d) => setState(() => _openingExpiryDate = d),
                                       ),
-                                    ),
+                                    ]),
                                   ],
                                 ),
-                              ],
-                            ),
-                          ),
+                              ),
+                            ],
+                          ],
                         ],
                       ],
-                    ],
-                  ],
-                  KSpacing.vGapLg,
+                    ),
 
-                  // ── Physical Properties ──
-                  Text('Physical Properties', style: KTypography.h3),
-                  KSpacing.vGapMd,
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: KTextField(
-                          label: 'Weight',
-                          controller: _weightController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        ),
-                      ),
-                      KSpacing.hGapMd,
-                      Expanded(
-                        child: KTextField(
-                          label: 'Unit',
-                          controller: _weightUnitController,
-                        ),
-                      ),
-                    ],
-                  ),
-                  KSpacing.vGapMd,
-                  Row(
-                    children: [
-                      Expanded(
-                        child: KTextField(
-                          label: 'L',
-                          controller: _lengthController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        ),
-                      ),
-                      KSpacing.hGapSm,
-                      Expanded(
-                        child: KTextField(
-                          label: 'W',
-                          controller: _widthController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        ),
-                      ),
-                      KSpacing.hGapSm,
-                      Expanded(
-                        child: KTextField(
-                          label: 'H',
-                          controller: _heightController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        ),
-                      ),
-                      KSpacing.hGapSm,
-                      SizedBox(
-                        width: 60,
-                        child: KTextField(
-                          label: 'Unit',
-                          controller: _dimensionUnitController,
-                        ),
-                      ),
-                    ],
-                  ),
-                  KSpacing.vGapLg,
-
-                  // ── Accounting ──
-                  Text('Accounting', style: KTypography.h3),
-                  KSpacing.vGapMd,
-                  KTextField(
-                    label: 'Revenue Account Code',
-                    controller: _revenueAccountController,
-                    prefixIcon: Icons.account_balance_outlined,
-                  ),
-                  KSpacing.vGapMd,
-                  KTextField(
-                    label: 'COGS Account Code',
-                    controller: _cogsAccountController,
-                    prefixIcon: Icons.account_balance_outlined,
-                  ),
-                  KSpacing.vGapMd,
-                  KTextField(
-                    label: 'Inventory Account Code',
-                    controller: _inventoryAccountController,
-                    prefixIcon: Icons.account_balance_outlined,
-                  ),
-                  KSpacing.vGapLg,
-
-                  // ── Pharmacy (conditional on DRUG_SCHEDULE_FIELDS feature flag) ──
-                  if (ref.watch(featureFlagsProvider).valueOrNull?.contains('DRUG_SCHEDULE_FIELDS') == true) ...[
-                    Text('Pharmacy', style: KTypography.h3),
-                    KSpacing.vGapMd,
-                    Row(
+                  // ── Physical Properties (collapsed) ──
+                  if (_itemType == 'GOODS')
+                    KCollapsibleSection(
+                      title: 'Physical Properties',
+                      icon: Icons.straighten_outlined,
                       children: [
-                        Expanded(
-                          child: KTextField(
+                        KCompactRow(flex: const [2, 1], children: [
+                          KTextField(
+                            label: 'Weight',
+                            controller: _weightController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                          KTextField(
+                            label: 'Unit',
+                            controller: _weightUnitController,
+                          ),
+                        ]),
+                        KSpacing.vGapSm,
+                        KCompactRow(flex: const [1, 1, 1, 1], children: [
+                          KTextField(
+                            label: 'L',
+                            controller: _lengthController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                          KTextField(
+                            label: 'W',
+                            controller: _widthController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                          KTextField(
+                            label: 'H',
+                            controller: _heightController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                          KTextField(
+                            label: 'Unit',
+                            controller: _dimensionUnitController,
+                          ),
+                        ]),
+                      ],
+                    ),
+
+                  // ── Accounting (collapsed) ──
+                  KCollapsibleSection(
+                    title: 'Accounting',
+                    icon: Icons.account_balance_outlined,
+                    children: [
+                      KTextField(
+                        label: 'Revenue Account Code',
+                        controller: _revenueAccountController,
+                        prefixIcon: Icons.account_balance_outlined,
+                      ),
+                      KSpacing.vGapSm,
+                      KTextField(
+                        label: 'COGS Account Code',
+                        controller: _cogsAccountController,
+                        prefixIcon: Icons.account_balance_outlined,
+                      ),
+                      KSpacing.vGapSm,
+                      KTextField(
+                        label: 'Inventory Account Code',
+                        controller: _inventoryAccountController,
+                        prefixIcon: Icons.account_balance_outlined,
+                      ),
+                    ],
+                  ),
+
+                  // ── Pharmacy (collapsed, conditional) ──
+                  if (ref.watch(featureFlagsProvider).valueOrNull?.contains('DRUG_SCHEDULE_FIELDS') == true)
+                    KCollapsibleSection(
+                      title: 'Pharmacy',
+                      icon: Icons.local_pharmacy_outlined,
+                      children: [
+                        KCompactRow(children: [
+                          KTextField(
                             label: 'Drug Schedule',
                             controller: _drugScheduleController,
                           ),
-                        ),
-                        KSpacing.hGapMd,
-                        Expanded(
-                          child: KTextField(
+                          KTextField(
                             label: 'Dosage Form',
                             controller: _dosageFormController,
                           ),
+                        ]),
+                        KSpacing.vGapSm,
+                        KTextField(
+                          label: 'Composition / Salt',
+                          controller: _compositionController,
+                          maxLines: 2,
                         ),
-                      ],
-                    ),
-                    KSpacing.vGapMd,
-                    KTextField(
-                      label: 'Composition / Salt',
-                      controller: _compositionController,
-                      maxLines: 2,
-                    ),
-                    KSpacing.vGapMd,
-                    Row(
-                      children: [
-                        Expanded(
-                          child: KTextField(
+                        KSpacing.vGapSm,
+                        KCompactRow(children: [
+                          KTextField(
                             label: 'Pack Size',
                             controller: _packSizeController,
                           ),
-                        ),
-                        KSpacing.hGapMd,
-                        Expanded(
-                          child: KTextField(
+                          KTextField(
                             label: 'Storage Condition',
                             controller: _storageConditionController,
                           ),
+                        ]),
+                        KSpacing.vGapSm,
+                        SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          title: const Text('Prescription Required'),
+                          value: _prescriptionRequired,
+                          onChanged: (v) => setState(() => _prescriptionRequired = v),
                         ),
                       ],
                     ),
-                    KSpacing.vGapMd,
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Prescription Required'),
-                      value: _prescriptionRequired,
-                      onChanged: (v) => setState(() => _prescriptionRequired = v),
-                    ),
-                    KSpacing.vGapLg,
-                  ],
 
-                  KSpacing.vGapXl,
+                  KSpacing.vGapLg,
                   KButton(
                     label: _isEdit ? 'Update' : 'Create Item',
                     fullWidth: true,

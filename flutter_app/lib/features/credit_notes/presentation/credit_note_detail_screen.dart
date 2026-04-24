@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -84,7 +85,23 @@ class CreditNoteDetailScreen extends ConsumerWidget {
         _issueConfirmation(context, ref);
         break;
       case 'pdf':
-        // PDF placeholder
+        if (context.mounted) {
+          final cnAsync = ref.read(creditNoteDetailProvider(creditNoteId));
+          cnAsync.whenData((data) {
+            final cn = (data['data'] ?? data) as Map<String, dynamic>;
+            final number = cn['creditNoteNumber'] as String? ?? 'credit-note';
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => KPdfPreviewScreen(
+                  title: number,
+                  pdfEndpoint: ApiConfig.creditNotePdf(creditNoteId),
+                  fileName: '$number.pdf',
+                ),
+              ),
+            );
+          });
+        }
         break;
     }
   }

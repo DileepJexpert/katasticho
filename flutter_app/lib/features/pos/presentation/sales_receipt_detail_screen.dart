@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -22,9 +23,27 @@ class SalesReceiptDetailScreen extends ConsumerWidget {
         title: const Text('Receipt Details'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.print, size: 20),
-            tooltip: 'Print',
-            onPressed: () => _handlePrint(context, ref),
+            icon: const Icon(Icons.picture_as_pdf_outlined, size: 20),
+            tooltip: 'View PDF',
+            onPressed: () {
+              final detail = ref.read(receiptDetailProvider(receiptId));
+              detail.whenData((response) {
+                final data = (response['data'] is Map<String, dynamic>)
+                    ? response['data'] as Map<String, dynamic>
+                    : response;
+                final number = data['receiptNumber'] as String? ?? 'receipt';
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => KPdfPreviewScreen(
+                      title: number,
+                      pdfEndpoint: ApiConfig.salesReceiptPrint(receiptId),
+                      fileName: '$number.pdf',
+                    ),
+                  ),
+                );
+              });
+            },
           ),
           IconButton(
             icon: const Icon(Icons.send, size: 20),

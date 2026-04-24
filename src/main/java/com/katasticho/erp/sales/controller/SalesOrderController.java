@@ -4,12 +4,15 @@ import com.katasticho.erp.ar.dto.InvoiceResponse;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
 import com.katasticho.erp.sales.dto.*;
+import com.katasticho.erp.sales.service.SalesOrderPdfService;
 import com.katasticho.erp.sales.service.SalesOrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +26,7 @@ import java.util.UUID;
 public class SalesOrderController {
 
     private final SalesOrderService salesOrderService;
+    private final SalesOrderPdfService salesOrderPdfService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
@@ -55,6 +59,18 @@ public class SalesOrderController {
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<SalesOrderResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(salesOrderService.get(id)));
+    }
+
+    @GetMapping("/{id}/pdf")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<byte[]> downloadPdf(@PathVariable UUID id) {
+        SalesOrderResponse so = salesOrderService.get(id);
+        byte[] pdf = salesOrderPdfService.generatePdf(so);
+        String filename = "sales-order-" + so.salesOrderNumber().replaceAll("[/\\\\:*?\"<>|]", "-") + ".pdf";
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .body(pdf);
     }
 
     @PutMapping("/{id}")

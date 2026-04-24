@@ -906,7 +906,8 @@ class _LineItemCardState extends State<_LineItemCard> {
   Widget build(BuildContext context) {
     final isLinked = widget.item.itemId != null;
     return KCard(
-      margin: const EdgeInsets.only(bottom: KSpacing.sm),
+      margin: const EdgeInsets.only(bottom: KSpacing.xs),
+      padding: const EdgeInsets.all(KSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -959,7 +960,7 @@ class _LineItemCardState extends State<_LineItemCard> {
             KSpacing.vGapSm,
             _buildBatchRow(),
           ],
-          KSpacing.vGapSm,
+          KSpacing.vGapXs,
           KTextField(
             label: 'Description',
             controller: _descCtl,
@@ -968,104 +969,94 @@ class _LineItemCardState extends State<_LineItemCard> {
               widget.onChanged();
             },
           ),
-          KSpacing.vGapSm,
-          Row(
-            children: [
-              Expanded(
-                child: KTextField(
-                  label: 'HSN Code',
-                  controller: _hsnCtl,
-                  onChanged: (v) {
-                    widget.item.hsnCode = v;
-                    widget.onChanged();
-                  },
-                ),
-              ),
-              KSpacing.hGapSm,
-              Expanded(
-                child: widget.item.weightBasedBilling
-                    ? Row(
-                        children: [
-                          Expanded(
-                            child: KTextField(
-                              label: 'Weight',
-                              controller: _qtyCtl,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
-                              onChanged: (v) {
-                                final raw = double.tryParse(v) ?? 0;
-                                widget.item.quantity =
-                                    widget.item.weightUnit == 'GM'
-                                        ? raw / 1000
-                                        : raw;
-                                widget.onChanged();
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          DropdownButton<String>(
-                            value: widget.item.weightUnit,
-                            underline: const SizedBox.shrink(),
-                            items: const [
-                              DropdownMenuItem(
-                                  value: 'KG', child: Text('KG')),
-                              DropdownMenuItem(
-                                  value: 'GM', child: Text('GM')),
-                            ],
-                            onChanged: (unit) {
-                              if (unit == null) return;
-                              final currentRaw =
-                                  double.tryParse(_qtyCtl.text) ?? 0;
-                              setState(() {
-                                widget.item.weightUnit = unit;
-                                if (currentRaw > 0) {
-                                  final converted = unit == 'GM'
-                                      ? currentRaw * 1000
-                                      : currentRaw / 1000;
-                                  _qtyCtl.text = unit == 'GM'
-                                      ? converted.toStringAsFixed(0)
-                                      : converted.toStringAsFixed(3);
-                                  widget.item.quantity = unit == 'GM'
-                                      ? converted / 1000
-                                      : converted;
-                                }
-                              });
-                              widget.onChanged();
-                            },
-                          ),
+          KSpacing.vGapXs,
+          KCompactRow(children: [
+            KTextField(
+              label: 'HSN Code',
+              controller: _hsnCtl,
+              onChanged: (v) {
+                widget.item.hsnCode = v;
+                widget.onChanged();
+              },
+            ),
+            widget.item.weightBasedBilling
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: KTextField(
+                          label: 'Weight',
+                          controller: _qtyCtl,
+                          keyboardType:
+                              const TextInputType.numberWithOptions(
+                                  decimal: true),
+                          onChanged: (v) {
+                            final raw = double.tryParse(v) ?? 0;
+                            widget.item.quantity =
+                                widget.item.weightUnit == 'GM'
+                                    ? raw / 1000
+                                    : raw;
+                            widget.onChanged();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      DropdownButton<String>(
+                        value: widget.item.weightUnit,
+                        underline: const SizedBox.shrink(),
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'KG', child: Text('KG')),
+                          DropdownMenuItem(
+                              value: 'GM', child: Text('GM')),
                         ],
-                      )
-                    : KTextField(
-                        label: 'Quantity',
-                        controller: _qtyCtl,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(
-                                decimal: true),
-                        onChanged: (v) {
-                          widget.item.quantity = double.tryParse(v) ?? 1;
+                        onChanged: (unit) {
+                          if (unit == null) return;
+                          final currentRaw =
+                              double.tryParse(_qtyCtl.text) ?? 0;
+                          setState(() {
+                            widget.item.weightUnit = unit;
+                            if (currentRaw > 0) {
+                              final converted = unit == 'GM'
+                                  ? currentRaw * 1000
+                                  : currentRaw / 1000;
+                              _qtyCtl.text = unit == 'GM'
+                                  ? converted.toStringAsFixed(0)
+                                  : converted.toStringAsFixed(3);
+                              widget.item.quantity = unit == 'GM'
+                                  ? converted / 1000
+                                  : converted;
+                            }
+                          });
                           widget.onChanged();
                         },
                       ),
-              ),
-            ],
-          ),
-          KSpacing.vGapSm,
+                    ],
+                  )
+                : KTextField(
+                    label: 'Qty',
+                    controller: _qtyCtl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(
+                            decimal: true),
+                    onChanged: (v) {
+                      widget.item.quantity = double.tryParse(v) ?? 1;
+                      widget.onChanged();
+                    },
+                  ),
+            KTextField.amount(
+              label: widget.item.weightBasedBilling
+                  ? 'Rate/kg'
+                  : 'Price',
+              controller: _priceCtl,
+              onChanged: (v) {
+                widget.item.unitPrice = double.tryParse(v) ?? 0;
+                widget.onChanged();
+              },
+            ),
+          ]),
+          KSpacing.vGapXs,
           Row(
             children: [
-              Expanded(
-                child: KTextField.amount(
-                  label: widget.item.weightBasedBilling
-                      ? 'Rate / kg'
-                      : 'Unit Price',
-                  controller: _priceCtl,
-                  onChanged: (v) {
-                    widget.item.unitPrice = double.tryParse(v) ?? 0;
-                    widget.onChanged();
-                  },
-                ),
-              ),
-              KSpacing.hGapSm,
               Expanded(
                 child: TaxGroupPicker(
                   value: widget.item.taxGroupId,
@@ -1077,14 +1068,9 @@ class _LineItemCardState extends State<_LineItemCard> {
                   },
                 ),
               ),
-            ],
-          ),
-          KSpacing.vGapSm,
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
+              KSpacing.hGapMd,
               Text(
-                'Line Total: ${CurrencyFormatter.formatIndian(widget.item.lineTotal)}',
+                CurrencyFormatter.formatIndian(widget.item.lineTotal),
                 style: KTypography.amountSmall.copyWith(
                   color: KColors.primary,
                 ),

@@ -148,45 +148,42 @@ class _CreditNoteCreateScreenState
         child: ListView(
           padding: KSpacing.pagePadding,
           children: [
-            // ── Customer Selection ──
-            _buildCustomerPicker(),
-            KSpacing.vGapMd,
-
-            // ── Date ──
-            KTextField(
-              label: 'Credit Note Date',
-              controller: TextEditingController(
-                text: DateFormatter.display(_creditNoteDate),
+            // Customer + Date side-by-side
+            KCompactRow(children: [
+              _buildCustomerPicker(),
+              KTextField(
+                label: 'Credit Note Date',
+                controller: TextEditingController(
+                  text: DateFormatter.display(_creditNoteDate),
+                ),
+                readOnly: true,
+                prefixIcon: Icons.calendar_today,
+                onTap: _pickDate,
               ),
-              readOnly: true,
-              prefixIcon: Icons.calendar_today,
-              onTap: _pickDate,
-            ),
-            KSpacing.vGapMd,
+            ]),
+            KSpacing.vGapSm,
 
-            // ── Reason ──
-            KTextField(
-              label: 'Reason',
-              hint: 'e.g., Goods returned, Pricing error',
-              controller: _reasonController,
-              maxLines: 2,
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Reason is required' : null,
-            ),
-            KSpacing.vGapMd,
-
-            // ── Place of Supply ──
-            KTextField(
-              label: 'Place of Supply (State Code)',
-              hint: 'e.g., 29 for Karnataka',
-              controller: _placeOfSupplyController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(2),
-              ],
-            ),
-            KSpacing.vGapLg,
+            // Reason + Place of Supply side-by-side
+            KCompactRow(flex: const [3, 1], children: [
+              KTextField(
+                label: 'Reason *',
+                hint: 'e.g., Goods returned, Pricing error',
+                controller: _reasonController,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Reason is required' : null,
+              ),
+              KTextField(
+                label: 'State Code',
+                hint: 'e.g. 29',
+                controller: _placeOfSupplyController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(2),
+                ],
+              ),
+            ]),
+            KSpacing.vGapSm,
 
             // ── Line Items ──
             Row(
@@ -299,12 +296,12 @@ class _CreditNoteCreateScreenState
     final line = _lines[index];
 
     return KCard(
-      margin: const EdgeInsets.only(bottom: KSpacing.sm),
+      margin: const EdgeInsets.only(bottom: KSpacing.xs),
+      padding: const EdgeInsets.all(KSpacing.sm),
       borderColor: KColors.divider,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row with line number and remove button
           Row(
             children: [
               Text('Item ${index + 1}', style: KTypography.labelLarge),
@@ -319,85 +316,70 @@ class _CreditNoteCreateScreenState
                 ),
             ],
           ),
-          KSpacing.vGapSm,
-
-          // Description
+          KSpacing.vGapXs,
           KTextField(
-            label: 'Description',
+            label: 'Description *',
             controller: line.descriptionController,
             validator: (v) => (v == null || v.trim().isEmpty)
                 ? 'Description required'
                 : null,
           ),
-          KSpacing.vGapSm,
-
-          // HSN Code
-          KTextField(
-            label: 'HSN/SAC Code',
-            hint: 'Optional',
-            controller: line.hsnController,
-            keyboardType: TextInputType.number,
-          ),
-          KSpacing.vGapSm,
-
-          // Quantity + Unit Price
+          KSpacing.vGapXs,
+          KCompactRow(flex: const [1, 1, 2], children: [
+            KTextField(
+              label: 'HSN',
+              hint: 'Optional',
+              controller: line.hsnController,
+              keyboardType: TextInputType.number,
+            ),
+            KTextField(
+              label: 'Qty',
+              controller: line.qtyController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(
+                    RegExp(r'^\d+\.?\d{0,2}')),
+              ],
+              onChanged: (_) => setState(() {}),
+              validator: (v) {
+                final val = double.tryParse(v ?? '');
+                if (val == null || val <= 0) return 'Invalid';
+                return null;
+              },
+            ),
+            KTextField.amount(
+              label: 'Unit Price',
+              controller: line.priceController,
+              onChanged: (_) => setState(() {}),
+              validator: (v) {
+                final val = double.tryParse(v ?? '');
+                if (val == null || val < 0) return 'Invalid';
+                return null;
+              },
+            ),
+          ]),
+          KSpacing.vGapXs,
           Row(
             children: [
               Expanded(
-                child: KTextField(
-                  label: 'Qty',
-                  controller: line.qtyController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(
-                        RegExp(r'^\d+\.?\d{0,2}')),
-                  ],
-                  onChanged: (_) => setState(() {}),
-                  validator: (v) {
-                    final val = double.tryParse(v ?? '');
-                    if (val == null || val <= 0) return 'Invalid';
-                    return null;
-                  },
+                child: TaxGroupPicker(
+                  value: line.taxGroupId,
+                  label: 'Tax',
+                  onChanged: (group) => setState(() {
+                    line.taxGroupId = group?.id;
+                    line.gstRate = group?.totalRate ?? 0;
+                  }),
                 ),
               ),
               KSpacing.hGapMd,
-              Expanded(
-                flex: 2,
-                child: KTextField.amount(
-                  label: 'Unit Price',
-                  controller: line.priceController,
-                  onChanged: (_) => setState(() {}),
-                  validator: (v) {
-                    final val = double.tryParse(v ?? '');
-                    if (val == null || val < 0) return 'Invalid';
-                    return null;
-                  },
+              Text(
+                CurrencyFormatter.formatIndian(line.lineTotal),
+                style: KTypography.amountSmall.copyWith(
+                  color: KColors.primary,
                 ),
               ),
             ],
-          ),
-          KSpacing.vGapSm,
-
-          TaxGroupPicker(
-            value: line.taxGroupId,
-            label: 'Tax',
-            onChanged: (group) => setState(() {
-              line.taxGroupId = group?.id;
-              line.gstRate = group?.totalRate ?? 0;
-            }),
-          ),
-          KSpacing.vGapSm,
-
-          // Line total
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              'Line Total: ${CurrencyFormatter.formatIndian(line.lineTotal)}',
-              style: KTypography.labelMedium.copyWith(
-                color: KColors.textPrimary,
-              ),
-            ),
           ),
         ],
       ),

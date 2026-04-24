@@ -47,7 +47,10 @@ class ApiConfig {
   static String cancelInvoice(String id) => '/api/v1/invoices/$id/cancel';
   static String invoicePayments(String invoiceId) =>
       '/api/v1/invoices/$invoiceId/payments';
+  static String invoicePdf(String id) => '/api/v1/invoices/$id/pdf';
   static const String creditNotes = '/api/v1/credit-notes';
+  static String creditNoteById(String id) => '/api/v1/credit-notes/$id';
+  static String creditNotePdf(String id) => '/api/v1/credit-notes/$id/pdf';
   static String issueCreditNote(String id) => '/api/v1/credit-notes/$id/issue';
 
   // AR Reports
@@ -126,6 +129,7 @@ class ApiConfig {
   static String sendEstimate(String id) => '/api/v1/estimates/$id/send';
   static String acceptEstimate(String id) => '/api/v1/estimates/$id/accept';
   static String declineEstimate(String id) => '/api/v1/estimates/$id/decline';
+  static String estimatePdf(String id) => '/api/v1/estimates/$id/pdf';
   static String convertEstimate(String id) =>
       '/api/v1/estimates/$id/convert-to-invoice';
 
@@ -258,6 +262,7 @@ class ApiConfig {
   static String salesOrderFromEstimate(String estimateId) => '/api/v1/sales-orders/from-estimate/$estimateId';
   static String salesOrderReservations(String id) => '/api/v1/sales-orders/$id/reservations';
   static String salesOrderInvoices(String id) => '/api/v1/sales-orders/$id/invoices';
+  static String salesOrderPdf(String id) => '/api/v1/sales-orders/$id/pdf';
 
   // Delivery Challans
   static const String deliveryChallans = '/api/v1/delivery-challans';
@@ -265,6 +270,7 @@ class ApiConfig {
   static String dispatchChallan(String id) => '/api/v1/delivery-challans/$id/dispatch';
   static String deliverChallan(String id) => '/api/v1/delivery-challans/$id/deliver';
   static String cancelChallan(String id) => '/api/v1/delivery-challans/$id/cancel';
+  static String deliveryChallanPdf(String id) => '/api/v1/delivery-challans/$id/pdf';
   static String challansBySalesOrder(String soId) => '/api/v1/delivery-challans/by-sales-order/$soId';
 
   // Pricing (v2 — F3 price lists)

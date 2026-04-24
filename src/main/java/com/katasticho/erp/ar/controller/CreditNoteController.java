@@ -3,6 +3,7 @@ package com.katasticho.erp.ar.controller;
 import com.katasticho.erp.ar.dto.CreateCreditNoteRequest;
 import com.katasticho.erp.ar.dto.CreditNoteResponse;
 import com.katasticho.erp.ar.entity.CreditNote;
+import com.katasticho.erp.ar.service.CreditNotePdfService;
 import com.katasticho.erp.ar.service.CreditNoteService;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
@@ -10,7 +11,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +26,7 @@ import java.util.UUID;
 public class CreditNoteController {
 
     private final CreditNoteService creditNoteService;
+    private final CreditNotePdfService creditNotePdfService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
@@ -44,6 +48,19 @@ public class CreditNoteController {
     public ResponseEntity<ApiResponse<CreditNoteResponse>> getCreditNote(@PathVariable UUID id) {
         CreditNote cn = creditNoteService.getCreditNote(id);
         return ResponseEntity.ok(ApiResponse.ok(creditNoteService.toResponse(cn)));
+    }
+
+    @GetMapping("/{id}/pdf")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<byte[]> downloadPdf(@PathVariable UUID id) {
+        CreditNote cn = creditNoteService.getCreditNote(id);
+        CreditNoteResponse response = creditNoteService.toResponse(cn);
+        byte[] pdf = creditNotePdfService.generatePdf(response);
+        String filename = "credit-note-" + response.creditNoteNumber().replaceAll("[/\\\\:*?\"<>|]", "-") + ".pdf";
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .body(pdf);
     }
 
     @GetMapping

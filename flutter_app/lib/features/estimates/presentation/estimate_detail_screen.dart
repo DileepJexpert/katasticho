@@ -9,7 +9,6 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/estimate_repository.dart';
-import 'estimate_pdf_screen.dart';
 
 /// Pulls comments for a given estimate.
 final _commentsProvider = FutureProvider.autoDispose
@@ -61,8 +60,11 @@ class EstimateDetailScreen extends ConsumerWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                EstimatePdfScreen(estimate: estimate),
+                            builder: (_) => KPdfPreviewScreen(
+                              title: number,
+                              pdfEndpoint: ApiConfig.estimatePdf(estimateId),
+                              fileName: '$number.pdf',
+                            ),
                           ),
                         );
                         break;
