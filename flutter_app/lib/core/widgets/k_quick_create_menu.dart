@@ -4,52 +4,21 @@ import '../theme/k_spacing.dart';
 import '../theme/k_typography.dart';
 import '../../routing/app_router.dart';
 
-/// A popup "Quick Create" menu — Zoho NextGen style.
-///
-/// Shows a floating menu of the most common create actions anchored
-/// to the widget it wraps (usually a `+` button in the sidebar or top bar).
 class KQuickCreateMenu extends StatelessWidget {
-  /// Whether to show labels alongside icons (sidebar = true, icon bar = false).
   final bool expanded;
 
   const KQuickCreateMenu({super.key, this.expanded = true});
 
   static const _items = [
-    _CreateItem(
-      label: 'Invoice',
-      icon: Icons.receipt_long_rounded,
-      route: Routes.invoiceCreate,
-    ),
-    _CreateItem(
-      label: 'Estimate',
-      icon: Icons.request_quote_rounded,
-      route: Routes.estimateCreate,
-    ),
-    _CreateItem(
-      label: 'Bill',
-      icon: Icons.receipt_rounded,
-      route: Routes.billCreate,
-    ),
-    _CreateItem(
-      label: 'Expense',
-      icon: Icons.payments_rounded,
-      route: Routes.expenseCreate,
-    ),
-    _CreateItem(
-      label: 'Contact',
-      icon: Icons.person_add_rounded,
-      route: Routes.contactCreate,
-    ),
-    _CreateItem(
-      label: 'Item',
-      icon: Icons.add_box_rounded,
-      route: Routes.itemCreate,
-    ),
-    _CreateItem(
-      label: 'Credit Note',
-      icon: Icons.note_add_rounded,
-      route: Routes.creditNoteCreate,
-    ),
+    _CreateItem(label: 'New Invoice', icon: Icons.receipt_long_rounded, route: Routes.invoiceCreate),
+    _CreateItem(label: 'New POS Sale', icon: Icons.point_of_sale_rounded, route: Routes.pos),
+    _CreateItem(label: 'New Bill', icon: Icons.receipt_rounded, route: Routes.billCreate),
+    _CreateItem(label: 'New Customer', icon: Icons.person_add_rounded, route: Routes.contactCreate),
+    _CreateItem(label: 'New Item', icon: Icons.add_box_rounded, route: Routes.itemCreate),
+    _CreateItem(label: 'New Expense', icon: Icons.payments_rounded, route: Routes.expenseCreate),
+    _CreateItem(label: 'New Estimate', icon: Icons.request_quote_rounded, route: Routes.estimateCreate),
+    _CreateItem(label: 'New Sales Order', icon: Icons.assignment_rounded, route: Routes.salesOrderCreate),
+    _CreateItem(label: 'New Credit Note', icon: Icons.note_add_rounded, route: Routes.creditNoteCreate),
   ];
 
   void _show(BuildContext context) {
@@ -57,14 +26,13 @@ class KQuickCreateMenu extends StatelessWidget {
     if (renderBox == null) return;
     final offset = renderBox.localToGlobal(Offset.zero);
     final size = renderBox.size;
+    final screenSize = MediaQuery.of(context).size;
 
     showMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(
-        offset.dx,
-        offset.dy + size.height + 4,
-        offset.dx + size.width,
-        0,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(offset.dx, offset.dy + size.height + 4, size.width, 0),
+        Offset.zero & screenSize,
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(KSpacing.radiusMd),
@@ -73,7 +41,7 @@ class KQuickCreateMenu extends StatelessWidget {
           width: 1,
         ),
       ),
-      elevation: 0,
+      elevation: 8,
       color: Theme.of(context).colorScheme.surface,
       items: _items
           .map(
@@ -112,11 +80,30 @@ class KQuickCreateMenu extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     if (!expanded) {
-      return IconButton(
-        icon: const Icon(Icons.add_rounded),
-        tooltip: 'Quick Create',
-        onPressed: () => _show(context),
-        color: cs.onSurface,
+      return Material(
+        color: cs.primary,
+        borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+          onTap: () => _show(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.add_rounded, size: 16, color: Colors.white),
+                const SizedBox(width: 4),
+                Text(
+                  'Create',
+                  style: KTypography.labelSmall.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
