@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/k_colors.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
@@ -39,6 +40,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   String? _searchQuery;
   Timer? _debounce;
   bool _isSubmitting = false;
+  bool _showRecentPanel = false;
 
   @override
   void dispose() {
@@ -196,8 +198,16 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   }
 
   Future<void> _showRecentTransactions() async {
+    final isWide = MediaQuery.of(context).size.width >= KSpacing.desktopBreakpoint;
+    if (isWide) {
+      setState(() => _showRecentPanel = !_showRecentPanel);
+      return;
+    }
     final result = await showRecentTransactionsSheet(context);
-    if (result == null || !mounted) return;
+    if (result != null && mounted) _handleRecentAction(result);
+  }
+
+  Future<void> _handleRecentAction(Map<String, String> result) async {
     final receiptId = result['receiptId'] as String;
     final action = result['action'] as String;
     final repo = ref.read(posRepositoryProvider);
@@ -642,26 +652,37 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               title: const Text('Quick POS'),
               actions: _buildAppBarActions(context, cart),
             ),
-            body: Column(
+            body: Row(
               children: [
-                PosSearchBar(
-                  controller: _searchController,
-                  onChanged: _onSearchChanged,
-                  onClear: _clearSearch,
-                  onSubmitted: _onSearchSubmitted,
-                  focusNode: _searchFocusNode,
-                ),
                 Expanded(
-                  child: isSearching
-                      ? _buildSearchResults(searchAsync)
-                      : _buildCartView(cart),
+                  child: Column(
+                    children: [
+                      PosSearchBar(
+                        controller: _searchController,
+                        onChanged: _onSearchChanged,
+                        onClear: _clearSearch,
+                        onSubmitted: _onSearchSubmitted,
+                        focusNode: _searchFocusNode,
+                      ),
+                      Expanded(
+                        child: isSearching
+                            ? _buildSearchResults(searchAsync)
+                            : _buildCartView(cart),
+                      ),
+                      PosTotalBar(
+                        onCashTap: () => _onPaymentTap('CASH'),
+                        onUpiTap: () => _onPaymentTap('UPI'),
+                        onCardTap: () => _onPaymentTap('CARD'),
+                        onSplitTap: () => _onPaymentTap('SPLIT'),
+                      ),
+                    ],
+                  ),
                 ),
-                PosTotalBar(
-                  onCashTap: () => _onPaymentTap('CASH'),
-                  onUpiTap: () => _onPaymentTap('UPI'),
-                  onCardTap: () => _onPaymentTap('CARD'),
-                  onSplitTap: () => _onPaymentTap('SPLIT'),
-                ),
+                if (_showRecentPanel)
+                  _RecentTransactionsPanel(
+                    onClose: () => setState(() => _showRecentPanel = false),
+                    onAction: _handleRecentAction,
+                  ),
               ],
             ),
           ),
@@ -777,6 +798,131 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 }
 
 enum _PosOverflowAction { clear, settings }
+
+class _RecentTransactionsPanel extends ConsumerWidget {
+  final VoidCallback onClose;
+  final Future<void> Function(Map<String, String>) onAction;
+
+  const _RecentTransactionsPanel({
+    required this.onClose,
+    required this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final transactions = ref.watch(recentTransactionsProvider);
+
+    return Container(
+      width: 320,
+      decoration: BoxDecoration(
+        color: cs.surface,
+        border: Border(
+          left: BorderSide(color: cs.outlineVariant, width: 1),
+        ),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.receipt_long, size: 18),
+                KSpacing.hGapSm,
+                Text('Recent Sales', style: KTypography.labelLarge),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: onClose,
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Close',
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          if (transactions.isEmpty)
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.receipt_long, size: 40, color: cs.outlineVariant),
+                    KSpacing.vGapSm,
+                    Text('No recent sales',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary)),
+                  ],
+                ),
+              ),
+            )
+          else
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                itemCount: transactions.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, i) {
+                  final tx = transactions[i];
+                  final ago = DateTime.now().difference(tx.completedAt);
+                  final agoText = ago.inMinutes < 1
+                      ? 'just now'
+                      : ago.inMinutes < 60
+                          ? '${ago.inMinutes}m ago'
+                          : '${ago.inHours}h ago';
+
+                  return ListTile(
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                    title: Row(
+                      children: [
+                        Text(tx.receiptNumber, style: KTypography.labelSmall),
+                        KSpacing.hGapSm,
+                        Text(agoText,
+                            style: KTypography.bodySmall
+                                .copyWith(color: KColors.textSecondary, fontSize: 10)),
+                      ],
+                    ),
+                    subtitle: Text(
+                      tx.customerName ?? 'Walk-in',
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.textSecondary, fontSize: 11),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          CurrencyFormatter.formatIndian(tx.total),
+                          style: KTypography.amountSmall,
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.print, size: 16),
+                          onPressed: () => onAction({'action': 'print', 'receiptId': tx.receiptId}),
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(4),
+                          tooltip: 'Reprint',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.send, size: 16),
+                          onPressed: () => onAction({'action': 'whatsapp', 'receiptId': tx.receiptId}),
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(4),
+                          tooltip: 'WhatsApp',
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
 class _HeldCartsBadge extends ConsumerWidget {
   final VoidCallback onTap;
