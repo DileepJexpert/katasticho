@@ -900,7 +900,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                     icon: Icons.currency_rupee,
                     initiallyExpanded: true,
                     children: [
-                      KCompactRow(children: [
+                      KCompactRow(flex: const [2, 2, 1, 1], children: [
                         KTextField.amount(
                           label: 'Purchase Price',
                           controller: _purchasePriceController,
@@ -923,37 +923,36 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                             return null;
                           },
                         ),
-                      ]),
-                      if (ref.watch(featureFlagsProvider).valueOrNull?.contains('MRP_PRICING') == true) ...[
-                        KSpacing.vGapSm,
-                        KTextField.amount(
-                          label: 'MRP (Maximum Retail Price)',
-                          controller: _mrpController,
-                          onChanged: (_) => setState(() {}),
-                          validator: (v) {
-                            final mrp = double.tryParse(v ?? '') ?? 0;
-                            final salePrice = double.tryParse(_salePriceController.text) ?? 0;
-                            if (mrp > 0 && salePrice > mrp) {
-                              return 'Sale price cannot exceed MRP';
-                            }
-                            return null;
-                          },
-                        ),
-                        _buildMrpMarginHint(),
-                      ],
-                      KSpacing.vGapSm,
-                      KCompactRow(children: [
                         KTextField(
-                          label: _itemType == 'SERVICE' ? 'SAC Code' : 'HSN Code',
+                          label: _itemType == 'SERVICE' ? 'SAC' : 'HSN',
                           controller: _hsnController,
                         ),
                         KTextField(
-                          label: 'GST Rate (%)',
+                          label: 'GST %',
                           controller: _gstRateController,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           selectAllOnFocus: true,
                         ),
                       ]),
+                      if (ref.watch(featureFlagsProvider).valueOrNull?.contains('MRP_PRICING') == true) ...[
+                        KSpacing.vGapSm,
+                        KCompactRow(flex: const [2, 3], children: [
+                          KTextField.amount(
+                            label: 'MRP',
+                            controller: _mrpController,
+                            onChanged: (_) => setState(() {}),
+                            validator: (v) {
+                              final mrp = double.tryParse(v ?? '') ?? 0;
+                              final salePrice = double.tryParse(_salePriceController.text) ?? 0;
+                              if (mrp > 0 && salePrice > mrp) {
+                                return 'Sale price cannot exceed MRP';
+                              }
+                              return null;
+                            },
+                          ),
+                          _buildMrpMarginHint(),
+                        ]),
+                      ],
                       if (_itemType != 'SERVICE') ...[
                         KSpacing.vGapSm,
                         _buildPurchaseSalesUnitsSection(),
