@@ -3,6 +3,7 @@ package com.katasticho.erp.inventory.service;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.entity.InvoiceLine;
 import com.katasticho.erp.audit.AuditService;
+import com.katasticho.erp.common.cache.CacheInvalidationService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.inventory.dto.StockAdjustmentRequest;
@@ -53,6 +54,7 @@ public class InventoryService {
     private final BomComponentRepository bomComponentRepository;
     private final BatchService batchService;
     private final AuditService auditService;
+    private final CacheInvalidationService cacheInvalidationService;
 
     /**
      * THE MOST IMPORTANT METHOD IN THIS MODULE.
@@ -152,6 +154,8 @@ public class InventoryService {
         // Step 7: audit
         auditService.log("STOCK_MOVEMENT", movement.getId(), "CREATE", null,
                 "{\"item\":\"" + item.getSku() + "\",\"qty\":\"" + qty + "\",\"type\":\"" + request.movementType() + "\"}");
+
+        cacheInvalidationService.onStockMovement(orgId, item.getId(), warehouse.getId());
 
         log.info("Stock movement {} {} qty={} for item {} @ warehouse {}",
                 movement.getId(), request.movementType(), qty, item.getSku(), warehouse.getCode());

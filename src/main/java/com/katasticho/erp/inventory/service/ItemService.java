@@ -1,6 +1,7 @@
 package com.katasticho.erp.inventory.service;
 
 import com.katasticho.erp.audit.AuditService;
+import com.katasticho.erp.common.cache.CacheInvalidationService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.contact.entity.Contact;
@@ -76,6 +77,7 @@ public class ItemService {
     private final UomConversionRepository uomConversionRepository;
     private final ItemUnitPriceRepository itemUnitPriceRepository;
     private final UomRepository uomRepository;
+    private final CacheInvalidationService cacheInvalidationService;
 
     public ItemService(ItemRepository itemRepository,
                        StockBalanceRepository stockBalanceRepository,
@@ -89,7 +91,8 @@ public class ItemService {
                        ContactRepository contactRepository,
                        UomConversionRepository uomConversionRepository,
                        ItemUnitPriceRepository itemUnitPriceRepository,
-                       UomRepository uomRepository) {
+                       UomRepository uomRepository,
+                       CacheInvalidationService cacheInvalidationService) {
         this.itemRepository = itemRepository;
         this.stockBalanceRepository = stockBalanceRepository;
         this.warehouseRepository = warehouseRepository;
@@ -103,6 +106,7 @@ public class ItemService {
         this.uomConversionRepository = uomConversionRepository;
         this.itemUnitPriceRepository = itemUnitPriceRepository;
         this.uomRepository = uomRepository;
+        this.cacheInvalidationService = cacheInvalidationService;
     }
 
     @Transactional
@@ -321,6 +325,8 @@ public class ItemService {
         auditService.log("ITEM", item.getId(), "CREATE", null,
                 "{\"sku\":\"" + item.getSku() + "\",\"name\":\"" + item.getName() + "\"}");
 
+        cacheInvalidationService.onItemChanged(orgId, item.getId());
+
         log.info("Item {} created: {}", item.getSku(), item.getName());
         return toResponse(item);
     }
@@ -500,6 +506,9 @@ public class ItemService {
         }
 
         auditService.log("ITEM", item.getId(), "UPDATE", null, null);
+
+        cacheInvalidationService.onItemChanged(orgId, item.getId());
+
         return toResponse(item);
     }
 

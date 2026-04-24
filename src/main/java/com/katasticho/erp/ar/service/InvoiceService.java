@@ -10,6 +10,7 @@ import com.katasticho.erp.ar.dto.*;
 import com.katasticho.erp.ar.entity.*;
 import com.katasticho.erp.ar.repository.*;
 import com.katasticho.erp.audit.AuditService;
+import com.katasticho.erp.common.cache.CacheInvalidationService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
@@ -77,6 +78,7 @@ public class InvoiceService {
     private final DocumentEmailService documentEmailService;
     private final ItemRepository itemRepository;
     private final StockBatchRepository stockBatchRepository;
+    private final CacheInvalidationService cacheInvalidationService;
 
     /**
      * Create a DRAFT invoice with tax calculation via TaxEngine.
@@ -378,6 +380,8 @@ public class InvoiceService {
         }
         commentService.addSystemComment("INVOICE", invoice.getId(), sendComment);
 
+        cacheInvalidationService.onInvoiceChanged(orgId, invoice.getContactId());
+
         log.info("Invoice {} sent, journal={}", invoice.getInvoiceNumber(), journalEntry.getEntryNumber());
         return response;
     }
@@ -418,6 +422,8 @@ public class InvoiceService {
         auditService.log("INVOICE", invoice.getId(), "CANCEL", null,
                 "{\"reason\":\"" + reason + "\"}");
 
+        cacheInvalidationService.onInvoiceChanged(orgId, invoice.getContactId());
+
         log.info("Invoice {} cancelled: {}", invoice.getInvoiceNumber(), reason);
         return toResponse(invoice);
     }
@@ -434,8 +440,12 @@ public class InvoiceService {
     }
 
     @Transactional(readOnly = true)
-    public Page<InvoiceResponse> listInvoiceResponses(Pageable pageable) {
+    public Page<InvoiceResponse> listInvoiceResponses(String status, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
+        if (status != null && !status.isBlank()) {
+            return invoiceRepository.findByOrgIdAndStatusAndIsDeletedFalseOrderByInvoiceDateDesc(
+                    orgId, status.toUpperCase(), pageable).map(this::toResponse);
+        }
         return invoiceRepository.findByOrgIdAndIsDeletedFalseOrderByInvoiceDateDesc(orgId, pageable)
                 .map(this::toResponse);
     }
@@ -489,6 +499,8 @@ public class InvoiceService {
         }
 
         invoiceRepository.save(invoice);
+
+        cacheInvalidationService.onPaymentReceived(invoice.getOrgId(), invoice.getContactId());
     }
 
     public InvoiceResponse toResponse(Invoice inv) {
