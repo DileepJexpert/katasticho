@@ -285,15 +285,18 @@ class _ItemCard extends StatelessWidget {
                             : KColors.textSecondary,
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        '${onHand.toStringAsFixed(onHand.truncateToDouble() == onHand ? 0 : 2)} on hand',
-                        style: KTypography.bodySmall.copyWith(
-                          color: isLowStock
-                              ? KColors.warning
-                              : KColors.textSecondary,
-                          fontWeight: isLowStock
-                              ? FontWeight.w600
-                              : FontWeight.normal,
+                      Flexible(
+                        child: Text(
+                          '${onHand.toStringAsFixed(onHand.truncateToDouble() == onHand ? 0 : 2)} on hand',
+                          style: KTypography.bodySmall.copyWith(
+                            color: isLowStock
+                                ? KColors.warning
+                                : KColors.textSecondary,
+                            fontWeight: isLowStock
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (isLowStock) ...[
