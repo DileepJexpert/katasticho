@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'pos_repository.dart';
 
+const _sentinel = Object();
+
 class ReceiptListFilter {
   final String? paymentMode;
   final String? dateFrom;
@@ -9,11 +11,11 @@ class ReceiptListFilter {
 
   const ReceiptListFilter({this.paymentMode, this.dateFrom, this.dateTo, this.page = 0});
 
-  ReceiptListFilter copyWith({String? paymentMode, String? dateFrom, String? dateTo, int? page}) {
+  ReceiptListFilter copyWith({Object? paymentMode = _sentinel, Object? dateFrom = _sentinel, Object? dateTo = _sentinel, int? page}) {
     return ReceiptListFilter(
-      paymentMode: paymentMode ?? this.paymentMode,
-      dateFrom: dateFrom ?? this.dateFrom,
-      dateTo: dateTo ?? this.dateTo,
+      paymentMode: paymentMode == _sentinel ? this.paymentMode : paymentMode as String?,
+      dateFrom: dateFrom == _sentinel ? this.dateFrom : dateFrom as String?,
+      dateTo: dateTo == _sentinel ? this.dateTo : dateTo as String?,
       page: page ?? this.page,
     );
   }

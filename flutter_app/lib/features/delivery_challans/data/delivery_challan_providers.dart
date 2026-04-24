@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'delivery_challan_repository.dart';
 
+const _sentinel = Object();
+
 class DeliveryChallanListFilter {
   final String? status;
   final String? search;
@@ -17,16 +19,16 @@ class DeliveryChallanListFilter {
   });
 
   DeliveryChallanListFilter copyWith({
-    String? status,
-    String? search,
-    String? salesOrderId,
+    Object? status = _sentinel,
+    Object? search = _sentinel,
+    Object? salesOrderId = _sentinel,
     int? page,
     int? size,
   }) {
     return DeliveryChallanListFilter(
-      status: status ?? this.status,
-      search: search ?? this.search,
-      salesOrderId: salesOrderId ?? this.salesOrderId,
+      status: status == _sentinel ? this.status : status as String?,
+      search: search == _sentinel ? this.search : search as String?,
+      salesOrderId: salesOrderId == _sentinel ? this.salesOrderId : salesOrderId as String?,
       page: page ?? this.page,
       size: size ?? this.size,
     );

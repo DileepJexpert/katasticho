@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'sales_order_repository.dart';
 
+const _sentinel = Object();
+
 class SalesOrderListFilter {
   final String? status;
   final String? search;
@@ -15,14 +17,14 @@ class SalesOrderListFilter {
   });
 
   SalesOrderListFilter copyWith({
-    String? status,
-    String? search,
+    Object? status = _sentinel,
+    Object? search = _sentinel,
     int? page,
     int? size,
   }) {
     return SalesOrderListFilter(
-      status: status ?? this.status,
-      search: search ?? this.search,
+      status: status == _sentinel ? this.status : status as String?,
+      search: search == _sentinel ? this.search : search as String?,
       page: page ?? this.page,
       size: size ?? this.size,
     );

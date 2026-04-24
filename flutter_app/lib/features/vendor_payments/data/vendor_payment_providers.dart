@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'vendor_payment_repository.dart';
 
+const _sentinel = Object();
+
 /// Holds the current filter state for the vendor payment list.
 class VendorPaymentListFilter {
   final String? contactId;
@@ -16,15 +18,15 @@ class VendorPaymentListFilter {
   });
 
   VendorPaymentListFilter copyWith({
-    String? contactId,
-    String? dateFrom,
-    String? dateTo,
+    Object? contactId = _sentinel,
+    Object? dateFrom = _sentinel,
+    Object? dateTo = _sentinel,
     int? page,
   }) {
     return VendorPaymentListFilter(
-      contactId: contactId ?? this.contactId,
-      dateFrom: dateFrom ?? this.dateFrom,
-      dateTo: dateTo ?? this.dateTo,
+      contactId: contactId == _sentinel ? this.contactId : contactId as String?,
+      dateFrom: dateFrom == _sentinel ? this.dateFrom : dateFrom as String?,
+      dateTo: dateTo == _sentinel ? this.dateTo : dateTo as String?,
       page: page ?? this.page,
     );
   }

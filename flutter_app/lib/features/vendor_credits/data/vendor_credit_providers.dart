@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'vendor_credit_repository.dart';
 
+const _sentinel = Object();
+
 /// Filter state for the vendor credit list.
 class VendorCreditListFilter {
   final String? status;
@@ -14,13 +16,13 @@ class VendorCreditListFilter {
   });
 
   VendorCreditListFilter copyWith({
-    String? status,
-    String? contactId,
+    Object? status = _sentinel,
+    Object? contactId = _sentinel,
     int? page,
   }) {
     return VendorCreditListFilter(
-      status: status ?? this.status,
-      contactId: contactId ?? this.contactId,
+      status: status == _sentinel ? this.status : status as String?,
+      contactId: contactId == _sentinel ? this.contactId : contactId as String?,
       page: page ?? this.page,
     );
   }

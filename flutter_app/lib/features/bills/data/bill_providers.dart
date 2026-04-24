@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'bill_repository.dart';
 
+const _sentinel = Object();
+
 /// Holds the current filter state for the bill list.
 class BillListFilter {
   final String? status;
@@ -18,17 +20,17 @@ class BillListFilter {
   });
 
   BillListFilter copyWith({
-    String? status,
-    String? contactId,
-    String? branchId,
-    String? search,
+    Object? status = _sentinel,
+    Object? contactId = _sentinel,
+    Object? branchId = _sentinel,
+    Object? search = _sentinel,
     int? page,
   }) {
     return BillListFilter(
-      status: status ?? this.status,
-      contactId: contactId ?? this.contactId,
-      branchId: branchId ?? this.branchId,
-      search: search ?? this.search,
+      status: status == _sentinel ? this.status : status as String?,
+      contactId: contactId == _sentinel ? this.contactId : contactId as String?,
+      branchId: branchId == _sentinel ? this.branchId : branchId as String?,
+      search: search == _sentinel ? this.search : search as String?,
       page: page ?? this.page,
     );
   }

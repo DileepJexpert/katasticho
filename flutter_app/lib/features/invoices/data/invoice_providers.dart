@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../payments/data/payment_repository.dart';
 import 'invoice_repository.dart';
 
+const _sentinel = Object();
+
 /// Holds the current filter state for the invoice list.
 class InvoiceListFilter {
   final String? status;
@@ -10,10 +12,10 @@ class InvoiceListFilter {
 
   const InvoiceListFilter({this.status, this.search, this.page = 0});
 
-  InvoiceListFilter copyWith({String? status, String? search, int? page}) {
+  InvoiceListFilter copyWith({Object? status = _sentinel, Object? search = _sentinel, int? page}) {
     return InvoiceListFilter(
-      status: status ?? this.status,
-      search: search ?? this.search,
+      status: status == _sentinel ? this.status : status as String?,
+      search: search == _sentinel ? this.search : search as String?,
       page: page ?? this.page,
     );
   }
