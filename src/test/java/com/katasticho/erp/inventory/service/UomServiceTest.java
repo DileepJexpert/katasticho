@@ -5,6 +5,8 @@ import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.inventory.entity.UomConversion;
 import com.katasticho.erp.inventory.repository.UomConversionRepository;
 import com.katasticho.erp.inventory.repository.UomRepository;
+import com.katasticho.erp.organisation.IndustryFeatureConfigRepository;
+import com.katasticho.erp.organisation.IndustryTemplateRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +35,8 @@ class UomServiceTest {
 
     @Mock private UomRepository uomRepository;
     @Mock private UomConversionRepository uomConversionRepository;
+    @Mock private IndustryTemplateRepository industryTemplateRepository;
+    @Mock private IndustryFeatureConfigRepository featureConfigRepository;
 
     private UomService uomService;
     private UUID orgId;
@@ -40,7 +44,8 @@ class UomServiceTest {
 
     @BeforeEach
     void setUp() {
-        uomService = new UomService(uomRepository, uomConversionRepository);
+        uomService = new UomService(uomRepository, uomConversionRepository,
+                industryTemplateRepository, featureConfigRepository);
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);
