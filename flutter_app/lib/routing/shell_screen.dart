@@ -33,7 +33,8 @@ class NavItem {
   });
 }
 
-const _navItems = [
+// ── Top-level nav items (always visible, most frequently used) ──
+const _topNavItems = [
   NavItem(
     label: 'Dashboard',
     icon: Icons.dashboard_outlined,
@@ -65,147 +66,87 @@ const _navItems = [
     route: Routes.expenses,
   ),
   NavItem(
-    label: 'Reports',
-    icon: Icons.bar_chart_outlined,
-    activeIcon: Icons.bar_chart_rounded,
-    route: Routes.reports,
-  ),
-  NavItem(
-    label: 'AI Chat',
-    icon: Icons.auto_awesome_outlined,
-    activeIcon: Icons.auto_awesome_rounded,
-    route: Routes.aiChat,
-  ),
-];
-
-const _salesNavItems = [
-  NavItem(
-    label: 'Sales Orders',
-    icon: Icons.assignment_outlined,
-    activeIcon: Icons.assignment_rounded,
-    route: Routes.salesOrders,
-  ),
-  NavItem(
-    label: 'Delivery Challans',
-    icon: Icons.local_shipping_outlined,
-    activeIcon: Icons.local_shipping_rounded,
-    route: Routes.deliveryChallans,
-  ),
-  NavItem(
     label: 'Quick POS',
     icon: Icons.point_of_sale_outlined,
     activeIcon: Icons.point_of_sale_rounded,
     route: Routes.pos,
   ),
-  NavItem(
-    label: 'Sales Receipts',
-    icon: Icons.receipt_long_outlined,
-    activeIcon: Icons.receipt_long_rounded,
-    route: Routes.salesReceipts,
-  ),
 ];
 
-const _purchasesNavItems = [
-  NavItem(
-    label: 'Bills',
-    icon: Icons.receipt_outlined,
-    activeIcon: Icons.receipt_rounded,
-    route: Routes.bills,
-  ),
-  NavItem(
-    label: 'Payments',
-    icon: Icons.payments_outlined,
-    activeIcon: Icons.payments_rounded,
-    route: Routes.vendorPayments,
-  ),
-  NavItem(
-    label: 'Credits',
-    icon: Icons.note_alt_outlined,
-    activeIcon: Icons.note_alt_rounded,
-    route: Routes.vendorCredits,
-  ),
-];
+/// A group of nav items that collapse into a popup overlay.
+class NavGroup {
+  final String label;
+  final IconData icon;
+  final IconData activeIcon;
+  final List<NavItem> children;
+  const NavGroup({
+    required this.label,
+    required this.icon,
+    required this.activeIcon,
+    required this.children,
+  });
+}
 
-const _accountingNavItems = [
-  NavItem(
-    label: 'Accounting Dashboard',
-    icon: Icons.analytics_outlined,
-    activeIcon: Icons.analytics_rounded,
-    route: '/accounting/dashboard',
-  ),
-  NavItem(
-    label: 'Chart of Accounts',
-    icon: Icons.account_balance_outlined,
-    activeIcon: Icons.account_balance_rounded,
-    route: Routes.chartOfAccounts,
-  ),
-  NavItem(
-    label: 'Journal Entries',
-    icon: Icons.menu_book_outlined,
-    activeIcon: Icons.menu_book_rounded,
-    route: '/accounting/journal-entries',
-  ),
-];
+const _salesGroup = NavGroup(
+  label: 'Sales',
+  icon: Icons.storefront_outlined,
+  activeIcon: Icons.storefront_rounded,
+  children: [
+    NavItem(label: 'Sales Orders', icon: Icons.assignment_outlined, activeIcon: Icons.assignment_rounded, route: Routes.salesOrders),
+    NavItem(label: 'Delivery Challans', icon: Icons.local_shipping_outlined, activeIcon: Icons.local_shipping_rounded, route: Routes.deliveryChallans),
+    NavItem(label: 'Sales Receipts', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, route: Routes.salesReceipts),
+    NavItem(label: 'Estimates', icon: Icons.request_quote_outlined, activeIcon: Icons.request_quote_rounded, route: Routes.estimates),
+    NavItem(label: 'Credit Notes', icon: Icons.note_alt_outlined, activeIcon: Icons.note_alt_rounded, route: Routes.creditNotes),
+    NavItem(label: 'Recurring', icon: Icons.autorenew_outlined, activeIcon: Icons.autorenew_rounded, route: Routes.recurringInvoices),
+  ],
+);
 
-const _secondaryNavItems = [
-  NavItem(
-    label: 'Credit Ledger',
-    icon: Icons.menu_book_outlined,
-    activeIcon: Icons.menu_book_rounded,
-    route: Routes.creditLedger,
-  ),
-  NavItem(
-    label: 'Estimates',
-    icon: Icons.request_quote_outlined,
-    activeIcon: Icons.request_quote_rounded,
-    route: Routes.estimates,
-  ),
-  NavItem(
-    label: 'Recurring',
-    icon: Icons.autorenew_outlined,
-    activeIcon: Icons.autorenew_rounded,
-    route: Routes.recurringInvoices,
-  ),
-  NavItem(
-    label: 'Import Items',
-    icon: Icons.upload_file_outlined,
-    activeIcon: Icons.upload_file_rounded,
-    route: Routes.itemImport,
-  ),
-  NavItem(
-    label: 'Goods Receipts',
-    icon: Icons.local_shipping_outlined,
-    activeIcon: Icons.local_shipping_rounded,
-    route: Routes.stockReceipts,
-  ),
-  NavItem(
-    label: 'Credit Notes',
-    icon: Icons.note_alt_outlined,
-    activeIcon: Icons.note_alt_rounded,
-    route: Routes.creditNotes,
-  ),
-  NavItem(
-    label: 'Price Lists',
-    icon: Icons.sell_outlined,
-    activeIcon: Icons.sell_rounded,
-    route: Routes.priceLists,
-  ),
-  NavItem(
-    label: 'GST',
-    icon: Icons.account_balance_outlined,
-    activeIcon: Icons.account_balance_rounded,
-    route: Routes.gst,
-  ),
-  NavItem(
-    label: 'Settings',
-    icon: Icons.settings_outlined,
-    activeIcon: Icons.settings_rounded,
-    route: Routes.settings,
-  ),
-];
+const _purchasesGroup = NavGroup(
+  label: 'Purchases',
+  icon: Icons.shopping_cart_outlined,
+  activeIcon: Icons.shopping_cart_rounded,
+  children: [
+    NavItem(label: 'Bills', icon: Icons.receipt_outlined, activeIcon: Icons.receipt_rounded, route: Routes.bills),
+    NavItem(label: 'Vendor Payments', icon: Icons.payments_outlined, activeIcon: Icons.payments_rounded, route: Routes.vendorPayments),
+    NavItem(label: 'Vendor Credits', icon: Icons.note_alt_outlined, activeIcon: Icons.note_alt_rounded, route: Routes.vendorCredits),
+    NavItem(label: 'Goods Receipts', icon: Icons.local_shipping_outlined, activeIcon: Icons.local_shipping_rounded, route: Routes.stockReceipts),
+  ],
+);
 
-/// Convenience used by the shell to decide where to anchor the FAB.
-bool _isMobile(double width) => width < KSpacing.tabletBreakpoint;
+const _accountingGroup = NavGroup(
+  label: 'Accounting',
+  icon: Icons.account_balance_outlined,
+  activeIcon: Icons.account_balance_rounded,
+  children: [
+    NavItem(label: 'Accounting Dashboard', icon: Icons.analytics_outlined, activeIcon: Icons.analytics_rounded, route: '/accounting/dashboard'),
+    NavItem(label: 'Chart of Accounts', icon: Icons.account_balance_outlined, activeIcon: Icons.account_balance_rounded, route: Routes.chartOfAccounts),
+    NavItem(label: 'Journal Entries', icon: Icons.menu_book_outlined, activeIcon: Icons.menu_book_rounded, route: '/accounting/journal-entries'),
+    NavItem(label: 'Credit Ledger', icon: Icons.menu_book_outlined, activeIcon: Icons.menu_book_rounded, route: Routes.creditLedger),
+    NavItem(label: 'GST', icon: Icons.percent_outlined, activeIcon: Icons.percent_rounded, route: Routes.gst),
+  ],
+);
+
+const _moreGroup = NavGroup(
+  label: 'More',
+  icon: Icons.more_horiz_outlined,
+  activeIcon: Icons.more_horiz_rounded,
+  children: [
+    NavItem(label: 'Reports', icon: Icons.bar_chart_outlined, activeIcon: Icons.bar_chart_rounded, route: Routes.reports),
+    NavItem(label: 'Price Lists', icon: Icons.sell_outlined, activeIcon: Icons.sell_rounded, route: Routes.priceLists),
+    NavItem(label: 'Import Items', icon: Icons.upload_file_outlined, activeIcon: Icons.upload_file_rounded, route: Routes.itemImport),
+    NavItem(label: 'AI Chat', icon: Icons.auto_awesome_outlined, activeIcon: Icons.auto_awesome_rounded, route: Routes.aiChat),
+    NavItem(label: 'Settings', icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded, route: Routes.settings),
+  ],
+);
+
+/// All groups for route-matching.
+const _allGroups = [_salesGroup, _purchasesGroup, _accountingGroup, _moreGroup];
+
+/// Flat list of every route across top-level items and groups (for active-state matching).
+List<NavItem> get _allNavItems => [
+  ..._topNavItems,
+  for (final g in _allGroups) ...g.children,
+];
 
 /// Wraps its child in a local [Theme] override driven by
 /// [KColors.sidebarSeed] / [KColors.sidebarBrightness], so the sidebar
@@ -546,65 +487,37 @@ List<Widget> _buildSidebarSections({
   final isCashier = role == 'OPERATOR' || role == 'CASHIER';
 
   return [
-    if (!collapsed) const _NavSectionLabel(label: 'WORKSPACE'),
-    ..._navItems.map((item) => _SidebarNavItem(item: item, collapsed: collapsed)),
-    KSpacing.vGapMd,
-    if (!collapsed) const _NavSectionLabel(label: 'SALES'),
-    ..._salesNavItems.map((item) => _SidebarNavItem(item: item, collapsed: collapsed)),
-    KSpacing.vGapMd,
+    ..._topNavItems.map((item) => _SidebarNavItem(item: item, collapsed: collapsed)),
+    KSpacing.vGapSm,
+    _SidebarNavGroup(group: _salesGroup, collapsed: collapsed),
     if (!isCashier) ...[
-      if (!collapsed) const _NavSectionLabel(label: 'PURCHASES'),
-      ..._purchasesNavItems.map((item) => _SidebarNavItem(item: item, collapsed: collapsed)),
-      KSpacing.vGapMd,
-      if (!collapsed) const _NavSectionLabel(label: 'ACCOUNTING'),
-      ..._accountingNavItems.map((item) => _SidebarNavItem(item: item, collapsed: collapsed)),
-      KSpacing.vGapMd,
+      _SidebarNavGroup(group: _purchasesGroup, collapsed: collapsed),
+      _SidebarNavGroup(group: _accountingGroup, collapsed: collapsed),
     ],
-    if (!collapsed) const _NavSectionLabel(label: 'MORE'),
-    ..._secondaryNavItems
-        .where((item) => !isCashier || item.route == Routes.settings || item.route == Routes.pos)
-        .map((item) => _SidebarNavItem(item: item, collapsed: collapsed)),
+    _SidebarNavGroup(group: _moreGroup, collapsed: collapsed),
   ];
 }
 
-class _NavSectionLabel extends StatelessWidget {
-  final String label;
-  const _NavSectionLabel({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.2,
-        ),
-      ),
-    );
-  }
-}
-
-/// Longest-prefix match across both nav sections. Prevents `Items` (/items)
+/// Longest-prefix match across all nav items. Prevents `Items` (/items)
 /// and `Import Items` (/items/import) from both lighting up on /items/import
-/// — only the most specific entry wins. Uses `$r/` suffix guard so `/item`
-/// can't false-match `/items`.
+/// — only the most specific entry wins.
 bool _isNavActive(String currentRoute, String itemRoute) {
   if (itemRoute == '/') return currentRoute == '/';
   bool matchesSelfOrChild(String r) =>
       currentRoute == r || currentRoute.startsWith('$r/');
   if (!matchesSelfOrChild(itemRoute)) return false;
-  for (final other in [..._navItems, ..._salesNavItems, ..._purchasesNavItems, ..._accountingNavItems, ..._secondaryNavItems]) {
+  for (final other in _allNavItems) {
     if (other.route == itemRoute) continue;
     if (other.route.length > itemRoute.length && matchesSelfOrChild(other.route)) {
       return false;
     }
   }
   return true;
+}
+
+/// Returns true if any child route in a group matches the current route.
+bool _isGroupActive(String currentRoute, NavGroup group) {
+  return group.children.any((item) => _isNavActive(currentRoute, item.route));
 }
 
 class _SidebarNavItem extends StatelessWidget {
@@ -686,6 +599,134 @@ class _SidebarNavItem extends StatelessWidget {
   }
 }
 
+/// A sidebar row that opens a popup overlay of child NavItems on tap.
+class _SidebarNavGroup extends StatelessWidget {
+  final NavGroup group;
+  final bool collapsed;
+
+  const _SidebarNavGroup({required this.group, this.collapsed = false});
+
+  void _showPopup(BuildContext context) {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+    final cs = Theme.of(context).colorScheme;
+    final currentRoute = GoRouterState.of(context).matchedLocation;
+
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        offset.dx + size.width + 4,
+        offset.dy,
+        0,
+        0,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+        side: BorderSide(color: cs.outlineVariant, width: 1),
+      ),
+      elevation: 0,
+      color: cs.surface,
+      items: group.children.map((item) {
+        final isActive = _isNavActive(currentRoute, item.route);
+        return PopupMenuItem<String>(
+          value: item.route,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          child: Row(
+            children: [
+              Icon(
+                isActive ? item.activeIcon : item.icon,
+                size: 16,
+                color: isActive ? cs.primary : cs.onSurfaceVariant,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                item.label,
+                style: TextStyle(
+                  color: isActive ? cs.primary : cs.onSurface,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    ).then((route) {
+      if (route != null && context.mounted) {
+        context.go(route);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final currentRoute = GoRouterState.of(context).matchedLocation;
+    final isActive = _isGroupActive(currentRoute, group);
+
+    final tile = Material(
+      color: isActive ? cs.primaryContainer : Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _showPopup(context),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+              horizontal: collapsed ? 0 : 12, vertical: 11),
+          child: collapsed
+              ? Center(
+                  child: Icon(
+                    isActive ? group.activeIcon : group.icon,
+                    color: isActive ? cs.primary : cs.onSurfaceVariant,
+                    size: 22,
+                  ),
+                )
+              : Row(
+                  children: [
+                    Icon(
+                      isActive ? group.activeIcon : group.icon,
+                      color: isActive ? cs.primary : cs.onSurfaceVariant,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        group.label,
+                        overflow: TextOverflow.clip,
+                        softWrap: false,
+                        style: TextStyle(
+                          color: isActive ? cs.onPrimaryContainer : cs.onSurface,
+                          fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 16,
+                      color: isActive ? cs.primary : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: collapsed
+          ? Tooltip(
+              message: group.label,
+              waitDuration: const Duration(milliseconds: 400),
+              child: tile,
+            )
+          : tile,
+    );
+  }
+}
+
 /// Ask-AI button — expanded variant is a full-width gradient pill with
 /// label; collapsed variant is a 40×40 gradient square with just the icon.
 ///
@@ -746,7 +787,7 @@ class _TabletShell extends ConsumerWidget {
     final notifCount =
         ref.watch(unreadCountProvider).valueOrNull ?? 0;
 
-    int selectedIndex = _navItems.indexWhere(
+    int selectedIndex = _topNavItems.indexWhere(
       (item) =>
           currentRoute == item.route ||
           (item.route != '/' && currentRoute.startsWith(item.route)),
@@ -777,7 +818,7 @@ class _TabletShell extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           onDestinationSelected: (index) {
-                            context.go(_navItems[index].route);
+                            context.go(_topNavItems[index].route);
                           },
                           labelType: NavigationRailLabelType.all,
                           leading: const Padding(
@@ -788,7 +829,7 @@ class _TabletShell extends ConsumerWidget {
                             padding: EdgeInsets.only(bottom: 12),
                             child: ThemeModeIconButton(),
                           ),
-                          destinations: _navItems
+                          destinations: _topNavItems
                               .map(
                                 (item) => NavigationRailDestination(
                                   icon: Icon(item.icon),
@@ -827,7 +868,7 @@ class _MobileShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentRoute = GoRouterState.of(context).matchedLocation;
 
-    int selectedIndex = _navItems.indexWhere(
+    int selectedIndex = _topNavItems.indexWhere(
       (item) =>
           currentRoute == item.route ||
           (item.route != '/' && currentRoute.startsWith(item.route)),
@@ -839,9 +880,9 @@ class _MobileShell extends StatelessWidget {
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: (index) {
-          context.go(_navItems[index].route);
+          context.go(_topNavItems[index].route);
         },
-        destinations: _navItems
+        destinations: _topNavItems
             .map((item) => NavigationDestination(
                   icon: Icon(item.icon),
                   selectedIcon: Icon(item.activeIcon),
