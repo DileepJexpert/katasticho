@@ -93,22 +93,9 @@ class KQuickCreateMenu extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(KSpacing.radiusMd),
           onTap: () => _show(context),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.add_rounded, size: 16, color: Colors.white),
-                const SizedBox(width: 4),
-                Text(
-                  'Create',
-                  style: KTypography.labelSmall.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
+          child: const Padding(
+            padding: EdgeInsets.all(8),
+            child: Icon(Icons.add_rounded, size: 18, color: Colors.white),
           ),
         ),
       );
