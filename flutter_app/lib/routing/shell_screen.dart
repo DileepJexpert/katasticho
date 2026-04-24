@@ -616,17 +616,24 @@ class _SidebarNavGroup extends StatelessWidget {
   void _showPopup(BuildContext context) {
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    final offset = renderBox.localToGlobal(Offset.zero);
+    final overlayBox = Navigator.of(context)
+        .overlay!
+        .context
+        .findRenderObject()! as RenderBox;
+    final pos =
+        renderBox.localToGlobal(Offset.zero, ancestor: overlayBox);
     final size = renderBox.size;
-    final screenSize = MediaQuery.of(context).size;
+    final overlaySize = overlayBox.size;
     final cs = Theme.of(context).colorScheme;
     final currentRoute = GoRouterState.of(context).matchedLocation;
 
     showMenu<String>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(offset.dx + size.width + 4, offset.dy, 0, size.height),
-        Offset.zero & screenSize,
+      position: RelativeRect.fromLTRB(
+        pos.dx,
+        pos.dy + size.height + 4,
+        overlaySize.width - pos.dx - size.width,
+        overlaySize.height - pos.dy - size.height - 4,
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(KSpacing.radiusMd),

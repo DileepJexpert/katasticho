@@ -24,15 +24,22 @@ class KQuickCreateMenu extends StatelessWidget {
   void _show(BuildContext context) {
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    final offset = renderBox.localToGlobal(Offset.zero);
+    final overlayBox = Navigator.of(context)
+        .overlay!
+        .context
+        .findRenderObject()! as RenderBox;
+    final pos =
+        renderBox.localToGlobal(Offset.zero, ancestor: overlayBox);
     final size = renderBox.size;
-    final screenSize = MediaQuery.of(context).size;
+    final overlaySize = overlayBox.size;
 
     showMenu<String>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(offset.dx, offset.dy + size.height + 4, size.width, 0),
-        Offset.zero & screenSize,
+      position: RelativeRect.fromLTRB(
+        pos.dx,
+        pos.dy + size.height + 4,
+        overlaySize.width - pos.dx - size.width,
+        overlaySize.height - pos.dy - size.height - 4,
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(KSpacing.radiusMd),

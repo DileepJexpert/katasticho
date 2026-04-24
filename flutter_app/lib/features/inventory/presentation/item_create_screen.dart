@@ -860,7 +860,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                         maxLines: 2,
                       ),
                       KSpacing.vGapSm,
-                      KCompactRow(flex: const [1, 1, 1], children: [
+                      KCompactRow(children: [
                         KTextField(
                           label: 'Category',
                           controller: _categoryController,
@@ -869,6 +869,9 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                           label: 'Brand',
                           controller: _brandController,
                         ),
+                      ]),
+                      KSpacing.vGapSm,
+                      KCompactRow(children: [
                         DropdownButtonFormField<String>(
                           value: _itemType,
                           decoration: const InputDecoration(labelText: 'Type'),
@@ -890,12 +893,11 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                             });
                           },
                         ),
+                        KTextField(
+                          label: 'Manufacturer',
+                          controller: _manufacturerController,
+                        ),
                       ]),
-                      KSpacing.vGapSm,
-                      KTextField(
-                        label: 'Manufacturer',
-                        controller: _manufacturerController,
-                      ),
                       if (_itemType == 'GOODS') ...[
                         KSpacing.vGapSm,
                         _buildGroupSection(),
