@@ -56,7 +56,11 @@ class ApiConfig {
 
   // AR Reports
   static const String ageingReport = '/api/v1/ar-reports/ageing';
-  static const String gstr1 = '/api/v1/ar-reports/gstr1';
+  static const String gstr1 = '/api/v1/ar/reports/gstr1';
+  static const String gstr3b = '/api/v1/ar/reports/gstr3b';
+
+  // Contact Ledger
+  static String contactLedger(String id) => '/api/v1/contacts/$id/ledger';
 
   // AP Reports
   static const String apAgeingReport = '/api/v1/reports/ap-ageing';

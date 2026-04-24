@@ -70,13 +70,28 @@ class ReportRepository {
   }
 
   Future<Map<String, dynamic>> getGstr1({
-    required String startDate,
-    required String endDate,
+    required int year,
+    required int month,
   }) async {
     final response = await _api.get(ApiConfig.gstr1, queryParameters: {
-      'startDate': startDate,
-      'endDate': endDate,
+      'year': year,
+      'month': month,
     });
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getContactLedger({
+    required String contactId,
+    String? startDate,
+    String? endDate,
+  }) async {
+    final response = await _api.get(
+      ApiConfig.contactLedger(contactId),
+      queryParameters: {
+        if (startDate != null) 'startDate': startDate,
+        if (endDate != null) 'endDate': endDate,
+      },
+    );
     return response.data as Map<String, dynamic>;
   }
 }

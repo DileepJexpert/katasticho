@@ -33,4 +33,11 @@ public class ArReportController {
             @RequestParam int year, @RequestParam int month) {
         return ResponseEntity.ok(ApiResponse.ok(reportService.generateGstr1(year, month)));
     }
+
+    @GetMapping("/gstr3b")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getGstr3b(
+            @RequestParam int year, @RequestParam int month) {
+        return ResponseEntity.ok(ApiResponse.ok(reportService.generateGstr3b(year, month)));
+    }
 }

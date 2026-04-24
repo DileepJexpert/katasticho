@@ -181,6 +181,80 @@ public class ArReportService {
         return gstr1;
     }
 
+    public Map<String, Object> generateGstr3b(int year, int month) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        LocalDate periodStart = LocalDate.of(year, month, 1);
+        LocalDate periodEnd = periodStart.plusMonths(1).minusDays(1);
+
+        List<Invoice> periodInvoices = invoiceRepository
+                .findByOrgIdAndIsDeletedFalseOrderByInvoiceDateDesc(orgId, Pageable.unpaged()).getContent()
+                .stream()
+                .filter(inv -> !inv.getInvoiceDate().isBefore(periodStart) && !inv.getInvoiceDate().isAfter(periodEnd))
+                .filter(inv -> !"DRAFT".equals(inv.getStatus()) && !"CANCELLED".equals(inv.getStatus()))
+                .toList();
+
+        List<TaxLineItem> taxLines = taxLineItemRepository
+                .findByOrgAndSourceTypeAndRegime(orgId, "INVOICE", "INDIA_GST");
+
+        Set<UUID> periodInvoiceIds = periodInvoices.stream()
+                .map(Invoice::getId).collect(Collectors.toSet());
+
+        List<TaxLineItem> periodTaxLines = taxLines.stream()
+                .filter(tl -> periodInvoiceIds.contains(tl.getSourceId()))
+                .toList();
+
+        BigDecimal totalTaxable = BigDecimal.ZERO;
+        BigDecimal totalIgst = BigDecimal.ZERO;
+        BigDecimal totalCgst = BigDecimal.ZERO;
+        BigDecimal totalSgst = BigDecimal.ZERO;
+        BigDecimal totalCess = BigDecimal.ZERO;
+
+        for (TaxLineItem tl : periodTaxLines) {
+            totalTaxable = totalTaxable.add(tl.getTaxableAmount());
+            switch (tl.getComponentCode()) {
+                case "IGST" -> totalIgst = totalIgst.add(tl.getTaxAmount());
+                case "CGST" -> totalCgst = totalCgst.add(tl.getTaxAmount());
+                case "SGST" -> totalSgst = totalSgst.add(tl.getTaxAmount());
+                case "CESS" -> totalCess = totalCess.add(tl.getTaxAmount());
+            }
+        }
+
+        BigDecimal totalTax = totalIgst.add(totalCgst).add(totalSgst).add(totalCess);
+
+        long b2bCount = periodInvoices.stream()
+                .filter(inv -> {
+                    Contact c = contactRepository.findById(inv.getContactId()).orElse(null);
+                    return c != null && c.getGstin() != null && !c.getGstin().isBlank();
+                }).count();
+
+        long b2csCount = periodInvoices.size() - b2bCount;
+
+        Map<String, Object> outwardSupplies = new LinkedHashMap<>();
+        outwardSupplies.put("taxableValue", totalTaxable);
+        outwardSupplies.put("igst", totalIgst);
+        outwardSupplies.put("cgst", totalCgst);
+        outwardSupplies.put("sgst", totalSgst);
+        outwardSupplies.put("cess", totalCess);
+
+        Map<String, Object> gstr3b = new LinkedHashMap<>();
+        gstr3b.put("fp", String.format("%02d%d", month, year));
+        gstr3b.put("year", year);
+        gstr3b.put("month", month);
+        gstr3b.put("totalInvoices", periodInvoices.size());
+        gstr3b.put("b2bInvoices", b2bCount);
+        gstr3b.put("b2csInvoices", b2csCount);
+        gstr3b.put("outwardSupplies", outwardSupplies);
+        gstr3b.put("totalTaxable", totalTaxable);
+        gstr3b.put("totalTax", totalTax);
+        gstr3b.put("totalIgst", totalIgst);
+        gstr3b.put("totalCgst", totalCgst);
+        gstr3b.put("totalSgst", totalSgst);
+        gstr3b.put("totalCess", totalCess);
+
+        return gstr3b;
+    }
+
     private int computeFiscalYear(LocalDate date, int fiscalYearStartMonth) {
         if (date.getMonthValue() >= fiscalYearStartMonth) {
             return date.getYear();

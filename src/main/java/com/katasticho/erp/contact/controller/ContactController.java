@@ -3,12 +3,14 @@ package com.katasticho.erp.contact.controller;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.contact.dto.*;
 import com.katasticho.erp.contact.service.ContactImportService;
+import com.katasticho.erp.contact.service.ContactLedgerService;
 import com.katasticho.erp.contact.service.ContactService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @RestController
@@ -27,6 +30,7 @@ public class ContactController {
 
     private final ContactService contactService;
     private final ContactImportService contactImportService;
+    private final ContactLedgerService contactLedgerService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -101,5 +105,16 @@ public class ContactController {
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"contact_import_template.csv\"")
                 .body(csv.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @GetMapping("/{id}/ledger")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    public ApiResponse<ContactLedgerResponse> getLedger(
+            @PathVariable UUID id,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        if (startDate == null) startDate = LocalDate.now().withDayOfYear(1);
+        if (endDate == null) endDate = LocalDate.now();
+        return ApiResponse.ok(contactLedgerService.getLedger(id, startDate, endDate));
     }
 }

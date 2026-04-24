@@ -20,7 +20,7 @@ class LowStockWidget extends ConsumerWidget {
     return KCard(
       title: 'Low Stock',
       action: TextButton(
-        onPressed: () => context.go(Routes.items),
+        onPressed: () => context.go(Routes.reorder),
         child: const Text('View All'),
       ),
       child: lowStockAsync.when(

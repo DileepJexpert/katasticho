@@ -12,12 +12,23 @@ class GstRepository {
   GstRepository(this._api);
 
   Future<Map<String, dynamic>> getGstr1({
-    required String startDate,
-    required String endDate,
+    required int year,
+    required int month,
   }) async {
     final response = await _api.get(ApiConfig.gstr1, queryParameters: {
-      'startDate': startDate,
-      'endDate': endDate,
+      'year': year,
+      'month': month,
+    });
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getGstr3b({
+    required int year,
+    required int month,
+  }) async {
+    final response = await _api.get(ApiConfig.gstr3b, queryParameters: {
+      'year': year,
+      'month': month,
     });
     return response.data as Map<String, dynamic>;
   }

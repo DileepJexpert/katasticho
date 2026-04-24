@@ -132,6 +132,7 @@ const _moreGroup = NavGroup(
   activeIcon: Icons.more_horiz_rounded,
   children: [
     NavItem(label: 'Reports', icon: Icons.bar_chart_outlined, activeIcon: Icons.bar_chart_rounded, route: Routes.reports),
+    NavItem(label: 'Reorder', icon: Icons.shopping_cart_outlined, activeIcon: Icons.shopping_cart_rounded, route: Routes.reorder),
     NavItem(label: 'Price Lists', icon: Icons.sell_outlined, activeIcon: Icons.sell_rounded, route: Routes.priceLists),
     NavItem(label: 'Import Items', icon: Icons.upload_file_outlined, activeIcon: Icons.upload_file_rounded, route: Routes.itemImport),
     NavItem(label: 'AI Chat', icon: Icons.auto_awesome_outlined, activeIcon: Icons.auto_awesome_rounded, route: Routes.aiChat),

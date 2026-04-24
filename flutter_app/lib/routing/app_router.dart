@@ -91,6 +91,8 @@ import '../features/credit_ledger/presentation/credit_ledger_detail_screen.dart'
 import '../features/journals/presentation/journal_list_screen.dart';
 import '../features/journals/presentation/journal_detail_screen.dart';
 import '../features/journals/presentation/journal_create_screen.dart';
+import '../features/contacts/presentation/contact_statement_screen.dart';
+import '../features/inventory/presentation/reorder_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -173,6 +175,8 @@ class Routes {
   static const receiptSettings = '/pos/receipt-settings';
   static const aiChat = '/ai-chat';
   static const gst = '/gst';
+  static const reorder = '/reorder';
+  static const contactStatement = '/contacts/:id/statement';
   static const settings = '/settings';
   static const orgDetails = '/settings/org-details';
   static const branches = '/settings/branches';
@@ -350,6 +354,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/contacts/:id',
             builder: (context, state) => ContactDetailScreen(
               contactId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: '/contacts/:id/statement',
+            builder: (context, state) => ContactStatementScreen(
+              contactId: state.pathParameters['id']!,
+              contactName: state.extra as String?,
             ),
           ),
           // Credit Ledger (Udhar Khata)
@@ -544,6 +555,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/items/:id',
             builder: (context, state) => ItemDetailScreen(
               itemId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: Routes.reorder,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ReorderScreen(),
             ),
           ),
           // F5 — item groups (variant templates).

@@ -51,7 +51,10 @@ class ContactDetailScreen extends ConsumerWidget {
                 ),
                 PopupMenuButton<String>(
                   onSelected: (v) async {
-                    if (v == 'delete') {
+                    if (v == 'statement') {
+                      context.push('/contacts/$contactId/statement',
+                          extra: displayName);
+                    } else if (v == 'delete') {
                       final confirm = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
@@ -78,6 +81,7 @@ class ContactDetailScreen extends ConsumerWidget {
                     }
                   },
                   itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'statement', child: Text('View Statement')),
                     PopupMenuItem(value: 'delete', child: Text('Delete')),
                   ],
                 ),
