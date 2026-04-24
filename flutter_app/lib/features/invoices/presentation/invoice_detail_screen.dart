@@ -13,7 +13,6 @@ import '../../../core/utils/whatsapp_share.dart';
 import '../../../routing/app_router.dart';
 import '../data/invoice_providers.dart';
 import '../data/invoice_repository.dart';
-import 'invoice_pdf_screen.dart';
 
 class InvoiceDetailScreen extends ConsumerWidget {
   final String invoiceId;
@@ -137,10 +136,15 @@ class InvoiceDetailScreen extends ConsumerWidget {
           final invoiceAsync = ref.read(invoiceDetailProvider(invoiceId));
           invoiceAsync.whenData((data) {
             final invoice = (data['data'] ?? data) as Map<String, dynamic>;
+            final number = invoice['invoiceNumber'] as String? ?? 'invoice';
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => InvoicePdfScreen(invoice: invoice),
+                builder: (_) => KPdfPreviewScreen(
+                  title: number,
+                  pdfEndpoint: ApiConfig.invoicePdf(invoiceId),
+                  fileName: '$number.pdf',
+                ),
               ),
             );
           });

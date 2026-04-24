@@ -13,7 +13,6 @@ import '../../../core/utils/whatsapp_share.dart';
 import '../data/bill_dto.dart';
 import '../data/bill_providers.dart';
 import '../data/bill_repository.dart';
-import 'bill_pdf_screen.dart';
 import 'widgets/bill_status_chip.dart';
 import 'widgets/record_payment_bottom_sheet.dart';
 
@@ -135,16 +134,17 @@ class BillDetailScreen extends ConsumerWidget {
     switch (action) {
       case 'pdf':
         if (context.mounted) {
-          final billAsync = ref.read(billDetailProvider(billId));
-          billAsync.whenData((data) {
-            final bill = (data['data'] ?? data) as Map<String, dynamic>;
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => BillPdfScreen(bill: bill),
+          final number = b.billNumber;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => KPdfPreviewScreen(
+                title: number,
+                pdfEndpoint: ApiConfig.billPdf(billId),
+                fileName: '$number.pdf',
               ),
-            );
-          });
+            ),
+          );
         }
         break;
       case 'share':

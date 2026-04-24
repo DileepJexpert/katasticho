@@ -12,6 +12,7 @@ export 'k_empty_state.dart';
 export 'k_error_view.dart';
 export 'k_list_page_header.dart';
 export 'k_loading.dart';
+export 'k_pdf_preview_screen.dart';
 export 'k_quick_create_menu.dart';
 export 'k_saved_view_button.dart';
 export 'k_status_chip.dart';

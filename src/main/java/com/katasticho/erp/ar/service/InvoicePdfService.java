@@ -4,6 +4,7 @@ import com.katasticho.erp.ar.dto.InvoiceResponse;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.DocumentPdfService;
+import com.katasticho.erp.common.util.AmountToWordsConverter;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import lombok.RequiredArgsConstructor;
@@ -148,6 +149,14 @@ public class InvoicePdfService {
         sb.append("</table>");
         sb.append("</td></tr></table>");
 
+        // ── Amount in words ───────────────────────────────────────────────────
+        if (notZero(inv.totalAmount())) {
+            sb.append("<div class='words'>");
+            sb.append("<span class='lbl'>AMOUNT IN WORDS: </span>");
+            sb.append("<span class='words-text'>").append(AmountToWordsConverter.convert(inv.totalAmount())).append("</span>");
+            sb.append("</div>");
+        }
+
         // ── Notes ─────────────────────────────────────────────────────────────
         if (inv.notes() != null && !inv.notes().isBlank()) {
             sb.append("<div class='notes'>");
@@ -249,6 +258,8 @@ public class InvoicePdfService {
                 .totals-val { padding: 3px 0; text-align: right; }
                 .totals-hr { border: none; border-top: 1.5px solid #E2E8F0; margin: 4px 0; }
                 .bal-amt { color: #DC2626; }
+                .words { margin-top: 12px; padding: 6px 10px; background: #F8FAFC; border-radius: 4px; }
+                .words-text { font-size: 9.5px; color: #334155; font-style: italic; }
                 .notes { margin-top: 16px; margin-bottom: 12px; }
                 .notes-text { font-size: 9.5px; color: #475569; line-height: 1.6; margin-top: 4px; }
                 .footer { text-align: center; font-size: 7.5px; color: #CBD5E1; margin-top: 20px; padding-top: 8px; border-top: 1px solid #E2E8F0; }

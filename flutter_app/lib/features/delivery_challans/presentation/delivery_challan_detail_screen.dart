@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -117,7 +118,17 @@ class DeliveryChallanDetailScreen extends ConsumerWidget {
         final detail = ref.read(deliveryChallanDetailProvider(challanId));
         detail.whenData((data) {
           final challan = (data['data'] ?? data) as Map<String, dynamic>;
-          context.push('/delivery-challans/$challanId/pdf', extra: challan);
+          final number = challan['challanNumber'] as String? ?? 'challan';
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => KPdfPreviewScreen(
+                title: number,
+                pdfEndpoint: ApiConfig.deliveryChallanPdf(challanId),
+                fileName: '$number.pdf',
+              ),
+            ),
+          );
         });
         break;
       case 'dispatch':
