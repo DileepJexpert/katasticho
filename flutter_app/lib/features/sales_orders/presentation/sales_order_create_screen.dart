@@ -452,43 +452,38 @@ class _SalesOrderCreateScreenState
 
         KCard(
           title: 'Dates & Delivery',
+          padding: const EdgeInsets.all(KSpacing.sm),
           child: Column(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: KDatePicker(
-                      label: 'Order Date',
-                      value: _orderDate,
-                      onChanged: (d) => setState(() => _orderDate = d),
-                    ),
-                  ),
-                  KSpacing.hGapMd,
-                  Expanded(
-                    child: KDatePicker(
-                      label: 'Expected Shipment',
-                      value: _expectedShipmentDate,
-                      onChanged: (d) =>
-                          setState(() => _expectedShipmentDate = d),
-                      firstDate: _orderDate,
-                    ),
-                  ),
-                ],
-              ),
-              KSpacing.vGapSm,
-              KTextField(
-                label: 'Delivery Method',
-                hint: 'e.g. Courier, Hand Delivery',
-                initialValue: _deliveryMethod,
-                onChanged: (v) => _deliveryMethod = v,
-              ),
-              KSpacing.vGapSm,
-              KTextField(
-                label: 'Place of Supply',
-                hint: 'e.g. Maharashtra',
-                initialValue: _placeOfSupply,
-                onChanged: (v) => _placeOfSupply = v,
-              ),
+              KCompactRow(children: [
+                KDatePicker(
+                  label: 'Order Date',
+                  value: _orderDate,
+                  onChanged: (d) => setState(() => _orderDate = d),
+                ),
+                KDatePicker(
+                  label: 'Expected Shipment',
+                  value: _expectedShipmentDate,
+                  onChanged: (d) =>
+                      setState(() => _expectedShipmentDate = d),
+                  firstDate: _orderDate,
+                ),
+              ]),
+              KSpacing.vGapXs,
+              KCompactRow(children: [
+                KTextField(
+                  label: 'Delivery Method',
+                  hint: 'e.g. Courier',
+                  initialValue: _deliveryMethod,
+                  onChanged: (v) => _deliveryMethod = v,
+                ),
+                KTextField(
+                  label: 'Place of Supply',
+                  hint: 'e.g. Maharashtra',
+                  initialValue: _placeOfSupply,
+                  onChanged: (v) => _placeOfSupply = v,
+                ),
+              ]),
             ],
           ),
         ),
@@ -551,22 +546,23 @@ class _SalesOrderCreateScreenState
           ),
         ),
 
-        KSpacing.vGapMd,
-        KTextField(
-          label: 'Notes (optional)',
-          hint: 'Add any notes for this order',
-          maxLines: 3,
-          initialValue: _notes,
-          onChanged: (v) => _notes = v,
-        ),
         KSpacing.vGapSm,
-        KTextField(
-          label: 'Terms & Conditions (optional)',
-          hint: 'Add terms and conditions',
-          maxLines: 3,
-          initialValue: _terms,
-          onChanged: (v) => _terms = v,
-        ),
+        KCompactRow(children: [
+          KTextField(
+            label: 'Notes (optional)',
+            hint: 'Add any notes',
+            maxLines: 2,
+            initialValue: _notes,
+            onChanged: (v) => _notes = v,
+          ),
+          KTextField(
+            label: 'Terms (optional)',
+            hint: 'Terms and conditions',
+            maxLines: 2,
+            initialValue: _terms,
+            onChanged: (v) => _terms = v,
+          ),
+        ]),
       ],
     );
   }
@@ -676,7 +672,8 @@ class _LineItemCardState extends State<_LineItemCard> {
   Widget build(BuildContext context) {
     final isLinked = widget.item.itemId != null;
     return KCard(
-      margin: const EdgeInsets.only(bottom: KSpacing.sm),
+      margin: const EdgeInsets.only(bottom: KSpacing.xs),
+      padding: const EdgeInsets.all(KSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -725,7 +722,7 @@ class _LineItemCardState extends State<_LineItemCard> {
                 ),
             ],
           ),
-          KSpacing.vGapSm,
+          KSpacing.vGapXs,
           KTextField(
             label: 'Description',
             controller: _descCtl,
@@ -734,100 +731,74 @@ class _LineItemCardState extends State<_LineItemCard> {
               widget.onChanged();
             },
           ),
-          KSpacing.vGapSm,
-          Row(
-            children: [
-              Expanded(
-                child: KTextField(
-                  label: 'HSN Code',
-                  controller: _hsnCtl,
-                  onChanged: (v) {
-                    widget.item.hsnCode = v;
-                    widget.onChanged();
-                  },
-                ),
+          KSpacing.vGapXs,
+          KCompactRow(children: [
+            KTextField(
+              label: 'HSN',
+              controller: _hsnCtl,
+              onChanged: (v) {
+                widget.item.hsnCode = v;
+                widget.onChanged();
+              },
+            ),
+            KTextField(
+              label: 'Qty',
+              controller: _qtyCtl,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (v) {
+                widget.item.quantity = double.tryParse(v) ?? 1;
+                widget.onChanged();
+              },
+            ),
+            KTextField.amount(
+              label: 'Rate',
+              controller: _rateCtl,
+              onChanged: (v) {
+                widget.item.rate = double.tryParse(v) ?? 0;
+                widget.onChanged();
+              },
+            ),
+          ]),
+          KSpacing.vGapXs,
+          KCompactRow(children: [
+            KTextField(
+              label: 'Unit',
+              controller: _unitCtl,
+              onChanged: (v) {
+                widget.item.unit = v;
+                widget.onChanged();
+              },
+            ),
+            KTextField(
+              label: 'Disc %',
+              controller: _discountCtl,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (v) {
+                widget.item.discountPct = double.tryParse(v) ?? 0;
+                widget.onChanged();
+              },
+            ),
+            TaxGroupPicker(
+              value: widget.item.taxGroupId,
+              label: 'Tax',
+              onChanged: (group) {
+                widget.item.taxGroupId = group?.id;
+                widget.item._taxRate = group?.totalRate ?? 0;
+                widget.onChanged();
+              },
+            ),
+          ]),
+          KSpacing.vGapXs,
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              CurrencyFormatter.formatIndian(widget.item.lineTotal),
+              style: KTypography.amountSmall.copyWith(
+                color: KColors.primary,
               ),
-              KSpacing.hGapSm,
-              Expanded(
-                child: KTextField(
-                  label: 'Quantity',
-                  controller: _qtyCtl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (v) {
-                    widget.item.quantity = double.tryParse(v) ?? 1;
-                    widget.onChanged();
-                  },
-                ),
-              ),
-            ],
-          ),
-          KSpacing.vGapSm,
-          Row(
-            children: [
-              Expanded(
-                child: KTextField.amount(
-                  label: 'Rate',
-                  controller: _rateCtl,
-                  onChanged: (v) {
-                    widget.item.rate = double.tryParse(v) ?? 0;
-                    widget.onChanged();
-                  },
-                ),
-              ),
-              KSpacing.hGapSm,
-              Expanded(
-                child: KTextField(
-                  label: 'Unit',
-                  controller: _unitCtl,
-                  onChanged: (v) {
-                    widget.item.unit = v;
-                    widget.onChanged();
-                  },
-                ),
-              ),
-            ],
-          ),
-          KSpacing.vGapSm,
-          Row(
-            children: [
-              Expanded(
-                child: KTextField(
-                  label: 'Discount %',
-                  controller: _discountCtl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (v) {
-                    widget.item.discountPct = double.tryParse(v) ?? 0;
-                    widget.onChanged();
-                  },
-                ),
-              ),
-              KSpacing.hGapSm,
-              Expanded(
-                child: TaxGroupPicker(
-                  value: widget.item.taxGroupId,
-                  label: 'Tax Group',
-                  onChanged: (group) {
-                    widget.item.taxGroupId = group?.id;
-                    widget.item._taxRate = group?.totalRate ?? 0;
-                    widget.onChanged();
-                  },
-                ),
-              ),
-            ],
-          ),
-          KSpacing.vGapSm,
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                'Line Total: ${CurrencyFormatter.formatIndian(widget.item.lineTotal)}',
-                style: KTypography.amountSmall.copyWith(
-                  color: KColors.primary,
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),

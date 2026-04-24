@@ -118,46 +118,38 @@ class _EstimateCreateScreenState extends ConsumerState<EstimateCreateScreen> {
                 ),
               ),
             ),
-            KSpacing.vGapMd,
+            KSpacing.vGapSm,
 
-            // Subject
-            KTextField(
-              label: 'Subject',
-              controller: _subjectCtrl,
-              hint: 'e.g. Q3 website redesign',
-            ),
-            KSpacing.vGapMd,
+            // Subject + Reference side-by-side
+            KCompactRow(flex: const [2, 1], children: [
+              KTextField(
+                label: 'Subject',
+                controller: _subjectCtrl,
+                hint: 'e.g. Q3 website redesign',
+              ),
+              KTextField(
+                label: 'Reference #',
+                controller: _referenceCtrl,
+                hint: 'PO, RFQ, …',
+              ),
+            ]),
+            KSpacing.vGapSm,
 
-            // Reference number
-            KTextField(
-              label: 'Reference #',
-              controller: _referenceCtrl,
-              hint: 'Customer PO, RFQ, …',
-            ),
-            KSpacing.vGapMd,
-
-            // Dates
-            Row(
-              children: [
-                Expanded(
-                  child: KDatePicker(
-                    label: 'Estimate date *',
-                    value: _estimateDate,
-                    onChanged: (d) => setState(() => _estimateDate = d),
-                  ),
-                ),
-                KSpacing.hGapSm,
-                Expanded(
-                  child: KDatePicker(
-                    label: 'Expires on',
-                    value: _expiryDate,
-                    firstDate: DateTime.now(),
-                    onChanged: (d) => setState(() => _expiryDate = d),
-                  ),
-                ),
-              ],
-            ),
-            KSpacing.vGapLg,
+            // Dates side-by-side
+            KCompactRow(children: [
+              KDatePicker(
+                label: 'Estimate date *',
+                value: _estimateDate,
+                onChanged: (d) => setState(() => _estimateDate = d),
+              ),
+              KDatePicker(
+                label: 'Expires on',
+                value: _expiryDate,
+                firstDate: DateTime.now(),
+                onChanged: (d) => setState(() => _expiryDate = d),
+              ),
+            ]),
+            KSpacing.vGapSm,
 
             // Lines section
             Row(
@@ -175,7 +167,7 @@ class _EstimateCreateScreenState extends ConsumerState<EstimateCreateScreen> {
             KSpacing.vGapSm,
             for (int i = 0; i < _lines.length; i++)
               Padding(
-                padding: const EdgeInsets.only(bottom: KSpacing.md),
+                padding: const EdgeInsets.only(bottom: KSpacing.xs),
                 child: _LineCard(
                   index: i,
                   line: _lines[i],
@@ -202,22 +194,21 @@ class _EstimateCreateScreenState extends ConsumerState<EstimateCreateScreen> {
             ),
             KSpacing.vGapMd,
 
-            // Notes
-            KTextField(
-              label: 'Notes',
-              controller: _notesCtrl,
-              maxLines: 3,
-              hint: 'Internal notes or message to customer',
-            ),
+            // Notes + Terms side-by-side
+            KCompactRow(children: [
+              KTextField(
+                label: 'Notes',
+                controller: _notesCtrl,
+                maxLines: 2,
+                hint: 'Internal notes or message',
+              ),
+              KTextField(
+                label: 'Terms & conditions',
+                controller: _termsCtrl,
+                maxLines: 2,
+              ),
+            ]),
             KSpacing.vGapMd,
-
-            // Terms
-            KTextField(
-              label: 'Terms & conditions',
-              controller: _termsCtrl,
-              maxLines: 3,
-            ),
-            KSpacing.vGapLg,
 
             KButton(
               label: 'Save as Draft',
@@ -381,6 +372,7 @@ class _LineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return KCard(
+      padding: const EdgeInsets.all(KSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -397,35 +389,37 @@ class _LineCard extends StatelessWidget {
                 ),
             ],
           ),
-          KSpacing.vGapSm,
+          KSpacing.vGapXs,
           KTextField(
             label: 'Description *',
             controller: line.descriptionCtrl,
             onChanged: (_) => onChanged(),
             validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
           ),
-          KSpacing.vGapSm,
-          Row(
-            children: [
-              Expanded(
-                child: KTextField(
-                  label: 'Quantity',
-                  controller: line.quantityCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => onChanged(),
-                ),
-              ),
-              KSpacing.hGapSm,
-              Expanded(
-                child: KTextField.amount(
-                  label: 'Rate',
-                  controller: line.rateCtrl,
-                  onChanged: (_) => onChanged(),
-                ),
-              ),
-            ],
-          ),
-          KSpacing.vGapSm,
+          KSpacing.vGapXs,
+          KCompactRow(children: [
+            KTextField(
+              label: 'Qty',
+              controller: line.quantityCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => onChanged(),
+            ),
+            KTextField.amount(
+              label: 'Rate',
+              controller: line.rateCtrl,
+              onChanged: (_) => onChanged(),
+            ),
+            KTextField(
+              label: 'Disc %',
+              initialValue: line.discountPct.toString(),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (v) {
+                line.discountPct = double.tryParse(v) ?? 0;
+                onChanged();
+              },
+            ),
+          ]),
+          KSpacing.vGapXs,
           Row(
             children: [
               Expanded(
@@ -439,27 +433,12 @@ class _LineCard extends StatelessWidget {
                   },
                 ),
               ),
-              KSpacing.hGapSm,
-              Expanded(
-                child: KTextField(
-                  label: 'Discount %',
-                  initialValue: line.discountPct.toString(),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (v) {
-                    line.discountPct = double.tryParse(v) ?? 0;
-                    onChanged();
-                  },
-                ),
+              KSpacing.hGapMd,
+              Text(
+                '₹${line.total.toStringAsFixed(2)}',
+                style: KTypography.amountSmall.copyWith(color: KColors.primary),
               ),
             ],
-          ),
-          KSpacing.vGapSm,
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              'Line total: ₹${line.total.toStringAsFixed(2)}',
-              style: KTypography.labelLarge,
-            ),
           ),
         ],
       ),

@@ -397,47 +397,42 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen> {
         KSpacing.vGapMd,
 
         // Bill metadata
-        KTextField(
-          label: 'Vendor Bill Number',
-          hint: 'e.g. INV-2026-001',
-          initialValue: _vendorBillNumber,
-          onChanged: (v) => _vendorBillNumber = v,
-        ),
-        KSpacing.vGapMd,
-        Row(
-          children: [
-            Expanded(
-              child: KDatePicker(
-                label: 'Bill Date',
-                value: _billDate,
-                onChanged: (d) => setState(() => _billDate = d),
-              ),
-            ),
-            KSpacing.hGapMd,
-            Expanded(
-              child: KDatePicker(
-                label: 'Due Date',
-                value: _dueDate,
-                onChanged: (d) => setState(() => _dueDate = d),
-                firstDate: _billDate,
-              ),
-            ),
-          ],
-        ),
-        KSpacing.vGapMd,
-        KTextField(
-          label: 'Place of Supply',
-          hint: 'e.g. Maharashtra',
-          initialValue: _placeOfSupply,
-          onChanged: (v) => _placeOfSupply = v,
-        ),
-        KSpacing.vGapMd,
+        KCompactRow(children: [
+          KTextField(
+            label: 'Vendor Bill Number',
+            hint: 'e.g. INV-2026-001',
+            initialValue: _vendorBillNumber,
+            onChanged: (v) => _vendorBillNumber = v,
+          ),
+          KTextField(
+            label: 'Place of Supply',
+            hint: 'e.g. Maharashtra',
+            initialValue: _placeOfSupply,
+            onChanged: (v) => _placeOfSupply = v,
+          ),
+        ]),
+        KSpacing.vGapSm,
+        KCompactRow(children: [
+          KDatePicker(
+            label: 'Bill Date',
+            value: _billDate,
+            onChanged: (d) => setState(() => _billDate = d),
+          ),
+          KDatePicker(
+            label: 'Due Date',
+            value: _dueDate,
+            onChanged: (d) => setState(() => _dueDate = d),
+            firstDate: _billDate,
+          ),
+        ]),
+        KSpacing.vGapSm,
         SwitchListTile(
           title: const Text('Reverse Charge'),
           subtitle: const Text('Applicable under RCM'),
           value: _reverseCharge,
           onChanged: (v) => setState(() => _reverseCharge = v),
           contentPadding: EdgeInsets.zero,
+          dense: true,
         ),
       ],
     );
@@ -752,7 +747,8 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
   @override
   Widget build(BuildContext context) {
     return KCard(
-      margin: const EdgeInsets.only(bottom: KSpacing.sm),
+      margin: const EdgeInsets.only(bottom: KSpacing.xs),
+      padding: const EdgeInsets.all(KSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -775,7 +771,7 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
                 ),
             ],
           ),
-          KSpacing.vGapSm,
+          KSpacing.vGapXs,
           KTextField(
             label: 'Description',
             controller: _descCtl,
@@ -785,7 +781,7 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
             },
           ),
           if (_unitOptions.length > 1) ...[
-            KSpacing.vGapSm,
+            KSpacing.vGapXs,
             DropdownButtonFormField<String>(
               value: _selectedUnitAbbr,
               decoration: const InputDecoration(
@@ -817,104 +813,110 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
               },
             ),
           ],
-          KSpacing.vGapSm,
-          Row(
-            children: [
-              Expanded(
-                child: widget.item.weightBasedBilling
-                    ? Row(
-                        children: [
-                          Expanded(
-                            child: KTextField(
-                              label: 'Weight',
-                              controller: _qtyCtl,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
-                              onChanged: (v) {
-                                final raw = double.tryParse(v) ?? 0;
-                                widget.item.quantity =
-                                    widget.item.weightUnit == 'GM'
-                                        ? raw / 1000
-                                        : raw;
-                                widget.onChanged();
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          DropdownButton<String>(
-                            value: widget.item.weightUnit,
-                            underline: const SizedBox.shrink(),
-                            items: const [
-                              DropdownMenuItem(
-                                  value: 'KG', child: Text('KG')),
-                              DropdownMenuItem(
-                                  value: 'GM', child: Text('GM')),
-                            ],
-                            onChanged: (unit) {
-                              if (unit == null) return;
-                              final currentRaw =
-                                  double.tryParse(_qtyCtl.text) ?? 0;
-                              setState(() {
-                                widget.item.weightUnit = unit;
-                                if (currentRaw > 0) {
-                                  final converted = unit == 'GM'
-                                      ? currentRaw * 1000
-                                      : currentRaw / 1000;
-                                  _qtyCtl.text = unit == 'GM'
-                                      ? converted.toStringAsFixed(0)
-                                      : converted.toStringAsFixed(3);
-                                  widget.item.quantity = unit == 'GM'
-                                      ? converted / 1000
-                                      : converted;
-                                }
-                              });
-                              widget.onChanged();
-                            },
-                          ),
+          KSpacing.vGapXs,
+          KCompactRow(children: [
+            widget.item.weightBasedBilling
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: KTextField(
+                          label: 'Weight',
+                          controller: _qtyCtl,
+                          keyboardType:
+                              const TextInputType.numberWithOptions(
+                                  decimal: true),
+                          onChanged: (v) {
+                            final raw = double.tryParse(v) ?? 0;
+                            widget.item.quantity =
+                                widget.item.weightUnit == 'GM'
+                                    ? raw / 1000
+                                    : raw;
+                            widget.onChanged();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      DropdownButton<String>(
+                        value: widget.item.weightUnit,
+                        underline: const SizedBox.shrink(),
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'KG', child: Text('KG')),
+                          DropdownMenuItem(
+                              value: 'GM', child: Text('GM')),
                         ],
-                      )
-                    : KTextField(
-                        label: 'Quantity',
-                        controller: _qtyCtl,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(
-                                decimal: true),
-                        onChanged: (v) {
-                          widget.item.quantity = double.tryParse(v) ?? 1;
+                        onChanged: (unit) {
+                          if (unit == null) return;
+                          final currentRaw =
+                              double.tryParse(_qtyCtl.text) ?? 0;
+                          setState(() {
+                            widget.item.weightUnit = unit;
+                            if (currentRaw > 0) {
+                              final converted = unit == 'GM'
+                                  ? currentRaw * 1000
+                                  : currentRaw / 1000;
+                              _qtyCtl.text = unit == 'GM'
+                                  ? converted.toStringAsFixed(0)
+                                  : converted.toStringAsFixed(3);
+                              widget.item.quantity = unit == 'GM'
+                                  ? converted / 1000
+                                  : converted;
+                            }
+                          });
                           widget.onChanged();
                         },
                       ),
-              ),
-              KSpacing.hGapSm,
+                    ],
+                  )
+                : KTextField(
+                    label: 'Qty',
+                    controller: _qtyCtl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(
+                            decimal: true),
+                    onChanged: (v) {
+                      widget.item.quantity = double.tryParse(v) ?? 1;
+                      widget.onChanged();
+                    },
+                  ),
+            KTextField.amount(
+              label: widget.item.weightBasedBilling
+                  ? 'Rate/kg'
+                  : 'Price',
+              controller: _priceCtl,
+              onChanged: (v) {
+                widget.item.unitPrice = double.tryParse(v) ?? 0;
+                widget.onChanged();
+              },
+            ),
+          ]),
+          KSpacing.vGapXs,
+          Row(
+            children: [
               Expanded(
-                child: KTextField.amount(
-                  label: widget.item.weightBasedBilling
-                      ? 'Rate / kg'
-                      : 'Unit Price',
-                  controller: _priceCtl,
-                  onChanged: (v) {
-                    widget.item.unitPrice = double.tryParse(v) ?? 0;
+                child: TaxGroupPicker(
+                  value: widget.item.taxGroupId,
+                  label: 'Tax Group',
+                  onChanged: (group) {
+                    widget.item.taxGroupId = group?.id;
+                    widget.item.taxRate = group?.totalRate ?? 0;
                     widget.onChanged();
                   },
                 ),
               ),
+              KSpacing.hGapMd,
+              Text(
+                CurrencyFormatter.formatIndian(widget.item.lineTotal),
+                style: KTypography.amountSmall.copyWith(
+                  color: KColors.primary,
+                ),
+              ),
             ],
           ),
-          KSpacing.vGapSm,
-          TaxGroupPicker(
-            value: widget.item.taxGroupId,
-            label: 'Tax Group',
-            onChanged: (group) {
-              widget.item.taxGroupId = group?.id;
-              widget.item.taxRate = group?.totalRate ?? 0;
-              widget.onChanged();
-            },
-          ),
           if (widget.item.trackBatches) ...[
-            KSpacing.vGapSm,
+            KSpacing.vGapXs,
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(KSpacing.sm),
               decoration: BoxDecoration(
                 color: KColors.info.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(8),
@@ -926,7 +928,7 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
                   Text('Batch Details',
                       style: KTypography.labelMedium
                           .copyWith(color: KColors.info)),
-                  KSpacing.vGapSm,
+                  KSpacing.vGapXs,
                   KTextField(
                     label: 'Batch Number *',
                     initialValue: widget.item.batchNumber,
@@ -935,51 +937,32 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
                       widget.onChanged();
                     },
                   ),
-                  KSpacing.vGapSm,
-                  Row(
-                    children: [
-                      Expanded(
-                        child: KDatePicker(
-                          label: 'Mfg Date',
-                          value: widget.item.manufacturingDate,
-                          lastDate: DateTime.now(),
-                          onChanged: (d) {
-                            setState(() =>
-                                widget.item.manufacturingDate = d);
-                            widget.onChanged();
-                          },
-                        ),
-                      ),
-                      KSpacing.hGapSm,
-                      Expanded(
-                        child: KDatePicker(
-                          label: 'Expiry Date',
-                          value: widget.item.expiryDate,
-                          firstDate: DateTime.now(),
-                          onChanged: (d) {
-                            setState(() => widget.item.expiryDate = d);
-                            widget.onChanged();
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
+                  KSpacing.vGapXs,
+                  KCompactRow(children: [
+                    KDatePicker(
+                      label: 'Mfg Date',
+                      value: widget.item.manufacturingDate,
+                      lastDate: DateTime.now(),
+                      onChanged: (d) {
+                        setState(() =>
+                            widget.item.manufacturingDate = d);
+                        widget.onChanged();
+                      },
+                    ),
+                    KDatePicker(
+                      label: 'Expiry Date',
+                      value: widget.item.expiryDate,
+                      firstDate: DateTime.now(),
+                      onChanged: (d) {
+                        setState(() => widget.item.expiryDate = d);
+                        widget.onChanged();
+                      },
+                    ),
+                  ]),
                 ],
               ),
             ),
           ],
-          KSpacing.vGapSm,
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                'Line Total: ${CurrencyFormatter.formatIndian(widget.item.lineTotal)}',
-                style: KTypography.amountSmall.copyWith(
-                  color: KColors.primary,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );

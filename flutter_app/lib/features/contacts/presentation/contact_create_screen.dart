@@ -130,221 +130,211 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
       ),
       body: Form(
         key: _formKey,
-        child: SingleChildScrollView(
+        child: ListView(
           padding: KSpacing.pagePadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Contact type selector
-              _SectionTitle('Contact Type'),
-              KSpacing.vGapSm,
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'CUSTOMER', label: Text('Customer')),
-                  ButtonSegment(value: 'VENDOR', label: Text('Vendor')),
-                  ButtonSegment(value: 'BOTH', label: Text('Both')),
-                ],
-                selected: {_contactType},
-                onSelectionChanged: (s) =>
-                    setState(() => _contactType = s.first),
-              ),
-              KSpacing.vGapLg,
+          children: [
+            // Contact type selector
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'CUSTOMER', label: Text('Customer')),
+                ButtonSegment(value: 'VENDOR', label: Text('Vendor')),
+                ButtonSegment(value: 'BOTH', label: Text('Both')),
+              ],
+              selected: {_contactType},
+              onSelectionChanged: (s) =>
+                  setState(() => _contactType = s.first),
+            ),
+            KSpacing.vGapSm,
 
-              // Basic info
-              _SectionTitle('Basic Information'),
-              KSpacing.vGapSm,
-              KTextField(
-                label: 'Display Name *',
-                controller: _displayNameCtrl,
-                prefixIcon: Icons.person_outline,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              KSpacing.vGapMd,
-              KTextField(
-                label: 'Company Name',
-                controller: _companyNameCtrl,
-                prefixIcon: Icons.business_outlined,
-              ),
-              KSpacing.vGapMd,
-              Row(
-                children: [
-                  Expanded(
-                    child: KTextField(
-                      label: 'First Name',
-                      controller: _firstNameCtrl,
-                    ),
-                  ),
-                  KSpacing.hGapMd,
-                  Expanded(
-                    child: KTextField(
-                      label: 'Last Name',
-                      controller: _lastNameCtrl,
-                    ),
-                  ),
-                ],
-              ),
-              KSpacing.vGapLg,
-
-              // Contact details
-              _SectionTitle('Contact Details'),
-              KSpacing.vGapSm,
-              KTextField(
-                label: 'Email',
-                controller: _emailCtrl,
-                prefixIcon: Icons.email_outlined,
-                keyboardType: TextInputType.emailAddress,
-              ),
-              KSpacing.vGapMd,
-              KTextField(
-                label: 'Phone',
-                controller: _phoneCtrl,
-                prefixIcon: Icons.phone_outlined,
-                keyboardType: TextInputType.phone,
-              ),
-              KSpacing.vGapMd,
-              KTextField(
-                label: 'Mobile',
-                controller: _mobileCtrl,
-                prefixIcon: Icons.smartphone_outlined,
-                keyboardType: TextInputType.phone,
-              ),
-              KSpacing.vGapLg,
-
-              // Tax
-              _SectionTitle('Tax Information'),
-              KSpacing.vGapSm,
-              KTextField(
-                label: 'GSTIN',
-                controller: _gstinCtrl,
-                prefixIcon: Icons.receipt_long_outlined,
-                maxLength: 15,
-                onChanged: (v) {
-                  // Auto-infer GST treatment
-                  if (v.length == 15) {
-                    setState(() => _gstTreatment = 'REGISTERED');
-                  } else if (_gstTreatment == 'REGISTERED') {
-                    setState(() => _gstTreatment = 'UNREGISTERED');
-                  }
-                },
-              ),
-              KSpacing.vGapMd,
-              KTextField(
-                label: 'PAN',
-                controller: _panCtrl,
-                prefixIcon: Icons.credit_card_outlined,
-                maxLength: 10,
-              ),
-              KSpacing.vGapMd,
-              DropdownButtonFormField<String>(
-                value: _gstTreatment,
-                decoration: const InputDecoration(
-                  labelText: 'GST Treatment',
-                  prefixIcon: Icon(Icons.account_balance_outlined),
+            // Basic info (always open)
+            KCollapsibleSection(
+              title: 'Basic Information',
+              icon: Icons.person_outline,
+              initiallyExpanded: true,
+              children: [
+                KTextField(
+                  label: 'Display Name *',
+                  controller: _displayNameCtrl,
+                  prefixIcon: Icons.person_outline,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
-                items: const [
-                  DropdownMenuItem(
-                      value: 'REGISTERED', child: Text('Registered')),
-                  DropdownMenuItem(
-                      value: 'UNREGISTERED', child: Text('Unregistered')),
-                  DropdownMenuItem(
-                      value: 'COMPOSITION', child: Text('Composition Scheme')),
-                  DropdownMenuItem(
-                      value: 'CONSUMER', child: Text('Consumer')),
-                  DropdownMenuItem(value: 'OVERSEAS', child: Text('Overseas')),
-                  DropdownMenuItem(value: 'SEZ', child: Text('SEZ')),
-                ],
-                onChanged: (v) =>
-                    setState(() => _gstTreatment = v ?? 'UNREGISTERED'),
-              ),
-              KSpacing.vGapLg,
-
-              // Billing address
-              _SectionTitle('Billing Address'),
-              KSpacing.vGapSm,
-              KTextField(
-                label: 'Address Line 1',
-                controller: _billAddr1Ctrl,
-              ),
-              KSpacing.vGapMd,
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: KTextField(
-                      label: 'City',
-                      controller: _billCityCtrl,
-                    ),
-                  ),
-                  KSpacing.hGapMd,
-                  Expanded(
-                    child: KTextField(
-                      label: 'Postal Code',
-                      controller: _billPostalCtrl,
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                ],
-              ),
-              KSpacing.vGapMd,
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: KTextField(
-                      label: 'State',
-                      controller: _billStateCtrl,
-                    ),
-                  ),
-                  KSpacing.hGapMd,
-                  Expanded(
-                    child: KTextField(
-                      label: 'State Code',
-                      controller: _billStateCodeCtrl,
-                      maxLength: 5,
-                      hint: 'e.g. 29',
-                    ),
-                  ),
-                ],
-              ),
-              KSpacing.vGapMd,
-              KTextField(
-                label: 'Country (2-letter code)',
-                controller: _billCountryCtrl,
-                maxLength: 2,
-              ),
-              KSpacing.vGapLg,
-
-              // Financial terms
-              _SectionTitle('Financial Terms'),
-              KSpacing.vGapSm,
-              KTextField(
-                label: 'Credit Limit (₹)',
-                controller: _creditLimitCtrl,
-                keyboardType: TextInputType.number,
-                prefixIcon: Icons.account_balance_wallet_outlined,
-              ),
-              KSpacing.vGapMd,
-              DropdownButtonFormField<int>(
-                value: _paymentTermsDays,
-                decoration: const InputDecoration(
-                  labelText: 'Payment Terms',
-                  prefixIcon: Icon(Icons.calendar_today_outlined),
+                KSpacing.vGapSm,
+                KTextField(
+                  label: 'Company Name',
+                  controller: _companyNameCtrl,
+                  prefixIcon: Icons.business_outlined,
                 ),
-                items: const [
-                  DropdownMenuItem(value: 0, child: Text('Due on Receipt')),
-                  DropdownMenuItem(value: 15, child: Text('Net 15')),
-                  DropdownMenuItem(value: 30, child: Text('Net 30')),
-                  DropdownMenuItem(value: 45, child: Text('Net 45')),
-                  DropdownMenuItem(value: 60, child: Text('Net 60')),
-                  DropdownMenuItem(value: 90, child: Text('Net 90')),
-                ],
-                onChanged: (v) =>
-                    setState(() => _paymentTermsDays = v ?? 30),
-              ),
-              KSpacing.vGapXl,
-            ],
-          ),
+                KSpacing.vGapSm,
+                KCompactRow(children: [
+                  KTextField(
+                    label: 'First Name',
+                    controller: _firstNameCtrl,
+                  ),
+                  KTextField(
+                    label: 'Last Name',
+                    controller: _lastNameCtrl,
+                  ),
+                ]),
+              ],
+            ),
+
+            // Contact details (collapsed)
+            KCollapsibleSection(
+              title: 'Contact Details',
+              icon: Icons.phone_outlined,
+              children: [
+                KTextField(
+                  label: 'Email',
+                  controller: _emailCtrl,
+                  prefixIcon: Icons.email_outlined,
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                KSpacing.vGapSm,
+                KCompactRow(children: [
+                  KTextField(
+                    label: 'Phone',
+                    controller: _phoneCtrl,
+                    prefixIcon: Icons.phone_outlined,
+                    keyboardType: TextInputType.phone,
+                  ),
+                  KTextField(
+                    label: 'Mobile',
+                    controller: _mobileCtrl,
+                    prefixIcon: Icons.smartphone_outlined,
+                    keyboardType: TextInputType.phone,
+                  ),
+                ]),
+              ],
+            ),
+
+            // Tax (collapsed)
+            KCollapsibleSection(
+              title: 'Tax Information',
+              icon: Icons.receipt_long_outlined,
+              children: [
+                KCompactRow(children: [
+                  KTextField(
+                    label: 'GSTIN',
+                    controller: _gstinCtrl,
+                    prefixIcon: Icons.receipt_long_outlined,
+                    maxLength: 15,
+                    onChanged: (v) {
+                      if (v.length == 15) {
+                        setState(() => _gstTreatment = 'REGISTERED');
+                      } else if (_gstTreatment == 'REGISTERED') {
+                        setState(() => _gstTreatment = 'UNREGISTERED');
+                      }
+                    },
+                  ),
+                  KTextField(
+                    label: 'PAN',
+                    controller: _panCtrl,
+                    prefixIcon: Icons.credit_card_outlined,
+                    maxLength: 10,
+                  ),
+                ]),
+                KSpacing.vGapSm,
+                DropdownButtonFormField<String>(
+                  value: _gstTreatment,
+                  decoration: const InputDecoration(
+                    labelText: 'GST Treatment',
+                    prefixIcon: Icon(Icons.account_balance_outlined),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                        value: 'REGISTERED', child: Text('Registered')),
+                    DropdownMenuItem(
+                        value: 'UNREGISTERED', child: Text('Unregistered')),
+                    DropdownMenuItem(
+                        value: 'COMPOSITION', child: Text('Composition Scheme')),
+                    DropdownMenuItem(
+                        value: 'CONSUMER', child: Text('Consumer')),
+                    DropdownMenuItem(value: 'OVERSEAS', child: Text('Overseas')),
+                    DropdownMenuItem(value: 'SEZ', child: Text('SEZ')),
+                  ],
+                  onChanged: (v) =>
+                      setState(() => _gstTreatment = v ?? 'UNREGISTERED'),
+                ),
+              ],
+            ),
+
+            // Billing address (collapsed)
+            KCollapsibleSection(
+              title: 'Billing Address',
+              icon: Icons.location_on_outlined,
+              children: [
+                KTextField(
+                  label: 'Address Line 1',
+                  controller: _billAddr1Ctrl,
+                ),
+                KSpacing.vGapSm,
+                KCompactRow(flex: const [2, 1], children: [
+                  KTextField(
+                    label: 'City',
+                    controller: _billCityCtrl,
+                  ),
+                  KTextField(
+                    label: 'Postal Code',
+                    controller: _billPostalCtrl,
+                    keyboardType: TextInputType.number,
+                  ),
+                ]),
+                KSpacing.vGapSm,
+                KCompactRow(flex: const [2, 1, 1], children: [
+                  KTextField(
+                    label: 'State',
+                    controller: _billStateCtrl,
+                  ),
+                  KTextField(
+                    label: 'Code',
+                    controller: _billStateCodeCtrl,
+                    maxLength: 5,
+                    hint: 'e.g. 29',
+                  ),
+                  KTextField(
+                    label: 'Country',
+                    controller: _billCountryCtrl,
+                    maxLength: 2,
+                  ),
+                ]),
+              ],
+            ),
+
+            // Financial terms (collapsed)
+            KCollapsibleSection(
+              title: 'Financial Terms',
+              icon: Icons.account_balance_wallet_outlined,
+              children: [
+                KCompactRow(children: [
+                  KTextField(
+                    label: 'Credit Limit (₹)',
+                    controller: _creditLimitCtrl,
+                    keyboardType: TextInputType.number,
+                    prefixIcon: Icons.account_balance_wallet_outlined,
+                  ),
+                  DropdownButtonFormField<int>(
+                    value: _paymentTermsDays,
+                    decoration: const InputDecoration(
+                      labelText: 'Payment Terms',
+                      prefixIcon: Icon(Icons.calendar_today_outlined),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 0, child: Text('Due on Receipt')),
+                      DropdownMenuItem(value: 15, child: Text('Net 15')),
+                      DropdownMenuItem(value: 30, child: Text('Net 30')),
+                      DropdownMenuItem(value: 45, child: Text('Net 45')),
+                      DropdownMenuItem(value: 60, child: Text('Net 60')),
+                      DropdownMenuItem(value: 90, child: Text('Net 90')),
+                    ],
+                    onChanged: (v) =>
+                        setState(() => _paymentTermsDays = v ?? 30),
+                  ),
+                ]),
+              ],
+            ),
+            KSpacing.vGapMd,
+          ],
         ),
       ),
     );
@@ -405,13 +395,3 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  final String text;
-
-  const _SectionTitle(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(text, style: KTypography.h3);
-  }
-}
