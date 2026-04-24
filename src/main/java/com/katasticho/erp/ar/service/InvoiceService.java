@@ -440,9 +440,18 @@ public class InvoiceService {
     }
 
     @Transactional(readOnly = true)
-    public Page<InvoiceResponse> listInvoiceResponses(String status, Pageable pageable) {
+    public Page<InvoiceResponse> listInvoiceResponses(String status, String search, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        if (status != null && !status.isBlank()) {
+        boolean hasSearch = search != null && !search.isBlank();
+        boolean hasStatus = status != null && !status.isBlank();
+
+        if (hasSearch && hasStatus) {
+            return invoiceRepository.searchByOrgIdAndStatus(orgId, status.toUpperCase(), search.trim(), pageable)
+                    .map(this::toResponse);
+        } else if (hasSearch) {
+            return invoiceRepository.searchByOrgId(orgId, search.trim(), pageable)
+                    .map(this::toResponse);
+        } else if (hasStatus) {
             return invoiceRepository.findByOrgIdAndStatusAndIsDeletedFalseOrderByInvoiceDateDesc(
                     orgId, status.toUpperCase(), pageable).map(this::toResponse);
         }

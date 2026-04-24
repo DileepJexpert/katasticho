@@ -25,6 +25,27 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     Page<Invoice> findByOrgIdAndContactIdAndIsDeletedFalseOrderByInvoiceDateDesc(UUID orgId, UUID contactId, Pageable pageable);
 
     @Query("""
+        SELECT i FROM Invoice i LEFT JOIN Contact c ON c.id = i.contactId
+        WHERE i.orgId = :orgId
+          AND i.isDeleted = false
+          AND (LOWER(i.invoiceNumber) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(c.displayName) LIKE LOWER(CONCAT('%', :search, '%')))
+        ORDER BY i.invoiceDate DESC
+    """)
+    Page<Invoice> searchByOrgId(UUID orgId, String search, Pageable pageable);
+
+    @Query("""
+        SELECT i FROM Invoice i LEFT JOIN Contact c ON c.id = i.contactId
+        WHERE i.orgId = :orgId
+          AND i.status = :status
+          AND i.isDeleted = false
+          AND (LOWER(i.invoiceNumber) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(c.displayName) LIKE LOWER(CONCAT('%', :search, '%')))
+        ORDER BY i.invoiceDate DESC
+    """)
+    Page<Invoice> searchByOrgIdAndStatus(UUID orgId, String status, String search, Pageable pageable);
+
+    @Query("""
         SELECT i FROM Invoice i
         WHERE i.orgId = :orgId
           AND i.status IN ('SENT','PARTIALLY_PAID','OVERDUE')

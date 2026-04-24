@@ -88,8 +88,9 @@ public class InvoiceController {
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<InvoiceResponse>>> listInvoices(
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search,
             Pageable pageable) {
-        Page<InvoiceResponse> page = invoiceService.listInvoiceResponses(status, pageable);
+        Page<InvoiceResponse> page = invoiceService.listInvoiceResponses(status, search, pageable);
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(page)));
     }
 
