@@ -222,11 +222,12 @@ class _ItemCard extends StatelessWidget {
       onLongPress: onToggleSelect,
       borderColor: selected ? cs.primary : null,
       backgroundColor: selected ? cs.primary.withValues(alpha: 0.06) : null,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
           SizedBox(
-            width: 48,
-            height: 48,
+            width: 40,
+            height: 40,
             child: inSelection
                 ? Center(
                     child: Icon(
@@ -234,18 +235,19 @@ class _ItemCard extends StatelessWidget {
                           ? Icons.check_circle_rounded
                           : Icons.radio_button_unchecked_rounded,
                       color: selected ? cs.primary : cs.onSurfaceVariant,
-                      size: 26,
+                      size: 24,
                     ),
                   )
                 : Container(
                     decoration: BoxDecoration(
                       color: KColors.primaryLight.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
                       itemType == 'SERVICE'
                           ? Icons.build_outlined
                           : Icons.inventory_2_outlined,
+                      size: 20,
                       color: KColors.primary,
                     ),
                   ),
@@ -347,8 +349,10 @@ class _ItemCard extends StatelessWidget {
               ],
             ],
           ),
-          if (!inSelection)
-            const Icon(Icons.chevron_right, color: KColors.textHint),
+          if (!inSelection) ...[
+            KSpacing.hGapXs,
+            const Icon(Icons.chevron_right, color: KColors.textHint, size: 18),
+          ],
         ],
       ),
     );
