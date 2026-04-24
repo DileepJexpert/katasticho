@@ -11,6 +11,7 @@ import com.katasticho.erp.ar.entity.InvoiceNumberSequence;
 import com.katasticho.erp.ar.repository.InvoiceNumberSequenceRepository;
 import com.katasticho.erp.ar.repository.TaxLineItemRepository;
 import com.katasticho.erp.audit.AuditService;
+import com.katasticho.erp.common.cache.CacheInvalidationService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.PagedResponse;
 import com.katasticho.erp.common.exception.BusinessException;
@@ -80,6 +81,7 @@ public class SalesReceiptService {
     private final TaxEngine taxEngine;
     private final AuditService auditService;
     private final DefaultAccountService defaultAccountService;
+    private final CacheInvalidationService cacheInvalidationService;
 
     @Transactional
     public SalesReceiptResponse create(CreateSalesReceiptRequest request) {
@@ -214,6 +216,8 @@ public class SalesReceiptService {
 
         auditService.log("SALES_RECEIPT", receipt.getId(), "CREATE", null,
                 "{\"receiptNumber\":\"" + receiptNumber + "\",\"total\":\"" + total + "\"}");
+
+        cacheInvalidationService.onPosSale(TenantContext.getCurrentOrgId());
 
         return toResponse(receipt);
     }

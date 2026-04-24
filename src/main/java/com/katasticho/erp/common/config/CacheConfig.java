@@ -67,15 +67,35 @@ public class CacheConfig implements CachingConfigurer {
                 .disableCachingNullValues()
                 .serializeValuesWith(serializationPair);
 
-        Map<String, RedisCacheConfiguration> cacheConfigs = Map.of(
-                "pos-search", RedisCacheConfiguration.defaultCacheConfig()
+        Map<String, RedisCacheConfiguration> cacheConfigs = Map.ofEntries(
+                Map.entry("pos-search", RedisCacheConfiguration.defaultCacheConfig()
                         .entryTtl(Duration.ofMinutes(5))
                         .disableCachingNullValues()
-                        .serializeValuesWith(serializationPair),
-                "features", RedisCacheConfiguration.defaultCacheConfig()
+                        .serializeValuesWith(serializationPair)),
+                Map.entry("features", RedisCacheConfiguration.defaultCacheConfig()
                         .entryTtl(Duration.ofHours(1))
                         .disableCachingNullValues()
-                        .serializeValuesWith(serializationPair)
+                        .serializeValuesWith(serializationPair)),
+                Map.entry("item-price", RedisCacheConfiguration.defaultCacheConfig()
+                        .entryTtl(Duration.ofHours(12))
+                        .disableCachingNullValues()
+                        .serializeValuesWith(serializationPair)),
+                Map.entry("stock-balance", RedisCacheConfiguration.defaultCacheConfig()
+                        .entryTtl(Duration.ofHours(12))
+                        .disableCachingNullValues()
+                        .serializeValuesWith(serializationPair)),
+                Map.entry("pos-items", RedisCacheConfiguration.defaultCacheConfig()
+                        .entryTtl(Duration.ofMinutes(30))
+                        .disableCachingNullValues()
+                        .serializeValuesWith(serializationPair)),
+                Map.entry("cust-outstanding", RedisCacheConfiguration.defaultCacheConfig()
+                        .entryTtl(Duration.ofHours(12))
+                        .disableCachingNullValues()
+                        .serializeValuesWith(serializationPair)),
+                Map.entry("daily-summary", RedisCacheConfiguration.defaultCacheConfig()
+                        .entryTtl(Duration.ofHours(12))
+                        .disableCachingNullValues()
+                        .serializeValuesWith(serializationPair))
         );
 
         return RedisCacheManager.builder(connectionFactory)

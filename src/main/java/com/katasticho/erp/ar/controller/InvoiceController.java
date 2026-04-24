@@ -87,7 +87,7 @@ public class InvoiceController {
     @GetMapping
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<InvoiceResponse>>> listInvoices(
-            @org.springframework.web.bind.annotation.RequestParam(required = false) String status,
+            @RequestParam(required = false) String status,
             Pageable pageable) {
         Page<InvoiceResponse> page = invoiceService.listInvoiceResponses(status, pageable);
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(page)));
