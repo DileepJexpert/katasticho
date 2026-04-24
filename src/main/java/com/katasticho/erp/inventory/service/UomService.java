@@ -9,6 +9,9 @@ import com.katasticho.erp.inventory.entity.UomCategory;
 import com.katasticho.erp.inventory.entity.UomConversion;
 import com.katasticho.erp.inventory.repository.UomConversionRepository;
 import com.katasticho.erp.inventory.repository.UomRepository;
+import com.katasticho.erp.organisation.IndustryFeatureConfig;
+import com.katasticho.erp.organisation.IndustryFeatureConfigRepository;
+import com.katasticho.erp.organisation.IndustryTemplateRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -18,9 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Unit of Measure master data + the quantity conversion engine.
@@ -58,8 +60,67 @@ public class UomService {
      */
     private static final MathContext CTX = MathContext.DECIMAL128;
 
+    /**
+     * Registry of all known UoM names → (abbreviation, category, isBase).
+     * Used when seeding industry-specific UoMs from the DB uomList field.
+     * Adding a new UoM here makes it available to all industry configs without
+     * code changes — just add it to the IndustryFeatureConfig.uomList seed data.
+     */
+    private static final Map<String, UomDef> UOM_REGISTRY = new LinkedHashMap<>();
+    static {
+        // COUNT
+        reg("Pieces",       "PCS",    UomCategory.COUNT,     true);
+        reg("Dozen",        "DOZEN",  UomCategory.COUNT,     false);
+        reg("Set",          "SET",    UomCategory.COUNT,     false);
+        reg("Pair",         "PAIR",   UomCategory.COUNT,     false);
+        reg("Plate",        "PLATE",  UomCategory.COUNT,     false);
+        reg("Glass",        "GLASS",  UomCategory.COUNT,     false);
+        reg("Tablet",       "TAB",    UomCategory.COUNT,     false);
+        // WEIGHT
+        reg("Kilogram",     "KG",     UomCategory.WEIGHT,    true);
+        reg("Gram",         "GM",     UomCategory.WEIGHT,    false);
+        reg("Milligram",    "MG",     UomCategory.WEIGHT,    false);
+        reg("Tonne",        "TON",    UomCategory.WEIGHT,    false);
+        // VOLUME
+        reg("Litre",        "LTR",    UomCategory.VOLUME,    true);
+        reg("Millilitre",   "ML",     UomCategory.VOLUME,    false);
+        // LENGTH
+        reg("Metre",        "MTR",    UomCategory.LENGTH,    true);
+        reg("Feet",         "FT",     UomCategory.LENGTH,    false);
+        reg("Square Feet",  "SQFT",   UomCategory.LENGTH,    false);
+        reg("Cubic Feet",   "CUFT",   UomCategory.LENGTH,    false);
+        // PACKAGING
+        reg("Box",          "BOX",    UomCategory.PACKAGING, true);
+        reg("Pack",         "PACK",   UomCategory.PACKAGING, false);
+        reg("Packet",       "PKT",    UomCategory.PACKAGING, false);
+        reg("Bag",          "BAG",    UomCategory.PACKAGING, false);
+        reg("Carton",       "CTN",    UomCategory.PACKAGING, false);
+        reg("Bora",         "BORA",   UomCategory.PACKAGING, false);
+        reg("Katta",        "KATTA",  UomCategory.PACKAGING, false);
+        reg("Tin",          "TIN",    UomCategory.PACKAGING, false);
+        reg("Tray",         "TRAY",   UomCategory.PACKAGING, false);
+        reg("Peti",         "PETI",   UomCategory.PACKAGING, false);
+        reg("Bundle",       "BUNDLE", UomCategory.PACKAGING, false);
+        reg("Bottle",       "BOTTLE", UomCategory.PACKAGING, false);
+        reg("Strip",        "STRIP",  UomCategory.PACKAGING, false);
+        reg("Tube",         "TUBE",   UomCategory.PACKAGING, false);
+        reg("Vial",         "VIAL",   UomCategory.PACKAGING, false);
+        reg("Sachet",       "SACHET", UomCategory.PACKAGING, false);
+        reg("Roll",         "ROLL",   UomCategory.PACKAGING, false);
+        reg("Spool",        "SPOOL",  UomCategory.PACKAGING, false);
+    }
+
+    private static void reg(String name, String abbr, UomCategory cat, boolean base) {
+        UOM_REGISTRY.put(name.toUpperCase(), new UomDef(name, abbr, cat, base));
+        UOM_REGISTRY.put(abbr.toUpperCase(), new UomDef(name, abbr, cat, base));
+    }
+
+    private record UomDef(String name, String abbr, UomCategory category, boolean base) {}
+
     private final UomRepository uomRepository;
     private final UomConversionRepository uomConversionRepository;
+    private final IndustryTemplateRepository industryTemplateRepository;
+    private final IndustryFeatureConfigRepository featureConfigRepository;
 
     // ── CRUD ──────────────────────────────────────────────────────
 
@@ -310,56 +371,73 @@ public class UomService {
 
     private void seedIndustryUoms(UUID orgId, String industryCode) {
         if (industryCode == null) {
-            seedUom(orgId, "Pack",     "PACK",   UomCategory.PACKAGING, false);
-            seedUom(orgId, "Metre",    "MTR",    UomCategory.LENGTH,    true);
+            seedUomIfKnown(orgId, "PACK");
+            seedUomIfKnown(orgId, "MTR");
             return;
         }
+
+        // Prefer DB-driven uomList from industry template feature config
+        List<String> dbUomList = resolveUomListFromDb(industryCode);
+        if (!dbUomList.isEmpty()) {
+            for (String uomName : dbUomList) {
+                seedUomIfKnown(orgId, uomName);
+            }
+            return;
+        }
+
+        // Fallback: hardcoded defaults (kept until all templates are seeded)
         switch (industryCode) {
             case "PHARMACY", "AYURVEDIC", "PHARMA_MANUFACTURER" -> {
-                seedUom(orgId, "Strip",       "STRIP",  UomCategory.PACKAGING, false);
-                seedUom(orgId, "Bottle",      "BOTTLE", UomCategory.PACKAGING, false);
-                seedUom(orgId, "Tube",        "TUBE",   UomCategory.PACKAGING, false);
-                seedUom(orgId, "Vial",        "VIAL",   UomCategory.PACKAGING, false);
-                seedUom(orgId, "Sachet",      "SACHET", UomCategory.PACKAGING, false);
-                seedUom(orgId, "Tablet",      "TAB",    UomCategory.COUNT,     false);
-                seedUom(orgId, "Milligram",   "MG",     UomCategory.WEIGHT,    false);
+                seedUomIfKnown(orgId, "STRIP"); seedUomIfKnown(orgId, "BOTTLE");
+                seedUomIfKnown(orgId, "TUBE"); seedUomIfKnown(orgId, "VIAL");
+                seedUomIfKnown(orgId, "SACHET"); seedUomIfKnown(orgId, "TAB");
+                seedUomIfKnown(orgId, "MG");
             }
             case "GROCERY", "SUPERMARKET", "FRUITS_VEG", "ORGANIC", "KIRANA" -> {
-                seedUom(orgId, "Pack",        "PACK",   UomCategory.PACKAGING, false);
-                seedUom(orgId, "Packet",      "PKT",    UomCategory.PACKAGING, false);
-                seedUom(orgId, "Bag",         "BAG",    UomCategory.PACKAGING, false);
-                seedUom(orgId, "Bora",        "BORA",   UomCategory.PACKAGING, false);
-                seedUom(orgId, "Katta",       "KATTA",  UomCategory.PACKAGING, false);
-                seedUom(orgId, "Carton",      "CTN",    UomCategory.PACKAGING, false);
-                seedUom(orgId, "Tin",         "TIN",    UomCategory.PACKAGING, false);
-                seedUom(orgId, "Tray",        "TRAY",   UomCategory.PACKAGING, false);
-                seedUom(orgId, "Peti",        "PETI",   UomCategory.PACKAGING, false);
-                seedUom(orgId, "Bundle",      "BUNDLE", UomCategory.PACKAGING, false);
-                seedUom(orgId, "Bottle",      "BOTTLE", UomCategory.PACKAGING, false);
-                seedUom(orgId, "Pair",        "PAIR",   UomCategory.COUNT,     false);
+                seedUomIfKnown(orgId, "PACK"); seedUomIfKnown(orgId, "PKT");
+                seedUomIfKnown(orgId, "BAG"); seedUomIfKnown(orgId, "BORA");
+                seedUomIfKnown(orgId, "KATTA"); seedUomIfKnown(orgId, "CTN");
+                seedUomIfKnown(orgId, "TIN"); seedUomIfKnown(orgId, "TRAY");
+                seedUomIfKnown(orgId, "PETI"); seedUomIfKnown(orgId, "BUNDLE");
+                seedUomIfKnown(orgId, "BOTTLE"); seedUomIfKnown(orgId, "PAIR");
             }
-            case "ELECTRONICS", "MOBILE", "APPLIANCES", "LED", "CCTV", "ELECTRONICS_MANUFACTURER" -> {
-                seedUom(orgId, "Pair",        "PAIR",   UomCategory.COUNT,     false);
-            }
+            case "ELECTRONICS", "MOBILE", "APPLIANCES", "LED", "CCTV", "ELECTRONICS_MANUFACTURER" ->
+                seedUomIfKnown(orgId, "PAIR");
             case "HARDWARE", "PLUMBING", "ELECTRICAL", "PAINT", "BUILDING" -> {
-                seedUom(orgId, "Metre",       "MTR",    UomCategory.LENGTH,    true);
-                seedUom(orgId, "Feet",        "FT",     UomCategory.LENGTH,    false);
-                seedUom(orgId, "Square Feet", "SQFT",   UomCategory.LENGTH,    false);
-                seedUom(orgId, "Cubic Feet",  "CUFT",   UomCategory.LENGTH,    false);
-                seedUom(orgId, "Bag",         "BAG",    UomCategory.PACKAGING, false);
+                seedUomIfKnown(orgId, "MTR"); seedUomIfKnown(orgId, "FT");
+                seedUomIfKnown(orgId, "SQFT"); seedUomIfKnown(orgId, "CUFT");
+                seedUomIfKnown(orgId, "BAG");
             }
             case "GARMENTS", "FABRIC", "FOOTWEAR", "JEWELRY", "COSMETICS", "GARMENT_MANUFACTURER" -> {
-                seedUom(orgId, "Pair",        "PAIR",   UomCategory.COUNT,     false);
-                seedUom(orgId, "Metre",       "MTR",    UomCategory.LENGTH,    true);
+                seedUomIfKnown(orgId, "PAIR"); seedUomIfKnown(orgId, "MTR");
             }
             case "FOOD", "BAKERY", "CATERING", "CLOUD_KITCHEN", "JUICE", "FOOD_MANUFACTURER" -> {
-                seedUom(orgId, "Plate",       "PLATE",  UomCategory.COUNT,     false);
-                seedUom(orgId, "Glass",       "GLASS",  UomCategory.COUNT,     false);
+                seedUomIfKnown(orgId, "PLATE"); seedUomIfKnown(orgId, "GLASS");
             }
             default -> {
-                seedUom(orgId, "Pack",        "PACK",   UomCategory.PACKAGING, false);
-                seedUom(orgId, "Metre",       "MTR",    UomCategory.LENGTH,    true);
+                seedUomIfKnown(orgId, "PACK"); seedUomIfKnown(orgId, "MTR");
             }
+        }
+    }
+
+    private List<String> resolveUomListFromDb(String industryCode) {
+        return industryTemplateRepository.findByIndustryCode(industryCode)
+                .map(template -> {
+                    Optional<IndustryFeatureConfig> cfg = featureConfigRepository
+                            .findByIndustryTemplateIdAndSubCategoryCodeIsNull(template.getId());
+                    return cfg.map(IndustryFeatureConfig::getUomList)
+                              .filter(list -> list != null && !list.isEmpty())
+                              .orElse(Collections.emptyList());
+                })
+                .orElse(Collections.emptyList());
+    }
+
+    private void seedUomIfKnown(UUID orgId, String nameOrAbbr) {
+        UomDef def = UOM_REGISTRY.get(nameOrAbbr.toUpperCase());
+        if (def != null) {
+            seedUom(orgId, def.name(), def.abbr(), def.category(), def.base());
+        } else {
+            log.warn("Unknown UoM '{}' in template config — skipping", nameOrAbbr);
         }
     }
 

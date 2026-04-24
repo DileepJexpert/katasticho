@@ -8,6 +8,7 @@ import com.katasticho.erp.common.service.FeatureFlagService;
 import com.katasticho.erp.inventory.service.UomService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
+import com.katasticho.erp.organisation.OrgSettingsService;
 import com.katasticho.erp.tax.TaxSeedService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +37,7 @@ class OrgBootstrapServiceTest {
     @Mock private DefaultAccountService defaultAccountService;
     @Mock private TaxSeedService taxSeedService;
     @Mock private FeatureFlagService featureFlagService;
+    @Mock private OrgSettingsService orgSettingsService;
     @Mock private OrgBootstrapStatusRepository statusRepository;
 
     private OrgBootstrapService bootstrapService;
@@ -47,7 +49,8 @@ class OrgBootstrapServiceTest {
     void setUp() {
         bootstrapService = new OrgBootstrapService(
                 organisationRepository, uomService, accountService,
-                defaultAccountService, taxSeedService, featureFlagService, statusRepository);
+                defaultAccountService, taxSeedService, featureFlagService,
+                orgSettingsService, statusRepository);
 
         orgId = UUID.randomUUID();
         org = mock(Organisation.class);

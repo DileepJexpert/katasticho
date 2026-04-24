@@ -2,6 +2,9 @@ package com.katasticho.erp.common.service;
 
 import com.katasticho.erp.common.entity.OrgFeatureFlag;
 import com.katasticho.erp.common.repository.OrgFeatureFlagRepository;
+import com.katasticho.erp.organisation.IndustryFeatureConfig;
+import com.katasticho.erp.organisation.IndustryFeatureConfigRepository;
+import com.katasticho.erp.organisation.IndustryTemplateRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -19,6 +22,8 @@ public class FeatureFlagService {
 
     private final OrgFeatureFlagRepository flagRepository;
     private final StringRedisTemplate redisTemplate;
+    private final IndustryTemplateRepository industryTemplateRepository;
+    private final IndustryFeatureConfigRepository featureConfigRepository;
 
     private static final String CACHE_PREFIX = "features:";
     private static final Duration CACHE_TTL = Duration.ofHours(1);
@@ -69,16 +74,28 @@ public class FeatureFlagService {
     public void seedForSubCategories(UUID orgId, List<String> subCategoryCodes) {
         flagRepository.deleteByOrgId(orgId);
 
-        // Start with all flags OFF
         Map<String, Boolean> merged = defaultFlags();
 
-        // OR-merge flags from each sub-category
-        if (subCategoryCodes != null) {
-            for (String code : subCategoryCodes) {
-                Map<String, Boolean> subFlags = flagsForSubCategory(code);
-                subFlags.forEach((feature, enabled) -> {
-                    if (enabled) merged.put(feature, true);
-                });
+        // Look up template-level default config using the first sub-category code to find the template
+        if (subCategoryCodes != null && !subCategoryCodes.isEmpty()) {
+            // Find the industry template that owns any of these sub-category codes
+            // Use the sub-category configs from the DB; fall back to hardcoded defaults only if DB is empty
+            List<IndustryFeatureConfig> dbConfigs = featureConfigRepository
+                    .findByIndustryTemplateIdAndSubCategoryCodeIn(resolveTemplateId(subCategoryCodes), subCategoryCodes);
+
+            if (!dbConfigs.isEmpty()) {
+                for (IndustryFeatureConfig cfg : dbConfigs) {
+                    if (cfg.getFeatureFlags() != null) {
+                        cfg.getFeatureFlags().forEach(f -> merged.put(f, true));
+                    }
+                }
+            } else {
+                // DB not yet seeded — fall back to legacy hardcoded logic (will become dead code once seeded)
+                for (String code : subCategoryCodes) {
+                    flagsForSubCategoryFallback(code).forEach((f, enabled) -> {
+                        if (enabled) merged.put(f, true);
+                    });
+                }
             }
         }
 
@@ -93,6 +110,21 @@ public class FeatureFlagService {
         invalidateCache(orgId);
         log.info("Seeded {} feature flags for org {} (subCategories={})",
                 merged.size(), orgId, subCategoryCodes);
+    }
+
+    private UUID resolveTemplateId(List<String> subCategoryCodes) {
+        // Find which template contains at least one of these sub-category codes
+        for (String code : subCategoryCodes) {
+            Optional<IndustryFeatureConfig> cfg = featureConfigRepository
+                    .findAll().stream()
+                    .filter(c -> code.equals(c.getSubCategoryCode()))
+                    .findFirst();
+            if (cfg.isPresent()) return cfg.get().getIndustryTemplateId();
+        }
+        // Fallback: try industryCode as a direct template lookup
+        return industryTemplateRepository.findByIndustryCode(subCategoryCodes.get(0))
+                .map(t -> t.getId())
+                .orElse(UUID.randomUUID()); // will produce empty list in subsequent query
     }
 
     private Map<String, Boolean> defaultFlags() {
@@ -111,42 +143,24 @@ public class FeatureFlagService {
         return flags;
     }
 
-    private Map<String, Boolean> flagsForSubCategory(String code) {
+    private Map<String, Boolean> flagsForSubCategoryFallback(String code) {
         Map<String, Boolean> flags = defaultFlags();
         if (code == null) return flags;
-
         switch (code) {
             case "PHARMACY", "AYURVEDIC", "ALLOPATHIC_MEDICINE", "AYURVEDIC_HERBAL",
                  "SINGLE_MEDICAL_STORE", "MEDICAL_SHOP_CHAIN" -> {
-                flags.put("BATCH_TRACKING", true);
-                flags.put("EXPIRY_TRACKING", true);
-                flags.put("MRP_PRICING", true);
-                flags.put("DRUG_SCHEDULE_FIELDS", true);
+                flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
+                flags.put("MRP_PRICING", true); flags.put("DRUG_SCHEDULE_FIELDS", true);
             }
-            case "NUTRACEUTICALS", "SURGICAL_CONSUMABLES", "SURGICAL_EQUIPMENT" -> {
-                flags.put("BATCH_TRACKING", true);
-                flags.put("EXPIRY_TRACKING", true);
-                flags.put("MRP_PRICING", true);
-                flags.put("SERIAL_TRACKING", true);
-                flags.put("WARRANTY_MANAGEMENT", true);
-            }
-            case "GROCERY", "SUPERMARKET", "FRUITS_VEG", "ORGANIC",
-                 "KIRANA_STORE", "SUPERMARKET_CHAIN", "FRUITS_VEGETABLES", "ORGANIC_STORE" -> {
-                flags.put("BATCH_TRACKING", true);
-                flags.put("EXPIRY_TRACKING", true);
-                flags.put("MRP_PRICING", true);
-                flags.put("WEIGHT_BASED_BILLING", true);
+            case "GROCERY", "SUPERMARKET", "FRUITS_VEG", "ORGANIC", "KIRANA_STORE",
+                 "SUPERMARKET_CHAIN", "FRUITS_VEGETABLES", "ORGANIC_STORE" -> {
+                flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
+                flags.put("MRP_PRICING", true); flags.put("WEIGHT_BASED_BILLING", true);
             }
             case "ELECTRONICS", "MOBILE", "APPLIANCES", "LED", "CCTV",
                  "COMPUTER_LAPTOP", "MOBILE_ACCESSORIES", "HOME_APPLIANCES",
                  "LED_LIGHTING", "CCTV_SECURITY" -> {
-                flags.put("SERIAL_TRACKING", true);
-                flags.put("WARRANTY_MANAGEMENT", true);
-            }
-            case "HARDWARE", "PLUMBING", "ELECTRICAL", "PAINT", "BUILDING",
-                 "HARDWARE_STORE", "PLUMBING_SANITARY", "ELECTRICAL_SHOP",
-                 "PAINT_HARDWARE", "BUILDING_MATERIALS" -> {
-                flags.put("WEIGHT_BASED_BILLING", true);
+                flags.put("SERIAL_TRACKING", true); flags.put("WARRANTY_MANAGEMENT", true);
             }
             case "GARMENTS", "FABRIC", "FOOTWEAR", "JEWELRY", "COSMETICS",
                  "READYMADE_GARMENTS", "FABRIC_STORE", "FOOTWEAR_SHOP",
@@ -156,44 +170,26 @@ public class FeatureFlagService {
             case "FOOD", "BAKERY", "CATERING", "CLOUD_KITCHEN", "JUICE",
                  "RESTAURANT", "BAKERY_CONFECTIONERY", "CATERING_SERVICE",
                  "CLOUD_KITCHEN_BRAND", "JUICE_BEVERAGE" -> {
-                flags.put("BATCH_TRACKING", true);
-                flags.put("EXPIRY_TRACKING", true);
-                flags.put("BOM_ASSEMBLY", true);
-                flags.put("WEIGHT_BASED_BILLING", true);
-            }
-            case "AUTO_PARTS", "AUTO_PARTS_SHOP", "AUTOMOBILE_ACCESSORIES" -> {
-                flags.put("SERIAL_TRACKING", true);
-                flags.put("WARRANTY_MANAGEMENT", true);
+                flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
+                flags.put("BOM_ASSEMBLY", true); flags.put("WEIGHT_BASED_BILLING", true);
             }
             case "PHARMA_MANUFACTURER", "ALLOPATHIC_MANUFACTURER" -> {
-                flags.put("BATCH_TRACKING", true);
-                flags.put("EXPIRY_TRACKING", true);
-                flags.put("BOM_ASSEMBLY", true);
-                flags.put("DRUG_SCHEDULE_FIELDS", true);
-            }
-            case "NUTRACEUTICALS_MANUFACTURER" -> {
-                flags.put("BATCH_TRACKING", true);
-                flags.put("EXPIRY_TRACKING", true);
-                flags.put("BOM_ASSEMBLY", true);
+                flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
+                flags.put("BOM_ASSEMBLY", true); flags.put("DRUG_SCHEDULE_FIELDS", true);
             }
             case "FOOD_MANUFACTURER", "FOOD_PROCESSING" -> {
-                flags.put("BATCH_TRACKING", true);
-                flags.put("EXPIRY_TRACKING", true);
-                flags.put("BOM_ASSEMBLY", true);
-                flags.put("WEIGHT_BASED_BILLING", true);
+                flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
+                flags.put("BOM_ASSEMBLY", true); flags.put("WEIGHT_BASED_BILLING", true);
             }
             case "GARMENT_MANUFACTURER", "APPAREL_MANUFACTURER" -> {
-                flags.put("SIZE_COLOR_VARIANTS", true);
-                flags.put("BOM_ASSEMBLY", true);
+                flags.put("SIZE_COLOR_VARIANTS", true); flags.put("BOM_ASSEMBLY", true);
             }
             case "ELECTRONICS_MANUFACTURER", "ELECTRONICS_MFG" -> {
-                flags.put("SERIAL_TRACKING", true);
-                flags.put("BOM_ASSEMBLY", true);
+                flags.put("SERIAL_TRACKING", true); flags.put("BOM_ASSEMBLY", true);
                 flags.put("WARRANTY_MANAGEMENT", true);
             }
             default -> { }
         }
-
         return flags;
     }
 

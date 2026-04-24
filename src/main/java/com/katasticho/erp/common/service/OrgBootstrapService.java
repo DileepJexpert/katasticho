@@ -7,6 +7,7 @@ import com.katasticho.erp.common.repository.OrgBootstrapStatusRepository;
 import com.katasticho.erp.inventory.service.UomService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
+import com.katasticho.erp.organisation.OrgSettingsService;
 import com.katasticho.erp.tax.TaxSeedService;
 import com.katasticho.erp.common.service.FeatureFlagService;
 import lombok.RequiredArgsConstructor;
@@ -67,6 +68,7 @@ public class OrgBootstrapService {
     private final DefaultAccountService defaultAccountService;
     private final TaxSeedService taxSeedService;
     private final FeatureFlagService featureFlagService;
+    private final OrgSettingsService orgSettingsService;
     private final OrgBootstrapStatusRepository statusRepository;
 
     private final ConcurrentHashMap<UUID, Boolean> verifiedOrgs = new ConcurrentHashMap<>();
@@ -143,12 +145,15 @@ public class OrgBootstrapService {
             return SeedResult.CREATED_NEW;
         });
 
+        StepOutcome settings = runStep("OrgSettings", orgId,
+                () -> { orgSettingsService.seedDefaults(orgId, org); return SeedResult.CREATED_NEW; });
+
         boolean allOk = uoms.succeeded() && accounts.succeeded()
-                && defaults.succeeded() && tax.succeeded() && features.succeeded();
+                && defaults.succeeded() && tax.succeeded() && features.succeeded() && settings.succeeded();
 
         String summary = String.format(
-                "Org %s bootstrap: UoMs=%s, CoA=%s, DefaultAccounts=%s, TaxConfig=%s, Features=%s",
-                orgId, format(uoms), format(accounts), format(defaults), format(tax), format(features));
+                "Org %s bootstrap: UoMs=%s, CoA=%s, DefaultAccounts=%s, TaxConfig=%s, Features=%s, Settings=%s",
+                orgId, format(uoms), format(accounts), format(defaults), format(tax), format(features), format(settings));
         log.info(summary);
 
         recordStatus(orgId, uoms, accounts, defaults, tax, allOk, summary);
