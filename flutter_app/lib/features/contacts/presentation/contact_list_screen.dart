@@ -244,6 +244,7 @@ class _ContactCard extends StatelessWidget {
     final contactType = contact['contactType'] as String? ?? 'CUSTOMER';
     final gstin = contact['gstin'] as String?;
     final email = contact['email'] as String?;
+    final phone = contact['phone'] as String? ?? contact['mobile'] as String?;
 
     final typeColor = contactType == 'VENDOR'
         ? KColors.info
@@ -252,6 +253,16 @@ class _ContactCard extends StatelessWidget {
             : KColors.success;
 
     final typeLabel = contactType == 'BOTH' ? 'Both' : contactType.capitalize();
+
+    // Build the compact subtitle chips: prefer company, then phone, then email.
+    final subtitleChips = <_InfoChipData>[
+      if (companyName != null && companyName.isNotEmpty)
+        _InfoChipData(Icons.business_outlined, companyName),
+      if (phone != null && phone.isNotEmpty)
+        _InfoChipData(Icons.phone_outlined, phone),
+      if (email != null && email.isNotEmpty)
+        _InfoChipData(Icons.mail_outline, email),
+    ];
 
     return KCard(
       onTap: () {
@@ -265,11 +276,13 @@ class _ContactCard extends StatelessWidget {
       onLongPress: onToggleSelect,
       borderColor: selected ? cs.primary : null,
       backgroundColor: selected ? cs.primary.withValues(alpha: 0.06) : null,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
-            width: 48,
-            height: 48,
+            width: 40,
+            height: 40,
             child: inSelection
                 ? Center(
                     child: Icon(
@@ -277,17 +290,20 @@ class _ContactCard extends StatelessWidget {
                           ? Icons.check_circle_rounded
                           : Icons.radio_button_unchecked_rounded,
                       color: selected ? cs.primary : cs.onSurfaceVariant,
-                      size: 26,
+                      size: 24,
                     ),
                   )
                 : CircleAvatar(
-                    radius: 24,
+                    radius: 20,
                     backgroundColor: typeColor.withValues(alpha: 0.15),
                     child: Text(
                       displayName.isNotEmpty
                           ? displayName[0].toUpperCase()
                           : '?',
-                      style: KTypography.h3.copyWith(color: typeColor),
+                      style: KTypography.labelLarge.copyWith(
+                        color: typeColor,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
           ),
@@ -295,45 +311,97 @@ class _ContactCard extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(displayName, style: KTypography.labelLarge),
-                if (companyName != null && companyName.isNotEmpty) ...[
-                  KSpacing.vGapXs,
-                  Text(companyName, style: KTypography.bodySmall),
-                ] else if (email != null && email.isNotEmpty) ...[
-                  KSpacing.vGapXs,
-                  Text(email, style: KTypography.bodySmall),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        displayName,
+                        style: KTypography.labelLarge,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: typeColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        typeLabel,
+                        style: KTypography.labelSmall
+                            .copyWith(color: typeColor),
+                      ),
+                    ),
+                  ],
+                ),
+                if (subtitleChips.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  _InfoChipRow(chips: subtitleChips),
                 ],
                 if (gstin != null && gstin.isNotEmpty) ...[
-                  KSpacing.vGapXs,
-                  Text('GSTIN: $gstin', style: KTypography.labelSmall),
+                  const SizedBox(height: 2),
+                  Text(
+                    'GSTIN: $gstin',
+                    style: KTypography.labelSmall
+                        .copyWith(color: KColors.textHint),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: typeColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  typeLabel,
-                  style: KTypography.labelSmall.copyWith(color: typeColor),
-                ),
-              ),
-            ],
-          ),
-          KSpacing.hGapSm,
-          if (!inSelection)
-            const Icon(Icons.chevron_right, color: KColors.textHint),
+          if (!inSelection) ...[
+            KSpacing.hGapXs,
+            const Icon(Icons.chevron_right,
+                color: KColors.textHint, size: 18),
+          ],
         ],
       ),
     );
+  }
+}
+
+class _InfoChipData {
+  final IconData icon;
+  final String text;
+  const _InfoChipData(this.icon, this.text);
+}
+
+class _InfoChipRow extends StatelessWidget {
+  final List<_InfoChipData> chips;
+  const _InfoChipRow({required this.chips});
+
+  @override
+  Widget build(BuildContext context) {
+    // Inline chips separated by a bullet dot, truncated if overflow.
+    final children = <Widget>[];
+    for (var i = 0; i < chips.length; i++) {
+      if (i > 0) {
+        children.add(Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Text('·',
+              style: KTypography.bodySmall
+                  .copyWith(color: KColors.textHint)),
+        ));
+      }
+      final c = chips[i];
+      children.add(Icon(c.icon, size: 11, color: KColors.textHint));
+      children.add(const SizedBox(width: 3));
+      children.add(Flexible(
+        child: Text(
+          c.text,
+          style: KTypography.bodySmall
+              .copyWith(color: KColors.textSecondary),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ));
+    }
+    return Row(children: children);
   }
 }
 

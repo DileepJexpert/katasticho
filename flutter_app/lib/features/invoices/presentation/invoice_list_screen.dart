@@ -269,7 +269,11 @@ class _InvoiceCard extends StatelessWidget {
     final balanceDue = (invoice['balanceDue'] as num?)?.toDouble() ?? total;
     final customerName = invoice['contactName'] as String? ?? 'Unknown';
     final invoiceNumber = invoice['invoiceNumber'] as String? ?? '--';
+    final invoiceDate = invoice['invoiceDate'] as String?;
     final dueDate = invoice['dueDate'] as String?;
+    final isOverdue = status == 'OVERDUE';
+    final hasBalance = balanceDue > 0 && balanceDue < total;
+    final paidPct = total > 0 ? ((total - balanceDue) / total) : 0.0;
 
     return KCard(
       onTap: () {
@@ -283,15 +287,20 @@ class _InvoiceCard extends StatelessWidget {
       onLongPress: onToggleSelect,
       borderColor: selected ? cs.primary : null,
       backgroundColor: selected ? cs.primary.withValues(alpha: 0.06) : null,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (inSelection) ...[
-            Icon(
-              selected
-                  ? Icons.check_circle_rounded
-                  : Icons.radio_button_unchecked_rounded,
-              color: selected ? cs.primary : cs.onSurfaceVariant,
-              size: 22,
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: selected ? cs.primary : cs.onSurfaceVariant,
+                size: 20,
+              ),
             ),
             KSpacing.hGapSm,
           ],
@@ -299,52 +308,112 @@ class _InvoiceCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Row 1: invoice# · status · total
                 Row(
                   children: [
                     Text(invoiceNumber, style: KTypography.labelLarge),
                     KSpacing.hGapSm,
                     KStatusChip(status: status),
+                    const Spacer(),
+                    Text(
+                      CurrencyFormatter.formatIndian(total),
+                      style: KTypography.amountMedium,
+                    ),
                   ],
                 ),
-                KSpacing.vGapXs,
-                Text(
-                  customerName,
-                  style: KTypography.bodyMedium,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (dueDate != null) ...[
-                  KSpacing.vGapXs,
-                  Text(
-                    DateFormatter.dueStatus(DateTime.parse(dueDate)),
-                    style: KTypography.bodySmall.copyWith(
-                      color: status == 'OVERDUE'
-                          ? KColors.error
-                          : KColors.textSecondary,
+                const SizedBox(height: 4),
+                // Row 2: customer · date · due/balance info
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        customerName,
+                        style: KTypography.bodyMedium
+                            .copyWith(color: KColors.textSecondary),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    if (invoiceDate != null) ...[
+                      Icon(Icons.event,
+                          size: 12, color: KColors.textHint),
+                      const SizedBox(width: 3),
+                      Text(
+                        DateFormatter.short(DateTime.parse(invoiceDate)),
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary),
+                      ),
+                    ],
+                  ],
+                ),
+                // Row 3 (conditional): due-date / balance / payment progress
+                if (hasBalance || isOverdue || dueDate != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      if (dueDate != null) ...[
+                        Icon(
+                          isOverdue
+                              ? Icons.warning_amber_rounded
+                              : Icons.schedule,
+                          size: 12,
+                          color: isOverdue
+                              ? KColors.error
+                              : KColors.textHint,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          DateFormatter.dueStatus(DateTime.parse(dueDate)),
+                          style: KTypography.bodySmall.copyWith(
+                            color: isOverdue
+                                ? KColors.error
+                                : KColors.textSecondary,
+                            fontWeight: isOverdue ? FontWeight.w600 : null,
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
+                      if (hasBalance)
+                        Text(
+                          'Due ${CurrencyFormatter.formatIndian(balanceDue)}',
+                          style: KTypography.bodySmall.copyWith(
+                            color: KColors.warning,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        )
+                      else if (status == 'PAID')
+                        Text(
+                          'Paid in full',
+                          style: KTypography.bodySmall.copyWith(
+                            color: KColors.success,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
                   ),
+                  if (hasBalance) ...[
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: paidPct,
+                        minHeight: 3,
+                        backgroundColor:
+                            KColors.divider.withValues(alpha: 0.5),
+                        valueColor: AlwaysStoppedAnimation(
+                          isOverdue ? KColors.error : KColors.warning,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                CurrencyFormatter.formatIndian(total),
-                style: KTypography.amountMedium,
-              ),
-              if (balanceDue < total && balanceDue > 0) ...[
-                KSpacing.vGapXs,
-                Text(
-                  'Due: ${CurrencyFormatter.formatIndian(balanceDue)}',
-                  style: KTypography.bodySmall.copyWith(color: KColors.warning),
-                ),
-              ],
-            ],
-          ),
-          KSpacing.hGapSm,
-          if (!inSelection)
-            const Icon(Icons.chevron_right, color: KColors.textHint),
+          if (!inSelection) ...[
+            KSpacing.hGapXs,
+            const Icon(Icons.chevron_right,
+                color: KColors.textHint, size: 18),
+          ],
         ],
       ),
     );
