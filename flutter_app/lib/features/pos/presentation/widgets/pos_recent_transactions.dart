@@ -9,6 +9,8 @@ import '../../data/pos_recent_transactions.dart';
 Future<Map<String, String>?> showRecentTransactionsSheet(BuildContext context) {
   return showModalBottomSheet<Map<String, String>>(
     context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
     builder: (_) => const _RecentTransactionsSheetContent(),
   );
 }
@@ -21,59 +23,58 @@ class _RecentTransactionsSheetContent extends ConsumerWidget {
     final transactions = ref.watch(recentTransactionsProvider);
     final cs = Theme.of(context).colorScheme;
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: cs.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.45,
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.receipt_long, size: 20),
+                  KSpacing.hGapSm,
+                  Text('Recent Transactions', style: KTypography.h3),
+                ],
               ),
-            ),
-            KSpacing.vGapMd,
-            Row(
-              children: [
-                const Icon(Icons.receipt_long, size: 20),
-                KSpacing.hGapSm,
-                Text('Recent Transactions', style: KTypography.h3),
-              ],
-            ),
-            KSpacing.vGapMd,
-            if (transactions.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32),
-                child: Column(
-                  children: [
-                    Icon(Icons.receipt_long,
-                        size: 48, color: cs.outlineVariant),
-                    KSpacing.vGapSm,
-                    Text('No recent transactions',
-                        style: KTypography.bodyMedium
-                            .copyWith(color: KColors.textSecondary)),
-                  ],
+              KSpacing.vGapSm,
+              if (transactions.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: Column(
+                    children: [
+                      Icon(Icons.receipt_long,
+                          size: 48, color: cs.outlineVariant),
+                      KSpacing.vGapSm,
+                      Text('No recent transactions',
+                          style: KTypography.bodyMedium
+                              .copyWith(color: KColors.textSecondary)),
+                    ],
+                  ),
+                )
+              else
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: transactions.map((tx) => _RecentTransactionTile(
+                      transaction: tx,
+                      onReprint: () {
+                        Navigator.pop(
+                            context, {'action': 'print', 'receiptId': tx.receiptId});
+                      },
+                      onWhatsApp: () {
+                        Navigator.pop(context,
+                            {'action': 'whatsapp', 'receiptId': tx.receiptId});
+                      },
+                    )).toList(),
+                  ),
                 ),
-              )
-            else
-              ...transactions.map((tx) => _RecentTransactionTile(
-                    transaction: tx,
-                    onReprint: () {
-                      Navigator.pop(
-                          context, {'action': 'print', 'receiptId': tx.receiptId});
-                    },
-                    onWhatsApp: () {
-                      Navigator.pop(context,
-                          {'action': 'whatsapp', 'receiptId': tx.receiptId});
-                    },
-                  )),
-          ],
+            ],
+          ),
         ),
       ),
     );

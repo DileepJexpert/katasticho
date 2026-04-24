@@ -620,7 +620,7 @@ class _MarginDot extends StatelessWidget {
   }
 }
 
-class _DiscountField extends StatelessWidget {
+class _DiscountField extends StatefulWidget {
   final double discountPct;
   final ValueChanged<double>? onChanged;
   final bool isBlocked;
@@ -632,39 +632,72 @@ class _DiscountField extends StatelessWidget {
   });
 
   @override
+  State<_DiscountField> createState() => _DiscountFieldState();
+}
+
+class _DiscountFieldState extends State<_DiscountField> {
+  late final TextEditingController _ctrl;
+  bool _hasFocus = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(
+      text: widget.discountPct > 0 ? widget.discountPct.toStringAsFixed(0) : '',
+    );
+  }
+
+  @override
+  void didUpdateWidget(_DiscountField old) {
+    super.didUpdateWidget(old);
+    if (!_hasFocus && old.discountPct != widget.discountPct) {
+      _ctrl.text = widget.discountPct > 0 ? widget.discountPct.toStringAsFixed(0) : '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return TextField(
-      controller: TextEditingController(text: discountPct > 0 ? discountPct.toStringAsFixed(0) : ''),
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      textAlign: TextAlign.center,
-      style: KTypography.labelSmall.copyWith(
-        color: isBlocked ? KColors.error : null,
-        fontSize: 11,
-      ),
-      decoration: InputDecoration(
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-        suffixText: '%',
-        suffixStyle: KTypography.labelSmall.copyWith(fontSize: 10),
-        hintText: '0',
-        hintStyle: KTypography.labelSmall.copyWith(color: KColors.textHint, fontSize: 11),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: BorderSide(color: isBlocked ? KColors.error : cs.outlineVariant),
+    return Focus(
+      onFocusChange: (focused) => _hasFocus = focused,
+      child: TextField(
+        controller: _ctrl,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        textAlign: TextAlign.center,
+        style: KTypography.labelSmall.copyWith(
+          color: widget.isBlocked ? KColors.error : null,
+          fontSize: 11,
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: BorderSide(color: isBlocked ? KColors.error : cs.outlineVariant),
+        decoration: InputDecoration(
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          suffixText: '%',
+          suffixStyle: KTypography.labelSmall.copyWith(fontSize: 10),
+          hintText: '0',
+          hintStyle: KTypography.labelSmall.copyWith(color: KColors.textHint, fontSize: 11),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: BorderSide(color: widget.isBlocked ? KColors.error : cs.outlineVariant),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: BorderSide(color: widget.isBlocked ? KColors.error : cs.outlineVariant),
+          ),
         ),
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'^\d{0,2}\.?\d{0,1}')),
+        ],
+        onChanged: (v) {
+          final pct = double.tryParse(v) ?? 0;
+          widget.onChanged?.call(pct.clamp(0, 99));
+        },
       ),
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'^\d{0,2}\.?\d{0,1}')),
-      ],
-      onChanged: (v) {
-        final pct = double.tryParse(v) ?? 0;
-        onChanged?.call(pct.clamp(0, 99));
-      },
     );
   }
 }
