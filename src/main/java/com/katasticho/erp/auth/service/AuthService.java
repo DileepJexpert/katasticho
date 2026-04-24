@@ -312,7 +312,8 @@ public class AuthService {
         return new AuthResponse.UserInfo(
                 user.getId(), user.getOrgId(), user.getFullName(),
                 user.getEmail(), user.getPhone(), user.getRole(), org.getName(),
-                org.getIndustry(), org.getIndustryCode(), onboardingCompleted);
+                org.getIndustry(), org.getIndustryCode(), onboardingCompleted,
+                user.getDefaultLandingPage());
     }
 
     public List<OrgSummary> listMyOrgs(UUID currentUserId) {
@@ -365,6 +366,65 @@ public class AuthService {
         return buildAuthResponse(targetUser, org);
     }
 
+    @Transactional
+    public AuthResponse createAdditionalOrg(CreateAdditionalOrgRequest request, UUID currentUserId) {
+        AppUser currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> BusinessException.notFound("User", currentUserId));
+
+        Organisation org = Organisation.builder()
+                .name(request.name())
+                .businessType(request.businessType() != null ? request.businessType() : "RETAILER")
+                .industryCode(request.industryCode() != null ? request.industryCode() : "OTHER_RETAIL")
+                .subCategories(List.of())
+                .build();
+        org = organisationRepository.saveAndFlush(org);
+
+        UUID defaultBranchId = UUID.randomUUID();
+        jdbcTemplate.update(
+                "INSERT INTO branch (id, org_id, code, name, is_default, is_active) " +
+                "VALUES (?, ?, 'HO', 'Head Office', TRUE, TRUE)",
+                defaultBranchId, org.getId());
+
+        jdbcTemplate.update(
+                "INSERT INTO warehouse (id, org_id, branch_id, code, name, is_default, is_active, is_deleted, created_at, updated_at) " +
+                "VALUES (?, ?, ?, 'MAIN', 'Main Warehouse', TRUE, TRUE, FALSE, now(), now())",
+                UUID.randomUUID(), org.getId(), defaultBranchId);
+
+        AppUser newUser = AppUser.builder()
+                .fullName(currentUser.getFullName())
+                .email(currentUser.getEmail())
+                .phone(currentUser.getPhone())
+                .passwordHash(currentUser.getPasswordHash())
+                .role("OWNER")
+                .build();
+        newUser.setOrgId(org.getId());
+        newUser.setLastLoginAt(Instant.now());
+        newUser = userRepository.saveAndFlush(newUser);
+
+        jdbcTemplate.update(
+                "UPDATE app_user SET branch_id = ? WHERE id = ?",
+                defaultBranchId, newUser.getId());
+
+        auditService.logSync(org.getId(), newUser.getId(), "APP_USER", newUser.getId(),
+                "CREATE", null, "{\"action\":\"create_additional_org\"}");
+
+        log.info("Additional org created: {} ({}), by user: {}", org.getName(), org.getId(), currentUser.getFullName());
+
+        Organisation orgRef = org;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    bootstrapService.bootstrap(orgRef);
+                } catch (Exception e) {
+                    log.error("Post-create bootstrap failed for org {}: {}", orgRef.getId(), e.getMessage(), e);
+                }
+            }
+        });
+
+        return buildAuthResponse(newUser, org);
+    }
+
     private AuthResponse buildAuthResponse(AppUser user, Organisation org) {
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getOrgId(), user.getRole());
         String refreshToken = jwtService.generateRefreshToken();
@@ -383,7 +443,8 @@ public class AuthService {
         AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
                 user.getId(), user.getOrgId(), user.getFullName(),
                 user.getEmail(), user.getPhone(), user.getRole(), org.getName(),
-                org.getIndustry(), org.getIndustryCode(), onboardingCompleted);
+                org.getIndustry(), org.getIndustryCode(), onboardingCompleted,
+                user.getDefaultLandingPage());
 
         return new AuthResponse(accessToken, refreshToken, userInfo);
     }

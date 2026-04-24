@@ -23,6 +23,7 @@ class AuthStorage {
   static const _industryKey = '${_prefix}industry';
   static const _industryCodeKey = '${_prefix}industry_code';
   static const _onboardingCompletedKey = '${_prefix}onboarding_completed';
+  static const _defaultLandingPageKey = '${_prefix}default_landing_page';
 
   // Mobile: encrypted secure storage
   final FlutterSecureStorage? _secureStorage = kIsWeb
@@ -130,6 +131,7 @@ class AuthStorage {
     String? industry,
     String? industryCode,
     bool onboardingCompleted = false,
+    String? defaultLandingPage,
   }) async {
     debugPrint('[AuthStorage] saveOrgInfo -> orgId: $orgId, onboardingCompleted: $onboardingCompleted');
     await Future.wait([
@@ -138,6 +140,7 @@ class AuthStorage {
       if (industry != null) _write(_industryKey, industry),
       if (industryCode != null) _write(_industryCodeKey, industryCode),
       _write(_onboardingCompletedKey, onboardingCompleted.toString()),
+      if (defaultLandingPage != null) _write(_defaultLandingPageKey, defaultLandingPage),
     ]);
     debugPrint('[AuthStorage] Org info saved successfully');
   }
@@ -171,6 +174,10 @@ class AuthStorage {
   Future<bool> getOnboardingCompleted() async {
     final v = await _read(_onboardingCompletedKey);
     return v == 'true';
+  }
+
+  Future<String?> getDefaultLandingPage() async {
+    return _read(_defaultLandingPageKey);
   }
 
   // ── Clear ──

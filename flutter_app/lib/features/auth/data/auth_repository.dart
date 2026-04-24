@@ -113,6 +113,23 @@ class AuthRepository {
     );
     return response.data as Map<String, dynamic>;
   }
+
+  /// Create an additional organisation for the current user.
+  Future<Map<String, dynamic>> createAdditionalOrg({
+    required String name,
+    String? businessType,
+    String? industryCode,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConfig.createAdditionalOrg,
+      data: {
+        'name': name,
+        if (businessType != null) 'businessType': businessType,
+        if (industryCode != null) 'industryCode': industryCode,
+      },
+    );
+    return response.data as Map<String, dynamic>;
+  }
 }
 
 final myOrgsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {

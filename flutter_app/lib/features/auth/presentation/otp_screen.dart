@@ -120,6 +120,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
       final onboardingCompleted = user['onboardingCompleted'] as bool? ?? false;
 
+      final defaultLandingPage = user['defaultLandingPage'] as String?;
+
       await ref.read(authProvider.notifier).onLoginSuccess(
             accessToken: data['accessToken'] as String,
             refreshToken: data['refreshToken'] as String,
@@ -131,6 +133,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             industry: user['industry'] as String?,
             industryCode: user['industryCode'] as String?,
             onboardingCompleted: onboardingCompleted,
+            defaultLandingPage: defaultLandingPage,
           );
 
       debugPrint('[OtpScreen] onLoginSuccess completed, onboardingCompleted: $onboardingCompleted');
@@ -139,7 +142,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         if (widget.isSignup || !onboardingCompleted) {
           context.go(Routes.onboardingBusinessType);
         } else {
-          context.go(Routes.dashboard);
+          context.go(defaultLandingPage ?? Routes.dashboard);
         }
       }
     } catch (e, st) {

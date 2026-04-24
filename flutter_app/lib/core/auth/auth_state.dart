@@ -16,6 +16,7 @@ class AuthState {
   final String? industry;
   final String? industryCode;
   final bool onboardingCompleted;
+  final String? defaultLandingPage;
   final String? errorMessage;
 
   const AuthState({
@@ -28,6 +29,7 @@ class AuthState {
     this.industry,
     this.industryCode,
     this.onboardingCompleted = false,
+    this.defaultLandingPage,
     this.errorMessage,
   });
 
@@ -44,6 +46,7 @@ class AuthState {
     String? industry,
     String? industryCode,
     bool? onboardingCompleted,
+    String? defaultLandingPage,
     String? errorMessage,
   }) {
     return AuthState(
@@ -56,6 +59,7 @@ class AuthState {
       industry: industry ?? this.industry,
       industryCode: industryCode ?? this.industryCode,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      defaultLandingPage: defaultLandingPage ?? this.defaultLandingPage,
       errorMessage: errorMessage,
     );
   }
@@ -83,6 +87,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final industry = await _storage.getIndustry();
       final industryCode = await _storage.getIndustryCode();
       final onboardingCompleted = await _storage.getOnboardingCompleted();
+      final defaultLandingPage = await _storage.getDefaultLandingPage();
 
       debugPrint('[AuthNotifier] Restored session -> userId: $userId, orgId: $orgId, onboardingCompleted: $onboardingCompleted');
 
@@ -96,6 +101,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         industry: industry,
         industryCode: industryCode,
         onboardingCompleted: onboardingCompleted,
+        defaultLandingPage: defaultLandingPage,
       );
     } else {
       debugPrint('[AuthNotifier] No valid session, setting unauthenticated');
@@ -114,6 +120,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? industry,
     String? industryCode,
     bool onboardingCompleted = false,
+    String? defaultLandingPage,
   }) async {
     debugPrint('[AuthNotifier] onLoginSuccess called');
     debugPrint('[AuthNotifier] orgId: $orgId, orgName: $orgName, onboardingCompleted: $onboardingCompleted');
@@ -126,6 +133,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       industry: industry,
       industryCode: industryCode,
       onboardingCompleted: onboardingCompleted,
+      defaultLandingPage: defaultLandingPage,
     );
 
     state = AuthState(
@@ -138,6 +146,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       industry: industry,
       industryCode: industryCode,
       onboardingCompleted: onboardingCompleted,
+      defaultLandingPage: defaultLandingPage,
     );
     debugPrint('[AuthNotifier] State set to authenticated');
   }
@@ -168,6 +177,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         industry: user['industry'] as String?,
         industryCode: user['industryCode'] as String?,
         onboardingCompleted: user['onboardingCompleted'] as bool? ?? true,
+        defaultLandingPage: user['defaultLandingPage'] as String?,
       );
       return true;
     } catch (e) {

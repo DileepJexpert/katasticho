@@ -1,6 +1,7 @@
 package com.katasticho.erp.auth.controller;
 
 import com.katasticho.erp.auth.dto.AuthResponse;
+import com.katasticho.erp.auth.dto.CreateAdditionalOrgRequest;
 import com.katasticho.erp.auth.dto.OrgSummary;
 import com.katasticho.erp.auth.dto.SwitchOrgRequest;
 import com.katasticho.erp.auth.service.AuthService;
@@ -8,6 +9,7 @@ import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -33,5 +35,13 @@ public class UserController {
     public ResponseEntity<ApiResponse<AuthResponse>> switchOrg(@Valid @RequestBody SwitchOrgRequest request) {
         AuthResponse response = authService.switchOrg(request.targetOrgId(), TenantContext.getCurrentUserId());
         return ResponseEntity.ok(ApiResponse.ok(response, "Switched organisation"));
+    }
+
+    @PostMapping("/me/create-org")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<AuthResponse>> createAdditionalOrg(
+            @Valid @RequestBody CreateAdditionalOrgRequest request) {
+        AuthResponse response = authService.createAdditionalOrg(request, TenantContext.getCurrentUserId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(response));
     }
 }
