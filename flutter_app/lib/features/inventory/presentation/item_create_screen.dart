@@ -529,11 +529,14 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                     children: [
                       Icon(Icons.calculate_outlined, size: 14, color: KColors.success),
                       const SizedBox(width: 4),
-                      Text(
-                        'Auto-calculated: $costPerBase per $baseUnit',
-                        style: KTypography.labelSmall.copyWith(
-                          color: KColors.success,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          'Auto-calculated: $costPerBase per $baseUnit',
+                          style: KTypography.labelSmall.copyWith(
+                            color: KColors.success,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -652,11 +655,14 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  '(MRP ${CurrencyFormatter.formatIndian(mrp)} − Cost ${CurrencyFormatter.formatIndian(purchasePrice)})',
-                  style: KTypography.labelSmall.copyWith(
-                    color: KColors.textHint,
-                    fontSize: 10,
+                Flexible(
+                  child: Text(
+                    '(MRP ${CurrencyFormatter.formatIndian(mrp)} − Cost ${CurrencyFormatter.formatIndian(purchasePrice)})',
+                    style: KTypography.labelSmall.copyWith(
+                      color: KColors.textHint,
+                      fontSize: 10,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -669,11 +675,14 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                   Icon(Icons.warning_amber_rounded,
                       size: 14, color: KColors.warning),
                   const SizedBox(width: 4),
-                  Text(
-                    'Sale price is below purchase price — selling at loss',
-                    style: KTypography.labelSmall.copyWith(
-                      color: KColors.warning,
-                      fontWeight: FontWeight.w600,
+                  Flexible(
+                    child: Text(
+                      'Sale price is below purchase price — selling at loss',
+                      style: KTypography.labelSmall.copyWith(
+                        color: KColors.warning,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],

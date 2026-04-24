@@ -327,5 +327,9 @@ final recentJournalsProvider =
 
 final profitLossProvider =
     FutureProvider.autoDispose<ProfitLossData>((ref) async {
-  return ref.watch(dashboardRepositoryProvider).getProfitLoss();
+  final now = DateTime.now();
+  final startOfMonth = DateTime(now.year, now.month, 1);
+  return ref
+      .watch(dashboardRepositoryProvider)
+      .getProfitLoss(from: startOfMonth, to: now);
 });
