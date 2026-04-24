@@ -14,6 +14,7 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/item_repository.dart';
+import 'item_scan_sheet.dart';
 
 class ItemImportScreen extends ConsumerStatefulWidget {
   const ItemImportScreen({super.key});
@@ -179,6 +180,56 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
     }
   }
 
+  Future<void> _scanInvoice() async {
+    final items = await showItemScanSheet(context, purchaseInvoice: true);
+    if (items == null || items.isEmpty || !mounted) return;
+
+    final header = 'sku,name,description,item_type,category,brand,hsn_code,'
+        'unit_of_measure,purchase_price,sale_price,mrp,gst_rate,'
+        'reorder_level,reorder_quantity,opening_stock,'
+        'barcode,manufacturer,batch_number,mfg_date,expiry_date';
+    final rows = items.map((item) {
+      String f(String key) => (item[key]?.toString() ?? '').replaceAll(',', ' ');
+      return [
+        f('sku'),
+        f('name'),
+        f('description'),
+        f('itemType'),
+        f('category'),
+        f('brand'),
+        f('hsnCode'),
+        f('unitOfMeasure'),
+        f('purchasePrice'),
+        f('salePrice'),
+        f('mrp'),
+        f('gstRate'),
+        f('reorderLevel'),
+        '', // reorderQuantity
+        '', // openingStock
+        f('barcode'),
+        f('manufacturer'),
+        '', // batchNumber
+        '', // mfgDate
+        '', // expiryDate
+      ].join(',');
+    });
+
+    setState(() {
+      _pasteCtl.text = '$header\n${rows.join('\n')}';
+      _pickedFileName = null;
+      _pickedFileBytes = null;
+      _pickedFileDataRows = null;
+      _result = null;
+      _error = null;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${items.length} item${items.length == 1 ? '' : 's'} loaded from scan. Review and click Import.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final result = _result;
@@ -270,9 +321,68 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
             _OrDivider(),
             KSpacing.vGapLg,
 
-            // ── Option 2: Paste CSV ──────────────────────────────
+            // ── Option 2: Scan Purchase Invoice ─────────────────
             _SectionHeader(
               number: '2',
+              title: 'Scan a purchase invoice',
+              subtitle: 'AI extracts items from a photo of the invoice',
+            ),
+            KSpacing.vGapSm,
+            InkWell(
+              onTap: _scanInvoice,
+              borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.7),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(
+                        Icons.document_scanner_outlined,
+                        color: cs.primary,
+                        size: 28,
+                      ),
+                    ),
+                    KSpacing.vGapSm,
+                    Text(
+                      'Scan invoice with AI',
+                      style: KTypography.labelLarge,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Take a photo or pick from gallery',
+                      style: KTypography.bodySmall.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            KSpacing.vGapLg,
+            _OrDivider(),
+            KSpacing.vGapLg,
+
+            // ── Option 3: Paste CSV ──────────────────────────────
+            _SectionHeader(
+              number: '3',
               title: 'Copy / paste CSV content here',
               subtitle: 'For quick tests or Tally/BUSY exports',
             ),

@@ -172,6 +172,8 @@ class ApiConfig {
   // AI
   static const String aiQuery = '/api/v1/ai/query';
   static const String aiScanBill = '/api/v1/ai/scan-bill';
+  static const String aiScanProductLabel = '/api/v1/ai/scan-product-label';
+  static const String aiScanPurchaseInvoice = '/api/v1/ai/scan-purchase-invoice';
 
   // Branches (multi-branch rollup)
   static const String branches = '/api/v1/branches';

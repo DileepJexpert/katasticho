@@ -13,6 +13,7 @@ import '../../../core/widgets/widgets.dart';
 import '../data/item_group_repository.dart';
 import '../data/item_repository.dart';
 import '../data/uom_repository.dart';
+import 'item_scan_sheet.dart';
 
 /// Form for creating a new inventory item or editing an existing one.
 /// When [itemId] is provided, the screen loads that item and updates it on save.
@@ -806,11 +807,25 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     });
   }
 
+  Future<void> _handleScan() async {
+    final items = await showItemScanSheet(context);
+    if (items == null || items.isEmpty || !mounted) return;
+    _populateFromMap(items.first);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEdit ? 'Edit Item' : 'New Item'),
+        actions: [
+          if (!_isEdit)
+            IconButton(
+              icon: const Icon(Icons.document_scanner_outlined),
+              tooltip: 'Scan product label',
+              onPressed: _handleScan,
+            ),
+        ],
       ),
       body: _loading
           ? const KLoading()

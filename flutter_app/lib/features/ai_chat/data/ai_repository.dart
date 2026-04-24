@@ -28,4 +28,22 @@ class AiRepository {
     );
     return response.data as Map<String, dynamic>;
   }
+
+  /// Scan a product label to extract item details.
+  Future<Map<String, dynamic>> scanProductLabel(String base64Image, {String? mediaType}) async {
+    final response = await _api.post(
+      ApiConfig.aiScanProductLabel,
+      data: {'image': base64Image, if (mediaType != null) 'mediaType': mediaType},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Scan a purchase invoice to extract multiple item details.
+  Future<Map<String, dynamic>> scanPurchaseInvoice(String base64Image, {String? mediaType}) async {
+    final response = await _api.post(
+      ApiConfig.aiScanPurchaseInvoice,
+      data: {'image': base64Image, if (mediaType != null) 'mediaType': mediaType},
+    );
+    return response.data as Map<String, dynamic>;
+  }
 }
