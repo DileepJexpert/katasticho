@@ -283,48 +283,28 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
 
     final picked = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
-      isScrollControlled: true,
       showDragHandle: true,
-      builder: (ctx) => ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(ctx).size.height * 0.6,
-          minHeight: 120,
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Text('Select Vendor',
-                    style: KTypography.h3),
-              ),
-              const Divider(),
-              if (filtered.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('No vendors found. Add a vendor contact first.'),
-                )
-              else
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (_, i) {
-                      final c = filtered[i] as Map<String, dynamic>;
-                      return ListTile(
-                        leading: const CircleAvatar(
-                            child: Icon(Icons.store_outlined, size: 18)),
-                        title: Text(c['displayName'] as String? ?? 'Vendor'),
-                        subtitle: Text(c['email'] as String? ?? ''),
-                        onTap: () => Navigator.pop(ctx, c),
-                      );
-                    },
-                  ),
-                ),
-            ],
-          ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (filtered.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('No vendors found. Add a vendor contact first.'),
+              )
+            else
+              ...filtered.map((c) {
+                final m = c as Map<String, dynamic>;
+                return ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  title: Text(m['displayName'] as String? ?? 'Vendor'),
+                  onTap: () => Navigator.pop(ctx, m),
+                );
+              }),
+            KSpacing.vGapSm,
+          ],
         ),
       ),
     );
