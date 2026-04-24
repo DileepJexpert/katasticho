@@ -67,6 +67,7 @@ class InvoiceServiceTest {
     @Mock private DocumentEmailService documentEmailService;
     @Mock private ItemRepository itemRepository;
     @Mock private StockBatchRepository stockBatchRepository;
+    @Mock private com.katasticho.erp.common.cache.CacheInvalidationService cacheInvalidationService;
 
     private InvoiceService invoiceService;
     private UUID orgId;
@@ -83,7 +84,7 @@ class InvoiceServiceTest {
                 journalService, taxEngine, currencyService,
                 auditService, inventoryService, priceListService, commentService,
                 defaultAccountService, documentEmailService,
-                itemRepository, stockBatchRepository);
+                itemRepository, stockBatchRepository, cacheInvalidationService);
 
         lenient().when(priceListService.resolvePrice(any(), any(), any()))
                 .thenReturn(Optional.empty());
