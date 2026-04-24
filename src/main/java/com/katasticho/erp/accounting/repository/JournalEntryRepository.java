@@ -22,4 +22,16 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, UUID
 
     @Query("SELECT je FROM JournalEntry je WHERE je.orgId = :orgId AND je.effectiveDate BETWEEN :startDate AND :endDate ORDER BY je.effectiveDate DESC")
     Page<JournalEntry> findByOrgIdAndDateRange(UUID orgId, LocalDate startDate, LocalDate endDate, Pageable pageable);
+
+    @Query("""
+            SELECT je FROM JournalEntry je WHERE je.orgId = :orgId
+            AND (:sourceModule IS NULL OR je.sourceModule = :sourceModule)
+            AND (:dateFrom IS NULL OR je.effectiveDate >= :dateFrom)
+            AND (:dateTo IS NULL OR je.effectiveDate <= :dateTo)
+            AND (:search IS NULL OR LOWER(je.entryNumber) LIKE LOWER(CONCAT('%', :search, '%'))
+                 OR LOWER(je.description) LIKE LOWER(CONCAT('%', :search, '%')))
+            ORDER BY je.effectiveDate DESC, je.createdAt DESC
+            """)
+    Page<JournalEntry> findFiltered(UUID orgId, String sourceModule, LocalDate dateFrom, LocalDate dateTo,
+                                     String search, Pageable pageable);
 }

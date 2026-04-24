@@ -13,12 +13,14 @@ public record JournalEntryResponse(
         Instant createdAt,
         String description,
         String sourceModule,
+        UUID sourceId,
         String status,
         boolean isReversal,
         boolean isReversed,
         UUID reversalOfId,
         int periodYear,
         int periodMonth,
+        BigDecimal totalDebit,
         List<LineResponse> lines
 ) {
     public record LineResponse(

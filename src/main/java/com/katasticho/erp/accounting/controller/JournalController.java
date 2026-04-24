@@ -11,11 +11,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 @RestController
@@ -57,9 +59,22 @@ public class JournalController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
-    public ResponseEntity<ApiResponse<PagedResponse<JournalEntryResponse>>> listJournals(Pageable pageable) {
-        Page<JournalEntry> page = journalService.listEntries(TenantContext.getCurrentOrgId(), pageable);
+    public ResponseEntity<ApiResponse<PagedResponse<JournalEntryResponse>>> listJournals(
+            @RequestParam(required = false) String sourceModule,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @RequestParam(required = false) String search,
+            Pageable pageable) {
+        Page<JournalEntry> page = journalService.listEntries(
+                TenantContext.getCurrentOrgId(), sourceModule, dateFrom, dateTo, search, pageable);
         Page<JournalEntryResponse> responsePage = page.map(journalService::toResponse);
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(responsePage)));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<Void>> deleteJournal(@PathVariable UUID id) {
+        journalService.deleteEntry(id);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Journal entry deleted"));
     }
 }
