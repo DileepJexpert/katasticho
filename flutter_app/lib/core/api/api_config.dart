@@ -55,7 +55,7 @@ class ApiConfig {
   static String issueCreditNote(String id) => '/api/v1/credit-notes/$id/issue';
 
   // AR Reports
-  static const String ageingReport = '/api/v1/ar-reports/ageing';
+  static const String ageingReport = '/api/v1/ar/reports/ageing';
   static const String gstr1 = '/api/v1/ar/reports/gstr1';
   static const String gstr3b = '/api/v1/ar/reports/gstr3b';
 
@@ -63,7 +63,7 @@ class ApiConfig {
   static String contactLedger(String id) => '/api/v1/contacts/$id/ledger';
 
   // AP Reports
-  static const String apAgeingReport = '/api/v1/reports/ap-ageing';
+  static const String apAgeingReport = '/api/v1/ap/reports/ageing';
 
   // Inventory
   static const String items = '/api/v1/items';
