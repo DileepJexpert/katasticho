@@ -236,7 +236,12 @@ public class SalesReceiptService {
                                                      Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
         Page<SalesReceipt> page = receiptRepository.findFiltered(
-                orgId, branchId, dateFrom, dateTo, paymentMode, pageable);
+                orgId.toString(),
+                branchId != null ? branchId.toString() : null,
+                dateFrom != null ? dateFrom.toString() : null,
+                dateTo != null ? dateTo.toString() : null,
+                paymentMode,
+                pageable);
         return PagedResponse.from(page.map(this::toResponse));
     }
 

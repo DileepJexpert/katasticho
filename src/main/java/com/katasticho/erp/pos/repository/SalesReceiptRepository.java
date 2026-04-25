@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -18,19 +19,38 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
 
     Optional<SalesReceipt> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
-    @Query("""
-        SELECT r FROM SalesReceipt r
-        WHERE r.orgId = :orgId
-          AND r.isDeleted = false
-          AND (:branchId IS NULL OR r.branchId = :branchId)
-          AND (:dateFrom IS NULL OR r.receiptDate >= :dateFrom)
-          AND (:dateTo IS NULL OR r.receiptDate <= :dateTo)
-          AND (:paymentMode IS NULL OR CAST(r.paymentMode AS string) = :paymentMode)
-        ORDER BY r.createdAt DESC
-    """)
-    Page<SalesReceipt> findFiltered(UUID orgId, UUID branchId,
-                                     LocalDate dateFrom, LocalDate dateTo,
-                                     String paymentMode, Pageable pageable);
+    /**
+     * Filtered receipt list. Uses a native query so PostgreSQL can infer the
+     * type of nullable parameters via explicit CAST — JPQL's
+     * <code>(:param IS NULL OR ...)</code> pattern fails on PostgreSQL with
+     * "could not determine data type of parameter".
+     */
+    @Query(value = """
+        SELECT * FROM sales_receipt r
+        WHERE r.org_id = CAST(:orgId AS uuid)
+          AND r.is_deleted = false
+          AND (CAST(:branchId AS text) IS NULL OR r.branch_id = CAST(:branchId AS uuid))
+          AND (CAST(:dateFrom AS text) IS NULL OR r.receipt_date >= CAST(:dateFrom AS date))
+          AND (CAST(:dateTo AS text) IS NULL OR r.receipt_date <= CAST(:dateTo AS date))
+          AND (CAST(:paymentMode AS text) IS NULL OR r.payment_mode = :paymentMode)
+        ORDER BY r.created_at DESC
+        """,
+        countQuery = """
+        SELECT COUNT(*) FROM sales_receipt r
+        WHERE r.org_id = CAST(:orgId AS uuid)
+          AND r.is_deleted = false
+          AND (CAST(:branchId AS text) IS NULL OR r.branch_id = CAST(:branchId AS uuid))
+          AND (CAST(:dateFrom AS text) IS NULL OR r.receipt_date >= CAST(:dateFrom AS date))
+          AND (CAST(:dateTo AS text) IS NULL OR r.receipt_date <= CAST(:dateTo AS date))
+          AND (CAST(:paymentMode AS text) IS NULL OR r.payment_mode = :paymentMode)
+        """,
+        nativeQuery = true)
+    Page<SalesReceipt> findFiltered(@Param("orgId") String orgId,
+                                     @Param("branchId") String branchId,
+                                     @Param("dateFrom") String dateFrom,
+                                     @Param("dateTo") String dateTo,
+                                     @Param("paymentMode") String paymentMode,
+                                     Pageable pageable);
 
     @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate = :date AND r.isDeleted = false")
     BigDecimal sumTotalByOrgAndDate(UUID orgId, LocalDate date);

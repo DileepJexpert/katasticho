@@ -876,8 +876,15 @@ class _RecentTransactionsPanel extends ConsumerWidget {
                     onTap: () => context.push('/sales-receipts/${tx.receiptId}'),
                     title: Row(
                       children: [
-                        Text(tx.receiptNumber, style: KTypography.labelSmall),
-                        KSpacing.hGapSm,
+                        Flexible(
+                          child: Text(
+                            tx.receiptNumber,
+                            style: KTypography.labelSmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
                         Text(agoText,
                             style: KTypography.bodySmall
                                 .copyWith(color: KColors.textSecondary, fontSize: 10)),
