@@ -1026,12 +1026,7 @@ class _OrgSwitcherSheetState extends ConsumerState<_OrgSwitcherSheet> {
               title: const Text('Add New Organisation',
                   style: TextStyle(fontWeight: FontWeight.w600)),
               subtitle: const Text('Create a separate workspace'),
-              onTap: _switching
-                  ? null
-                  : () {
-                      Navigator.pop(context);
-                      context.go(Routes.onboardingBusinessType);
-                    },
+              onTap: _switching ? null : _addNewOrg,
             ),
             if (_switching)
               const Padding(
@@ -1066,6 +1061,81 @@ class _OrgSwitcherSheetState extends ConsumerState<_OrgSwitcherSheet> {
         const SnackBar(content: Text('Failed to switch organisation')),
       );
     }
+  }
+
+  Future<void> _addNewOrg() async {
+    final orgName = await _promptOrgName();
+    if (orgName == null || orgName.trim().isEmpty) return;
+    if (!mounted) return;
+
+    setState(() => _switching = true);
+    try {
+      final authRepo = ref.read(authRepositoryProvider);
+      final result = await authRepo.createAdditionalOrg(name: orgName.trim());
+      final data = result['data'] as Map<String, dynamic>;
+      final user = data['user'] as Map<String, dynamic>;
+
+      await ref.read(authProvider.notifier).onLoginSuccess(
+            accessToken: data['accessToken'] as String,
+            refreshToken: data['refreshToken'] as String,
+            userId: user['id'].toString(),
+            userName: user['fullName'] as String,
+            role: user['role'] as String,
+            orgId: user['orgId'].toString(),
+            orgName: user['orgName'] as String,
+            industry: user['industry'] as String?,
+            industryCode: user['industryCode'] as String?,
+            onboardingCompleted: user['onboardingCompleted'] as bool? ?? true,
+            defaultLandingPage: user['defaultLandingPage'] as String?,
+          );
+
+      if (!mounted) return;
+      ref.invalidate(myOrgsProvider);
+      ref.invalidate(unreadCountProvider);
+      ref.invalidate(dashboardFilterProvider);
+      Navigator.pop(context);
+      context.go(Routes.dashboard);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Switched to "$orgName"')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _switching = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to create organisation: $e')),
+      );
+    }
+  }
+
+  Future<String?> _promptOrgName() async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New Organisation'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Organisation name',
+            hintText: 'e.g. My Second Shop',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
