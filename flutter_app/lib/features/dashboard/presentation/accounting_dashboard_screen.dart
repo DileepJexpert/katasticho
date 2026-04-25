@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-
 import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
-import '../data/dashboard_config.dart';
 import '../data/dashboard_repository.dart';
 import '../widgets/ar_aging_card.dart';
+import '../widgets/bills_to_pay_card.dart';
 import '../widgets/cash_flow_card.dart';
+import '../widgets/outstanding_receivable_card.dart';
+import '../widgets/overdue_invoices_widget.dart';
 import '../widgets/pnl_summary_card.dart';
 import '../widgets/recent_journals_widget.dart';
 import '../widgets/report_links_card.dart';
 import '../widgets/sales_chart_widget.dart';
+import '../widgets/top_selling_widget.dart';
 
 class AccountingDashboardScreen extends ConsumerStatefulWidget {
   const AccountingDashboardScreen({super.key});
@@ -53,6 +54,8 @@ class _AccountingDashboardScreenState
           ref.invalidate(apAgingProvider);
           ref.invalidate(revenueTrendProvider(365));
           ref.invalidate(recentJournalsProvider);
+          ref.invalidate(outstandingReceivableProvider);
+          ref.invalidate(topSellingProvider);
           await Future.delayed(const Duration(milliseconds: 200));
         },
         child: SingleChildScrollView(
@@ -89,11 +92,11 @@ class _AccountingDashboardScreenState
             children: const [
               SalesChartWidget(),
               SizedBox(height: 16),
-              _ArApAgingSideBySide(),
-              SizedBox(height: 16),
               PnlSummaryCard(),
               SizedBox(height: 16),
               CashFlowCard(),
+              SizedBox(height: 16),
+              OverdueInvoicesWidget(),
             ],
           ),
         ),
@@ -102,6 +105,12 @@ class _AccountingDashboardScreenState
           flex: 2,
           child: Column(
             children: [
+              OutstandingReceivableCard(),
+              SizedBox(height: 16),
+              BillsToPayCard(),
+              SizedBox(height: 16),
+              TopSellingWidget(),
+              SizedBox(height: 16),
               ReportLinksCard(),
               SizedBox(height: 16),
               RecentJournalsWidget(),
@@ -117,11 +126,17 @@ class _AccountingDashboardScreenState
       children: const [
         SalesChartWidget(),
         SizedBox(height: 12),
-        _ArApAgingSideBySide(),
+        OutstandingReceivableCard(),
         SizedBox(height: 12),
         PnlSummaryCard(),
         SizedBox(height: 12),
         CashFlowCard(),
+        SizedBox(height: 12),
+        BillsToPayCard(),
+        SizedBox(height: 12),
+        OverdueInvoicesWidget(),
+        SizedBox(height: 12),
+        TopSellingWidget(),
         SizedBox(height: 12),
         ReportLinksCard(),
         SizedBox(height: 12),
@@ -446,112 +461,3 @@ class _AgingPanel extends ConsumerWidget {
   }
 }
 
-class _ArApAgingSideBySide extends ConsumerWidget {
-  const _ArApAgingSideBySide();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final width = MediaQuery.of(context).size.width;
-    final stacked = width < 800;
-
-    final arAsync = ref.watch(arAgingProvider);
-    final apAsync = ref.watch(apAgingProvider);
-
-    Widget arCard = arAsync.when(
-      loading: () => const KCard(
-        title: 'AR Aging',
-        child: SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-      ),
-      error: (err, _) => KCard(title: 'AR Aging', child: KErrorBanner(message: '$err')),
-      data: (ar) => _AgingCard(
-        title: 'AR Aging',
-        accentColor: const Color(0xFFF59E0B),
-        totalOutstanding: ar.totalOutstanding,
-        current: ar.current,
-        days1to30: ar.days1to30,
-        days31to60: ar.days31to60,
-        days61to90: ar.days61to90,
-        days90plus: ar.days90plus,
-        route: '/reports/ageing',
-      ),
-    );
-
-    Widget apCard = apAsync.when(
-      loading: () => const KCard(
-        title: 'AP Aging',
-        child: SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-      ),
-      error: (err, _) => KCard(title: 'AP Aging', child: KErrorBanner(message: '$err')),
-      data: (ap) => _AgingCard(
-        title: 'AP Aging',
-        accentColor: const Color(0xFFEF4444),
-        totalOutstanding: ap.totalOutstanding,
-        current: ap.current,
-        days1to30: ap.days1to30,
-        days31to60: ap.days31to60,
-        days61to90: ap.days61to90,
-        days90plus: ap.days90plus,
-        route: '/reports/ap-ageing',
-      ),
-    );
-
-    if (stacked) {
-      return Column(children: [arCard, const SizedBox(height: 12), apCard]);
-    }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: arCard),
-        const SizedBox(width: 16),
-        Expanded(child: apCard),
-      ],
-    );
-  }
-}
-
-class _AgingCard extends StatelessWidget {
-  final String title;
-  final Color accentColor;
-  final double totalOutstanding;
-  final double current;
-  final double days1to30;
-  final double days31to60;
-  final double days61to90;
-  final double days90plus;
-  final String route;
-
-  const _AgingCard({
-    required this.title,
-    required this.accentColor,
-    required this.totalOutstanding,
-    required this.current,
-    required this.days1to30,
-    required this.days31to60,
-    required this.days61to90,
-    required this.days90plus,
-    required this.route,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return KCard(
-      title: title,
-      action: TextButton(
-        onPressed: () => context.push(route),
-        child: const Text('Details'),
-      ),
-      child: AgingBreakdown(
-        title: title,
-        totalOutstanding: totalOutstanding,
-        current: current,
-        days1to30: days1to30,
-        days31to60: days31to60,
-        days61to90: days61to90,
-        days90plus: days90plus,
-        reportRoute: route,
-        accentColor: accentColor,
-        compact: false,
-      ),
-    );
-  }
-}
