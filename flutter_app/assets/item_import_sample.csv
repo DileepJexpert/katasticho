@@ -1,0 +1,39 @@
+sku,name,description,item_type,category,brand,hsn_code,unit_of_measure,purchase_price,sale_price,mrp,gst_rate,reorder_level,reorder_quantity,opening_stock,barcode,manufacturer,batch_number,mfg_date,expiry_date
+RICE-BAS-5KG,Basmati Rice 5kg,Premium aged basmati rice,GOODS,Grocery,India Gate,1006,KG,320,380,399,5,10,20,50,8901725181234,KRBL Ltd,,,
+RICE-BAS-1KG,Basmati Rice 1kg,Premium aged basmati rice 1kg pack,GOODS,Grocery,India Gate,1006,KG,70,82,85,5,20,50,100,8901725181241,KRBL Ltd,,,
+ATTA-10KG,Whole Wheat Atta 10kg,Chakki fresh atta,GOODS,Grocery,Aashirvaad,1101,KG,380,430,449,5,8,15,30,8901063061002,ITC Ltd,,,
+ATTA-5KG,Whole Wheat Atta 5kg,Chakki fresh atta 5kg,GOODS,Grocery,Aashirvaad,1101,KG,200,225,235,5,15,30,60,8901063061019,ITC Ltd,,,
+OIL-REF-1L,Refined Sunflower Oil 1L,Light and healthy cooking oil,GOODS,Grocery,Fortune,1512,LTR,140,165,175,5,12,24,48,8901058851014,Adani Wilmar,,,
+OIL-MUS-1L,Mustard Oil 1L,Kachi ghani mustard oil,GOODS,Grocery,Fortune,1514,LTR,170,195,210,5,10,20,36,8901058853018,Adani Wilmar,,,
+SUG-1KG,Sugar 1kg,Sulphurless white sugar,GOODS,Grocery,,1701,KG,42,48,50,5,25,50,100,,,,
+SALT-1KG,Tata Salt 1kg,Iodised vacuum evaporated salt,GOODS,Grocery,Tata,2501,KG,22,27,28,5,20,40,80,8901725121334,Tata Consumer,,,
+DAL-TUR-1KG,Toor Dal 1kg,Unpolished arhar dal,GOODS,Grocery,,0713,KG,130,155,165,5,15,30,50,,,,
+DAL-MUNG-1KG,Moong Dal 1kg,Premium yellow moong dal,GOODS,Grocery,,0713,KG,110,135,145,5,15,30,50,,,,
+TEA-250G,Taj Mahal Tea 250g,Premium tea leaves,GOODS,Grocery,Taj Mahal,0902,GM,160,185,195,5,10,20,40,8901030782015,HUL,,,
+MILK-500ML,Amul Taaza 500ml,Toned milk,GOODS,Dairy,Amul,0401,ML,25,28,28,5,30,60,100,8901262150132,GCMMF,B-APR-01,2026-04-20,2026-04-27
+MILK-1L,Amul Gold 1L,Full cream milk,GOODS,Dairy,Amul,0401,LTR,60,66,68,5,20,40,60,8901262151016,GCMMF,B-APR-02,2026-04-20,2026-04-27
+CURD-400G,Amul Masti Dahi 400g,Fresh curd,GOODS,Dairy,Amul,0403,GM,35,40,42,5,15,30,45,8901262013024,GCMMF,B-APR-03,2026-04-22,2026-04-29
+PANEER-200G,Amul Paneer 200g,Fresh cottage cheese,GOODS,Dairy,Amul,0406,GM,80,90,95,5,10,20,30,8901262250337,GCMMF,B-APR-04,2026-04-21,2026-05-05
+BREAD-WH,Britannia Bread 400g,Whole wheat bread,GOODS,Bakery,Britannia,1905,PCS,40,45,48,5,10,20,30,8901063090125,Britannia,B-APR-05,2026-04-23,2026-04-28
+BISCUIT-GB,Good Day Butter 150g,Cashew butter cookies,GOODS,Bakery,Britannia,1905,PCS,30,35,38,18,15,30,60,8901063106130,Britannia,,,
+MAGGI-4PK,Maggi Noodles 4-pack,2 minute masala noodles,GOODS,Packaged Food,Maggi,1902,PCS,48,55,56,18,20,40,80,8901058011029,Nestle India,,,
+SOAP-LUX,Lux Soap 100g,Beauty soap,GOODS,Personal Care,Lux,3401,PCS,35,42,45,18,15,30,60,8901030594045,HUL,,,
+SHAMPOO-H&S,Head & Shoulders 180ml,Anti-dandruff shampoo,GOODS,Personal Care,Head & Shoulders,3305,ML,175,199,210,18,8,15,24,8901030731488,P&G,,,
+PASTE-COLG,Colgate MaxFresh 150g,Fluoride toothpaste,GOODS,Personal Care,Colgate,3306,PCS,85,99,105,18,10,20,40,8901314961044,Colgate Palmolive,,,
+DETERG-SURF,Surf Excel Matic 1kg,Front load washing powder,GOODS,Household,Surf Excel,3402,KG,210,245,260,18,8,15,30,8901030628689,HUL,,,
+PHENYL-1L,Lizol Floor Cleaner 1L,Citrus disinfectant,GOODS,Household,Lizol,3808,LTR,160,185,199,18,6,12,18,8901030721113,Reckitt,,,
+PEN-BL,Cello Butterflow Blue,Ball point pen blue,GOODS,Stationery,Cello,9608,PCS,8,10,10,18,50,100,200,8901764007115,BIC Cello,,,
+NOTEBOOK-200,Classmate Notebook 200pg,Single line long notebook,GOODS,Stationery,Classmate,4820,PCS,50,60,65,12,20,40,80,8901764010047,ITC Ltd,,,
+BULB-LED-9W,LED Bulb 9W Cool White,Energy saving LED bulb,GOODS,Electrical,,8539,PCS,60,85,99,18,10,20,30,,Philips,,,
+BATTERY-AA,Duracell AA 2-pack,Alkaline battery pack of 2,GOODS,Electrical,Duracell,8506,PCS,80,99,110,18,15,30,50,5000394203471,Duracell,,,
+CEMENT-50KG,UltraTech Cement 50kg,OPC 53 grade cement,GOODS,Building Material,UltraTech,2523,KG,380,400,,28,5,10,20,,UltraTech Cement,,,
+PIPE-PVC-1IN,PVC Pipe 1 inch 6ft,CPVC plumbing pipe,GOODS,Building Material,Astral,3917,PCS,120,145,155,18,10,20,30,,Astral Pipes,,,
+PARA-500,Paracetamol 500mg 10s,Fever and pain relief tablets,GOODS,Medicine,,3004,STRIP,8,12,15,12,30,60,100,,Cipla,MED-2604,2026-02-01,2027-02-01
+AZITH-500,Azithromycin 500mg 3s,Antibiotic tablets,GOODS,Medicine,,3004,STRIP,55,70,82,12,15,30,50,,Alkem,MED-2605,2026-03-01,2028-03-01
+CETRIZ-10,Cetirizine 10mg 10s,Allergy relief antihistamine,GOODS,Medicine,,3004,STRIP,15,22,28,12,20,40,80,,Sun Pharma,MED-2606,2026-01-15,2027-07-15
+ORS-SAC,ORS Sachet 21.8g,Oral rehydration salts WHO formula,GOODS,Medicine,,3004,PCS,8,12,15,5,40,80,150,,FDC Ltd,MED-2607,2026-03-10,2027-09-10
+BANDAGE-5CM,Crepe Bandage 5cm x 4m,Elastic crepe bandage,GOODS,Medical Supplies,,3005,PCS,25,35,40,12,15,30,50,,Dyna,,,
+MASK-3PLY,3-Ply Face Mask 50s,Disposable surgical mask box,GOODS,Medical Supplies,,6307,BOX,120,160,180,12,5,10,20,,Generic,,,
+TAILORING,Tailoring Service,Custom stitching and alteration,SERVICE,Services,,9988,PCS,0,300,,18,0,0,0,,,,
+DELIVERY,Home Delivery Charge,Local delivery within 5km,SERVICE,Services,,9965,PCS,0,30,,18,0,0,0,,,,
+GIFT-WRAP,Gift Wrapping Service,Premium gift wrapping,SERVICE,Services,,9988,PCS,0,50,,18,0,0,0,,,,
