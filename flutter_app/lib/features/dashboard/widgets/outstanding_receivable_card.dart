@@ -31,7 +31,7 @@ class OutstandingReceivableCard extends ConsumerWidget {
           title: 'Outstanding Receivable',
           subtitle: '${data.overdueCount} overdue',
           action: TextButton(
-            onPressed: () => context.go('/reports/ageing'),
+            onPressed: () => context.push('/reports/ageing'),
             child: const Text('View All'),
           ),
           child: Column(

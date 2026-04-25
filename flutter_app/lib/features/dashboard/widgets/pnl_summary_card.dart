@@ -32,7 +32,7 @@ class PnlSummaryCard extends ConsumerWidget {
           title: 'Profit & Loss',
           subtitle: 'Current month',
           action: TextButton(
-            onPressed: () => context.go('/reports/profit-loss'),
+            onPressed: () => context.push('/reports/profit-loss'),
             child: const Text('Full Report'),
           ),
           child: Column(

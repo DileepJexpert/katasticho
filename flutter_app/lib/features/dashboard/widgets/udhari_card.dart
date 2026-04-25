@@ -32,7 +32,7 @@ class CreditDueCard extends ConsumerWidget {
           title: 'Credit Due',
           subtitle: 'Outstanding receivables',
           action: TextButton(
-            onPressed: () => context.go('/reports/ageing'),
+            onPressed: () => context.push('/reports/ageing'),
             child: const Text('Details'),
           ),
           child: Column(

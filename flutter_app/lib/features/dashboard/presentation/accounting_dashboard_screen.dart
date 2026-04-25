@@ -537,7 +537,7 @@ class _AgingCard extends StatelessWidget {
     return KCard(
       title: title,
       action: TextButton(
-        onPressed: () => context.go(route),
+        onPressed: () => context.push(route),
         child: const Text('Details'),
       ),
       child: AgingBreakdown(

@@ -31,7 +31,7 @@ class ReportLinksCard extends StatelessWidget {
           label: Text(link.label, style: KTypography.labelSmall),
           backgroundColor: link.color.withValues(alpha: 0.08),
           side: BorderSide(color: link.color.withValues(alpha: 0.2)),
-          onPressed: () => context.go(link.route),
+          onPressed: () => context.push(link.route),
         )).toList(),
       ),
     );

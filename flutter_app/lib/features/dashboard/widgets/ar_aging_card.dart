@@ -103,7 +103,7 @@ class AgingBreakdown extends StatelessWidget {
             _CompactBucketRow(bucket: b, total: totalOutstanding),
           const SizedBox(height: 8),
           GestureDetector(
-            onTap: () => context.go(reportRoute),
+            onTap: () => context.push(reportRoute),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -166,7 +166,7 @@ class AgingBreakdown extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => context.go(reportRoute),
+              onPressed: () => context.push(reportRoute),
               icon: Icon(Icons.arrow_forward, size: 16, color: accentColor),
               label: Text('View Full Report',
                   style: KTypography.labelMedium
