@@ -21,6 +21,7 @@ import com.katasticho.erp.inventory.entity.StockBatchBalance;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBatchBalanceRepository;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
+import com.katasticho.erp.inventory.repository.StockMovementRepository;
 import com.katasticho.erp.organisation.Branch;
 import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Organisation;
@@ -61,6 +62,7 @@ public class DashboardService {
     private final StockBatchBalanceRepository stockBatchBalanceRepository;
     private final VendorPaymentRepository vendorPaymentRepository;
     private final JournalEntryRepository journalEntryRepository;
+    private final StockMovementRepository stockMovementRepository;
 
     @Transactional(readOnly = true)
     public TodaySalesResponse getTodaySales(LocalDate from, LocalDate to, UUID branchId) {
@@ -336,8 +338,11 @@ public class DashboardService {
         BigDecimal posRevenue = salesReceiptRepository.sumTotalByOrgAndDateRange(
                 orgId, effectiveFrom, effectiveTo);
         BigDecimal revenue = invoiceRevenue.add(posRevenue);
-        BigDecimal cogs = purchaseBillRepository.sumCogsByOrgAndDateRange(
+        BigDecimal purchaseCogs = purchaseBillRepository.sumCogsByOrgAndDateRange(
                 orgId, effectiveFrom, effectiveTo);
+        BigDecimal salesCogs = stockMovementRepository.sumSalesCostByOrgAndDateRange(
+                orgId, effectiveFrom, effectiveTo);
+        BigDecimal cogs = salesCogs.compareTo(BigDecimal.ZERO) > 0 ? salesCogs : purchaseCogs;
         BigDecimal grossProfit = revenue.subtract(cogs);
 
         return new MonthlyProfitResponse(

@@ -1056,7 +1056,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                               prefixIcon: Icons.inventory_outlined,
                               onChanged: (_) => setState(() {}),
                             ),
-                            if (_trackBatches && (double.tryParse(_openingStockController.text) ?? 0) > 0) ...[
+                            if (_trackBatches) ...[
                               KSpacing.vGapSm,
                               KCard(
                                 padding: const EdgeInsets.all(KSpacing.sm),

@@ -18,6 +18,7 @@ import com.katasticho.erp.inventory.entity.StockBatchBalance;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBatchBalanceRepository;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
+import com.katasticho.erp.inventory.repository.StockMovementRepository;
 import com.katasticho.erp.organisation.Branch;
 import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Organisation;
@@ -61,6 +62,7 @@ class DashboardServiceTest {
     @Mock private StockBatchBalanceRepository stockBatchBalanceRepository;
     @Mock private VendorPaymentRepository vendorPaymentRepository;
     @Mock private JournalEntryRepository journalEntryRepository;
+    @Mock private StockMovementRepository stockMovementRepository;
 
     private DashboardService dashboardService;
     private UUID orgId;
@@ -74,7 +76,8 @@ class DashboardServiceTest {
                 purchaseBillRepository, contactRepository,
                 salesReceiptRepository, salesReceiptLineRepository,
                 stockBatchRepository, stockBatchBalanceRepository,
-                vendorPaymentRepository, journalEntryRepository);
+                vendorPaymentRepository, journalEntryRepository,
+                stockMovementRepository);
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);

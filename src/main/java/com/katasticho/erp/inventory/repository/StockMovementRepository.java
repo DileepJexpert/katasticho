@@ -62,4 +62,17 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, UU
         UUID getItemId();
         BigDecimal getQtySold();
     }
+
+    @Query("""
+        SELECT COALESCE(SUM(ABS(m.totalCost)), 0)
+        FROM StockMovement m
+        WHERE m.orgId = :orgId
+          AND m.movementType = 'SALE'
+          AND m.movementDate BETWEEN :from AND :to
+          AND m.reversal = false
+          AND m.reversed = false
+    """)
+    BigDecimal sumSalesCostByOrgAndDateRange(@Param("orgId") UUID orgId,
+                                             @Param("from") LocalDate from,
+                                             @Param("to") LocalDate to);
 }
