@@ -14,6 +14,7 @@ import '../data/pos_held_carts.dart';
 import '../data/pos_recent_transactions.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_repository.dart';
+import '../data/sales_receipt_providers.dart';
 import 'widgets/pos_search_bar.dart';
 import 'widgets/pos_item_search_result.dart';
 import 'widgets/pos_cart_list.dart';
@@ -25,6 +26,7 @@ import 'widgets/pos_held_carts_sheet.dart';
 import 'widgets/pos_favourites_grid.dart';
 import 'widgets/pos_barcode_scanner.dart';
 import 'widgets/pos_recent_transactions.dart';
+import 'widgets/pos_recent_bills.dart';
 import 'widgets/pos_weight_popup.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
@@ -299,7 +301,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             );
       }
 
-      // Clear cart and refocus for next sale
+      // Refresh recent bills and clear cart for next sale
+      ref.invalidate(recentPosReceiptsProvider);
       ref.read(posCartProvider.notifier).clear();
       _searchFocusNode.requestFocus();
     } catch (e) {
@@ -747,27 +750,23 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         child: Column(
           children: [
             PosFavouritesGrid(onItemTap: _addToCart),
-            KSpacing.vGapLg,
+            KSpacing.vGapMd,
+            const PosRecentBills(),
+            KSpacing.vGapMd,
             Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.point_of_sale,
-                      size: 64,
+                      size: 48,
                       color: Theme.of(context).colorScheme.outlineVariant),
-                  KSpacing.vGapMd,
+                  KSpacing.vGapSm,
                   Text('Ready to sell',
-                      style: KTypography.h3.copyWith(
+                      style: KTypography.labelLarge.copyWith(
                           color: Theme.of(context)
                               .colorScheme
                               .onSurfaceVariant)),
                   KSpacing.vGapSm,
-                  Text('Search items above to start',
-                      style: KTypography.bodySmall.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurfaceVariant)),
-                  KSpacing.vGapMd,
                   Wrap(
                     spacing: 16,
                     children: [
@@ -874,6 +873,7 @@ class _RecentTransactionsPanel extends ConsumerWidget {
                   return ListTile(
                     dense: true,
                     visualDensity: VisualDensity.compact,
+                    onTap: () => context.push('/sales-receipts/${tx.receiptId}'),
                     title: Row(
                       children: [
                         Text(tx.receiptNumber, style: KTypography.labelSmall),

@@ -43,3 +43,19 @@ final receiptDetailProvider =
     return repo.getReceipt(id);
   },
 );
+
+final recentPosReceiptsProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final repo = ref.watch(posRepositoryProvider);
+  final now = DateTime.now();
+  final today =
+      '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  final response =
+      await repo.listReceipts(size: 5, dateFrom: today, dateTo: today);
+  final data = response['data'];
+  if (data == null) return [];
+  if (data is List) return data.cast<Map<String, dynamic>>();
+  return ((data as Map<String, dynamic>)['content'] as List?)
+          ?.cast<Map<String, dynamic>>() ??
+      [];
+});

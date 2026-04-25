@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
@@ -114,9 +115,15 @@ class _RecentTransactionTile extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          Navigator.pop(context);
+          context.push('/sales-receipts/${transaction.receiptId}');
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
           children: [
             Expanded(
               child: Column(
@@ -169,6 +176,7 @@ class _RecentTransactionTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }
