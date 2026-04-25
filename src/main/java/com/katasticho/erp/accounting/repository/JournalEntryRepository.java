@@ -16,6 +16,14 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, UUID
 
     Optional<JournalEntry> findByIdAndOrgId(UUID id, UUID orgId);
 
+    /**
+     * Single-entry fetch with lines eagerly loaded — used by detail screens
+     * to avoid LazyInitializationException when toResponse iterates lines
+     * outside the transaction (OSIV is disabled).
+     */
+    @Query("SELECT je FROM JournalEntry je LEFT JOIN FETCH je.lines WHERE je.id = :id AND je.orgId = :orgId")
+    Optional<JournalEntry> findByIdAndOrgIdWithLines(UUID id, UUID orgId);
+
     Page<JournalEntry> findByOrgIdAndStatusOrderByEffectiveDateDesc(UUID orgId, String status, Pageable pageable);
 
     Page<JournalEntry> findByOrgIdOrderByEffectiveDateDesc(UUID orgId, Pageable pageable);

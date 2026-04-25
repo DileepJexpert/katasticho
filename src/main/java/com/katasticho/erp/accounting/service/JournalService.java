@@ -307,8 +307,9 @@ public class JournalService {
         log.info("Manual journal {} deleted", entry.getEntryNumber());
     }
 
+    @Transactional(readOnly = true)
     public JournalEntry getEntry(UUID entryId, UUID orgId) {
-        return journalEntryRepository.findByIdAndOrgId(entryId, orgId)
+        return journalEntryRepository.findByIdAndOrgIdWithLines(entryId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("JournalEntry", entryId));
     }
 
