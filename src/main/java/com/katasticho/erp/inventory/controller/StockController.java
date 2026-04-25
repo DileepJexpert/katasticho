@@ -90,13 +90,65 @@ public class StockController {
 
     /**
      * Low-stock items for the dashboard widget.
+     * Includes items with no StockBalance record (treated as qty=0).
      */
     @GetMapping("/low-stock")
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<StockBalanceResponse>>> lowStock() {
         UUID orgId = TenantContext.getCurrentOrgId();
-        List<StockBalance> balances = stockBalanceRepository.findLowStock(orgId);
-        return ResponseEntity.ok(ApiResponse.ok(balances.stream().map(this::toBalanceResponse).toList()));
+
+        // Items that track inventory, are active, and have a reorder level > 0
+        List<Item> trackableItems = itemRepository
+                .findByOrgIdAndIsDeletedFalseAndTrackInventoryTrue(orgId)
+                .stream()
+                .filter(Item::isActive)
+                .filter(i -> i.getReorderLevel().compareTo(BigDecimal.ZERO) > 0)
+                .toList();
+
+        Warehouse defaultWh = warehouseRepository
+                .findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
+                .orElse(null);
+
+        List<StockBalanceResponse> result = trackableItems.stream()
+                .map(item -> {
+                    List<StockBalance> balances = stockBalanceRepository
+                            .findByOrgIdAndItemId(orgId, item.getId());
+                    BigDecimal totalQty = balances.stream()
+                            .map(StockBalance::getQuantityOnHand)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                    if (totalQty.compareTo(item.getReorderLevel()) > 0) return null;
+
+                    UUID whId = balances.isEmpty()
+                            ? (defaultWh != null ? defaultWh.getId() : null)
+                            : balances.get(0).getWarehouseId();
+                    String whName = balances.isEmpty()
+                            ? (defaultWh != null ? defaultWh.getName() : "Default")
+                            : null;
+                    if (whName == null && whId != null) {
+                        whName = warehouseRepository.findById(whId)
+                                .map(Warehouse::getName).orElse("Unknown");
+                    }
+
+                    return new StockBalanceResponse(
+                            item.getId(),
+                            item.getSku(),
+                            item.getName(),
+                            whId,
+                            whName,
+                            totalQty,
+                            balances.isEmpty() ? BigDecimal.ZERO
+                                    : balances.get(0).getAverageCost(),
+                            item.getReorderLevel(),
+                            true,
+                            balances.isEmpty() ? null
+                                    : balances.get(0).getLastMovementAt());
+                })
+                .filter(java.util.Objects::nonNull)
+                .sorted(java.util.Comparator.comparing(StockBalanceResponse::quantityOnHand))
+                .toList();
+
+        return ResponseEntity.ok(ApiResponse.ok(result));
     }
 
     private StockMovementResponse toMovementResponse(StockMovement m) {
