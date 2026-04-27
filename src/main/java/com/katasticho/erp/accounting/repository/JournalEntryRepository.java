@@ -5,9 +5,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,18 +28,32 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, UUID
 
     Page<JournalEntry> findByOrgIdOrderByEffectiveDateDesc(UUID orgId, Pageable pageable);
 
-    @Query("SELECT je FROM JournalEntry je WHERE je.orgId = :orgId AND je.effectiveDate BETWEEN :startDate AND :endDate ORDER BY je.effectiveDate DESC")
-    Page<JournalEntry> findByOrgIdAndDateRange(UUID orgId, LocalDate startDate, LocalDate endDate, Pageable pageable);
-
-    @Query("""
-            SELECT je FROM JournalEntry je WHERE je.orgId = :orgId
-            AND (:sourceModule IS NULL OR je.sourceModule = :sourceModule)
-            AND (:dateFrom IS NULL OR je.effectiveDate >= :dateFrom)
-            AND (:dateTo IS NULL OR je.effectiveDate <= :dateTo)
-            AND (:search IS NULL OR LOWER(je.entryNumber) LIKE LOWER(CONCAT('%', :search, '%'))
-                 OR LOWER(je.description) LIKE LOWER(CONCAT('%', :search, '%')))
-            ORDER BY je.effectiveDate DESC, je.createdAt DESC
-            """)
-    Page<JournalEntry> findFiltered(UUID orgId, String sourceModule, LocalDate dateFrom, LocalDate dateTo,
-                                     String search, Pageable pageable);
+    @Query(value = """
+            SELECT * FROM journal_entry je
+            WHERE je.org_id = CAST(:orgId AS uuid)
+              AND (CAST(:sourceModule AS text) IS NULL OR je.source_module = :sourceModule)
+              AND (CAST(:dateFrom AS text) IS NULL OR je.effective_date >= CAST(:dateFrom AS date))
+              AND (CAST(:dateTo AS text) IS NULL OR je.effective_date <= CAST(:dateTo AS date))
+              AND (CAST(:search AS text) IS NULL
+                   OR LOWER(je.entry_number) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(je.description) LIKE LOWER(CONCAT('%', :search, '%')))
+            ORDER BY je.effective_date DESC, je.created_at DESC
+            """,
+            countQuery = """
+            SELECT COUNT(*) FROM journal_entry je
+            WHERE je.org_id = CAST(:orgId AS uuid)
+              AND (CAST(:sourceModule AS text) IS NULL OR je.source_module = :sourceModule)
+              AND (CAST(:dateFrom AS text) IS NULL OR je.effective_date >= CAST(:dateFrom AS date))
+              AND (CAST(:dateTo AS text) IS NULL OR je.effective_date <= CAST(:dateTo AS date))
+              AND (CAST(:search AS text) IS NULL
+                   OR LOWER(je.entry_number) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(je.description) LIKE LOWER(CONCAT('%', :search, '%')))
+            """,
+            nativeQuery = true)
+    Page<JournalEntry> findFiltered(@Param("orgId") String orgId,
+                                    @Param("sourceModule") String sourceModule,
+                                    @Param("dateFrom") String dateFrom,
+                                    @Param("dateTo") String dateTo,
+                                    @Param("search") String search,
+                                    Pageable pageable);
 }

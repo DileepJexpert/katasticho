@@ -283,7 +283,13 @@ public class JournalService {
 
     public Page<JournalEntry> listEntries(UUID orgId, String sourceModule, LocalDate dateFrom, LocalDate dateTo,
                                            String search, Pageable pageable) {
-        return journalEntryRepository.findFiltered(orgId, sourceModule, dateFrom, dateTo, search, pageable);
+        return journalEntryRepository.findFiltered(
+                orgId.toString(),
+                sourceModule,
+                dateFrom != null ? dateFrom.toString() : null,
+                dateTo != null ? dateTo.toString() : null,
+                search,
+                pageable);
     }
 
     @Transactional
