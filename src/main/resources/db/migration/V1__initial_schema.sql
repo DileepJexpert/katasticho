@@ -110,6 +110,7 @@ CREATE TABLE app_user (
                           updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
                           created_by          UUID,
                           is_deleted          BOOLEAN      NOT NULL DEFAULT FALSE,
+                          default_landing_page VARCHAR(50) DEFAULT '/dashboard',
                           CONSTRAINT uq_user_email_org  UNIQUE (org_id, email),
                           CONSTRAINT uq_user_phone_org  UNIQUE (org_id, phone),
                           CONSTRAINT chk_user_has_login CHECK (email IS NOT NULL OR phone IS NOT NULL)
@@ -222,7 +223,7 @@ CREATE TABLE journal_entry (
                                description     VARCHAR(500),
                                source_module   VARCHAR(30)  NOT NULL
                                    CHECK (source_module IN (
-                                                            'AR','AP','PAYROLL','INVENTORY','MANUAL','GST','BANK_REC','OPENING','POS'
+                                                            'AR','AP','PAYROLL','INVENTORY','MANUAL','GST','BANK_REC','OPENING','POS','EXPENSE'
                                        )),
                                source_id       UUID,
                                status          VARCHAR(10)  NOT NULL DEFAULT 'DRAFT'
