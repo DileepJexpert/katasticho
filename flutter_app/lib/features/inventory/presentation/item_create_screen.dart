@@ -924,8 +924,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                           controller: _salePriceController,
                           onChanged: (_) => setState(() {}),
                           validator: (v) {
-                            if (_serverErrors.containsKey('salePrice')) {
-                              return _serverErrors['salePrice'];
+                            if (serverErrors.containsKey('salePrice')) {
+                              return serverErrors['salePrice'];
                             }
                             final salePrice = double.tryParse(v ?? '') ?? 0;
                             final mrp = double.tryParse(_mrpController.text) ?? 0;
