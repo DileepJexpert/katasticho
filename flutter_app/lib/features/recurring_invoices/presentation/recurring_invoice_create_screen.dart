@@ -5,6 +5,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/utils/form_error_handler.dart';
 import '../../contacts/data/contact_repository.dart';
 import '../../tax_groups/data/tax_group_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
@@ -54,7 +55,8 @@ class RecurringInvoiceCreateScreen extends ConsumerStatefulWidget {
 }
 
 class _RecurringInvoiceCreateScreenState
-    extends ConsumerState<RecurringInvoiceCreateScreen> {
+    extends ConsumerState<RecurringInvoiceCreateScreen>
+    with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
   final _profileNameCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
@@ -401,9 +403,7 @@ class _RecurringInvoiceCreateScreenState
       context.pop();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save: $e')),
-      );
+      handleSaveError(e, _formKey);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

@@ -65,9 +65,8 @@ public class JournalController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) String search,
             Pageable pageable) {
-        Page<JournalEntry> page = journalService.listEntries(
+        Page<JournalEntryResponse> responsePage = journalService.listEntriesAsResponse(
                 TenantContext.getCurrentOrgId(), sourceModule, dateFrom, dateTo, search, pageable);
-        Page<JournalEntryResponse> responsePage = page.map(journalService::toResponse);
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(responsePage)));
     }
 

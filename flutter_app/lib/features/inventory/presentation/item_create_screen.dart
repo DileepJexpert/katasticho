@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/form_error_handler.dart';
 import '../../settings/data/feature_flag_repository.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -27,7 +28,8 @@ class ItemCreateScreen extends ConsumerStatefulWidget {
   ConsumerState<ItemCreateScreen> createState() => _ItemCreateScreenState();
 }
 
-class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
+class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
+    with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
 
   final _skuController = TextEditingController();
@@ -73,7 +75,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   bool _prescriptionRequired = false;
   bool _saving = false;
   bool _loading = false;
-  Map<String, String> _serverErrors = {};
+
 
   // Purchase & Sales Units
   bool _hasDifferentPurchaseUnit = false;
@@ -258,7 +260,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   }
 
   Future<void> _save() async {
-    setState(() => _serverErrors = {});
+    clearServerErrors();
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _saving = true);
@@ -380,24 +382,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     } catch (e, st) {
       debugPrint('[ItemCreateScreen] save FAILED: $e\n$st');
       if (!mounted) return;
-      if (e is DioException) {
-        final fieldErrs = ApiErrorParser.fieldErrors(e);
-        if (fieldErrs.isNotEmpty) {
-          setState(() => _serverErrors = fieldErrs);
-          _formKey.currentState!.validate();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please fix the errors below')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(ApiErrorParser.message(e))),
-          );
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: $e')),
-        );
-      }
+      handleSaveError(e, _formKey);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -842,14 +827,14 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                     children: [
                       KCompactRow(children: [
                         KTextField(
-                          label: 'SKU *',
+                          label: 'SKU',
                           controller: _skuController,
                           prefixIcon: Icons.qr_code,
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) return 'SKU is required';
-                            if (_serverErrors.containsKey('sku')) return _serverErrors['sku'];
-                            return null;
-                          },
+                          isRequired: true,
+                          serverError: serverErrors['sku'],
+                          validator: (v) => fieldError('sku',
+                            v == null || v.trim().isEmpty ? 'SKU is required' : null,
+                          ),
                         ),
                         KTextField(
                           label: 'Barcode',
@@ -859,14 +844,14 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                       ]),
                       KSpacing.vGapSm,
                       KTextField(
-                        label: 'Name *',
+                        label: 'Name',
                         controller: _nameController,
                         prefixIcon: Icons.label_outline,
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Name is required';
-                          if (_serverErrors.containsKey('name')) return _serverErrors['name'];
-                          return null;
-                        },
+                        isRequired: true,
+                        serverError: serverErrors['name'],
+                        validator: (v) => fieldError('name',
+                          v == null || v.trim().isEmpty ? 'Name is required' : null,
+                        ),
                       ),
                       KSpacing.vGapSm,
                       KTextField(
@@ -931,7 +916,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                           label: 'Purchase Price',
                           controller: _purchasePriceController,
                           onChanged: (_) => setState(() {}),
-                          validator: (v) => _serverErrors['purchasePrice'],
+                          serverError: serverErrors['purchasePrice'],
+                          validator: (v) => fieldError('purchasePrice', null),
                         ),
                         KTextField.amount(
                           label: 'Sale Price',

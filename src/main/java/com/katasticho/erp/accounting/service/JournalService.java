@@ -281,15 +281,17 @@ public class JournalService {
         return journalEntryRepository.findByOrgIdOrderByEffectiveDateDesc(orgId, pageable);
     }
 
-    public Page<JournalEntry> listEntries(UUID orgId, String sourceModule, LocalDate dateFrom, LocalDate dateTo,
+    @Transactional(readOnly = true)
+    public Page<JournalEntryResponse> listEntriesAsResponse(UUID orgId, String sourceModule, LocalDate dateFrom, LocalDate dateTo,
                                            String search, Pageable pageable) {
-        return journalEntryRepository.findFiltered(
+        Page<JournalEntry> page = journalEntryRepository.findFiltered(
                 orgId.toString(),
                 sourceModule,
                 dateFrom != null ? dateFrom.toString() : null,
                 dateTo != null ? dateTo.toString() : null,
                 search,
                 pageable);
+        return page.map(this::toResponse);
     }
 
     @Transactional

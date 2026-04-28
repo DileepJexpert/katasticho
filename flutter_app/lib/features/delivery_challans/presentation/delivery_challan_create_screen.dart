@@ -6,6 +6,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/utils/form_error_handler.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../sales_orders/data/sales_order_repository.dart';
@@ -23,7 +24,8 @@ class DeliveryChallanCreateScreen extends ConsumerStatefulWidget {
 }
 
 class _DeliveryChallanCreateScreenState
-    extends ConsumerState<DeliveryChallanCreateScreen> {
+    extends ConsumerState<DeliveryChallanCreateScreen>
+    with FormErrorHandler {
   int _currentStep = 0;
   bool _isSubmitting = false;
 

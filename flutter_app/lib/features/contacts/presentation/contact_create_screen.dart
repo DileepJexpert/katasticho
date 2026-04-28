@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_spacing.dart';
-import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/contact_repository.dart';
 
 class ContactCreateScreen extends ConsumerStatefulWidget {
-  /// If non-null, loads the contact and pre-fills the form for editing.
   final String? contactId;
 
   const ContactCreateScreen({super.key, this.contactId});
@@ -17,27 +16,24 @@ class ContactCreateScreen extends ConsumerStatefulWidget {
       _ContactCreateScreenState();
 }
 
-class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
+class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
+    with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
 
-  // Core
   String _contactType = 'CUSTOMER';
   final _displayNameCtrl = TextEditingController();
   final _companyNameCtrl = TextEditingController();
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
 
-  // Tax
   final _gstinCtrl = TextEditingController();
   final _panCtrl = TextEditingController();
   String _gstTreatment = 'UNREGISTERED';
 
-  // Contact channels
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _mobileCtrl = TextEditingController();
 
-  // Billing address
   final _billAddr1Ctrl = TextEditingController();
   final _billCityCtrl = TextEditingController();
   final _billStateCtrl = TextEditingController();
@@ -45,7 +41,6 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
   final _billPostalCtrl = TextEditingController();
   final _billCountryCtrl = TextEditingController(text: 'IN');
 
-  // Financial
   final _creditLimitCtrl = TextEditingController(text: '0');
   int _paymentTermsDays = 30;
 
@@ -133,7 +128,6 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
         child: ListView(
           padding: KSpacing.pagePadding,
           children: [
-            // Contact type selector
             SegmentedButton<String>(
               segments: const [
                 ButtonSegment(value: 'CUSTOMER', label: Text('Customer')),
@@ -146,24 +140,26 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
             ),
             KSpacing.vGapSm,
 
-            // Basic info (always open)
             KCollapsibleSection(
               title: 'Basic Information',
               icon: Icons.person_outline,
               initiallyExpanded: true,
               children: [
                 KTextField(
-                  label: 'Display Name *',
+                  label: 'Display Name',
+                  isRequired: true,
                   controller: _displayNameCtrl,
                   prefixIcon: Icons.person_outline,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  serverError: serverErrors['displayName'],
+                  validator: (v) => fieldError('displayName',
+                      (v == null || v.trim().isEmpty) ? 'Display name is required' : null),
                 ),
                 KSpacing.vGapSm,
                 KTextField(
                   label: 'Company Name',
                   controller: _companyNameCtrl,
                   prefixIcon: Icons.business_outlined,
+                  serverError: serverErrors['companyName'],
                 ),
                 KSpacing.vGapSm,
                 KCompactRow(children: [
@@ -179,7 +175,6 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
               ],
             ),
 
-            // Contact details (collapsed)
             KCollapsibleSection(
               title: 'Contact Details',
               icon: Icons.phone_outlined,
@@ -189,6 +184,9 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
                   controller: _emailCtrl,
                   prefixIcon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
+                  serverError: serverErrors['email'],
+                  validator: (v) => fieldError('email',
+                      (v != null && v.isNotEmpty && !v.contains('@')) ? 'Enter a valid email' : null),
                 ),
                 KSpacing.vGapSm,
                 KCompactRow(children: [
@@ -197,6 +195,7 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
                     controller: _phoneCtrl,
                     prefixIcon: Icons.phone_outlined,
                     keyboardType: TextInputType.phone,
+                    serverError: serverErrors['phone'],
                   ),
                   KTextField(
                     label: 'Mobile',
@@ -208,7 +207,6 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
               ],
             ),
 
-            // Tax (collapsed)
             KCollapsibleSection(
               title: 'Tax Information',
               icon: Icons.receipt_long_outlined,
@@ -219,6 +217,9 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
                     controller: _gstinCtrl,
                     prefixIcon: Icons.receipt_long_outlined,
                     maxLength: 15,
+                    serverError: serverErrors['gstin'],
+                    validator: (v) => fieldError('gstin',
+                        (v != null && v.isNotEmpty && v.length != 15) ? 'GSTIN must be 15 characters' : null),
                     onChanged: (v) {
                       if (v.length == 15) {
                         setState(() => _gstTreatment = 'REGISTERED');
@@ -232,6 +233,9 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
                     controller: _panCtrl,
                     prefixIcon: Icons.credit_card_outlined,
                     maxLength: 10,
+                    serverError: serverErrors['pan'],
+                    validator: (v) => fieldError('pan',
+                        (v != null && v.isNotEmpty && v.length != 10) ? 'PAN must be 10 characters' : null),
                   ),
                 ]),
                 KSpacing.vGapSm,
@@ -259,7 +263,6 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
               ],
             ),
 
-            // Billing address (collapsed)
             KCollapsibleSection(
               title: 'Billing Address',
               icon: Icons.location_on_outlined,
@@ -301,7 +304,6 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
               ],
             ),
 
-            // Financial terms (collapsed)
             KCollapsibleSection(
               title: 'Financial Terms',
               icon: Icons.account_balance_wallet_outlined,
@@ -341,6 +343,7 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
   }
 
   Future<void> _save() async {
+    clearServerErrors();
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
 
@@ -381,17 +384,14 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen> {
       } else {
         await repo.createContact(data);
       }
-      // Invalidate all contact list providers (all tab variants)
       ref.invalidate(contactListProvider);
       if (!mounted) return;
       context.pop();
     } catch (e) {
-      setState(() => _loading = false);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save contact: $e')),
-      );
+      handleSaveError(e, _formKey);
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 }
-

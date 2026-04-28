@@ -6,6 +6,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/utils/form_error_handler.dart';
 import '../data/item_group_repository.dart';
 
 /// Create or edit an item group. Each attribute definition is a
@@ -22,7 +23,8 @@ class ItemGroupCreateScreen extends ConsumerStatefulWidget {
       _ItemGroupCreateScreenState();
 }
 
-class _ItemGroupCreateScreenState extends ConsumerState<ItemGroupCreateScreen> {
+class _ItemGroupCreateScreenState extends ConsumerState<ItemGroupCreateScreen>
+    with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -169,12 +171,9 @@ class _ItemGroupCreateScreenState extends ConsumerState<ItemGroupCreateScreen> {
         SnackBar(content: Text(_isEdit ? 'Group updated' : 'Group created')),
       );
       context.pop();
-    } catch (e, st) {
-      debugPrint('[ItemGroupCreate] save FAILED: $e\n$st');
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Save failed: $e')),
-      );
+      handleSaveError(e, _formKey);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

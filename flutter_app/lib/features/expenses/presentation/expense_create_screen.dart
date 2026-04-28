@@ -7,6 +7,7 @@ import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../contacts/data/contact_repository.dart';
 import '../../tax_groups/data/tax_group_repository.dart';
@@ -34,7 +35,8 @@ class ExpenseCreateScreen extends ConsumerStatefulWidget {
       _ExpenseCreateScreenState();
 }
 
-class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
+class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen>
+    with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
   final _amountCtrl = TextEditingController();
   final _descriptionCtrl = TextEditingController();
@@ -97,18 +99,21 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                 // Amount + Date side-by-side
                 KCompactRow(children: [
                   KTextField.amount(
-                    label: 'Amount *',
+                    label: 'Amount',
+                    isRequired: true,
                     controller: _amountCtrl,
-                    validator: (v) {
+                    serverError: serverErrors['amount'],
+                    validator: (v) => fieldError('amount', () {
                       if (v == null || v.isEmpty) return 'Required';
                       final n = double.tryParse(v);
                       if (n == null || n <= 0) return 'Enter a positive amount';
                       return null;
-                    },
+                    }()),
                   ),
                   KDatePicker(
-                    label: 'Expense date *',
+                    label: 'Expense date',
                     value: _expenseDate,
+                    isRequired: true,
                     onChanged: (d) => setState(() => _expenseDate = d),
                   ),
                 ]),

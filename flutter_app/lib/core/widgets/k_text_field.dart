@@ -32,6 +32,8 @@ class KTextField extends StatefulWidget {
   final VoidCallback? onTap;
   final ValueChanged<String>? onFieldSubmitted;
   final bool selectAllOnFocus;
+  final bool isRequired;
+  final String? serverError;
 
   const KTextField({
     super.key,
@@ -58,6 +60,8 @@ class KTextField extends StatefulWidget {
     this.onTap,
     this.onFieldSubmitted,
     this.selectAllOnFocus = true,
+    this.isRequired = false,
+    this.serverError,
   });
 
   @override
@@ -72,6 +76,8 @@ class KTextField extends StatefulWidget {
     ValueChanged<String>? onChanged,
     bool readOnly = false,
     String currencySymbol = '\u20B9',
+    bool isRequired = false,
+    String? serverError,
   }) {
     return KTextField(
       key: key,
@@ -86,6 +92,8 @@ class KTextField extends StatefulWidget {
       ],
       prefixIcon: Icons.currency_rupee,
       selectAllOnFocus: true,
+      isRequired: isRequired,
+      serverError: serverError,
     );
   }
 
@@ -166,10 +174,20 @@ class _KTextFieldState extends State<KTextField> {
     final hasLabel = widget.label.isNotEmpty;
     final isMultiline = (widget.maxLines ?? 1) > 1;
 
+    String? Function(String?)? effectiveValidator = widget.validator;
+    if (widget.serverError != null) {
+      final original = widget.validator;
+      effectiveValidator = (v) {
+        final clientErr = original?.call(v);
+        if (clientErr != null) return clientErr;
+        return widget.serverError;
+      };
+    }
+
     final field = TextFormField(
       controller: widget.controller,
       initialValue: widget.controller == null ? widget.initialValue : null,
-      validator: widget.validator,
+      validator: effectiveValidator,
       onChanged: widget.onChanged,
       keyboardType: widget.keyboardType,
       inputFormatters: widget.inputFormatters,
@@ -221,10 +239,24 @@ class _KTextFieldState extends State<KTextField> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          widget.label,
-          style: KTypography.labelLarge.copyWith(color: cs.onSurface),
-        ),
+        if (widget.isRequired)
+          Text.rich(
+            TextSpan(
+              text: widget.label,
+              style: KTypography.labelLarge.copyWith(color: cs.onSurface),
+              children: [
+                TextSpan(
+                  text: ' *',
+                  style: KTypography.labelLarge.copyWith(color: cs.error),
+                ),
+              ],
+            ),
+          )
+        else
+          Text(
+            widget.label,
+            style: KTypography.labelLarge.copyWith(color: cs.onSurface),
+          ),
         const SizedBox(height: 6),
         field,
       ],

@@ -6,6 +6,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
@@ -23,7 +24,8 @@ class BillCreateScreen extends ConsumerStatefulWidget {
   ConsumerState<BillCreateScreen> createState() => _BillCreateScreenState();
 }
 
-class _BillCreateScreenState extends ConsumerState<BillCreateScreen> {
+class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
+    with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
   int _currentStep = 0;
   bool _isSubmitting = false;
@@ -172,11 +174,16 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen> {
         context.go(Routes.bills);
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = e is DioException
-            ? ApiErrorParser.message(e)
-            : 'Failed to create bill. Please try again.';
-      });
+      if (e is DioException) {
+        final fieldErrs = ApiErrorParser.fieldErrors(e);
+        if (fieldErrs.isNotEmpty) {
+          setState(() => serverErrors = fieldErrs);
+          _formKey.currentState!.validate();
+        }
+        setState(() => _errorMessage = ApiErrorParser.message(e));
+      } else {
+        setState(() => _errorMessage = 'Failed to create bill. Please try again.');
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

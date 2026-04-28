@@ -6,6 +6,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../contacts/data/contact_repository.dart';
 import '../../tax_groups/data/tax_group_repository.dart';
@@ -56,7 +57,8 @@ class EstimateCreateScreen extends ConsumerStatefulWidget {
       _EstimateCreateScreenState();
 }
 
-class _EstimateCreateScreenState extends ConsumerState<EstimateCreateScreen> {
+class _EstimateCreateScreenState extends ConsumerState<EstimateCreateScreen>
+    with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
   final _subjectCtrl = TextEditingController();
   final _referenceCtrl = TextEditingController();
@@ -340,11 +342,7 @@ class _EstimateCreateScreenState extends ConsumerState<EstimateCreateScreen> {
       context.pop();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e is DioException
-            ? ApiErrorParser.message(e)
-            : 'Failed to save: $e')),
-      );
+      handleSaveError(e, _formKey);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/utils/form_error_handler.dart';
 import '../data/price_list_repository.dart';
 
 /// Form for creating a new price list. The server flips the previous
@@ -19,7 +20,8 @@ class PriceListCreateScreen extends ConsumerStatefulWidget {
 }
 
 class _PriceListCreateScreenState
-    extends ConsumerState<PriceListCreateScreen> {
+    extends ConsumerState<PriceListCreateScreen>
+    with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -60,11 +62,9 @@ class _PriceListCreateScreenState
       } else {
         context.go('/price-lists');
       }
-    } catch (e, st) {
-      debugPrint('[PriceListCreate] save FAILED: $e\n$st');
-      setState(() {
-        _errorMessage = 'Failed to create price list. Please try again.';
-      });
+    } catch (e) {
+      if (!mounted) return;
+      handleSaveError(e, _formKey);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

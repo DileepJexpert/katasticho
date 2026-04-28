@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/account_repository.dart';
 
@@ -49,7 +50,7 @@ class AccountCreateScreen extends ConsumerStatefulWidget {
   ConsumerState<AccountCreateScreen> createState() => _AccountCreateScreenState();
 }
 
-class _AccountCreateScreenState extends ConsumerState<AccountCreateScreen> {
+class _AccountCreateScreenState extends ConsumerState<AccountCreateScreen> with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
 
   final _codeCtrl = TextEditingController();
@@ -130,7 +131,7 @@ class _AccountCreateScreenState extends ConsumerState<AccountCreateScreen> {
               DropdownButtonFormField<String>(
                 value: _accountType,
                 decoration: const InputDecoration(
-                  labelText: 'Type *',
+                  labelText: 'Type',
                   prefixIcon: Icon(Icons.category_outlined),
                 ),
                 items: _accountTypes
@@ -169,21 +170,25 @@ class _AccountCreateScreenState extends ConsumerState<AccountCreateScreen> {
               _SectionTitle('Account Details'),
               KSpacing.vGapSm,
               KTextField(
-                label: 'Account Code *',
+                label: 'Account Code',
                 controller: _codeCtrl,
                 prefixIcon: Icons.tag_outlined,
                 enabled: !_isEdit,
                 hint: 'e.g. 1010',
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
+                isRequired: true,
+                serverError: serverErrors['code'],
+                validator: (v) => fieldError('code',
+                    (v == null || v.trim().isEmpty) ? 'Required' : null),
               ),
               KSpacing.vGapMd,
               KTextField(
-                label: 'Account Name *',
+                label: 'Account Name',
                 controller: _nameCtrl,
                 prefixIcon: Icons.drive_file_rename_outline,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
+                isRequired: true,
+                serverError: serverErrors['name'],
+                validator: (v) => fieldError('name',
+                    (v == null || v.trim().isEmpty) ? 'Required' : null),
               ),
               KSpacing.vGapMd,
               KTextField(
@@ -191,6 +196,7 @@ class _AccountCreateScreenState extends ConsumerState<AccountCreateScreen> {
                 controller: _descriptionCtrl,
                 prefixIcon: Icons.notes_outlined,
                 maxLines: 3,
+                serverError: serverErrors['description'],
               ),
               KSpacing.vGapLg,
 

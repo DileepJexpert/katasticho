@@ -8,6 +8,7 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/form_error_handler.dart';
 import '../../contacts/data/contact_repository.dart';
 import '../../tax_groups/data/tax_group_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
@@ -24,7 +25,8 @@ class CreditNoteCreateScreen extends ConsumerStatefulWidget {
 }
 
 class _CreditNoteCreateScreenState
-    extends ConsumerState<CreditNoteCreateScreen> {
+    extends ConsumerState<CreditNoteCreateScreen>
+    with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
   bool _isSubmitting = false;
 
@@ -103,11 +105,7 @@ class _CreditNoteCreateScreenState
         context.pop();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create credit note: $e')),
-        );
-      }
+      if (mounted) handleSaveError(e, _formKey);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
