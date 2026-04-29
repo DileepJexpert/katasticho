@@ -631,7 +631,7 @@ class _LineItem {
   String hsnCode = '';
   double quantity = 1;
   double unitPrice = 0;
-  double gstRate = 18;
+  double gstRate = 0;
   bool weightBasedBilling = false;
   String weightUnit = 'KG';
 

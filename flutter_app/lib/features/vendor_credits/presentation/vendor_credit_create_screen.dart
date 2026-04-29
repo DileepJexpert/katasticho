@@ -589,7 +589,7 @@ class _CreditLineItem {
   String accountId = '';
   double quantity = 1;
   double unitPrice = 0;
-  double gstRate = 18;
+  double gstRate = 0;
 
   double get taxableAmount => quantity * unitPrice;
   double get taxAmount => taxableAmount * gstRate / 100;
