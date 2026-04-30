@@ -9,7 +9,6 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/form_error_handler.dart';
-import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
@@ -707,13 +706,14 @@ class _LineItemCardState extends State<_LineItemCard> {
       widget.item.description = picked['name']?.toString() ?? '';
       widget.item.hsnCode = picked['hsnCode']?.toString() ?? '';
       widget.item.unitPrice = (picked['salePrice'] as num?)?.toDouble() ?? 0;
-      final pickedGst = (picked['gstRate'] as num?)?.toDouble();
-      if (pickedGst != null) {
-        widget.item.gstRate = pickedGst;
-      }
-      final pickedTaxGroupId = picked['taxGroupId']?.toString();
+      final pickedTaxGroupId = picked['defaultTaxGroupId']?.toString();
       if (pickedTaxGroupId != null) {
         widget.item.taxGroupId = pickedTaxGroupId;
+        final pickedGst = (picked['gstRate'] as num?)?.toDouble();
+        widget.item.gstRate = pickedGst ?? 0;
+      } else {
+        widget.item.taxGroupId = null;
+        widget.item.gstRate = 0;
       }
       widget.item.trackBatches = picked['trackBatches'] == true;
       widget.item.weightBasedBilling = picked['weightBasedBilling'] == true;
