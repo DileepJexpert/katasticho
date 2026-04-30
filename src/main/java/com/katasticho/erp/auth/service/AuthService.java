@@ -58,11 +58,19 @@ public class AuthService {
             throw new BusinessException("Invalid or expired OTP", "AUTH_INVALID_OTP", HttpStatus.UNAUTHORIZED);
         }
 
-        // Find user by phone (across all orgs for now — phone OTP login returns first match)
-        AppUser user = userRepository.findByPhoneAndIsDeletedFalse(request.phone())
-                .orElseThrow(() -> new BusinessException(
-                        "No account found for this phone. Please sign up first.",
-                        "AUTH_USER_NOT_FOUND", HttpStatus.NOT_FOUND));
+        // Find user by phone — a phone may exist in multiple orgs, so fetch the
+        // list and pick the most-recently-logged-in account as the default.
+        List<AppUser> matches = userRepository.findAllByPhoneAndIsDeletedFalse(request.phone());
+        if (matches.isEmpty()) {
+            throw new BusinessException(
+                    "No account found for this phone. Please sign up first.",
+                    "AUTH_USER_NOT_FOUND", HttpStatus.NOT_FOUND);
+        }
+        AppUser user = matches.stream()
+                .filter(AppUser::isActive)
+                .max(java.util.Comparator.comparing(
+                        u -> u.getLastLoginAt() != null ? u.getLastLoginAt() : Instant.EPOCH))
+                .orElse(matches.getFirst());
 
         if (!user.isActive()) {
             throw new BusinessException("Account is deactivated", "AUTH_ACCOUNT_INACTIVE", HttpStatus.FORBIDDEN);
@@ -163,18 +171,20 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        // Email login needs to search across orgs — for MVP, find first match
-        // In production, the login flow would include org selection
-        AppUser user = userRepository.findByPhoneAndIsDeletedFalse(request.email())
-                .or(() -> {
-                    // Try email across all orgs
-                    return userRepository.findAll().stream()
-                            .filter(u -> request.email().equalsIgnoreCase(u.getEmail()))
-                            .filter(u -> !u.isDeleted())
-                            .findFirst();
-                })
-                .orElseThrow(() -> new BusinessException(
-                        "Invalid credentials", "AUTH_BAD_CREDENTIALS", HttpStatus.UNAUTHORIZED));
+        // Try phone first, then email — both may match multiple orgs
+        List<AppUser> loginMatches = userRepository.findAllByPhoneAndIsDeletedFalse(request.email());
+        if (loginMatches.isEmpty()) {
+            loginMatches = userRepository.findAllByEmailAndIsDeletedFalse(request.email());
+        }
+        if (loginMatches.isEmpty()) {
+            throw new BusinessException(
+                    "Invalid credentials", "AUTH_BAD_CREDENTIALS", HttpStatus.UNAUTHORIZED);
+        }
+        AppUser user = loginMatches.stream()
+                .filter(AppUser::isActive)
+                .max(java.util.Comparator.comparing(
+                        u -> u.getLastLoginAt() != null ? u.getLastLoginAt() : Instant.EPOCH))
+                .orElse(loginMatches.getFirst());
 
         if (user.isLocked()) {
             throw new BusinessException("Account is locked. Try again later.",
