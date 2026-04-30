@@ -614,7 +614,7 @@ class _BillLineItem {
   String description = '';
   double quantity = 1;
   double unitPrice = 0;
-  double taxRate = 18;
+  double taxRate = 0;
   String? taxGroupId;
   String accountCode = '5000';
   bool trackBatches = false;

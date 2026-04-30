@@ -265,7 +265,7 @@ class _InvoiceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final status = invoice['status'] as String? ?? 'DRAFT';
-    final total = (invoice['total'] as num?)?.toDouble() ?? 0;
+    final total = (invoice['totalAmount'] as num?)?.toDouble() ?? 0;
     final balanceDue = (invoice['balanceDue'] as num?)?.toDouble() ?? total;
     final customerName = invoice['contactName'] as String? ?? 'Unknown';
     final invoiceNumber = invoice['invoiceNumber'] as String? ?? '--';
