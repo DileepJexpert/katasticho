@@ -645,13 +645,14 @@ class _LineItemCardState extends State<_LineItemCard> {
       widget.item.hsnCode = picked['hsnCode']?.toString() ?? '';
       widget.item.rate = (picked['salePrice'] as num?)?.toDouble() ?? 0;
       widget.item.unit = picked['unit']?.toString() ?? 'PCS';
-      final pickedTaxGroupId = picked['taxGroupId']?.toString();
+      final pickedTaxGroupId = picked['defaultTaxGroupId']?.toString();
       if (pickedTaxGroupId != null) {
         widget.item.taxGroupId = pickedTaxGroupId;
-      }
-      final pickedGst = (picked['gstRate'] as num?)?.toDouble();
-      if (pickedGst != null) {
-        widget.item._taxRate = pickedGst;
+        final pickedGst = (picked['gstRate'] as num?)?.toDouble();
+        widget.item._taxRate = pickedGst ?? 0;
+      } else {
+        widget.item.taxGroupId = null;
+        widget.item._taxRate = 0;
       }
       _descCtl.text = widget.item.description;
       _hsnCtl.text = widget.item.hsnCode;

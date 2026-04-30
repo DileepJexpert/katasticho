@@ -557,9 +557,14 @@ class _GrnLineCardState extends State<_GrnLineCard> {
       widget.line.unitPrice =
           (picked['purchasePrice'] as num?)?.toDouble() ?? 0;
       _priceCtl.text = widget.line.unitPrice.toString();
-      final pickedGst = (picked['gstRate'] as num?)?.toDouble();
-      if (pickedGst != null && [0, 5, 12, 18, 28].contains(pickedGst.toInt())) {
-        widget.line.gstRate = pickedGst;
+      final pickedTaxGroupId = picked['defaultTaxGroupId']?.toString();
+      if (pickedTaxGroupId != null) {
+        widget.line.taxGroupId = pickedTaxGroupId;
+        final pickedGst = (picked['gstRate'] as num?)?.toDouble();
+        widget.line.gstRate = pickedGst ?? 0;
+      } else {
+        widget.line.taxGroupId = null;
+        widget.line.gstRate = 0;
       }
     });
     widget.onChanged();
