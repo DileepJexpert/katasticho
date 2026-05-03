@@ -119,7 +119,7 @@ public class PaymentService {
         JournalPostRequest journalRequest = new JournalPostRequest(
                 request.paymentDate(),
                 "Payment " + paymentNumber + " for " + invoice.getInvoiceNumber(),
-                "AR",
+                "PAYMENT",
                 null, // will be set after payment is saved
                 journalLines,
                 true);

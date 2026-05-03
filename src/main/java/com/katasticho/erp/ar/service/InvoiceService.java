@@ -339,7 +339,7 @@ public class InvoiceService {
         JournalPostRequest journalRequest = new JournalPostRequest(
                 invoice.getInvoiceDate(),
                 "Invoice " + invoice.getInvoiceNumber(),
-                "AR",
+                "SALES",
                 invoice.getId(),
                 journalLines,
                 true);

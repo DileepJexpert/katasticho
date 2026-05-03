@@ -287,7 +287,7 @@ public class VendorCreditService {
         JournalPostRequest journalRequest = new JournalPostRequest(
                 credit.getCreditDate(),
                 "Vendor Credit " + credit.getCreditNumber(),
-                "AP",
+                "PURCHASE",
                 credit.getId(),
                 journalLines,
                 true);
