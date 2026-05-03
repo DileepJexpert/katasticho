@@ -341,7 +341,7 @@ public class PurchaseBillService {
         JournalPostRequest journalRequest = new JournalPostRequest(
                 bill.getBillDate(),
                 "Purchase Bill " + bill.getBillNumber(),
-                "AP",
+                "PURCHASE",
                 bill.getId(),
                 journalLines,
                 true);
