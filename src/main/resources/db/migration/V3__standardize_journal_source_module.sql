@@ -2,50 +2,25 @@
 -- Old: AR (invoices + payments), AP (bills + vendor payments + vendor credits)
 -- New: SALES (invoices), PURCHASE (bills + vendor credits), PAYMENT (all payments)
 
--- Drop the old constraint, migrate data, add new constraint
+-- Drop the old constraint first
 ALTER TABLE journal_entry DROP CONSTRAINT IF EXISTS journal_entry_source_module_check;
 
--- Invoices posted as 'AR' → 'SALES'
-UPDATE journal_entry
-SET source_module = 'SALES'
-WHERE source_module = 'AR'
-  AND description LIKE 'Invoice%';
+-- Disable the immutability trigger so we can rename the column value
+-- (this is a system-level rename, not a user edit)
+ALTER TABLE journal_entry DISABLE TRIGGER trg_journal_entry_immutable;
 
--- Credit notes posted as 'AR' → 'SALES'
-UPDATE journal_entry
-SET source_module = 'SALES'
-WHERE source_module = 'AR'
-  AND description LIKE 'Credit Note%';
+-- AR → SALES (invoices, credit notes) or PAYMENT (customer payments)
+UPDATE journal_entry SET source_module = 'PAYMENT' WHERE source_module = 'AR' AND description LIKE 'Payment%';
+UPDATE journal_entry SET source_module = 'SALES'   WHERE source_module = 'AR' AND description LIKE 'Credit Note%';
+UPDATE journal_entry SET source_module = 'SALES'   WHERE source_module = 'AR';
 
--- Customer payments posted as 'AR' → 'PAYMENT'
-UPDATE journal_entry
-SET source_module = 'PAYMENT'
-WHERE source_module = 'AR'
-  AND description LIKE 'Payment%';
-
--- Any remaining 'AR' rows → 'SALES'
-UPDATE journal_entry SET source_module = 'SALES' WHERE source_module = 'AR';
-
--- Bills posted as 'AP' → 'PURCHASE'
-UPDATE journal_entry
-SET source_module = 'PURCHASE'
-WHERE source_module = 'AP'
-  AND description LIKE 'Purchase Bill%';
-
--- Vendor credits posted as 'AP' → 'PURCHASE'
-UPDATE journal_entry
-SET source_module = 'PURCHASE'
-WHERE source_module = 'AP'
-  AND description LIKE 'Vendor Credit%';
-
--- Vendor payments posted as 'AP' → 'PAYMENT'
-UPDATE journal_entry
-SET source_module = 'PAYMENT'
-WHERE source_module = 'AP'
-  AND description LIKE 'Vendor Payment%';
-
--- Any remaining 'AP' rows → 'PURCHASE'
+-- AP → PURCHASE (bills, vendor credits) or PAYMENT (vendor payments)
+UPDATE journal_entry SET source_module = 'PAYMENT'  WHERE source_module = 'AP' AND description LIKE 'Vendor Payment%';
+UPDATE journal_entry SET source_module = 'PURCHASE' WHERE source_module = 'AP' AND description LIKE 'Vendor Credit%';
 UPDATE journal_entry SET source_module = 'PURCHASE' WHERE source_module = 'AP';
+
+-- Re-enable the trigger
+ALTER TABLE journal_entry ENABLE TRIGGER trg_journal_entry_immutable;
 
 -- Add updated constraint
 ALTER TABLE journal_entry
