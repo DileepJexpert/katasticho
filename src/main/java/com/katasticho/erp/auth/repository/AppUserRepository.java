@@ -11,8 +11,6 @@ import java.util.UUID;
 @Repository
 public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
 
-    Optional<AppUser> findByPhoneAndIsDeletedFalse(String phone);
-
     Optional<AppUser> findByEmailAndOrgIdAndIsDeletedFalse(String email, UUID orgId);
 
     Optional<AppUser> findByPhoneAndOrgIdAndIsDeletedFalse(String phone, UUID orgId);
