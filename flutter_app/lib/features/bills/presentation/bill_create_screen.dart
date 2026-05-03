@@ -123,6 +123,13 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
       setState(() => _errorMessage = 'Please add at least one line item with a description or price');
       return;
     }
+    final unlinked = validLines.where((l) => l.needsItem).toList();
+    if (unlinked.isNotEmpty) {
+      setState(() => _errorMessage =
+          'Goods lines must be linked to an item for stock tracking. '
+          'Pick an item or switch line type to Service.');
+      return;
+    }
 
     setState(() {
       _isSubmitting = true;
@@ -142,6 +149,7 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
         'lines': _lineItems
             .where((l) => l.description.isNotEmpty || l.unitPrice > 0)
             .map((l) => {
+                  'lineType': l.lineType,
                   'description': l.description.isNotEmpty ? l.description : 'Line item',
                   'quantity': l.quantity,
                   'unitPrice': l.unitPrice,
@@ -617,6 +625,7 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
 // ── Helper Classes & Widgets ──
 
 class _BillLineItem {
+  String lineType = 'GOODS'; // GOODS or SERVICE
   String? itemId;
   String description = '';
   double quantity = 1;
@@ -637,6 +646,8 @@ class _BillLineItem {
   double? purchaseUomConversion;
   List<Map<String, dynamic>> availableUnits = [];
 
+  bool get isGoods => lineType == 'GOODS';
+  bool get needsItem => isGoods && itemId == null;
   double get taxableAmount => quantity * unitPrice;
   double get taxAmount => taxableAmount * taxRate / 100;
   double get lineTotal => taxableAmount + taxAmount;
@@ -761,15 +772,33 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
         children: [
           Row(
             children: [
-              Text('Item ${widget.index + 1}', style: KTypography.labelLarge),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: _pickItem,
-                icon: const Icon(Icons.inventory_2_outlined, size: 16),
-                label: Text(widget.item.itemId != null
-                    ? 'Linked'
-                    : 'Link item'),
+              Text('Line ${widget.index + 1}', style: KTypography.labelLarge),
+              const SizedBox(width: 8),
+              ToggleButtons(
+                isSelected: [
+                  widget.item.lineType == 'GOODS',
+                  widget.item.lineType == 'SERVICE',
+                ],
+                onPressed: (i) {
+                  setState(() {
+                    widget.item.lineType = i == 0 ? 'GOODS' : 'SERVICE';
+                    if (!widget.item.isGoods) {
+                      widget.item.itemId = null;
+                      widget.item.trackBatches = false;
+                    }
+                  });
+                  widget.onChanged();
+                },
+                borderRadius: BorderRadius.circular(6),
+                constraints: const BoxConstraints(
+                    minWidth: 60, minHeight: 28),
+                textStyle: KTypography.labelSmall,
+                children: const [
+                  Text('Goods'),
+                  Text('Service'),
+                ],
               ),
+              const Spacer(),
               if (widget.onRemove != null)
                 IconButton(
                   icon: const Icon(Icons.delete_outline,
@@ -778,6 +807,61 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
                 ),
             ],
           ),
+          if (widget.item.isGoods) ...[
+            KSpacing.vGapXs,
+            InkWell(
+              onTap: _pickItem,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: widget.item.needsItem
+                        ? KColors.error
+                        : KColors.primary.withValues(alpha: 0.4),
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  color: widget.item.itemId != null
+                      ? KColors.primarySoft
+                      : null,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      widget.item.itemId != null
+                          ? Icons.check_circle
+                          : Icons.inventory_2_outlined,
+                      size: 18,
+                      color: widget.item.itemId != null
+                          ? KColors.primary
+                          : widget.item.needsItem
+                              ? KColors.error
+                              : KColors.textSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        widget.item.itemId != null
+                            ? widget.item.description.isNotEmpty
+                                ? widget.item.description
+                                : 'Item linked'
+                            : 'Tap to pick item (required for stock)',
+                        style: KTypography.bodySmall.copyWith(
+                          color: widget.item.itemId != null
+                              ? KColors.primary
+                              : widget.item.needsItem
+                                  ? KColors.error
+                                  : KColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, size: 18),
+                  ],
+                ),
+              ),
+            ),
+          ],
           KSpacing.vGapXs,
           KTextField(
             label: 'Description',

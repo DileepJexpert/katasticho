@@ -23,6 +23,7 @@ public record CreatePurchaseBillRequest(
         @NotEmpty @Valid List<BillLineRequest> lines
 ) {
     public record BillLineRequest(
+            String lineType,
             @NotBlank String description,
             String hsnCode,
             UUID itemId,
@@ -37,8 +38,13 @@ public record CreatePurchaseBillRequest(
             BigDecimal unitConversionFactor
     ) {
         public BillLineRequest {
+            if (lineType == null) lineType = "GOODS";
             if (discountPercent == null) discountPercent = BigDecimal.ZERO;
             if (gstRate == null) gstRate = BigDecimal.ZERO;
+        }
+
+        public boolean isGoods() {
+            return "GOODS".equalsIgnoreCase(lineType);
         }
     }
 }

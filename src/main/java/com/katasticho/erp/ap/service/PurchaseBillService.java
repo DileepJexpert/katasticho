@@ -145,6 +145,17 @@ public class PurchaseBillService {
                 .createdBy(userId)
                 .build();
 
+        // Validate: GOODS lines must have an itemId for stock tracking
+        for (int idx = 0; idx < request.lines().size(); idx++) {
+            var line = request.lines().get(idx);
+            if (line.isGoods() && line.itemId() == null) {
+                throw new BusinessException(
+                        "Line " + (idx + 1) + ": Goods line requires an item for stock tracking. "
+                                + "Use the item picker or change line type to SERVICE.",
+                        "AP_GOODS_ITEM_REQUIRED", HttpStatus.BAD_REQUEST);
+            }
+        }
+
         BigDecimal totalSubtotal = BigDecimal.ZERO;
         BigDecimal totalTax = BigDecimal.ZERO;
         List<TaxLineItem> allTaxLines = new ArrayList<>();
