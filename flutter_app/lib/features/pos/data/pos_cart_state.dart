@@ -53,9 +53,18 @@ class CartItem {
   });
 
   double get effectiveRate => rate * (1 - discountPct / 100);
+
+  /// Gross line total (MRP × qty) — what the customer pays for this line.
   double get lineTotal => effectiveRate * quantity;
-  double get taxAmount => lineTotal * taxRate / 100;
-  double get lineTotalWithTax => lineTotal + taxAmount;
+
+  /// Tax extracted from the tax-inclusive price (back-calculated).
+  double get taxAmount {
+    if (taxRate <= 0) return 0;
+    return lineTotal - (lineTotal * 100 / (100 + taxRate));
+  }
+
+  /// For tax-inclusive POS, lineTotal already includes tax.
+  double get lineTotalWithTax => lineTotal;
 
   CartItem copyWith({
     String? itemId,
@@ -155,9 +164,13 @@ class PosCartState {
     this.notes,
   });
 
-  double get subtotal => items.fold(0.0, (sum, item) => sum + item.lineTotal);
+  /// Net subtotal (excl. tax) — sum of back-calculated taxable bases.
+  double get subtotal =>
+      items.fold(0.0, (sum, item) => sum + item.lineTotal - item.taxAmount);
   double get taxAmount => items.fold(0.0, (sum, item) => sum + item.taxAmount);
-  double get total => subtotal + taxAmount;
+
+  /// Grand total = MRP × qty for each line (what the customer pays).
+  double get total => items.fold(0.0, (sum, item) => sum + item.lineTotal);
   double get totalCost => items.fold(
       0.0, (sum, item) => sum + (item.purchasePrice ?? 0) * item.quantity);
   int get itemCount => items.length;
