@@ -27,6 +27,8 @@ import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.BatchService;
 import com.katasticho.erp.inventory.service.InventoryService;
+import com.katasticho.erp.organisation.Organisation;
+import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.pos.dto.CreateSalesReceiptRequest;
 import com.katasticho.erp.pos.dto.SalesReceiptResponse;
 import com.katasticho.erp.pos.entity.PaymentMode;
@@ -82,6 +84,7 @@ public class SalesReceiptService {
     private final AuditService auditService;
     private final DefaultAccountService defaultAccountService;
     private final CacheInvalidationService cacheInvalidationService;
+    private final OrganisationRepository organisationRepository;
 
     @Transactional
     public SalesReceiptResponse create(CreateSalesReceiptRequest request) {
@@ -107,6 +110,9 @@ public class SalesReceiptService {
         receipt.setOrgId(orgId);
         receipt.setCreatedBy(userId);
 
+        Organisation org = organisationRepository.findById(orgId)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
+
         // 3. Process line items — compute tax, build lines
         BigDecimal totalTax = BigDecimal.ZERO;
         BigDecimal grossTotal = BigDecimal.ZERO;
@@ -128,12 +134,18 @@ public class SalesReceiptService {
             BigDecimal lineAmount = lineReq.rate().multiply(lineReq.quantity())
                     .setScale(2, RoundingMode.HALF_UP);
 
-            // Tax calculation
+            // Tax calculation — prefer explicit taxGroupId, else item default, else resolve from gstRate
             UUID taxGroupId = lineReq.taxGroupId();
             if (taxGroupId == null && lineReq.itemId() != null) {
                 Item item = itemMap.get(lineReq.itemId());
                 if (item != null) {
                     taxGroupId = item.getDefaultTaxGroupId();
+                    if (taxGroupId == null && item.getGstRate() != null
+                            && item.getGstRate().compareTo(BigDecimal.ZERO) > 0) {
+                        String stateCode = org.getStateCode();
+                        taxGroupId = taxEngine.resolveGroupId(orgId, item.getGstRate(),
+                                stateCode, stateCode).orElse(null);
+                    }
                 }
             }
 
