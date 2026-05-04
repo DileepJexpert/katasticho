@@ -73,21 +73,25 @@ public class ReceiptPdfService {
                 ? receipt.createdAt().atZone(ZoneId.of(org.getTimezone())).format(DATE_FMT)
                 : receipt.receiptDate().toString();
 
+        boolean detailed = receipt.gstInvoice();
+
         StringBuilder sb = new StringBuilder();
         sb.append("<!DOCTYPE html><html><head><style>");
         sb.append(receiptCss());
         sb.append("</style></head><body><div class='receipt'>");
 
-        // Header — store name, address, GSTIN
+        // Header
         sb.append("<div class='header'>");
         sb.append("<div class='store-name'>").append(esc(org.getName())).append("</div>");
-        if (org.getAddressLine1() != null) {
-            sb.append("<div class='addr'>").append(esc(org.getAddressLine1()));
-            if (org.getCity() != null) sb.append(", ").append(esc(org.getCity()));
-            sb.append("</div>");
-        }
-        if (org.getGstin() != null) {
-            sb.append("<div class='gstin'>GSTIN: ").append(esc(org.getGstin())).append("</div>");
+        if (detailed) {
+            if (org.getAddressLine1() != null) {
+                sb.append("<div class='addr'>").append(esc(org.getAddressLine1()));
+                if (org.getCity() != null) sb.append(", ").append(esc(org.getCity()));
+                sb.append("</div>");
+            }
+            if (org.getGstin() != null) {
+                sb.append("<div class='gstin'>GSTIN: ").append(esc(org.getGstin())).append("</div>");
+            }
         }
         sb.append("</div>");
 
@@ -102,35 +106,58 @@ public class ReceiptPdfService {
 
         sb.append("<div class='sep'></div>");
 
-        // Line items
-        sb.append("<table class='items'>");
-        for (SalesReceiptResponse.LineResponse line : receipt.lines()) {
-            String name = line.itemName() != null ? line.itemName()
-                    : (line.description() != null ? line.description() : "Item");
-            sb.append("<tr><td colspan='2' class='item-name'>").append(esc(name)).append("</td></tr>");
-            sb.append("<tr>");
-            sb.append("<td class='item-detail'>  ")
-                    .append(fmtQty(line.quantity())).append(" x ")
-                    .append(fmtAmt(line.rate())).append("</td>");
-            sb.append("<td class='item-amt'>").append(fmtAmt(line.amount())).append("</td>");
-            sb.append("</tr>");
+        if (detailed) {
+            // Detailed GST receipt — table with HSN, qty, amount per line
+            sb.append("<table class='items'>");
+            sb.append("<tr class='item-hdr'><td>Item</td><td>HSN</td><td class='r'>Qty</td><td class='r'>Amt</td></tr>");
+            sb.append("<tr><td colspan='4'><div class='sep' style='margin:1mm 0'></div></td></tr>");
+            for (SalesReceiptResponse.LineResponse line : receipt.lines()) {
+                String name = line.itemName() != null ? line.itemName()
+                        : (line.description() != null ? line.description() : "Item");
+                sb.append("<tr>");
+                sb.append("<td class='item-name'>").append(esc(name)).append("</td>");
+                sb.append("<td class='item-detail'>").append(esc(line.hsnCode())).append("</td>");
+                sb.append("<td class='r item-detail'>").append(fmtQty(line.quantity())).append("</td>");
+                sb.append("<td class='r'>").append(fmtAmt(line.amount())).append("</td>");
+                sb.append("</tr>");
+            }
+            sb.append("</table>");
+
+            sb.append("<div class='sep'></div>");
+
+            // Totals with full tax breakdown
+            sb.append("<table class='totals'>");
+            sb.append("<tr><td>Subtotal</td><td class='r'>").append(fmtAmt(receipt.subtotal())).append("</td></tr>");
+
+            for (var entry : taxByComponent.entrySet()) {
+                sb.append("<tr><td>").append(esc(entry.getKey())).append("</td>");
+                sb.append("<td class='r'>").append(fmtAmt(entry.getValue())).append("</td></tr>");
+            }
+
+            sb.append("<tr class='total-row'><td><b>Total</b></td><td class='r'><b>")
+                    .append(fmtAmt(receipt.total())).append("</b></td></tr>");
+            sb.append("</table>");
+        } else {
+            // Simple receipt — item name + amount, then total with "(Incl. all taxes)"
+            sb.append("<table class='items'>");
+            for (SalesReceiptResponse.LineResponse line : receipt.lines()) {
+                String name = line.itemName() != null ? line.itemName()
+                        : (line.description() != null ? line.description() : "Item");
+                sb.append("<tr>");
+                sb.append("<td class='item-name'>").append(esc(name)).append("</td>");
+                sb.append("<td class='item-amt'>").append(fmtAmt(line.amount())).append("</td>");
+                sb.append("</tr>");
+            }
+            sb.append("</table>");
+
+            sb.append("<div class='sep'></div>");
+
+            sb.append("<table class='totals'>");
+            sb.append("<tr class='total-row'><td><b>TOTAL</b></td><td class='r'><b>")
+                    .append(fmtAmt(receipt.total())).append("</b></td></tr>");
+            sb.append("</table>");
+            sb.append("<div class='incl-tax'>(Incl. all taxes)</div>");
         }
-        sb.append("</table>");
-
-        sb.append("<div class='sep'></div>");
-
-        // Totals
-        sb.append("<table class='totals'>");
-        sb.append("<tr><td>Subtotal</td><td class='r'>").append(fmtAmt(receipt.subtotal())).append("</td></tr>");
-
-        for (var entry : taxByComponent.entrySet()) {
-            sb.append("<tr><td>").append(esc(entry.getKey())).append("</td>");
-            sb.append("<td class='r'>").append(fmtAmt(entry.getValue())).append("</td></tr>");
-        }
-
-        sb.append("<tr class='total-row'><td><b>Total</b></td><td class='r'><b>")
-                .append(fmtAmt(receipt.total())).append("</b></td></tr>");
-        sb.append("</table>");
 
         sb.append("<div class='sep'></div>");
 
@@ -165,12 +192,14 @@ public class ReceiptPdfService {
             .sep { border-top: 1px dashed #000; margin: 2mm 0; }
             .items { width: 100%; font-size: 10px; }
             .item-name { font-weight: bold; }
+            .item-hdr td { font-size: 9px; font-weight: bold; color: #555; }
             .item-detail { font-size: 9px; color: #333; }
             .item-amt { text-align: right; }
             .totals { width: 100%; font-size: 10px; }
             .totals td { padding: 1px 0; }
             .r { text-align: right; }
             .total-row { font-size: 12px; border-top: 1px solid #000; }
+            .incl-tax { font-size: 9px; color: #555; text-align: right; margin-top: 1mm; }
             .footer { text-align: center; margin-top: 4mm; font-size: 9px; }
             .branding { font-size: 8px; color: #999; margin-top: 2mm; }
             """;

@@ -118,11 +118,15 @@ class _ReceiptBody extends StatelessWidget {
     final paymentMode = data['paymentMode']?.toString() ?? '';
     final subtotal = (data['subtotal'] as num?)?.toDouble() ?? 0;
     final taxAmount = (data['taxAmount'] as num?)?.toDouble() ?? 0;
+    final cgst = (data['cgst'] as num?)?.toDouble() ?? 0;
+    final sgst = (data['sgst'] as num?)?.toDouble() ?? 0;
+    final igst = (data['igst'] as num?)?.toDouble() ?? 0;
     final total = (data['total'] as num?)?.toDouble() ?? 0;
     final amountReceived = (data['amountReceived'] as num?)?.toDouble() ?? total;
     final changeReturned = (data['changeReturned'] as num?)?.toDouble() ?? 0;
     final upiReference = data['upiReference']?.toString();
     final notes = data['notes']?.toString();
+    final gstInvoice = data['gstInvoice'] == true;
     final lines = (data['lines'] as List?) ?? [];
 
     return SingleChildScrollView(
@@ -165,7 +169,7 @@ class _ReceiptBody extends StatelessWidget {
               children: [
                 for (int i = 0; i < lines.length; i++) ...[
                   if (i > 0) const Divider(height: 16),
-                  _LineItem(line: lines[i] as Map<String, dynamic>),
+                  _LineItem(line: lines[i] as Map<String, dynamic>, detailed: gstInvoice),
                 ],
               ],
             ),
@@ -177,20 +181,39 @@ class _ReceiptBody extends StatelessWidget {
             title: 'Summary',
             child: Column(
               children: [
-                _DetailRow(
-                  label: 'Subtotal',
-                  value: CurrencyFormatter.formatIndian(subtotal),
-                ),
-                _DetailRow(
-                  label: 'Tax',
-                  value: CurrencyFormatter.formatIndian(taxAmount),
-                ),
-                const Divider(height: 16),
+                if (gstInvoice) ...[
+                  _DetailRow(
+                    label: 'Subtotal',
+                    value: CurrencyFormatter.formatIndian(subtotal),
+                  ),
+                  if (cgst > 0)
+                    _DetailRow(
+                      label: 'CGST',
+                      value: CurrencyFormatter.formatIndian(cgst),
+                    ),
+                  if (sgst > 0)
+                    _DetailRow(
+                      label: 'SGST',
+                      value: CurrencyFormatter.formatIndian(sgst),
+                    ),
+                  if (igst > 0)
+                    _DetailRow(
+                      label: 'IGST',
+                      value: CurrencyFormatter.formatIndian(igst),
+                    ),
+                  const Divider(height: 16),
+                ],
                 _DetailRow(
                   label: 'Total',
                   value: CurrencyFormatter.formatIndian(total),
                   bold: true,
                 ),
+                if (!gstInvoice)
+                  _DetailRow(
+                    label: '',
+                    value: '(Incl. all taxes)',
+                    valueColor: KColors.textSecondary,
+                  ),
                 _DetailRow(
                   label: 'Received',
                   value: CurrencyFormatter.formatIndian(amountReceived),
@@ -213,7 +236,8 @@ class _ReceiptBody extends StatelessWidget {
 
 class _LineItem extends StatelessWidget {
   final Map<String, dynamic> line;
-  const _LineItem({required this.line});
+  final bool detailed;
+  const _LineItem({required this.line, this.detailed = false});
 
   @override
   Widget build(BuildContext context) {
@@ -224,6 +248,16 @@ class _LineItem extends StatelessWidget {
     final rate = (line['rate'] as num?)?.toDouble() ?? 0;
     final amount = (line['amount'] as num?)?.toDouble() ?? 0;
     final hsn = line['hsnCode']?.toString();
+
+    if (!detailed) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(child: Text(name, style: KTypography.labelMedium)),
+          Text(CurrencyFormatter.formatIndian(amount), style: KTypography.amountSmall),
+        ],
+      );
+    }
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -236,7 +270,7 @@ class _LineItem extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 '${qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2)} $unit x ${CurrencyFormatter.formatIndian(rate)}'
-                '${hsn != null && hsn.isNotEmpty ? ' • HSN: $hsn' : ''}',
+                '${hsn != null && hsn.isNotEmpty ? '  •  HSN: $hsn' : ''}',
                 style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
               ),
               if (sku.isNotEmpty)
