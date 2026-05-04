@@ -27,6 +27,8 @@ public enum DefaultAccountPurpose {
     // ── Revenue / Expense ─────────────────────────────────────
     SALES_REVENUE       ("4010", "Sales Revenue"),
     PURCHASE            ("5020", "Purchase Expense"),
+    COGS                ("5010", "Cost of Goods Sold"),
+    INVENTORY_ASSET     ("1200", "Inventory"),
 
     // ── Discounts ─────────────────────────────────────────────
     DISCOUNT_GIVEN      ("5290", "Discount Allowed"),

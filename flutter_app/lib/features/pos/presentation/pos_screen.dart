@@ -342,6 +342,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 'quantity': item.quantity,
                 if (item.unit != null) 'unit': item.unit,
                 'rate': item.effectiveRate,
+                'taxInclusive': true,
                 if (item.discountPct > 0) 'discountPct': item.discountPct,
                 if (item.taxGroupId != null) 'taxGroupId': item.taxGroupId,
                 if (item.hsnCode != null) 'hsnCode': item.hsnCode,

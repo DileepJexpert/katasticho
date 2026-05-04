@@ -126,8 +126,8 @@ class PosCartItemTile extends StatelessWidget {
                   if (item.taxAmount > 0)
                     Text(
                       item.isWeightBased
-                          ? '${CurrencyFormatter.formatIndian(item.lineTotal)} + tax ${CurrencyFormatter.formatIndian(item.taxAmount)}'
-                          : '${CurrencyFormatter.formatIndian(item.rate)} × ${_fmtQty(item.quantity)} + tax ${CurrencyFormatter.formatIndian(item.taxAmount)}',
+                          ? '${CurrencyFormatter.formatIndian(item.lineTotal)} (incl. tax ${CurrencyFormatter.formatIndian(item.taxAmount)})'
+                          : '${CurrencyFormatter.formatIndian(item.rate)} × ${_fmtQty(item.quantity)} (incl. tax ${CurrencyFormatter.formatIndian(item.taxAmount)})',
                       style: KTypography.labelSmall.copyWith(
                         color: KColors.textHint,
                         fontSize: 10,

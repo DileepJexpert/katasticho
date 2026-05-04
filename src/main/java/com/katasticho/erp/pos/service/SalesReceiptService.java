@@ -108,8 +108,8 @@ public class SalesReceiptService {
         receipt.setCreatedBy(userId);
 
         // 3. Process line items — compute tax, build lines
-        BigDecimal subtotal = BigDecimal.ZERO;
         BigDecimal totalTax = BigDecimal.ZERO;
+        BigDecimal grossTotal = BigDecimal.ZERO;
         List<TaxLineItem> allTaxLines = new ArrayList<>();
 
         // Pre-load all items referenced by lines
@@ -137,8 +137,29 @@ public class SalesReceiptService {
                 }
             }
 
-            TaxEngine.TaxCalculationResult taxResult = taxEngine.calculate(
-                    orgId, taxGroupId, lineAmount, TaxEngine.TransactionType.SALE);
+            boolean isTaxInclusive = Boolean.TRUE.equals(lineReq.taxInclusive());
+            BigDecimal taxableBase;
+            TaxEngine.TaxCalculationResult taxResult;
+
+            if (isTaxInclusive && taxGroupId != null) {
+                // Back-calculate taxable base from MRP (tax-inclusive gross)
+                TaxEngine.TaxCalculationResult probe = taxEngine.calculate(
+                        orgId, taxGroupId, BigDecimal.valueOf(100), TaxEngine.TransactionType.SALE);
+                BigDecimal totalPct = probe.totalTaxAmount();
+
+                if (totalPct.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal divisor = BigDecimal.valueOf(100).add(totalPct);
+                    taxableBase = lineAmount.multiply(BigDecimal.valueOf(100))
+                            .divide(divisor, 2, RoundingMode.HALF_UP);
+                } else {
+                    taxableBase = lineAmount;
+                }
+                taxResult = taxEngine.calculate(orgId, taxGroupId, taxableBase, TaxEngine.TransactionType.SALE);
+            } else {
+                taxableBase = lineAmount;
+                taxResult = taxEngine.calculate(orgId, taxGroupId, lineAmount, TaxEngine.TransactionType.SALE);
+            }
+
             BigDecimal lineTax = taxResult.totalTaxAmount();
 
             BigDecimal convFactor = lineReq.unitConversionFactor();
@@ -167,7 +188,7 @@ public class SalesReceiptService {
                     .build();
             receipt.addLine(line);
 
-            subtotal = subtotal.add(lineAmount);
+            grossTotal = grossTotal.add(lineAmount);
             totalTax = totalTax.add(lineTax);
 
             // Build tax line items
@@ -178,19 +199,22 @@ public class SalesReceiptService {
                         .taxRegime("TAX")
                         .componentCode(comp.rateCode())
                         .rate(comp.percentage())
-                        .taxableAmount(lineAmount)
+                        .taxableAmount(taxableBase)
                         .taxAmount(comp.amount())
                         .accountCode(comp.glAccountCode())
                         .hsnCode(lineReq.hsnCode())
-                        .baseTaxableAmount(lineAmount)
+                        .baseTaxableAmount(taxableBase)
                         .baseTaxAmount(comp.amount())
                         .build());
             }
         }
 
-        BigDecimal total = subtotal.add(totalTax).setScale(2, RoundingMode.HALF_UP);
-        receipt.setSubtotal(subtotal.setScale(2, RoundingMode.HALF_UP));
-        receipt.setTaxAmount(totalTax.setScale(2, RoundingMode.HALF_UP));
+        // Total = gross line amounts (what customer pays); derive subtotal to avoid rounding gap
+        BigDecimal total = grossTotal.setScale(2, RoundingMode.HALF_UP);
+        totalTax = totalTax.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal subtotal = total.subtract(totalTax);
+        receipt.setSubtotal(subtotal);
+        receipt.setTaxAmount(totalTax);
         receipt.setTotal(total);
         receipt.setChangeReturned(
                 request.amountReceived().subtract(total).max(BigDecimal.ZERO)
@@ -207,7 +231,7 @@ public class SalesReceiptService {
         taxLineItemRepository.saveAll(allTaxLines);
 
         // 5. Post journal — immediate payment, no AR
-        JournalEntry journalEntry = postJournal(receipt, allTaxLines);
+        JournalEntry journalEntry = postJournal(receipt, allTaxLines, itemMap);
         receipt.setJournalEntryId(journalEntry.getId());
         receiptRepository.save(receipt);
 
@@ -247,7 +271,8 @@ public class SalesReceiptService {
 
     // ── Journal posting ─────────────────────────────────────────
 
-    private JournalEntry postJournal(SalesReceipt receipt, List<TaxLineItem> taxLines) {
+    private JournalEntry postJournal(SalesReceipt receipt, List<TaxLineItem> taxLines,
+                                     Map<UUID, Item> itemMap) {
         UUID orgId = receipt.getOrgId();
         List<JournalLineRequest> journalLines = new ArrayList<>();
 
@@ -283,6 +308,37 @@ public class SalesReceiptService {
                     tli.getTaxAmount(),
                     tli.getComponentCode() + " Payable",
                     tli.getComponentCode(), null));
+        }
+
+        // DR COGS / CR Inventory for tracked items
+        BigDecimal totalCost = BigDecimal.ZERO;
+        for (SalesReceiptLine line : receipt.getLines()) {
+            if (line.getItemId() == null) continue;
+            Item item = itemMap.get(line.getItemId());
+            if (item == null || !item.isTrackInventory()) continue;
+
+            BigDecimal qty = line.getBaseQuantity() != null ? line.getBaseQuantity() : line.getQuantity();
+            BigDecimal lineCost = item.getPurchasePrice().multiply(qty)
+                    .setScale(2, RoundingMode.HALF_UP);
+            totalCost = totalCost.add(lineCost);
+        }
+
+        if (totalCost.compareTo(BigDecimal.ZERO) > 0) {
+            try {
+                String cogsCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.COGS);
+                String inventoryCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.INVENTORY_ASSET);
+
+                journalLines.add(new JournalLineRequest(
+                        cogsCode, totalCost, BigDecimal.ZERO,
+                        "COGS: " + receipt.getReceiptNumber(),
+                        null, null));
+                journalLines.add(new JournalLineRequest(
+                        inventoryCode, BigDecimal.ZERO, totalCost,
+                        "Inventory: " + receipt.getReceiptNumber(),
+                        null, null));
+            } catch (BusinessException e) {
+                log.warn("COGS/Inventory accounts not configured — skipping COGS journal lines: {}", e.getMessage());
+            }
         }
 
         JournalPostRequest journalRequest = new JournalPostRequest(

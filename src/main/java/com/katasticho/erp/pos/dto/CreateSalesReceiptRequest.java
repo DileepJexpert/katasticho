@@ -53,6 +53,7 @@ public record CreateSalesReceiptRequest(
             String hsnCode,
             UUID batchId,
             UUID unitUomId,
-            BigDecimal unitConversionFactor
+            BigDecimal unitConversionFactor,
+            Boolean taxInclusive
     ) {}
 }
