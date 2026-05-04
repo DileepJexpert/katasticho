@@ -31,6 +31,8 @@ public record CreateSalesReceiptRequest(
 
         String notes,
 
+        Boolean gstInvoice,
+
         @NotEmpty(message = "At least one line item is required")
         @Valid
         List<LineRequest> lines
