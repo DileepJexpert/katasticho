@@ -248,7 +248,7 @@ public class CreditNoteService {
         JournalPostRequest journalRequest = new JournalPostRequest(
                 cn.getCreditNoteDate(),
                 "Credit Note " + cn.getCreditNoteNumber(),
-                "AR",
+                "SALES",
                 cn.getId(),
                 journalLines,
                 true);

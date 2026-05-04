@@ -7,6 +7,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
@@ -27,7 +28,8 @@ class SalesOrderCreateScreen extends ConsumerStatefulWidget {
 }
 
 class _SalesOrderCreateScreenState
-    extends ConsumerState<SalesOrderCreateScreen> {
+    extends ConsumerState<SalesOrderCreateScreen>
+    with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
   int _currentStep = 0;
   bool _isSubmitting = false;
@@ -160,11 +162,16 @@ class _SalesOrderCreateScreenState
         }
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = e is DioException
-            ? ApiErrorParser.message(e)
-            : 'Failed to create sales order. Please try again.';
-      });
+      if (e is DioException) {
+        final fieldErrs = ApiErrorParser.fieldErrors(e);
+        if (fieldErrs.isNotEmpty) {
+          setState(() => serverErrors = fieldErrs);
+          _formKey.currentState!.validate();
+        }
+        setState(() => _errorMessage = ApiErrorParser.message(e));
+      } else {
+        setState(() => _errorMessage = 'Failed to create sales order. Please try again.');
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -578,6 +585,7 @@ class _LineItem {
   String unit = 'PCS';
   double discountPct = 0;
   double _taxRate = 0;
+  List<String> availableUnits = const [];
 
   double get taxableAmount {
     final base = quantity * rate;
@@ -610,8 +618,9 @@ class _LineItemCardState extends State<_LineItemCard> {
   late final TextEditingController _hsnCtl;
   late final TextEditingController _qtyCtl;
   late final TextEditingController _rateCtl;
-  late final TextEditingController _unitCtl;
   late final TextEditingController _discountCtl;
+
+  static const _defaultUnits = ['PCS', 'BOX', 'PACK', 'KG', 'GM', 'LTR', 'ML', 'STRIP', 'DOZEN'];
 
   @override
   void initState() {
@@ -620,7 +629,6 @@ class _LineItemCardState extends State<_LineItemCard> {
     _hsnCtl = TextEditingController(text: widget.item.hsnCode);
     _qtyCtl = TextEditingController(text: widget.item.quantity.toString());
     _rateCtl = TextEditingController(text: widget.item.rate.toString());
-    _unitCtl = TextEditingController(text: widget.item.unit);
     _discountCtl =
         TextEditingController(text: widget.item.discountPct.toString());
   }
@@ -631,7 +639,6 @@ class _LineItemCardState extends State<_LineItemCard> {
     _hsnCtl.dispose();
     _qtyCtl.dispose();
     _rateCtl.dispose();
-    _unitCtl.dispose();
     _discountCtl.dispose();
     super.dispose();
   }
@@ -654,10 +661,22 @@ class _LineItemCardState extends State<_LineItemCard> {
         widget.item.taxGroupId = null;
         widget.item._taxRate = 0;
       }
+
+      final baseUnit = widget.item.unit;
+      final secUnits = (picked['secondaryUnits'] as List?)
+              ?.map((u) =>
+                  (u as Map<String, dynamic>)['uomAbbreviation']?.toString())
+              .whereType<String>()
+              .toList() ??
+          const <String>[];
+      widget.item.availableUnits = [
+        baseUnit,
+        ...secUnits.where((u) => u != baseUnit),
+      ];
+
       _descCtl.text = widget.item.description;
       _hsnCtl.text = widget.item.hsnCode;
       _rateCtl.text = widget.item.rate.toString();
-      _unitCtl.text = widget.item.unit;
     });
     widget.onChanged();
   }
@@ -763,11 +782,11 @@ class _LineItemCardState extends State<_LineItemCard> {
           ]),
           KSpacing.vGapXs,
           KCompactRow(children: [
-            KTextField(
-              label: 'Unit',
-              controller: _unitCtl,
+            _UnitDropdown(
+              value: widget.item.unit,
+              itemUnits: widget.item.availableUnits,
               onChanged: (v) {
-                widget.item.unit = v;
+                setState(() => widget.item.unit = v);
                 widget.onChanged();
               },
             ),
@@ -951,6 +970,39 @@ class _StepTab extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _UnitDropdown extends StatelessWidget {
+  final String value;
+  final List<String> itemUnits;
+  final ValueChanged<String> onChanged;
+
+  const _UnitDropdown({
+    required this.value,
+    required this.itemUnits,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final units = itemUnits.isNotEmpty
+        ? itemUnits
+        : _LineItemCardState._defaultUnits;
+
+    final allUnits = units.contains(value) ? units : [value, ...units];
+
+    return DropdownButtonFormField<String>(
+      value: value,
+      decoration: const InputDecoration(labelText: 'Unit'),
+      isExpanded: true,
+      items: allUnits
+          .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+          .toList(),
+      onChanged: (v) {
+        if (v != null) onChanged(v);
+      },
     );
   }
 }

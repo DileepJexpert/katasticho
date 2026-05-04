@@ -223,7 +223,7 @@ CREATE TABLE journal_entry (
                                description     VARCHAR(500),
                                source_module   VARCHAR(30)  NOT NULL
                                    CHECK (source_module IN (
-                                                            'AR','AP','PAYROLL','INVENTORY','MANUAL','GST','BANK_REC','OPENING','POS','EXPENSE'
+                                                            'SALES','PURCHASE','PAYMENT','PAYROLL','INVENTORY','MANUAL','GST','BANK_REC','OPENING','POS','EXPENSE'
                                        )),
                                source_id       UUID,
                                status          VARCHAR(10)  NOT NULL DEFAULT 'DRAFT'

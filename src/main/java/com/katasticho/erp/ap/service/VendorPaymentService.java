@@ -157,7 +157,7 @@ public class VendorPaymentService {
         JournalPostRequest journalRequest = new JournalPostRequest(
                 request.paymentDate(),
                 "Vendor Payment " + paymentNumber,
-                "AP",
+                "PAYMENT",
                 null,
                 journalLines,
                 true);

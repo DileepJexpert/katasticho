@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/k_typography.dart';
 import '../utils/date_formatter.dart';
 
 /// Date picker field that opens a Material date picker on tap.
@@ -9,6 +10,7 @@ class KDatePicker extends StatelessWidget {
   final DateTime? firstDate;
   final DateTime? lastDate;
   final bool enabled;
+  final bool isRequired;
 
   const KDatePicker({
     super.key,
@@ -18,6 +20,7 @@ class KDatePicker extends StatelessWidget {
     this.firstDate,
     this.lastDate,
     this.enabled = true,
+    this.isRequired = false,
   });
 
   @override
@@ -25,18 +28,39 @@ class KDatePicker extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: enabled ? () => _showPicker(context) : null,
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          suffixIcon: const Icon(Icons.calendar_today, size: 20),
-          enabled: enabled,
-        ),
-        child: Text(
-          value != null ? DateFormatter.display(value!) : 'Select date',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: value != null ? cs.onSurface : cs.onSurfaceVariant,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (label.isNotEmpty)
+            Text.rich(
+              TextSpan(
+                text: label,
+                style: KTypography.labelLarge.copyWith(color: cs.onSurface),
+                children: isRequired
+                    ? [
+                        TextSpan(
+                          text: ' *',
+                          style: KTypography.labelLarge.copyWith(color: cs.error),
+                        ),
+                      ]
+                    : [],
               ),
-        ),
+            ),
+          if (label.isNotEmpty) const SizedBox(height: 6),
+          InputDecorator(
+            decoration: InputDecoration(
+              suffixIcon: const Icon(Icons.calendar_today, size: 20),
+              enabled: enabled,
+            ),
+            child: Text(
+              value != null ? DateFormatter.display(value!) : 'Select date',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: value != null ? cs.onSurface : cs.onSurfaceVariant,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -9,8 +9,11 @@ import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
+import com.katasticho.erp.organisation.Organisation;
+import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.pos.dto.DiscountThresholds;
 import com.katasticho.erp.pos.dto.PosSearchResult;
+import com.katasticho.erp.tax.TaxEngine;
 import com.katasticho.erp.tax.repository.TaxGroupRepository;
 import com.katasticho.erp.tax.entity.TaxGroup;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +44,8 @@ public class PosSearchService {
     private final StockBatchRepository batchRepository;
     private final WarehouseRepository warehouseRepository;
     private final TaxGroupRepository taxGroupRepository;
+    private final OrganisationRepository organisationRepository;
+    private final TaxEngine taxEngine;
 
     @Transactional(readOnly = true)
     @Cacheable(value = "pos-search", key = "#orgId + ':' + #query + ':' + #warehouseId",
@@ -102,11 +107,26 @@ public class PosSearchService {
                 .map(Optional::get)
                 .collect(Collectors.toMap(StockBalance::getItemId, b -> b));
 
+        // Resolve tax group for items missing defaultTaxGroupId but having gstRate
+        Organisation org = organisationRepository.findById(orgId).orElse(null);
+        String stateCode = org != null ? org.getStateCode() : null;
+
+        Map<UUID, UUID> resolvedTaxGroupIds = new HashMap<>();
+        for (Item item : items) {
+            UUID tgId = item.getDefaultTaxGroupId();
+            if (tgId == null && item.getGstRate() != null
+                    && item.getGstRate().compareTo(BigDecimal.ZERO) > 0
+                    && stateCode != null) {
+                tgId = taxEngine.resolveGroupId(orgId, item.getGstRate(),
+                        stateCode, stateCode).orElse(null);
+            }
+            if (tgId != null) {
+                resolvedTaxGroupIds.put(item.getId(), tgId);
+            }
+        }
+
         // Pre-load tax group names
-        Set<UUID> taxGroupIds = items.stream()
-                .map(Item::getDefaultTaxGroupId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+        Set<UUID> taxGroupIds = new HashSet<>(resolvedTaxGroupIds.values());
         Map<UUID, String> taxGroupNames = taxGroupIds.isEmpty() ? Map.of()
                 : taxGroupRepository.findAllById(taxGroupIds).stream()
                 .collect(Collectors.toMap(TaxGroup::getId, TaxGroup::getName));
@@ -132,6 +152,8 @@ public class PosSearchService {
                     item.getSalePrice().doubleValue(),
                     item.getPurchasePrice().doubleValue());
 
+            UUID effectiveTaxGroupId = resolvedTaxGroupIds.get(item.getId());
+
             return new PosSearchResult(
                     item.getId(),
                     item.getName(),
@@ -140,9 +162,9 @@ public class PosSearchService {
                     item.getSalePrice(),
                     item.getMrp(),
                     item.getPurchasePrice(),
-                    item.getDefaultTaxGroupId(),
-                    item.getDefaultTaxGroupId() != null
-                            ? taxGroupNames.get(item.getDefaultTaxGroupId()) : null,
+                    effectiveTaxGroupId,
+                    effectiveTaxGroupId != null
+                            ? taxGroupNames.get(effectiveTaxGroupId) : null,
                     item.getHsnCode(),
                     item.getUnitOfMeasure(),
                     currentStock,

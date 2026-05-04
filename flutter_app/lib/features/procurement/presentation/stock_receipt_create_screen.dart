@@ -7,6 +7,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/form_error_handler.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
@@ -28,7 +29,8 @@ class StockReceiptCreateScreen extends ConsumerStatefulWidget {
 }
 
 class _StockReceiptCreateScreenState
-    extends ConsumerState<StockReceiptCreateScreen> {
+    extends ConsumerState<StockReceiptCreateScreen>
+    with FormErrorHandler {
   int _currentStep = 0;
   bool _isSubmitting = false;
   String? _errorMessage;

@@ -29,7 +29,8 @@ class InvoiceCreateScreen extends ConsumerStatefulWidget {
       _InvoiceCreateScreenState();
 }
 
-class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
+class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
+    with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
   int _currentStep = 0;
   bool _isSubmitting = false;
@@ -121,11 +122,16 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen> {
         context.go(Routes.invoices);
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = e is DioException
-            ? ApiErrorParser.message(e)
-            : 'Failed to create invoice. Please try again.';
-      });
+      if (e is DioException) {
+        final fieldErrs = ApiErrorParser.fieldErrors(e);
+        if (fieldErrs.isNotEmpty) {
+          setState(() => serverErrors = fieldErrs);
+          _formKey.currentState!.validate();
+        }
+        setState(() => _errorMessage = ApiErrorParser.message(e));
+      } else {
+        setState(() => _errorMessage = 'Failed to create invoice. Please try again.');
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

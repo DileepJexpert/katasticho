@@ -7,6 +7,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../accounts/data/account_repository.dart';
 import '../data/journal_repository.dart';
@@ -40,7 +41,8 @@ class JournalCreateScreen extends ConsumerStatefulWidget {
       _JournalCreateScreenState();
 }
 
-class _JournalCreateScreenState extends ConsumerState<JournalCreateScreen> {
+class _JournalCreateScreenState extends ConsumerState<JournalCreateScreen>
+    with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
   DateTime? _effectiveDate;
   final _referenceController = TextEditingController();
@@ -185,7 +187,7 @@ class _JournalCreateScreenState extends ConsumerState<JournalCreateScreen> {
         children: [
           // Date picker
           KDatePicker(
-            label: 'Effective Date *',
+            label: 'Effective Date',
             value: _effectiveDate,
             onChanged: (d) => setState(() => _effectiveDate = d),
           ),
@@ -196,17 +198,22 @@ class _JournalCreateScreenState extends ConsumerState<JournalCreateScreen> {
             label: 'Reference',
             hint: 'e.g. Year-end adjustment',
             controller: _referenceController,
+            serverError: serverErrors['reference'],
           ),
           KSpacing.vGapMd,
 
           // Description
           KTextField(
-            label: 'Description *',
+            label: 'Description',
             hint: 'Describe this journal entry',
             controller: _descriptionController,
             maxLines: 2,
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Required' : null,
+            isRequired: true,
+            serverError: serverErrors['description'],
+            validator: (v) => fieldError(
+              'description',
+              (v == null || v.trim().isEmpty) ? 'Required' : null,
+            ),
             onChanged: (_) => _recalc(),
           ),
           KSpacing.vGapLg,

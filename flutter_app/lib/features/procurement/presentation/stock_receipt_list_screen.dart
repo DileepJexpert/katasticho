@@ -26,7 +26,7 @@ class StockReceiptListScreen extends ConsumerWidget {
               loading: () => const KShimmerList(),
               error: (err, _) => KErrorView(
                 message: 'Failed to load receipts',
-                onRetry: () => ref.invalidate(stockReceiptListProvider),
+                onRetry: () => ref.invalidate(stockReceiptListProvider(null)),
               ),
               data: (data) {
                 final content = data['data'];
@@ -46,7 +46,7 @@ class StockReceiptListScreen extends ConsumerWidget {
                 }
 
                 return RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(stockReceiptListProvider),
+                  onRefresh: () async => ref.invalidate(stockReceiptListProvider(null)),
                   child: ListView.separated(
                     padding: KSpacing.pagePadding,
                     itemCount: receipts.length,

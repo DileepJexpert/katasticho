@@ -137,7 +137,7 @@ public class SalesReceiptService {
             BigDecimal lineAmount = lineReq.rate().multiply(lineReq.quantity())
                     .setScale(2, RoundingMode.HALF_UP);
 
-            // Tax calculation
+            // Tax calculation — prefer explicit taxGroupId, else item default, else resolve from gstRate
             UUID taxGroupId = lineReq.taxGroupId();
             if (taxGroupId == null && lineReq.itemId() != null) {
                 Item item = itemMap.get(lineReq.itemId());
@@ -284,7 +284,12 @@ public class SalesReceiptService {
                                                      Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
         Page<SalesReceipt> page = receiptRepository.findFiltered(
-                orgId, branchId, dateFrom, dateTo, paymentMode, pageable);
+                orgId.toString(),
+                branchId != null ? branchId.toString() : null,
+                dateFrom != null ? dateFrom.toString() : null,
+                dateTo != null ? dateTo.toString() : null,
+                paymentMode,
+                pageable);
         return PagedResponse.from(page.map(this::toResponse));
     }
 

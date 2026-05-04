@@ -1,0 +1,41 @@
+sku,name,description,item_type,category,brand,hsn_code,unit_of_measure,purchase_price,sale_price,mrp,gst_rate,reorder_level,reorder_quantity,opening_stock,barcode,manufacturer,batch_number,mfg_date,expiry_date
+PARA-500,Paracetamol 500mg 10s,Fever and body pain relief,GOODS,Analgesic,,3004,STRIP,8,12,15,12,50,100,200,,Cipla,MED-001,2026-02-01,2028-02-01
+PARA-650,Paracetamol 650mg 15s,Extended release fever tablets,GOODS,Analgesic,,3004,STRIP,18,25,30,12,30,60,120,,GSK,MED-002,2026-01-15,2028-01-15
+IBUP-400,Ibuprofen 400mg 10s,Anti-inflammatory pain relief,GOODS,Analgesic,,3004,STRIP,12,18,22,12,30,60,100,,Cipla,MED-003,2026-03-01,2028-03-01
+DICLO-50,Diclofenac 50mg 10s,Pain and swelling relief,GOODS,Analgesic,,3004,STRIP,10,15,18,12,25,50,80,,Micro Labs,MED-004,2026-02-10,2028-02-10
+AZITH-500,Azithromycin 500mg 3s,Broad spectrum antibiotic,GOODS,Antibiotic,,3004,STRIP,55,70,82,12,20,40,60,,Alkem,MED-005,2026-03-01,2028-03-01
+AMOX-500,Amoxicillin 500mg 10s,Penicillin antibiotic capsules,GOODS,Antibiotic,,3004,STRIP,28,38,45,12,25,50,80,,Cipla,MED-006,2026-02-15,2028-02-15
+CEFX-200,Cefixime 200mg 10s,Third gen cephalosporin,GOODS,Antibiotic,,3004,STRIP,65,85,98,12,15,30,50,,Mankind,MED-007,2026-01-20,2028-01-20
+METRO-400,Metronidazole 400mg 10s,Antiprotozoal antibiotic,GOODS,Antibiotic,,3004,STRIP,12,18,22,12,20,40,60,,Alkem,MED-008,2026-03-10,2028-03-10
+CETRIZ-10,Cetirizine 10mg 10s,Antihistamine for allergies,GOODS,Antiallergy,,3004,STRIP,15,22,28,12,30,60,100,,Sun Pharma,MED-009,2026-01-15,2027-07-15
+LEVO-5,Levocetirizine 5mg 10s,Non-drowsy antihistamine,GOODS,Antiallergy,,3004,STRIP,20,30,35,12,25,50,80,,Glenmark,MED-010,2026-02-20,2027-08-20
+MONT-10,Montelukast 10mg 10s,Asthma and allergy prevention,GOODS,Antiallergy,,3004,STRIP,50,68,78,12,15,30,50,,Sun Pharma,MED-011,2026-03-05,2028-03-05
+OMEP-20,Omeprazole 20mg 10s,Proton pump inhibitor for acidity,GOODS,Antacid,,3004,STRIP,18,28,32,12,30,60,100,,Dr Reddys,MED-012,2026-01-10,2028-01-10
+PANTO-40,Pantoprazole 40mg 10s,Gastric acid reducer,GOODS,Antacid,,3004,STRIP,30,42,48,12,25,50,80,,Alkem,MED-013,2026-02-25,2028-02-25
+RABEP-20,Rabeprazole 20mg 10s,GERD and ulcer treatment,GOODS,Antacid,,3004,STRIP,35,48,55,12,20,40,60,,Cadila,MED-014,2026-03-15,2028-03-15
+ORS-SAC,ORS Sachet 21.8g,Oral rehydration salts WHO,GOODS,Rehydration,,3004,PCS,8,12,15,5,50,100,200,,FDC Ltd,MED-015,2026-03-10,2027-09-10
+ATEN-50,Atenolol 50mg 14s,Beta blocker for blood pressure,GOODS,Cardiac,,3004,STRIP,12,18,22,12,20,40,60,,Cipla,MED-016,2026-01-20,2028-01-20
+AMLO-5,Amlodipine 5mg 10s,Calcium channel blocker for BP,GOODS,Cardiac,,3004,STRIP,15,22,28,12,25,50,80,,USV,MED-017,2026-02-10,2028-02-10
+METF-500,Metformin 500mg 10s,Type 2 diabetes glucose control,GOODS,Diabetes,,3004,STRIP,10,16,20,12,30,60,100,,USV,MED-018,2026-03-01,2028-03-01
+GLIM-2,Glimepiride 2mg 10s,Sulfonylurea for diabetes,GOODS,Diabetes,,3004,STRIP,28,38,45,12,15,30,50,,Glenmark,MED-019,2026-02-15,2028-02-15
+BETNOV-CRM,Betnovate-N Cream 20g,Skin infection ointment,GOODS,Dermatology,,3004,PCS,55,68,75,12,15,30,50,,GSK,MED-020,2026-01-10,2027-07-10
+CAND-CRM,Candid Cream 15g,Antifungal skin cream,GOODS,Dermatology,,3004,PCS,62,78,85,12,12,24,40,,Glenmark,MED-021,2026-02-20,2027-08-20
+VOLINI-GEL,Volini Gel 30g,Topical pain relief gel,GOODS,Topical,,3004,PCS,95,115,125,12,15,30,50,,Sun Pharma,MED-022,2026-03-01,2028-03-01
+VIT-C-500,Vitamin C 500mg 30s,Immunity booster ascorbic acid,GOODS,Vitamin,,3004,PCS,80,110,120,12,15,30,50,,Mankind,MED-023,2026-01-15,2028-01-15
+BCPLEX-30,B-Complex 30 tablets,Multivitamin B complex,GOODS,Vitamin,,3004,PCS,45,62,70,12,20,40,60,,Abbott,MED-024,2026-02-10,2028-02-10
+CALCI-D3,Calcium + D3 30 tablets,Bone health supplement,GOODS,Vitamin,,3004,PCS,90,120,135,12,15,30,50,,Cadila,MED-025,2026-03-05,2028-03-05
+DOLO-650,Dolo 650 15s,Popular paracetamol brand,GOODS,Analgesic,Dolo,3004,STRIP,25,32,36,12,40,80,150,,Micro Labs,MED-026,2026-02-01,2028-02-01
+COUGH-SYP,Benadryl Cough Syrup 100ml,Diphenhydramine cough relief,GOODS,Cough & Cold,,3004,PCS,70,88,95,12,15,30,50,,Johnson & Johnson,MED-027,2026-01-20,2027-07-20
+SINAREST,Sinarest Tablet 10s,Cold and flu multi-symptom,GOODS,Cough & Cold,,3004,STRIP,22,30,35,12,20,40,60,,Centaur Pharma,MED-028,2026-03-10,2028-03-10
+BANDAGE-5CM,Crepe Bandage 5cm x 4m,Elastic crepe bandage,GOODS,Surgical,,3005,PCS,25,35,40,12,20,40,60,,Dyna,,,
+COTTON-50G,Absorbent Cotton 50g,Medical grade cotton roll,GOODS,Surgical,,3005,PCS,22,30,35,12,15,30,50,,Laxmi,,,
+SYRINGE-5ML,Disposable Syringe 5ml,Single use syringe with needle,GOODS,Surgical,,9018,PCS,5,8,10,12,50,100,200,,BD,,,
+MASK-3PLY,Surgical Mask 50s box,3-ply disposable face mask,GOODS,Surgical,,6307,BOX,120,160,180,12,10,20,30,,Generic,,,
+GLOVES-M,Latex Gloves M 100s,Powdered examination gloves,GOODS,Surgical,,4015,BOX,220,280,310,12,5,10,15,,Supermax,,,
+THERMOM-DIG,Digital Thermometer,Oral body temperature meter,GOODS,Equipment,,9025,PCS,80,120,150,12,5,10,10,,Dr Morepen,,,
+BP-MONITOR,Digital BP Monitor,Arm type blood pressure monitor,GOODS,Equipment,Omron,9018,PCS,1200,1600,1899,12,2,5,5,,Omron,,,
+OXIMETER,Pulse Oximeter,Fingertip SpO2 and pulse rate,GOODS,Equipment,,9018,PCS,600,850,999,12,3,5,5,,Dr Morepen,,,
+NEBULIZER,Nebulizer Machine,Piston compressor nebulizer,GOODS,Equipment,,9018,PCS,1400,1800,2199,12,2,3,3,,Omron,,,
+SANITIZER-500,Hand Sanitizer 500ml,70% alcohol gel sanitizer,GOODS,Hygiene,,3808,PCS,90,120,140,18,10,20,30,,Lifebuoy,,,
+DIAPER-L-10,Adult Diaper L 10s,Unisex adult diaper large,GOODS,Patient Care,,9619,PCS,280,350,399,12,5,10,15,,Friends,,,
+HEATING-PAD,Electric Heating Pad,Therapeutic heat pad,GOODS,Equipment,,8516,PCS,400,550,649,18,3,5,5,,Flamingo,,,
