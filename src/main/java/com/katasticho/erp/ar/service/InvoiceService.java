@@ -335,6 +335,37 @@ public class InvoiceService {
                     tli.getComponentCode(), null));
         }
 
+        // DR COGS / CR Inventory for tracked items
+        Set<UUID> lineItemIds = invoice.getLines().stream()
+                .map(InvoiceLine::getItemId).filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<UUID, Item> itemMap = lineItemIds.isEmpty() ? Map.of()
+                : itemRepository.findAllById(lineItemIds).stream()
+                .collect(Collectors.toMap(Item::getId, i -> i));
+
+        BigDecimal totalCost = BigDecimal.ZERO;
+        for (InvoiceLine line : invoice.getLines()) {
+            if (line.getItemId() == null) continue;
+            Item item = itemMap.get(line.getItemId());
+            if (item == null || !item.isTrackInventory()) continue;
+            totalCost = totalCost.add(
+                    item.getPurchasePrice().multiply(line.getQuantity()).setScale(2, RoundingMode.HALF_UP));
+        }
+        if (totalCost.compareTo(BigDecimal.ZERO) > 0) {
+            try {
+                String cogsCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.COGS);
+                String inventoryCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.INVENTORY_ASSET);
+                journalLines.add(new JournalLineRequest(
+                        cogsCode, totalCost, BigDecimal.ZERO,
+                        "COGS: " + invoice.getInvoiceNumber(), null, null));
+                journalLines.add(new JournalLineRequest(
+                        inventoryCode, BigDecimal.ZERO, totalCost,
+                        "Inventory: " + invoice.getInvoiceNumber(), null, null));
+            } catch (BusinessException e) {
+                log.warn("COGS/Inventory accounts not configured — skipping: {}", e.getMessage());
+            }
+        }
+
         // Post journal via the single posting gate
         JournalPostRequest journalRequest = new JournalPostRequest(
                 invoice.getInvoiceDate(),
