@@ -46,6 +46,7 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
   late final TextEditingController _amountController;
   late final TextEditingController _referenceController;
   late double _amountReceived;
+  bool _gstInvoice = false;
 
   @override
   void initState() {
@@ -96,6 +97,7 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
       'upiReference': _referenceController.text.trim().isEmpty
           ? null
           : _referenceController.text.trim(),
+      'gstInvoice': _gstInvoice,
     });
   }
 
@@ -157,7 +159,20 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
             if (widget.paymentMode == 'UPI') _buildUpiContent(total),
             if (widget.paymentMode == 'CARD') _buildCardContent(),
 
-            KSpacing.vGapLg,
+            KSpacing.vGapMd,
+
+            // GST invoice checkbox
+            CheckboxListTile(
+              value: _gstInvoice,
+              onChanged: (v) => setState(() => _gstInvoice = v ?? false),
+              title: const Text('Customer needs GST invoice'),
+              subtitle: const Text('Prints detailed receipt with HSN & tax breakdown'),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
+
+            KSpacing.vGapMd,
 
             // Complete button
             SizedBox(
@@ -388,6 +403,7 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
   final _upiCtrl = TextEditingController(text: '0.00');
   final _cardCtrl = TextEditingController(text: '0.00');
   final _upiRefCtrl = TextEditingController();
+  bool _gstInvoice = false;
 
   double get _cash => double.tryParse(_cashCtrl.text) ?? 0;
   double get _upi => double.tryParse(_upiCtrl.text) ?? 0;
@@ -448,6 +464,7 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
       'amountReceived': _splitSum,
       'upiReference': _upiRefCtrl.text.trim().isEmpty ? null : _upiRefCtrl.text.trim(),
       'splits': splits,
+      'gstInvoice': _gstInvoice,
     });
   }
 
@@ -554,7 +571,17 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
                 ],
               ),
             ),
-            KSpacing.vGapLg,
+            KSpacing.vGapMd,
+            CheckboxListTile(
+              value: _gstInvoice,
+              onChanged: (v) => setState(() => _gstInvoice = v ?? false),
+              title: const Text('Customer needs GST invoice'),
+              subtitle: const Text('Prints detailed receipt with HSN & tax breakdown'),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
+            KSpacing.vGapMd,
             SizedBox(
               height: 52,
               child: FilledButton(

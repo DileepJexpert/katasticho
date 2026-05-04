@@ -43,6 +43,18 @@ public class SalesReceipt extends BaseEntity {
     @Builder.Default
     private BigDecimal taxAmount = BigDecimal.ZERO;
 
+    @Column(name = "cgst", nullable = false)
+    @Builder.Default
+    private BigDecimal cgst = BigDecimal.ZERO;
+
+    @Column(name = "sgst", nullable = false)
+    @Builder.Default
+    private BigDecimal sgst = BigDecimal.ZERO;
+
+    @Column(name = "igst", nullable = false)
+    @Builder.Default
+    private BigDecimal igst = BigDecimal.ZERO;
+
     @Column(nullable = false)
     @Builder.Default
     private BigDecimal total = BigDecimal.ZERO;
@@ -71,6 +83,10 @@ public class SalesReceipt extends BaseEntity {
 
     @Column(length = 500)
     private String notes;
+
+    @Column(name = "gst_invoice", nullable = false)
+    @Builder.Default
+    private boolean gstInvoice = false;
 
     @Column(name = "journal_entry_id")
     private UUID journalEntryId;

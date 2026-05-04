@@ -27,6 +27,8 @@ import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.BatchService;
 import com.katasticho.erp.inventory.service.InventoryService;
+import com.katasticho.erp.organisation.Organisation;
+import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.pos.dto.CreateSalesReceiptRequest;
 import com.katasticho.erp.pos.dto.SalesReceiptResponse;
 import com.katasticho.erp.pos.entity.PaymentMode;
@@ -82,6 +84,7 @@ public class SalesReceiptService {
     private final AuditService auditService;
     private final DefaultAccountService defaultAccountService;
     private final CacheInvalidationService cacheInvalidationService;
+    private final OrganisationRepository organisationRepository;
 
     @Transactional
     public SalesReceiptResponse create(CreateSalesReceiptRequest request) {
@@ -107,8 +110,14 @@ public class SalesReceiptService {
         receipt.setOrgId(orgId);
         receipt.setCreatedBy(userId);
 
+        Organisation org = organisationRepository.findById(orgId)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
+
         // 3. Process line items — compute tax, build lines
         BigDecimal totalTax = BigDecimal.ZERO;
+        BigDecimal cgstTotal = BigDecimal.ZERO;
+        BigDecimal sgstTotal = BigDecimal.ZERO;
+        BigDecimal igstTotal = BigDecimal.ZERO;
         BigDecimal grossTotal = BigDecimal.ZERO;
         List<TaxLineItem> allTaxLines = new ArrayList<>();
 
@@ -134,6 +143,12 @@ public class SalesReceiptService {
                 Item item = itemMap.get(lineReq.itemId());
                 if (item != null) {
                     taxGroupId = item.getDefaultTaxGroupId();
+                    if (taxGroupId == null && item.getGstRate() != null
+                            && item.getGstRate().compareTo(BigDecimal.ZERO) > 0) {
+                        String stateCode = org.getStateCode();
+                        taxGroupId = taxEngine.resolveGroupId(orgId, item.getGstRate(),
+                                stateCode, stateCode).orElse(null);
+                    }
                 }
             }
 
@@ -191,8 +206,13 @@ public class SalesReceiptService {
             grossTotal = grossTotal.add(lineAmount);
             totalTax = totalTax.add(lineTax);
 
-            // Build tax line items
+            // Build tax line items and accumulate GST breakdown
             for (TaxEngine.TaxComponent comp : taxResult.components()) {
+                String code = comp.rateCode().toUpperCase();
+                if (code.contains("CGST")) cgstTotal = cgstTotal.add(comp.amount());
+                else if (code.contains("SGST")) sgstTotal = sgstTotal.add(comp.amount());
+                else if (code.contains("IGST")) igstTotal = igstTotal.add(comp.amount());
+
                 allTaxLines.add(TaxLineItem.builder()
                         .orgId(orgId)
                         .sourceType("SALES_RECEIPT")
@@ -215,7 +235,11 @@ public class SalesReceiptService {
         BigDecimal subtotal = total.subtract(totalTax);
         receipt.setSubtotal(subtotal);
         receipt.setTaxAmount(totalTax);
+        receipt.setCgst(cgstTotal.setScale(2, RoundingMode.HALF_UP));
+        receipt.setSgst(sgstTotal.setScale(2, RoundingMode.HALF_UP));
+        receipt.setIgst(igstTotal.setScale(2, RoundingMode.HALF_UP));
         receipt.setTotal(total);
+        receipt.setGstInvoice(Boolean.TRUE.equals(request.gstInvoice()));
         receipt.setChangeReturned(
                 request.amountReceived().subtract(total).max(BigDecimal.ZERO)
                         .setScale(2, RoundingMode.HALF_UP));
@@ -473,7 +497,11 @@ public class SalesReceiptService {
                 contactName,
                 receipt.getSubtotal(),
                 receipt.getTaxAmount(),
+                receipt.getCgst(),
+                receipt.getSgst(),
+                receipt.getIgst(),
                 receipt.getTotal(),
+                receipt.isGstInvoice(),
                 receipt.getPaymentMode(),
                 receipt.getAmountReceived(),
                 receipt.getChangeReturned(),

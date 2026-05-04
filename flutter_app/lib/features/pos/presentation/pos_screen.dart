@@ -334,6 +334,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       'amountReceived': paymentResult['amountReceived'],
       if (paymentResult['upiReference'] != null)
         'upiReference': paymentResult['upiReference'],
+      'gstInvoice': paymentResult['gstInvoice'] ?? false,
       if (cart.notes != null) 'notes': cart.notes,
       'lines': cart.items
           .map((item) => {
