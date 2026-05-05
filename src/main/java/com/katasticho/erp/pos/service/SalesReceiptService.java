@@ -244,6 +244,14 @@ public class SalesReceiptService {
                 request.amountReceived().subtract(total).max(BigDecimal.ZERO)
                         .setScale(2, RoundingMode.HALF_UP));
 
+        // 3b. Validate stock availability before committing anything
+        List<Map.Entry<UUID, BigDecimal>> stockCheckLines = receipt.getLines().stream()
+                .filter(l -> l.getItemId() != null)
+                .map(l -> Map.entry(l.getItemId(),
+                        l.getBaseQuantity() != null ? l.getBaseQuantity() : l.getQuantity()))
+                .toList();
+        inventoryService.validateStockForSale(orgId, itemMap, stockCheckLines);
+
         // 4. Persist receipt + lines
         receipt = receiptRepository.save(receipt);
 
