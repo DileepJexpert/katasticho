@@ -297,6 +297,11 @@ public class InvoiceService {
                     "AR_INVOICE_NO_LINES", HttpStatus.BAD_REQUEST);
         }
 
+        // Validate stock availability before posting anything
+        if (!skipStockMovement && invoice.getSalesOrderId() == null) {
+            inventoryService.validateStockForInvoice(invoice);
+        }
+
         // Build journal lines
         List<JournalLineRequest> journalLines = new ArrayList<>();
 

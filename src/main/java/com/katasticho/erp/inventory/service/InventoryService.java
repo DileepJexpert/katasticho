@@ -24,7 +24,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -264,6 +266,81 @@ public class InventoryService {
                 null,
                 reason);
         return recordMovement(movement);
+    }
+
+    /**
+     * Pre-flight check: ensures every inventory-tracked line on the invoice
+     * has sufficient stock in the default warehouse. Call BEFORE posting the
+     * journal so a failed check leaves the invoice in DRAFT with no side effects.
+     */
+    @Transactional(readOnly = true)
+    public void validateStockForInvoice(Invoice invoice) {
+        UUID orgId = invoice.getOrgId();
+        Warehouse defaultWarehouse = warehouseRepository
+                .findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId).orElse(null);
+        if (defaultWarehouse == null) return;
+
+        List<String> shortItems = new ArrayList<>();
+        for (InvoiceLine line : invoice.getLines()) {
+            if (line.getItemId() == null) continue;
+            Item item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(line.getItemId(), orgId)
+                    .orElse(null);
+            if (item == null || !item.isTrackInventory()
+                    || item.getItemType() == ItemType.SERVICE) continue;
+
+            BigDecimal available = stockBalanceRepository
+                    .findByOrgIdAndItemIdAndWarehouseId(orgId, item.getId(), defaultWarehouse.getId())
+                    .map(StockBalance::getQuantityOnHand)
+                    .orElse(BigDecimal.ZERO);
+
+            if (available.compareTo(line.getQuantity()) < 0) {
+                shortItems.add(item.getName() + " (available: "
+                        + available.stripTrailingZeros().toPlainString()
+                        + ", requested: " + line.getQuantity().stripTrailingZeros().toPlainString() + ")");
+            }
+        }
+
+        if (!shortItems.isEmpty()) {
+            throw new BusinessException(
+                    "Insufficient stock for: " + String.join("; ", shortItems),
+                    "INV_INSUFFICIENT_STOCK", HttpStatus.CONFLICT);
+        }
+    }
+
+    /**
+     * Pre-flight check for POS: validates stock using a pre-loaded item map
+     * and a list of (itemId, quantity) pairs from the receipt lines.
+     */
+    @Transactional(readOnly = true)
+    public void validateStockForSale(UUID orgId, Map<UUID, Item> itemMap,
+                                     List<Map.Entry<UUID, BigDecimal>> lineItems) {
+        Warehouse defaultWarehouse = warehouseRepository
+                .findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId).orElse(null);
+        if (defaultWarehouse == null) return;
+
+        List<String> shortItems = new ArrayList<>();
+        for (var entry : lineItems) {
+            Item item = itemMap.get(entry.getKey());
+            if (item == null || !item.isTrackInventory()
+                    || item.getItemType() == ItemType.SERVICE) continue;
+
+            BigDecimal available = stockBalanceRepository
+                    .findByOrgIdAndItemIdAndWarehouseId(orgId, item.getId(), defaultWarehouse.getId())
+                    .map(StockBalance::getQuantityOnHand)
+                    .orElse(BigDecimal.ZERO);
+
+            if (available.compareTo(entry.getValue()) < 0) {
+                shortItems.add(item.getName() + " (available: "
+                        + available.stripTrailingZeros().toPlainString()
+                        + ", requested: " + entry.getValue().stripTrailingZeros().toPlainString() + ")");
+            }
+        }
+
+        if (!shortItems.isEmpty()) {
+            throw new BusinessException(
+                    "Insufficient stock for: " + String.join("; ", shortItems),
+                    "INV_INSUFFICIENT_STOCK", HttpStatus.CONFLICT);
+        }
     }
 
     /**
