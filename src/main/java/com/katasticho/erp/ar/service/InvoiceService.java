@@ -595,7 +595,7 @@ public class InvoiceService {
                 inv.getStatus(), inv.getSubtotal(), inv.getTaxAmount(),
                 inv.getTotalAmount(), inv.getAmountPaid(), inv.getBalanceDue(),
                 inv.getCurrency(), inv.getPlaceOfSupply(), inv.isReverseCharge(),
-                inv.getJournalEntryId(), inv.getNotes(),
+                inv.getJournalEntryId(), inv.getNotes(), inv.getTermsAndConditions(),
                 lineResponses, taxLineResponses, inv.getCreatedAt());
     }
 

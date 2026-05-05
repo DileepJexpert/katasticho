@@ -9,8 +9,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/form_error_handler.dart';
-import '../../contacts/data/contact_repository.dart';
-import '../../tax_groups/data/tax_group_repository.dart';
+import '../../contacts/presentation/contact_picker_sheet.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/credit_note_repository.dart';
 import '../data/credit_note_providers.dart';
@@ -32,10 +31,10 @@ class _CreditNoteCreateScreenState
 
   // Header fields
   String? _selectedContactId;
-  String? _selectedCustomerName;
   DateTime _creditNoteDate = DateTime.now();
   final _reasonController = TextEditingController();
   final _placeOfSupplyController = TextEditingController();
+  final _customerController = TextEditingController();
 
   // Line items
   final List<_LineItem> _lines = [_LineItem()];
@@ -44,6 +43,7 @@ class _CreditNoteCreateScreenState
   void dispose() {
     _reasonController.dispose();
     _placeOfSupplyController.dispose();
+    _customerController.dispose();
     for (final line in _lines) {
       line.dispose();
     }
@@ -133,6 +133,21 @@ class _CreditNoteCreateScreenState
     if (picked != null) {
       setState(() => _creditNoteDate = picked);
     }
+  }
+
+  Future<void> _pickCustomer() async {
+    final picked = await showContactPicker(context, showQuickCreate: true);
+    if (picked == null || !mounted) return;
+    final name = _contactName(picked);
+    setState(() {
+      _selectedContactId = picked['id']?.toString();
+      _customerController.text = name;
+      final placeOfSupply = picked['placeOfSupply']?.toString();
+      final billingStateCode = picked['billingStateCode']?.toString();
+      if (_placeOfSupplyController.text.trim().isEmpty) {
+        _placeOfSupplyController.text = placeOfSupply ?? billingStateCode ?? '';
+      }
+    });
   }
 
   @override
@@ -242,52 +257,34 @@ class _CreditNoteCreateScreenState
   }
 
   Widget _buildCustomerPicker() {
-    final customersAsync = ref.watch(contactListProvider('CUSTOMER'));
-
-    return customersAsync.when(
-      loading: () => const KTextField(
-        label: 'Customer',
-        readOnly: true,
-        hint: 'Loading customers...',
-      ),
-      error: (_, __) => const KTextField(
-        label: 'Customer',
-        readOnly: true,
-        hint: 'Failed to load customers',
-      ),
-      data: (data) {
-        final content = data['data'];
-        final customers = (content is List)
-            ? content
-            : (content is Map ? (content['content'] as List?) ?? [] : []);
-
-        return DropdownButtonFormField<String>(
-          value: _selectedContactId,
-          decoration: const InputDecoration(
-            labelText: 'Customer',
-            prefixIcon: Icon(Icons.person_outline),
-          ),
-          items: customers.map<DropdownMenuItem<String>>((c) {
-            final cMap = c as Map<String, dynamic>;
-            return DropdownMenuItem(
-              value: cMap['id']?.toString(),
-              child: Text(cMap['name'] as String? ?? 'Unknown'),
-            );
-          }).toList(),
-          onChanged: (v) {
-            setState(() {
-              _selectedContactId = v;
-              final customer = customers.firstWhere(
-                (c) => (c as Map)['id']?.toString() == v,
-                orElse: () => <String, dynamic>{},
-              ) as Map<String, dynamic>;
-              _selectedCustomerName = customer['name'] as String?;
-            });
-          },
-          validator: (v) => v == null ? 'Select a customer' : null,
-        );
-      },
+    return KTextField(
+      label: 'Customer *',
+      hint: 'Select or create customer',
+      controller: _customerController,
+      readOnly: true,
+      prefixIcon: Icons.person_outline,
+      suffixIcon: Icons.chevron_right,
+      onTap: _pickCustomer,
+      validator: (_) => _selectedContactId == null ? 'Select a customer' : null,
     );
+  }
+
+  String _contactName(Map<String, dynamic> contact) {
+    for (final key in const [
+      'displayName',
+      'companyName',
+      'name',
+      'fullName',
+      'contactName',
+    ]) {
+      final value = contact[key]?.toString().trim();
+      if (value != null && value.isNotEmpty) return value;
+    }
+    final first = contact['firstName']?.toString().trim() ?? '';
+    final last = contact['lastName']?.toString().trim() ?? '';
+    final full = [first, last].where((s) => s.isNotEmpty).join(' ');
+    if (full.isNotEmpty) return full;
+    return 'Customer';
   }
 
   Widget _buildLineCard(int index) {

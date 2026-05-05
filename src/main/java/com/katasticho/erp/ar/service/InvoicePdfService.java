@@ -5,6 +5,9 @@ import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.DocumentPdfService;
 import com.katasticho.erp.common.util.AmountToWordsConverter;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.repository.ContactRepository;
+import com.katasticho.erp.organisation.OrgSettingsService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,15 +16,20 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
 public class InvoicePdfService {
 
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd MMM yyyy");
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH);
 
     private final DocumentPdfService pdfService;
     private final OrganisationRepository organisationRepository;
+    private final ContactRepository contactRepository;
+    private final OrgSettingsService orgSettingsService;
 
     public byte[] generatePdf(InvoiceResponse inv) {
         Organisation org = organisationRepository.findById(TenantContext.getCurrentOrgId())
@@ -29,261 +37,330 @@ public class InvoicePdfService {
         return pdfService.render(buildHtml(inv, org));
     }
 
-    /** Called by email service when org is already loaded — avoids a redundant DB lookup. */
+    /** Called by email service when org is already loaded, avoiding a redundant organisation lookup. */
     public byte[] generatePdf(InvoiceResponse inv, Organisation org) {
         return pdfService.render(buildHtml(inv, org));
     }
 
     /** Package-visible: reused by email service to embed HTML in email body. */
     String buildHtml(InvoiceResponse inv, Organisation org) {
+        Contact contact = loadContact(inv);
+        String terms = firstNonBlank(
+                inv.termsAndConditions(),
+                orgSettingsService.get(org.getId(), "invoice.default_terms", ""));
+        boolean showBankDetails = Boolean.parseBoolean(
+                orgSettingsService.get(org.getId(), "invoice.show_bank_details", "true"));
+        boolean showSignature = Boolean.parseBoolean(
+                orgSettingsService.get(org.getId(), "invoice.show_signature", "false"));
+        String bankName = orgSettingsService.get(org.getId(), "invoice.bank_name", "");
+        String bankAccountNo = orgSettingsService.get(org.getId(), "invoice.bank_account_no", "");
+        String bankIfsc = orgSettingsService.get(org.getId(), "invoice.bank_ifsc", "");
+        String upiId = orgSettingsService.get(org.getId(), "invoice.upi_id", "");
+
         StringBuilder sb = new StringBuilder();
         sb.append("<!DOCTYPE html><html><head><meta charset='UTF-8'/><style>");
         sb.append(css());
         sb.append("</style></head><body>");
 
-        // ── Header: org (left) | INVOICE label (right) ────────────────────────
-        sb.append("<table width='100%' class='hdr'><tr>");
-        sb.append("<td class='org-cell'>");
+        header(sb, inv, org);
+        partiesAndDetails(sb, inv, org, contact);
+        lineItems(sb, inv);
+        totalsAndTax(sb, inv);
+        amountInWords(sb, inv);
+        notesTermsPayment(sb, inv, org, terms, showBankDetails, showSignature,
+                bankName, bankAccountNo, bankIfsc, upiId);
+
+        sb.append("<div class='footer'>This is a computer generated invoice from Katasticho ERP.</div>");
+        sb.append("</body></html>");
+        return sb.toString();
+    }
+
+    private void header(StringBuilder sb, InvoiceResponse inv, Organisation org) {
+        sb.append("<table class='header'><tr>");
+        sb.append("<td class='org'>");
+        if (notBlank(org.getLogoUrl())) {
+            sb.append("<img class='logo' src='").append(esc(org.getLogoUrl())).append("'/>");
+        }
         sb.append("<div class='org-name'>").append(esc(org.getName())).append("</div>");
-        orgAddress(sb, org);
+        appendLines(sb, "org-line", orgAddressLines(org));
+        appendLabelValue(sb, "org-line", "GSTIN", org.getGstin());
+        appendLabelValue(sb, "org-line", "Tax ID", org.getTaxId());
+        appendLabelValue(sb, "org-line", "State Code", org.getStateCode());
+        appendLabelValue(sb, "org-line", "Phone", org.getPhone());
+        appendLabelValue(sb, "org-line", "Email", org.getEmail());
         sb.append("</td>");
-        sb.append("<td class='inv-title-cell'>");
-        sb.append("<div class='inv-title'>INVOICE</div>");
-        sb.append("<div class='inv-number'>").append(esc(inv.invoiceNumber())).append("</div>");
-        sb.append("<div class='inv-status ").append(statusClass(inv.status())).append("'>")
-                .append(esc(inv.status().replace("_", " "))).append("</div>");
-        sb.append("</td></tr></table>");
 
-        sb.append("<hr class='divider'/>");
-
-        // ── Meta: Bill To (left) | Dates (right) ──────────────────────────────
-        sb.append("<table width='100%' class='meta'><tr>");
-        sb.append("<td class='bill-to-cell'>");
-        sb.append("<div class='lbl'>BILL TO</div>");
-        sb.append("<div class='contact-name'>").append(esc(inv.contactName())).append("</div>");
+        sb.append("<td class='doc-box'>");
+        sb.append("<div class='doc-title'>TAX INVOICE</div>");
+        sb.append("<div class='doc-subtitle'>Original for Recipient</div>");
+        sb.append("<table class='doc-meta'>");
+        metaRow(sb, "Invoice No.", inv.invoiceNumber());
+        metaRow(sb, "Invoice Date", inv.invoiceDate() != null ? inv.invoiceDate().format(DATE_FMT) : null);
+        metaRow(sb, "Due Date", inv.dueDate() != null ? inv.dueDate().format(DATE_FMT) : null);
+        metaRow(sb, "Status", label(inv.status()));
+        metaRow(sb, "Currency", inv.currency());
+        sb.append("</table>");
         sb.append("</td>");
-        sb.append("<td class='dates-cell'>");
-        if (inv.invoiceDate() != null) {
-            dateLine(sb, "Invoice Date", inv.invoiceDate().format(DATE_FMT));
-        }
-        if (inv.dueDate() != null) {
-            dateLine(sb, "Due Date", inv.dueDate().format(DATE_FMT));
-        }
-        if (inv.placeOfSupply() != null && !inv.placeOfSupply().isBlank()) {
-            dateLine(sb, "Place of Supply", inv.placeOfSupply());
-        }
-        if (inv.reverseCharge()) {
-            dateLine(sb, "Reverse Charge", "Yes");
-        }
-        sb.append("</td></tr></table>");
+        sb.append("</tr></table>");
+    }
 
-        // ── Line items table ───────────────────────────────────────────────────
+    private void partiesAndDetails(StringBuilder sb, InvoiceResponse inv, Organisation org, Contact contact) {
+        sb.append("<table class='parties'><tr>");
+        sb.append("<td class='party-card'>");
+        sb.append("<div class='section-label'>Bill To</div>");
+        sb.append("<div class='party-name'>").append(esc(firstNonBlank(
+                contact != null ? contact.getCompanyName() : null,
+                inv.contactName(),
+                "Customer"))).append("</div>");
+        appendLines(sb, "party-line", billingAddressLines(contact));
+        appendLabelValue(sb, "party-line", "GSTIN", contact != null ? contact.getGstin() : null);
+        appendLabelValue(sb, "party-line", "PAN", contact != null ? contact.getPan() : null);
+        appendLabelValue(sb, "party-line", "Phone", contact != null ? firstNonBlank(contact.getMobile(), contact.getPhone()) : null);
+        appendLabelValue(sb, "party-line", "Email", contact != null ? contact.getEmail() : null);
+        sb.append("</td>");
+
+        sb.append("<td class='party-card'>");
+        sb.append("<div class='section-label'>Ship To</div>");
+        List<String> shipLines = shippingAddressLines(contact);
+        if (shipLines.isEmpty()) {
+            shipLines = billingAddressLines(contact);
+        }
+        appendLines(sb, "party-line", shipLines);
+        if (shipLines.isEmpty()) {
+            sb.append("<div class='muted'>Same as billing address</div>");
+        }
+        sb.append("</td>");
+
+        sb.append("<td class='supply-card'>");
+        sb.append("<div class='section-label'>Tax Details</div>");
+        appendInfoRow(sb, "Place of Supply", firstNonBlank(inv.placeOfSupply(), contact != null ? contact.getPlaceOfSupply() : null));
+        appendInfoRow(sb, "Reverse Charge", inv.reverseCharge() ? "Yes" : "No");
+        appendInfoRow(sb, "Supplier State", stateWithCode(org.getState(), org.getStateCode()));
+        appendInfoRow(sb, "Buyer State", contact != null ? stateWithCode(contact.getBillingState(), contact.getBillingStateCode()) : null);
+        sb.append("</td>");
+        sb.append("</tr></table>");
+    }
+
+    private void lineItems(StringBuilder sb, InvoiceResponse inv) {
         sb.append("<table class='items'>");
         sb.append("<thead><tr>");
-        sb.append("<th class='th-desc'>Description</th>");
-        sb.append("<th class='th-hsn'>HSN/SAC</th>");
-        sb.append("<th class='th-num'>Qty</th>");
-        sb.append("<th class='th-num'>Rate (&#8377;)</th>");
-        sb.append("<th class='th-num'>GST%</th>");
-        sb.append("<th class='th-num'>Amount (&#8377;)</th>");
+        sb.append("<th class='c-num'>#</th>");
+        sb.append("<th class='c-desc'>Item &amp; Description</th>");
+        sb.append("<th class='c-hsn'>HSN/SAC</th>");
+        sb.append("<th class='c-qty'>Qty</th>");
+        sb.append("<th class='c-rate'>Rate</th>");
+        sb.append("<th class='c-disc'>Disc.</th>");
+        sb.append("<th class='c-taxable'>Taxable</th>");
+        sb.append("<th class='c-tax'>Tax</th>");
+        sb.append("<th class='c-total'>Amount</th>");
         sb.append("</tr></thead><tbody>");
 
-        boolean odd = true;
         for (InvoiceResponse.LineResponse line : inv.lines()) {
-            sb.append("<tr class='").append(odd ? "row-odd" : "row-even").append("'>");
-            sb.append("<td class='td-left'>").append(esc(line.description())).append("</td>");
-            sb.append("<td class='td-center'>").append(line.hsnCode() != null ? esc(line.hsnCode()) : "").append("</td>");
-            sb.append("<td class='td-right'>").append(fmtQty(line.quantity())).append("</td>");
-            sb.append("<td class='td-right'>").append(fmtPlain(line.unitPrice())).append("</td>");
-            sb.append("<td class='td-right'>")
-                    .append(line.gstRate() != null ? line.gstRate().stripTrailingZeros().toPlainString() + "%" : "")
-                    .append("</td>");
-            sb.append("<td class='td-right'>").append(fmtPlain(line.lineTotal())).append("</td>");
+            sb.append("<tr>");
+            sb.append("<td class='num'>").append(line.lineNumber()).append("</td>");
+            sb.append("<td class='desc'>");
+            sb.append("<div class='item-name'>").append(esc(line.description())).append("</div>");
+            if (notBlank(line.batchNumber())) {
+                sb.append("<div class='item-sub'>Batch: ").append(esc(line.batchNumber()));
+                if (notBlank(line.batchExpiry())) {
+                    sb.append(" | Exp: ").append(esc(line.batchExpiry()));
+                }
+                sb.append("</div>");
+            }
+            sb.append("</td>");
+            sb.append("<td class='center'>").append(esc(line.hsnCode())).append("</td>");
+            sb.append("<td class='right'>").append(fmtQty(line.quantity())).append("</td>");
+            sb.append("<td class='right'>").append(fmtPlain(line.unitPrice())).append("</td>");
+            sb.append("<td class='right'>").append(percentOrDash(line.discountPercent())).append("</td>");
+            sb.append("<td class='right'>").append(fmtPlain(line.taxableAmount())).append("</td>");
+            sb.append("<td class='right'>").append(taxLabel(line)).append("</td>");
+            sb.append("<td class='right amount'>").append(fmtPlain(line.lineTotal())).append("</td>");
             sb.append("</tr>");
-            odd = !odd;
         }
+
         sb.append("</tbody></table>");
+    }
 
-        // ── Totals + Tax breakdown ─────────────────────────────────────────────
-        sb.append("<table width='100%' class='totals-outer'><tr>");
-
-        // Tax breakdown (left cell — only when taxLines exist)
-        sb.append("<td class='tax-cell'>");
+    private void totalsAndTax(StringBuilder sb, InvoiceResponse inv) {
+        sb.append("<table class='summary'><tr>");
+        sb.append("<td class='tax-summary'>");
         if (inv.taxLines() != null && !inv.taxLines().isEmpty()) {
-            sb.append("<div class='lbl'>TAX SUMMARY</div>");
-            sb.append("<table class='tax-tbl'><thead><tr>");
-            sb.append("<th class='tax-th-left'>Component</th>");
-            sb.append("<th class='tax-th-right'>Rate</th>");
-            sb.append("<th class='tax-th-right'>Taxable (&#8377;)</th>");
-            sb.append("<th class='tax-th-right'>Tax (&#8377;)</th>");
+            sb.append("<div class='section-label'>Tax Summary</div>");
+            sb.append("<table class='tax-table'><thead><tr>");
+            sb.append("<th>Component</th><th class='right'>Rate</th><th class='right'>Taxable</th><th class='right'>Tax</th>");
             sb.append("</tr></thead><tbody>");
             for (InvoiceResponse.TaxLineResponse tl : inv.taxLines()) {
                 sb.append("<tr>");
-                sb.append("<td class='td-left'>").append(esc(tl.componentCode())).append("</td>");
-                sb.append("<td class='td-right'>")
-                        .append(tl.rate() != null ? tl.rate().stripTrailingZeros().toPlainString() + "%" : "")
-                        .append("</td>");
-                sb.append("<td class='td-right'>").append(fmtPlain(tl.taxableAmount())).append("</td>");
-                sb.append("<td class='td-right'>").append(fmtPlain(tl.taxAmount())).append("</td>");
+                sb.append("<td>").append(esc(tl.componentCode())).append("</td>");
+                sb.append("<td class='right'>").append(percent(tl.rate())).append("</td>");
+                sb.append("<td class='right'>").append(fmtPlain(tl.taxableAmount())).append("</td>");
+                sb.append("<td class='right'>").append(fmtPlain(tl.taxAmount())).append("</td>");
                 sb.append("</tr>");
             }
             sb.append("</tbody></table>");
         }
         sb.append("</td>");
 
-        // Totals (right cell)
-        sb.append("<td class='totals-cell'>");
-        sb.append("<table class='totals-tbl'>");
+        sb.append("<td class='total-box'>");
+        sb.append("<table class='total-table'>");
         totalRow(sb, "Subtotal", fmtCurr(inv.subtotal()), false, false);
-        if (notZero(inv.taxAmount())) {
-            totalRow(sb, "Tax", fmtCurr(inv.taxAmount()), false, false);
-        }
-        sb.append("<tr><td colspan='2'><hr class='totals-hr'/></td></tr>");
+        totalRow(sb, "Tax", fmtCurr(inv.taxAmount()), false, false);
         totalRow(sb, "Total", fmtCurr(inv.totalAmount()), true, false);
         if (notZero(inv.amountPaid())) {
-            totalRow(sb, "Amount Paid", fmtCurr(inv.amountPaid()), false, false);
+            totalRow(sb, "Payments Made", fmtCurr(inv.amountPaid()), false, false);
         }
-        if (notZero(inv.balanceDue())) {
-            totalRow(sb, "Balance Due", fmtCurr(inv.balanceDue()), true, true);
-        }
+        totalRow(sb, "Balance Due", fmtCurr(inv.balanceDue()), true, true);
         sb.append("</table>");
-        sb.append("</td></tr></table>");
+        sb.append("</td>");
+        sb.append("</tr></table>");
+    }
 
-        // ── Amount in words ───────────────────────────────────────────────────
-        if (notZero(inv.totalAmount())) {
-            sb.append("<div class='words'>");
-            sb.append("<span class='lbl'>AMOUNT IN WORDS: </span>");
-            sb.append("<span class='words-text'>").append(AmountToWordsConverter.convert(inv.totalAmount())).append("</span>");
+    private void amountInWords(StringBuilder sb, InvoiceResponse inv) {
+        if (!notZero(inv.totalAmount())) {
+            return;
+        }
+        sb.append("<div class='words'><span class='section-label inline'>Amount in Words: </span>");
+        sb.append(esc(AmountToWordsConverter.convert(inv.totalAmount())));
+        sb.append("</div>");
+    }
+
+    private void notesTermsPayment(StringBuilder sb, InvoiceResponse inv, Organisation org,
+                                   String terms, boolean showBankDetails, boolean showSignature,
+                                   String bankName, String bankAccountNo, String bankIfsc, String upiId) {
+        sb.append("<table class='bottom'><tr>");
+        sb.append("<td class='bottom-left'>");
+        if (notBlank(inv.notes())) {
+            sb.append("<div class='block'><div class='section-label'>Notes</div>");
+            sb.append("<div class='block-text'>").append(esc(inv.notes())).append("</div></div>");
+        }
+        if (notBlank(terms)) {
+            sb.append("<div class='block'><div class='section-label'>Terms &amp; Conditions</div>");
+            sb.append("<div class='block-text'>").append(esc(terms)).append("</div></div>");
+        }
+        if (showBankDetails && hasPaymentDetails(bankName, bankAccountNo, bankIfsc, upiId)) {
+            sb.append("<div class='block'><div class='section-label'>Payment Details</div>");
+            appendLabelValue(sb, "block-text", "Bank", bankName);
+            appendLabelValue(sb, "block-text", "Account No.", bankAccountNo);
+            appendLabelValue(sb, "block-text", "IFSC", bankIfsc);
+            appendLabelValue(sb, "block-text", "UPI", upiId);
             sb.append("</div>");
         }
+        sb.append("</td>");
 
-        // ── Notes ─────────────────────────────────────────────────────────────
-        if (inv.notes() != null && !inv.notes().isBlank()) {
-            sb.append("<div class='notes'>");
-            sb.append("<div class='lbl'>NOTES</div>");
-            sb.append("<div class='notes-text'>").append(esc(inv.notes())).append("</div>");
-            sb.append("</div>");
+        sb.append("<td class='signature'>");
+        if (showSignature) {
+            sb.append("<div class='sig-line'></div>");
         }
-
-        // ── Footer ────────────────────────────────────────────────────────────
-        sb.append("<div class='footer'>Powered by Katasticho</div>");
-
-        sb.append("</body></html>");
-        return sb.toString();
+        sb.append("<div class='sig-title'>Authorized Signatory</div>");
+        sb.append("<div class='sig-org'>For ").append(esc(firstNonBlank(org.getName(), "Supplier"))).append("</div>");
+        sb.append("</td>");
+        sb.append("</tr></table>");
     }
 
-    // ── Private helpers ────────────────────────────────────────────────────────
-
-    private void orgAddress(StringBuilder sb, Organisation org) {
-        if (org.getAddressLine1() != null) {
-            sb.append("<div class='org-sub'>").append(esc(org.getAddressLine1()));
-            if (org.getCity() != null) sb.append(", ").append(esc(org.getCity()));
-            if (org.getState() != null) sb.append(", ").append(esc(org.getState()));
-            sb.append("</div>");
+    private Contact loadContact(InvoiceResponse inv) {
+        if (inv.contactId() == null) {
+            return null;
         }
-        if (org.getGstin() != null) {
-            sb.append("<div class='org-sub'>GSTIN: ").append(esc(org.getGstin())).append("</div>");
+        return contactRepository.findById(inv.contactId()).orElse(null);
+    }
+
+    private List<String> orgAddressLines(Organisation org) {
+        List<String> lines = new ArrayList<>();
+        addJoined(lines, ", ", org.getAddressLine1(), org.getAddressLine2());
+        addJoined(lines, ", ", org.getCity(), org.getState(), org.getPostalCode());
+        return lines;
+    }
+
+    private List<String> billingAddressLines(Contact contact) {
+        List<String> lines = new ArrayList<>();
+        if (contact == null) return lines;
+        addJoined(lines, ", ", contact.getBillingAddressLine1(), contact.getBillingAddressLine2());
+        addJoined(lines, ", ", contact.getBillingCity(), contact.getBillingState(), contact.getBillingPostalCode());
+        return lines;
+    }
+
+    private List<String> shippingAddressLines(Contact contact) {
+        List<String> lines = new ArrayList<>();
+        if (contact == null) return lines;
+        addJoined(lines, ", ", contact.getShippingAddressLine1(), contact.getShippingAddressLine2());
+        addJoined(lines, ", ", contact.getShippingCity(), contact.getShippingState(), contact.getShippingPostalCode());
+        return lines;
+    }
+
+    private void addJoined(List<String> lines, String separator, String... values) {
+        List<String> present = new ArrayList<>();
+        for (String value : values) {
+            if (notBlank(value)) {
+                present.add(value.trim());
+            }
         }
-        if (org.getPhone() != null) {
-            sb.append("<div class='org-sub'>").append(esc(org.getPhone())).append("</div>");
-        }
-        if (org.getEmail() != null) {
-            sb.append("<div class='org-sub'>").append(esc(org.getEmail())).append("</div>");
+        if (!present.isEmpty()) {
+            lines.add(String.join(separator, present));
         }
     }
 
-    private void dateLine(StringBuilder sb, String label, String value) {
-        sb.append("<div class='date-row'><span class='date-lbl'>").append(label)
-                .append(":</span> ").append(esc(value)).append("</div>");
+    private void appendLines(StringBuilder sb, String cssClass, List<String> lines) {
+        for (String line : lines) {
+            sb.append("<div class='").append(cssClass).append("'>").append(esc(line)).append("</div>");
+        }
     }
 
-    private void totalRow(StringBuilder sb, String label, String value, boolean bold, boolean red) {
-        String tdStyle = red ? " class='bal-amt'" : "";
-        sb.append("<tr>");
-        sb.append("<td class='totals-lbl'>").append(bold ? "<b>" + label + "</b>" : label).append("</td>");
-        sb.append("<td class='totals-val'").append(tdStyle).append(">")
-                .append(bold ? "<b>" + value + "</b>" : value).append("</td>");
-        sb.append("</tr>");
+    private void appendLabelValue(StringBuilder sb, String cssClass, String label, String value) {
+        if (notBlank(value)) {
+            sb.append("<div class='").append(cssClass).append("'><b>")
+                    .append(esc(label)).append(":</b> ").append(esc(value)).append("</div>");
+        }
     }
 
-    private String css() {
-        return """
-                @page { size: A4; margin: 15mm 15mm 20mm 15mm; }
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { font-family: Arial, Helvetica, sans-serif; font-size: 10px; color: #0F172A; }
-                .hdr td { vertical-align: top; padding-bottom: 10px; }
-                .org-cell { width: 60%; }
-                .org-name { font-size: 17px; font-weight: bold; color: #2563EB; margin-bottom: 4px; }
-                .org-sub { font-size: 9px; color: #64748B; line-height: 1.6; }
-                .inv-title-cell { width: 40%; text-align: right; }
-                .inv-title { font-size: 28px; font-weight: bold; color: #2563EB; letter-spacing: 3px; }
-                .inv-number { font-size: 13px; font-weight: bold; color: #0F172A; margin-top: 2px; }
-                .inv-status { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 8px; font-weight: bold; margin-top: 5px; }
-                .status-draft { background: #F1F5F9; color: #64748B; }
-                .status-sent { background: #DBEAFE; color: #1D4ED8; }
-                .status-paid { background: #D1FAE5; color: #065F46; }
-                .status-overdue { background: #FEE2E2; color: #991B1B; }
-                .status-partially-paid { background: #FEF3C7; color: #92400E; }
-                .status-cancelled { background: #F1F5F9; color: #94A3B8; }
-                .divider { border: none; border-top: 1.5px solid #E2E8F0; margin: 8px 0 12px; }
-                .meta td { vertical-align: top; padding-bottom: 14px; }
-                .bill-to-cell { width: 55%; }
-                .dates-cell { width: 45%; text-align: right; }
-                .lbl { font-size: 7.5px; font-weight: bold; color: #94A3B8; letter-spacing: 1.5px; margin-bottom: 4px; text-transform: uppercase; }
-                .contact-name { font-size: 13px; font-weight: bold; color: #0F172A; }
-                .date-row { font-size: 9px; line-height: 1.9; }
-                .date-lbl { color: #64748B; }
-                .items { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 9.5px; }
-                .items thead tr { background: #2563EB; color: white; }
-                .items thead th { padding: 7px 8px; text-align: right; font-size: 8px; font-weight: bold; letter-spacing: 0.4px; }
-                .th-desc { text-align: left !important; width: 38%; }
-                .th-hsn { text-align: center !important; width: 11%; }
-                .th-num { width: 10%; }
-                .row-odd { background: #F8FAFC; }
-                .row-even { background: #FFFFFF; }
-                .items tbody td { padding: 6px 8px; border-bottom: 1px solid #E2E8F0; }
-                .td-left { text-align: left; }
-                .td-center { text-align: center; color: #64748B; }
-                .td-right { text-align: right; }
-                .totals-outer td { vertical-align: top; padding-top: 4px; }
-                .tax-cell { width: 52%; padding-right: 12px; }
-                .tax-tbl { width: 100%; border-collapse: collapse; font-size: 9px; }
-                .tax-tbl thead tr { background: #F1F5F9; }
-                .tax-th-left { padding: 4px 6px; text-align: left; font-size: 7.5px; }
-                .tax-th-right { padding: 4px 6px; text-align: right; font-size: 7.5px; }
-                .tax-tbl tbody td { padding: 3px 6px; border-bottom: 1px solid #F1F5F9; }
-                .totals-cell { width: 48%; text-align: right; }
-                .totals-tbl { width: 100%; border-collapse: collapse; font-size: 10px; }
-                .totals-lbl { padding: 3px 0; text-align: left; color: #475569; }
-                .totals-val { padding: 3px 0; text-align: right; }
-                .totals-hr { border: none; border-top: 1.5px solid #E2E8F0; margin: 4px 0; }
-                .bal-amt { color: #DC2626; }
-                .words { margin-top: 12px; padding: 6px 10px; background: #F8FAFC; border-radius: 4px; }
-                .words-text { font-size: 9.5px; color: #334155; font-style: italic; }
-                .notes { margin-top: 16px; margin-bottom: 12px; }
-                .notes-text { font-size: 9.5px; color: #475569; line-height: 1.6; margin-top: 4px; }
-                .footer { text-align: center; font-size: 7.5px; color: #CBD5E1; margin-top: 20px; padding-top: 8px; border-top: 1px solid #E2E8F0; }
-                """;
+    private void appendInfoRow(StringBuilder sb, String label, String value) {
+        if (notBlank(value)) {
+            sb.append("<div class='info-row'><span>").append(esc(label)).append("</span><b>")
+                    .append(esc(value)).append("</b></div>");
+        }
     }
 
-    private String statusClass(String status) {
-        return switch (status.toUpperCase()) {
-            case "SENT" -> "status-sent";
-            case "PAID" -> "status-paid";
-            case "OVERDUE" -> "status-overdue";
-            case "PARTIALLY_PAID" -> "status-partially-paid";
-            case "CANCELLED" -> "status-cancelled";
-            default -> "status-draft";
-        };
+    private void metaRow(StringBuilder sb, String label, String value) {
+        if (notBlank(value)) {
+            sb.append("<tr><td>").append(esc(label)).append("</td><td>").append(esc(value)).append("</td></tr>");
+        }
     }
 
-    private boolean notZero(BigDecimal v) {
-        return v != null && v.compareTo(BigDecimal.ZERO) > 0;
+    private void totalRow(StringBuilder sb, String label, String value, boolean bold, boolean highlight) {
+        sb.append("<tr class='").append(bold ? "strong" : "").append(highlight ? " highlight" : "").append("'>");
+        sb.append("<td>").append(esc(label)).append("</td><td>").append(value).append("</td></tr>");
+    }
+
+    private boolean hasPaymentDetails(String bankName, String bankAccountNo, String bankIfsc, String upiId) {
+        return notBlank(bankName)
+                || notBlank(bankAccountNo)
+                || notBlank(bankIfsc)
+                || notBlank(upiId);
+    }
+
+    private String stateWithCode(String state, String code) {
+        if (notBlank(state) && notBlank(code)) return state + " (" + code + ")";
+        return firstNonBlank(state, code);
+    }
+
+    private String taxLabel(InvoiceResponse.LineResponse line) {
+        if (line.gstRate() == null || line.gstRate().compareTo(BigDecimal.ZERO) == 0) {
+            return "-";
+        }
+        return percent(line.gstRate()) + "<br/><span class='item-sub'>" + fmtPlain(line.taxAmount()) + "</span>";
+    }
+
+    private String percentOrDash(BigDecimal v) {
+        if (v == null || v.compareTo(BigDecimal.ZERO) == 0) return "-";
+        return percent(v);
+    }
+
+    private String percent(BigDecimal v) {
+        if (v == null) return "-";
+        return v.stripTrailingZeros().toPlainString() + "%";
     }
 
     private String fmtCurr(BigDecimal v) {
-        if (v == null) return "\u20B90.00";
-        return "\u20B9" + v.setScale(2, RoundingMode.HALF_UP).toPlainString();
+        return "&#8377;" + fmtPlain(v);
     }
 
     private String fmtPlain(BigDecimal v) {
@@ -296,11 +373,103 @@ public class InvoicePdfService {
         return v.stripTrailingZeros().toPlainString();
     }
 
+    private boolean notZero(BigDecimal v) {
+        return v != null && v.compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    private boolean notBlank(String text) {
+        return text != null && !text.isBlank();
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (notBlank(value)) {
+                return value;
+            }
+        }
+        return "";
+    }
+
+    private String label(String text) {
+        if (!notBlank(text)) return "";
+        return text.replace("_", " ");
+    }
+
     private String esc(String text) {
         if (text == null) return "";
         return text.replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;");
+    }
+
+    private String css() {
+        return """
+                @page { size: A4; margin: 14mm 13mm 17mm 13mm; }
+                * { box-sizing: border-box; }
+                body { margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 9.5px; color: #111827; }
+                table { border-collapse: collapse; width: 100%; }
+                .header { margin-bottom: 12px; border-bottom: 2px solid #111827; }
+                .header td { vertical-align: top; padding-bottom: 10px; }
+                .org { width: 58%; padding-right: 16px; }
+                .logo { max-width: 90px; max-height: 48px; margin-bottom: 6px; }
+                .org-name { font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 5px; }
+                .org-line, .party-line, .block-text { color: #4B5563; line-height: 1.45; }
+                .doc-box { width: 42%; text-align: right; }
+                .doc-title { font-size: 26px; font-weight: 800; letter-spacing: 1.2px; color: #0F766E; }
+                .doc-subtitle { color: #6B7280; margin: 2px 0 8px; }
+                .doc-meta { margin-left: auto; width: 76%; font-size: 9px; }
+                .doc-meta td { padding: 2px 0; border-bottom: 1px solid #E5E7EB; }
+                .doc-meta td:first-child { color: #6B7280; text-align: left; }
+                .doc-meta td:last-child { font-weight: 700; text-align: right; }
+                .parties { margin-bottom: 12px; }
+                .party-card, .supply-card { width: 33.33%; vertical-align: top; border: 1px solid #E5E7EB; padding: 9px; }
+                .party-card + .party-card, .supply-card { border-left: none; }
+                .section-label { font-size: 7.5px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #0F766E; margin-bottom: 5px; }
+                .section-label.inline { display: inline; margin-right: 4px; }
+                .party-name { font-size: 12px; font-weight: 700; margin-bottom: 5px; }
+                .muted, .item-sub { color: #6B7280; font-size: 8.5px; }
+                .info-row { display: table; width: 100%; line-height: 1.55; color: #4B5563; }
+                .info-row span { display: table-cell; width: 48%; }
+                .info-row b { display: table-cell; text-align: right; color: #111827; }
+                .items { margin-top: 4px; margin-bottom: 12px; border: 1px solid #D1D5DB; }
+                .items th { background: #111827; color: #FFFFFF; padding: 7px 6px; font-size: 8px; font-weight: 700; text-align: right; }
+                .items td { padding: 7px 6px; border-top: 1px solid #E5E7EB; vertical-align: top; }
+                .items tbody tr:nth-child(even) { background: #F9FAFB; }
+                .c-num { width: 4%; text-align: center !important; }
+                .c-desc { width: 31%; text-align: left !important; }
+                .c-hsn { width: 9%; text-align: center !important; }
+                .c-qty { width: 7%; }
+                .c-rate { width: 10%; }
+                .c-disc { width: 8%; }
+                .c-taxable { width: 11%; }
+                .c-tax { width: 9%; }
+                .c-total { width: 11%; }
+                .num, .center { text-align: center; }
+                .right { text-align: right; }
+                .desc { text-align: left; }
+                .item-name { font-weight: 700; color: #111827; }
+                .amount { font-weight: 700; }
+                .summary { margin-top: 6px; margin-bottom: 10px; }
+                .tax-summary { width: 58%; vertical-align: top; padding-right: 16px; }
+                .tax-table th { background: #F3F4F6; color: #374151; padding: 5px 6px; font-size: 8px; text-align: left; border: 1px solid #E5E7EB; }
+                .tax-table td { padding: 5px 6px; border: 1px solid #E5E7EB; color: #374151; }
+                .total-box { width: 42%; vertical-align: top; }
+                .total-table { border: 1px solid #D1D5DB; }
+                .total-table td { padding: 7px 9px; border-bottom: 1px solid #E5E7EB; }
+                .total-table td:first-child { color: #4B5563; }
+                .total-table td:last-child { text-align: right; font-weight: 700; }
+                .total-table tr.strong td { font-size: 11px; color: #111827; }
+                .total-table tr.highlight td { background: #ECFDF5; color: #065F46; }
+                .words { margin: 10px 0 12px; padding: 8px 10px; background: #F9FAFB; border: 1px solid #E5E7EB; color: #374151; }
+                .bottom td { vertical-align: bottom; }
+                .bottom-left { width: 62%; padding-right: 18px; }
+                .block { margin-top: 10px; }
+                .signature { width: 38%; text-align: center; border: 1px solid #E5E7EB; padding: 28px 10px 10px; }
+                .sig-line { border-top: 1px solid #111827; margin: 0 20px 8px; }
+                .sig-title { font-weight: 700; margin-top: 22px; }
+                .sig-org { color: #6B7280; margin-top: 3px; }
+                .footer { margin-top: 14px; padding-top: 7px; border-top: 1px solid #E5E7EB; text-align: center; font-size: 7.5px; color: #9CA3AF; }
+                """;
     }
 }

@@ -1,7 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
@@ -17,7 +15,6 @@ import '../../contacts/presentation/contact_picker_sheet.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../pricing/data/price_list_repository.dart';
-import '../../tax_groups/data/tax_group_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/invoice_repository.dart';
 
@@ -44,19 +41,35 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
   Map<String, dynamic>? _selectedCustomer;
 
   Future<void> _openCustomerPicker() async {
-    final picked = await showContactPicker(context);
+    final picked = await showContactPicker(context, showQuickCreate: true);
     if (picked == null || !mounted) return;
     setState(() {
       _selectedCustomer = picked;
       _selectedContactId = picked['id']?.toString();
-      _contactName = picked['displayName'] as String? ??
-          picked['companyName'] as String? ??
-          'Unknown';
+      _contactName = _contactDisplayName(picked);
       _contactGstin = picked['gstin'] as String?;
       _contactPhone = picked['phone'] as String? ??
           picked['mobile'] as String?;
       _errorMessage = null;
     });
+  }
+
+  String _contactDisplayName(Map<String, dynamic> contact) {
+    for (final key in const [
+      'displayName',
+      'companyName',
+      'name',
+      'fullName',
+      'contactName',
+    ]) {
+      final value = contact[key]?.toString().trim();
+      if (value != null && value.isNotEmpty) return value;
+    }
+    final first = contact['firstName']?.toString().trim() ?? '';
+    final last = contact['lastName']?.toString().trim() ?? '';
+    final full = [first, last].where((s) => s.isNotEmpty).join(' ');
+    if (full.isNotEmpty) return full;
+    return 'Customer';
   }
 
   String _customerSubtitle() {

@@ -612,6 +612,7 @@ class SalesCycleTest {
                 false,
                 null,
                 null,
+                null,
                 List.of(),
                 List.of(),
                 Instant.now());

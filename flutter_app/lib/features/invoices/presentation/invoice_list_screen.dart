@@ -5,6 +5,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
@@ -71,7 +72,11 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error));
+        SnackBar(
+          content: Text(ApiErrorParser.message(e)),
+          backgroundColor: KColors.error,
+        ),
+      );
     }
   }
 
@@ -112,7 +117,11 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error));
+        SnackBar(
+          content: Text(ApiErrorParser.message(e)),
+          backgroundColor: KColors.error,
+        ),
+      );
     }
   }
 

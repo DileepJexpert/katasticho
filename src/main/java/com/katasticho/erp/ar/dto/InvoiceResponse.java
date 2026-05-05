@@ -24,6 +24,7 @@ public record InvoiceResponse(
         boolean reverseCharge,
         UUID journalEntryId,
         String notes,
+        String termsAndConditions,
         List<LineResponse> lines,
         List<TaxLineResponse> taxLines,
         Instant createdAt
