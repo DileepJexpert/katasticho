@@ -40,4 +40,15 @@ public class OperationalReportController {
             reportService.getJournalRegister(startDate, endDate, sourceModule, pageNo, pageSize)
         ));
     }
+
+    @GetMapping("/sales-register")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<SalesRegisterReport>> getSalesRegister(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) String documentType) {
+        return ResponseEntity.ok(ApiResponse.ok(
+            reportService.getSalesRegister(startDate, endDate, documentType)
+        ));
+    }
 }

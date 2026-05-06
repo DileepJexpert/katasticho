@@ -139,6 +139,116 @@ public class OperationalReportService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public SalesRegisterReport getSalesRegister(LocalDate startDate, LocalDate endDate, String documentType) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        String query = """
+            SELECT
+              'INVOICE' as document_type,
+              i.invoice_number as document_number,
+              i.invoice_date as document_date,
+              c.display_name as customer_name,
+              il.description as item_description,
+              il.hsn_code,
+              il.quantity,
+              it.name as unit,
+              il.unit_price,
+              il.taxable_amount,
+              COALESCE(tli_cgst.tax_amount, 0) as cgst_amount,
+              COALESCE(tli_sgst.tax_amount, 0) as sgst_amount,
+              COALESCE(tli_igst.tax_amount, 0) as igst_amount,
+              il.line_total as total_amount,
+              CASE WHEN tli_cgst.rate IS NOT NULL THEN tli_cgst.rate * 2 ELSE 0 END as gst_rate,
+              i.place_of_supply
+            FROM invoice i
+            JOIN contact c ON i.contact_id = c.id
+            JOIN invoice_line il ON i.id = il.invoice_id
+            LEFT JOIN item it ON il.item_id = it.id
+            LEFT JOIN tax_line_item tli_cgst ON i.id = tli_cgst.source_id
+              AND tli_cgst.source_type='INVOICE' AND tli_cgst.component_code LIKE '%CGST%'
+            LEFT JOIN tax_line_item tli_sgst ON i.id = tli_sgst.source_id
+              AND tli_sgst.source_type='INVOICE' AND tli_sgst.component_code LIKE '%SGST%'
+            LEFT JOIN tax_line_item tli_igst ON i.id = tli_igst.source_id
+              AND tli_igst.source_type='INVOICE' AND tli_igst.component_code LIKE '%IGST%'
+            WHERE i.org_id = ? AND i.invoice_date BETWEEN ? AND ? AND i.status = 'SENT'
+              AND (? IS NULL OR 'INVOICE' = ?)
+
+            UNION ALL
+
+            SELECT
+              'POS' as document_type,
+              sr.receipt_number as document_number,
+              sr.receipt_date as document_date,
+              COALESCE(c.display_name, 'Walk-in Customer') as customer_name,
+              srl.description as item_description,
+              srl.hsn_code,
+              srl.quantity,
+              srl.unit,
+              srl.rate,
+              srl.amount - (sr.cgst + sr.sgst + sr.igst) / (SELECT COUNT(*) FROM sales_receipt_line WHERE receipt_id = sr.id) as taxable_amount,
+              sr.cgst / (SELECT COUNT(*) FROM sales_receipt_line WHERE receipt_id = sr.id) as cgst_amount,
+              sr.sgst / (SELECT COUNT(*) FROM sales_receipt_line WHERE receipt_id = sr.id) as sgst_amount,
+              sr.igst / (SELECT COUNT(*) FROM sales_receipt_line WHERE receipt_id = sr.id) as igst_amount,
+              srl.amount as total_amount,
+              (sr.cgst + sr.sgst) * 200 / srl.amount as gst_rate,
+              org.state_code as place_of_supply
+            FROM sales_receipt sr
+            LEFT JOIN contact c ON sr.contact_id = c.id
+            JOIN sales_receipt_line srl ON sr.id = srl.receipt_id
+            JOIN organisation org ON sr.org_id = org.id
+            WHERE sr.org_id = ? AND sr.receipt_date BETWEEN ? AND ?
+              AND (? IS NULL OR 'POS' = ?)
+
+            ORDER BY document_date, document_number
+            """;
+
+        List<SalesRegisterReport.Line> lines = jdbcTemplate.query(query,
+            (rs, rowNum) -> new SalesRegisterReport.Line(
+                rs.getString("document_type"),
+                rs.getString("document_number"),
+                rs.getObject("document_date", LocalDate.class),
+                rs.getString("customer_name"),
+                rs.getString("item_description"),
+                rs.getString("hsn_code"),
+                rs.getBigDecimal("quantity"),
+                rs.getString("unit"),
+                rs.getBigDecimal("unit_price"),
+                rs.getBigDecimal("taxable_amount"),
+                rs.getBigDecimal("cgst_amount"),
+                rs.getBigDecimal("sgst_amount"),
+                rs.getBigDecimal("igst_amount"),
+                rs.getBigDecimal("total_amount"),
+                rs.getBigDecimal("gst_rate"),
+                rs.getString("place_of_supply")
+            ),
+            orgId, startDate, endDate, documentType, documentType,
+            orgId, startDate, endDate, documentType, documentType
+        );
+
+        BigDecimal totalTaxable = lines.stream()
+            .map(SalesRegisterReport.Line::taxableAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCgst = lines.stream()
+            .map(SalesRegisterReport.Line::cgstAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalSgst = lines.stream()
+            .map(SalesRegisterReport.Line::sgstAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalIgst = lines.stream()
+            .map(SalesRegisterReport.Line::igstAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal grandTotal = lines.stream()
+            .map(SalesRegisterReport.Line::totalAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new SalesRegisterReport(
+            startDate, endDate,
+            totalTaxable, totalCgst, totalSgst, totalIgst, grandTotal,
+            lines
+        );
+    }
+
     private BigDecimal nullSafe(BigDecimal value) {
         return value != null ? value : BigDecimal.ZERO;
     }
