@@ -184,6 +184,12 @@ public class SalesReceiptService {
                         .setScale(4, RoundingMode.HALF_UP);
             }
 
+            Item lineItem = lineReq.itemId() != null ? itemMap.get(lineReq.itemId()) : null;
+            BigDecimal mrp = lineItem != null ? lineItem.getMrp() : null;
+            BigDecimal discountPerUnit = calculateDiscountPerUnit(mrp, lineReq.rate());
+            BigDecimal discountAmount = discountPerUnit.multiply(lineReq.quantity())
+                    .setScale(2, RoundingMode.HALF_UP);
+
             SalesReceiptLine line = SalesReceiptLine.builder()
                     .lineNumber(i + 1)
                     .itemId(lineReq.itemId())
@@ -193,6 +199,9 @@ public class SalesReceiptService {
                     .quantity(lineReq.quantity())
                     .unit(lineReq.unit())
                     .rate(lineReq.rate())
+                    .mrp(mrp)
+                    .discountPerUnit(discountPerUnit)
+                    .discountAmount(discountAmount)
                     .taxGroupId(taxGroupId)
                     .hsnCode(lineReq.hsnCode())
                     .amount(lineAmount)
@@ -484,6 +493,19 @@ public class SalesReceiptService {
         List<SalesReceiptResponse.LineResponse> lineResponses = receipt.getLines().stream()
                 .map(l -> {
                     Item item = l.getItemId() != null ? itemMap.get(l.getItemId()) : null;
+                    BigDecimal mrp = l.getMrp() != null ? l.getMrp()
+                            : (item != null ? item.getMrp() : null);
+                    BigDecimal derivedDiscountPerUnit = calculateDiscountPerUnit(mrp, l.getRate());
+                    boolean legacyLineWithoutSnapshot = l.getMrp() == null
+                            && derivedDiscountPerUnit.compareTo(BigDecimal.ZERO) > 0;
+                    BigDecimal discountPerUnit = l.getDiscountPerUnit() != null && !legacyLineWithoutSnapshot
+                            ? l.getDiscountPerUnit()
+                            : derivedDiscountPerUnit;
+                    BigDecimal derivedDiscountAmount = discountPerUnit.multiply(l.getQuantity())
+                            .setScale(2, RoundingMode.HALF_UP);
+                    BigDecimal discountAmount = l.getDiscountAmount() != null && !legacyLineWithoutSnapshot
+                            ? l.getDiscountAmount()
+                            : derivedDiscountAmount;
                     return new SalesReceiptResponse.LineResponse(
                             l.getId(),
                             l.getLineNumber(),
@@ -493,7 +515,10 @@ public class SalesReceiptService {
                             l.getDescription(),
                             l.getQuantity(),
                             l.getUnit(),
+                            mrp,
                             l.getRate(),
+                            discountPerUnit,
+                            discountAmount,
                             l.getTaxGroupId(),
                             l.getHsnCode(),
                             l.getAmount(),
@@ -523,5 +548,12 @@ public class SalesReceiptService {
                 receipt.getJournalEntryId(),
                 receipt.getCreatedAt(),
                 lineResponses);
+    }
+
+    private BigDecimal calculateDiscountPerUnit(BigDecimal mrp, BigDecimal rate) {
+        if (mrp == null || rate == null || mrp.compareTo(rate) <= 0) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        return mrp.subtract(rate).setScale(2, RoundingMode.HALF_UP);
     }
 }

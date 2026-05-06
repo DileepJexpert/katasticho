@@ -12,7 +12,12 @@ class ReportsHubScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    final crossAxisCount = width >= KSpacing.desktopBreakpoint ? 3 : 2;
+    final crossAxisCount = width >= KSpacing.desktopBreakpoint
+        ? 3
+        : width >= KSpacing.mobileBreakpoint
+            ? 2
+            : 1;
+    final tileAspectRatio = width >= KSpacing.mobileBreakpoint ? 1.55 : 2.9;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Reports')),
@@ -30,7 +35,7 @@ class ReportsHubScreen extends StatelessWidget {
               crossAxisCount: crossAxisCount,
               crossAxisSpacing: KSpacing.md,
               mainAxisSpacing: KSpacing.md,
-              childAspectRatio: 1.4,
+              childAspectRatio: tileAspectRatio,
               children: [
                 _ReportTile(
                   icon: Icons.balance,
@@ -73,7 +78,7 @@ class ReportsHubScreen extends StatelessWidget {
               crossAxisCount: crossAxisCount,
               crossAxisSpacing: KSpacing.md,
               mainAxisSpacing: KSpacing.md,
-              childAspectRatio: 1.4,
+              childAspectRatio: tileAspectRatio,
               children: [
                 _ReportTile(
                   icon: Icons.timelapse,
@@ -102,7 +107,7 @@ class ReportsHubScreen extends StatelessWidget {
               crossAxisCount: crossAxisCount,
               crossAxisSpacing: KSpacing.md,
               mainAxisSpacing: KSpacing.md,
-              childAspectRatio: 1.4,
+              childAspectRatio: tileAspectRatio,
               children: [
                 _ReportTile(
                   icon: Icons.timelapse,

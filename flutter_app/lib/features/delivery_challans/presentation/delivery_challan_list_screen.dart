@@ -6,7 +6,6 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/date_formatter.dart';
-import '../../../routing/app_router.dart';
 import '../data/delivery_challan_providers.dart';
 import '../data/delivery_challan_repository.dart';
 
@@ -171,24 +170,29 @@ class _DeliveryChallanListScreenState
                   );
                 }
 
-                return RefreshIndicator(
+                final challanMaps = challans
+                    .whereType<Map>()
+                    .map((challan) => challan.cast<String, dynamic>())
+                    .toList();
+
+                return KResponsiveEntityList<Map<String, dynamic>>(
+                  items: challanMaps,
                   onRefresh: () async =>
                       ref.invalidate(deliveryChallanListProvider),
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: challans.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) {
-                      final challan =
-                          challans[index] as Map<String, dynamic>;
-                      final id = challan['id']?.toString() ?? '';
-                      return _DeliveryChallanCard(
-                        challan: challan,
-                        selected: _selectedIds.contains(id),
-                        inSelection: inSelection,
-                        onToggleSelect: () => _toggleSelect(id),
-                      );
-                    },
+                  mobileItemBuilder: (context, challan) {
+                    final id = challan['id']?.toString() ?? '';
+                    return _DeliveryChallanCard(
+                      challan: challan,
+                      selected: _selectedIds.contains(id),
+                      inSelection: inSelection,
+                      onToggleSelect: () => _toggleSelect(id),
+                    );
+                  },
+                  tableBuilder: (context) => _DeliveryChallanTable(
+                    challans: challanMaps,
+                    selectedIds: _selectedIds,
+                    inSelection: inSelection,
+                    onToggleSelect: _toggleSelect,
                   ),
                 );
               },
@@ -203,6 +207,79 @@ class _DeliveryChallanListScreenState
               icon: const Icon(Icons.add),
               label: const Text('New Challan'),
             ),
+    );
+  }
+}
+
+class _DeliveryChallanTable extends StatelessWidget {
+  final List<Map<String, dynamic>> challans;
+  final Set<String> selectedIds;
+  final bool inSelection;
+  final ValueChanged<String> onToggleSelect;
+
+  const _DeliveryChallanTable({
+    required this.challans,
+    required this.selectedIds,
+    required this.inSelection,
+    required this.onToggleSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return KEntityDataTable(
+      columnSpacing: 18,
+      horizontalMargin: 12,
+      columns: const [
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+        DataColumn(label: Text('Challan')),
+        DataColumn(label: Text('Customer')),
+        DataColumn(label: Text('Date')),
+        DataColumn(label: Text('Sales Order')),
+        DataColumn(label: Text('Vehicle')),
+        DataColumn(label: Text('Status')),
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+      ],
+      rows: challans.map((challan) {
+        final id = challan['id']?.toString() ?? '';
+        final challanNumber = challan['challanNumber']?.toString() ?? '--';
+        final customerName = challan['contactName']?.toString() ?? 'Unknown';
+        final challanDate = challan['challanDate']?.toString();
+        final salesOrderNumber =
+            challan['salesOrderNumber']?.toString() ?? '--';
+        final vehicleNumber = challan['vehicleNumber']?.toString() ?? '--';
+        final status = challan['status']?.toString() ?? 'DRAFT';
+        final selected = selectedIds.contains(id);
+
+        return DataRow(
+          color: kEntityRowColor(context, selected: selected),
+          onSelectChanged: (_) {
+            if (id.isEmpty) return;
+            if (inSelection) {
+              onToggleSelect(id);
+            } else {
+              context.push('/delivery-challans/$id');
+            }
+          },
+          cells: [
+            DataCell(KTableSelectionCell(
+              selected: selected,
+              onChanged: id.isEmpty ? null : (_) => onToggleSelect(id),
+            )),
+            DataCell(KTablePrimaryTextCell(value: challanNumber, width: 155)),
+            DataCell(KTableTextCell(value: customerName, width: 190)),
+            DataCell(KTableDateCell(value: challanDate)),
+            DataCell(KTableTextCell(value: salesOrderNumber, width: 140)),
+            DataCell(KTableTextCell(value: vehicleNumber, width: 120)),
+            DataCell(KTableStatusCell(status: status)),
+            DataCell(KTableOpenActionCell(
+              tooltip: 'Open delivery challan',
+              onPressed: id.isEmpty
+                  ? null
+                  : () => context.push('/delivery-challans/$id'),
+            )),
+          ],
+        );
+      }).toList(),
     );
   }
 }

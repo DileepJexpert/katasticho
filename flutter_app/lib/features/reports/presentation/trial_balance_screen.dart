@@ -55,26 +55,34 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
           Container(
             color: KColors.surface,
             padding: const EdgeInsets.all(KSpacing.md),
-            child: Row(
-              children: [
-                Expanded(
-                  child: KDatePicker(
-                    label: 'As of Date',
-                    value: _asOfDate,
-                    onChanged: (d) {
-                      _asOfDate = d;
-                      _loadReport();
-                    },
-                  ),
-                ),
-                KSpacing.hGapMd,
-                KButton(
-                  label: 'Generate',
-                  icon: Icons.refresh,
-                  size: KButtonSize.small,
-                  onPressed: _loadReport,
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < KSpacing.mobileBreakpoint;
+                return Wrap(
+                  spacing: KSpacing.md,
+                  runSpacing: KSpacing.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: narrow ? constraints.maxWidth : 320,
+                      child: KDatePicker(
+                        label: 'As of Date',
+                        value: _asOfDate,
+                        onChanged: (d) {
+                          _asOfDate = d;
+                          _loadReport();
+                        },
+                      ),
+                    ),
+                    KButton(
+                      label: 'Generate',
+                      icon: Icons.refresh,
+                      size: KButtonSize.small,
+                      onPressed: _loadReport,
+                    ),
+                  ],
+                );
+              },
             ),
           ),
           const Divider(height: 1),
@@ -103,38 +111,72 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
     final totalDebit = (_report!['totalDebit'] as num?)?.toDouble() ?? 0;
     final totalCredit = (_report!['totalCredit'] as num?)?.toDouble() ?? 0;
     final isBalanced = _report!['isBalanced'] as bool? ?? false;
+    final difference = (totalDebit - totalCredit).abs();
 
     return Column(
       children: [
-        // Balance indicator
-        Container(
-          margin: const EdgeInsets.all(KSpacing.md),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isBalanced ? KColors.successLight : KColors.errorLight,
-            borderRadius: KSpacing.borderRadiusMd,
-          ),
-          child: Row(
-            children: [
-              Icon(
-                isBalanced ? Icons.check_circle : Icons.warning,
-                color: isBalanced ? KColors.success : KColors.error,
-                size: 20,
-              ),
-              KSpacing.hGapSm,
-              Text(
-                isBalanced
-                    ? 'Trial Balance is balanced'
-                    : 'Trial Balance is NOT balanced!',
-                style: KTypography.labelLarge.copyWith(
-                  color: isBalanced ? KColors.success : KColors.error,
-                ),
-              ),
-            ],
+        Padding(
+          padding: const EdgeInsets.all(KSpacing.md),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < KSpacing.tabletBreakpoint;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isBalanced ? KColors.successLight : KColors.errorLight,
+                      borderRadius: KSpacing.borderRadiusMd,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isBalanced ? Icons.check_circle : Icons.warning,
+                          color: isBalanced ? KColors.success : KColors.error,
+                          size: 20,
+                        ),
+                        KSpacing.hGapSm,
+                        Expanded(
+                          child: Text(
+                            isBalanced
+                                ? 'Balanced as of ${DateFormatter.display(_asOfDate)}'
+                                : 'Out of balance by ${CurrencyFormatter.formatIndian(difference)}',
+                            style: KTypography.labelLarge.copyWith(
+                              color: isBalanced ? KColors.success : KColors.error,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  KSpacing.vGapSm,
+                  if (narrow)
+                    Column(
+                      children: [
+                        _SummaryTile(label: 'Debit', amount: totalDebit),
+                        KSpacing.vGapSm,
+                        _SummaryTile(label: 'Credit', amount: totalCredit),
+                        KSpacing.vGapSm,
+                        _SummaryTile(label: 'Difference', amount: difference),
+                      ],
+                    )
+                  else
+                    Row(
+                      children: [
+                        Expanded(child: _SummaryTile(label: 'Debit', amount: totalDebit)),
+                        KSpacing.hGapSm,
+                        Expanded(child: _SummaryTile(label: 'Credit', amount: totalCredit)),
+                        KSpacing.hGapSm,
+                        Expanded(child: _SummaryTile(label: 'Difference', amount: difference)),
+                      ],
+                    ),
+                ],
+              );
+            },
           ),
         ),
 
-        // Table
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: KSpacing.md),
@@ -151,8 +193,14 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
                   return [
                     Text(l['accountCode'] as String? ?? '',
                         style: KTypography.bodySmall),
-                    Text(l['accountName'] as String? ?? '',
-                        style: KTypography.bodyMedium),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 220, maxWidth: 360),
+                      child: Text(
+                        l['accountName'] as String? ?? '',
+                        style: KTypography.bodyMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     Text(
                       CurrencyFormatter.formatIndian(
                           (l['debit'] as num?)?.toDouble() ?? 0),
@@ -165,7 +213,6 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
                     ),
                   ];
                 }),
-                // Totals row
                 [
                   Text('', style: KTypography.labelLarge),
                   Text('TOTAL', style: KTypography.labelLarge),
@@ -183,6 +230,43 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SummaryTile extends StatelessWidget {
+  final String label;
+  final double amount;
+
+  const _SummaryTile({
+    required this.label,
+    required this.amount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest
+            .withValues(alpha: 0.45),
+        borderRadius: KSpacing.borderRadiusMd,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: KTypography.bodySmall),
+          Flexible(
+            child: Text(
+              CurrencyFormatter.formatIndian(amount),
+              style: KTypography.amountSmall,
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

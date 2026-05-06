@@ -165,9 +165,21 @@ public class InvoiceService {
             // Calculate line amounts
             BigDecimal grossAmount = lineReq.quantity().multiply(effectiveUnitPrice)
                     .setScale(2, RoundingMode.HALF_UP);
+            if (grossAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException(
+                        "Invoice line amount must be greater than zero for: " + lineReq.description(),
+                        "AR_INVOICE_LINE_AMOUNT_NOT_POSITIVE",
+                        HttpStatus.BAD_REQUEST);
+            }
             BigDecimal discountAmt = grossAmount.multiply(lineReq.discountPercent())
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             BigDecimal taxableAmount = grossAmount.subtract(discountAmt);
+            if (taxableAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException(
+                        "Invoice line taxable amount must be greater than zero for: " + lineReq.description(),
+                        "AR_INVOICE_LINE_AMOUNT_NOT_POSITIVE",
+                        HttpStatus.BAD_REQUEST);
+            }
 
             // Resolve tax group: prefer explicit taxGroupId, else resolve from legacy gstRate
             UUID lineTaxGroupId = lineReq.taxGroupId();
@@ -233,6 +245,12 @@ public class InvoiceService {
         }
 
         BigDecimal totalAmount = totalSubtotal.add(totalTax);
+        if (totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(
+                    "Invoice total must be greater than zero",
+                    "AR_INVOICE_TOTAL_NOT_POSITIVE",
+                    HttpStatus.BAD_REQUEST);
+        }
         invoice.setSubtotal(totalSubtotal.setScale(2, RoundingMode.HALF_UP));
         invoice.setTaxAmount(totalTax.setScale(2, RoundingMode.HALF_UP));
         invoice.setTotalAmount(totalAmount.setScale(2, RoundingMode.HALF_UP));

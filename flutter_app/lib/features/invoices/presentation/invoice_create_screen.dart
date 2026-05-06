@@ -90,7 +90,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
   String _notes = '';
 
   double get _subtotal =>
-      _lineItems.fold(0, (sum, line) => sum + line.lineTotal);
+      _lineItems.fold(0, (sum, line) => sum + line.taxableAmount);
 
   double get _totalTax =>
       _lineItems.fold(0, (sum, line) => sum + line.taxAmount);
@@ -98,6 +98,21 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
   double get _grandTotal => _subtotal + _totalTax;
 
   Future<void> _handleSubmit() async {
+    if (!_formKey.currentState!.validate()) {
+      setState(() {
+        _currentStep = 1;
+        _errorMessage = 'Please fix the highlighted fields.';
+      });
+      return;
+    }
+    if (_grandTotal <= 0) {
+      setState(() {
+        _currentStep = 1;
+        _errorMessage = 'Invoice total must be greater than zero.';
+      });
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -646,6 +661,8 @@ class _LineItem {
   double gstRate = 0;
   bool weightBasedBilling = false;
   String weightUnit = 'KG';
+  double? availableStock;
+  double? selectedBatchAvailable;
 
   /// True if the linked item has `trackBatches = true`. When set, the
   /// line MUST carry [batchId] before the invoice can be sent — the
@@ -664,6 +681,8 @@ class _LineItem {
   /// Display hint — `yyyy-MM-dd` string from the API. Used to colour
   /// the expiry chip urgently when it's near.
   String? batchExpiry;
+
+  double? get maxSellQuantity => selectedBatchAvailable ?? availableStock;
 
   double get taxableAmount => quantity * unitPrice;
   double get taxAmount => taxableAmount * gstRate / 100;
@@ -719,6 +738,9 @@ class _LineItemCardState extends State<_LineItemCard> {
       widget.item.description = picked['name']?.toString() ?? '';
       widget.item.hsnCode = picked['hsnCode']?.toString() ?? '';
       widget.item.unitPrice = (picked['salePrice'] as num?)?.toDouble() ?? 0;
+      widget.item.availableStock =
+          (picked['currentStock'] as num?)?.toDouble() ??
+              (picked['quantityOnHand'] as num?)?.toDouble();
       final pickedTaxGroupId = picked['defaultTaxGroupId']?.toString();
       if (pickedTaxGroupId != null) {
         widget.item.taxGroupId = pickedTaxGroupId;
@@ -737,6 +759,7 @@ class _LineItemCardState extends State<_LineItemCard> {
       widget.item.batchId = null;
       widget.item.batchNumber = null;
       widget.item.batchExpiry = null;
+      widget.item.selectedBatchAvailable = null;
       _descCtl.text = widget.item.description;
       _hsnCtl.text = widget.item.hsnCode;
       _priceCtl.text = widget.item.unitPrice.toString();
@@ -765,6 +788,8 @@ class _LineItemCardState extends State<_LineItemCard> {
       widget.item.batchId = picked['id']?.toString();
       widget.item.batchNumber = picked['batchNumber']?.toString();
       widget.item.batchExpiry = picked['expiryDate']?.toString();
+      widget.item.selectedBatchAvailable =
+          (picked['quantityAvailable'] as num?)?.toDouble();
     });
     widget.onChanged();
   }
@@ -774,6 +799,7 @@ class _LineItemCardState extends State<_LineItemCard> {
       widget.item.batchId = null;
       widget.item.batchNumber = null;
       widget.item.batchExpiry = null;
+      widget.item.selectedBatchAvailable = null;
     });
     widget.onChanged();
   }
@@ -786,6 +812,8 @@ class _LineItemCardState extends State<_LineItemCard> {
       widget.item.batchId = null;
       widget.item.batchNumber = null;
       widget.item.batchExpiry = null;
+      widget.item.availableStock = null;
+      widget.item.selectedBatchAvailable = null;
     });
     widget.onChanged();
   }
@@ -896,6 +924,12 @@ class _LineItemCardState extends State<_LineItemCard> {
     return KColors.textSecondary;
   }
 
+  String _fmtQty(double qty) {
+    return qty == qty.roundToDouble()
+        ? qty.toInt().toString()
+        : qty.toStringAsFixed(2);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLinked = widget.item.itemId != null;
@@ -954,6 +988,20 @@ class _LineItemCardState extends State<_LineItemCard> {
             KSpacing.vGapSm,
             _buildBatchRow(),
           ],
+          if (widget.item.maxSellQuantity != null) ...[
+            KSpacing.vGapXs,
+            Text(
+              '${_fmtQty(widget.item.maxSellQuantity!)} available',
+              style: KTypography.labelSmall.copyWith(
+                color: widget.item.quantity > widget.item.maxSellQuantity!
+                    ? KColors.error
+                    : KColors.textSecondary,
+                fontWeight: widget.item.quantity > widget.item.maxSellQuantity!
+                    ? FontWeight.w700
+                    : null,
+              ),
+            ),
+          ],
           KSpacing.vGapXs,
           KTextField(
             label: 'Description',
@@ -983,6 +1031,18 @@ class _LineItemCardState extends State<_LineItemCard> {
                           keyboardType:
                               const TextInputType.numberWithOptions(
                                   decimal: true),
+                          validator: (v) {
+                            final weight = double.tryParse(v ?? '') ?? 0;
+                            if (weight <= 0) return 'Weight must be positive';
+                            final qty = widget.item.weightUnit == 'GM'
+                                ? weight / 1000
+                                : weight;
+                            final max = widget.item.maxSellQuantity;
+                            if (max != null && qty > max) {
+                              return 'Only ${_fmtQty(max)} KG available';
+                            }
+                            return null;
+                          },
                           onChanged: (v) {
                             final raw = double.tryParse(v) ?? 0;
                             widget.item.quantity =
@@ -1032,6 +1092,15 @@ class _LineItemCardState extends State<_LineItemCard> {
                     keyboardType:
                         const TextInputType.numberWithOptions(
                             decimal: true),
+                    validator: (v) {
+                      final qty = double.tryParse(v ?? '') ?? 0;
+                      if (qty <= 0) return 'Quantity must be positive';
+                      final max = widget.item.maxSellQuantity;
+                      if (max != null && qty > max) {
+                        return 'Only ${_fmtQty(max)} available';
+                      }
+                      return null;
+                    },
                     onChanged: (v) {
                       widget.item.quantity = double.tryParse(v) ?? 1;
                       widget.onChanged();
@@ -1042,6 +1111,11 @@ class _LineItemCardState extends State<_LineItemCard> {
                   ? 'Rate/kg'
                   : 'Price',
               controller: _priceCtl,
+              validator: (v) {
+                final price = double.tryParse(v ?? '') ?? 0;
+                if (price <= 0) return 'Price must be positive';
+                return null;
+              },
               onChanged: (v) {
                 widget.item.unitPrice = double.tryParse(v) ?? 0;
                 widget.onChanged();

@@ -56,30 +56,41 @@ class _ProfitLossScreenState extends ConsumerState<ProfitLossScreen> {
           Container(
             color: KColors.surface,
             padding: const EdgeInsets.all(KSpacing.md),
-            child: Row(
-              children: [
-                Expanded(
-                  child: KDatePicker(
-                    label: 'From',
-                    value: _startDate,
-                    onChanged: (d) {
-                      _startDate = d;
-                      _loadReport();
-                    },
-                  ),
-                ),
-                KSpacing.hGapSm,
-                Expanded(
-                  child: KDatePicker(
-                    label: 'To',
-                    value: _endDate,
-                    onChanged: (d) {
-                      _endDate = d;
-                      _loadReport();
-                    },
-                  ),
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < KSpacing.mobileBreakpoint;
+                final fieldWidth = narrow
+                    ? constraints.maxWidth
+                    : (constraints.maxWidth - KSpacing.sm) / 2;
+                return Wrap(
+                  spacing: KSpacing.sm,
+                  runSpacing: KSpacing.sm,
+                  children: [
+                    SizedBox(
+                      width: fieldWidth,
+                      child: KDatePicker(
+                        label: 'From',
+                        value: _startDate,
+                        onChanged: (d) {
+                          _startDate = d;
+                          _loadReport();
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: fieldWidth,
+                      child: KDatePicker(
+                        label: 'To',
+                        value: _endDate,
+                        onChanged: (d) {
+                          _endDate = d;
+                          _loadReport();
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
           const Divider(height: 1),
@@ -115,45 +126,36 @@ class _ProfitLossScreenState extends ConsumerState<ProfitLossScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Summary cards
-          Row(
-            children: [
-              Expanded(
-                child: KCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Revenue', style: KTypography.bodySmall),
-                      KSpacing.vGapXs,
-                      Text(
-                        CurrencyFormatter.formatIndian(totalRevenue),
-                        style: KTypography.amountMedium.copyWith(
-                          color: KColors.success,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              KSpacing.hGapSm,
-              Expanded(
-                child: KCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Expenses', style: KTypography.bodySmall),
-                      KSpacing.vGapXs,
-                      Text(
-                        CurrencyFormatter.formatIndian(totalExpenses),
-                        style: KTypography.amountMedium.copyWith(
-                          color: KColors.error,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < KSpacing.mobileBreakpoint;
+              final revenue = _MetricPanel(
+                label: 'Revenue',
+                amount: totalRevenue,
+                color: KColors.success,
+              );
+              final expenses = _MetricPanel(
+                label: 'Expenses',
+                amount: totalExpenses,
+                color: KColors.error,
+              );
+              if (narrow) {
+                return Column(
+                  children: [
+                    revenue,
+                    KSpacing.vGapSm,
+                    expenses,
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: revenue),
+                  KSpacing.hGapSm,
+                  Expanded(child: expenses),
+                ],
+              );
+            },
           ),
           KSpacing.vGapMd,
 
@@ -167,10 +169,14 @@ class _ProfitLossScreenState extends ConsumerState<ProfitLossScreen> {
                   isProfit ? 'Net Profit' : 'Net Loss',
                   style: KTypography.h3,
                 ),
-                Text(
-                  CurrencyFormatter.formatIndian(netProfit.abs()),
-                  style: KTypography.amountLarge.copyWith(
-                    color: isProfit ? KColors.success : KColors.error,
+                Flexible(
+                  child: Text(
+                    CurrencyFormatter.formatIndian(netProfit.abs()),
+                    style: KTypography.amountLarge.copyWith(
+                      color: isProfit ? KColors.success : KColors.error,
+                    ),
+                    textAlign: TextAlign.end,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -181,29 +187,35 @@ class _ProfitLossScreenState extends ConsumerState<ProfitLossScreen> {
           // Revenue breakdown
           Text('Revenue', style: KTypography.h3),
           KSpacing.vGapSm,
-          ...revenueAccounts.map((acct) {
-            final a = acct as Map<String, dynamic>;
-            return _AccountLine(
-              code: a['accountCode'] as String? ?? '',
-              name: a['accountName'] as String? ?? '',
-              amount: (a['amount'] as num?)?.toDouble() ?? 0,
-              color: KColors.success,
-            );
-          }),
+          if (revenueAccounts.isEmpty)
+            _EmptyReportLine(label: 'No revenue posted in this period')
+          else
+            ...revenueAccounts.map((acct) {
+              final a = acct as Map<String, dynamic>;
+              return _AccountLine(
+                code: a['accountCode'] as String? ?? '',
+                name: a['accountName'] as String? ?? '',
+                amount: (a['amount'] as num?)?.toDouble() ?? 0,
+                color: KColors.success,
+              );
+            }),
           KSpacing.vGapLg,
 
           // Expense breakdown
           Text('Expenses', style: KTypography.h3),
           KSpacing.vGapSm,
-          ...expenseAccounts.map((acct) {
-            final a = acct as Map<String, dynamic>;
-            return _AccountLine(
-              code: a['accountCode'] as String? ?? '',
-              name: a['accountName'] as String? ?? '',
-              amount: (a['amount'] as num?)?.toDouble() ?? 0,
-              color: KColors.error,
-            );
-          }),
+          if (expenseAccounts.isEmpty)
+            _EmptyReportLine(label: 'No expenses posted in this period')
+          else
+            ...expenseAccounts.map((acct) {
+              final a = acct as Map<String, dynamic>;
+              return _AccountLine(
+                code: a['accountCode'] as String? ?? '',
+                name: a['accountName'] as String? ?? '',
+                amount: (a['amount'] as num?)?.toDouble() ?? 0,
+                color: KColors.error,
+              );
+            }),
         ],
       ),
     );
@@ -233,12 +245,71 @@ class _AccountLine extends StatelessWidget {
             width: 60,
             child: Text(code, style: KTypography.bodySmall),
           ),
-          Expanded(child: Text(name, style: KTypography.bodyMedium)),
-          Text(
-            CurrencyFormatter.formatIndian(amount),
-            style: KTypography.amountSmall.copyWith(color: color),
+          Expanded(
+            child: Text(
+              name,
+              style: KTypography.bodyMedium,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 160),
+            child: Text(
+              CurrencyFormatter.formatIndian(amount),
+              style: KTypography.amountSmall.copyWith(color: color),
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MetricPanel extends StatelessWidget {
+  final String label;
+  final double amount;
+  final Color color;
+
+  const _MetricPanel({
+    required this.label,
+    required this.amount,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return KCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: KTypography.bodySmall),
+          KSpacing.vGapXs,
+          Text(
+            CurrencyFormatter.formatIndian(amount),
+            style: KTypography.amountMedium.copyWith(color: color),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyReportLine extends StatelessWidget {
+  final String label;
+
+  const _EmptyReportLine({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text(
+        label,
+        style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
       ),
     );
   }

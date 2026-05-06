@@ -74,6 +74,11 @@ public class ReceiptPdfService {
                 : receipt.receiptDate().toString();
 
         boolean detailed = receipt.gstInvoice();
+        BigDecimal totalDiscount = receipt.lines().stream()
+                .map(SalesReceiptResponse.LineResponse::discountAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal mrpTotal = receipt.total().add(totalDiscount);
 
         StringBuilder sb = new StringBuilder();
         sb.append("<!DOCTYPE html><html><head><style>");
@@ -120,6 +125,7 @@ public class ReceiptPdfService {
                 sb.append("<td class='r item-detail'>").append(fmtQty(line.quantity())).append("</td>");
                 sb.append("<td class='r'>").append(fmtAmt(line.amount())).append("</td>");
                 sb.append("</tr>");
+                appendRetailRateRow(sb, line, 4);
             }
             sb.append("</table>");
 
@@ -127,6 +133,10 @@ public class ReceiptPdfService {
 
             // Totals with full tax breakdown
             sb.append("<table class='totals'>");
+            if (totalDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                sb.append("<tr><td>MRP Total</td><td class='r'>").append(fmtAmt(mrpTotal)).append("</td></tr>");
+                sb.append("<tr><td>Discount</td><td class='r'>-").append(fmtAmt(totalDiscount)).append("</td></tr>");
+            }
             sb.append("<tr><td>Subtotal</td><td class='r'>").append(fmtAmt(receipt.subtotal())).append("</td></tr>");
 
             for (var entry : taxByComponent.entrySet()) {
@@ -147,16 +157,24 @@ public class ReceiptPdfService {
                 sb.append("<td class='item-name'>").append(esc(name)).append("</td>");
                 sb.append("<td class='item-amt'>").append(fmtAmt(line.amount())).append("</td>");
                 sb.append("</tr>");
+                appendRetailRateRow(sb, line, 2);
             }
             sb.append("</table>");
 
             sb.append("<div class='sep'></div>");
 
             sb.append("<table class='totals'>");
+            if (totalDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                sb.append("<tr><td>MRP Total</td><td class='r'>").append(fmtAmt(mrpTotal)).append("</td></tr>");
+                sb.append("<tr><td>Discount</td><td class='r'>-").append(fmtAmt(totalDiscount)).append("</td></tr>");
+            }
             sb.append("<tr class='total-row'><td><b>TOTAL</b></td><td class='r'><b>")
                     .append(fmtAmt(receipt.total())).append("</b></td></tr>");
             sb.append("</table>");
             sb.append("<div class='incl-tax'>(Incl. all taxes)</div>");
+            if (totalDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                sb.append("<div class='saved'>You saved ").append(fmtAmt(totalDiscount)).append("</div>");
+            }
         }
 
         sb.append("<div class='sep'></div>");
@@ -194,15 +212,31 @@ public class ReceiptPdfService {
             .item-name { font-weight: bold; }
             .item-hdr td { font-size: 9px; font-weight: bold; color: #555; }
             .item-detail { font-size: 9px; color: #333; }
+            .item-rate { font-size: 8px; color: #555; padding-bottom: 1mm; }
+            .strike { text-decoration: line-through; }
             .item-amt { text-align: right; }
             .totals { width: 100%; font-size: 10px; }
             .totals td { padding: 1px 0; }
             .r { text-align: right; }
             .total-row { font-size: 12px; border-top: 1px solid #000; }
             .incl-tax { font-size: 9px; color: #555; text-align: right; margin-top: 1mm; }
+            .saved { font-size: 10px; font-weight: bold; text-align: center; margin-top: 1mm; }
             .footer { text-align: center; margin-top: 4mm; font-size: 9px; }
             .branding { font-size: 8px; color: #999; margin-top: 2mm; }
             """;
+    }
+
+    private void appendRetailRateRow(StringBuilder sb, SalesReceiptResponse.LineResponse line, int colspan) {
+        if (line.mrp() == null || line.discountAmount() == null
+                || line.discountAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        sb.append("<tr><td colspan='").append(colspan).append("' class='item-rate'>")
+                .append(fmtQty(line.quantity())).append(" x ")
+                .append(fmtAmt(line.rate()))
+                .append(" | MRP <span class='strike'>").append(fmtAmt(line.mrp())).append("</span>")
+                .append(" | Saved ").append(fmtAmt(line.discountAmount()))
+                .append("</td></tr>");
     }
 
     private String fmtAmt(BigDecimal amount) {

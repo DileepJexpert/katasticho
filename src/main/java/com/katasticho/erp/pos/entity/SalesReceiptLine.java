@@ -46,6 +46,17 @@ public class SalesReceiptLine {
     @Builder.Default
     private BigDecimal rate = BigDecimal.ZERO;
 
+    @Column
+    private BigDecimal mrp;
+
+    @Column(name = "discount_per_unit", nullable = false)
+    @Builder.Default
+    private BigDecimal discountPerUnit = BigDecimal.ZERO;
+
+    @Column(name = "discount_amount", nullable = false)
+    @Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
     @Column(name = "tax_group_id")
     private UUID taxGroupId;
 

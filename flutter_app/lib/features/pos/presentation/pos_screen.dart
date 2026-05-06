@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/k_colors.dart';
+import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -84,7 +86,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   void _addToCart(Map<String, dynamic> item) async {
     final stock = (item['currentStock'] as num?)?.toDouble() ?? 0;
-    if (stock <= 0) return;
+    if (stock <= 0) {
+      _showErrorSnackBar('${item['name'] ?? 'Item'} is out of stock');
+      return;
+    }
 
     final batchExpiry = item['batchExpiryDate'] as String?;
     if (batchExpiry != null && batchExpiry.isNotEmpty) {
@@ -121,7 +126,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             .toList() ??
         const <Map<String, dynamic>>[];
 
-    ref.read(posCartProvider.notifier).addItem(CartItem(
+    final cartItem = CartItem(
           itemId: item['id'] as String?,
           name: itemName,
           sku: item['sku'] as String?,
@@ -142,7 +147,23 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           quantity: quantity,
           availableUnits: secUnits,
           discountThresholds: item['discountThresholds'] as Map<String, dynamic>?,
-        ));
+        );
+
+    CartItem? existing;
+    for (final current in ref.read(posCartProvider).items) {
+      if (current.itemId != null && current.itemId == cartItem.itemId) {
+        existing = current;
+        break;
+      }
+    }
+    if (existing != null &&
+        existing.quantity + cartItem.quantity > existing.maxSellQuantity) {
+      _showErrorSnackBar(
+        'Only ${_fmtQty(existing.maxSellQuantity)} ${existing.stockUnitLabel} available for ${existing.name}',
+      );
+    }
+
+    ref.read(posCartProvider.notifier).addItem(cartItem);
 
     _clearSearch();
     HapticFeedback.lightImpact();
@@ -238,6 +259,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       return;
     }
 
+    if (cart.hasStockExceededItems) {
+      final item = cart.firstStockExceededItem!;
+      _showErrorSnackBar(
+        'Only ${_fmtQty(item.maxSellQuantity)} ${item.stockUnitLabel} available for ${item.name}',
+      );
+      return;
+    }
+
     ref.read(posCartProvider.notifier).setPaymentMode(mode);
 
     final paymentResult = await showPosPaymentSheet(
@@ -307,9 +336,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       _searchFocusNode.requestFocus();
     } catch (e) {
       if (!mounted) return;
+      final message = e is DioException
+          ? ApiErrorParser.message(e)
+          : e.toString();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Sale failed: $e'),
+          content: Text(message),
           backgroundColor: KColors.error,
           duration: const Duration(seconds: 5),
           action: SnackBarAction(
@@ -473,6 +505,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   String _formatAmount(double amount) {
     return '\u20B9${amount.toStringAsFixed(2)}';
+  }
+
+  String _fmtQty(double qty) {
+    return qty == qty.roundToDouble()
+        ? qty.toInt().toString()
+        : qty.toStringAsFixed(2);
   }
 
   void _showInfoSnackBar(String message) {

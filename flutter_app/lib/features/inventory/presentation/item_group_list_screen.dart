@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -46,17 +45,17 @@ class ItemGroupListScreen extends ConsumerWidget {
                   );
                 }
 
-                return RefreshIndicator(
+                final groupMaps = groups
+                    .whereType<Map>()
+                    .map((group) => group.cast<String, dynamic>())
+                    .toList();
+
+                return KResponsiveEntityList<Map<String, dynamic>>(
+                  items: groupMaps,
                   onRefresh: () async => ref.invalidate(itemGroupListProvider),
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: groups.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) {
-                      final group = groups[index] as Map<String, dynamic>;
-                      return _GroupCard(group: group);
-                    },
-                  ),
+                  mobileItemBuilder: (context, group) =>
+                      _GroupCard(group: group),
+                  tableBuilder: (context) => _GroupTable(groups: groupMaps),
                 );
               },
             ),
@@ -68,6 +67,60 @@ class ItemGroupListScreen extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('New Group'),
       ),
+    );
+  }
+}
+
+class _GroupTable extends StatelessWidget {
+  final List<Map<String, dynamic>> groups;
+
+  const _GroupTable({required this.groups});
+
+  @override
+  Widget build(BuildContext context) {
+    return KEntityDataTable(
+      columnSpacing: 22,
+      horizontalMargin: 14,
+      columns: const [
+        DataColumn(label: Text('Group')),
+        DataColumn(label: Text('SKU Prefix')),
+        DataColumn(label: Text('Variants')),
+        DataColumn(label: Text('Attributes')),
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+      ],
+      rows: groups.map((group) {
+        final id = group['id']?.toString() ?? '';
+        final name = group['name']?.toString() ?? '--';
+        final skuPrefix = group['skuPrefix']?.toString() ?? '--';
+        final variantCount = (group['variantCount'] as num?)?.toInt() ?? 0;
+        final defs = (group['attributeDefinitions'] as List?) ?? const [];
+        final attributes = defs.map((d) {
+          final def = d as Map<String, dynamic>;
+          final key = def['key']?.toString() ?? '';
+          final values = (def['values'] as List?) ?? const [];
+          return '$key (${values.length})';
+        }).where((value) => value.trim() != '()').join(', ');
+
+        return DataRow(
+          color: kEntityRowColor(context),
+          onSelectChanged: (_) {
+            if (id.isNotEmpty) context.push('/item-groups/$id');
+          },
+          cells: [
+            DataCell(KTablePrimaryTextCell(value: name, width: 210)),
+            DataCell(KTableTextCell(value: skuPrefix, width: 130)),
+            DataCell(Text('$variantCount')),
+            DataCell(KTableTextCell(
+              value: attributes.isEmpty ? '--' : attributes,
+              width: 320,
+            )),
+            DataCell(KTableOpenActionCell(
+              tooltip: 'Open item group',
+              onPressed: id.isEmpty ? null : () => context.push('/item-groups/$id'),
+            )),
+          ],
+        );
+      }).toList(),
     );
   }
 }

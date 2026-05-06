@@ -118,6 +118,11 @@ class _ReceiptBody extends StatelessWidget {
     final notes = data['notes']?.toString();
     final gstInvoice = data['gstInvoice'] == true;
     final lines = (data['lines'] as List?) ?? [];
+    final totalDiscount = lines.fold<double>(0, (sum, raw) {
+      if (raw is! Map) return sum;
+      return sum + ((raw['discountAmount'] as num?)?.toDouble() ?? 0);
+    });
+    final mrpTotal = total + totalDiscount;
 
     return SingleChildScrollView(
       padding: KSpacing.pagePadding,
@@ -175,9 +180,20 @@ class _ReceiptBody extends StatelessWidget {
             title: 'Summary',
             child: Column(
               children: [
+                if (totalDiscount > 0) ...[
+                  _DetailRow(
+                    label: 'MRP Total',
+                    value: CurrencyFormatter.formatIndian(mrpTotal),
+                  ),
+                  _DetailRow(
+                    label: 'Discount',
+                    value: '-${CurrencyFormatter.formatIndian(totalDiscount)}',
+                    valueColor: KColors.success,
+                  ),
+                ],
                 if (gstInvoice) ...[
                   _DetailRow(
-                    label: 'Subtotal',
+                    label: totalDiscount > 0 ? 'Taxable Subtotal' : 'Subtotal',
                     value: CurrencyFormatter.formatIndian(subtotal),
                   ),
                   if (cgst > 0)
@@ -202,6 +218,12 @@ class _ReceiptBody extends StatelessWidget {
                   value: CurrencyFormatter.formatIndian(total),
                   bold: true,
                 ),
+                if (totalDiscount > 0)
+                  _DetailRow(
+                    label: 'You Saved',
+                    value: CurrencyFormatter.formatIndian(totalDiscount),
+                    valueColor: KColors.success,
+                  ),
                 if (!gstInvoice)
                   _DetailRow(
                     label: '',
@@ -240,18 +262,24 @@ class _LineItem extends StatelessWidget {
     final sku = line['itemSku']?.toString() ?? '';
     final qty = (line['quantity'] as num?)?.toDouble() ?? 0;
     final unit = line['unit']?.toString() ?? '';
+    final mrp = (line['mrp'] as num?)?.toDouble() ?? 0;
     final rate = (line['rate'] as num?)?.toDouble() ?? 0;
+    final discountPerUnit =
+        (line['discountPerUnit'] as num?)?.toDouble() ?? 0;
+    final discountAmount = (line['discountAmount'] as num?)?.toDouble() ?? 0;
     final amount = (line['amount'] as num?)?.toDouble() ?? 0;
     final hsn = line['hsnCode']?.toString();
+    final qtyText = qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2);
 
     if (!detailed) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(child: Text(name, style: KTypography.labelMedium)),
-          Text(CurrencyFormatter.formatIndian(amount),
-              style: KTypography.amountSmall),
-        ],
+      return _RetailLineLayout(
+        name: name,
+        amount: amount,
+        detail: '$qtyText $unit x ${CurrencyFormatter.formatIndian(rate)}',
+        sku: sku,
+        mrp: mrp,
+        discountPerUnit: discountPerUnit,
+        discountAmount: discountAmount,
       );
     }
 
@@ -270,6 +298,14 @@ class _LineItem extends StatelessWidget {
                 style: KTypography.bodySmall
                     .copyWith(color: KColors.textSecondary),
               ),
+              if (discountAmount > 0) ...[
+                const SizedBox(height: 4),
+                _DiscountWrap(
+                  mrp: mrp,
+                  discountPerUnit: discountPerUnit,
+                  discountAmount: discountAmount,
+                ),
+              ],
               if (sku.isNotEmpty)
                 Text('SKU: $sku',
                     style: KTypography.labelSmall
@@ -280,6 +316,125 @@ class _LineItem extends StatelessWidget {
         Text(
           CurrencyFormatter.formatIndian(amount),
           style: KTypography.amountSmall,
+        ),
+      ],
+    );
+  }
+}
+
+class _RetailLineLayout extends StatelessWidget {
+  final String name;
+  final double amount;
+  final String detail;
+  final String sku;
+  final double mrp;
+  final double discountPerUnit;
+  final double discountAmount;
+
+  const _RetailLineLayout({
+    required this.name,
+    required this.amount,
+    required this.detail,
+    required this.sku,
+    required this.mrp,
+    required this.discountPerUnit,
+    required this.discountAmount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name, style: KTypography.labelMedium),
+              const SizedBox(height: 2),
+              Text(
+                detail,
+                style:
+                    KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (discountAmount > 0) ...[
+                const SizedBox(height: 4),
+                _DiscountWrap(
+                  mrp: mrp,
+                  discountPerUnit: discountPerUnit,
+                  discountAmount: discountAmount,
+                ),
+              ],
+              if (sku.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    'SKU: $sku',
+                    style: KTypography.labelSmall
+                        .copyWith(color: KColors.textSecondary, fontSize: 10),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          CurrencyFormatter.formatIndian(amount),
+          style: KTypography.amountSmall,
+        ),
+      ],
+    );
+  }
+}
+
+class _DiscountWrap extends StatelessWidget {
+  final double mrp;
+  final double discountPerUnit;
+  final double discountAmount;
+
+  const _DiscountWrap({
+    required this.mrp,
+    required this.discountPerUnit,
+    required this.discountAmount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text.rich(
+          TextSpan(
+            children: [
+              const TextSpan(text: 'MRP '),
+              TextSpan(
+                text: CurrencyFormatter.formatIndian(mrp),
+                style: const TextStyle(
+                  decoration: TextDecoration.lineThrough,
+                ),
+              ),
+            ],
+          ),
+          style: KTypography.labelSmall.copyWith(color: KColors.textSecondary),
+        ),
+        Text(
+          'Discount ${CurrencyFormatter.formatIndian(discountPerUnit)}/unit',
+          style: KTypography.labelSmall.copyWith(color: KColors.success),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: KColors.successLight,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            'Saved ${CurrencyFormatter.formatIndian(discountAmount)}',
+            style: KTypography.labelSmall.copyWith(color: KColors.success),
+          ),
         ),
       ],
     );

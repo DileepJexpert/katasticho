@@ -106,6 +106,20 @@ class PosCartItemTile extends StatelessWidget {
                       batchNumber: item.batchNumber,
                       batchExpiry: item.batchExpiry,
                     ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      '${_fmtQty(item.maxSellQuantity)} ${item.stockUnitLabel} available',
+                      style: KTypography.labelSmall.copyWith(
+                        color: item.exceedsStock
+                            ? KColors.error
+                            : KColors.textHint,
+                        fontSize: 10,
+                        fontWeight:
+                            item.exceedsStock ? FontWeight.w700 : null,
+                      ),
+                    ),
+                  ),
                   if (item.isWeightBased)
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
@@ -166,11 +180,14 @@ class PosCartItemTile extends StatelessWidget {
             if (item.isWeightBased)
               _WeightDisplay(
                 weightKg: item.quantity,
+                maxWeightKg: item.maxSellQuantity,
                 onChanged: onQuantityChanged,
               )
             else
               _QuantityStepper(
                 quantity: item.quantity,
+                maxQuantity: item.maxSellQuantity,
+                unit: item.stockUnitLabel,
                 onChanged: onQuantityChanged,
               ),
             KSpacing.hGapMd,
@@ -208,12 +225,22 @@ class PosCartItemTile extends StatelessWidget {
 
 class _QuantityStepper extends StatelessWidget {
   final double quantity;
+  final double maxQuantity;
+  final String unit;
   final ValueChanged<double> onChanged;
 
   const _QuantityStepper({
     required this.quantity,
+    required this.maxQuantity,
+    required this.unit,
     required this.onChanged,
   });
+
+  String _fmtQty(double qty) {
+    return qty == qty.roundToDouble()
+        ? qty.toInt().toString()
+        : qty.toStringAsFixed(2);
+  }
 
   void _showQtyEditor(BuildContext context) {
     final controller = TextEditingController(
@@ -225,27 +252,39 @@ class _QuantityStepper extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) {
+        String? errorText;
         return AlertDialog(
           title: const Text('Enter Quantity'),
-          content: TextField(
-            controller: controller,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-            ],
-            autofocus: true,
-            decoration: const InputDecoration(
-              hintText: 'Quantity',
-              border: OutlineInputBorder(),
-            ),
-            onSubmitted: (value) {
-              final qty = double.tryParse(value);
-              if (qty != null && qty > 0) {
+          content: StatefulBuilder(
+            builder: (ctx, setDialogState) => TextField(
+              controller: controller,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+              ],
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Quantity',
+                helperText: 'Available: ${_fmtQty(maxQuantity)} $unit',
+                errorText: errorText,
+                border: const OutlineInputBorder(),
+              ),
+              onSubmitted: (value) {
+                final qty = double.tryParse(value);
+                if (qty == null || qty <= 0) {
+                  setDialogState(() => errorText = 'Enter a valid quantity');
+                  return;
+                }
+                if (maxQuantity > 0 && qty > maxQuantity) {
+                  setDialogState(() =>
+                      errorText = 'Only ${_fmtQty(maxQuantity)} $unit available');
+                  return;
+                }
                 onChanged(qty);
-              }
-              Navigator.pop(ctx);
-            },
+                Navigator.pop(ctx);
+              },
+            ),
           ),
           actions: [
             TextButton(
@@ -255,7 +294,12 @@ class _QuantityStepper extends StatelessWidget {
             FilledButton(
               onPressed: () {
                 final qty = double.tryParse(controller.text);
-                if (qty != null && qty > 0) {
+                if (qty == null || qty <= 0) {
+                  return;
+                }
+                if (maxQuantity > 0 && qty > maxQuantity) {
+                  onChanged(maxQuantity);
+                } else {
                   onChanged(qty);
                 }
                 Navigator.pop(ctx);
@@ -303,7 +347,9 @@ class _QuantityStepper extends StatelessWidget {
           ),
           _StepButton(
             icon: Icons.add,
-            onTap: () => onChanged(quantity + 1),
+            onTap: maxQuantity > 0 && quantity >= maxQuantity
+                ? null
+                : () => onChanged(quantity + 1),
           ),
         ],
       ),
@@ -313,7 +359,7 @@ class _QuantityStepper extends StatelessWidget {
 
 class _StepButton extends StatelessWidget {
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _StepButton({required this.icon, required this.onTap});
 
@@ -332,10 +378,12 @@ class _StepButton extends StatelessWidget {
 
 class _WeightDisplay extends StatelessWidget {
   final double weightKg;
+  final double maxWeightKg;
   final ValueChanged<double> onChanged;
 
   const _WeightDisplay({
     required this.weightKg,
+    required this.maxWeightKg,
     required this.onChanged,
   });
 
@@ -372,7 +420,9 @@ class _WeightDisplay extends StatelessWidget {
                       final parsed = double.tryParse(value);
                       if (parsed != null && parsed > 0) {
                         final kg = isGrams ? parsed / 1000 : parsed;
-                        onChanged(kg);
+                        onChanged(maxWeightKg > 0 && kg > maxWeightKg
+                            ? maxWeightKg
+                            : kg);
                       }
                       Navigator.pop(ctx);
                     },
@@ -409,7 +459,9 @@ class _WeightDisplay extends StatelessWidget {
                   final parsed = double.tryParse(controller.text);
                   if (parsed != null && parsed > 0) {
                     final kg = isGrams ? parsed / 1000 : parsed;
-                    onChanged(kg);
+                    onChanged(maxWeightKg > 0 && kg > maxWeightKg
+                        ? maxWeightKg
+                        : kg);
                   }
                   Navigator.pop(ctx);
                 },

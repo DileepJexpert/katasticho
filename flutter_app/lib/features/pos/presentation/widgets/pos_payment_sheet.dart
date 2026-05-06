@@ -6,6 +6,9 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../data/pos_cart_state.dart';
 
+const double _maxTenderAmount = 999999.99;
+const int _maxTenderInputLength = 9;
+
 /// Payment bottom sheet — different content per payment mode.
 /// Returns a map with payment details on completion, or null if cancelled.
 /// Pass paymentMode='SPLIT' to open split payment mode directly.
@@ -60,6 +63,7 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
   late final TextEditingController _amountController;
   late final TextEditingController _referenceController;
   late double _amountReceived;
+  String? _amountError;
   bool _gstInvoice = false;
 
   @override
@@ -81,8 +85,12 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
   }
 
   void _onAmountChanged(String value) {
+    final amount = double.tryParse(value) ?? 0;
     setState(() {
-      _amountReceived = double.tryParse(value) ?? 0;
+      _amountReceived = amount;
+      _amountError = amount > _maxTenderAmount
+          ? 'Maximum allowed is ${CurrencyFormatter.formatIndian(_maxTenderAmount)}'
+          : null;
     });
   }
 
@@ -90,11 +98,19 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
     setState(() {
       _amountReceived = amount;
       _amountController.text = amount.toStringAsFixed(2);
+      _amountError = null;
     });
   }
 
   void _complete() {
     final total = widget.cart.total;
+    if (_amountReceived > _maxTenderAmount) {
+      setState(() {
+        _amountError =
+            'Maximum allowed is ${CurrencyFormatter.formatIndian(_maxTenderAmount)}';
+      });
+      return;
+    }
     if (widget.paymentMode == 'CASH' && _amountReceived < total) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -223,8 +239,16 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
         KTextField.amount(
           label: 'Amount',
           controller: _amountController,
+          maxLength: _maxTenderInputLength,
           onChanged: _onAmountChanged,
         ),
+        if (_amountError != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            _amountError!,
+            style: KTypography.labelSmall.copyWith(color: KColors.error),
+          ),
+        ],
         KSpacing.vGapMd,
 
         // Quick amount buttons
@@ -429,6 +453,10 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
   double get _card => double.tryParse(_cardCtrl.text) ?? 0;
   double get _splitSum => _cash + _upi + _card;
   double get _remaining => widget.cart.total - _splitSum;
+  bool get _hasSplitLimitError =>
+      _cash > _maxTenderAmount ||
+      _upi > _maxTenderAmount ||
+      _card > _maxTenderAmount;
 
   @override
   void dispose() {
@@ -454,6 +482,17 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
   }
 
   void _complete() {
+    if (_hasSplitLimitError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Each payment amount must be ${CurrencyFormatter.formatIndian(_maxTenderAmount)} or less',
+          ),
+          backgroundColor: KColors.error,
+        ),
+      );
+      return;
+    }
     if (_splitSum < widget.cart.total - 0.01) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -560,6 +599,13 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
               onAutoFill: () => _autoFill('CARD'),
             ),
             KSpacing.vGapMd,
+            if (_hasSplitLimitError) ...[
+              Text(
+                'Each payment amount must be ${CurrencyFormatter.formatIndian(_maxTenderAmount)} or less',
+                style: KTypography.labelSmall.copyWith(color: KColors.error),
+              ),
+              KSpacing.vGapSm,
+            ],
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -604,7 +650,9 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
             SizedBox(
               height: 52,
               child: FilledButton(
-                onPressed: _splitSum >= total - 0.01 ? _complete : null,
+                onPressed: _splitSum >= total - 0.01 && !_hasSplitLimitError
+                    ? _complete
+                    : null,
                 style: FilledButton.styleFrom(
                   backgroundColor: cs.primary,
                   shape: RoundedRectangleBorder(
@@ -655,6 +703,7 @@ class _SplitRow extends StatelessWidget {
           child: KTextField.amount(
             label: '',
             controller: controller,
+            maxLength: _maxTenderInputLength,
             onChanged: onChanged,
           ),
         ),

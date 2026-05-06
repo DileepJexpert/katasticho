@@ -78,6 +78,7 @@ class KTextField extends StatefulWidget {
     String currencySymbol = '\u20B9',
     bool isRequired = false,
     String? serverError,
+    int? maxLength,
   }) {
     return KTextField(
       key: key,
@@ -94,6 +95,7 @@ class KTextField extends StatefulWidget {
       selectAllOnFocus: true,
       isRequired: isRequired,
       serverError: serverError,
+      maxLength: maxLength,
     );
   }
 
