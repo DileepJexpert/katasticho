@@ -406,6 +406,83 @@ public class OperationalReportService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public DailySalesReport getDailySalesReport(LocalDate date) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        String byModeQuery = """
+            SELECT
+              sr.payment_mode,
+              COUNT(DISTINCT sr.id) as transaction_count,
+              SUM(sr.total) as total_amount
+            FROM sales_receipt sr
+            WHERE sr.org_id = ? AND sr.receipt_date = ?
+            GROUP BY sr.payment_mode
+            ORDER BY sr.payment_mode
+            """;
+
+        List<DailySalesReport.ByMode> byMode = jdbcTemplate.query(byModeQuery,
+            (rs, rowNum) -> new DailySalesReport.ByMode(
+                rs.getString("payment_mode"),
+                rs.getInt("transaction_count"),
+                rs.getBigDecimal("total_amount")
+            ),
+            orgId, date
+        );
+
+        String topItemsQuery = """
+            SELECT
+              COALESCE(i.name, srl.description) as item_name,
+              SUM(srl.quantity) as total_qty,
+              AVG(srl.rate) as unit_price,
+              SUM(srl.amount) as total_amount
+            FROM sales_receipt sr
+            JOIN sales_receipt_line srl ON sr.id = srl.receipt_id
+            LEFT JOIN item i ON srl.item_id = i.id
+            WHERE sr.org_id = ? AND sr.receipt_date = ?
+            GROUP BY COALESCE(i.name, srl.description)
+            ORDER BY SUM(srl.amount) DESC
+            LIMIT 10
+            """;
+
+        List<DailySalesReport.TopItem> topItems = jdbcTemplate.query(topItemsQuery,
+            (rs, rowNum) -> new DailySalesReport.TopItem(
+                rs.getString("item_name"),
+                rs.getBigDecimal("total_qty"),
+                rs.getBigDecimal("unit_price"),
+                rs.getBigDecimal("total_amount")
+            ),
+            orgId, date
+        );
+
+        String summaryQuery = """
+            SELECT
+              SUM(sr.subtotal) as total_gross,
+              SUM(sr.cgst + sr.sgst + sr.igst) as total_tax,
+              SUM(sr.total) as total_net
+            FROM sales_receipt sr
+            WHERE sr.org_id = ? AND sr.receipt_date = ?
+            """;
+
+        var totals = jdbcTemplate.queryForObject(summaryQuery,
+            (rs, rowNum) -> new Object[]{
+                nullSafe(rs.getBigDecimal("total_gross")),
+                nullSafe(rs.getBigDecimal("total_tax")),
+                nullSafe(rs.getBigDecimal("total_net"))
+            },
+            orgId, date
+        );
+
+        return new DailySalesReport(
+            date,
+            (BigDecimal) totals[0],
+            (BigDecimal) totals[1],
+            (BigDecimal) totals[2],
+            byMode,
+            topItems
+        );
+    }
+
     private BigDecimal nullSafe(BigDecimal value) {
         return value != null ? value : BigDecimal.ZERO;
     }
