@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
@@ -18,13 +17,26 @@ Future<Map<String, dynamic>?> showPosPaymentSheet(
   return showModalBottomSheet<Map<String, dynamic>>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+    builder: (_) => DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.82,
+      minChildSize: 0.45,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: paymentMode == 'SPLIT'
+            ? _SplitPaymentContent(
+                cart: cart,
+                scrollController: scrollController,
+              )
+            : _PaymentSheetContent(
+                cart: cart,
+                paymentMode: paymentMode,
+                scrollController: scrollController,
+              ),
       ),
-      child: paymentMode == 'SPLIT'
-          ? _SplitPaymentContent(cart: cart)
-          : _PaymentSheetContent(cart: cart, paymentMode: paymentMode),
     ),
   );
 }
@@ -32,10 +44,12 @@ Future<Map<String, dynamic>?> showPosPaymentSheet(
 class _PaymentSheetContent extends StatefulWidget {
   final PosCartState cart;
   final String paymentMode;
+  final ScrollController scrollController;
 
   const _PaymentSheetContent({
     required this.cart,
     required this.paymentMode,
+    required this.scrollController,
   });
 
   @override
@@ -109,9 +123,9 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: ListView(
+          controller: widget.scrollController,
+          shrinkWrap: true,
           children: [
             // Drag handle
             Center(
@@ -392,7 +406,12 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
 /// Split payment sheet — allows distributing total across Cash, UPI, Card.
 class _SplitPaymentContent extends StatefulWidget {
   final PosCartState cart;
-  const _SplitPaymentContent({required this.cart});
+  final ScrollController scrollController;
+
+  const _SplitPaymentContent({
+    required this.cart,
+    required this.scrollController,
+  });
 
   @override
   State<_SplitPaymentContent> createState() => _SplitPaymentContentState();
@@ -476,9 +495,9 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: ListView(
+          controller: widget.scrollController,
+          shrinkWrap: true,
           children: [
             Center(
               child: Container(
