@@ -37,4 +37,10 @@ public class InventoryReportController {
             reportService.getStockMovement(itemId, startDate, endDate, pageNo, pageSize)
         ));
     }
+
+    @GetMapping("/low-stock-alert")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<LowStockAlertReport>> getLowStockAlert() {
+        return ResponseEntity.ok(ApiResponse.ok(reportService.getLowStockAlert()));
+    }
 }

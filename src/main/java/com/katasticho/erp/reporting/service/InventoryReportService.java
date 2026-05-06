@@ -132,4 +132,59 @@ public class InventoryReportService {
 
         return new StockMovementReport(startDate, endDate, itemId, movements);
     }
+
+    @Transactional(readOnly = true)
+    public LowStockAlertReport getLowStockAlert() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        String query = """
+            SELECT
+              i.id,
+              i.name,
+              i.sku,
+              COALESCE(sb.quantity_on_hand, 0) as qty_on_hand,
+              COALESCE(i.reorder_level, 0) as reorder_level,
+              COALESCE(i.reorder_quantity, 0) as reorder_quantity,
+              i.purchase_price,
+              i.supplier_id,
+              COALESCE(v.display_name, 'Not Assigned') as supplier_name,
+              COALESCE(i.reorder_level, 0) - COALESCE(sb.quantity_on_hand, 0) as deficit_qty,
+              (COALESCE(i.reorder_level, 0) - COALESCE(sb.quantity_on_hand, 0)) * i.purchase_price as estimated_cost
+            FROM item i
+            LEFT JOIN stock_balance sb ON i.id = sb.item_id AND i.org_id = sb.org_id
+            LEFT JOIN vendor_supplier v ON i.supplier_id = v.id
+            WHERE i.org_id = ?
+              AND i.is_deleted = false
+              AND i.track_inventory = true
+              AND COALESCE(sb.quantity_on_hand, 0) < COALESCE(i.reorder_level, 0)
+            ORDER BY (COALESCE(i.reorder_level, 0) - COALESCE(sb.quantity_on_hand, 0)) DESC
+            """;
+
+        List<LowStockAlertReport.Item> items = jdbcTemplate.query(query,
+            (rs, rowNum) -> new LowStockAlertReport.Item(
+                rs.getObject("id", UUID.class),
+                rs.getString("name"),
+                rs.getString("sku"),
+                rs.getBigDecimal("qty_on_hand"),
+                rs.getBigDecimal("reorder_level"),
+                rs.getBigDecimal("reorder_quantity"),
+                rs.getBigDecimal("deficit_qty"),
+                rs.getObject("supplier_id", UUID.class),
+                rs.getString("supplier_name"),
+                rs.getBigDecimal("estimated_cost")
+            ),
+            orgId
+        );
+
+        BigDecimal totalEstimatedCost = items.stream()
+            .map(LowStockAlertReport.Item::estimatedCost)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new LowStockAlertReport(
+            LocalDate.now(),
+            items.size(),
+            totalEstimatedCost,
+            items
+        );
+    }
 }
