@@ -249,6 +249,89 @@ public class OperationalReportService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public CustomerStatementReport getCustomerStatement(UUID customerId, LocalDate startDate, LocalDate endDate) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        String contactQuery = """
+            SELECT display_name FROM contact WHERE id = ? AND org_id = ?
+            """;
+        String contactName = jdbcTemplate.queryForObject(contactQuery,
+            (rs, rowNum) -> rs.getString("display_name"),
+            customerId, orgId);
+
+        String query = """
+            SELECT
+              'INVOICE' as transaction_type,
+              i.invoice_number as document_number,
+              i.invoice_date as transaction_date,
+              i.base_total as debit_amount,
+              0 as credit_amount
+            FROM invoice i
+            WHERE i.contact_id = ? AND i.org_id = ? AND i.invoice_date BETWEEN ? AND ? AND i.status = 'SENT'
+
+            UNION ALL
+
+            SELECT
+              'PAYMENT' as transaction_type,
+              p.payment_number as document_number,
+              p.payment_date as transaction_date,
+              0 as debit_amount,
+              p.base_amount as credit_amount
+            FROM payment p
+            WHERE p.contact_id = ? AND p.org_id = ? AND p.payment_date BETWEEN ? AND ?
+
+            ORDER BY transaction_date, document_number
+            """;
+
+        List<CustomerStatementReport.Line> lines = jdbcTemplate.query(query,
+            (rs, rowNum) -> new CustomerStatementReport.Line(
+                rs.getString("transaction_type"),
+                rs.getString("document_number"),
+                rs.getObject("transaction_date", LocalDate.class),
+                rs.getBigDecimal("debit_amount"),
+                rs.getBigDecimal("credit_amount"),
+                BigDecimal.ZERO
+            ),
+            customerId, orgId, startDate, endDate,
+            customerId, orgId, startDate, endDate
+        );
+
+        BigDecimal openingBalance = BigDecimal.ZERO;
+        BigDecimal totalInvoices = BigDecimal.ZERO;
+        BigDecimal totalPayments = BigDecimal.ZERO;
+        BigDecimal runningBalance = openingBalance;
+
+        for (int i = 0; i < lines.size(); i++) {
+            var line = lines.get(i);
+            totalInvoices = totalInvoices.add(line.debitAmount());
+            totalPayments = totalPayments.add(line.creditAmount());
+            runningBalance = runningBalance.add(line.debitAmount()).subtract(line.creditAmount());
+            lines.set(i, new CustomerStatementReport.Line(
+                line.transactionType(),
+                line.documentNumber(),
+                line.transactionDate(),
+                line.debitAmount(),
+                line.creditAmount(),
+                runningBalance
+            ));
+        }
+
+        BigDecimal closingBalance = runningBalance;
+
+        return new CustomerStatementReport(
+            customerId,
+            contactName,
+            startDate,
+            endDate,
+            openingBalance,
+            totalInvoices,
+            totalPayments,
+            closingBalance,
+            lines
+        );
+    }
+
     private BigDecimal nullSafe(BigDecimal value) {
         return value != null ? value : BigDecimal.ZERO;
     }

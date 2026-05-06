@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/financial-reports")
@@ -49,6 +50,17 @@ public class OperationalReportController {
             @RequestParam(required = false) String documentType) {
         return ResponseEntity.ok(ApiResponse.ok(
             reportService.getSalesRegister(startDate, endDate, documentType)
+        ));
+    }
+
+    @GetMapping("/customer-statement/{customerId}")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<CustomerStatementReport>> getCustomerStatement(
+            @PathVariable UUID customerId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(ApiResponse.ok(
+            reportService.getCustomerStatement(customerId, startDate, endDate)
         ));
     }
 }
