@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
@@ -7,6 +8,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../routing/app_router.dart';
 import '../data/pos_repository.dart';
 import '../data/sales_receipt_providers.dart';
 
@@ -20,6 +22,11 @@ class SalesReceiptDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to sales receipts',
+          onPressed: () => context.go(Routes.salesReceipts),
+        ),
         title: const Text('Receipt Details'),
         actions: [
           IconButton(
@@ -68,22 +75,6 @@ class SalesReceiptDetailScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _handlePrint(BuildContext context, WidgetRef ref) async {
-    try {
-      final repo = ref.read(posRepositoryProvider);
-      final bytes = await repo.printReceipt(receiptId);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Receipt downloaded (${bytes.length} bytes)')),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Print failed: $e'), backgroundColor: KColors.error),
-      );
-    }
-  }
-
   Future<void> _handleWhatsApp(BuildContext context, WidgetRef ref) async {
     try {
       final repo = ref.read(posRepositoryProvider);
@@ -111,18 +102,17 @@ class _ReceiptBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final receiptNumber = data['receiptNumber']?.toString() ?? '';
     final date = data['receiptDate']?.toString() ?? '';
     final contactName = data['contactName']?.toString();
     final paymentMode = data['paymentMode']?.toString() ?? '';
     final subtotal = (data['subtotal'] as num?)?.toDouble() ?? 0;
-    final taxAmount = (data['taxAmount'] as num?)?.toDouble() ?? 0;
     final cgst = (data['cgst'] as num?)?.toDouble() ?? 0;
     final sgst = (data['sgst'] as num?)?.toDouble() ?? 0;
     final igst = (data['igst'] as num?)?.toDouble() ?? 0;
     final total = (data['total'] as num?)?.toDouble() ?? 0;
-    final amountReceived = (data['amountReceived'] as num?)?.toDouble() ?? total;
+    final amountReceived =
+        (data['amountReceived'] as num?)?.toDouble() ?? total;
     final changeReturned = (data['changeReturned'] as num?)?.toDouble() ?? 0;
     final upiReference = data['upiReference']?.toString();
     final notes = data['notes']?.toString();
@@ -147,7 +137,9 @@ class _ReceiptBody extends StatelessWidget {
               child: Text(
                 paymentMode,
                 style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w600, color: KColors.success),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: KColors.success),
               ),
             ),
             child: Column(
@@ -169,7 +161,9 @@ class _ReceiptBody extends StatelessWidget {
               children: [
                 for (int i = 0; i < lines.length; i++) ...[
                   if (i > 0) const Divider(height: 16),
-                  _LineItem(line: lines[i] as Map<String, dynamic>, detailed: gstInvoice),
+                  _LineItem(
+                      line: lines[i] as Map<String, dynamic>,
+                      detailed: gstInvoice),
                 ],
               ],
             ),
@@ -241,7 +235,8 @@ class _LineItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = line['itemName']?.toString() ?? line['description']?.toString() ?? '';
+    final name =
+        line['itemName']?.toString() ?? line['description']?.toString() ?? '';
     final sku = line['itemSku']?.toString() ?? '';
     final qty = (line['quantity'] as num?)?.toDouble() ?? 0;
     final unit = line['unit']?.toString() ?? '';
@@ -254,7 +249,8 @@ class _LineItem extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(child: Text(name, style: KTypography.labelMedium)),
-          Text(CurrencyFormatter.formatIndian(amount), style: KTypography.amountSmall),
+          Text(CurrencyFormatter.formatIndian(amount),
+              style: KTypography.amountSmall),
         ],
       );
     }
@@ -271,7 +267,8 @@ class _LineItem extends StatelessWidget {
               Text(
                 '${qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2)} $unit x ${CurrencyFormatter.formatIndian(rate)}'
                 '${hsn != null && hsn.isNotEmpty ? '  •  HSN: $hsn' : ''}',
-                style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                style: KTypography.bodySmall
+                    .copyWith(color: KColors.textSecondary),
               ),
               if (sku.isNotEmpty)
                 Text('SKU: $sku',
@@ -312,7 +309,8 @@ class _DetailRow extends StatelessWidget {
           Text(label,
               style: bold
                   ? KTypography.labelMedium
-                  : KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                  : KTypography.bodySmall
+                      .copyWith(color: KColors.textSecondary)),
           Text(value,
               style: bold
                   ? KTypography.amountMedium

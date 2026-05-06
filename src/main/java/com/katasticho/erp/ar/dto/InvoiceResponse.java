@@ -31,6 +31,9 @@ public record InvoiceResponse(
 ) {
     public record LineResponse(
             UUID id,
+            UUID itemId,
+            UUID batchId,
+            UUID taxGroupId,
             int lineNumber,
             String description,
             String hsnCode,

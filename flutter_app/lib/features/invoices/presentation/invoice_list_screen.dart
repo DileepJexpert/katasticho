@@ -144,7 +144,7 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
         children: [
           KListPageHeader(
             title: 'Invoices',
-            searchHint: 'Search invoices…',
+            searchHint: 'Search invoices...',
             tabs: _statusTabs,
             selectedTab: filter.status,
             onTabChanged: (v) => ref
@@ -223,23 +223,25 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
                   );
                 }
 
-                return RefreshIndicator(
+                final invoiceMaps = invoices.cast<Map<String, dynamic>>();
+
+                return KResponsiveEntityList<Map<String, dynamic>>(
+                  items: invoiceMaps,
                   onRefresh: () async => ref.invalidate(invoiceListProvider),
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: invoices.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) {
-                      final inv = invoices[index] as Map<String, dynamic>;
-                      final id = inv['id']?.toString() ?? '';
-                      return _InvoiceCard(
-                        invoice: inv,
-                        selected: _selectedIds.contains(id),
-                        inSelection: inSelection,
-                        onToggleSelect: () => _toggleSelect(id),
-                      );
-                    },
+                  tableBuilder: (_) => _InvoiceTable(
+                    invoices: invoiceMaps,
+                    selectedIds: _selectedIds,
+                    onToggleSelect: _toggleSelect,
                   ),
+                  mobileItemBuilder: (_, inv) {
+                    final id = inv['id']?.toString() ?? '';
+                    return _InvoiceCard(
+                      invoice: inv,
+                      selected: _selectedIds.contains(id),
+                      inSelection: inSelection,
+                      onToggleSelect: () => _toggleSelect(id),
+                    );
+                  },
                 );
               },
             ),
@@ -343,8 +345,7 @@ class _InvoiceCard extends StatelessWidget {
                       ),
                     ),
                     if (invoiceDate != null) ...[
-                      Icon(Icons.event,
-                          size: 12, color: KColors.textHint),
+                      Icon(Icons.event, size: 12, color: KColors.textHint),
                       const SizedBox(width: 3),
                       Text(
                         DateFormatter.short(DateTime.parse(invoiceDate)),
@@ -365,9 +366,7 @@ class _InvoiceCard extends StatelessWidget {
                               ? Icons.warning_amber_rounded
                               : Icons.schedule,
                           size: 12,
-                          color: isOverdue
-                              ? KColors.error
-                              : KColors.textHint,
+                          color: isOverdue ? KColors.error : KColors.textHint,
                         ),
                         const SizedBox(width: 3),
                         Text(
@@ -406,8 +405,7 @@ class _InvoiceCard extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: paidPct,
                         minHeight: 3,
-                        backgroundColor:
-                            KColors.divider.withValues(alpha: 0.5),
+                        backgroundColor: KColors.divider.withValues(alpha: 0.5),
                         valueColor: AlwaysStoppedAnimation(
                           isOverdue ? KColors.error : KColors.warning,
                         ),
@@ -420,11 +418,94 @@ class _InvoiceCard extends StatelessWidget {
           ),
           if (!inSelection) ...[
             KSpacing.hGapXs,
-            const Icon(Icons.chevron_right,
-                color: KColors.textHint, size: 18),
+            const Icon(Icons.chevron_right, color: KColors.textHint, size: 18),
           ],
         ],
       ),
+    );
+  }
+}
+
+class _InvoiceTable extends StatelessWidget {
+  final List<Map<String, dynamic>> invoices;
+  final Set<String> selectedIds;
+  final ValueChanged<String> onToggleSelect;
+
+  const _InvoiceTable({
+    required this.invoices,
+    required this.selectedIds,
+    required this.onToggleSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final inSelection = selectedIds.isNotEmpty;
+
+    return KEntityDataTable(
+      dataRowMaxHeight: 56,
+      columns: const [
+        DataColumn(label: SizedBox(width: 24)),
+        DataColumn(label: Text('Invoice')),
+        DataColumn(label: Text('Customer')),
+        DataColumn(label: Text('Date')),
+        DataColumn(label: Text('Due')),
+        DataColumn(label: Text('Status')),
+        DataColumn(label: Text('Total'), numeric: true),
+        DataColumn(label: Text('Paid'), numeric: true),
+        DataColumn(label: Text('Balance'), numeric: true),
+        DataColumn(label: SizedBox(width: 32)),
+      ],
+      rows: invoices.map((invoice) {
+        final id = invoice['id']?.toString() ?? '';
+        final status = invoice['status'] as String? ?? 'DRAFT';
+        final invoiceNumber = invoice['invoiceNumber'] as String? ?? '--';
+        final customerName = invoice['contactName'] as String? ?? 'Unknown';
+        final invoiceDate = invoice['invoiceDate'] as String?;
+        final dueDate = invoice['dueDate'] as String?;
+        final total = (invoice['totalAmount'] as num?)?.toDouble() ?? 0;
+        final paid = (invoice['amountPaid'] as num?)?.toDouble() ?? 0;
+        final balance = (invoice['balanceDue'] as num?)?.toDouble() ?? total;
+        final selected = selectedIds.contains(id);
+        final isOverdue = status == 'OVERDUE';
+
+        return DataRow(
+          selected: selected,
+          color: kEntityRowColor(context, selected: selected),
+          onSelectChanged: (_) {
+            if (id.isEmpty) return;
+            if (inSelection) {
+              onToggleSelect(id);
+            } else {
+              context.go('/invoices/$id');
+            }
+          },
+          cells: [
+            DataCell(KTableSelectionCell(
+              selected: selected,
+              onChanged: id.isEmpty ? null : (_) => onToggleSelect(id),
+            )),
+            DataCell(KTablePrimaryTextCell(value: invoiceNumber)),
+            DataCell(KTableTextCell(value: customerName, width: 130)),
+            DataCell(KTableDateCell(value: invoiceDate)),
+            DataCell(KTableDueDateCell(value: dueDate, overdue: isOverdue)),
+            DataCell(KTableStatusCell(status: status)),
+            DataCell(KTableAmountCell(value: total)),
+            DataCell(KTableAmountCell(value: paid, color: KColors.success)),
+            DataCell(
+              KTableAmountCell(
+                value: balance,
+                color: balance > 0
+                    ? (isOverdue ? KColors.error : KColors.warning)
+                    : KColors.success,
+              ),
+            ),
+            DataCell(KTableOpenActionCell(
+              tooltip: 'Open invoice',
+              onPressed: id.isEmpty ? null : () => context.go('/invoices/$id'),
+            )),
+          ],
+        );
+      }).toList(),
     );
   }
 }

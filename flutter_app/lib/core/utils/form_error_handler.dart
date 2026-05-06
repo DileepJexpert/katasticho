@@ -16,7 +16,6 @@ mixin FormErrorHandler<T extends StatefulWidget> on State<T> {
       if (fieldErrs.isNotEmpty) {
         setState(() => serverErrors = fieldErrs);
         formKey.currentState!.validate();
-        _showSnack('Please fix the errors below');
       } else {
         _showSnack(ApiErrorParser.message(e));
       }

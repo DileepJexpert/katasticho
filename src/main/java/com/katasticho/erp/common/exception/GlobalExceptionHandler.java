@@ -10,6 +10,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.slf4j.MDC;
 
 import java.util.List;
 
@@ -63,13 +64,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex) {
-        log.error("Unexpected error", ex);
-        String message = ex.getMessage();
-        if (message == null || message.isBlank()) {
-            message = "An unexpected error occurred";
-        }
+        String requestId = MDC.get("requestId");
+        log.error("Unexpected error requestId={}", requestId, ex);
+        String message = "An unexpected error occurred. Please contact support with request id " + requestId + ".";
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error(message, List.of("INTERNAL_ERROR")));
+                .body(ApiResponse.error(message, List.of("INTERNAL_ERROR", "REQUEST_ID:" + requestId)));
     }
 }

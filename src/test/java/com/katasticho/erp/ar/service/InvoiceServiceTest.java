@@ -310,7 +310,7 @@ class InvoiceServiceTest {
         verify(journalService).postJournal(journalCaptor.capture());
 
         JournalPostRequest journalReq = journalCaptor.getValue();
-        assertEquals("AR", journalReq.sourceModule());
+        assertEquals("SALES", journalReq.sourceModule());
         assertTrue(journalReq.autoPost());
         assertEquals(4, journalReq.lines().size());
 

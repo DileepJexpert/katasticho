@@ -23,12 +23,28 @@ class InvoiceRepository {
       if (status != null) 'status': status,
       if (search != null) 'search': search,
     };
-    final response = await _api.get(ApiConfig.invoices, queryParameters: params);
+    final response =
+        await _api.get(ApiConfig.invoices, queryParameters: params);
     return response.data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> getInvoice(String id) async {
     final response = await _api.get(ApiConfig.invoiceById(id));
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> listInvoicesByContact(
+    String contactId, {
+    int page = 0,
+    int size = 50,
+  }) async {
+    final response = await _api.get(
+      ApiConfig.invoicesByContact(contactId),
+      queryParameters: {
+        'page': page,
+        'size': size,
+      },
+    );
     return response.data as Map<String, dynamic>;
   }
 

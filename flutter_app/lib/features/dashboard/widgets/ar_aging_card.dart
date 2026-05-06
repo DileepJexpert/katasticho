@@ -69,35 +69,56 @@ class AgingBreakdown extends StatelessWidget {
 
   // ── Compact layout — fits inside a single KPI-card-width column ──
 
-  Widget _buildCompact(
-      BuildContext context, ColorScheme cs, double overdue, List<_Bucket> buckets) {
+  Widget _buildCompact(BuildContext context, ColorScheme cs, double overdue,
+      List<_Bucket> buckets) {
+    final overdueRatio = totalOutstanding > 0
+        ? (overdue / totalOutstanding).clamp(0.0, 1.0)
+        : 0.0;
+
     return Padding(
       padding: const EdgeInsets.all(10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: KTypography.h4.copyWith(color: cs.onSurface)),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: KTypography.h4.copyWith(color: cs.onSurface),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              _RiskPill(overdueRatio: overdueRatio),
+            ],
+          ),
           const SizedBox(height: 2),
           Text(CurrencyFormatter.formatIndian(totalOutstanding),
               style: KTypography.amountSmall),
-          if (overdue > 0) ...[
-            const SizedBox(height: 4),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: KColors.error.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+          const SizedBox(height: 8),
+          _AgingStackBar(buckets: buckets, total: totalOutstanding),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _MiniMetric(
+                  label: 'Current',
+                  value: CurrencyFormatter.formatCompact(current),
+                  color: KColors.ageingCurrent,
+                ),
               ),
-              child: Text(
-                '${CurrencyFormatter.formatCompact(overdue)} overdue',
-                style: KTypography.labelSmall
-                    .copyWith(color: KColors.error, fontSize: 10),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _MiniMetric(
+                  label: 'Overdue',
+                  value: CurrencyFormatter.formatCompact(overdue),
+                  color: overdue > 0 ? KColors.error : KColors.success,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
           const SizedBox(height: 8),
           for (final b in buckets)
             _CompactBucketRow(bucket: b, total: totalOutstanding),
@@ -108,11 +129,9 @@ class AgingBreakdown extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text('View Report',
-                    style: KTypography.labelSmall
-                        .copyWith(color: accentColor)),
+                    style: KTypography.labelSmall.copyWith(color: accentColor)),
                 const SizedBox(width: 2),
-                Icon(Icons.arrow_forward_ios,
-                    size: 10, color: accentColor),
+                Icon(Icons.arrow_forward_ios, size: 10, color: accentColor),
               ],
             ),
           ),
@@ -123,8 +142,12 @@ class AgingBreakdown extends StatelessWidget {
 
   // ── Full layout — used in standalone/wide contexts ──
 
-  Widget _buildFull(
-      BuildContext context, ColorScheme cs, double overdue, List<_Bucket> buckets) {
+  Widget _buildFull(BuildContext context, ColorScheme cs, double overdue,
+      List<_Bucket> buckets) {
+    final overdueRatio = totalOutstanding > 0
+        ? (overdue / totalOutstanding).clamp(0.0, 1.0)
+        : 0.0;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Column(
@@ -133,29 +156,36 @@ class AgingBreakdown extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(title,
-                  style: KTypography.h3.copyWith(color: cs.onSurface)),
+              Text(title, style: KTypography.h3.copyWith(color: cs.onSurface)),
               const Spacer(),
+              _RiskPill(overdueRatio: overdueRatio),
+              const SizedBox(width: 8),
               Text(CurrencyFormatter.formatIndian(totalOutstanding),
                   style: KTypography.amountMedium),
             ],
           ),
-          if (overdue > 0) ...[
-            const SizedBox(height: 4),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: KColors.error.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
+          const SizedBox(height: 12),
+          _AgingStackBar(buckets: buckets, total: totalOutstanding),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _MiniMetric(
+                  label: 'Current',
+                  value: CurrencyFormatter.formatIndian(current),
+                  color: KColors.ageingCurrent,
+                ),
               ),
-              child: Text(
-                '${CurrencyFormatter.formatCompact(overdue)} overdue',
-                style:
-                    KTypography.labelSmall.copyWith(color: KColors.error),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _MiniMetric(
+                  label: 'Overdue',
+                  value: CurrencyFormatter.formatIndian(overdue),
+                  color: overdue > 0 ? KColors.error : KColors.success,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
           const SizedBox(height: 16),
           for (final b in buckets)
             Padding(
@@ -169,18 +199,135 @@ class AgingBreakdown extends StatelessWidget {
               onPressed: () => context.push(reportRoute),
               icon: Icon(Icons.arrow_forward, size: 16, color: accentColor),
               label: Text('View Full Report',
-                  style: KTypography.labelMedium
-                      .copyWith(color: accentColor)),
+                  style: KTypography.labelMedium.copyWith(color: accentColor)),
               style: OutlinedButton.styleFrom(
-                side: BorderSide(
-                    color: accentColor.withValues(alpha: 0.3)),
+                side: BorderSide(color: accentColor.withValues(alpha: 0.3)),
                 shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(KSpacing.radiusMd)),
+                    borderRadius: BorderRadius.circular(KSpacing.radiusMd)),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RiskPill extends StatelessWidget {
+  final double overdueRatio;
+
+  const _RiskPill({required this.overdueRatio});
+
+  @override
+  Widget build(BuildContext context) {
+    final highRisk = overdueRatio >= 0.35;
+    final mediumRisk = overdueRatio >= 0.12;
+    final color = highRisk
+        ? KColors.error
+        : mediumRisk
+            ? KColors.warning
+            : KColors.success;
+    final label = highRisk
+        ? 'High risk'
+        : mediumRisk
+            ? 'Watch'
+            : 'Healthy';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: KTypography.labelSmall.copyWith(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _MiniMetric({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.13)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: KTypography.labelMedium.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            label,
+            style: KTypography.labelSmall.copyWith(
+              color: cs.onSurfaceVariant,
+              fontSize: 10,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgingStackBar extends StatelessWidget {
+  final List<_Bucket> buckets;
+  final double total;
+
+  const _AgingStackBar({required this.buckets, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final visibleBuckets =
+        total > 0 ? buckets.where((b) => b.amount > 0).toList() : buckets;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: SizedBox(
+        height: 8,
+        child: Row(
+          children: [
+            for (final bucket in visibleBuckets)
+              Expanded(
+                flex: total > 0
+                    ? ((bucket.amount / total) * 1000).round().clamp(1, 1000)
+                    : 1,
+                child: Container(
+                  color: total > 0 ? bucket.color : cs.surfaceContainerHighest,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -203,8 +350,7 @@ class _CompactBucketRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final fraction =
-        total > 0 ? (bucket.amount / total).clamp(0.0, 1.0) : 0.0;
+    final fraction = total > 0 ? (bucket.amount / total).clamp(0.0, 1.0) : 0.0;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.5),
@@ -221,8 +367,7 @@ class _CompactBucketRow extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             bucket.label,
-            style: KTypography.labelSmall
-                .copyWith(color: cs.onSurfaceVariant),
+            style: KTypography.labelSmall.copyWith(color: cs.onSurfaceVariant),
           ),
           const SizedBox(width: 4),
           Expanded(
@@ -239,8 +384,7 @@ class _CompactBucketRow extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             CurrencyFormatter.formatCompact(bucket.amount),
-            style: KTypography.labelSmall
-                .copyWith(fontWeight: FontWeight.w600),
+            style: KTypography.labelSmall.copyWith(fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -258,16 +402,14 @@ class _FullBucketRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final fraction =
-        total > 0 ? (bucket.amount / total).clamp(0.0, 1.0) : 0.0;
+    final fraction = total > 0 ? (bucket.amount / total).clamp(0.0, 1.0) : 0.0;
 
     return Row(
       children: [
         SizedBox(
           width: 80,
           child: Text(bucket.label,
-              style: KTypography.bodySmall
-                  .copyWith(color: cs.onSurfaceVariant),
+              style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant),
               maxLines: 1,
               overflow: TextOverflow.ellipsis),
         ),

@@ -1,4 +1,4 @@
-/// Barrel file for all shared widgets.
+// Barrel file for all shared widgets.
 export 'k_activity_timeline.dart';
 export 'k_assistant_fab.dart';
 export 'k_button.dart';
@@ -12,6 +12,7 @@ export 'k_detail_drawer.dart';
 export 'k_dialog.dart';
 export 'k_empty_state.dart';
 export 'k_error_view.dart';
+export 'k_entity_list.dart';
 export 'k_list_page_header.dart';
 export 'k_loading.dart';
 export 'k_pdf_preview_screen.dart';

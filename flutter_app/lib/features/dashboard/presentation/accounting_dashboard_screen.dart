@@ -10,6 +10,7 @@ import '../data/dashboard_repository.dart';
 import '../widgets/ar_aging_card.dart';
 import '../widgets/bills_to_pay_card.dart';
 import '../widgets/cash_flow_card.dart';
+import '../widgets/finance_command_center.dart';
 import '../widgets/outstanding_receivable_card.dart';
 import '../widgets/overdue_invoices_widget.dart';
 import '../widgets/pnl_summary_card.dart';
@@ -68,11 +69,15 @@ class _AccountingDashboardScreenState
                 orgName: authState.orgName ?? 'Your Business',
               ),
               KSpacing.vGapMd,
+              AccountingControlCenter(isDesktop: isDesktop),
+              KSpacing.vGapMd,
               _AccountingKpis(
                 isDesktop: isDesktop,
                 expandedAging: _expandedAging,
                 onToggleAging: _toggleAging,
               ),
+              KSpacing.vGapMd,
+              _LedgerHealthStrip(isDesktop: isDesktop),
               KSpacing.vGapLg,
               if (isDesktop) _buildDesktopLayout() else _buildMobileLayout(),
             ],
@@ -146,6 +151,221 @@ class _AccountingDashboardScreenState
   }
 }
 
+class _LedgerHealthStrip extends ConsumerWidget {
+  final bool isDesktop;
+
+  const _LedgerHealthStrip({required this.isDesktop});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final arAging = ref.watch(arAgingProvider);
+    final apAging = ref.watch(apAgingProvider);
+    final cashFlow = ref.watch(cashFlowProvider);
+    final profitLoss = ref.watch(profitLossProvider);
+
+    final cards = [
+      arAging.when(
+        loading: () => const _HealthTile.loading(title: 'AR Risk'),
+        error: (_, __) => const _HealthTile.error(title: 'AR Risk'),
+        data: (ar) {
+          final overdue =
+              ar.days1to30 + ar.days31to60 + ar.days61to90 + ar.days90plus;
+          final ratio =
+              ar.totalOutstanding > 0 ? overdue / ar.totalOutstanding : 0.0;
+          return _HealthTile(
+            title: 'AR Risk',
+            value: CurrencyFormatter.formatCompact(overdue),
+            caption: overdue > 0 ? 'overdue receivables' : 'all current',
+            icon: Icons.receipt_long_rounded,
+            color: _riskColor(ratio),
+          );
+        },
+      ),
+      apAging.when(
+        loading: () => const _HealthTile.loading(title: 'AP Risk'),
+        error: (_, __) => const _HealthTile.error(title: 'AP Risk'),
+        data: (ap) {
+          final overdue =
+              ap.days1to30 + ap.days31to60 + ap.days61to90 + ap.days90plus;
+          final ratio =
+              ap.totalOutstanding > 0 ? overdue / ap.totalOutstanding : 0.0;
+          return _HealthTile(
+            title: 'AP Risk',
+            value: CurrencyFormatter.formatCompact(overdue),
+            caption: overdue > 0 ? 'overdue payables' : 'all current',
+            icon: Icons.payments_rounded,
+            color: _riskColor(ratio),
+          );
+        },
+      ),
+      cashFlow.when(
+        loading: () => const _HealthTile.loading(title: 'Cash Flow'),
+        error: (_, __) => const _HealthTile.error(title: 'Cash Flow'),
+        data: (cf) => _HealthTile(
+          title: 'Cash Flow',
+          value: CurrencyFormatter.formatCompact(cf.netCashFlow),
+          caption: cf.netCashFlow >= 0 ? 'net inflow' : 'net outflow',
+          icon: cf.netCashFlow >= 0
+              ? Icons.trending_up_rounded
+              : Icons.trending_down_rounded,
+          color: cf.netCashFlow >= 0 ? KColors.success : KColors.error,
+        ),
+      ),
+      profitLoss.when(
+        loading: () => const _HealthTile.loading(title: 'P&L'),
+        error: (_, __) => const _HealthTile.error(title: 'P&L'),
+        data: (pl) => _HealthTile(
+          title: 'P&L',
+          value: CurrencyFormatter.formatCompact(pl.netProfit),
+          caption: pl.netProfit >= 0 ? 'net profit MTD' : 'net loss MTD',
+          icon: pl.netProfit >= 0
+              ? Icons.insights_rounded
+              : Icons.warning_amber_rounded,
+          color: pl.netProfit >= 0 ? KColors.success : KColors.error,
+        ),
+      ),
+    ];
+
+    if (!isDesktop) {
+      return Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: cards[0]),
+              const SizedBox(width: KSpacing.sm),
+              Expanded(child: cards[1]),
+            ],
+          ),
+          const SizedBox(height: KSpacing.sm),
+          Row(
+            children: [
+              Expanded(child: cards[2]),
+              const SizedBox(width: KSpacing.sm),
+              Expanded(child: cards[3]),
+            ],
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        for (var i = 0; i < cards.length; i++) ...[
+          if (i > 0) const SizedBox(width: KSpacing.md),
+          Expanded(child: cards[i]),
+        ],
+      ],
+    );
+  }
+
+  static Color _riskColor(double ratio) {
+    if (ratio >= 0.35) return KColors.error;
+    if (ratio >= 0.12) return KColors.warning;
+    return KColors.success;
+  }
+}
+
+class _HealthTile extends StatelessWidget {
+  final String title;
+  final String value;
+  final String caption;
+  final IconData icon;
+  final Color color;
+  final bool isLoading;
+
+  const _HealthTile({
+    required this.title,
+    required this.value,
+    required this.caption,
+    required this.icon,
+    required this.color,
+  }) : isLoading = false;
+
+  const _HealthTile.loading({required this.title})
+      : value = '...',
+        caption = 'loading',
+        icon = Icons.hourglass_empty_rounded,
+        color = KColors.textHint,
+        isLoading = true;
+
+  const _HealthTile.error({required this.title})
+      : value = '--',
+        caption = 'not available',
+        icon = Icons.error_outline_rounded,
+        color = KColors.error,
+        isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      height: 82,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(KSpacing.radiusLg),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.55)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: isLoading
+                ? const Padding(
+                    padding: EdgeInsets.all(9),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: KTypography.labelSmall.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: KTypography.amountSmall.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  caption,
+                  style: KTypography.labelSmall.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 10,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AccountingHeader extends StatelessWidget {
   final String userName;
   final String orgName;
@@ -172,7 +392,8 @@ class _AccountingHeader extends StatelessWidget {
               color: cs.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.account_balance_rounded, size: 18, color: cs.primary),
+            child: Icon(Icons.account_balance_rounded,
+                size: 18, color: cs.primary),
           ),
           KSpacing.hGapMd,
           Expanded(
@@ -190,12 +411,14 @@ class _AccountingHeader extends StatelessWidget {
                 const SizedBox(height: 1),
                 Row(
                   children: [
-                    Icon(Icons.business_rounded, size: 12, color: cs.onSurfaceVariant),
+                    Icon(Icons.business_rounded,
+                        size: 12, color: cs.onSurfaceVariant),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
                         orgName,
-                        style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant),
+                        style: KTypography.bodySmall
+                            .copyWith(color: cs.onSurfaceVariant),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -234,8 +457,11 @@ class _AccountingKpis extends ConsumerWidget {
 
     final tiles = <Widget>[
       monthlyProfitAsync.when(
-        loading: () => _placeholder('Revenue', Icons.monetization_on, KColors.primary),
-        error: (_, __) => _placeholder('Revenue', Icons.monetization_on, KColors.primary, value: '--'),
+        loading: () =>
+            _placeholder('Revenue', Icons.monetization_on, KColors.primary),
+        error: (_, __) => _placeholder(
+            'Revenue', Icons.monetization_on, KColors.primary,
+            value: '--'),
         data: (mp) => KKpiCard(
           title: 'Revenue',
           value: CurrencyFormatter.formatCompact(mp.revenue),
@@ -245,8 +471,11 @@ class _AccountingKpis extends ConsumerWidget {
         ),
       ),
       arSummaryAsync.when(
-        loading: () => _placeholder('Receivables', Icons.account_balance_wallet, KColors.warning),
-        error: (_, __) => _placeholder('Receivables', Icons.account_balance_wallet, KColors.warning, value: '--'),
+        loading: () => _placeholder(
+            'Receivables', Icons.account_balance_wallet, KColors.warning),
+        error: (_, __) => _placeholder(
+            'Receivables', Icons.account_balance_wallet, KColors.warning,
+            value: '--'),
         data: (ar) {
           final String trend;
           final bool trendPositive;
@@ -272,7 +501,8 @@ class _AccountingKpis extends ConsumerWidget {
       ),
       apSummaryAsync.when(
         loading: () => _placeholder('Payables', Icons.payment, KColors.error),
-        error: (_, __) => _placeholder('Payables', Icons.payment, KColors.error, value: '--'),
+        error: (_, __) =>
+            _placeholder('Payables', Icons.payment, KColors.error, value: '--'),
         data: (ap) {
           final String trend;
           final bool trendPositive;
@@ -297,8 +527,11 @@ class _AccountingKpis extends ConsumerWidget {
         },
       ),
       profitLossAsync.when(
-        loading: () => _placeholder('Net Profit', Icons.trending_up, KColors.success),
-        error: (_, __) => _placeholder('Net Profit', Icons.trending_up, KColors.success, value: '--'),
+        loading: () =>
+            _placeholder('Net Profit', Icons.trending_up, KColors.success),
+        error: (_, __) => _placeholder(
+            'Net Profit', Icons.trending_up, KColors.success,
+            value: '--'),
         data: (pl) => KKpiCard(
           title: 'Net Profit',
           value: CurrencyFormatter.formatCompact(pl.netProfit),
@@ -320,7 +553,8 @@ class _AccountingKpis extends ConsumerWidget {
       final rowWidgets = <Widget>[];
       for (var c = r; c < end; c++) {
         if (c > r) rowWidgets.add(const SizedBox(width: KSpacing.md));
-        rowWidgets.add(Expanded(child: SizedBox(height: tileH, child: tiles[c])));
+        rowWidgets
+            .add(Expanded(child: SizedBox(height: tileH, child: tiles[c])));
       }
       for (var c = end; c < r + cols; c++) {
         rowWidgets.add(const SizedBox(width: KSpacing.md));
@@ -340,7 +574,8 @@ class _AccountingKpis extends ConsumerWidget {
         }
       }
 
-      final hasExpandable = kpiIds.sublist(r, end)
+      final hasExpandable = kpiIds
+          .sublist(r, end)
           .any((k) => k == 'receivables' || k == 'payables');
 
       if (hasExpandable) {
@@ -381,8 +616,10 @@ class _AccountingKpis extends ConsumerWidget {
     );
   }
 
-  Widget _placeholder(String title, IconData icon, Color color, {String value = '...'}) {
-    return KKpiCard(title: title, value: value, icon: icon, iconColor: color, trend: '--');
+  Widget _placeholder(String title, IconData icon, Color color,
+      {String value = '...'}) {
+    return KKpiCard(
+        title: title, value: value, icon: icon, iconColor: color, trend: '--');
   }
 }
 
@@ -394,7 +631,8 @@ class _AgingPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final isAr = type == 'ar';
-    final accentColor = isAr ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
+    final accentColor =
+        isAr ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
     final title = isAr ? 'AR Aging' : 'AP Aging';
     final route = isAr ? '/reports/ageing' : '/reports/ap-ageing';
 
@@ -413,7 +651,8 @@ class _AgingPanel extends ConsumerWidget {
             ref.watch(arAgingProvider).when(
                   loading: () => const SizedBox(
                     height: 120,
-                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    child: Center(
+                        child: CircularProgressIndicator(strokeWidth: 2)),
                   ),
                   error: (_, __) => const Padding(
                     padding: EdgeInsets.all(12),
@@ -436,7 +675,8 @@ class _AgingPanel extends ConsumerWidget {
             ref.watch(apAgingProvider).when(
                   loading: () => const SizedBox(
                     height: 120,
-                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    child: Center(
+                        child: CircularProgressIndicator(strokeWidth: 2)),
                   ),
                   error: (_, __) => const Padding(
                     padding: EdgeInsets.all(12),
@@ -460,4 +700,3 @@ class _AgingPanel extends ConsumerWidget {
     );
   }
 }
-

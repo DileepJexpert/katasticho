@@ -84,6 +84,9 @@ class InvoicePdfServiceTest {
                 "Payment due in 7 days & goods once sold are final.",
                 List.of(new InvoiceResponse.LineResponse(
                         UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        null,
+                        null,
                         1,
                         "Tea & Snacks",
                         "0902",

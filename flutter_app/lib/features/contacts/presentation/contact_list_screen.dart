@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/contact_repository.dart';
@@ -182,7 +183,9 @@ class _ContactTabBody extends ConsumerWidget {
           final q = search.toLowerCase();
           contacts = contacts.where((c) {
             final m = c as Map<String, dynamic>;
-            return (m['displayName'] as String? ?? '').toLowerCase().contains(q) ||
+            return (m['displayName'] as String? ?? '')
+                    .toLowerCase()
+                    .contains(q) ||
                 (m['companyName'] as String? ?? '').toLowerCase().contains(q) ||
                 (m['email'] as String? ?? '').toLowerCase().contains(q) ||
                 (m['phone'] as String? ?? '').contains(q) ||
@@ -193,32 +196,221 @@ class _ContactTabBody extends ConsumerWidget {
         if (contacts.isEmpty) {
           return KEmptyState(
             icon: Icons.people_outline,
-            title: search.isNotEmpty ? 'No contacts match "$search"' : 'No contacts yet',
-            subtitle: search.isEmpty ? 'Add customers and vendors in one place' : null,
+            title: search.isNotEmpty
+                ? 'No contacts match "$search"'
+                : 'No contacts yet',
+            subtitle: search.isEmpty
+                ? 'Add customers and vendors in one place'
+                : null,
             actionLabel: search.isEmpty ? 'Add Contact' : null,
-            onAction: search.isEmpty ? () => context.push('/contacts/create') : null,
+            onAction:
+                search.isEmpty ? () => context.push('/contacts/create') : null,
           );
         }
 
-        return RefreshIndicator(
+        final contactMaps = contacts
+            .whereType<Map>()
+            .map((contact) => contact.cast<String, dynamic>())
+            .toList();
+
+        return KResponsiveEntityList<Map<String, dynamic>>(
+          items: contactMaps,
           onRefresh: () async => ref.invalidate(contactListProvider(type)),
-          child: ListView.separated(
-            padding: KSpacing.pagePadding,
-            itemCount: contacts.length,
-            separatorBuilder: (_, __) => KSpacing.vGapSm,
-            itemBuilder: (context, index) {
-              final contact = contacts[index] as Map<String, dynamic>;
-              final id = contact['id']?.toString() ?? '';
-              return _ContactCard(
-                contact: contact,
-                selected: selectedIds.contains(id),
-                inSelection: inSelection,
-                onToggleSelect: () => onToggleSelect(id),
-              );
-            },
+          mobileItemBuilder: (context, contact) {
+            final id = contact['id']?.toString() ?? '';
+            return _ContactCard(
+              contact: contact,
+              selected: selectedIds.contains(id),
+              inSelection: inSelection,
+              onToggleSelect: () => onToggleSelect(id),
+            );
+          },
+          tableBuilder: (context) => _ContactTable(
+            contacts: contactMaps,
+            selectedIds: selectedIds,
+            onToggleSelect: onToggleSelect,
           ),
         );
       },
+    );
+  }
+}
+
+class _ContactTable extends StatelessWidget {
+  final List<Map<String, dynamic>> contacts;
+  final Set<String> selectedIds;
+  final ValueChanged<String> onToggleSelect;
+
+  const _ContactTable({
+    required this.contacts,
+    required this.selectedIds,
+    required this.onToggleSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return KEntityDataTable(
+      columnSpacing: 18,
+      horizontalMargin: 12,
+      columns: const [
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+        DataColumn(label: Text('Contact')),
+        DataColumn(label: Text('Type')),
+        DataColumn(label: Text('Company')),
+        DataColumn(label: Text('GSTIN')),
+        DataColumn(label: Text('Phone')),
+        DataColumn(label: Text('Email')),
+        DataColumn(label: Text('AR')),
+        DataColumn(label: Text('AP')),
+        DataColumn(label: Text('Status')),
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+      ],
+      rows: contacts.map((contact) {
+        final id = contact['id']?.toString() ?? '';
+        final displayName = contact['displayName'] as String? ?? 'Unknown';
+        final companyName = contact['companyName'] as String? ?? '--';
+        final contactType = contact['contactType'] as String? ?? 'CUSTOMER';
+        final gstin = contact['gstin'] as String? ?? '--';
+        final phone =
+            contact['phone'] as String? ?? contact['mobile'] as String? ?? '--';
+        final email = contact['email'] as String? ?? '--';
+        final outstandingAr = (contact['outstandingAr'] as num?)?.toDouble() ??
+            (contact['outstandingAR'] as num?)?.toDouble() ??
+            (contact['outstanding_ar'] as num?)?.toDouble() ??
+            0;
+        final outstandingAp = (contact['outstandingAp'] as num?)?.toDouble() ??
+            (contact['outstandingAP'] as num?)?.toDouble() ??
+            (contact['outstanding_ap'] as num?)?.toDouble() ??
+            0;
+        final active =
+            contact['active'] as bool? ?? contact['isActive'] as bool? ?? true;
+        final selected = selectedIds.contains(id);
+
+        return DataRow(
+          selected: selected,
+          color: kEntityRowColor(context, selected: selected),
+          onSelectChanged: (_) => onToggleSelect(id),
+          cells: [
+            DataCell(KTableSelectionCell(
+              selected: selected,
+              onChanged: (_) => onToggleSelect(id),
+            )),
+            DataCell(_ContactNameCell(
+              name: displayName,
+              type: contactType,
+            )),
+            DataCell(_ContactTypeCell(type: contactType)),
+            DataCell(KTableTextCell(value: companyName, width: 150)),
+            DataCell(KTableTextCell(value: gstin, width: 120)),
+            DataCell(KTableTextCell(value: phone, width: 110)),
+            DataCell(KTableTextCell(value: email, width: 170)),
+            DataCell(_ContactAmountCell(value: outstandingAr)),
+            DataCell(_ContactAmountCell(value: outstandingAp)),
+            DataCell(KStatusChip(
+              status: active ? 'PAID' : 'CANCELLED',
+              label: active ? 'Active' : 'Inactive',
+              dense: true,
+            )),
+            DataCell(KTableOpenActionCell(
+              tooltip: 'Open contact',
+              onPressed:
+                  id.isEmpty ? null : () => context.push('/contacts/$id'),
+            )),
+          ],
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _ContactNameCell extends StatelessWidget {
+  final String name;
+  final String type;
+
+  const _ContactNameCell({
+    required this.name,
+    required this.type,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _contactTypeColor(type);
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 220,
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: color.withValues(alpha: 0.15),
+            child: Text(
+              name.isNotEmpty ? name[0].toUpperCase() : '?',
+              style: KTypography.labelMedium.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          KSpacing.hGapSm,
+          Expanded(
+            child: Text(
+              name,
+              style: KTypography.labelLarge.copyWith(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContactTypeCell extends StatelessWidget {
+  final String type;
+
+  const _ContactTypeCell({required this.type});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _contactTypeColor(type);
+    final label = type == 'BOTH' ? 'Both' : type.capitalize();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: KTypography.labelSmall.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactAmountCell extends StatelessWidget {
+  final double value;
+
+  const _ContactAmountCell({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 92,
+      child: Text(
+        value == 0 ? '--' : CurrencyFormatter.formatIndian(value),
+        textAlign: TextAlign.end,
+        style: KTypography.amountSmall.copyWith(
+          color: value == 0 ? KColors.textHint : KColors.textPrimary,
+        ),
+      ),
     );
   }
 }
@@ -246,11 +438,7 @@ class _ContactCard extends StatelessWidget {
     final email = contact['email'] as String?;
     final phone = contact['phone'] as String? ?? contact['mobile'] as String?;
 
-    final typeColor = contactType == 'VENDOR'
-        ? KColors.info
-        : contactType == 'BOTH'
-            ? KColors.warning
-            : KColors.success;
+    final typeColor = _contactTypeColor(contactType);
 
     final typeLabel = contactType == 'BOTH' ? 'Both' : contactType.capitalize();
 
@@ -331,8 +519,8 @@ class _ContactCard extends StatelessWidget {
                       ),
                       child: Text(
                         typeLabel,
-                        style: KTypography.labelSmall
-                            .copyWith(color: typeColor),
+                        style:
+                            KTypography.labelSmall.copyWith(color: typeColor),
                       ),
                     ),
                   ],
@@ -356,8 +544,7 @@ class _ContactCard extends StatelessWidget {
           ),
           if (!inSelection) ...[
             KSpacing.hGapXs,
-            const Icon(Icons.chevron_right,
-                color: KColors.textHint, size: 18),
+            const Icon(Icons.chevron_right, color: KColors.textHint, size: 18),
           ],
         ],
       ),
@@ -384,8 +571,7 @@ class _InfoChipRow extends StatelessWidget {
         children.add(Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6),
           child: Text('·',
-              style: KTypography.bodySmall
-                  .copyWith(color: KColors.textHint)),
+              style: KTypography.bodySmall.copyWith(color: KColors.textHint)),
         ));
       }
       final c = chips[i];
@@ -394,8 +580,7 @@ class _InfoChipRow extends StatelessWidget {
       children.add(Flexible(
         child: Text(
           c.text,
-          style: KTypography.bodySmall
-              .copyWith(color: KColors.textSecondary),
+          style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -408,4 +593,12 @@ class _InfoChipRow extends StatelessWidget {
 extension on String {
   String capitalize() =>
       isEmpty ? this : '${this[0].toUpperCase()}${substring(1).toLowerCase()}';
+}
+
+Color _contactTypeColor(String type) {
+  return type == 'VENDOR'
+      ? KColors.info
+      : type == 'BOTH'
+          ? KColors.warning
+          : KColors.success;
 }

@@ -571,7 +571,8 @@ public class InvoiceService {
                     Item item = l.getItemId() != null ? itemMap.get(l.getItemId()) : null;
                     StockBatch batch = l.getBatchId() != null ? batchMap.get(l.getBatchId()) : null;
                     return new InvoiceResponse.LineResponse(
-                        l.getId(), l.getLineNumber(), l.getDescription(), l.getHsnCode(),
+                        l.getId(), l.getItemId(), l.getBatchId(), l.getTaxGroupId(),
+                        l.getLineNumber(), l.getDescription(), l.getHsnCode(),
                         l.getQuantity(), l.getUnitPrice(), l.getDiscountPercent(), l.getDiscountAmount(),
                         l.getTaxableAmount(), l.getGstRate(), l.getTaxAmount(), l.getLineTotal(),
                         l.getAccountCode(),

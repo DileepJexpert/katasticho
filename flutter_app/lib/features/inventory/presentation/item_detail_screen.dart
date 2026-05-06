@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +8,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../routing/app_router.dart';
 import '../data/batch_repository.dart';
 import '../data/bom_repository.dart';
 import '../data/item_repository.dart';
@@ -27,6 +27,11 @@ class ItemDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to items',
+          onPressed: () => context.go(Routes.items),
+        ),
         title: const Text('Item Details'),
         actions: [
           IconButton(
@@ -38,7 +43,8 @@ class ItemDetailScreen extends ConsumerWidget {
               final item = (data['data'] ?? data) as Map<String, dynamic>;
               await Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => ItemCreateScreen(itemId: itemId, initial: item),
+                  builder: (_) =>
+                      ItemCreateScreen(itemId: itemId, initial: item),
                 ),
               );
               ref.invalidate(itemDetailProvider(itemId));
@@ -122,8 +128,10 @@ class _ItemDetailBody extends ConsumerWidget {
     final trackBatches = item['trackBatches'] as bool? ?? false;
     final onHand = (item['totalOnHand'] as num?)?.toDouble() ?? 0;
     final reorderLevel = (item['reorderLevel'] as num?)?.toDouble() ?? 0;
-    final isLowStock = trackInventory && reorderLevel > 0 && onHand <= reorderLevel;
-    final isPharmacy = ref.watch(authProvider).industry?.toUpperCase() == 'PHARMACY';
+    final isLowStock =
+        trackInventory && reorderLevel > 0 && onHand <= reorderLevel;
+    final isPharmacy =
+        ref.watch(authProvider).industry?.toUpperCase() == 'PHARMACY';
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -156,7 +164,10 @@ class _ItemDetailBody extends ConsumerWidget {
                   Text('Barcode: $barcode', style: KTypography.bodySmall),
                 if (brand.isNotEmpty || manufacturer.isNotEmpty)
                   Text(
-                    [if (brand.isNotEmpty) brand, if (manufacturer.isNotEmpty) manufacturer].join(' · '),
+                    [
+                      if (brand.isNotEmpty) brand,
+                      if (manufacturer.isNotEmpty) manufacturer
+                    ].join(' · '),
                     style: KTypography.bodySmall,
                   ),
               ],
@@ -194,7 +205,8 @@ class _ItemDetailBody extends ConsumerWidget {
                         ],
                       ),
                       if (isLowStock)
-                        const KStatusChip(status: 'OVERDUE', label: 'Low stock'),
+                        const KStatusChip(
+                            status: 'OVERDUE', label: 'Low stock'),
                     ],
                   ),
                   KSpacing.vGapMd,
@@ -204,7 +216,8 @@ class _ItemDetailBody extends ConsumerWidget {
                   ),
                   KDetailRow(
                     label: 'Reorder Qty',
-                    value: _fmtQty((item['reorderQuantity'] as num?)?.toDouble() ?? 0),
+                    value: _fmtQty(
+                        (item['reorderQuantity'] as num?)?.toDouble() ?? 0),
                   ),
                 ],
               ),
@@ -252,7 +265,9 @@ class _ItemDetailBody extends ConsumerWidget {
                     final mrp = (item['mrp'] as num).toDouble();
                     final purchase =
                         (item['purchasePrice'] as num?)?.toDouble() ?? 0;
-                    if (purchase <= 0 || mrp <= 0) return const SizedBox.shrink();
+                    if (purchase <= 0 || mrp <= 0) {
+                      return const SizedBox.shrink();
+                    }
                     final margin = ((mrp - purchase) / mrp * 100);
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 4),
@@ -262,7 +277,8 @@ class _ItemDetailBody extends ConsumerWidget {
                           Expanded(
                             child: Row(
                               children: [
-                                Icon(Icons.trending_up, size: 14,
+                                Icon(Icons.trending_up,
+                                    size: 14,
                                     color: margin >= 0
                                         ? KColors.success
                                         : KColors.error),
@@ -317,7 +333,9 @@ class _ItemDetailBody extends ConsumerWidget {
                       label: 'Weight',
                       value: '${item['weight']} ${item['weightUnit'] ?? 'kg'}',
                     ),
-                  if (item['length'] != null || item['width'] != null || item['height'] != null)
+                  if (item['length'] != null ||
+                      item['width'] != null ||
+                      item['height'] != null)
                     KDetailRow(
                       label: 'Dimensions (L×W×H)',
                       value:
@@ -349,11 +367,17 @@ class _ItemDetailBody extends ConsumerWidget {
               child: Column(
                 children: [
                   if (item['revenueAccountCode'] != null)
-                    KDetailRow(label: 'Revenue Account', value: item['revenueAccountCode'].toString()),
+                    KDetailRow(
+                        label: 'Revenue Account',
+                        value: item['revenueAccountCode'].toString()),
                   if (item['cogsAccountCode'] != null)
-                    KDetailRow(label: 'COGS Account', value: item['cogsAccountCode'].toString()),
+                    KDetailRow(
+                        label: 'COGS Account',
+                        value: item['cogsAccountCode'].toString()),
                   if (item['inventoryAccountCode'] != null)
-                    KDetailRow(label: 'Inventory Account', value: item['inventoryAccountCode'].toString()),
+                    KDetailRow(
+                        label: 'Inventory Account',
+                        value: item['inventoryAccountCode'].toString()),
                 ],
               ),
             ),
@@ -367,15 +391,24 @@ class _ItemDetailBody extends ConsumerWidget {
               child: Column(
                 children: [
                   if ((item['drugSchedule']?.toString() ?? '').isNotEmpty)
-                    KDetailRow(label: 'Drug Schedule', value: item['drugSchedule'].toString()),
+                    KDetailRow(
+                        label: 'Drug Schedule',
+                        value: item['drugSchedule'].toString()),
                   if ((item['composition']?.toString() ?? '').isNotEmpty)
-                    KDetailRow(label: 'Composition', value: item['composition'].toString()),
+                    KDetailRow(
+                        label: 'Composition',
+                        value: item['composition'].toString()),
                   if ((item['dosageForm']?.toString() ?? '').isNotEmpty)
-                    KDetailRow(label: 'Dosage Form', value: item['dosageForm'].toString()),
+                    KDetailRow(
+                        label: 'Dosage Form',
+                        value: item['dosageForm'].toString()),
                   if ((item['packSize']?.toString() ?? '').isNotEmpty)
-                    KDetailRow(label: 'Pack Size', value: item['packSize'].toString()),
+                    KDetailRow(
+                        label: 'Pack Size', value: item['packSize'].toString()),
                   if ((item['storageCondition']?.toString() ?? '').isNotEmpty)
-                    KDetailRow(label: 'Storage', value: item['storageCondition'].toString()),
+                    KDetailRow(
+                        label: 'Storage',
+                        value: item['storageCondition'].toString()),
                   if (item['prescriptionRequired'] == true)
                     const KDetailRow(label: 'Prescription', value: 'Required'),
                 ],
@@ -417,10 +450,15 @@ class _ItemDetailBody extends ConsumerWidget {
   }
 
   static bool _hasPhysical(Map<String, dynamic> item) =>
-      item['weight'] != null || item['length'] != null || item['width'] != null || item['height'] != null;
+      item['weight'] != null ||
+      item['length'] != null ||
+      item['width'] != null ||
+      item['height'] != null;
 
   static bool _hasAccounting(Map<String, dynamic> item) =>
-      item['revenueAccountCode'] != null || item['cogsAccountCode'] != null || item['inventoryAccountCode'] != null;
+      item['revenueAccountCode'] != null ||
+      item['cogsAccountCode'] != null ||
+      item['inventoryAccountCode'] != null;
 
   static bool _hasPharmacy(Map<String, dynamic> item) =>
       (item['drugSchedule']?.toString() ?? '').isNotEmpty ||
@@ -749,7 +787,8 @@ class _BomEditorCard extends ConsumerWidget {
       return;
     }
     if (child['itemType']?.toString() == 'COMPOSITE') {
-      _snackError(context, 'Nested kits are not supported — pick a simple goods item');
+      _snackError(
+          context, 'Nested kits are not supported — pick a simple goods item');
       return;
     }
     if (child['trackBatches'] == true) {
@@ -914,8 +953,9 @@ class _BomRow extends StatelessWidget {
     final sku = row['childSku']?.toString() ?? '';
     final name = row['childName']?.toString() ?? '';
     final qty = (row['quantity'] as num?)?.toDouble() ?? 0;
-    final qtyText =
-        qty == qty.truncateToDouble() ? qty.toStringAsFixed(0) : qty.toStringAsFixed(2);
+    final qtyText = qty == qty.truncateToDouble()
+        ? qty.toStringAsFixed(0)
+        : qty.toStringAsFixed(2);
 
     return ListTile(
       contentPadding: EdgeInsets.zero,

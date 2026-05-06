@@ -37,7 +37,7 @@ class _CreditNoteListScreenState extends ConsumerState<CreditNoteListScreen> {
         children: [
           KListPageHeader(
             title: 'Credit Notes',
-            searchHint: 'Search credit notes…',
+            searchHint: 'Search credit notes...',
             tabs: _statusTabs,
             selectedTab: _status,
             onTabChanged: (v) => setState(() => _status = v),
@@ -85,19 +85,14 @@ class _CreditNoteListScreenState extends ConsumerState<CreditNoteListScreen> {
                   );
                 }
 
-                return RefreshIndicator(
-                  onRefresh: () async =>
-                      ref.invalidate(creditNoteListProvider),
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: creditNotes.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) {
-                      final cn =
-                          creditNotes[index] as Map<String, dynamic>;
-                      return _CreditNoteCard(creditNote: cn);
-                    },
-                  ),
+                final creditNoteMaps = creditNotes.cast<Map<String, dynamic>>();
+
+                return KResponsiveEntityList<Map<String, dynamic>>(
+                  items: creditNoteMaps,
+                  onRefresh: () async => ref.invalidate(creditNoteListProvider),
+                  tableBuilder: (_) =>
+                      _CreditNoteTable(creditNotes: creditNoteMaps),
+                  mobileItemBuilder: (_, cn) => _CreditNoteCard(creditNote: cn),
                 );
               },
             ),
@@ -121,12 +116,9 @@ class _CreditNoteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = creditNote['status'] as String? ?? 'DRAFT';
-    final totalAmount =
-        (creditNote['totalAmount'] as num?)?.toDouble() ?? 0;
-    final customerName =
-        creditNote['contactName'] as String? ?? 'Unknown';
-    final creditNoteNumber =
-        creditNote['creditNoteNumber'] as String? ?? '--';
+    final totalAmount = (creditNote['totalAmount'] as num?)?.toDouble() ?? 0;
+    final customerName = creditNote['contactName'] as String? ?? 'Unknown';
+    final creditNoteNumber = creditNote['creditNoteNumber'] as String? ?? '--';
     final invoiceNumber = creditNote['invoiceNumber'] as String?;
     final reason = creditNote['reason'] as String? ?? '';
 
@@ -198,6 +190,61 @@ class _CreditNoteCard extends StatelessWidget {
           const Icon(Icons.chevron_right, color: KColors.textHint),
         ],
       ),
+    );
+  }
+}
+
+class _CreditNoteTable extends StatelessWidget {
+  final List<Map<String, dynamic>> creditNotes;
+
+  const _CreditNoteTable({required this.creditNotes});
+
+  @override
+  Widget build(BuildContext context) {
+    return KEntityDataTable(
+      columnSpacing: 24,
+      horizontalMargin: 14,
+      columns: const [
+        DataColumn(label: Text('Credit Note')),
+        DataColumn(label: Text('Customer')),
+        DataColumn(label: Text('Against')),
+        DataColumn(label: Text('Date')),
+        DataColumn(label: Text('Reason')),
+        DataColumn(label: Text('Status')),
+        DataColumn(label: Text('Amount'), numeric: true),
+        DataColumn(label: SizedBox(width: 32)),
+      ],
+      rows: creditNotes.map((creditNote) {
+        final id = creditNote['id']?.toString() ?? '';
+        final status = creditNote['status'] as String? ?? 'DRAFT';
+        final number = creditNote['creditNoteNumber'] as String? ?? '--';
+        final customerName = creditNote['contactName'] as String? ?? 'Unknown';
+        final invoiceNumber = creditNote['invoiceNumber'] as String? ?? '--';
+        final date = creditNote['creditNoteDate'] as String?;
+        final reason = creditNote['reason'] as String? ?? '--';
+        final amount = (creditNote['totalAmount'] as num?)?.toDouble() ?? 0;
+
+        return DataRow(
+          onSelectChanged: (_) {
+            if (id.isNotEmpty) context.go('/credit-notes/$id');
+          },
+          color: kEntityRowColor(context),
+          cells: [
+            DataCell(KTablePrimaryTextCell(value: number)),
+            DataCell(KTableTextCell(value: customerName, width: 190)),
+            DataCell(KTableTextCell(value: invoiceNumber)),
+            DataCell(KTableDateCell(value: date)),
+            DataCell(KTableTextCell(value: reason, width: 220)),
+            DataCell(KTableStatusCell(status: status)),
+            DataCell(KTableAmountCell(value: amount, color: KColors.error)),
+            DataCell(KTableOpenActionCell(
+              tooltip: 'Open credit note',
+              onPressed:
+                  id.isEmpty ? null : () => context.go('/credit-notes/$id'),
+            )),
+          ],
+        );
+      }).toList(),
     );
   }
 }
