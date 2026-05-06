@@ -63,4 +63,14 @@ public class OperationalReportController {
             reportService.getCustomerStatement(customerId, startDate, endDate)
         ));
     }
+
+    @GetMapping("/purchase-register")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<PurchaseRegisterReport>> getPurchaseRegister(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(ApiResponse.ok(
+            reportService.getPurchaseRegister(startDate, endDate)
+        ));
+    }
 }

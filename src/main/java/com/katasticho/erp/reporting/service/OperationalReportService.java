@@ -332,6 +332,80 @@ public class OperationalReportService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public PurchaseRegisterReport getPurchaseRegister(LocalDate startDate, LocalDate endDate) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        String query = """
+            SELECT
+              pb.bill_number,
+              pb.bill_date,
+              c.display_name as vendor_name,
+              c.gstin as vendor_gstin,
+              pbl.description as item_description,
+              pbl.hsn_code,
+              pbl.quantity,
+              pbl.unit_price,
+              pbl.taxable_amount,
+              COALESCE(tli_cgst.tax_amount, 0) as cgst_amount,
+              COALESCE(tli_sgst.tax_amount, 0) as sgst_amount,
+              COALESCE(tli_igst.tax_amount, 0) as igst_amount,
+              pbl.line_total as total_amount
+            FROM purchase_bill pb
+            JOIN contact c ON pb.contact_id = c.id
+            JOIN purchase_bill_line pbl ON pb.id = pbl.purchase_bill_id
+            LEFT JOIN tax_line_item tli_cgst ON pb.id = tli_cgst.source_id
+              AND tli_cgst.source_type='BILL' AND tli_cgst.component_code LIKE '%CGST%'
+            LEFT JOIN tax_line_item tli_sgst ON pb.id = tli_sgst.source_id
+              AND tli_sgst.source_type='BILL' AND tli_sgst.component_code LIKE '%SGST%'
+            LEFT JOIN tax_line_item tli_igst ON pb.id = tli_igst.source_id
+              AND tli_igst.source_type='BILL' AND tli_igst.component_code LIKE '%IGST%'
+            WHERE pb.org_id = ? AND pb.bill_date BETWEEN ? AND ? AND pb.status IN ('OPEN', 'PARTIALLY_PAID', 'PAID')
+            ORDER BY pb.bill_date, pb.bill_number
+            """;
+
+        List<PurchaseRegisterReport.Line> lines = jdbcTemplate.query(query,
+            (rs, rowNum) -> new PurchaseRegisterReport.Line(
+                rs.getString("bill_number"),
+                rs.getObject("bill_date", LocalDate.class),
+                rs.getString("vendor_name"),
+                rs.getString("vendor_gstin"),
+                rs.getString("item_description"),
+                rs.getString("hsn_code"),
+                rs.getBigDecimal("quantity"),
+                rs.getBigDecimal("unit_price"),
+                rs.getBigDecimal("taxable_amount"),
+                rs.getBigDecimal("cgst_amount"),
+                rs.getBigDecimal("sgst_amount"),
+                rs.getBigDecimal("igst_amount"),
+                rs.getBigDecimal("total_amount")
+            ),
+            orgId, startDate, endDate
+        );
+
+        BigDecimal totalTaxable = lines.stream()
+            .map(PurchaseRegisterReport.Line::taxableAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCgst = lines.stream()
+            .map(PurchaseRegisterReport.Line::cgstAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalSgst = lines.stream()
+            .map(PurchaseRegisterReport.Line::sgstAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalIgst = lines.stream()
+            .map(PurchaseRegisterReport.Line::igstAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal grandTotal = lines.stream()
+            .map(PurchaseRegisterReport.Line::totalAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new PurchaseRegisterReport(
+            startDate, endDate,
+            totalTaxable, totalCgst, totalSgst, totalIgst, grandTotal,
+            lines
+        );
+    }
+
     private BigDecimal nullSafe(BigDecimal value) {
         return value != null ? value : BigDecimal.ZERO;
     }
