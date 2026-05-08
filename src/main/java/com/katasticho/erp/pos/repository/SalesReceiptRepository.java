@@ -97,6 +97,9 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
     @Query("SELECT COUNT(r) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate BETWEEN :from AND :to AND r.isDeleted = false")
     long countByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
 
+    @Query("SELECT COUNT(r) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.branchId = :branchId AND r.receiptDate BETWEEN :from AND :to AND r.isDeleted = false")
+    long countByOrgBranchAndDateRange(UUID orgId, UUID branchId, LocalDate from, LocalDate to);
+
     @Query("""
         SELECT r FROM SalesReceipt r
         WHERE r.orgId = :orgId AND r.isDeleted = false
@@ -104,4 +107,12 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
         ORDER BY r.createdAt DESC
     """)
     List<SalesReceipt> findRecentByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to, Pageable pageable);
+
+    @Query("""
+        SELECT r FROM SalesReceipt r
+        WHERE r.orgId = :orgId AND r.isDeleted = false
+          AND r.receiptDate BETWEEN :from AND :to
+        ORDER BY r.receiptDate DESC, r.createdAt DESC
+    """)
+    List<SalesReceipt> findByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
 }

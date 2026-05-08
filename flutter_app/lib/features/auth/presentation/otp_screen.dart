@@ -131,6 +131,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             orgId: user['orgId'].toString(),
             orgName: user['orgName'] as String,
             industry: user['industry'] as String?,
+            businessType: user['businessType'] as String?,
             industryCode: user['industryCode'] as String?,
             onboardingCompleted: onboardingCompleted,
             defaultLandingPage: defaultLandingPage,

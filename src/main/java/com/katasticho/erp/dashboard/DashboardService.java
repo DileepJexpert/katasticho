@@ -94,6 +94,10 @@ public class DashboardService {
                     orgId, branchId, effectiveFrom, effectiveTo);
             creditSales = invoiceRepository.sumCreditSalesByOrgBranchAndDateRange(
                     orgId, branchId, effectiveFrom, effectiveTo);
+            posCount = salesReceiptRepository.countByOrgBranchAndDateRange(
+                    orgId, branchId, effectiveFrom, effectiveTo);
+            invoiceCount = invoiceRepository.countByOrgBranchAndDateRange(
+                    orgId, branchId, effectiveFrom, effectiveTo);
         } else {
             posSales = salesReceiptRepository.sumTotalByOrgAndDateRange(
                     orgId, effectiveFrom, effectiveTo);
@@ -101,10 +105,9 @@ public class DashboardService {
                     orgId, effectiveFrom, effectiveTo);
             creditSales = invoiceRepository.sumCreditSalesByOrgAndDateRange(
                     orgId, effectiveFrom, effectiveTo);
+            posCount = salesReceiptRepository.countByOrgAndDateRange(orgId, effectiveFrom, effectiveTo);
+            invoiceCount = invoiceRepository.countByOrgAndDateRange(orgId, effectiveFrom, effectiveTo);
         }
-
-        posCount = salesReceiptRepository.countByOrgAndDateRange(orgId, effectiveFrom, effectiveTo);
-        invoiceCount = invoiceRepository.countByOrgAndDateRange(orgId, effectiveFrom, effectiveTo);
 
         BigDecimal cashUpiTotal = posSales.add(paidInvoices);
         BigDecimal totalSales = cashUpiTotal.add(creditSales);
@@ -115,7 +118,8 @@ public class DashboardService {
 
         return new TodaySalesResponse(
                 effectiveFrom, effectiveTo, branchId,
-                totalSales, cashUpiTotal, creditSales, transactionCount,
+                totalSales, cashUpiTotal, creditSales, posSales, paidInvoices, transactionCount,
+                Math.toIntExact(posCount), Math.toIntExact(invoiceCount),
                 org.getBaseCurrency(), byBranch);
     }
 

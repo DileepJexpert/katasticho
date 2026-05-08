@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -9,11 +10,6 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../data/report_repository.dart';
 
-/// AP Ageing Report — shows vendor payables grouped by age buckets.
-///
-/// Desktop: full data table with all buckets.
-/// Mobile: vendor cards with horizontally scrollable bucket chips.
-/// Color coded amounts: grey/green/amber/orange/red/dark-red.
 class ApAgeingScreen extends ConsumerStatefulWidget {
   const ApAgeingScreen({super.key});
 
@@ -40,40 +36,13 @@ class _ApAgeingScreenState extends ConsumerState<ApAgeingScreen> {
     try {
       final repo = ref.read(reportRepositoryProvider);
       final data = await repo.getApAgeingReport();
-      setState(
-          () => _report = (data['data'] ?? data) as Map<String, dynamic>);
+      setState(() => _report = (data['data'] ?? data) as Map<String, dynamic>);
     } catch (_) {
       setState(() => _error = 'Failed to load AP ageing report');
     } finally {
       setState(() => _isLoading = false);
     }
   }
-
-  String _toCsv() {
-    final vendors = (_report?['vendors'] ?? _report?['customers']) as List? ?? [];
-    final buf = StringBuffer();
-    buf.writeln('Vendor,Current,1-30 Days,31-60 Days,61-90 Days,90+ Days,Total');
-    for (final v in vendors) {
-      final vendor = v as Map<String, dynamic>;
-      final name = (vendor['vendorName'] ?? vendor['customerName'] ?? 'Unknown')
-          .toString()
-          .replaceAll(',', ' ');
-      final buckets = (vendor['buckets'] ?? vendor) as Map<String, dynamic>;
-      buf.writeln(
-        '$name,'
-        '${_bucket(buckets, 'current')},'
-        '${_bucket(buckets, 'days1to30')},'
-        '${_bucket(buckets, 'days31to60')},'
-        '${_bucket(buckets, 'days61to90')},'
-        '${_bucket(buckets, 'days90Plus')},'
-        '${(vendor['totalOutstanding'] as num?)?.toDouble() ?? 0}',
-      );
-    }
-    return buf.toString();
-  }
-
-  double _bucket(Map<String, dynamic> b, String key) =>
-      (b[key] as num?)?.toDouble() ?? 0;
 
   @override
   Widget build(BuildContext context) {
@@ -100,125 +69,427 @@ class _ApAgeingScreenState extends ConsumerState<ApAgeingScreen> {
                     )
                   : RefreshIndicator(
                       onRefresh: _loadReport,
-                      child: _buildReport(context),
+                      child: _buildReport(),
                     ),
     );
   }
 
-  void _exportCsv() {
-    final csv = _toCsv();
-    // Copy to clipboard as a simple cross-platform approach
-    final bytes = utf8.encode(csv);
-    if (bytes.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('CSV exported (${bytes.length} bytes)'),
-          action: SnackBarAction(
-            label: 'Copy',
-            onPressed: () {
-              // ignore: import_of_legacy_library_into_null_safe
-              // Using clipboard via services
-              _copyToClipboard(csv);
-            },
-          ),
-        ),
-      );
-    }
-  }
-
-  void _copyToClipboard(String text) {
-    // Flutter clipboard
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('CSV data copied to clipboard')),
-    );
-  }
-
-  Widget _buildReport(BuildContext context) {
-    final totalOutstanding =
-        (_report!['totalOutstanding'] as num?)?.toDouble() ?? 0;
-    final summary =
-        (_report!['buckets'] ?? _report!['summary']) as Map<String, dynamic>? ??
-            {};
+  Widget _buildReport() {
+    final totalOutstanding = _num(_report!['totalOutstanding']);
     final vendors =
         (_report!['vendors'] ?? _report!['customers']) as List? ?? [];
-    final isDesktop =
-        MediaQuery.of(context).size.width >= KSpacing.desktopBreakpoint;
+    final overdueTotal = _bucket(_report!, 'days1to30') +
+        _bucket(_report!, 'days31to60') +
+        _bucket(_report!, 'days61to90') +
+        _bucket(_report!, 'days90plus');
 
     return SingleChildScrollView(
       padding: KSpacing.pagePadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Total outstanding
-          KCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Total Payable', style: KTypography.bodySmall),
-                KSpacing.vGapXs,
-                Text(
-                  CurrencyFormatter.formatIndian(totalOutstanding),
-                  style: KTypography.amountLarge,
-                ),
-              ],
-            ),
-          ),
-          KSpacing.vGapMd,
-
-          // Ageing buckets summary
-          Text('Ageing Summary', style: KTypography.h3),
-          KSpacing.vGapSm,
           Row(
             children: [
-              _AgeingBucket(
-                label: 'Current',
-                amount: _bucket(summary, 'current'),
-                color: KColors.ageingCurrent,
+              Expanded(
+                child: _SummaryCard(
+                  label: 'Total Payable',
+                  value: totalOutstanding,
+                  icon: Icons.account_balance_wallet_rounded,
+                  color: KColors.error,
+                ),
               ),
-              _AgeingBucket(
-                label: '1-30',
-                amount: _bucket(summary, 'days1to30'),
-                color: KColors.ageing1to30,
-              ),
-              _AgeingBucket(
-                label: '31-60',
-                amount: _bucket(summary, 'days31to60'),
-                color: KColors.ageing31to60,
-              ),
-              _AgeingBucket(
-                label: '61-90',
-                amount: _bucket(summary, 'days61to90'),
-                color: KColors.ageing61to90,
-              ),
-              _AgeingBucket(
-                label: '90+',
-                amount: _bucket(summary, 'days90Plus'),
-                color: KColors.ageing90Plus,
+              KSpacing.hGapMd,
+              Expanded(
+                child: _SummaryCard(
+                  label: 'Overdue',
+                  value: overdueTotal,
+                  icon: Icons.warning_amber_rounded,
+                  color: overdueTotal > 0 ? KColors.error : KColors.success,
+                ),
               ),
             ],
           ),
           KSpacing.vGapLg,
-
-          // Vendor breakdown
-          Text('By Vendor', style: KTypography.h3),
+          Text('Ageing Buckets', style: KTypography.h3),
           KSpacing.vGapSm,
-
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final buckets = [
+                _AgeingBucket(
+                  label: 'Current',
+                  amount: _bucket(_report!, 'current'),
+                  color: KColors.ageingCurrent,
+                ),
+                _AgeingBucket(
+                  label: '1-30',
+                  amount: _bucket(_report!, 'days1to30'),
+                  color: KColors.ageing1to30,
+                ),
+                _AgeingBucket(
+                  label: '31-60',
+                  amount: _bucket(_report!, 'days31to60'),
+                  color: KColors.ageing31to60,
+                ),
+                _AgeingBucket(
+                  label: '61-90',
+                  amount: _bucket(_report!, 'days61to90'),
+                  color: KColors.ageing61to90,
+                ),
+                _AgeingBucket(
+                  label: '90+',
+                  amount: _bucket(_report!, 'days90plus'),
+                  color: KColors.ageing90Plus,
+                ),
+              ];
+              if (constraints.maxWidth >= 720) {
+                return Row(
+                  children: buckets.map((b) => Expanded(child: b)).toList(),
+                );
+              }
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children:
+                    buckets.map((b) => SizedBox(width: 132, child: b)).toList(),
+              );
+            },
+          ),
+          KSpacing.vGapLg,
+          Row(
+            children: [
+              Expanded(child: Text('Vendor Breakdown', style: KTypography.h3)),
+              Text(
+                '${vendors.length} vendor${vendors.length == 1 ? '' : 's'}',
+                style: KTypography.bodySmall.copyWith(
+                  color: KColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          KSpacing.vGapSm,
           if (vendors.isEmpty)
             const KEmptyState(
               icon: Icons.store_outlined,
               title: 'No outstanding payables',
             )
-          else if (isDesktop)
-            _DesktopTable(vendors: vendors)
           else
-            _MobileVendorCards(vendors: vendors),
+            ...vendors.map((raw) {
+              final vendor = raw as Map<String, dynamic>;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _VendorAgeingTile(vendor: vendor),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  void _exportCsv() {
+    final csv = _toCsv();
+    final bytes = utf8.encode(csv);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('CSV prepared (${bytes.length} bytes)'),
+        action: SnackBarAction(
+          label: 'OK',
+          onPressed: () {},
+        ),
+      ),
+    );
+  }
+
+  String _toCsv() {
+    final vendors =
+        (_report?['vendors'] ?? _report?['customers']) as List? ?? [];
+    final buf = StringBuffer();
+    buf.writeln(
+      'Vendor,Bill,Current,1-30 Days,31-60 Days,61-90 Days,90+ Days,Balance',
+    );
+    for (final rawVendor in vendors) {
+      final vendor = rawVendor as Map<String, dynamic>;
+      final name = (vendor['vendorName'] ?? vendor['customerName'] ?? 'Unknown')
+          .toString()
+          .replaceAll(',', ' ');
+      final bills = (vendor['bills'] as List?) ?? [];
+      if (bills.isEmpty) {
+        buf.writeln(
+          '$name,,${_bucket(vendor, 'current')},${_bucket(vendor, 'days1to30')},'
+          '${_bucket(vendor, 'days31to60')},${_bucket(vendor, 'days61to90')},'
+          '${_bucket(vendor, 'days90plus')},${_num(vendor['totalOutstanding'])}',
+        );
+      } else {
+        for (final rawBill in bills) {
+          final bill = rawBill as Map<String, dynamic>;
+          final balance = _num(bill['balanceDue']);
+          final bucket = bill['bucket']?.toString();
+          buf.writeln(
+            '$name,${bill['billNumber'] ?? '--'},'
+            '${bucket == 'CURRENT' ? balance : 0},'
+            '${bucket == '1-30' ? balance : 0},'
+            '${bucket == '31-60' ? balance : 0},'
+            '${bucket == '61-90' ? balance : 0},'
+            '${bucket == '90+' ? balance : 0},'
+            '$balance',
+          );
+        }
+      }
+    }
+    return buf.toString();
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  final String label;
+  final double value;
+  final IconData icon;
+  final Color color;
+
+  const _SummaryCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 52),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.28),
+        borderRadius: KSpacing.borderRadiusMd,
+        border: Border.all(
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: KSpacing.borderRadiusSm,
+            ),
+            child: Icon(icon, color: color, size: 16),
+          ),
+          KSpacing.hGapSm,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label, style: KTypography.labelSmall),
+                const SizedBox(height: 2),
+                Text(
+                  CurrencyFormatter.formatIndian(value),
+                  style: KTypography.amountSmall.copyWith(color: color),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-// ── Shared bucket widget (same as AR ageing) ──
+class _VendorAgeingTile extends StatelessWidget {
+  final Map<String, dynamic> vendor;
+
+  const _VendorAgeingTile({required this.vendor});
+
+  @override
+  Widget build(BuildContext context) {
+    final name = (vendor['vendorName'] ?? vendor['customerName'] ?? 'Unknown')
+        .toString();
+    final total = _num(vendor['totalOutstanding']);
+    final bills = (vendor['bills'] as List?) ?? [];
+
+    return KCard(
+      padding: EdgeInsets.zero,
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        leading: CircleAvatar(
+          radius: 20,
+          backgroundColor: KColors.primaryLight.withValues(alpha: 0.15),
+          child: Text(
+            name.isEmpty ? '?' : name[0].toUpperCase(),
+            style: KTypography.labelLarge.copyWith(color: KColors.primary),
+          ),
+        ),
+        title: Text(
+          name,
+          style: KTypography.labelLarge,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          '${bills.length} open bill${bills.length == 1 ? '' : 's'}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: SizedBox(
+          width: 132,
+          child: Text(
+            CurrencyFormatter.formatIndian(total),
+            style: KTypography.amountSmall.copyWith(color: KColors.error),
+            textAlign: TextAlign.end,
+          ),
+        ),
+        children: [
+          _InlineBuckets(source: vendor),
+          KSpacing.vGapSm,
+          if (bills.isEmpty)
+            Text(
+              'No bill level detail returned',
+              style: KTypography.bodySmall.copyWith(color: KColors.textHint),
+            )
+          else
+            _BillDetailTable(bills: bills),
+        ],
+      ),
+    );
+  }
+}
+
+class _InlineBuckets extends StatelessWidget {
+  final Map<String, dynamic> source;
+
+  const _InlineBuckets({required this.source});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _BucketChip(
+            label: 'Current',
+            amount: _bucket(source, 'current'),
+            color: KColors.ageingCurrent,
+          ),
+          _BucketChip(
+            label: '1-30',
+            amount: _bucket(source, 'days1to30'),
+            color: KColors.ageing1to30,
+          ),
+          _BucketChip(
+            label: '31-60',
+            amount: _bucket(source, 'days31to60'),
+            color: KColors.ageing31to60,
+          ),
+          _BucketChip(
+            label: '61-90',
+            amount: _bucket(source, 'days61to90'),
+            color: KColors.ageing61to90,
+          ),
+          _BucketChip(
+            label: '90+',
+            amount: _bucket(source, 'days90plus'),
+            color: KColors.ageing90Plus,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BillDetailTable extends StatelessWidget {
+  final List<dynamic> bills;
+
+  const _BillDetailTable({required this.bills});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 560) {
+          return Column(
+            children: bills
+                .map((raw) =>
+                    _BillDocumentCard(source: raw as Map<String, dynamic>))
+                .toList(),
+          );
+        }
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            headingTextStyle: KTypography.labelLarge,
+            dataTextStyle: KTypography.bodyMedium,
+            columnSpacing: 18,
+            horizontalMargin: 8,
+            columns: const [
+              DataColumn(label: Text('Bill')),
+              DataColumn(label: Text('Age')),
+              DataColumn(label: Text('Bucket')),
+              DataColumn(label: Text('Balance'), numeric: true),
+              DataColumn(label: SizedBox(width: 32)),
+            ],
+            rows: bills.map((raw) {
+              final bill = raw as Map<String, dynamic>;
+              final id = bill['billId']?.toString();
+              return DataRow(
+                cells: [
+                  DataCell(Text(bill['billNumber']?.toString() ?? '--')),
+                  DataCell(Text(_ageLabel(bill['daysOverdue']))),
+                  DataCell(_BucketLabel(bucket: bill['bucket']?.toString())),
+                  DataCell(Text(
+                    CurrencyFormatter.formatIndian(_num(bill['balanceDue'])),
+                    style: KTypography.amountSmall.copyWith(
+                      color: KColors.error,
+                    ),
+                  )),
+                  DataCell(IconButton(
+                    tooltip: 'Open bill',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                    onPressed:
+                        id == null ? null : () => context.go('/bills/$id'),
+                  )),
+                ],
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BillDocumentCard extends StatelessWidget {
+  final Map<String, dynamic> source;
+
+  const _BillDocumentCard({required this.source});
+
+  @override
+  Widget build(BuildContext context) {
+    final id = source['billId']?.toString();
+    final number = source['billNumber']?.toString() ?? '--';
+    final balance = _num(source['balanceDue']);
+
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      title: Text(number, style: KTypography.labelLarge),
+      subtitle: Text(_ageLabel(source['daysOverdue'])),
+      trailing: Text(
+        CurrencyFormatter.formatIndian(balance),
+        style: KTypography.amountSmall.copyWith(color: KColors.error),
+      ),
+      onTap: id == null ? null : () => context.go('/bills/$id'),
+    );
+  }
+}
 
 class _AgeingBucket extends StatelessWidget {
   final String label;
@@ -233,207 +504,26 @@ class _AgeingBucket extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: KSpacing.borderRadiusSm,
-          border: Border(
-            top: BorderSide(color: color, width: 3),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: KSpacing.borderRadiusSm,
+        border: Border(top: BorderSide(color: color, width: 3)),
+      ),
+      child: Column(
+        children: [
+          Text(label, style: KTypography.labelSmall.copyWith(color: color)),
+          KSpacing.vGapXs,
+          Text(
+            CurrencyFormatter.formatCompact(amount),
+            style: KTypography.amountSmall.copyWith(color: color),
           ),
-        ),
-        child: Column(
-          children: [
-            Text(label,
-                style: KTypography.labelSmall.copyWith(color: color)),
-            KSpacing.vGapXs,
-            Text(
-              CurrencyFormatter.formatCompact(amount),
-              style: KTypography.amountSmall.copyWith(color: color),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
-}
-
-// ── Desktop: Full data table with all buckets ──
-
-class _DesktopTable extends StatelessWidget {
-  final List<dynamic> vendors;
-
-  const _DesktopTable({required this.vendors});
-
-  @override
-  Widget build(BuildContext context) {
-    return KCard(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingTextStyle: KTypography.labelLarge,
-          dataTextStyle: KTypography.bodyMedium,
-          columnSpacing: 24,
-          columns: const [
-            DataColumn(label: Text('Vendor')),
-            DataColumn(label: Text('Current'), numeric: true),
-            DataColumn(label: Text('1-30 Days'), numeric: true),
-            DataColumn(label: Text('31-60 Days'), numeric: true),
-            DataColumn(label: Text('61-90 Days'), numeric: true),
-            DataColumn(label: Text('90+ Days'), numeric: true),
-            DataColumn(label: Text('Total'), numeric: true),
-          ],
-          rows: vendors.map((v) {
-            final vendor = v as Map<String, dynamic>;
-            final name = (vendor['vendorName'] ??
-                    vendor['customerName'] ??
-                    'Unknown')
-                .toString();
-            final buckets =
-                (vendor['buckets'] ?? vendor) as Map<String, dynamic>;
-            final total =
-                (vendor['totalOutstanding'] as num?)?.toDouble() ?? 0;
-
-            return DataRow(cells: [
-              DataCell(
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 200),
-                  child: Text(name, overflow: TextOverflow.ellipsis),
-                ),
-              ),
-              _coloredCell(buckets, 'current', KColors.ageingCurrent),
-              _coloredCell(buckets, 'days1to30', KColors.ageing1to30),
-              _coloredCell(buckets, 'days31to60', KColors.ageing31to60),
-              _coloredCell(buckets, 'days61to90', KColors.ageing61to90),
-              _coloredCell(buckets, 'days90Plus', KColors.ageing90Plus),
-              DataCell(Text(
-                CurrencyFormatter.formatIndian(total),
-                style: KTypography.amountSmall,
-              )),
-            ]);
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
-  DataCell _coloredCell(
-      Map<String, dynamic> buckets, String key, Color color) {
-    final amount = (buckets[key] as num?)?.toDouble() ?? 0;
-    return DataCell(
-      Text(
-        amount == 0 ? '--' : CurrencyFormatter.formatIndian(amount),
-        style: KTypography.amountSmall.copyWith(
-          color: amount > 0 ? color : KColors.textHint,
-        ),
-      ),
-    );
-  }
-}
-
-// ── Mobile: Vendor cards with horizontally scrollable bucket chips ──
-
-class _MobileVendorCards extends StatelessWidget {
-  final List<dynamic> vendors;
-
-  const _MobileVendorCards({required this.vendors});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: vendors.map((v) {
-        final vendor = v as Map<String, dynamic>;
-        final name = (vendor['vendorName'] ??
-                vendor['customerName'] ??
-                'Unknown')
-            .toString();
-        final total =
-            (vendor['totalOutstanding'] as num?)?.toDouble() ?? 0;
-        final buckets =
-            (vendor['buckets'] ?? vendor) as Map<String, dynamic>;
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: KCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor:
-                          KColors.primaryLight.withValues(alpha: 0.15),
-                      child: Text(
-                        name[0].toUpperCase(),
-                        style: KTypography.labelLarge
-                            .copyWith(color: KColors.primary),
-                      ),
-                    ),
-                    KSpacing.hGapMd,
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(name, style: KTypography.bodyMedium),
-                          Text(
-                            'Total: ${CurrencyFormatter.formatIndian(total)}',
-                            style: KTypography.amountSmall.copyWith(
-                              color: KColors.warning,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                KSpacing.vGapSm,
-
-                // Horizontally scrollable bucket chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _BucketChip(
-                        label: 'Current',
-                        amount: _bucketVal(buckets, 'current'),
-                        color: KColors.ageingCurrent,
-                      ),
-                      _BucketChip(
-                        label: '1-30d',
-                        amount: _bucketVal(buckets, 'days1to30'),
-                        color: KColors.ageing1to30,
-                      ),
-                      _BucketChip(
-                        label: '31-60d',
-                        amount: _bucketVal(buckets, 'days31to60'),
-                        color: KColors.ageing31to60,
-                      ),
-                      _BucketChip(
-                        label: '61-90d',
-                        amount: _bucketVal(buckets, 'days61to90'),
-                        color: KColors.ageing61to90,
-                      ),
-                      _BucketChip(
-                        label: '90d+',
-                        amount: _bucketVal(buckets, 'days90Plus'),
-                        color: KColors.ageing90Plus,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  double _bucketVal(Map<String, dynamic> b, String key) =>
-      (b[key] as num?)?.toDouble() ?? 0;
 }
 
 class _BucketChip extends StatelessWidget {
@@ -473,9 +563,7 @@ class _BucketChip extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            amount == 0
-                ? '--'
-                : CurrencyFormatter.formatCompact(amount),
+            amount == 0 ? '--' : CurrencyFormatter.formatCompact(amount),
             style: KTypography.amountSmall.copyWith(
               color: amount > 0 ? color : KColors.textHint,
               fontSize: 12,
@@ -485,4 +573,49 @@ class _BucketChip extends StatelessWidget {
       ),
     );
   }
+}
+
+class _BucketLabel extends StatelessWidget {
+  final String? bucket;
+
+  const _BucketLabel({required this.bucket});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (bucket) {
+      'CURRENT' => KColors.ageingCurrent,
+      '1-30' => KColors.ageing1to30,
+      '31-60' => KColors.ageing31to60,
+      '61-90' => KColors.ageing61to90,
+      '90+' => KColors.ageing90Plus,
+      _ => KColors.textHint,
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: KSpacing.borderRadiusSm,
+      ),
+      child: Text(
+        bucket ?? '--',
+        style: KTypography.labelSmall.copyWith(color: color),
+      ),
+    );
+  }
+}
+
+double _num(dynamic value) => (value as num?)?.toDouble() ?? 0;
+
+double _bucket(Map<String, dynamic> source, String key) {
+  final camelKey = key == 'days90plus' ? 'days90Plus' : key;
+  return (source[key] as num?)?.toDouble() ??
+      (source[camelKey] as num?)?.toDouble() ??
+      0;
+}
+
+String _ageLabel(dynamic value) {
+  final days = (value as num?)?.toInt() ?? 0;
+  if (days <= 0) return 'Current';
+  return '$days day${days == 1 ? '' : 's'} overdue';
 }

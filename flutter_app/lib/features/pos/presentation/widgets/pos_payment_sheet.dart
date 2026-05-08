@@ -17,42 +17,49 @@ Future<Map<String, dynamic>?> showPosPaymentSheet(
   required PosCartState cart,
   required String paymentMode,
 }) {
-  return showModalBottomSheet<Map<String, dynamic>>(
+  return showDialog<Map<String, dynamic>>(
     context: context,
-    isScrollControlled: true,
-    builder: (_) => DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.82,
-      minChildSize: 0.45,
-      maxChildSize: 0.95,
-      builder: (context, scrollController) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+    barrierDismissible: true,
+    builder: (context) {
+      final media = MediaQuery.of(context);
+      final maxWidth = media.size.width >= 720 ? 640.0 : media.size.width - 24;
+      final maxHeight = media.size.height - media.viewInsets.vertical - 48;
+      final safeMaxHeight = maxHeight < 320 ? 320.0 : maxHeight;
+
+      return Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: maxWidth,
+            maxHeight: safeMaxHeight,
+          ),
+          child: IntrinsicHeight(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+              child: paymentMode == 'SPLIT'
+                  ? _SplitPaymentContent(
+                      cart: cart,
+                    )
+                  : _PaymentSheetContent(
+                      cart: cart,
+                      paymentMode: paymentMode,
+                    ),
+            ),
+          ),
         ),
-        child: paymentMode == 'SPLIT'
-            ? _SplitPaymentContent(
-                cart: cart,
-                scrollController: scrollController,
-              )
-            : _PaymentSheetContent(
-                cart: cart,
-                paymentMode: paymentMode,
-                scrollController: scrollController,
-              ),
-      ),
-    ),
+      );
+    },
   );
 }
 
 class _PaymentSheetContent extends StatefulWidget {
   final PosCartState cart;
   final String paymentMode;
-  final ScrollController scrollController;
 
   const _PaymentSheetContent({
     required this.cart,
     required this.paymentMode,
-    required this.scrollController,
   });
 
   @override
@@ -138,12 +145,10 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-        child: ListView(
-          controller: widget.scrollController,
-          shrinkWrap: true,
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Drag handle
             Center(
               child: Container(
                 width: 40,
@@ -154,9 +159,7 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
                 ),
               ),
             ),
-            KSpacing.vGapMd,
-
-            // Header
+            KSpacing.vGapSm,
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -167,7 +170,7 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
                     const SizedBox(width: 8),
                     Text(
                       '${_modeLabel(widget.paymentMode)} Payment',
-                      style: KTypography.h3,
+                      style: KTypography.h4,
                     ),
                   ],
                 ),
@@ -177,36 +180,31 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
                 ),
               ],
             ),
-            KSpacing.vGapMd,
-
-            // Margin hint
-            _MarginHintBanner(cart: widget.cart),
-
-            KSpacing.vGapLg,
-
-            // Mode-specific content
-            if (widget.paymentMode == 'CASH') _buildCashContent(total),
-            if (widget.paymentMode == 'UPI') _buildUpiContent(total),
-            if (widget.paymentMode == 'CARD') _buildCardContent(),
-
-            KSpacing.vGapMd,
-
-            // GST invoice checkbox
-            CheckboxListTile(
-              value: _gstInvoice,
-              onChanged: (v) => setState(() => _gstInvoice = v ?? false),
-              title: const Text('Customer needs GST invoice'),
-              subtitle: const Text('Prints detailed receipt with HSN & tax breakdown'),
-              controlAffinity: ListTileControlAffinity.leading,
-              contentPadding: EdgeInsets.zero,
-              dense: true,
+            KSpacing.vGapSm,
+            Flexible(
+              fit: FlexFit.loose,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _MarginHintBanner(cart: widget.cart),
+                    const SizedBox(height: 8),
+                    if (widget.paymentMode == 'CASH') _buildCashContent(total),
+                    if (widget.paymentMode == 'UPI') _buildUpiContent(total),
+                    if (widget.paymentMode == 'CARD') _buildCardContent(),
+                  ],
+                ),
+              ),
             ),
-
-            KSpacing.vGapMd,
-
-            // Complete button
+            const SizedBox(height: 4),
+            _GstInvoiceToggle(
+              value: _gstInvoice,
+              onChanged: (v) => setState(() => _gstInvoice = v),
+            ),
+            KSpacing.vGapSm,
             SizedBox(
-              height: 52,
+              height: 48,
               child: FilledButton(
                 onPressed: _complete,
                 style: FilledButton.styleFrom(
@@ -249,12 +247,13 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
             style: KTypography.labelSmall.copyWith(color: KColors.error),
           ),
         ],
-        KSpacing.vGapMd,
+        KSpacing.vGapSm,
 
         // Quick amount buttons
-        Text('Quick amounts', style: KTypography.labelSmall.copyWith(
-          color: KColors.textSecondary,
-        )),
+        Text('Quick amounts',
+            style: KTypography.labelSmall.copyWith(
+              color: KColors.textSecondary,
+            )),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -270,12 +269,12 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
             ),
           ],
         ),
-        KSpacing.vGapMd,
+        KSpacing.vGapSm,
 
         // Change display
         if (change > 0)
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: KColors.successLight,
               borderRadius: BorderRadius.circular(10),
@@ -312,33 +311,38 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
         // Amount display
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: KColors.primarySoft,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Column(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.qr_code_2, size: 48, color: KColors.primary),
-              KSpacing.vGapSm,
-              Text(
-                CurrencyFormatter.formatIndian(total),
-                style: KTypography.h2.copyWith(
-                  color: KColors.primary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Collect via UPI',
-                style: KTypography.bodySmall.copyWith(
-                  color: KColors.textSecondary,
-                ),
+              Icon(Icons.qr_code_2, size: 30, color: KColors.primary),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    CurrencyFormatter.formatIndian(total),
+                    style: KTypography.h3.copyWith(
+                      color: KColors.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    'Collect via UPI',
+                    style: KTypography.bodySmall.copyWith(
+                      color: KColors.textSecondary,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        KSpacing.vGapMd,
+        KSpacing.vGapSm,
 
         // Reference field
         Text('Reference (optional)', style: KTypography.labelMedium),
@@ -361,24 +365,27 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
         // Card terminal prompt
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: KColors.secondary.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Column(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.credit_card, size: 48, color: KColors.secondary),
-              KSpacing.vGapSm,
-              Text(
-                'Swipe card on POS terminal',
-                style: KTypography.labelLarge
-                    .copyWith(color: KColors.textSecondary),
+              Icon(Icons.credit_card, size: 30, color: KColors.secondary),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  'Swipe card on POS terminal',
+                  style: KTypography.labelLarge
+                      .copyWith(color: KColors.textSecondary),
+                ),
               ),
             ],
           ),
         ),
-        KSpacing.vGapMd,
+        KSpacing.vGapSm,
 
         // Auth code field
         Text('Auth code / Reference', style: KTypography.labelMedium),
@@ -430,11 +437,9 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
 /// Split payment sheet — allows distributing total across Cash, UPI, Card.
 class _SplitPaymentContent extends StatefulWidget {
   final PosCartState cart;
-  final ScrollController scrollController;
 
   const _SplitPaymentContent({
     required this.cart,
-    required this.scrollController,
   });
 
   @override
@@ -472,11 +477,14 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
     setState(() {
       switch (mode) {
         case 'CASH':
-          _cashCtrl.text = (total - _upi - _card).clamp(0, total).toStringAsFixed(2);
+          _cashCtrl.text =
+              (total - _upi - _card).clamp(0, total).toStringAsFixed(2);
         case 'UPI':
-          _upiCtrl.text = (total - _cash - _card).clamp(0, total).toStringAsFixed(2);
+          _upiCtrl.text =
+              (total - _cash - _card).clamp(0, total).toStringAsFixed(2);
         case 'CARD':
-          _cardCtrl.text = (total - _cash - _upi).clamp(0, total).toStringAsFixed(2);
+          _cardCtrl.text =
+              (total - _cash - _upi).clamp(0, total).toStringAsFixed(2);
       }
     });
   }
@@ -496,7 +504,8 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
     if (_splitSum < widget.cart.total - 0.01) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Split total (${CurrencyFormatter.formatIndian(_splitSum)}) is less than bill total'),
+          content: Text(
+              'Split total (${CurrencyFormatter.formatIndian(_splitSum)}) is less than bill total'),
           backgroundColor: KColors.error,
         ),
       );
@@ -509,18 +518,20 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
       splits.add({
         'mode': 'UPI',
         'amount': _upi,
-        if (_upiRefCtrl.text.trim().isNotEmpty) 'reference': _upiRefCtrl.text.trim(),
+        if (_upiRefCtrl.text.trim().isNotEmpty)
+          'reference': _upiRefCtrl.text.trim(),
       });
     }
     if (_card > 0) splits.add({'mode': 'CARD', 'amount': _card});
 
-    final primary = splits.reduce((a, b) =>
-        (a['amount'] as double) >= (b['amount'] as double) ? a : b);
+    final primary = splits.reduce(
+        (a, b) => (a['amount'] as double) >= (b['amount'] as double) ? a : b);
 
     Navigator.pop(context, {
       'paymentMode': primary['mode'],
       'amountReceived': _splitSum,
-      'upiReference': _upiRefCtrl.text.trim().isEmpty ? null : _upiRefCtrl.text.trim(),
+      'upiReference':
+          _upiRefCtrl.text.trim().isEmpty ? null : _upiRefCtrl.text.trim(),
       'splits': splits,
       'gstInvoice': _gstInvoice,
     });
@@ -533,81 +544,93 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-        child: ListView(
-          controller: widget.scrollController,
-          shrinkWrap: true,
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Center(
               child: Container(
-                width: 40, height: 4,
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
                   color: cs.outlineVariant,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            KSpacing.vGapMd,
+            KSpacing.vGapSm,
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Split Payment', style: KTypography.h3),
+                Text('Split Payment', style: KTypography.h4),
                 Text('Total ${CurrencyFormatter.formatIndian(total)}',
                     style: KTypography.labelLarge.copyWith(color: cs.primary)),
               ],
             ),
-            KSpacing.vGapMd,
-            _MarginHintBanner(cart: widget.cart),
-            KSpacing.vGapLg,
-            _SplitRow(
-              icon: Icons.payments_outlined,
-              label: 'Cash',
-              color: KColors.success,
-              controller: _cashCtrl,
-              onChanged: (_) => setState(() {}),
-              onAutoFill: () => _autoFill('CASH'),
-            ),
             KSpacing.vGapSm,
-            _SplitRow(
-              icon: Icons.qr_code_2,
-              label: 'UPI',
-              color: KColors.primary,
-              controller: _upiCtrl,
-              onChanged: (_) => setState(() {}),
-              onAutoFill: () => _autoFill('UPI'),
-            ),
-            if (_upi > 0) ...[
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.only(left: 40),
-                child: KTextField(
-                  label: 'UPI Reference',
-                  hint: 'UTR / Transaction ID',
-                  controller: _upiRefCtrl,
-                  keyboardType: TextInputType.text,
-                  prefixIcon: Icons.tag,
+            Flexible(
+              fit: FlexFit.loose,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _MarginHintBanner(cart: widget.cart),
+                    const SizedBox(height: 8),
+                    _SplitRow(
+                      icon: Icons.payments_outlined,
+                      label: 'Cash',
+                      color: KColors.success,
+                      controller: _cashCtrl,
+                      onChanged: (_) => setState(() {}),
+                      onAutoFill: () => _autoFill('CASH'),
+                    ),
+                    KSpacing.vGapSm,
+                    _SplitRow(
+                      icon: Icons.qr_code_2,
+                      label: 'UPI',
+                      color: KColors.primary,
+                      controller: _upiCtrl,
+                      onChanged: (_) => setState(() {}),
+                      onAutoFill: () => _autoFill('UPI'),
+                    ),
+                    if (_upi > 0) ...[
+                      const SizedBox(height: 4),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 40),
+                        child: KTextField(
+                          label: 'UPI Reference',
+                          hint: 'UTR / Transaction ID',
+                          controller: _upiRefCtrl,
+                          keyboardType: TextInputType.text,
+                          prefixIcon: Icons.tag,
+                        ),
+                      ),
+                    ],
+                    KSpacing.vGapSm,
+                    _SplitRow(
+                      icon: Icons.credit_card,
+                      label: 'Card',
+                      color: KColors.secondary,
+                      controller: _cardCtrl,
+                      onChanged: (_) => setState(() {}),
+                      onAutoFill: () => _autoFill('CARD'),
+                    ),
+                    if (_hasSplitLimitError) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Each payment amount must be ${CurrencyFormatter.formatIndian(_maxTenderAmount)} or less',
+                        style: KTypography.labelSmall
+                            .copyWith(color: KColors.error),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ],
-            KSpacing.vGapSm,
-            _SplitRow(
-              icon: Icons.credit_card,
-              label: 'Card',
-              color: KColors.secondary,
-              controller: _cardCtrl,
-              onChanged: (_) => setState(() {}),
-              onAutoFill: () => _autoFill('CARD'),
             ),
-            KSpacing.vGapMd,
-            if (_hasSplitLimitError) ...[
-              Text(
-                'Each payment amount must be ${CurrencyFormatter.formatIndian(_maxTenderAmount)} or less',
-                style: KTypography.labelSmall.copyWith(color: KColors.error),
-              ),
-              KSpacing.vGapSm,
-            ],
+            const SizedBox(height: 4),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: _remaining.abs() < 0.01
                     ? KColors.successLight
@@ -626,7 +649,8 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
                     ),
                   ),
                   Text(
-                    CurrencyFormatter.formatIndian(_remaining.abs() < 0.01 ? 0 : _remaining),
+                    CurrencyFormatter.formatIndian(
+                        _remaining.abs() < 0.01 ? 0 : _remaining),
                     style: KTypography.h3.copyWith(
                       color: _remaining.abs() < 0.01
                           ? KColors.success
@@ -636,19 +660,13 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
                 ],
               ),
             ),
-            KSpacing.vGapMd,
-            CheckboxListTile(
+            _GstInvoiceToggle(
               value: _gstInvoice,
-              onChanged: (v) => setState(() => _gstInvoice = v ?? false),
-              title: const Text('Customer needs GST invoice'),
-              subtitle: const Text('Prints detailed receipt with HSN & tax breakdown'),
-              controlAffinity: ListTileControlAffinity.leading,
-              contentPadding: EdgeInsets.zero,
-              dense: true,
+              onChanged: (v) => setState(() => _gstInvoice = v),
             ),
-            KSpacing.vGapMd,
+            KSpacing.vGapSm,
             SizedBox(
-              height: 52,
+              height: 48,
               child: FilledButton(
                 onPressed: _splitSum >= total - 0.01 && !_hasSplitLimitError
                     ? _complete
@@ -742,7 +760,7 @@ class _QuickAmountChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           child: Text(
             label,
             style: KTypography.labelMedium.copyWith(
@@ -750,6 +768,60 @@ class _QuickAmountChip extends StatelessWidget {
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GstInvoiceToggle extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _GstInvoiceToggle({
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => onChanged(!value),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 36,
+              height: 36,
+              child: Checkbox(
+                value: value,
+                onChanged: (v) => onChanged(v ?? false),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Customer needs GST invoice',
+                      style: KTypography.labelMedium),
+                  Text(
+                    'Prints detailed receipt with HSN & tax breakdown',
+                    style: KTypography.labelSmall.copyWith(
+                      color: KColors.textSecondary,
+                      fontSize: 10,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -771,7 +843,7 @@ class _MarginHintBanner extends StatelessWidget {
     final isBelowCost = margin < 0;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: isBelowCost
             ? KColors.error.withValues(alpha: 0.08)
@@ -801,11 +873,15 @@ class _MarginHintBanner extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Row(
             children: [
-              Expanded(child: _field('Cost', CurrencyFormatter.formatIndian(totalCost))),
-              Expanded(child: _field('Selling', CurrencyFormatter.formatIndian(sellingTotal))),
+              Expanded(
+                  child: _field(
+                      'Cost', CurrencyFormatter.formatIndian(totalCost))),
+              Expanded(
+                  child: _field(
+                      'Selling', CurrencyFormatter.formatIndian(sellingTotal))),
               Expanded(
                 child: _field(
                   'Margin',

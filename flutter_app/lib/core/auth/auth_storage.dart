@@ -21,6 +21,7 @@ class AuthStorage {
   static const _userNameKey = '${_prefix}user_name';
   static const _userRoleKey = '${_prefix}user_role';
   static const _industryKey = '${_prefix}industry';
+  static const _businessTypeKey = '${_prefix}business_type';
   static const _industryCodeKey = '${_prefix}industry_code';
   static const _onboardingCompletedKey = '${_prefix}onboarding_completed';
   static const _defaultLandingPageKey = '${_prefix}default_landing_page';
@@ -129,6 +130,7 @@ class AuthStorage {
     required String orgId,
     required String orgName,
     String? industry,
+    String? businessType,
     String? industryCode,
     bool onboardingCompleted = false,
     String? defaultLandingPage,
@@ -138,6 +140,7 @@ class AuthStorage {
       _write(_orgIdKey, orgId),
       _write(_orgNameKey, orgName),
       if (industry != null) _write(_industryKey, industry),
+      if (businessType != null) _write(_businessTypeKey, businessType),
       if (industryCode != null) _write(_industryCodeKey, industryCode),
       _write(_onboardingCompletedKey, onboardingCompleted.toString()),
       if (defaultLandingPage != null) _write(_defaultLandingPageKey, defaultLandingPage),
@@ -165,6 +168,10 @@ class AuthStorage {
     final v = await _read(_industryKey);
     debugPrint('[AuthStorage] getIndustry: $v');
     return v;
+  }
+
+  Future<String?> getBusinessType() async {
+    return _read(_businessTypeKey);
   }
 
   Future<String?> getIndustryCode() async {

@@ -250,16 +250,14 @@ class _ContactTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return KEntityDataTable(
-      columnSpacing: 18,
-      horizontalMargin: 12,
+      columnSpacing: 12,
+      horizontalMargin: 10,
       columns: const [
         DataColumn(label: SizedBox(width: 32, child: Text(''))),
         DataColumn(label: Text('Contact')),
         DataColumn(label: Text('Type')),
         DataColumn(label: Text('Company')),
-        DataColumn(label: Text('GSTIN')),
         DataColumn(label: Text('Phone')),
-        DataColumn(label: Text('Email')),
         DataColumn(label: Text('AR')),
         DataColumn(label: Text('AP')),
         DataColumn(label: Text('Status')),
@@ -270,10 +268,8 @@ class _ContactTable extends StatelessWidget {
         final displayName = contact['displayName'] as String? ?? 'Unknown';
         final companyName = contact['companyName'] as String? ?? '--';
         final contactType = contact['contactType'] as String? ?? 'CUSTOMER';
-        final gstin = contact['gstin'] as String? ?? '--';
         final phone =
             contact['phone'] as String? ?? contact['mobile'] as String? ?? '--';
-        final email = contact['email'] as String? ?? '--';
         final outstandingAr = (contact['outstandingAr'] as num?)?.toDouble() ??
             (contact['outstandingAR'] as num?)?.toDouble() ??
             (contact['outstanding_ar'] as num?)?.toDouble() ??
@@ -300,10 +296,8 @@ class _ContactTable extends StatelessWidget {
               type: contactType,
             )),
             DataCell(_ContactTypeCell(type: contactType)),
-            DataCell(KTableTextCell(value: companyName, width: 150)),
-            DataCell(KTableTextCell(value: gstin, width: 120)),
-            DataCell(KTableTextCell(value: phone, width: 110)),
-            DataCell(KTableTextCell(value: email, width: 170)),
+            DataCell(KTableTextCell(value: companyName, width: 130)),
+            DataCell(KTableTextCell(value: phone, width: 108)),
             DataCell(_ContactAmountCell(value: outstandingAr)),
             DataCell(_ContactAmountCell(value: outstandingAp)),
             DataCell(KStatusChip(
@@ -337,7 +331,7 @@ class _ContactNameCell extends StatelessWidget {
     final color = _contactTypeColor(type);
     final cs = Theme.of(context).colorScheme;
     return SizedBox(
-      width: 220,
+      width: 190,
       child: Row(
         children: [
           CircleAvatar(
@@ -403,7 +397,7 @@ class _ContactAmountCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 92,
+      width: 82,
       child: Text(
         value == 0 ? '--' : CurrencyFormatter.formatIndian(value),
         textAlign: TextAlign.end,

@@ -36,6 +36,7 @@ class ApiConfig {
   static const String balanceSheet = '/api/v1/reports/balance-sheet';
   static String generalLedger(String accountId) =>
       '/api/v1/reports/general-ledger/$accountId';
+  static String operationalReport(String key) => '/api/v1/reports/$key';
 
   // AR
   static const String invoices = '/api/v1/invoices';

@@ -11,6 +11,7 @@ import java.util.UUID;
  *   totalSales     = cashUpiTotal + creditTotal
  *   cashUpiTotal   = SUM(sales_receipt.total) + SUM(invoice.total WHERE status=PAID)
  *   creditTotal    = SUM(invoice.total WHERE status NOT IN (DRAFT,PAID,CANCELLED))
+ *   transactionCount = posTransactionCount + invoiceTransactionCount
  */
 public record TodaySalesResponse(
         LocalDate from,
@@ -19,7 +20,11 @@ public record TodaySalesResponse(
         BigDecimal totalSales,
         BigDecimal cashUpiTotal,
         BigDecimal creditTotal,
+        BigDecimal posSalesTotal,
+        BigDecimal paidInvoiceTotal,
         int transactionCount,
+        int posTransactionCount,
+        int invoiceTransactionCount,
         String currency,
         List<BranchSalesRow> byBranch
 ) {}

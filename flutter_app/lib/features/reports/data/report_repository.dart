@@ -55,6 +55,21 @@ class ReportRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> getOperationalReport({
+    required String key,
+    String? startDate,
+    String? endDate,
+  }) async {
+    final response = await _api.get(
+      ApiConfig.operationalReport(key),
+      queryParameters: {
+        if (startDate != null) 'startDate': startDate,
+        if (endDate != null) 'endDate': endDate,
+      },
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> getAgeingReport() async {
     final response = await _api.get(ApiConfig.ageingReport);
     return response.data as Map<String, dynamic>;

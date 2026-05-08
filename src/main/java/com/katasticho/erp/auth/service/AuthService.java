@@ -322,7 +322,7 @@ public class AuthService {
         return new AuthResponse.UserInfo(
                 user.getId(), user.getOrgId(), user.getFullName(),
                 user.getEmail(), user.getPhone(), user.getRole(), org.getName(),
-                org.getIndustry(), org.getIndustryCode(), onboardingCompleted,
+                org.getIndustry(), org.getBusinessType(), org.getIndustryCode(), onboardingCompleted,
                 user.getDefaultLandingPage());
     }
 
@@ -453,7 +453,7 @@ public class AuthService {
         AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
                 user.getId(), user.getOrgId(), user.getFullName(),
                 user.getEmail(), user.getPhone(), user.getRole(), org.getName(),
-                org.getIndustry(), org.getIndustryCode(), onboardingCompleted,
+                org.getIndustry(), org.getBusinessType(), org.getIndustryCode(), onboardingCompleted,
                 user.getDefaultLandingPage());
 
         return new AuthResponse(accessToken, refreshToken, userInfo);

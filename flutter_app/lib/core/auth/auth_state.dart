@@ -14,6 +14,7 @@ class AuthState {
   final String? orgId;
   final String? orgName;
   final String? industry;
+  final String? businessType;
   final String? industryCode;
   final bool onboardingCompleted;
   final String? defaultLandingPage;
@@ -27,6 +28,7 @@ class AuthState {
     this.orgId,
     this.orgName,
     this.industry,
+    this.businessType,
     this.industryCode,
     this.onboardingCompleted = false,
     this.defaultLandingPage,
@@ -44,6 +46,7 @@ class AuthState {
     String? orgId,
     String? orgName,
     String? industry,
+    String? businessType,
     String? industryCode,
     bool? onboardingCompleted,
     String? defaultLandingPage,
@@ -57,6 +60,7 @@ class AuthState {
       orgId: orgId ?? this.orgId,
       orgName: orgName ?? this.orgName,
       industry: industry ?? this.industry,
+      businessType: businessType ?? this.businessType,
       industryCode: industryCode ?? this.industryCode,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       defaultLandingPage: defaultLandingPage ?? this.defaultLandingPage,
@@ -85,6 +89,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final orgId = await _storage.getOrgId();
       final orgName = await _storage.getOrgName();
       final industry = await _storage.getIndustry();
+      final businessType = await _storage.getBusinessType();
       final industryCode = await _storage.getIndustryCode();
       final onboardingCompleted = await _storage.getOnboardingCompleted();
       final defaultLandingPage = await _storage.getDefaultLandingPage();
@@ -99,6 +104,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         orgId: orgId,
         orgName: orgName,
         industry: industry,
+        businessType: businessType,
         industryCode: industryCode,
         onboardingCompleted: onboardingCompleted,
         defaultLandingPage: defaultLandingPage,
@@ -118,6 +124,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String orgId,
     required String orgName,
     String? industry,
+    String? businessType,
     String? industryCode,
     bool onboardingCompleted = false,
     String? defaultLandingPage,
@@ -131,6 +138,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       orgId: orgId,
       orgName: orgName,
       industry: industry,
+      businessType: businessType,
       industryCode: industryCode,
       onboardingCompleted: onboardingCompleted,
       defaultLandingPage: defaultLandingPage,
@@ -144,6 +152,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       orgId: orgId,
       orgName: orgName,
       industry: industry,
+      businessType: businessType,
       industryCode: industryCode,
       onboardingCompleted: onboardingCompleted,
       defaultLandingPage: defaultLandingPage,
@@ -175,6 +184,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         orgId: user['orgId'].toString(),
         orgName: user['orgName'] as String,
         industry: user['industry'] as String?,
+        businessType: user['businessType'] as String?,
         industryCode: user['industryCode'] as String?,
         onboardingCompleted: user['onboardingCompleted'] as bool? ?? true,
         defaultLandingPage: user['defaultLandingPage'] as String?,

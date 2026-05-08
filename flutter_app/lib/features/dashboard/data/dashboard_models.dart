@@ -1,10 +1,10 @@
-/// Plain-value models for the dashboard aggregation endpoints.
-///
-/// These are deliberately thin — no code generation, no freezed — because
-/// every dashboard call is read-only and small. The `fromJson` factories
-/// are defensive: backend envelopes vary between `{data: {...}}` and
-/// raw-payload shapes so the repository layer unwraps once and hands
-/// clean maps to these constructors.
+// Plain-value models for the dashboard aggregation endpoints.
+//
+// These are deliberately thin: no code generation, no freezed, because
+// every dashboard call is read-only and small. The `fromJson` factories
+// are defensive: backend envelopes vary between `{data: {...}}` and
+// raw-payload shapes so the repository layer unwraps once and hands
+// clean maps to these constructors.
 
 class BranchSalesRow {
   final String branchId;
@@ -37,7 +37,11 @@ class TodaySalesData {
   final double totalSales;
   final double cashUpiTotal;
   final double creditTotal;
+  final double posSalesTotal;
+  final double paidInvoiceTotal;
   final int transactionCount;
+  final int posTransactionCount;
+  final int invoiceTransactionCount;
   final String currency;
   final List<BranchSalesRow> byBranch;
 
@@ -48,7 +52,11 @@ class TodaySalesData {
     required this.totalSales,
     required this.cashUpiTotal,
     required this.creditTotal,
+    required this.posSalesTotal,
+    required this.paidInvoiceTotal,
     required this.transactionCount,
+    required this.posTransactionCount,
+    required this.invoiceTransactionCount,
     required this.currency,
     required this.byBranch,
   });
@@ -60,7 +68,18 @@ class TodaySalesData {
         totalSales: (json['totalSales'] as num?)?.toDouble() ?? 0.0,
         cashUpiTotal: (json['cashUpiTotal'] as num?)?.toDouble() ?? 0.0,
         creditTotal: (json['creditTotal'] as num?)?.toDouble() ?? 0.0,
+        posSalesTotal: (json['posSalesTotal'] as num?)?.toDouble() ??
+            (json['cashUpiTotal'] as num?)?.toDouble() ??
+            0.0,
+        paidInvoiceTotal:
+            (json['paidInvoiceTotal'] as num?)?.toDouble() ?? 0.0,
         transactionCount: (json['transactionCount'] as num?)?.toInt() ?? 0,
+        posTransactionCount:
+            (json['posTransactionCount'] as num?)?.toInt() ??
+                (json['transactionCount'] as num?)?.toInt() ??
+                0,
+        invoiceTransactionCount:
+            (json['invoiceTransactionCount'] as num?)?.toInt() ?? 0,
         currency: json['currency']?.toString() ?? 'INR',
         byBranch: ((json['byBranch'] as List?) ?? const [])
             .map((e) => BranchSalesRow.fromJson(e as Map<String, dynamic>))
@@ -623,3 +642,4 @@ class ExpiringSoonItem {
             (json['quantityOnHand'] as num?)?.toDouble() ?? 0.0,
       );
 }
+

@@ -2,6 +2,7 @@ package com.katasticho.erp.accounting.controller;
 
 import com.katasticho.erp.accounting.dto.report.*;
 import com.katasticho.erp.accounting.service.FinancialReportService;
+import com.katasticho.erp.accounting.service.OperationalReportService;
 import com.katasticho.erp.common.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -18,6 +19,7 @@ import java.util.UUID;
 public class FinancialReportController {
 
     private final FinancialReportService reportService;
+    private final OperationalReportService operationalReportService;
 
     @GetMapping("/trial-balance")
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
@@ -51,5 +53,51 @@ public class FinancialReportController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         return ResponseEntity.ok(ApiResponse.ok(
                 reportService.generateGeneralLedger(accountId, startDate, endDate)));
+    }
+
+    @GetMapping("/sales-register")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<OperationalReportResponse>> getSalesRegister(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(ApiResponse.ok(operationalReportService.salesRegister(startDate, endDate)));
+    }
+
+    @GetMapping("/daily-sales")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<OperationalReportResponse>> getDailySales(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(ApiResponse.ok(operationalReportService.dailySales(startDate, endDate)));
+    }
+
+    @GetMapping("/purchase-register")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<OperationalReportResponse>> getPurchaseRegister(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(ApiResponse.ok(operationalReportService.purchaseRegister(startDate, endDate)));
+    }
+
+    @GetMapping("/day-book")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<OperationalReportResponse>> getDayBook(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(ApiResponse.ok(operationalReportService.dayBook(startDate, endDate)));
+    }
+
+    @GetMapping("/stock-summary")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<OperationalReportResponse>> getStockSummary() {
+        return ResponseEntity.ok(ApiResponse.ok(operationalReportService.stockSummary()));
+    }
+
+    @GetMapping("/stock-movement")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<OperationalReportResponse>> getStockMovement(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(ApiResponse.ok(operationalReportService.stockMovement(startDate, endDate)));
     }
 }
