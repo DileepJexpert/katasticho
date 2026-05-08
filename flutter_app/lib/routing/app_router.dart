@@ -36,6 +36,7 @@ import '../features/reports/presentation/balance_sheet_screen.dart';
 import '../features/reports/presentation/general_ledger_screen.dart';
 import '../features/reports/presentation/ageing_report_screen.dart';
 import '../features/reports/presentation/ap_ageing_screen.dart';
+import '../features/reports/presentation/operational_report_screen.dart';
 import '../features/ai_chat/presentation/ai_chat_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/settings/presentation/inventory_features_screen.dart';
@@ -91,6 +92,7 @@ import '../features/credit_ledger/presentation/credit_ledger_detail_screen.dart'
 import '../features/journals/presentation/journal_list_screen.dart';
 import '../features/journals/presentation/journal_detail_screen.dart';
 import '../features/journals/presentation/journal_create_screen.dart';
+import '../features/journals/presentation/guided_transaction_screen.dart';
 import '../features/contacts/presentation/contact_statement_screen.dart';
 import '../features/inventory/presentation/reorder_screen.dart';
 import 'shell_screen.dart';
@@ -141,6 +143,7 @@ class Routes {
   static const generalLedger = '/reports/general-ledger';
   static const ageingReport = '/reports/ageing';
   static const apAgeingReport = '/reports/ap-ageing';
+  static const operationalReport = '/reports/operational/:key';
   static const creditNotes = '/credit-notes';
   static const creditNoteCreate = '/credit-notes/create';
   static const creditNoteDetail = '/credit-notes/:id';
@@ -198,6 +201,7 @@ class Routes {
   static const creditLedger = '/credit-ledger';
   static const creditLedgerDetail = '/credit-ledger/:id';
   // Journal Entries
+  static const guidedTransactionCreate = '/accounting/create-transaction';
   static const journalEntries = '/accounting/journal-entries';
   static const journalEntryCreate = '/accounting/journal-entries/create';
   static const journalEntryDetail = '/accounting/journal-entries/:id';
@@ -214,12 +218,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onboardingCompleted = authState.onboardingCompleted;
       final loc = state.matchedLocation;
 
-      final isAuthRoute = loc == Routes.login ||
-          loc == Routes.otp ||
-          loc == Routes.signup;
+      final isAuthRoute =
+          loc == Routes.login || loc == Routes.otp || loc == Routes.signup;
       final isOnboardingRoute = loc.startsWith('/onboarding');
 
-      debugPrint('[Router] redirect -> loc: $loc, auth: ${authState.status}, onboarded: $onboardingCompleted');
+      debugPrint(
+          '[Router] redirect -> loc: $loc, auth: ${authState.status}, onboarded: $onboardingCompleted');
 
       if (authState.status == AuthStatus.initial ||
           authState.status == AuthStatus.loading) {
@@ -231,7 +235,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (isAuthenticated && isAuthRoute) {
-        return onboardingCompleted ? Routes.dashboard : Routes.onboardingBusinessType;
+        return onboardingCompleted
+            ? Routes.dashboard
+            : Routes.onboardingBusinessType;
       }
 
       if (isAuthenticated && !onboardingCompleted && !isOnboardingRoute) {
@@ -379,6 +385,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           // Journal Entries
           GoRoute(
+            path: Routes.guidedTransactionCreate,
+            builder: (context, state) => const GuidedTransactionScreen(),
+          ),
+          GoRoute(
             path: Routes.journalEntries,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: JournalListScreen(),
@@ -495,8 +505,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/delivery-challans/:id/pdf',
             builder: (context, state) {
-              final challan =
-                  state.extra as Map<String, dynamic>? ?? {};
+              final challan = state.extra as Map<String, dynamic>? ?? {};
               return DeliveryChallanPdfScreen(challan: challan);
             },
           ),
@@ -516,8 +525,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           // Receipt Settings
           GoRoute(
             path: Routes.receiptSettings,
-            builder: (context, state) =>
-                const PosReceiptSettingsScreen(),
+            builder: (context, state) => const PosReceiptSettingsScreen(),
           ),
           // F8: Recurring Invoices
           GoRoute(
@@ -637,6 +645,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.apAgeingReport,
             builder: (context, state) => const ApAgeingScreen(),
+          ),
+          GoRoute(
+            path: Routes.operationalReport,
+            builder: (context, state) => OperationalReportScreen(
+              reportKey: state.pathParameters['key']!,
+              fallbackTitle: state.uri.queryParameters['title'] ?? 'Report',
+              dateRange: state.uri.queryParameters['dateRange'] != 'false',
+            ),
           ),
           GoRoute(
             path: Routes.creditNotes,

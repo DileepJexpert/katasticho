@@ -17,7 +17,6 @@ import '../features/dashboard/data/dashboard_repository.dart';
 import '../features/notifications/data/notification_repository.dart';
 import 'app_router.dart';
 
-
 /// Navigation item definition.
 class NavItem {
   final String label;
@@ -33,7 +32,7 @@ class NavItem {
   });
 }
 
-// ── Top-level nav items (always visible, most frequently used) ──
+// ── Top-level nav items used by compact tablet/mobile shells ──
 const _topNavItems = [
   NavItem(
     label: 'Dashboard',
@@ -42,10 +41,16 @@ const _topNavItems = [
     route: Routes.dashboard,
   ),
   NavItem(
-    label: 'Invoices',
-    icon: Icons.receipt_long_outlined,
-    activeIcon: Icons.receipt_long_rounded,
-    route: Routes.invoices,
+    label: 'AI',
+    icon: Icons.auto_awesome_outlined,
+    activeIcon: Icons.auto_awesome_rounded,
+    route: Routes.aiChat,
+  ),
+  NavItem(
+    label: 'POS',
+    icon: Icons.point_of_sale_outlined,
+    activeIcon: Icons.point_of_sale_rounded,
+    route: Routes.pos,
   ),
   NavItem(
     label: 'Contacts',
@@ -54,24 +59,47 @@ const _topNavItems = [
     route: Routes.contacts,
   ),
   NavItem(
-    label: 'Items',
-    icon: Icons.inventory_2_outlined,
-    activeIcon: Icons.inventory_2_rounded,
-    route: Routes.items,
-  ),
-  NavItem(
-    label: 'Expenses',
-    icon: Icons.payments_outlined,
-    activeIcon: Icons.payments_rounded,
-    route: Routes.expenses,
-  ),
-  NavItem(
-    label: 'Quick POS',
-    icon: Icons.point_of_sale_outlined,
-    activeIcon: Icons.point_of_sale_rounded,
-    route: Routes.pos,
+    label: 'Settings',
+    icon: Icons.settings_outlined,
+    activeIcon: Icons.settings_rounded,
+    route: Routes.settings,
   ),
 ];
+
+const _dashboardNavItem = NavItem(
+  label: 'Dashboard',
+  icon: Icons.dashboard_outlined,
+  activeIcon: Icons.dashboard_rounded,
+  route: Routes.dashboard,
+);
+
+const _aiCommandCenterNavItem = NavItem(
+  label: 'AI Command Center',
+  icon: Icons.auto_awesome_outlined,
+  activeIcon: Icons.auto_awesome_rounded,
+  route: Routes.aiChat,
+);
+
+const _posNavItem = NavItem(
+  label: 'POS',
+  icon: Icons.point_of_sale_outlined,
+  activeIcon: Icons.point_of_sale_rounded,
+  route: Routes.pos,
+);
+
+const _contactsNavItem = NavItem(
+  label: 'Contacts',
+  icon: Icons.people_outline_rounded,
+  activeIcon: Icons.people_rounded,
+  route: Routes.contacts,
+);
+
+const _settingsNavItem = NavItem(
+  label: 'Settings',
+  icon: Icons.settings_outlined,
+  activeIcon: Icons.settings_rounded,
+  route: Routes.settings,
+);
 
 /// A group of nav items that collapse into a popup overlay.
 class NavGroup {
@@ -92,12 +120,46 @@ const _salesGroup = NavGroup(
   icon: Icons.storefront_outlined,
   activeIcon: Icons.storefront_rounded,
   children: [
-    NavItem(label: 'Sales Orders', icon: Icons.assignment_outlined, activeIcon: Icons.assignment_rounded, route: Routes.salesOrders),
-    NavItem(label: 'Delivery Challans', icon: Icons.local_shipping_outlined, activeIcon: Icons.local_shipping_rounded, route: Routes.deliveryChallans),
-    NavItem(label: 'Sales Receipts', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, route: Routes.salesReceipts),
-    NavItem(label: 'Estimates', icon: Icons.request_quote_outlined, activeIcon: Icons.request_quote_rounded, route: Routes.estimates),
-    NavItem(label: 'Credit Notes', icon: Icons.note_alt_outlined, activeIcon: Icons.note_alt_rounded, route: Routes.creditNotes),
-    NavItem(label: 'Recurring', icon: Icons.autorenew_outlined, activeIcon: Icons.autorenew_rounded, route: Routes.recurringInvoices),
+    NavItem(
+        label: 'Invoices',
+        icon: Icons.receipt_long_outlined,
+        activeIcon: Icons.receipt_long_rounded,
+        route: Routes.invoices),
+    NavItem(
+        label: 'Estimates / Quotes',
+        icon: Icons.request_quote_outlined,
+        activeIcon: Icons.request_quote_rounded,
+        route: Routes.estimates),
+    NavItem(
+        label: 'Sales Orders',
+        icon: Icons.assignment_outlined,
+        activeIcon: Icons.assignment_rounded,
+        route: Routes.salesOrders),
+    NavItem(
+        label: 'Delivery Challans',
+        icon: Icons.local_shipping_outlined,
+        activeIcon: Icons.local_shipping_rounded,
+        route: Routes.deliveryChallans),
+    NavItem(
+        label: 'Receipts',
+        icon: Icons.receipt_long_outlined,
+        activeIcon: Icons.receipt_long_rounded,
+        route: Routes.salesReceipts),
+    NavItem(
+        label: 'Credit Notes',
+        icon: Icons.note_alt_outlined,
+        activeIcon: Icons.note_alt_rounded,
+        route: Routes.creditNotes),
+    NavItem(
+        label: 'Receivables',
+        icon: Icons.account_balance_wallet_outlined,
+        activeIcon: Icons.account_balance_wallet_rounded,
+        route: Routes.ageingReport),
+    NavItem(
+        label: 'Recurring',
+        icon: Icons.autorenew_outlined,
+        activeIcon: Icons.autorenew_rounded,
+        route: Routes.recurringInvoices),
   ],
 );
 
@@ -106,10 +168,84 @@ const _purchasesGroup = NavGroup(
   icon: Icons.shopping_cart_outlined,
   activeIcon: Icons.shopping_cart_rounded,
   children: [
-    NavItem(label: 'Bills', icon: Icons.receipt_outlined, activeIcon: Icons.receipt_rounded, route: Routes.bills),
-    NavItem(label: 'Vendor Payments', icon: Icons.payments_outlined, activeIcon: Icons.payments_rounded, route: Routes.vendorPayments),
-    NavItem(label: 'Vendor Credits', icon: Icons.note_alt_outlined, activeIcon: Icons.note_alt_rounded, route: Routes.vendorCredits),
-    NavItem(label: 'Goods Receipts', icon: Icons.local_shipping_outlined, activeIcon: Icons.local_shipping_rounded, route: Routes.stockReceipts),
+    NavItem(
+        label: 'Bills',
+        icon: Icons.receipt_outlined,
+        activeIcon: Icons.receipt_rounded,
+        route: Routes.bills),
+    NavItem(
+        label: 'Vendor Credits',
+        icon: Icons.note_alt_outlined,
+        activeIcon: Icons.note_alt_rounded,
+        route: Routes.vendorCredits),
+    NavItem(
+        label: 'Vendor Payments',
+        icon: Icons.payments_outlined,
+        activeIcon: Icons.payments_rounded,
+        route: Routes.vendorPayments),
+    NavItem(
+        label: 'Expenses',
+        icon: Icons.payments_outlined,
+        activeIcon: Icons.payments_rounded,
+        route: Routes.expenses),
+    NavItem(
+        label: 'Payables',
+        icon: Icons.account_balance_wallet_outlined,
+        activeIcon: Icons.account_balance_wallet_rounded,
+        route: Routes.apAgeingReport),
+    NavItem(
+        label: 'Goods Receipts',
+        icon: Icons.local_shipping_outlined,
+        activeIcon: Icons.local_shipping_rounded,
+        route: Routes.stockReceipts),
+  ],
+);
+
+const _inventoryGroup = NavGroup(
+  label: 'Inventory',
+  icon: Icons.inventory_2_outlined,
+  activeIcon: Icons.inventory_2_rounded,
+  children: [
+    NavItem(
+        label: 'Items',
+        icon: Icons.inventory_2_outlined,
+        activeIcon: Icons.inventory_2_rounded,
+        route: Routes.items),
+    NavItem(
+        label: 'Item Groups',
+        icon: Icons.category_outlined,
+        activeIcon: Icons.category_rounded,
+        route: Routes.itemGroups),
+    NavItem(
+        label: 'Stock Summary',
+        icon: Icons.summarize_outlined,
+        activeIcon: Icons.summarize_rounded,
+        route: '/reports/operational/stock-summary'),
+    NavItem(
+        label: 'Stock Movements',
+        icon: Icons.swap_vert_outlined,
+        activeIcon: Icons.swap_vert_rounded,
+        route: '/reports/operational/stock-movement'),
+    NavItem(
+        label: 'Reorder Alerts',
+        icon: Icons.shopping_cart_outlined,
+        activeIcon: Icons.shopping_cart_rounded,
+        route: Routes.reorder),
+    NavItem(
+        label: 'Goods Receipts',
+        icon: Icons.local_shipping_outlined,
+        activeIcon: Icons.local_shipping_rounded,
+        route: Routes.stockReceipts),
+    NavItem(
+        label: 'Price Lists',
+        icon: Icons.sell_outlined,
+        activeIcon: Icons.sell_rounded,
+        route: Routes.priceLists),
+    NavItem(
+        label: 'Import Items',
+        icon: Icons.upload_file_outlined,
+        activeIcon: Icons.upload_file_rounded,
+        route: Routes.itemImport),
   ],
 );
 
@@ -118,36 +254,111 @@ const _accountingGroup = NavGroup(
   icon: Icons.account_balance_outlined,
   activeIcon: Icons.account_balance_rounded,
   children: [
-    NavItem(label: 'Accounting Dashboard', icon: Icons.analytics_outlined, activeIcon: Icons.analytics_rounded, route: '/accounting/dashboard'),
-    NavItem(label: 'Chart of Accounts', icon: Icons.account_balance_outlined, activeIcon: Icons.account_balance_rounded, route: Routes.chartOfAccounts),
-    NavItem(label: 'Journal Entries', icon: Icons.menu_book_outlined, activeIcon: Icons.menu_book_rounded, route: '/accounting/journal-entries'),
-    NavItem(label: 'Credit Ledger', icon: Icons.menu_book_outlined, activeIcon: Icons.menu_book_rounded, route: Routes.creditLedger),
-    NavItem(label: 'GST', icon: Icons.percent_outlined, activeIcon: Icons.percent_rounded, route: Routes.gst),
+    NavItem(
+        label: 'Accounting Dashboard',
+        icon: Icons.analytics_outlined,
+        activeIcon: Icons.analytics_rounded,
+        route: '/accounting/dashboard'),
+    NavItem(
+        label: 'Create Transaction',
+        icon: Icons.auto_awesome_motion_outlined,
+        activeIcon: Icons.auto_awesome_motion_rounded,
+        route: Routes.guidedTransactionCreate),
+    NavItem(
+        label: 'Chart of Accounts',
+        icon: Icons.account_balance_outlined,
+        activeIcon: Icons.account_balance_rounded,
+        route: Routes.chartOfAccounts),
+    NavItem(
+        label: 'Manual Journals',
+        icon: Icons.menu_book_outlined,
+        activeIcon: Icons.menu_book_rounded,
+        route: Routes.journalEntries),
+    NavItem(
+        label: 'Credit Ledger',
+        icon: Icons.menu_book_outlined,
+        activeIcon: Icons.menu_book_rounded,
+        route: Routes.creditLedger),
+    NavItem(
+        label: 'GST',
+        icon: Icons.percent_outlined,
+        activeIcon: Icons.percent_rounded,
+        route: Routes.gst),
   ],
 );
 
-const _moreGroup = NavGroup(
-  label: 'More',
-  icon: Icons.more_horiz_outlined,
-  activeIcon: Icons.more_horiz_rounded,
+const _reportsGroup = NavGroup(
+  label: 'Reports',
+  icon: Icons.bar_chart_outlined,
+  activeIcon: Icons.bar_chart_rounded,
   children: [
-    NavItem(label: 'Reports', icon: Icons.bar_chart_outlined, activeIcon: Icons.bar_chart_rounded, route: Routes.reports),
-    NavItem(label: 'Reorder', icon: Icons.shopping_cart_outlined, activeIcon: Icons.shopping_cart_rounded, route: Routes.reorder),
-    NavItem(label: 'Price Lists', icon: Icons.sell_outlined, activeIcon: Icons.sell_rounded, route: Routes.priceLists),
-    NavItem(label: 'Import Items', icon: Icons.upload_file_outlined, activeIcon: Icons.upload_file_rounded, route: Routes.itemImport),
-    NavItem(label: 'AI Chat', icon: Icons.auto_awesome_outlined, activeIcon: Icons.auto_awesome_rounded, route: Routes.aiChat),
-    NavItem(label: 'Settings', icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded, route: Routes.settings),
+    NavItem(
+        label: 'Reports Hub',
+        icon: Icons.bar_chart_outlined,
+        activeIcon: Icons.bar_chart_rounded,
+        route: Routes.reports),
+    NavItem(
+        label: 'Trial Balance',
+        icon: Icons.balance_outlined,
+        activeIcon: Icons.balance_rounded,
+        route: Routes.trialBalance),
+    NavItem(
+        label: 'Profit & Loss',
+        icon: Icons.trending_up_outlined,
+        activeIcon: Icons.trending_up_rounded,
+        route: Routes.profitLoss),
+    NavItem(
+        label: 'Balance Sheet',
+        icon: Icons.account_balance_outlined,
+        activeIcon: Icons.account_balance_rounded,
+        route: Routes.balanceSheet),
+    NavItem(
+        label: 'General Ledger',
+        icon: Icons.menu_book_outlined,
+        activeIcon: Icons.menu_book_rounded,
+        route: Routes.generalLedger),
+    NavItem(
+        label: 'AR Ageing',
+        icon: Icons.account_balance_wallet_outlined,
+        activeIcon: Icons.account_balance_wallet_rounded,
+        route: Routes.ageingReport),
+    NavItem(
+        label: 'AP Ageing',
+        icon: Icons.account_balance_wallet_outlined,
+        activeIcon: Icons.account_balance_wallet_rounded,
+        route: Routes.apAgeingReport),
+    NavItem(
+        label: 'Sales Register',
+        icon: Icons.receipt_long_outlined,
+        activeIcon: Icons.receipt_long_rounded,
+        route: '/reports/operational/sales-register'),
+    NavItem(
+        label: 'Purchase Register',
+        icon: Icons.receipt_outlined,
+        activeIcon: Icons.receipt_rounded,
+        route: '/reports/operational/purchase-register'),
+    NavItem(
+        label: 'Daily Sales',
+        icon: Icons.today_outlined,
+        activeIcon: Icons.today_rounded,
+        route: '/reports/operational/daily-sales'),
   ],
 );
 
 /// All groups for route-matching.
-const _allGroups = [_salesGroup, _purchasesGroup, _accountingGroup, _moreGroup];
+const _allGroups = [
+  _salesGroup,
+  _purchasesGroup,
+  _inventoryGroup,
+  _accountingGroup,
+  _reportsGroup,
+];
 
 /// Flat list of every route across top-level items and groups (for active-state matching).
 List<NavItem> get _allNavItems => [
-  ..._topNavItems,
-  for (final g in _allGroups) ...g.children,
-];
+      ..._topNavItems,
+      for (final g in _allGroups) ...g.children,
+    ];
 
 /// Wraps its child in a local [Theme] override driven by
 /// [KColors.sidebarSeed] / [KColors.sidebarBrightness], so the sidebar
@@ -241,8 +452,7 @@ class _DesktopShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
     final collapsed = ref.watch(sidebarCollapsedProvider);
-    final notifCount =
-        ref.watch(unreadCountProvider).valueOrNull ?? 0;
+    final notifCount = ref.watch(unreadCountProvider).valueOrNull ?? 0;
 
     final sidebarWidth =
         collapsed ? KSpacing.sidebarCollapsedWidth : KSpacing.sidebarWidth;
@@ -266,214 +476,237 @@ class _DesktopShell extends ConsumerWidget {
                     final sIsDark =
                         Theme.of(context).brightness == Brightness.dark;
                     return AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  width: sidebarWidth,
-                  decoration: BoxDecoration(
-                    color: scs.surface,
-                    border: Border(
-                      right: BorderSide(
-                        color: scs.outlineVariant
-                            .withValues(alpha: sIsDark ? 0.4 : 0.6),
-                        width: 1,
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      width: sidebarWidth,
+                      decoration: BoxDecoration(
+                        color: scs.surface,
+                        border: Border(
+                          right: BorderSide(
+                            color: scs.outlineVariant
+                                .withValues(alpha: sIsDark ? 0.4 : 0.6),
+                            width: 1,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  child: ClipRect(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                      // Derive display mode from actual animated width so
-                      // labels don't appear before the container is wide enough.
-                      final collapsed = constraints.maxWidth < 160;
-                      return Column(
-                      children: [
-                        // Brand logo — always uses brand seeds (identity),
-                        // independent of sidebar palette.
-                        Padding(
-                          padding: EdgeInsets.fromLTRB(
-                              collapsed ? 12 : 16, 14, collapsed ? 12 : 16, 10),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      KColors.brandSeed,
-                                      KColors.accentSeed,
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: KColors.brandSeed
-                                          .withValues(alpha: 0.22),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
-                                ),
-                                child: const Center(
-                                  child: Text(
-                                    'K',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 17,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (!collapsed) ...[
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    'Katasticho',
-                                    overflow: TextOverflow.clip,
-                                    softWrap: false,
-                                    style: TextStyle(
-                                      color: scs.onSurface,
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.3,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-
-                        // Quick Create button
-                        Padding(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: collapsed ? 8 : 12),
-                          child: KQuickCreateMenu(expanded: !collapsed),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Nav items
-                        Expanded(
-                          child: ListView(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: collapsed ? 8 : 12),
-                            children: _buildSidebarSections(
-                              collapsed: collapsed,
-                              role: authState.role?.toUpperCase() ?? 'OWNER',
-                            ),
-                          ),
-                        ),
-
-                        // Ask AI
-                        Padding(
-                          padding: EdgeInsets.fromLTRB(
-                              collapsed ? 8 : 12, 0, collapsed ? 8 : 12, 8),
-                          child: _AskAiButton(
-                            collapsed: collapsed,
-                            onTap: () => KAssistantPanel.show(context),
-                          ),
-                        ),
-
-                        // User footer
-                        Padding(
-                          padding: EdgeInsets.fromLTRB(
-                              collapsed ? 8 : 12, 4, collapsed ? 8 : 12, 12),
-                          child: Column(
-                            children: [
-                              Divider(
-                                color: scs.outlineVariant
-                                    .withValues(alpha: 0.5),
-                                height: 1,
-                              ),
-                              const SizedBox(height: 8),
-                              Material(
-                                color: Colors.transparent,
-                                borderRadius: BorderRadius.circular(10),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(10),
-                                  onTap: collapsed
-                                      ? null
-                                      : () => _showOrgSwitcher(context, ref),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 4, vertical: 4),
-                                    child: Row(
-                                      children: [
-                                        Tooltip(
-                                          message: collapsed
-                                              ? (authState.userName ?? 'User')
-                                              : '',
-                                          child: CircleAvatar(
-                                            radius: 17,
-                                            backgroundColor:
-                                                scs.primaryContainer,
-                                            child: Text(
-                                              (authState.userName ?? 'U')[0]
-                                                  .toUpperCase(),
-                                              style: TextStyle(
-                                                color: scs.onPrimaryContainer,
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 13,
-                                              ),
+                      child: ClipRect(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            // Derive display mode from actual animated width so
+                            // labels don't appear before the container is wide enough.
+                            final collapsed = constraints.maxWidth < 160;
+                            return Column(
+                              children: [
+                                // Brand logo — always uses brand seeds (identity),
+                                // independent of sidebar palette.
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                      collapsed ? 12 : 16,
+                                      14,
+                                      collapsed ? 12 : 16,
+                                      10),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              KColors.brandSeed,
+                                              KColors.accentSeed,
+                                            ],
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: KColors.brandSeed
+                                                  .withValues(alpha: 0.22),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 3),
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Center(
+                                          child: Text(
+                                            'K',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 17,
                                             ),
                                           ),
                                         ),
-                                        if (!collapsed) ...[
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  authState.userName ?? 'User',
-                                                  style: TextStyle(
-                                                    color: scs.onSurface,
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                                Text(
-                                                  authState.orgName ??
-                                                      'Organisation',
-                                                  style: TextStyle(
-                                                    color:
-                                                        scs.onSurfaceVariant,
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ],
+                                      ),
+                                      if (!collapsed) ...[
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            'Katasticho',
+                                            overflow: TextOverflow.clip,
+                                            softWrap: false,
+                                            style: TextStyle(
+                                              color: scs.onSurface,
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: -0.3,
                                             ),
                                           ),
-                                          Icon(
-                                            Icons.unfold_more_rounded,
-                                            size: 16,
-                                            color: scs.onSurfaceVariant,
-                                          ),
-                                        ],
+                                        ),
                                       ],
+                                    ],
+                                  ),
+                                ),
+
+                                // Quick Create button
+                                Padding(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: collapsed ? 8 : 12),
+                                  child: KQuickCreateMenu(expanded: !collapsed),
+                                ),
+                                const SizedBox(height: 8),
+
+                                // Nav items
+                                Expanded(
+                                  child: ListView(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: collapsed ? 8 : 12),
+                                    children: _buildSidebarSections(
+                                      collapsed: collapsed,
+                                      role: authState.role?.toUpperCase() ??
+                                          'OWNER',
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
+
+                                // Ask AI
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                      collapsed ? 8 : 12,
+                                      0,
+                                      collapsed ? 8 : 12,
+                                      8),
+                                  child: _AskAiButton(
+                                    collapsed: collapsed,
+                                    onTap: () => KAssistantPanel.show(context),
+                                  ),
+                                ),
+
+                                // User footer
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                      collapsed ? 8 : 12,
+                                      4,
+                                      collapsed ? 8 : 12,
+                                      12),
+                                  child: Column(
+                                    children: [
+                                      Divider(
+                                        color: scs.outlineVariant
+                                            .withValues(alpha: 0.5),
+                                        height: 1,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Material(
+                                        color: Colors.transparent,
+                                        borderRadius: BorderRadius.circular(10),
+                                        child: InkWell(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          onTap: collapsed
+                                              ? null
+                                              : () => _showOrgSwitcher(
+                                                  context, ref),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 4, vertical: 4),
+                                            child: Row(
+                                              children: [
+                                                Tooltip(
+                                                  message: collapsed
+                                                      ? (authState.userName ??
+                                                          'User')
+                                                      : '',
+                                                  child: CircleAvatar(
+                                                    radius: 17,
+                                                    backgroundColor:
+                                                        scs.primaryContainer,
+                                                    child: Text(
+                                                      (authState.userName ??
+                                                              'U')[0]
+                                                          .toUpperCase(),
+                                                      style: TextStyle(
+                                                        color: scs
+                                                            .onPrimaryContainer,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        fontSize: 13,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (!collapsed) ...[
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        Text(
+                                                          authState.userName ??
+                                                              'User',
+                                                          style: TextStyle(
+                                                            color:
+                                                                scs.onSurface,
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                          ),
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                        Text(
+                                                          authState.orgName ??
+                                                              'Organisation',
+                                                          style: TextStyle(
+                                                            color: scs
+                                                                .onSurfaceVariant,
+                                                            fontSize: 11,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                          ),
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Icon(
+                                                    Icons.unfold_more_rounded,
+                                                    size: 16,
+                                                    color: scs.onSurfaceVariant,
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
-                      ],
-                      );
-                      },
-                    ),
-                  ),
-                );
+                      ),
+                    );
                   }),
                 ),
 
@@ -495,14 +728,22 @@ List<Widget> _buildSidebarSections({
   final isCashier = role == 'OPERATOR' || role == 'CASHIER';
 
   return [
-    ..._topNavItems.map((item) => _SidebarNavItem(item: item, collapsed: collapsed)),
+    _SidebarNavItem(item: _dashboardNavItem, collapsed: collapsed),
+    _SidebarNavItem(item: _aiCommandCenterNavItem, collapsed: collapsed),
+    _SidebarNavItem(item: _posNavItem, collapsed: collapsed),
     KSpacing.vGapSm,
     _SidebarNavGroup(group: _salesGroup, collapsed: collapsed),
     if (!isCashier) ...[
       _SidebarNavGroup(group: _purchasesGroup, collapsed: collapsed),
+      _SidebarNavGroup(group: _inventoryGroup, collapsed: collapsed),
       _SidebarNavGroup(group: _accountingGroup, collapsed: collapsed),
+    ] else ...[
+      _SidebarNavGroup(group: _inventoryGroup, collapsed: collapsed),
     ],
-    _SidebarNavGroup(group: _moreGroup, collapsed: collapsed),
+    _SidebarNavGroup(group: _reportsGroup, collapsed: collapsed),
+    KSpacing.vGapSm,
+    _SidebarNavItem(item: _contactsNavItem, collapsed: collapsed),
+    _SidebarNavItem(item: _settingsNavItem, collapsed: collapsed),
   ];
 }
 
@@ -516,7 +757,8 @@ bool _isNavActive(String currentRoute, String itemRoute) {
   if (!matchesSelfOrChild(itemRoute)) return false;
   for (final other in _allNavItems) {
     if (other.route == itemRoute) continue;
-    if (other.route.length > itemRoute.length && matchesSelfOrChild(other.route)) {
+    if (other.route.length > itemRoute.length &&
+        matchesSelfOrChild(other.route)) {
       return false;
     }
   }
@@ -617,12 +859,9 @@ class _SidebarNavGroup extends StatelessWidget {
   void _showPopup(BuildContext context) {
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    final overlayBox = Navigator.of(context)
-        .overlay!
-        .context
-        .findRenderObject()! as RenderBox;
-    final pos =
-        renderBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+    final overlayBox =
+        Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
+    final pos = renderBox.localToGlobal(Offset.zero, ancestor: overlayBox);
     final size = renderBox.size;
     final overlaySize = overlayBox.size;
     final cs = Theme.of(context).colorScheme;
@@ -711,8 +950,10 @@ class _SidebarNavGroup extends StatelessWidget {
                         overflow: TextOverflow.clip,
                         softWrap: false,
                         style: TextStyle(
-                          color: isActive ? cs.onPrimaryContainer : cs.onSurface,
-                          fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                          color:
+                              isActive ? cs.onPrimaryContainer : cs.onSurface,
+                          fontWeight:
+                              isActive ? FontWeight.w700 : FontWeight.w500,
                           fontSize: 14,
                         ),
                       ),
@@ -720,7 +961,9 @@ class _SidebarNavGroup extends StatelessWidget {
                     Icon(
                       Icons.chevron_right_rounded,
                       size: 16,
-                      color: isActive ? cs.primary : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      color: isActive
+                          ? cs.primary
+                          : cs.onSurfaceVariant.withValues(alpha: 0.6),
                     ),
                   ],
                 ),
@@ -798,8 +1041,7 @@ class _TabletShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentRoute = GoRouterState.of(context).matchedLocation;
-    final notifCount =
-        ref.watch(unreadCountProvider).valueOrNull ?? 0;
+    final notifCount = ref.watch(unreadCountProvider).valueOrNull ?? 0;
 
     int selectedIndex = _topNavItems.indexWhere(
       (item) =>
@@ -915,8 +1157,8 @@ void _showOrgSwitcher(BuildContext context, WidgetRef ref) {
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => ProviderScope(
-      parent: ProviderScope.containerOf(context),
+    builder: (_) => UncontrolledProviderScope(
+      container: ProviderScope.containerOf(context),
       child: const _OrgSwitcherSheet(),
     ),
   );
@@ -961,8 +1203,7 @@ class _OrgSwitcherSheetState extends ConsumerState<_OrgSwitcherSheet> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(
                   'Failed to load organisations',
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.error),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),
               data: (orgs) => Column(
@@ -979,7 +1220,9 @@ class _OrgSwitcherSheetState extends ConsumerState<_OrgSwitcherSheet> {
                       radius: 20,
                       backgroundColor: isCurrent
                           ? Theme.of(context).colorScheme.primaryContainer
-                          : Theme.of(context).colorScheme.surfaceContainerHighest,
+                          : Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
                       child: Text(
                         orgName[0].toUpperCase(),
                         style: TextStyle(
@@ -995,17 +1238,15 @@ class _OrgSwitcherSheetState extends ConsumerState<_OrgSwitcherSheet> {
                     subtitle: Text(role,
                         style: TextStyle(
                           fontSize: 12,
-                          color:
-                              Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         )),
                     trailing: isCurrent
                         ? Icon(Icons.check_circle_rounded,
                             color: Theme.of(context).colorScheme.primary,
                             size: 20)
                         : null,
-                    onTap: isCurrent || _switching
-                        ? null
-                        : () => _doSwitch(orgId),
+                    onTap:
+                        isCurrent || _switching ? null : () => _doSwitch(orgId),
                   );
                 }).toList(),
               ),

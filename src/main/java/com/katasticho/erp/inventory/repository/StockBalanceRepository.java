@@ -32,6 +32,8 @@ public interface StockBalanceRepository extends JpaRepository<StockBalance, UUID
               AND i.active = true
               AND b.quantityOnHand <= i.reorderLevel
             ORDER BY b.quantityOnHand ASC
-            """)
+    """)
     List<StockBalance> findLowStock(@Param("orgId") UUID orgId);
+
+    List<StockBalance> findByOrgIdOrderByLastMovementAtDesc(UUID orgId);
 }

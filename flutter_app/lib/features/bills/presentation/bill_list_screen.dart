@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/bill_dto.dart';
 import '../data/bill_providers.dart';
@@ -318,18 +322,19 @@ class _BillTable extends StatelessWidget {
     final inSelection = selectedIds.isNotEmpty;
 
     return KEntityDataTable(
+      columnSpacing: 12,
+      horizontalMargin: 8,
+      dataRowMaxHeight: 64,
       columns: const [
         DataColumn(label: SizedBox(width: 24)),
         DataColumn(label: Text('Bill')),
         DataColumn(label: Text('Vendor')),
         DataColumn(label: Text('Vendor Ref')),
-        DataColumn(label: Text('Date')),
-        DataColumn(label: Text('Due')),
+        DataColumn(label: Text('Dates')),
         DataColumn(label: Text('Status')),
         DataColumn(label: Text('Total'), numeric: true),
-        DataColumn(label: Text('Paid'), numeric: true),
-        DataColumn(label: Text('Balance'), numeric: true),
-        DataColumn(label: SizedBox(width: 32)),
+        DataColumn(label: Text('Settlement'), numeric: true),
+        DataColumn(label: SizedBox(width: 28)),
       ],
       rows: bills.map((raw) {
         final b = BillDto(raw);
@@ -351,39 +356,145 @@ class _BillTable extends StatelessWidget {
               selected: selected,
               onChanged: b.id.isEmpty ? null : (_) => onToggleSelect(b.id),
             )),
-            DataCell(KTablePrimaryTextCell(value: b.billNumber)),
-            DataCell(KTableTextCell(value: b.vendorName, width: 130)),
+            DataCell(KTablePrimaryTextCell(value: b.billNumber, width: 124)),
+            DataCell(KTableTextCell(value: b.vendorName, width: 148)),
             DataCell(KTableTextCell(
               value: b.vendorBillNumber.isEmpty ? '--' : b.vendorBillNumber,
-              width: 110,
+              width: 96,
             )),
-            DataCell(KTableDateCell(value: b.billDate)),
-            DataCell(KTableDueDateCell(
-              value: b.dueDate,
+            DataCell(_BillDatesCell(
+              billDate: b.billDate,
+              dueDate: b.dueDate,
               overdue: b.isOverdue,
             )),
             DataCell(KTableStatusCell(status: b.status)),
             DataCell(KTableAmountCell(value: b.totalAmount)),
-            DataCell(KTableAmountCell(
-              value: b.amountPaid,
-              color: KColors.success,
+            DataCell(_BillSettlementCell(
+              paid: b.amountPaid,
+              balance: b.balanceDue,
+              overdue: b.isOverdue,
             )),
-            DataCell(
-              KTableAmountCell(
-                value: b.balanceDue,
-                color: b.balanceDue > 0
-                    ? (b.isOverdue ? KColors.error : KColors.warning)
-                    : KColors.success,
-              ),
-            ),
-            DataCell(KTableOpenActionCell(
-              tooltip: 'Open bill',
+            DataCell(_CompactOpenActionCell(
               onPressed:
                   b.id.isEmpty ? null : () => context.go('/bills/${b.id}'),
             )),
           ],
         );
       }).toList(),
+    );
+  }
+}
+
+class _BillDatesCell extends StatelessWidget {
+  final String? billDate;
+  final String? dueDate;
+  final bool overdue;
+
+  const _BillDatesCell({
+    required this.billDate,
+    required this.dueDate,
+    required this.overdue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 104,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _formatDate(billDate),
+            style: KTypography.bodyMedium,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          KSpacing.vGapXxs,
+          Text(
+            'Due ${_formatDate(dueDate)}',
+            style: KTypography.bodySmall.copyWith(
+              color: overdue ? KColors.error : KColors.textSecondary,
+              fontWeight: overdue ? FontWeight.w700 : FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(String? value) {
+    if (value == null || value.isEmpty) return '--';
+    final parsed = DateTime.tryParse(value);
+    return parsed == null ? value : DateFormatter.short(parsed);
+  }
+}
+
+class _BillSettlementCell extends StatelessWidget {
+  final double paid;
+  final double balance;
+  final bool overdue;
+
+  const _BillSettlementCell({
+    required this.paid,
+    required this.balance,
+    required this.overdue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final balanceColor = balance > 0
+        ? (overdue ? KColors.error : KColors.warning)
+        : KColors.success;
+
+    return SizedBox(
+      width: 118,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            'Paid ${CurrencyFormatter.formatIndian(paid)}',
+            style: KTypography.bodySmall.copyWith(
+              color: KColors.success,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          KSpacing.vGapXxs,
+          Text(
+            'Bal ${CurrencyFormatter.formatIndian(balance)}',
+            style: KTypography.amountSmall.copyWith(color: balanceColor),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactOpenActionCell extends StatelessWidget {
+  final VoidCallback? onPressed;
+
+  const _CompactOpenActionCell({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 28,
+      height: 32,
+      child: IconButton(
+        tooltip: 'Open bill',
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 28, height: 32),
+        icon: const Icon(Icons.chevron_right, size: 18),
+        onPressed: onPressed,
+      ),
     );
   }
 }

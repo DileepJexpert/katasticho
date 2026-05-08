@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -91,4 +92,23 @@ public interface PurchaseBillRepository extends JpaRepository<PurchaseBill, UUID
         ORDER BY b.dueDate ASC
     """)
     List<PurchaseBill> findOutstandingBills(UUID orgId);
+
+    @Query("""
+        SELECT b FROM PurchaseBill b
+        WHERE b.orgId = :orgId
+          AND b.isDeleted = false
+          AND b.status NOT IN ('DRAFT','CANCELLED','VOID')
+          AND b.billDate BETWEEN :from AND :to
+        ORDER BY b.billDate DESC, b.createdAt DESC
+    """)
+    List<PurchaseBill> findPostedByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
+
+    @Query("""
+        SELECT COALESCE(SUM(b.totalAmount), 0) FROM PurchaseBill b
+        WHERE b.orgId = :orgId
+          AND b.isDeleted = false
+          AND b.status NOT IN ('DRAFT','CANCELLED','VOID')
+          AND b.billDate BETWEEN :from AND :to
+    """)
+    BigDecimal sumPostedTotalByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
 }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/k_colors.dart';
-import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../data/pos_cart_state.dart';
@@ -27,7 +26,7 @@ class PosTotalBar extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
       decoration: BoxDecoration(
         color: cs.surface,
         border: Border(top: BorderSide(color: cs.outlineVariant)),
@@ -44,55 +43,65 @@ class PosTotalBar extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Subtotal + tax + total breakdown
             if (!cart.isEmpty) ...[
-              _AmountRow(
-                label: 'Subtotal',
-                amount: cart.subtotal,
-                style: KTypography.bodyMedium,
-                amountStyle: KTypography.labelMedium,
+              Row(
+                children: [
+                  Expanded(
+                    child: _InlineAmount(
+                      label: 'Subtotal',
+                      amount: cart.subtotal,
+                    ),
+                  ),
+                  if (cart.taxAmount > 0)
+                    Expanded(
+                      child: _InlineAmount(
+                        label: 'GST',
+                        amount: cart.taxAmount,
+                      ),
+                    ),
+                  Expanded(
+                    flex: 2,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text('Total', style: KTypography.labelMedium),
+                        const SizedBox(width: 8),
+                        _OverallMarginDot(cart: cart),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            CurrencyFormatter.formatIndian(cart.total),
+                            textAlign: TextAlign.right,
+                            style: KTypography.h3.copyWith(
+                              color: cs.primary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              if (cart.taxAmount > 0) ...[
-                const SizedBox(height: 2),
-                _AmountRow(
-                  label: 'GST',
-                  amount: cart.taxAmount,
-                  style: KTypography.bodySmall.copyWith(
-                    color: KColors.textSecondary,
+              const SizedBox(height: 8),
+            ] else ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Total', style: KTypography.labelMedium),
+                  Text(
+                    CurrencyFormatter.formatIndian(cart.total),
+                    style: KTypography.h3.copyWith(
+                      color: cs.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                  amountStyle: KTypography.bodySmall.copyWith(
-                    color: KColors.textSecondary,
-                  ),
-                ),
-              ],
-              Divider(height: 12, color: cs.outlineVariant),
+                ],
+              ),
+              const SizedBox(height: 8),
             ],
-
-            // Grand total
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Text('Total', style: KTypography.h3),
-                    if (!cart.isEmpty) ...[
-                      const SizedBox(width: 8),
-                      _OverallMarginDot(cart: cart),
-                    ],
-                  ],
-                ),
-                Text(
-                  CurrencyFormatter.formatIndian(cart.total),
-                  style: KTypography.h2.copyWith(
-                    color: cs.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-            KSpacing.vGapMd,
-
-            // Payment mode buttons
             Row(
               children: [
                 Expanded(
@@ -105,7 +114,7 @@ class PosTotalBar extends ConsumerWidget {
                     onTap: cart.isEmpty ? null : onCashTap,
                   ),
                 ),
-                KSpacing.hGapSm,
+                const SizedBox(width: 6),
                 Expanded(
                   child: _PaymentButton(
                     icon: Icons.qr_code_2,
@@ -116,7 +125,7 @@ class PosTotalBar extends ConsumerWidget {
                     onTap: cart.isEmpty ? null : onUpiTap,
                   ),
                 ),
-                KSpacing.hGapSm,
+                const SizedBox(width: 6),
                 Expanded(
                   child: _PaymentButton(
                     icon: Icons.credit_card,
@@ -127,7 +136,7 @@ class PosTotalBar extends ConsumerWidget {
                     onTap: cart.isEmpty ? null : onCardTap,
                   ),
                 ),
-                KSpacing.hGapSm,
+                const SizedBox(width: 6),
                 Expanded(
                   child: _PaymentButton(
                     icon: Icons.call_split,
@@ -147,26 +156,33 @@ class PosTotalBar extends ConsumerWidget {
   }
 }
 
-class _AmountRow extends StatelessWidget {
+class _InlineAmount extends StatelessWidget {
   final String label;
   final double amount;
-  final TextStyle style;
-  final TextStyle amountStyle;
 
-  const _AmountRow({
+  const _InlineAmount({
     required this.label,
     required this.amount,
-    required this.style,
-    required this.amountStyle,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: style),
-        Text(CurrencyFormatter.formatIndian(amount), style: amountStyle),
+        Text(
+          label,
+          style: KTypography.labelSmall.copyWith(
+            color: KColors.textSecondary,
+            fontSize: 10,
+          ),
+        ),
+        Text(
+          CurrencyFormatter.formatIndian(amount),
+          style: KTypography.labelSmall.copyWith(fontWeight: FontWeight.w700),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
       ],
     );
   }
@@ -199,25 +215,33 @@ class _PaymentButton extends StatelessWidget {
       color: isSelected
           ? effectiveColor.withValues(alpha: 0.12)
           : cs.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 22, color: effectiveColor),
-              const SizedBox(height: 3),
-              Text(label,
+              Icon(icon, size: 17, color: effectiveColor),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
                   style: KTypography.labelSmall.copyWith(
                     color: effectiveColor,
-                    fontWeight:
-                        isSelected ? FontWeight.w700 : FontWeight.w500,
-                  )),
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 4),
               Text(shortcut,
                   style: KTypography.labelSmall.copyWith(
-                    color: effectiveColor.withValues(alpha: 0.5),
+                    color: effectiveColor.withValues(alpha: 0.55),
                     fontSize: 9,
                   )),
             ],
@@ -284,11 +308,16 @@ class _OverallMarginDot extends StatelessWidget {
 
   Color _bandColor(int rank) {
     switch (rank) {
-      case 4: return const Color(0xFF1F2937);
-      case 3: return const Color(0xFFEF4444);
-      case 2: return const Color(0xFFEAB308);
-      case 1: return const Color(0xFF3B82F6);
-      default: return const Color(0xFF22C55E);
+      case 4:
+        return const Color(0xFF1F2937);
+      case 3:
+        return const Color(0xFFEF4444);
+      case 2:
+        return const Color(0xFFEAB308);
+      case 1:
+        return const Color(0xFF3B82F6);
+      default:
+        return const Color(0xFF22C55E);
     }
   }
 }

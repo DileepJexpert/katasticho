@@ -112,10 +112,8 @@ class _ProfitLossScreenState extends ConsumerState<ProfitLossScreen> {
   }
 
   Widget _buildReport() {
-    final totalRevenue =
-        (_report!['totalRevenue'] as num?)?.toDouble() ?? 0;
-    final totalExpenses =
-        (_report!['totalExpenses'] as num?)?.toDouble() ?? 0;
+    final totalRevenue = (_report!['totalRevenue'] as num?)?.toDouble() ?? 0;
+    final totalExpenses = (_report!['totalExpenses'] as num?)?.toDouble() ?? 0;
     final netProfit = (_report!['netProfit'] as num?)?.toDouble() ?? 0;
     final revenueAccounts = (_report!['revenueAccounts'] as List?) ?? [];
     final expenseAccounts = (_report!['expenseAccounts'] as List?) ?? [];
@@ -126,61 +124,24 @@ class _ProfitLossScreenState extends ConsumerState<ProfitLossScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final narrow = constraints.maxWidth < KSpacing.mobileBreakpoint;
-              final revenue = _MetricPanel(
+          _MetricStrip(
+            items: [
+              _MetricItem(
                 label: 'Revenue',
                 amount: totalRevenue,
                 color: KColors.success,
-              );
-              final expenses = _MetricPanel(
+              ),
+              _MetricItem(
                 label: 'Expenses',
                 amount: totalExpenses,
                 color: KColors.error,
-              );
-              if (narrow) {
-                return Column(
-                  children: [
-                    revenue,
-                    KSpacing.vGapSm,
-                    expenses,
-                  ],
-                );
-              }
-              return Row(
-                children: [
-                  Expanded(child: revenue),
-                  KSpacing.hGapSm,
-                  Expanded(child: expenses),
-                ],
-              );
-            },
-          ),
-          KSpacing.vGapMd,
-
-          // Net profit card
-          KCard(
-            borderColor: isProfit ? KColors.success : KColors.error,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  isProfit ? 'Net Profit' : 'Net Loss',
-                  style: KTypography.h3,
-                ),
-                Flexible(
-                  child: Text(
-                    CurrencyFormatter.formatIndian(netProfit.abs()),
-                    style: KTypography.amountLarge.copyWith(
-                      color: isProfit ? KColors.success : KColors.error,
-                    ),
-                    textAlign: TextAlign.end,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              _MetricItem(
+                label: isProfit ? 'Net Profit' : 'Net Loss',
+                amount: netProfit.abs(),
+                color: isProfit ? KColors.success : KColors.error,
+              ),
+            ],
           ),
           KSpacing.vGapLg,
 
@@ -267,33 +228,89 @@ class _AccountLine extends StatelessWidget {
   }
 }
 
-class _MetricPanel extends StatelessWidget {
+class _MetricItem {
   final String label;
   final double amount;
   final Color color;
 
-  const _MetricPanel({
+  const _MetricItem({
     required this.label,
     required this.amount,
     required this.color,
   });
+}
+
+class _MetricStrip extends StatelessWidget {
+  final List<_MetricItem> items;
+
+  const _MetricStrip({required this.items});
 
   @override
   Widget build(BuildContext context) {
-    return KCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: KTypography.bodySmall),
-          KSpacing.vGapXs,
-          Text(
-            CurrencyFormatter.formatIndian(amount),
-            style: KTypography.amountMedium.copyWith(color: color),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= KSpacing.tabletBreakpoint
+            ? items.length
+            : 1;
+        final itemWidth =
+            (constraints.maxWidth - ((columns - 1) * KSpacing.sm)) / columns;
+
+        return Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Theme.of(context)
+                .colorScheme
+                .surfaceContainerHighest
+                .withValues(alpha: 0.28),
+            borderRadius: KSpacing.borderRadiusLg,
+            border: Border.all(
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+            ),
           ),
-        ],
-      ),
+          child: Wrap(
+            spacing: KSpacing.sm,
+            runSpacing: KSpacing.sm,
+            children: items.map((item) {
+              return SizedBox(
+                width: itemWidth,
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surface
+                        .withValues(alpha: 0.72),
+                    borderRadius: KSpacing.borderRadiusMd,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.label,
+                        style: KTypography.labelSmall.copyWith(
+                          color: KColors.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        CurrencyFormatter.formatIndian(item.amount),
+                        style:
+                            KTypography.amountSmall.copyWith(color: item.color),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      },
     );
   }
 }

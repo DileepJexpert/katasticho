@@ -13,7 +13,7 @@ import '../widgets/aaj_ka_hisaab_card.dart';
 import '../widgets/ar_aging_card.dart';
 import '../widgets/week_trend_card.dart';
 import '../widgets/top_selling_widget.dart';
-import '../widgets/udhari_card.dart';
+import '../widgets/credit_due_card.dart';
 import '../widgets/low_stock_widget.dart';
 import '../widgets/bills_to_pay_card.dart';
 import '../widgets/expiring_soon_widget.dart';
@@ -50,10 +50,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final config = DashboardConfig.forIndustry(authState.industry);
+    final config = DashboardConfig.forProfile(
+      businessType: authState.businessType,
+      industry: authState.industry,
+      industryCode: authState.industryCode,
+    );
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= KSpacing.desktopBreakpoint;
-    final isRetail = _retailIndustries.contains(authState.industry);
+    final isRetail = config.vertical == DashboardVertical.retail ||
+        config.vertical == DashboardVertical.pharmacy ||
+        config.vertical == DashboardVertical.foodBeverage ||
+        _retailIndustries.contains(authState.industry);
     final role = authState.role?.toUpperCase() ?? 'OWNER';
 
     // Accountant role redirects to accounting dashboard
@@ -180,12 +187,12 @@ class _CashierDashboard extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            CurrencyFormatter.formatIndian(data.totalSales),
+                            CurrencyFormatter.formatIndian(data.posSalesTotal),
                             style:
                                 KTypography.amountMedium.copyWith(fontSize: 22),
                           ),
                           Text(
-                            '${data.transactionCount} transactions',
+                            '${data.posTransactionCount} transactions',
                             style: KTypography.labelSmall
                                 .copyWith(color: cs.onSurfaceVariant),
                           ),
@@ -200,7 +207,7 @@ class _CashierDashboard extends ConsumerWidget {
                     Expanded(
                         child: _CashierStat(
                       label: 'Cash / UPI',
-                      value: CurrencyFormatter.formatCompact(data.cashUpiTotal),
+                      value: CurrencyFormatter.formatCompact(data.posSalesTotal),
                       color: KColors.success,
                     )),
                     const SizedBox(width: 8),
@@ -275,7 +282,7 @@ class _RetailDashboard extends StatelessWidget {
       children: [
         BusinessCommandCenter(
           isDesktop: isDesktop,
-          industry: config.industry,
+          vertical: config.vertical,
         ),
         const SizedBox(height: 12),
         QuickActionGrid(actions: config.quickActions),
@@ -304,7 +311,7 @@ class _RetailDashboard extends StatelessWidget {
       children: [
         BusinessCommandCenter(
           isDesktop: isDesktop,
-          industry: config.industry,
+          vertical: config.vertical,
         ),
         const SizedBox(height: 16),
         QuickActionGrid(actions: config.quickActions),
@@ -376,7 +383,7 @@ class _AccountingDashboard extends StatelessWidget {
         KSpacing.vGapMd,
         BusinessCommandCenter(
           isDesktop: isDesktop,
-          industry: config.industry,
+          vertical: config.vertical,
         ),
         KSpacing.vGapMd,
         _KpiGrid(

@@ -2,8 +2,20 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/k_colors.dart';
 
 /// Industry-specific dashboard configuration.
+enum DashboardVertical {
+  retail,
+  pharmacy,
+  foodBeverage,
+  distributor,
+  manufacturer,
+  service,
+  general,
+}
+
 class DashboardConfig {
   final String industry;
+  final String businessType;
+  final DashboardVertical vertical;
   final String greeting;
   final List<KpiConfig> kpis;
   final List<QuickAction> quickActions;
@@ -11,6 +23,8 @@ class DashboardConfig {
 
   const DashboardConfig({
     required this.industry,
+    this.businessType = 'RETAILER',
+    this.vertical = DashboardVertical.general,
     required this.greeting,
     required this.kpis,
     required this.quickActions,
@@ -18,14 +32,65 @@ class DashboardConfig {
   });
 
   static DashboardConfig forIndustry(String? industry) {
-    return switch (industry) {
-      'KIRANA' => _kirana,
-      'PHARMACY' => _pharmacy,
-      'CLOTH_MANUFACTURING' => _clothManufacturing,
-      'TRADING' => _trading,
-      'FOOD_BEVERAGE' => _foodBeverage,
-      'SERVICES' => _services,
-      _ => _default,
+    return forProfile(industry: industry);
+  }
+
+  static DashboardConfig forProfile({
+    String? businessType,
+    String? industry,
+    String? industryCode,
+  }) {
+    return switch (resolveVertical(
+      businessType: businessType,
+      industry: industry,
+      industryCode: industryCode,
+    )) {
+      DashboardVertical.manufacturer => _clothManufacturing,
+      DashboardVertical.distributor => _trading,
+      DashboardVertical.pharmacy => _pharmacy,
+      DashboardVertical.foodBeverage => _foodBeverage,
+      DashboardVertical.service => _services,
+      DashboardVertical.retail => _kirana,
+      DashboardVertical.general => _default,
+    };
+  }
+
+  static DashboardVertical resolveVertical({
+    String? businessType,
+    String? industry,
+    String? industryCode,
+  }) {
+    final type = businessType?.toUpperCase();
+    final code = (industryCode ?? industry)?.toUpperCase();
+
+    if (type == 'MANUFACTURER') return DashboardVertical.manufacturer;
+    if (type == 'DISTRIBUTOR') return DashboardVertical.distributor;
+    if (type == 'SERVICE_PROVIDER' || type == 'SERVICES') {
+      return DashboardVertical.service;
+    }
+
+    return switch (code) {
+      'PHARMACY' => DashboardVertical.pharmacy,
+      'FOOD_BEVERAGE' || 'FOOD_RESTAURANT' => DashboardVertical.foodBeverage,
+      'SERVICE' ||
+      'IT_SERVICES' ||
+      'PROFESSIONAL_SERVICES' ||
+      'REPAIR_SERVICES' ||
+      'EDUCATION' ||
+      'HEALTHCARE' ||
+      'OTHER_SERVICE' =>
+        DashboardVertical.service,
+      'GROCERY' ||
+      'OTHER_RETAIL' ||
+      'ELECTRONICS' ||
+      'HARDWARE' ||
+      'GARMENTS' ||
+      'AUTO_PARTS' ||
+      'STATIONERY' ||
+      'AGRICULTURE' ||
+      'KIRANA' =>
+        DashboardVertical.retail,
+      _ => DashboardVertical.general,
     };
   }
 }
@@ -76,6 +141,8 @@ class WidgetConfig {
 
 const _kirana = DashboardConfig(
   industry: 'KIRANA',
+  businessType: 'RETAILER',
+  vertical: DashboardVertical.retail,
   greeting: 'Welcome',
   kpis: [
     KpiConfig(
@@ -144,6 +211,8 @@ const _kirana = DashboardConfig(
 
 const _pharmacy = DashboardConfig(
   industry: 'PHARMACY',
+  businessType: 'RETAILER',
+  vertical: DashboardVertical.pharmacy,
   greeting: 'Welcome back',
   kpis: [
     KpiConfig(
@@ -207,6 +276,8 @@ const _pharmacy = DashboardConfig(
 
 const _clothManufacturing = DashboardConfig(
   industry: 'CLOTH_MANUFACTURING',
+  businessType: 'MANUFACTURER',
+  vertical: DashboardVertical.manufacturer,
   greeting: 'Welcome back',
   kpis: [
     KpiConfig(
@@ -267,6 +338,8 @@ const _clothManufacturing = DashboardConfig(
 
 const _trading = DashboardConfig(
   industry: 'TRADING',
+  businessType: 'DISTRIBUTOR',
+  vertical: DashboardVertical.distributor,
   greeting: 'Welcome back',
   kpis: [
     KpiConfig(
@@ -326,6 +399,8 @@ const _trading = DashboardConfig(
 
 const _foodBeverage = DashboardConfig(
   industry: 'FOOD_BEVERAGE',
+  businessType: 'RETAILER',
+  vertical: DashboardVertical.foodBeverage,
   greeting: 'Welcome back',
   kpis: [
     KpiConfig(
@@ -386,6 +461,8 @@ const _foodBeverage = DashboardConfig(
 
 const _services = DashboardConfig(
   industry: 'SERVICES',
+  businessType: 'SERVICE_PROVIDER',
+  vertical: DashboardVertical.service,
   greeting: 'Welcome back',
   kpis: [
     KpiConfig(
@@ -448,6 +525,8 @@ const _services = DashboardConfig(
 
 const _default = DashboardConfig(
   industry: 'DEFAULT',
+  businessType: 'RETAILER',
+  vertical: DashboardVertical.general,
   greeting: 'Welcome',
   kpis: [
     KpiConfig(

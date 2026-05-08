@@ -6,17 +6,18 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../data/dashboard_config.dart';
 import '../data/dashboard_models.dart';
 import '../data/dashboard_repository.dart';
 
 class BusinessCommandCenter extends ConsumerWidget {
   final bool isDesktop;
-  final String industry;
+  final DashboardVertical vertical;
 
   const BusinessCommandCenter({
     super.key,
     required this.isDesktop,
-    required this.industry,
+    required this.vertical,
   });
 
   @override
@@ -25,76 +26,82 @@ class BusinessCommandCenter extends ConsumerWidget {
     final ar = ref.watch(arSummaryProvider);
     final ap = ref.watch(apSummaryProvider);
     final expiring = ref.watch(expiringSoonProvider);
-    final vertical = _BusinessVerticalProfile.forIndustry(industry);
+    final profile = _BusinessVerticalProfile.forVertical(vertical);
 
     final signals = [
       ar.when(
-        loading: () => _CommandSignal.loading(vertical.collectTitle),
-        error: (_, __) => _CommandSignal.error(vertical.collectTitle),
+        loading: () => _CommandSignal.loading(profile.collectTitle),
+        error: (_, __) => _CommandSignal.error(profile.collectTitle),
         data: (v) => _CommandSignal(
-          title: vertical.collectTitle,
+          title: profile.collectTitle,
           value: CurrencyFormatter.formatCompact(v.dueThisWeek),
           caption: v.dueThisWeekCount > 0
-              ? '${v.dueThisWeekCount} ${vertical.customerDocPlural} due this week'
-              : 'no ${vertical.customerDocPlural} due this week',
+              ? '${v.dueThisWeekCount} ${profile.customerDocPlural} due this week'
+              : 'no ${profile.customerDocPlural} due this week',
           icon: Icons.call_received_rounded,
           color: v.dueThisWeekCount > 0 ? KColors.warning : KColors.success,
           route: '/reports/ageing',
         ),
       ),
       ap.when(
-        loading: () => _CommandSignal.loading(vertical.payTitle),
-        error: (_, __) => _CommandSignal.error(vertical.payTitle),
+        loading: () => _CommandSignal.loading(profile.payTitle),
+        error: (_, __) => _CommandSignal.error(profile.payTitle),
         data: (v) => _CommandSignal(
-          title: vertical.payTitle,
+          title: profile.payTitle,
           value: CurrencyFormatter.formatCompact(v.dueThisWeek),
           caption: v.dueThisWeekCount > 0
-              ? '${v.dueThisWeekCount} ${vertical.vendorDocPlural} due this week'
-              : 'no ${vertical.vendorDocPlural} due this week',
+              ? '${v.dueThisWeekCount} ${profile.vendorDocPlural} due this week'
+              : 'no ${profile.vendorDocPlural} due this week',
           icon: Icons.call_made_rounded,
           color: v.dueThisWeekCount > 0 ? KColors.error : KColors.success,
           route: '/bills',
         ),
       ),
       today.when(
-        loading: () => _CommandSignal.loading(vertical.velocityTitle),
-        error: (_, __) => _CommandSignal.error(vertical.velocityTitle),
-        data: (v) => _CommandSignal(
-          title: vertical.velocityTitle,
-          value: '${v.transactionCount}',
-          caption:
-              '${CurrencyFormatter.formatCompact(v.totalSales)} ${vertical.salesCaption}',
-          icon: Icons.speed_rounded,
-          color: KColors.primary,
-          route: vertical.salesRoute,
-        ),
+        loading: () => _CommandSignal.loading(profile.velocityTitle),
+        error: (_, __) => _CommandSignal.error(profile.velocityTitle),
+        data: (v) {
+          final isCounterFlow = profile.salesRoute == '/pos';
+          final count =
+              isCounterFlow ? v.posTransactionCount : v.transactionCount;
+          final amount = isCounterFlow ? v.posSalesTotal : v.totalSales;
+          return _CommandSignal(
+            title: profile.velocityTitle,
+            value: '$count',
+            caption:
+                '${CurrencyFormatter.formatCompact(amount)} ${profile.salesCaption}',
+            icon: Icons.speed_rounded,
+            color: KColors.primary,
+            route: profile.salesRoute,
+          );
+        },
       ),
       expiring.when(
-        loading: () => _CommandSignal.loading(vertical.riskTitle),
-        error: (_, __) => _CommandSignal.error(vertical.riskTitle),
+        loading: () => _CommandSignal.loading(profile.riskTitle),
+        error: (_, __) => _CommandSignal.error(profile.riskTitle),
         data: (items) => _CommandSignal(
-          title: vertical.riskTitle,
+          title: profile.riskTitle,
           value: '${items.length}',
-          caption: items.isEmpty ? vertical.noRiskText : vertical.riskText,
-          icon: vertical.riskIcon,
+          caption: items.isEmpty ? profile.noRiskText : profile.riskText,
+          icon: profile.riskIcon,
           color: items.isEmpty ? KColors.success : KColors.warning,
-          route: vertical.riskRoute,
+          route: profile.riskRoute,
         ),
       ),
     ];
 
     return _CommandCenterShell(
-      title: vertical.title,
-      subtitle: vertical.subtitle,
-      icon: vertical.icon,
-      accent: vertical.accent,
+      title: profile.title,
+      subtitle: profile.subtitle,
+      icon: profile.icon,
+      accent: profile.accent,
       isDesktop: isDesktop,
       signals: signals,
       insight: _BusinessInsight(
         today: today,
         ar: ar,
         ap: ap,
-        vertical: vertical,
+        vertical: profile,
       ),
     );
   }
@@ -137,12 +144,48 @@ class _BusinessVerticalProfile {
     required this.accent,
   });
 
-  static _BusinessVerticalProfile forIndustry(String industry) {
-    return switch (industry) {
-      'KIRANA' => const _BusinessVerticalProfile(
+  static _BusinessVerticalProfile forVertical(DashboardVertical vertical) {
+    return switch (vertical) {
+      DashboardVertical.manufacturer => const _BusinessVerticalProfile(
+        title: 'Manufacturing Autopilot',
+        subtitle: 'Orders, receivables, supplier exposure, and material risk',
+        collectTitle: 'Collect',
+        payTitle: 'Vendors',
+        velocityTitle: 'Dispatch Flow',
+        riskTitle: 'Material Risk',
+        customerDocPlural: 'invoices',
+        vendorDocPlural: 'vendor bills',
+        salesCaption: 'in dispatch value',
+        riskText: 'materials need planning review',
+        noRiskText: 'material queue is clean',
+        salesRoute: '/sales-orders',
+        riskRoute: '/reorder',
+        icon: Icons.precision_manufacturing_rounded,
+        riskIcon: Icons.inventory_rounded,
+        accent: KColors.accent,
+      ),
+      DashboardVertical.distributor => const _BusinessVerticalProfile(
+        title: 'Distribution Autopilot',
+        subtitle: 'Dispatches, dealer collections, supplier dues, and stock risk',
+        collectTitle: 'Dealer Collections',
+        payTitle: 'Suppliers',
+        velocityTitle: 'Dispatch Flow',
+        riskTitle: 'Stock Risk',
+        customerDocPlural: 'dealer invoices',
+        vendorDocPlural: 'supplier bills',
+        salesCaption: 'in dispatch value',
+        riskText: 'items need refill or allocation review',
+        noRiskText: 'stock allocation is clean',
+        salesRoute: '/sales-orders',
+        riskRoute: '/reorder',
+        icon: Icons.local_shipping_rounded,
+        riskIcon: Icons.inventory_2_rounded,
+        accent: KColors.primary,
+      ),
+      DashboardVertical.retail => const _BusinessVerticalProfile(
           title: 'Kirana Autopilot',
           subtitle: 'Counter sales, stock movement, credit, and payables',
-          collectTitle: 'Udhar',
+          collectTitle: 'Credit Sales',
           payTitle: 'Suppliers',
           velocityTitle: 'Counter Flow',
           riskTitle: 'Stock Risk',
@@ -157,7 +200,7 @@ class _BusinessVerticalProfile {
           riskIcon: Icons.inventory_2_rounded,
           accent: KColors.primary,
         ),
-      'PHARMACY' => const _BusinessVerticalProfile(
+      DashboardVertical.pharmacy => const _BusinessVerticalProfile(
           title: 'Pharmacy Autopilot',
           subtitle: 'Expiry risk, medicine flow, credit, and supplier dues',
           collectTitle: 'Collect',
@@ -175,25 +218,7 @@ class _BusinessVerticalProfile {
           riskIcon: Icons.event_busy_rounded,
           accent: KColors.success,
         ),
-      'CLOTH_MANUFACTURING' => const _BusinessVerticalProfile(
-          title: 'Manufacturing Autopilot',
-          subtitle: 'Orders, receivables, supplier exposure, and material risk',
-          collectTitle: 'Collect',
-          payTitle: 'Vendors',
-          velocityTitle: 'Dispatch Flow',
-          riskTitle: 'Material Risk',
-          customerDocPlural: 'invoices',
-          vendorDocPlural: 'vendor bills',
-          salesCaption: 'in dispatch value',
-          riskText: 'materials need planning review',
-          noRiskText: 'material queue is clean',
-          salesRoute: '/sales-orders',
-          riskRoute: '/reorder',
-          icon: Icons.precision_manufacturing_rounded,
-          riskIcon: Icons.inventory_rounded,
-          accent: KColors.accent,
-        ),
-      'SERVICES' => const _BusinessVerticalProfile(
+      DashboardVertical.service => const _BusinessVerticalProfile(
           title: 'Services Autopilot',
           subtitle: 'Billing, collections, profitability, and client follow-up',
           collectTitle: 'Collect',
@@ -211,7 +236,7 @@ class _BusinessVerticalProfile {
           riskIcon: Icons.people_alt_rounded,
           accent: KColors.secondary,
         ),
-      'FOOD_BEVERAGE' => const _BusinessVerticalProfile(
+      DashboardVertical.foodBeverage => const _BusinessVerticalProfile(
           title: 'F&B Autopilot',
           subtitle: 'Order flow, credits, supplier dues, and stock freshness',
           collectTitle: 'Collect',
@@ -229,7 +254,7 @@ class _BusinessVerticalProfile {
           riskIcon: Icons.inventory_2_rounded,
           accent: KColors.warning,
         ),
-      _ => const _BusinessVerticalProfile(
+      DashboardVertical.general => const _BusinessVerticalProfile(
           title: 'Business Autopilot',
           subtitle: 'Live operating signals and next best actions',
           collectTitle: 'Collect',

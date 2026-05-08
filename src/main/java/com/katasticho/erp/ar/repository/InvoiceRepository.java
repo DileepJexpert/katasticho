@@ -175,6 +175,16 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     long countByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
 
     @Query("""
+        SELECT COUNT(i) FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.branchId = :branchId
+          AND i.isDeleted = false
+          AND i.status NOT IN ('DRAFT','CANCELLED')
+          AND i.invoiceDate BETWEEN :from AND :to
+    """)
+    long countByOrgBranchAndDateRange(UUID orgId, UUID branchId, LocalDate from, LocalDate to);
+
+    @Query("""
         SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i
         WHERE i.orgId = :orgId
           AND i.isDeleted = false
@@ -221,4 +231,14 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
         ORDER BY i.createdAt DESC
     """)
     List<Invoice> findRecentByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to, Pageable pageable);
+
+    @Query("""
+        SELECT i FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.isDeleted = false
+          AND i.status NOT IN ('DRAFT','CANCELLED')
+          AND i.invoiceDate BETWEEN :from AND :to
+        ORDER BY i.invoiceDate DESC, i.createdAt DESC
+    """)
+    List<Invoice> findPostedByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
 }

@@ -16,6 +16,7 @@ public record AuthResponse(
             String role,
             String orgName,
             String industry,
+            String businessType,
             String industryCode,
             boolean onboardingCompleted,
             String defaultLandingPage

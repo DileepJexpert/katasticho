@@ -6,6 +6,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/credit_note_providers.dart';
 
@@ -202,17 +203,17 @@ class _CreditNoteTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return KEntityDataTable(
-      columnSpacing: 24,
-      horizontalMargin: 14,
+      columnSpacing: 12,
+      horizontalMargin: 8,
+      dataRowMaxHeight: 62,
       columns: const [
         DataColumn(label: Text('Credit Note')),
         DataColumn(label: Text('Customer')),
-        DataColumn(label: Text('Against')),
-        DataColumn(label: Text('Date')),
+        DataColumn(label: Text('Reference')),
         DataColumn(label: Text('Reason')),
         DataColumn(label: Text('Status')),
         DataColumn(label: Text('Amount'), numeric: true),
-        DataColumn(label: SizedBox(width: 32)),
+        DataColumn(label: SizedBox(width: 28)),
       ],
       rows: creditNotes.map((creditNote) {
         final id = creditNote['id']?.toString() ?? '';
@@ -230,21 +231,86 @@ class _CreditNoteTable extends StatelessWidget {
           },
           color: kEntityRowColor(context),
           cells: [
-            DataCell(KTablePrimaryTextCell(value: number)),
-            DataCell(KTableTextCell(value: customerName, width: 190)),
-            DataCell(KTableTextCell(value: invoiceNumber)),
-            DataCell(KTableDateCell(value: date)),
-            DataCell(KTableTextCell(value: reason, width: 220)),
+            DataCell(KTablePrimaryTextCell(value: number, width: 132)),
+            DataCell(KTableTextCell(value: customerName, width: 160)),
+            DataCell(_CreditNoteReferenceCell(
+              invoiceNumber: invoiceNumber,
+              date: date,
+            )),
+            DataCell(KTableTextCell(value: reason, width: 170)),
             DataCell(KTableStatusCell(status: status)),
             DataCell(KTableAmountCell(value: amount, color: KColors.error)),
-            DataCell(KTableOpenActionCell(
-              tooltip: 'Open credit note',
+            DataCell(_CompactOpenActionCell(
               onPressed:
                   id.isEmpty ? null : () => context.go('/credit-notes/$id'),
             )),
           ],
         );
       }).toList(),
+    );
+  }
+}
+
+class _CreditNoteReferenceCell extends StatelessWidget {
+  final String invoiceNumber;
+  final String? date;
+
+  const _CreditNoteReferenceCell({
+    required this.invoiceNumber,
+    required this.date,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dateText = date == null || date!.isEmpty
+        ? '--'
+        : DateFormatter.short(DateTime.parse(date!));
+
+    return SizedBox(
+      width: 126,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            invoiceNumber,
+            style: KTypography.bodyMedium,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          KSpacing.vGapXxs,
+          Text(
+            dateText,
+            style: KTypography.bodySmall.copyWith(
+              color: KColors.textSecondary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactOpenActionCell extends StatelessWidget {
+  final VoidCallback? onPressed;
+
+  const _CompactOpenActionCell({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 28,
+      height: 32,
+      child: IconButton(
+        tooltip: 'Open credit note',
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 28, height: 32),
+        icon: const Icon(Icons.chevron_right, size: 18),
+        onPressed: onPressed,
+      ),
     );
   }
 }
