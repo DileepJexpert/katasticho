@@ -1,9 +1,8 @@
 package com.katasticho.erp.expense.service;
 
-import com.katasticho.erp.accounting.dto.JournalLineRequest;
-import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.Account;
 import com.katasticho.erp.accounting.entity.JournalEntry;
+import com.katasticho.erp.accounting.posting.AccountingPostingEngine;
 import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ar.entity.InvoiceNumberSequence;
@@ -67,6 +66,7 @@ public class ExpenseService {
     private final InvoiceNumberSequenceRepository sequenceRepository;
     private final OrganisationRepository organisationRepository;
     private final JournalService journalService;
+    private final AccountingPostingEngine postingEngine;
     private final TaxEngine taxEngine;
     private final TaxLineItemRepository taxLineItemRepository;
     private final AuditService auditService;
@@ -141,8 +141,8 @@ public class ExpenseService {
                 .build();
 
         // Post journal FIRST, then save expense with journal ref.
-        JournalEntry journalEntry = postExpenseJournal(
-                expense, expenseAccount, paidThrough, taxResult, "Expense " + expenseNumber);
+        JournalEntry journalEntry = postingEngine.postExpense(
+                expense, expenseAccount, paidThrough, taxResult);
         expense.setJournalEntryId(journalEntry.getId());
 
         expense = expenseRepository.save(expense);
@@ -248,9 +248,8 @@ public class ExpenseService {
             }
             Account expenseAccount = requireAccount(orgId, expense.getAccountId(), "Expense account");
             Account paidThrough = requireAccount(orgId, expense.getPaidThroughId(), "Paid-through account");
-            JournalEntry newJe = postExpenseJournal(
-                    expense, expenseAccount, paidThrough, updTaxResult,
-                    "Expense " + expense.getExpenseNumber() + " (updated)");
+            JournalEntry newJe = postingEngine.postExpense(
+                    expense, expenseAccount, paidThrough, updTaxResult);
             expense.setJournalEntryId(newJe.getId());
 
             // Re-save tax line items
@@ -345,63 +344,6 @@ public class ExpenseService {
     // ─────────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────────
-    private JournalEntry postExpenseJournal(Expense expense,
-                                            Account expenseAccount,
-                                            Account paidThrough,
-                                            TaxEngine.TaxCalculationResult taxResult,
-                                            String description) {
-        List<JournalLineRequest> lines = new ArrayList<>();
-
-        // DR: Expense GL = amount (pre-tax)
-        lines.add(new JournalLineRequest(
-                expenseAccount.getCode(),
-                expense.getAmount(),
-                BigDecimal.ZERO,
-                description,
-                null, null));
-
-        // DR: Tax input credit per component (recoverable tax with a GL account)
-        BigDecimal recoverableTax = BigDecimal.ZERO;
-        for (TaxEngine.TaxComponent comp : taxResult.components()) {
-            if (comp.glAccountCode() == null) continue;
-            lines.add(new JournalLineRequest(
-                    comp.glAccountCode(),
-                    comp.amount(),
-                    BigDecimal.ZERO,
-                    comp.rateCode() + " Input Credit: " + expense.getExpenseNumber(),
-                    null, null));
-            recoverableTax = recoverableTax.add(comp.amount());
-        }
-
-        // Non-recoverable tax is part of the expense cost — absorb into same account
-        BigDecimal nonRecoverable = taxResult.totalTaxAmount().subtract(recoverableTax);
-        if (nonRecoverable.compareTo(BigDecimal.ZERO) > 0) {
-            lines.add(new JournalLineRequest(
-                    expenseAccount.getCode(),
-                    nonRecoverable,
-                    BigDecimal.ZERO,
-                    "Non-recoverable tax: " + expense.getExpenseNumber(),
-                    null, null));
-        }
-
-        // CR: Paid-through (Cash / Bank) = total
-        lines.add(new JournalLineRequest(
-                paidThrough.getCode(),
-                BigDecimal.ZERO,
-                expense.getTotal(),
-                paidThrough.getName() + ": " + expense.getExpenseNumber(),
-                null, null));
-
-        JournalPostRequest request = new JournalPostRequest(
-                expense.getExpenseDate(),
-                description,
-                "EXPENSE",
-                null,          // sourceId set after save — journal is standalone-safe
-                lines,
-                true);
-        return journalService.postJournal(request);
-    }
-
     private void saveTaxLineItems(UUID orgId, UUID expenseId, TaxEngine.TaxCalculationResult taxResult) {
         List<TaxLineItem> taxLines = new ArrayList<>();
         for (TaxEngine.TaxComponent comp : taxResult.components()) {

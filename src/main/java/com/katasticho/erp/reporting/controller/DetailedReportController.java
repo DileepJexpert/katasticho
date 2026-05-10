@@ -1,0 +1,85 @@
+package com.katasticho.erp.reporting.controller;
+
+import com.katasticho.erp.reporting.dto.*;
+import com.katasticho.erp.reporting.service.DetailedReportService;
+import com.katasticho.erp.common.dto.ApiResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1")
+@RequiredArgsConstructor
+public class DetailedReportController {
+
+    private final DetailedReportService reportService;
+
+    @GetMapping("/financial-reports/cash-flow")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<CashFlowStatement>> getCashFlowStatement(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "DAILY") String period) {
+        return ResponseEntity.ok(ApiResponse.ok(reportService.getCashFlowStatement(startDate, endDate, period)));
+    }
+
+    @GetMapping("/accounting-reports/journal-register")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<List<JournalRegisterLine>>> getJournalRegister(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) String sourceModule,
+            @RequestParam(defaultValue = "0") int pageNo,
+            @RequestParam(defaultValue = "100") int pageSize) {
+        return ResponseEntity.ok(ApiResponse.ok(
+            reportService.getJournalRegister(startDate, endDate, sourceModule, pageNo, pageSize)
+        ));
+    }
+
+    @GetMapping("/sales-reports/sales-register")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<SalesRegisterReport>> getSalesRegister(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) String documentType) {
+        return ResponseEntity.ok(ApiResponse.ok(
+            reportService.getSalesRegister(startDate, endDate, documentType)
+        ));
+    }
+
+    @GetMapping("/ar-reports/customer-statement/{customerId}")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<CustomerStatementReport>> getCustomerStatement(
+            @PathVariable UUID customerId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(ApiResponse.ok(
+            reportService.getCustomerStatement(customerId, startDate, endDate)
+        ));
+    }
+
+    @GetMapping("/purchase-reports/purchase-register")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<PurchaseRegisterReport>> getPurchaseRegister(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(ApiResponse.ok(
+            reportService.getPurchaseRegister(startDate, endDate)
+        ));
+    }
+
+    @GetMapping("/pos-reports/daily-summary")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<DailySalesReport>> getDailySalesReport(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(ApiResponse.ok(
+            reportService.getDailySalesReport(date)
+        ));
+    }
+}

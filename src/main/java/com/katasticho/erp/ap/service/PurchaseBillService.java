@@ -2,10 +2,9 @@ package com.katasticho.erp.ap.service;
 
 import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
 import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
-import com.katasticho.erp.accounting.dto.JournalLineRequest;
-import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.Account;
 import com.katasticho.erp.accounting.entity.JournalEntry;
+import com.katasticho.erp.accounting.posting.AccountingPostingEngine;
 import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ap.dto.CreatePurchaseBillRequest;
@@ -83,6 +82,7 @@ public class PurchaseBillService {
     private final WarehouseRepository warehouseRepository;
     private final VendorPaymentAllocationRepository allocationRepository;
     private final JournalService journalService;
+    private final AccountingPostingEngine postingEngine;
     private final TaxEngine taxEngine;
     private final CurrencyService currencyService;
     private final InventoryService inventoryService;
@@ -289,75 +289,8 @@ public class PurchaseBillService {
                     "AP_BILL_NOT_DRAFT", HttpStatus.BAD_REQUEST);
         }
 
-        // ── Build journal lines ─────────────────────────────────
-
-        List<JournalLineRequest> journalLines = new ArrayList<>();
-
-        // DR: Expense / Inventory account per line (using accountId → accountCode lookup)
-        for (PurchaseBillLine line : bill.getLines()) {
-            Account lineAccount = accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, line.getAccountId())
-                    .orElseThrow(() -> BusinessException.notFound("Account", line.getAccountId()));
-
-            journalLines.add(new JournalLineRequest(
-                    lineAccount.getCode(),
-                    line.getTaxableAmount(), BigDecimal.ZERO,
-                    "Purchase: " + line.getDescription(),
-                    null, null));
-        }
-
-        // DR: Tax input credit per component (only recoverable with a bound GL account)
-        BigDecimal recoverableTaxDebit = BigDecimal.ZERO;
-        List<TaxLineItem> taxLines = taxLineItemRepository.findBySourceTypeAndSourceId("BILL", bill.getId());
-        for (TaxLineItem tli : taxLines) {
-            if (tli.getAccountCode() == null || tli.getAccountCode().isBlank()) continue;
-            journalLines.add(new JournalLineRequest(
-                    tli.getAccountCode(),
-                    tli.getTaxAmount(), BigDecimal.ZERO,
-                    tli.getComponentCode() + " Input Credit",
-                    tli.getComponentCode(), null));
-            recoverableTaxDebit = recoverableTaxDebit.add(tli.getTaxAmount());
-        }
-
-        // Non-recoverable tax (tax in totalAmount but no input-credit line item)
-        // is part of the purchase cost — absorb into the default purchase account.
-        BigDecimal nonRecoverableTax = bill.getTaxAmount().subtract(recoverableTaxDebit);
-        if (nonRecoverableTax.compareTo(BigDecimal.ZERO) > 0) {
-            String purchaseCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.PURCHASE);
-            journalLines.add(new JournalLineRequest(
-                    purchaseCode,
-                    nonRecoverableTax, BigDecimal.ZERO,
-                    "Non-recoverable tax: " + bill.getBillNumber(),
-                    null, null));
-        }
-
-        // CR: Accounts Payable (net of TDS) — code resolved per-org
-        BigDecimal apCredit = bill.getTotalAmount().subtract(bill.getTdsAmount());
-        journalLines.add(new JournalLineRequest(
-                defaultAccountService.getCode(orgId, DefaultAccountPurpose.AP),
-                BigDecimal.ZERO, apCredit,
-                "AP: " + bill.getBillNumber(),
-                null, null));
-
-        // CR: TDS Payable (if vendor has TDS deducted) — code resolved per-org
-        if (bill.getTdsAmount().compareTo(BigDecimal.ZERO) > 0) {
-            journalLines.add(new JournalLineRequest(
-                    defaultAccountService.getCode(orgId, DefaultAccountPurpose.TDS_PAYABLE),
-                    BigDecimal.ZERO, bill.getTdsAmount(),
-                    "TDS: " + bill.getBillNumber(),
-                    null, null));
-        }
-
-        // ── Post journal via single posting gate ────────────────
-
-        JournalPostRequest journalRequest = new JournalPostRequest(
-                bill.getBillDate(),
-                "Purchase Bill " + bill.getBillNumber(),
-                "PURCHASE",
-                bill.getId(),
-                journalLines,
-                true);
-
-        JournalEntry journalEntry = journalService.postJournal(journalRequest);
+        // Post journal via the accounting posting engine
+        JournalEntry journalEntry = postingEngine.postPurchaseBill(bill);
 
         // ── Record stock movements (PURCHASE, +qty) ─────────────
 

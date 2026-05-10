@@ -1,10 +1,7 @@
 package com.katasticho.erp.ar.service;
 
-import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
-import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
-import com.katasticho.erp.accounting.dto.JournalLineRequest;
-import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.JournalEntry;
+import com.katasticho.erp.accounting.posting.AccountingPostingEngine;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ar.dto.*;
 import com.katasticho.erp.ar.entity.*;
@@ -57,12 +54,12 @@ public class CreditNoteService {
     private final OrganisationRepository organisationRepository;
     private final InvoiceService invoiceService;
     private final JournalService journalService;
+    private final AccountingPostingEngine postingEngine;
     private final TaxEngine taxEngine;
     private final CurrencyService currencyService;
     private final AuditService auditService;
     private final InventoryService inventoryService;
     private final CommentService commentService;
-    private final DefaultAccountService defaultAccountService;
 
     /**
      * Create a DRAFT credit note with tax calculation.
@@ -217,43 +214,8 @@ public class CreditNoteService {
                     "AR_CN_NOT_DRAFT", HttpStatus.BAD_REQUEST);
         }
 
-        List<JournalLineRequest> journalLines = new ArrayList<>();
-
-        // DR: Revenue reversal per line
-        for (CreditNoteLine line : cn.getLines()) {
-            journalLines.add(new JournalLineRequest(
-                    line.getAccountCode(),
-                    line.getTaxableAmount(), BigDecimal.ZERO,
-                    "CN Revenue reversal: " + line.getDescription(),
-                    null, null));
-        }
-
-        // DR: Tax reversal per component
-        List<TaxLineItem> taxLines = taxLineItemRepository.findBySourceTypeAndSourceId("CREDIT_NOTE", cn.getId());
-        for (TaxLineItem tli : taxLines) {
-            journalLines.add(new JournalLineRequest(
-                    tli.getAccountCode(),
-                    tli.getTaxAmount(), BigDecimal.ZERO,
-                    tli.getComponentCode() + " reversal",
-                    tli.getComponentCode(), null));
-        }
-
-        // CR: Accounts Receivable (per-org default)
-        journalLines.add(new JournalLineRequest(
-                defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR),
-                BigDecimal.ZERO, cn.getTotalAmount(),
-                "AR credit: CN " + cn.getCreditNoteNumber(),
-                null, null));
-
-        JournalPostRequest journalRequest = new JournalPostRequest(
-                cn.getCreditNoteDate(),
-                "Credit Note " + cn.getCreditNoteNumber(),
-                "SALES",
-                cn.getId(),
-                journalLines,
-                true);
-
-        JournalEntry journalEntry = journalService.postJournal(journalRequest);
+        // Post journal via the accounting posting engine
+        JournalEntry journalEntry = postingEngine.postCreditNote(cn);
 
         // Restore stock for any itemised lines (returns / damages refunded).
         // For batch-tracked items the line MUST carry the batch_id of the
