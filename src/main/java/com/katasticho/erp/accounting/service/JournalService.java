@@ -5,6 +5,7 @@ import com.katasticho.erp.accounting.dto.JournalLineRequest;
 import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.Account;
 import com.katasticho.erp.accounting.entity.EntryNumberSequence;
+import com.katasticho.erp.accounting.entity.FiscalPeriod;
 import com.katasticho.erp.accounting.entity.JournalEntry;
 import com.katasticho.erp.accounting.entity.JournalLine;
 import com.katasticho.erp.accounting.repository.*;
@@ -43,6 +44,7 @@ public class JournalService {
     private final JournalLineRepository journalLineRepository;
     private final AccountRepository accountRepository;
     private final EntryNumberSequenceRepository sequenceRepository;
+    private final FiscalPeriodRepository fiscalPeriodRepository;
     private final OrganisationRepository organisationRepository;
     private final CurrencyService currencyService;
     private final AuditService auditService;
@@ -96,6 +98,17 @@ public class JournalService {
         // Step 6: Determine fiscal period from effective_date + org.fiscalYearStart
         int periodYear = computeFiscalYear(request.effectiveDate(), org.getFiscalYearStart());
         int periodMonth = request.effectiveDate().getMonthValue();
+
+        // Step 6b: Reject posting to closed/locked periods
+        fiscalPeriodRepository.findByOrgIdAndPeriodYearAndPeriodMonth(orgId, periodYear, periodMonth)
+                .ifPresent(fp -> {
+                    if (fp.isClosed()) {
+                        throw new BusinessException(
+                                "Fiscal period " + periodYear + "-" + String.format("%02d", periodMonth)
+                                        + " is " + fp.getStatus().toLowerCase() + ". Reopen it before posting.",
+                                "ACCT_PERIOD_CLOSED", HttpStatus.CONFLICT);
+                    }
+                });
 
         // Step 7: Generate entry number
         String entryNumber = generateEntryNumber(orgId, periodYear);

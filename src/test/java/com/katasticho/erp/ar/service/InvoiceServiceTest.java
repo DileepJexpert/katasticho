@@ -35,6 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -57,6 +58,7 @@ class InvoiceServiceTest {
     @Mock private OrganisationRepository organisationRepository;
     @Mock private BranchRepository branchRepository;
     @Mock private JournalService journalService;
+    @Mock private com.katasticho.erp.accounting.posting.AccountingPostingEngine postingEngine;
     @Mock private TaxEngine taxEngine;
     @Mock private AuditService auditService;
     @Mock private InventoryService inventoryService;
@@ -81,10 +83,12 @@ class InvoiceServiceTest {
                 invoiceRepository, taxLineItemRepository,
                 contactRepository, sequenceRepository, organisationRepository,
                 branchRepository,
-                journalService, taxEngine, currencyService,
+                journalService, postingEngine, taxEngine, currencyService,
                 auditService, inventoryService, priceListService, commentService,
-                defaultAccountService, documentEmailService,
+                documentEmailService,
                 itemRepository, stockBatchRepository, cacheInvalidationService);
+
+        TransactionSynchronizationManager.initSynchronization();
 
         lenient().when(priceListService.resolvePrice(any(), any(), any()))
                 .thenReturn(Optional.empty());
@@ -108,6 +112,9 @@ class InvoiceServiceTest {
 
     @AfterEach
     void tearDown() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
         TenantContext.clear();
     }
 
@@ -299,29 +306,14 @@ class InvoiceServiceTest {
         JournalEntry mockJournal = JournalEntry.builder()
                 .entryNumber("JE-2025-000001").status("POSTED").build();
         mockJournal.setId(UUID.randomUUID());
-        when(journalService.postJournal(any(JournalPostRequest.class))).thenReturn(mockJournal);
+        when(postingEngine.postSalesInvoice(any(Invoice.class))).thenReturn(mockJournal);
 
         InvoiceResponse result = invoiceService.sendInvoice(draftInvoice.getId());
 
         assertEquals("SENT", result.status());
         assertNotNull(result.journalEntryId());
 
-        ArgumentCaptor<JournalPostRequest> journalCaptor = ArgumentCaptor.forClass(JournalPostRequest.class);
-        verify(journalService).postJournal(journalCaptor.capture());
-
-        JournalPostRequest journalReq = journalCaptor.getValue();
-        assertEquals("SALES", journalReq.sourceModule());
-        assertTrue(journalReq.autoPost());
-        assertEquals(4, journalReq.lines().size());
-
-        assertEquals(0, new BigDecimal("11800.00").compareTo(journalReq.lines().get(0).debit()));
-        assertEquals("1200", journalReq.lines().get(0).accountCode());
-        assertEquals(0, new BigDecimal("10000.00").compareTo(journalReq.lines().get(1).credit()));
-        assertEquals("4010", journalReq.lines().get(1).accountCode());
-        assertEquals(0, new BigDecimal("900.00").compareTo(journalReq.lines().get(2).credit()));
-        assertEquals("2020", journalReq.lines().get(2).accountCode());
-        assertEquals(0, new BigDecimal("900.00").compareTo(journalReq.lines().get(3).credit()));
-        assertEquals("2021", journalReq.lines().get(3).accountCode());
+        verify(postingEngine).postSalesInvoice(draftInvoice);
     }
 
     @Test

@@ -483,6 +483,96 @@ public class DetailedReportService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public GstSummaryReport getGstSummary(LocalDate startDate, LocalDate endDate) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        String outputQuery = """
+            SELECT
+              tli.source_type,
+              COUNT(DISTINCT tli.source_id) as txn_count,
+              COALESCE(SUM(CASE WHEN tli.component_code NOT LIKE '%GST%' THEN 0
+                                ELSE tli.taxable_amount END), 0) as taxable_amount,
+              COALESCE(SUM(CASE WHEN tli.component_code = 'CGST' THEN tli.tax_amount ELSE 0 END), 0) as cgst,
+              COALESCE(SUM(CASE WHEN tli.component_code = 'SGST' THEN tli.tax_amount ELSE 0 END), 0) as sgst,
+              COALESCE(SUM(CASE WHEN tli.component_code = 'IGST' THEN tli.tax_amount ELSE 0 END), 0) as igst
+            FROM tax_line_item tli
+            WHERE tli.org_id = ? AND tli.source_type IN ('INVOICE', 'SALES_RECEIPT', 'CREDIT_NOTE')
+              AND tli.created_at >= ? AND tli.created_at < ?
+            GROUP BY tli.source_type
+            ORDER BY tli.source_type
+            """;
+
+        List<GstSummaryReport.SupplyBreakdown> outputSupplies = jdbcTemplate.query(
+                outputQuery,
+                (rs, rowNum) -> new GstSummaryReport.SupplyBreakdown(
+                        rs.getString("source_type"),
+                        rs.getLong("txn_count"),
+                        nullSafe(rs.getBigDecimal("taxable_amount")),
+                        nullSafe(rs.getBigDecimal("cgst")),
+                        nullSafe(rs.getBigDecimal("sgst")),
+                        nullSafe(rs.getBigDecimal("igst"))
+                ),
+                orgId, startDate.atStartOfDay(), endDate.plusDays(1).atStartOfDay()
+        );
+
+        String inputQuery = """
+            SELECT
+              tli.source_type,
+              COUNT(DISTINCT tli.source_id) as txn_count,
+              COALESCE(SUM(tli.taxable_amount), 0) as taxable_amount,
+              COALESCE(SUM(CASE WHEN tli.component_code = 'CGST' THEN tli.tax_amount ELSE 0 END), 0) as cgst,
+              COALESCE(SUM(CASE WHEN tli.component_code = 'SGST' THEN tli.tax_amount ELSE 0 END), 0) as sgst,
+              COALESCE(SUM(CASE WHEN tli.component_code = 'IGST' THEN tli.tax_amount ELSE 0 END), 0) as igst
+            FROM tax_line_item tli
+            WHERE tli.org_id = ? AND tli.source_type IN ('BILL', 'EXPENSE', 'VENDOR_CREDIT')
+              AND tli.created_at >= ? AND tli.created_at < ?
+            GROUP BY tli.source_type
+            ORDER BY tli.source_type
+            """;
+
+        List<GstSummaryReport.InputBreakdown> inputCredits = jdbcTemplate.query(
+                inputQuery,
+                (rs, rowNum) -> new GstSummaryReport.InputBreakdown(
+                        rs.getString("source_type"),
+                        rs.getLong("txn_count"),
+                        nullSafe(rs.getBigDecimal("taxable_amount")),
+                        nullSafe(rs.getBigDecimal("cgst")),
+                        nullSafe(rs.getBigDecimal("sgst")),
+                        nullSafe(rs.getBigDecimal("igst"))
+                ),
+                orgId, startDate.atStartOfDay(), endDate.plusDays(1).atStartOfDay()
+        );
+
+        BigDecimal totalTaxable = outputSupplies.stream()
+                .map(GstSummaryReport.SupplyBreakdown::taxableAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCgst = outputSupplies.stream()
+                .map(GstSummaryReport.SupplyBreakdown::cgst)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalSgst = outputSupplies.stream()
+                .map(GstSummaryReport.SupplyBreakdown::sgst)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalIgst = outputSupplies.stream()
+                .map(GstSummaryReport.SupplyBreakdown::igst)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalOutputTax = totalCgst.add(totalSgst).add(totalIgst);
+
+        BigDecimal totalInputCredit = inputCredits.stream()
+                .map(ic -> ic.cgst().add(ic.sgst()).add(ic.igst()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal netPayable = totalOutputTax.subtract(totalInputCredit);
+
+        return new GstSummaryReport(
+                startDate, endDate,
+                totalTaxable, totalCgst, totalSgst, totalIgst,
+                BigDecimal.ZERO,
+                totalOutputTax, totalInputCredit, netPayable,
+                outputSupplies, inputCredits
+        );
+    }
+
     private BigDecimal nullSafe(BigDecimal value) {
         return value != null ? value : BigDecimal.ZERO;
     }

@@ -82,4 +82,14 @@ public class DetailedReportController {
             reportService.getDailySalesReport(date)
         ));
     }
+
+    @GetMapping("/tax-reports/gst-summary")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<GstSummaryReport>> getGstSummary(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(ApiResponse.ok(
+            reportService.getGstSummary(startDate, endDate)
+        ));
+    }
 }
