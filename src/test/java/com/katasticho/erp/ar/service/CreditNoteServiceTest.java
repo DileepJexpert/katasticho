@@ -50,6 +50,7 @@ class CreditNoteServiceTest {
     @Mock private OrganisationRepository organisationRepository;
     @Mock private InvoiceService invoiceService;
     @Mock private JournalService journalService;
+    @Mock private com.katasticho.erp.accounting.posting.AccountingPostingEngine postingEngine;
     @Mock private TaxEngine taxEngine;
     @Mock private AuditService auditService;
     @Mock private InventoryService inventoryService;
@@ -68,9 +69,9 @@ class CreditNoteServiceTest {
         creditNoteService = new CreditNoteService(
                 creditNoteRepository, taxLineItemRepository, contactRepository,
                 invoiceRepository, sequenceRepository, organisationRepository,
-                invoiceService, journalService, taxEngine,
+                invoiceService, journalService, postingEngine, taxEngine,
                 currencyService, auditService, inventoryService,
-                commentService, defaultAccountService);
+                commentService);
 
         lenient().when(currencyService.getRate(any(), any(), any())).thenReturn(BigDecimal.ONE);
         lenient().when(defaultAccountService.getCode(any(), eq(DefaultAccountPurpose.AR))).thenReturn("1200");
@@ -156,34 +157,17 @@ class CreditNoteServiceTest {
                 .taxAmount(new BigDecimal("450.00")).build();
         when(creditNoteRepository.findByIdAndOrgIdAndIsDeletedFalse(cn.getId(), orgId))
                 .thenReturn(Optional.of(cn));
-        when(taxLineItemRepository.findBySourceTypeAndSourceId("CREDIT_NOTE", cn.getId()))
-                .thenReturn(List.of(cgst, sgst));
         when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
 
         JournalEntry mockJournal = JournalEntry.builder().entryNumber("JE-2026-000003").build();
         mockJournal.setId(UUID.randomUUID());
-        when(journalService.postJournal(any(JournalPostRequest.class))).thenReturn(mockJournal);
+        when(postingEngine.postCreditNote(any(CreditNote.class))).thenReturn(mockJournal);
 
         CreditNote issued = creditNoteService.issueCreditNote(cn.getId());
 
-        ArgumentCaptor<JournalPostRequest> captor = ArgumentCaptor.forClass(JournalPostRequest.class);
-        verify(journalService).postJournal(captor.capture());
-
-        JournalPostRequest journalReq = captor.getValue();
-        assertEquals("SALES", journalReq.sourceModule());
-        assertEquals(4, journalReq.lines().size());
-
-        assertEquals("4010", journalReq.lines().get(0).accountCode());
-        assertEquals(0, new BigDecimal("5000.00").compareTo(journalReq.lines().get(0).debit()));
-
-        assertEquals("2020", journalReq.lines().get(1).accountCode());
-        assertEquals(0, new BigDecimal("450.00").compareTo(journalReq.lines().get(1).debit()));
-
-        assertEquals("2021", journalReq.lines().get(2).accountCode());
-        assertEquals(0, new BigDecimal("450.00").compareTo(journalReq.lines().get(2).debit()));
-
-        assertEquals("1200", journalReq.lines().get(3).accountCode());
-        assertEquals(0, new BigDecimal("5900.00").compareTo(journalReq.lines().get(3).credit()));
+        verify(postingEngine).postCreditNote(cn);
+        assertEquals("APPLIED", issued.getStatus());
+        assertEquals(mockJournal.getId(), issued.getJournalEntryId());
 
         verify(invoiceService).updatePaymentStatus(invoice, cn.getTotalAmount());
     }

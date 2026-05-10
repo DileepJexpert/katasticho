@@ -1,7 +1,7 @@
 package com.katasticho.erp.ar.service;
 
-import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.JournalEntry;
+import com.katasticho.erp.accounting.posting.AccountingPostingEngine;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ar.dto.PaymentResponse;
 import com.katasticho.erp.ar.dto.RecordPaymentForInvoiceRequest;
@@ -15,8 +15,6 @@ import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.contact.repository.ContactRepository;
-import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
-import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Organisation;
@@ -48,11 +46,11 @@ class PaymentServiceTest {
     @Mock private OrganisationRepository organisationRepository;
     @Mock private BranchRepository branchRepository;
     @Mock private JournalService journalService;
+    @Mock private com.katasticho.erp.accounting.posting.AccountingPostingEngine postingEngine;
     @Mock private InvoiceService invoiceService;
     @Mock private AuditService auditService;
     @Mock private CommentService commentService;
     @Mock private CurrencyService currencyService;
-    @Mock private DefaultAccountService defaultAccountService;
 
     private PaymentService paymentService;
     private UUID orgId;
@@ -63,14 +61,10 @@ class PaymentServiceTest {
     void setUp() {
         paymentService = new PaymentService(
                 paymentRepository, invoiceRepository, contactRepository,
-                organisationRepository, branchRepository, journalService, invoiceService,
-                currencyService, auditService, commentService,
-                defaultAccountService);
+                organisationRepository, branchRepository, journalService, postingEngine,
+                invoiceService, currencyService, auditService, commentService);
 
         lenient().when(currencyService.getRate(any(), any(), any())).thenReturn(BigDecimal.ONE);
-        lenient().when(defaultAccountService.getCode(any(), eq(DefaultAccountPurpose.AR))).thenReturn("1200");
-        lenient().when(defaultAccountService.getCode(any(), eq(DefaultAccountPurpose.BANK))).thenReturn("1020");
-        lenient().when(defaultAccountService.getCode(any(), eq(DefaultAccountPurpose.CASH))).thenReturn("1010");
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
@@ -107,7 +101,8 @@ class PaymentServiceTest {
         JournalEntry mockJournal = JournalEntry.builder()
                 .entryNumber("JE-2026-000002").status("POSTED").build();
         mockJournal.setId(UUID.randomUUID());
-        when(journalService.postJournal(any(JournalPostRequest.class))).thenReturn(mockJournal);
+        when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any()))
+                .thenReturn(mockJournal);
         when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> {
             Payment p = inv.getArgument(0);
             if (p.getId() == null) p.setId(UUID.randomUUID());
@@ -131,15 +126,9 @@ class PaymentServiceTest {
         assertEquals("PAY-2026-000001", result.getPaymentNumber());
         assertEquals(0, new BigDecimal("5000").compareTo(result.getAmount()));
 
-        ArgumentCaptor<JournalPostRequest> captor = ArgumentCaptor.forClass(JournalPostRequest.class);
-        verify(journalService).postJournal(captor.capture());
-
-        JournalPostRequest journalReq = captor.getValue();
-        assertEquals(2, journalReq.lines().size());
-        assertEquals("1020", journalReq.lines().get(0).accountCode());
-        assertEquals(0, new BigDecimal("5000").compareTo(journalReq.lines().get(0).debit()));
-        assertEquals("1200", journalReq.lines().get(1).accountCode());
-        assertEquals(0, new BigDecimal("5000").compareTo(journalReq.lines().get(1).credit()));
+        verify(postingEngine).postPaymentReceived(
+                eq(orgId), eq("PAY-2026-000001"), eq("INV-2026-000001"),
+                eq(LocalDate.of(2026, 4, 15)), eq(new BigDecimal("5000")), eq("BANK_TRANSFER"));
 
         verify(invoiceService).updatePaymentStatus(invoice, new BigDecimal("5000"));
     }
@@ -216,7 +205,8 @@ class PaymentServiceTest {
 
         JournalEntry mockJournal = JournalEntry.builder().entryNumber("JE-2026-000003").build();
         mockJournal.setId(UUID.randomUUID());
-        when(journalService.postJournal(any())).thenReturn(mockJournal);
+        when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any()))
+                .thenReturn(mockJournal);
         when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> {
             Payment p = inv.getArgument(0);
             if (p.getId() == null) p.setId(UUID.randomUUID());
@@ -232,9 +222,9 @@ class PaymentServiceTest {
 
         paymentService.recordPayment(request);
 
-        ArgumentCaptor<JournalPostRequest> captor = ArgumentCaptor.forClass(JournalPostRequest.class);
-        verify(journalService).postJournal(captor.capture());
-        assertEquals("1010", captor.getValue().lines().get(0).accountCode());
+        verify(postingEngine).postPaymentReceived(
+                eq(orgId), eq("PAY-2026-000002"), eq("INV-2026-000001"),
+                any(LocalDate.class), eq(new BigDecimal("500")), eq("UPI"));
     }
 
     // ── recordForInvoice tests ──────────────────────────────────────────
@@ -258,7 +248,8 @@ class PaymentServiceTest {
                 .thenReturn("PAY-2026-000001");
         JournalEntry je = JournalEntry.builder().entryNumber("JE-001").build();
         je.setId(UUID.randomUUID());
-        when(journalService.postJournal(any())).thenReturn(je);
+        when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any()))
+                .thenReturn(je);
         when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> {
             Payment p = inv.getArgument(0);
             if (p.getId() == null) p.setId(UUID.randomUUID());

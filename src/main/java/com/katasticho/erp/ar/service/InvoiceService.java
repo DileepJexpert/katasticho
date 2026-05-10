@@ -33,6 +33,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.katasticho.erp.common.dto.BulkOperationResult;
 
@@ -336,25 +338,34 @@ public class InvoiceService {
         auditService.log("INVOICE", invoice.getId(), "SEND", "{\"status\":\"DRAFT\"}",
                 "{\"status\":\"SENT\",\"journalEntryId\":\"" + journalEntry.getId() + "\"}");
 
-        // Build response once — reused for both email and return value
         InvoiceResponse response = toResponse(invoice);
 
-        // Send email and record outcome in the system comment
-        String sendComment = "Invoice sent";
-        if (invoice.getContactId() != null) {
-            Contact contact = contactRepository.findById(invoice.getContactId()).orElse(null);
-            if (contact != null && contact.getEmail() != null && !contact.getEmail().isBlank()) {
-                boolean emailed = documentEmailService.sendInvoice(response, contact.getEmail());
-                sendComment = emailed
-                        ? "Invoice emailed to " + contact.getEmail()
-                        : "Invoice sent (email delivery failed)";
-            } else {
-                sendComment = "Invoice sent (no email on file)";
+        // Side effects run after commit — email/comment/cache failure cannot roll back the posting
+        final UUID invoiceId2 = invoice.getId();
+        final UUID contactId = invoice.getContactId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    String sendComment = "Invoice sent";
+                    if (contactId != null) {
+                        Contact contact = contactRepository.findById(contactId).orElse(null);
+                        if (contact != null && contact.getEmail() != null && !contact.getEmail().isBlank()) {
+                            boolean emailed = documentEmailService.sendInvoice(response, contact.getEmail());
+                            sendComment = emailed
+                                    ? "Invoice emailed to " + contact.getEmail()
+                                    : "Invoice sent (email delivery failed)";
+                        } else {
+                            sendComment = "Invoice sent (no email on file)";
+                        }
+                    }
+                    commentService.addSystemComment("INVOICE", invoiceId2, sendComment);
+                    cacheInvalidationService.onInvoiceChanged(orgId, contactId);
+                } catch (Exception e) {
+                    log.warn("Post-commit side effect failed for invoice {}: {}", invoiceId2, e.getMessage());
+                }
             }
-        }
-        commentService.addSystemComment("INVOICE", invoice.getId(), sendComment);
-
-        cacheInvalidationService.onInvoiceChanged(orgId, invoice.getContactId());
+        });
 
         log.info("Invoice {} sent, journal={}", invoice.getInvoiceNumber(), journalEntry.getEntryNumber());
         return response;

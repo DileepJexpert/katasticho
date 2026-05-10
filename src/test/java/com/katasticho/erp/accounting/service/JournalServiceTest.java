@@ -35,6 +35,7 @@ class JournalServiceTest {
     @Mock private JournalLineRepository journalLineRepository;
     @Mock private AccountRepository accountRepository;
     @Mock private EntryNumberSequenceRepository sequenceRepository;
+    @Mock private FiscalPeriodRepository fiscalPeriodRepository;
     @Mock private OrganisationRepository organisationRepository;
     @Mock private AuditService auditService;
 
@@ -49,7 +50,8 @@ class JournalServiceTest {
     void setUp() {
         journalService = new JournalService(
                 journalEntryRepository, journalLineRepository, accountRepository,
-                sequenceRepository, organisationRepository, new SimpleCurrencyService(), auditService);
+                sequenceRepository, fiscalPeriodRepository, organisationRepository,
+                new SimpleCurrencyService(), auditService);
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
