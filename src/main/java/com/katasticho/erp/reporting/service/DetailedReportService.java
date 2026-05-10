@@ -16,7 +16,7 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class OperationalReportService {
+public class DetailedReportService {
 
     private final JdbcTemplate jdbcTemplate;
 

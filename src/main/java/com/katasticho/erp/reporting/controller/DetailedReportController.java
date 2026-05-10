@@ -1,7 +1,7 @@
 package com.katasticho.erp.reporting.controller;
 
 import com.katasticho.erp.reporting.dto.*;
-import com.katasticho.erp.reporting.service.OperationalReportService;
+import com.katasticho.erp.reporting.service.DetailedReportService;
 import com.katasticho.erp.common.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -16,9 +16,9 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-public class OperationalReportController {
+public class DetailedReportController {
 
-    private final OperationalReportService reportService;
+    private final DetailedReportService reportService;
 
     @GetMapping("/financial-reports/cash-flow")
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")

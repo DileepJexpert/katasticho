@@ -54,10 +54,20 @@ public class AiSuggestionService {
         );
     }
 
+    private static final Set<String> REVIEWABLE_STATUSES = Set.of("PENDING", "DEFERRED");
+
     @Transactional
     public AiSuggestionResponse review(UUID id, AiSuggestionReviewRequest request) {
         String action = normalizeAction(request.action());
         AiSuggestion suggestion = getForCurrentOrg(id);
+
+        if (!REVIEWABLE_STATUSES.contains(suggestion.getStatus())) {
+            throw new BusinessException(
+                    "Suggestion already resolved with status: " + suggestion.getStatus(),
+                    "AI_SUGGESTION_ALREADY_RESOLVED"
+            );
+        }
+
         UUID userId = TenantContext.getCurrentUserId();
         Instant now = Instant.now();
 

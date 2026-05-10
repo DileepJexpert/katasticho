@@ -73,14 +73,14 @@ class CreditDueCard extends ConsumerWidget {
                   children: [
                     if (hasOverdue)
                       _AlertChip(
-                        label: '\${ar.overdueCount} overdue',
+                        label: '${ar.overdueCount} overdue',
                         color: KColors.error,
                       ),
                     if (hasOverdue && ar.dueThisWeekCount > 0)
                       const SizedBox(width: 8),
                     if (ar.dueThisWeekCount > 0)
                       _AlertChip(
-                        label: '\${CurrencyFormatter.formatCompact(ar.dueThisWeek)} this week',
+                        label: '${CurrencyFormatter.formatCompact(ar.dueThisWeek)} this week',
                         color: KColors.warning,
                       ),
                   ],
