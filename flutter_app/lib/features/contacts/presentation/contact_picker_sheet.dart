@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
@@ -169,10 +168,11 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
                   itemBuilder: (context, index) {
                     final contact =
                         contacts[index] as Map<String, dynamic>;
-                    final name =
-                        contact['displayName']?.toString() ?? '';
+                    final name = _contactName(contact);
                     final phone =
-                        contact['phone']?.toString() ?? '';
+                        contact['phone']?.toString() ??
+                            contact['mobile']?.toString() ??
+                            '';
                     final email =
                         contact['email']?.toString() ?? '';
 
@@ -211,6 +211,24 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
         ],
       ),
     );
+  }
+
+  String _contactName(Map<String, dynamic> contact) {
+    for (final key in const [
+      'displayName',
+      'companyName',
+      'name',
+      'fullName',
+      'contactName',
+    ]) {
+      final value = contact[key]?.toString().trim();
+      if (value != null && value.isNotEmpty) return value;
+    }
+    final first = contact['firstName']?.toString().trim() ?? '';
+    final last = contact['lastName']?.toString().trim() ?? '';
+    final full = [first, last].where((s) => s.isNotEmpty).join(' ');
+    if (full.isNotEmpty) return full;
+    return 'Customer';
   }
 }
 

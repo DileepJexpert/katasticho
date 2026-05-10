@@ -6,6 +6,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../routing/app_router.dart';
 import '../data/vendor_credit_dto.dart';
 import '../data/vendor_credit_providers.dart';
 import '../data/vendor_credit_repository.dart';
@@ -22,12 +23,16 @@ class VendorCreditDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Back to vendor credits',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go(Routes.vendorCredits),
+        ),
         title: const Text('Vendor Credit'),
         actions: [
           creditAsync.whenOrNull(
                 data: (data) {
-                  final credit =
-                      (data['data'] ?? data) as Map<String, dynamic>;
+                  final credit = (data['data'] ?? data) as Map<String, dynamic>;
                   final c = VendorCreditDto(credit);
                   return PopupMenuButton<String>(
                     onSelected: (value) =>
@@ -57,19 +62,16 @@ class VendorCreditDetailScreen extends ConsumerWidget {
         loading: () => const KLoading(message: 'Loading credit...'),
         error: (err, _) => KErrorView(
           message: 'Failed to load vendor credit',
-          onRetry: () =>
-              ref.invalidate(vendorCreditDetailProvider(creditId)),
+          onRetry: () => ref.invalidate(vendorCreditDetailProvider(creditId)),
         ),
         data: (data) {
-          final credit =
-              (data['data'] ?? data) as Map<String, dynamic>;
+          final credit = (data['data'] ?? data) as Map<String, dynamic>;
           return _CreditDetailBody(credit: credit, creditId: creditId);
         },
       ),
       bottomNavigationBar: creditAsync.whenOrNull(
         data: (data) {
-          final credit =
-              (data['data'] ?? data) as Map<String, dynamic>;
+          final credit = (data['data'] ?? data) as Map<String, dynamic>;
           final c = VendorCreditDto(credit);
 
           if (c.canApply) {
@@ -133,8 +135,7 @@ class VendorCreditDetailScreen extends ConsumerWidget {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                  content:
-                      Text('Credit posted — journal entry created')),
+                  content: Text('Credit posted — journal entry created')),
             );
           }
         } catch (_) {
@@ -183,8 +184,7 @@ class VendorCreditDetailScreen extends ConsumerWidget {
               } catch (_) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Failed to delete credit')),
+                    const SnackBar(content: Text('Failed to delete credit')),
                   );
                 }
               }
@@ -244,8 +244,7 @@ class VendorCreditDetailScreen extends ConsumerWidget {
               } catch (_) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Failed to void credit')),
+                    const SnackBar(content: Text('Failed to void credit')),
                   );
                 }
               }
@@ -263,8 +262,7 @@ class _CreditDetailBody extends StatelessWidget {
   final Map<String, dynamic> credit;
   final String creditId;
 
-  const _CreditDetailBody(
-      {required this.credit, required this.creditId});
+  const _CreditDetailBody({required this.credit, required this.creditId});
 
   @override
   Widget build(BuildContext context) {
@@ -285,8 +283,7 @@ class _CreditDetailBody extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child:
-                          Text(c.creditNumber, style: KTypography.h2),
+                      child: Text(c.creditNumber, style: KTypography.h2),
                     ),
                     KStatusChip(status: c.status),
                   ],
@@ -321,46 +318,36 @@ class _CreditDetailBody extends StatelessWidget {
                     child: Column(
                       children: [
                         KDetailRow(
-                            label: 'Credit Number',
-                            value: c.creditNumber),
-                        KDetailRow(
-                            label: 'Vendor', value: c.vendorName),
+                            label: 'Credit Number', value: c.creditNumber),
+                        KDetailRow(label: 'Vendor', value: c.vendorName),
                         KDetailRow(
                           label: 'Credit Date',
-                          value: c.creditDate.isEmpty
-                              ? '--'
-                              : c.creditDate,
+                          value: c.creditDate.isEmpty ? '--' : c.creditDate,
                         ),
                         if (c.reason.isNotEmpty)
                           KDetailRow(label: 'Reason', value: c.reason),
                         if (c.placeOfSupply.isNotEmpty)
                           KDetailRow(
-                              label: 'Place of Supply',
-                              value: c.placeOfSupply),
-                        KDetailRow(
-                            label: 'Currency', value: c.currency),
+                              label: 'Place of Supply', value: c.placeOfSupply),
+                        KDetailRow(label: 'Currency', value: c.currency),
                         const Divider(),
                         KDetailRow(
                           label: 'Subtotal',
-                          value: CurrencyFormatter.formatIndian(
-                              c.subtotal),
+                          value: CurrencyFormatter.formatIndian(c.subtotal),
                         ),
                         KDetailRow(
                           label: 'Tax',
-                          value: CurrencyFormatter.formatIndian(
-                              c.taxAmount),
+                          value: CurrencyFormatter.formatIndian(c.taxAmount),
                         ),
                         const Divider(),
                         KDetailRow(
                           label: 'Total',
-                          value: CurrencyFormatter.formatIndian(
-                              c.totalAmount),
+                          value: CurrencyFormatter.formatIndian(c.totalAmount),
                           valueStyle: KTypography.amountMedium,
                         ),
                         KDetailRow(
                           label: 'Balance',
-                          value: CurrencyFormatter.formatIndian(
-                              c.balance),
+                          value: CurrencyFormatter.formatIndian(c.balance),
                           valueStyle: KTypography.amountSmall.copyWith(
                             color: c.balance > 0
                                 ? KColors.primary
@@ -370,8 +357,7 @@ class _CreditDetailBody extends StatelessWidget {
                         if (c.journalEntryId != null) ...[
                           const Divider(),
                           KDetailRow(
-                              label: 'Journal Entry',
-                              value: c.journalEntryId!),
+                              label: 'Journal Entry', value: c.journalEntryId!),
                         ],
                       ],
                     ),

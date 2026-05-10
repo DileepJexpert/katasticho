@@ -165,9 +165,21 @@ public class InvoiceService {
             // Calculate line amounts
             BigDecimal grossAmount = lineReq.quantity().multiply(effectiveUnitPrice)
                     .setScale(2, RoundingMode.HALF_UP);
+            if (grossAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException(
+                        "Invoice line amount must be greater than zero for: " + lineReq.description(),
+                        "AR_INVOICE_LINE_AMOUNT_NOT_POSITIVE",
+                        HttpStatus.BAD_REQUEST);
+            }
             BigDecimal discountAmt = grossAmount.multiply(lineReq.discountPercent())
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             BigDecimal taxableAmount = grossAmount.subtract(discountAmt);
+            if (taxableAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException(
+                        "Invoice line taxable amount must be greater than zero for: " + lineReq.description(),
+                        "AR_INVOICE_LINE_AMOUNT_NOT_POSITIVE",
+                        HttpStatus.BAD_REQUEST);
+            }
 
             // Resolve tax group: prefer explicit taxGroupId, else resolve from legacy gstRate
             UUID lineTaxGroupId = lineReq.taxGroupId();
@@ -233,6 +245,12 @@ public class InvoiceService {
         }
 
         BigDecimal totalAmount = totalSubtotal.add(totalTax);
+        if (totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(
+                    "Invoice total must be greater than zero",
+                    "AR_INVOICE_TOTAL_NOT_POSITIVE",
+                    HttpStatus.BAD_REQUEST);
+        }
         invoice.setSubtotal(totalSubtotal.setScale(2, RoundingMode.HALF_UP));
         invoice.setTaxAmount(totalTax.setScale(2, RoundingMode.HALF_UP));
         invoice.setTotalAmount(totalAmount.setScale(2, RoundingMode.HALF_UP));
@@ -571,7 +589,8 @@ public class InvoiceService {
                     Item item = l.getItemId() != null ? itemMap.get(l.getItemId()) : null;
                     StockBatch batch = l.getBatchId() != null ? batchMap.get(l.getBatchId()) : null;
                     return new InvoiceResponse.LineResponse(
-                        l.getId(), l.getLineNumber(), l.getDescription(), l.getHsnCode(),
+                        l.getId(), l.getItemId(), l.getBatchId(), l.getTaxGroupId(),
+                        l.getLineNumber(), l.getDescription(), l.getHsnCode(),
                         l.getQuantity(), l.getUnitPrice(), l.getDiscountPercent(), l.getDiscountAmount(),
                         l.getTaxableAmount(), l.getGstRate(), l.getTaxAmount(), l.getLineTotal(),
                         l.getAccountCode(),
@@ -595,7 +614,7 @@ public class InvoiceService {
                 inv.getStatus(), inv.getSubtotal(), inv.getTaxAmount(),
                 inv.getTotalAmount(), inv.getAmountPaid(), inv.getBalanceDue(),
                 inv.getCurrency(), inv.getPlaceOfSupply(), inv.isReverseCharge(),
-                inv.getJournalEntryId(), inv.getNotes(),
+                inv.getJournalEntryId(), inv.getNotes(), inv.getTermsAndConditions(),
                 lineResponses, taxLineResponses, inv.getCreatedAt());
     }
 

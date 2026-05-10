@@ -54,6 +54,19 @@ class CartItem {
 
   double get effectiveRate => rate * (1 - discountPct / 100);
 
+  double get stockConversionFactor =>
+      unitConversionFactor != null && unitConversionFactor! > 0
+          ? unitConversionFactor!
+          : 1;
+
+  double get maxSellQuantity => currentStock / stockConversionFactor;
+
+  double get requestedStockQuantity => quantity * stockConversionFactor;
+
+  bool get exceedsStock => requestedStockQuantity > currentStock + 0.0001;
+
+  String get stockUnitLabel => unit ?? 'unit';
+
   /// Gross line total (MRP × qty) — what the customer pays for this line.
   double get lineTotal => effectiveRate * quantity;
 
@@ -190,6 +203,15 @@ class PosCartState {
     return item.discountPct > blockAt;
   });
 
+  bool get hasStockExceededItems => items.any((item) => item.exceedsStock);
+
+  CartItem? get firstStockExceededItem {
+    for (final item in items) {
+      if (item.exceedsStock) return item;
+    }
+    return null;
+  }
+
   bool get isSplitPayment => paymentSplits.isNotEmpty;
   double get splitTotal =>
       paymentSplits.fold(0.0, (sum, s) => sum + s.amount);
@@ -231,12 +253,21 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
     );
     if (existing >= 0) {
       final updated = List<CartItem>.from(state.items);
+      final nextQty = _clampToStock(
+        updated[existing],
+        updated[existing].quantity + item.quantity,
+      );
       updated[existing] = updated[existing].copyWith(
-        quantity: updated[existing].quantity + item.quantity,
+        quantity: nextQty,
       );
       state = state.copyWith(items: updated);
     } else {
-      state = state.copyWith(items: [...state.items, item]);
+      state = state.copyWith(
+        items: [
+          ...state.items,
+          item.copyWith(quantity: _clampToStock(item, item.quantity)),
+        ],
+      );
     }
   }
 
@@ -247,7 +278,9 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
     if (quantity <= 0) {
       updated.removeAt(index);
     } else {
-      updated[index] = updated[index].copyWith(quantity: quantity);
+      updated[index] = updated[index].copyWith(
+        quantity: _clampToStock(updated[index], quantity),
+      );
     }
     state = state.copyWith(items: updated);
   }
@@ -261,8 +294,9 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
   void incrementQty(int index) {
     if (index < 0 || index >= state.items.length) return;
     final updated = List<CartItem>.from(state.items);
+    final nextQty = _clampToStock(updated[index], updated[index].quantity + 1);
     updated[index] = updated[index].copyWith(
-      quantity: updated[index].quantity + 1,
+      quantity: nextQty,
     );
     state = state.copyWith(items: updated);
   }
@@ -358,6 +392,9 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
       unitUomId: uomId,
       unitConversionFactor: conversionFactor,
     );
+    updated[index] = updated[index].copyWith(
+      quantity: _clampToStock(updated[index], updated[index].quantity),
+    );
     state = state.copyWith(items: updated);
   }
 
@@ -369,6 +406,13 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
   /// Restore a held cart.
   void restore(PosCartState cart) {
     state = cart;
+  }
+
+  double _clampToStock(CartItem item, double quantity) {
+    if (item.currentStock <= 0) return quantity;
+    final maxQty = item.maxSellQuantity;
+    if (maxQty <= 0) return quantity;
+    return quantity > maxQty ? maxQty : quantity;
   }
 }
 

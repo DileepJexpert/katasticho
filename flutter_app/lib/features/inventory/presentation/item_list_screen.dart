@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -35,8 +34,8 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Delete $count item${count == 1 ? '' : 's'}?'),
-        content: const Text(
-            'Items used in open transactions cannot be deleted.'),
+        content:
+            const Text('Items used in open transactions cannot be deleted.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -86,8 +85,8 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
           KListPageHeader(
             title: 'Items',
             searchHint: 'Search by SKU or name',
-            onSearchChanged: (q) =>
-                setState(() => _searchQuery = q.trim().isEmpty ? null : q.trim()),
+            onSearchChanged: (q) => setState(
+                () => _searchQuery = q.trim().isEmpty ? null : q.trim()),
             actions: inSelection
                 ? null
                 : [
@@ -130,7 +129,9 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
                 final content = data['data'];
                 final items = content is List
                     ? content
-                    : (content is Map ? (content['content'] as List?) ?? [] : []);
+                    : (content is Map
+                        ? (content['content'] as List?) ?? []
+                        : []);
 
                 if (items.isEmpty) {
                   return KEmptyState(
@@ -148,22 +149,27 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
                   );
                 }
 
-                return RefreshIndicator(
+                final itemMaps = items
+                    .whereType<Map>()
+                    .map((item) => item.cast<String, dynamic>())
+                    .toList();
+
+                return KResponsiveEntityList<Map<String, dynamic>>(
+                  items: itemMaps,
                   onRefresh: () async => ref.invalidate(itemListProvider),
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) {
-                      final item = items[index] as Map<String, dynamic>;
-                      final id = item['id']?.toString() ?? '';
-                      return _ItemCard(
-                        item: item,
-                        selected: _selectedIds.contains(id),
-                        inSelection: inSelection,
-                        onToggleSelect: () => _toggleSelect(id),
-                      );
-                    },
+                  mobileItemBuilder: (context, item) {
+                    final id = item['id']?.toString() ?? '';
+                    return _ItemCard(
+                      item: item,
+                      selected: _selectedIds.contains(id),
+                      inSelection: inSelection,
+                      onToggleSelect: () => _toggleSelect(id),
+                    );
+                  },
+                  tableBuilder: (context) => _ItemTable(
+                    items: itemMaps,
+                    selectedIds: _selectedIds,
+                    onToggleSelect: _toggleSelect,
                   ),
                 );
               },
@@ -178,6 +184,192 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
               icon: const Icon(Icons.add),
               label: const Text('Add Item'),
             ),
+    );
+  }
+}
+
+class _ItemTable extends StatelessWidget {
+  final List<Map<String, dynamic>> items;
+  final Set<String> selectedIds;
+  final ValueChanged<String> onToggleSelect;
+
+  const _ItemTable({
+    required this.items,
+    required this.selectedIds,
+    required this.onToggleSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return KEntityDataTable(
+      columnSpacing: 18,
+      horizontalMargin: 12,
+      columns: const [
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+        DataColumn(label: Text('Item')),
+        DataColumn(label: Text('Type')),
+        DataColumn(label: Text('HSN')),
+        DataColumn(label: Text('Stock')),
+        DataColumn(label: Text('Sale')),
+        DataColumn(label: Text('Purchase')),
+        DataColumn(label: Text('Status')),
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+      ],
+      rows: items.map((item) {
+        final id = item['id']?.toString() ?? '';
+        final name = item['name'] as String? ?? 'Unknown';
+        final sku = item['sku'] as String? ?? '--';
+        final itemType = item['itemType'] as String? ?? 'GOODS';
+        final hsn = (item['hsnCode'] ?? item['hsn'])?.toString() ?? '--';
+        final salePrice = (item['salePrice'] as num?)?.toDouble() ?? 0;
+        final purchasePrice = (item['purchasePrice'] as num?)?.toDouble() ?? 0;
+        final active = item['active'] as bool? ?? true;
+        final trackInventory = item['trackInventory'] as bool? ?? true;
+        final onHand = (item['totalOnHand'] as num?)?.toDouble();
+        final reorderLevel = (item['reorderLevel'] as num?)?.toDouble() ?? 0;
+        final selected = selectedIds.contains(id);
+
+        return DataRow(
+          selected: selected,
+          color: kEntityRowColor(context, selected: selected),
+          onSelectChanged: (_) => onToggleSelect(id),
+          cells: [
+            DataCell(KTableSelectionCell(
+              selected: selected,
+              onChanged: (_) => onToggleSelect(id),
+            )),
+            DataCell(_ItemNameCell(name: name, sku: sku)),
+            DataCell(KTableTextCell(value: _formatItemType(itemType))),
+            DataCell(KTableTextCell(value: hsn)),
+            DataCell(_ItemStockCell(
+              trackInventory: trackInventory,
+              onHand: onHand,
+              reorderLevel: reorderLevel,
+            )),
+            DataCell(KTableAmountCell(value: salePrice)),
+            DataCell(KTableAmountCell(value: purchasePrice)),
+            DataCell(KStatusChip(
+              status: active ? 'PAID' : 'CANCELLED',
+              label: active ? 'Active' : 'Inactive',
+              dense: true,
+            )),
+            DataCell(KTableOpenActionCell(
+              tooltip: 'Open item',
+              onPressed: id.isEmpty ? null : () => context.go('/items/$id'),
+            )),
+          ],
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _ItemNameCell extends StatelessWidget {
+  final String name;
+  final String sku;
+
+  const _ItemNameCell({
+    required this.name,
+    required this.sku,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 240,
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: KColors.primaryLight.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.inventory_2_outlined,
+              size: 17,
+              color: KColors.primary,
+            ),
+          ),
+          KSpacing.hGapSm,
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: KTypography.labelLarge.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  'SKU $sku',
+                  style: KTypography.labelSmall.copyWith(
+                    color: KColors.textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ItemStockCell extends StatelessWidget {
+  final bool trackInventory;
+  final double? onHand;
+  final double reorderLevel;
+
+  const _ItemStockCell({
+    required this.trackInventory,
+    required this.onHand,
+    required this.reorderLevel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!trackInventory) {
+      return Text(
+        'Not tracked',
+        style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+      );
+    }
+
+    final qty = onHand ?? 0;
+    final isLow = reorderLevel > 0 && qty <= reorderLevel;
+    return SizedBox(
+      width: 118,
+      child: Row(
+        children: [
+          Icon(
+            isLow ? Icons.warning_amber_rounded : Icons.inventory_outlined,
+            size: 16,
+            color: isLow ? KColors.warning : KColors.textSecondary,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              '${_formatQty(qty)} on hand',
+              style: KTypography.bodySmall.copyWith(
+                color: isLow ? KColors.warning : KColors.textSecondary,
+                fontWeight: isLow ? FontWeight.w700 : FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -207,8 +399,10 @@ class _ItemCard extends StatelessWidget {
     final itemType = item['itemType'] as String? ?? 'GOODS';
     final active = item['active'] as bool? ?? true;
 
-    final isLowStock =
-        trackInventory && onHand != null && onHand <= reorderLevel && reorderLevel > 0;
+    final isLowStock = trackInventory &&
+        onHand != null &&
+        onHand <= reorderLevel &&
+        reorderLevel > 0;
 
     return KCard(
       onTap: () {
@@ -357,4 +551,18 @@ class _ItemCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatQty(double value) {
+  return value.truncateToDouble() == value
+      ? value.toStringAsFixed(0)
+      : value.toStringAsFixed(2);
+}
+
+String _formatItemType(String value) {
+  return value
+      .split('_')
+      .where((part) => part.isNotEmpty)
+      .map((part) => part[0] + part.substring(1).toLowerCase())
+      .join(' ');
 }

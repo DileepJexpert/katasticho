@@ -1,0 +1,18 @@
+package com.katasticho.erp.ai.repository;
+
+import com.katasticho.erp.ai.entity.DomainEvent;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.UUID;
+
+@Repository
+public interface DomainEventRepository extends JpaRepository<DomainEvent, UUID> {
+
+    Page<DomainEvent> findByOrgIdOrderByCreatedAtDesc(UUID orgId, Pageable pageable);
+
+    List<DomainEvent> findTop100ByOrgIdAndProcessedFalseOrderByCreatedAtAsc(UUID orgId);
+}

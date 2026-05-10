@@ -170,22 +170,28 @@ class _SalesOrderListScreenState extends ConsumerState<SalesOrderListScreen> {
                   );
                 }
 
-                return RefreshIndicator(
+                final orderMaps = orders
+                    .whereType<Map>()
+                    .map((order) => order.cast<String, dynamic>())
+                    .toList();
+
+                return KResponsiveEntityList<Map<String, dynamic>>(
+                  items: orderMaps,
                   onRefresh: () async => ref.invalidate(salesOrderListProvider),
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: orders.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) {
-                      final order = orders[index] as Map<String, dynamic>;
-                      final id = order['id']?.toString() ?? '';
-                      return _SalesOrderCard(
-                        order: order,
-                        selected: _selectedIds.contains(id),
-                        inSelection: inSelection,
-                        onToggleSelect: () => _toggleSelect(id),
-                      );
-                    },
+                  mobileItemBuilder: (context, order) {
+                    final id = order['id']?.toString() ?? '';
+                    return _SalesOrderCard(
+                      order: order,
+                      selected: _selectedIds.contains(id),
+                      inSelection: inSelection,
+                      onToggleSelect: () => _toggleSelect(id),
+                    );
+                  },
+                  tableBuilder: (context) => _SalesOrderTable(
+                    orders: orderMaps,
+                    selectedIds: _selectedIds,
+                    inSelection: inSelection,
+                    onToggleSelect: _toggleSelect,
                   ),
                 );
               },
@@ -200,6 +206,78 @@ class _SalesOrderListScreenState extends ConsumerState<SalesOrderListScreen> {
               icon: const Icon(Icons.add),
               label: const Text('New Order'),
             ),
+    );
+  }
+}
+
+class _SalesOrderTable extends StatelessWidget {
+  final List<Map<String, dynamic>> orders;
+  final Set<String> selectedIds;
+  final bool inSelection;
+  final ValueChanged<String> onToggleSelect;
+
+  const _SalesOrderTable({
+    required this.orders,
+    required this.selectedIds,
+    required this.inSelection,
+    required this.onToggleSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return KEntityDataTable(
+      columnSpacing: 18,
+      horizontalMargin: 12,
+      columns: const [
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+        DataColumn(label: Text('Order')),
+        DataColumn(label: Text('Customer')),
+        DataColumn(label: Text('Ordered')),
+        DataColumn(label: Text('Ship By')),
+        DataColumn(label: Text('Status')),
+        DataColumn(label: Text('Total'), numeric: true),
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+      ],
+      rows: orders.map((order) {
+        final id = order['id']?.toString() ?? '';
+        final orderNumber = order['salesOrderNumber']?.toString() ?? '--';
+        final customerName = order['contactName']?.toString() ?? 'Unknown';
+        final orderDate = order['orderDate']?.toString();
+        final shipDate = order['expectedShipmentDate']?.toString();
+        final status = order['status']?.toString() ?? 'DRAFT';
+        final total = (order['total'] as num?)?.toDouble() ??
+            (order['totalAmount'] as num?)?.toDouble() ??
+            0;
+        final selected = selectedIds.contains(id);
+
+        return DataRow(
+          color: kEntityRowColor(context, selected: selected),
+          onSelectChanged: (_) {
+            if (id.isEmpty) return;
+            if (inSelection) {
+              onToggleSelect(id);
+            } else {
+              context.go('/sales-orders/$id');
+            }
+          },
+          cells: [
+            DataCell(KTableSelectionCell(
+              selected: selected,
+              onChanged: id.isEmpty ? null : (_) => onToggleSelect(id),
+            )),
+            DataCell(KTablePrimaryTextCell(value: orderNumber, width: 150)),
+            DataCell(KTableTextCell(value: customerName, width: 190)),
+            DataCell(KTableDateCell(value: orderDate)),
+            DataCell(KTableDateCell(value: shipDate)),
+            DataCell(KTableStatusCell(status: status)),
+            DataCell(KTableAmountCell(value: total)),
+            DataCell(KTableOpenActionCell(
+              tooltip: 'Open sales order',
+              onPressed: id.isEmpty ? null : () => context.go('/sales-orders/$id'),
+            )),
+          ],
+        );
+      }).toList(),
     );
   }
 }

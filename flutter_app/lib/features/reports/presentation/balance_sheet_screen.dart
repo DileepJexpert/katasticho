@@ -54,26 +54,34 @@ class _BalanceSheetScreenState extends ConsumerState<BalanceSheetScreen> {
           Container(
             color: KColors.surface,
             padding: const EdgeInsets.all(KSpacing.md),
-            child: Row(
-              children: [
-                Expanded(
-                  child: KDatePicker(
-                    label: 'As of Date',
-                    value: _asOfDate,
-                    onChanged: (d) {
-                      _asOfDate = d;
-                      _loadReport();
-                    },
-                  ),
-                ),
-                KSpacing.hGapMd,
-                KButton(
-                  label: 'Generate',
-                  icon: Icons.refresh,
-                  size: KButtonSize.small,
-                  onPressed: _loadReport,
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < KSpacing.mobileBreakpoint;
+                return Wrap(
+                  spacing: KSpacing.md,
+                  runSpacing: KSpacing.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: narrow ? constraints.maxWidth : 320,
+                      child: KDatePicker(
+                        label: 'As of Date',
+                        value: _asOfDate,
+                        onChanged: (d) {
+                          _asOfDate = d;
+                          _loadReport();
+                        },
+                      ),
+                    ),
+                    KButton(
+                      label: 'Generate',
+                      icon: Icons.refresh,
+                      size: KButtonSize.small,
+                      onPressed: _loadReport,
+                    ),
+                  ],
+                );
+              },
             ),
           ),
           const Divider(height: 1),
@@ -216,56 +224,81 @@ class _SectionCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 4,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(2),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                  ),
-                  KSpacing.hGapSm,
-                  Text(title, style: KTypography.h3),
-                ],
+                    KSpacing.hGapSm,
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: KTypography.h3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              KSpacing.hGapSm,
               Text(
                 CurrencyFormatter.formatIndian(total),
                 style: KTypography.amountMedium,
+                textAlign: TextAlign.end,
               ),
             ],
           ),
           KSpacing.vGapMd,
-          ...accounts.map((acct) {
-            final a = acct as Map<String, dynamic>;
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 60,
-                    child: Text(
-                      a['accountCode'] as String? ?? '',
-                      style: KTypography.bodySmall,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      a['accountName'] as String? ?? '',
-                      style: KTypography.bodyMedium,
-                    ),
-                  ),
-                  Text(
-                    CurrencyFormatter.formatIndian(
-                      (a['amount'] as num?)?.toDouble() ?? 0,
-                    ),
-                    style: KTypography.amountSmall,
-                  ),
-                ],
+          if (accounts.isEmpty)
+            Text(
+              'No accounts with balance',
+              style: KTypography.bodySmall.copyWith(
+                color: KColors.textSecondary,
               ),
-            );
-          }),
+            )
+          else
+            ...accounts.map((acct) {
+              final a = acct as Map<String, dynamic>;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 60,
+                      child: Text(
+                        a['accountCode'] as String? ?? '',
+                        style: KTypography.bodySmall,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        a['accountName'] as String? ?? '',
+                        style: KTypography.bodyMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    KSpacing.hGapSm,
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 160),
+                      child: Text(
+                        CurrencyFormatter.formatIndian(
+                          (a['amount'] as num?)?.toDouble() ?? 0,
+                        ),
+                        style: KTypography.amountSmall,
+                        textAlign: TextAlign.end,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           if (footer != null) footer!,
         ],
       ),

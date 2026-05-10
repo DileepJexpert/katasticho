@@ -98,6 +98,17 @@ class _PosCartListState extends ConsumerState<PosCartList> {
                 item: item,
                 index: index,
                 onQuantityChanged: (qty) {
+                  final maxQty = item.maxSellQuantity;
+                  if (item.currentStock > 0 && qty > maxQty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Only ${_fmtQty(maxQty)} ${item.stockUnitLabel} available for ${item.name}',
+                        ),
+                        backgroundColor: KColors.error,
+                      ),
+                    );
+                  }
                   ref
                       .read(posCartProvider.notifier)
                       .updateQuantity(index, qty);

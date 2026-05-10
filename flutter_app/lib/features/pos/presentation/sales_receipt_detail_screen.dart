@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
@@ -7,6 +8,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../routing/app_router.dart';
 import '../data/pos_repository.dart';
 import '../data/sales_receipt_providers.dart';
 
@@ -20,6 +22,11 @@ class SalesReceiptDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to sales receipts',
+          onPressed: () => context.go(Routes.salesReceipts),
+        ),
         title: const Text('Receipt Details'),
         actions: [
           IconButton(
@@ -68,22 +75,6 @@ class SalesReceiptDetailScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _handlePrint(BuildContext context, WidgetRef ref) async {
-    try {
-      final repo = ref.read(posRepositoryProvider);
-      final bytes = await repo.printReceipt(receiptId);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Receipt downloaded (${bytes.length} bytes)')),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Print failed: $e'), backgroundColor: KColors.error),
-      );
-    }
-  }
-
   Future<void> _handleWhatsApp(BuildContext context, WidgetRef ref) async {
     try {
       final repo = ref.read(posRepositoryProvider);
@@ -111,23 +102,27 @@ class _ReceiptBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final receiptNumber = data['receiptNumber']?.toString() ?? '';
     final date = data['receiptDate']?.toString() ?? '';
     final contactName = data['contactName']?.toString();
     final paymentMode = data['paymentMode']?.toString() ?? '';
     final subtotal = (data['subtotal'] as num?)?.toDouble() ?? 0;
-    final taxAmount = (data['taxAmount'] as num?)?.toDouble() ?? 0;
     final cgst = (data['cgst'] as num?)?.toDouble() ?? 0;
     final sgst = (data['sgst'] as num?)?.toDouble() ?? 0;
     final igst = (data['igst'] as num?)?.toDouble() ?? 0;
     final total = (data['total'] as num?)?.toDouble() ?? 0;
-    final amountReceived = (data['amountReceived'] as num?)?.toDouble() ?? total;
+    final amountReceived =
+        (data['amountReceived'] as num?)?.toDouble() ?? total;
     final changeReturned = (data['changeReturned'] as num?)?.toDouble() ?? 0;
     final upiReference = data['upiReference']?.toString();
     final notes = data['notes']?.toString();
     final gstInvoice = data['gstInvoice'] == true;
     final lines = (data['lines'] as List?) ?? [];
+    final totalDiscount = lines.fold<double>(0, (sum, raw) {
+      if (raw is! Map) return sum;
+      return sum + ((raw['discountAmount'] as num?)?.toDouble() ?? 0);
+    });
+    final mrpTotal = total + totalDiscount;
 
     return SingleChildScrollView(
       padding: KSpacing.pagePadding,
@@ -147,7 +142,9 @@ class _ReceiptBody extends StatelessWidget {
               child: Text(
                 paymentMode,
                 style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w600, color: KColors.success),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: KColors.success),
               ),
             ),
             child: Column(
@@ -169,7 +166,9 @@ class _ReceiptBody extends StatelessWidget {
               children: [
                 for (int i = 0; i < lines.length; i++) ...[
                   if (i > 0) const Divider(height: 16),
-                  _LineItem(line: lines[i] as Map<String, dynamic>, detailed: gstInvoice),
+                  _LineItem(
+                      line: lines[i] as Map<String, dynamic>,
+                      detailed: gstInvoice),
                 ],
               ],
             ),
@@ -181,9 +180,20 @@ class _ReceiptBody extends StatelessWidget {
             title: 'Summary',
             child: Column(
               children: [
+                if (totalDiscount > 0) ...[
+                  _DetailRow(
+                    label: 'MRP Total',
+                    value: CurrencyFormatter.formatIndian(mrpTotal),
+                  ),
+                  _DetailRow(
+                    label: 'Discount',
+                    value: '-${CurrencyFormatter.formatIndian(totalDiscount)}',
+                    valueColor: KColors.success,
+                  ),
+                ],
                 if (gstInvoice) ...[
                   _DetailRow(
-                    label: 'Subtotal',
+                    label: totalDiscount > 0 ? 'Taxable Subtotal' : 'Subtotal',
                     value: CurrencyFormatter.formatIndian(subtotal),
                   ),
                   if (cgst > 0)
@@ -208,6 +218,12 @@ class _ReceiptBody extends StatelessWidget {
                   value: CurrencyFormatter.formatIndian(total),
                   bold: true,
                 ),
+                if (totalDiscount > 0)
+                  _DetailRow(
+                    label: 'You Saved',
+                    value: CurrencyFormatter.formatIndian(totalDiscount),
+                    valueColor: KColors.success,
+                  ),
                 if (!gstInvoice)
                   _DetailRow(
                     label: '',
@@ -241,21 +257,29 @@ class _LineItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = line['itemName']?.toString() ?? line['description']?.toString() ?? '';
+    final name =
+        line['itemName']?.toString() ?? line['description']?.toString() ?? '';
     final sku = line['itemSku']?.toString() ?? '';
     final qty = (line['quantity'] as num?)?.toDouble() ?? 0;
     final unit = line['unit']?.toString() ?? '';
+    final mrp = (line['mrp'] as num?)?.toDouble() ?? 0;
     final rate = (line['rate'] as num?)?.toDouble() ?? 0;
+    final discountPerUnit =
+        (line['discountPerUnit'] as num?)?.toDouble() ?? 0;
+    final discountAmount = (line['discountAmount'] as num?)?.toDouble() ?? 0;
     final amount = (line['amount'] as num?)?.toDouble() ?? 0;
     final hsn = line['hsnCode']?.toString();
+    final qtyText = qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2);
 
     if (!detailed) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(child: Text(name, style: KTypography.labelMedium)),
-          Text(CurrencyFormatter.formatIndian(amount), style: KTypography.amountSmall),
-        ],
+      return _RetailLineLayout(
+        name: name,
+        amount: amount,
+        detail: '$qtyText $unit x ${CurrencyFormatter.formatIndian(rate)}',
+        sku: sku,
+        mrp: mrp,
+        discountPerUnit: discountPerUnit,
+        discountAmount: discountAmount,
       );
     }
 
@@ -271,8 +295,17 @@ class _LineItem extends StatelessWidget {
               Text(
                 '${qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2)} $unit x ${CurrencyFormatter.formatIndian(rate)}'
                 '${hsn != null && hsn.isNotEmpty ? '  •  HSN: $hsn' : ''}',
-                style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                style: KTypography.bodySmall
+                    .copyWith(color: KColors.textSecondary),
               ),
+              if (discountAmount > 0) ...[
+                const SizedBox(height: 4),
+                _DiscountWrap(
+                  mrp: mrp,
+                  discountPerUnit: discountPerUnit,
+                  discountAmount: discountAmount,
+                ),
+              ],
               if (sku.isNotEmpty)
                 Text('SKU: $sku',
                     style: KTypography.labelSmall
@@ -283,6 +316,125 @@ class _LineItem extends StatelessWidget {
         Text(
           CurrencyFormatter.formatIndian(amount),
           style: KTypography.amountSmall,
+        ),
+      ],
+    );
+  }
+}
+
+class _RetailLineLayout extends StatelessWidget {
+  final String name;
+  final double amount;
+  final String detail;
+  final String sku;
+  final double mrp;
+  final double discountPerUnit;
+  final double discountAmount;
+
+  const _RetailLineLayout({
+    required this.name,
+    required this.amount,
+    required this.detail,
+    required this.sku,
+    required this.mrp,
+    required this.discountPerUnit,
+    required this.discountAmount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name, style: KTypography.labelMedium),
+              const SizedBox(height: 2),
+              Text(
+                detail,
+                style:
+                    KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (discountAmount > 0) ...[
+                const SizedBox(height: 4),
+                _DiscountWrap(
+                  mrp: mrp,
+                  discountPerUnit: discountPerUnit,
+                  discountAmount: discountAmount,
+                ),
+              ],
+              if (sku.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    'SKU: $sku',
+                    style: KTypography.labelSmall
+                        .copyWith(color: KColors.textSecondary, fontSize: 10),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          CurrencyFormatter.formatIndian(amount),
+          style: KTypography.amountSmall,
+        ),
+      ],
+    );
+  }
+}
+
+class _DiscountWrap extends StatelessWidget {
+  final double mrp;
+  final double discountPerUnit;
+  final double discountAmount;
+
+  const _DiscountWrap({
+    required this.mrp,
+    required this.discountPerUnit,
+    required this.discountAmount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text.rich(
+          TextSpan(
+            children: [
+              const TextSpan(text: 'MRP '),
+              TextSpan(
+                text: CurrencyFormatter.formatIndian(mrp),
+                style: const TextStyle(
+                  decoration: TextDecoration.lineThrough,
+                ),
+              ),
+            ],
+          ),
+          style: KTypography.labelSmall.copyWith(color: KColors.textSecondary),
+        ),
+        Text(
+          'Discount ${CurrencyFormatter.formatIndian(discountPerUnit)}/unit',
+          style: KTypography.labelSmall.copyWith(color: KColors.success),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: KColors.successLight,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            'Saved ${CurrencyFormatter.formatIndian(discountAmount)}',
+            style: KTypography.labelSmall.copyWith(color: KColors.success),
+          ),
         ),
       ],
     );
@@ -312,7 +464,8 @@ class _DetailRow extends StatelessWidget {
           Text(label,
               style: bold
                   ? KTypography.labelMedium
-                  : KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                  : KTypography.bodySmall
+                      .copyWith(color: KColors.textSecondary)),
           Text(value,
               style: bold
                   ? KTypography.amountMedium

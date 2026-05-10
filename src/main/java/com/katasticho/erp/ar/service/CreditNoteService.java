@@ -299,12 +299,28 @@ public class CreditNoteService {
                 .orElseThrow(() -> BusinessException.notFound("CreditNote", creditNoteId));
     }
 
+    @Transactional(readOnly = true)
+    public CreditNoteResponse getCreditNoteResponse(UUID creditNoteId) {
+        return mapToResponse(getCreditNote(creditNoteId));
+    }
+
     public Page<CreditNote> listCreditNotes(Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
         return creditNoteRepository.findByOrgIdAndIsDeletedFalseOrderByCreditNoteDateDesc(orgId, pageable);
     }
 
+    @Transactional(readOnly = true)
+    public Page<CreditNoteResponse> listCreditNoteResponses(Pageable pageable) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        return creditNoteRepository.findByOrgIdAndIsDeletedFalseOrderByCreditNoteDateDesc(orgId, pageable)
+                .map(this::mapToResponse);
+    }
+
     public CreditNoteResponse toResponse(CreditNote cn) {
+        return mapToResponse(cn);
+    }
+
+    private CreditNoteResponse mapToResponse(CreditNote cn) {
         Contact contact = contactRepository.findById(cn.getContactId()).orElse(null);
         Invoice invoice = cn.getInvoiceId() != null ? invoiceRepository.findById(cn.getInvoiceId()).orElse(null) : null;
 

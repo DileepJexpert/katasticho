@@ -310,7 +310,7 @@ class InvoiceServiceTest {
         verify(journalService).postJournal(journalCaptor.capture());
 
         JournalPostRequest journalReq = journalCaptor.getValue();
-        assertEquals("AR", journalReq.sourceModule());
+        assertEquals("SALES", journalReq.sourceModule());
         assertTrue(journalReq.autoPost());
         assertEquals(4, journalReq.lines().size());
 
@@ -415,5 +415,55 @@ class InvoiceServiceTest {
         assertEquals(0, new BigDecimal("9000.00").compareTo(result.subtotal()));
         assertEquals(0, new BigDecimal("1620.00").compareTo(result.taxAmount()));
         assertEquals(0, new BigDecimal("10620.00").compareTo(result.totalAmount()));
+    }
+
+    @Test
+    void shouldRejectZeroAmountInvoice() {
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contact.getId(), orgId))
+                .thenReturn(Optional.of(contact));
+        when(sequenceRepository.findByOrgIdAndPrefixAndYear(eq(orgId), eq("INV"), anyInt()))
+                .thenReturn(Optional.empty());
+        when(sequenceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var request = new CreateInvoiceRequest(
+                contact.getId(),
+                LocalDate.of(2026, 4, 11),
+                null, "MH", false, null, null,
+                List.of(new InvoiceLineRequest("Zero price item", "8471", BigDecimal.ONE,
+                        BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("18"), "4010", null, null, null))
+        );
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> invoiceService.createInvoice(request));
+
+        assertEquals("AR_INVOICE_LINE_AMOUNT_NOT_POSITIVE", ex.getErrorCode());
+        verify(invoiceRepository, never()).save(any());
+        verify(taxLineItemRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void shouldRejectInvoiceLineDiscountThatMakesTaxableAmountZero() {
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contact.getId(), orgId))
+                .thenReturn(Optional.of(contact));
+        when(sequenceRepository.findByOrgIdAndPrefixAndYear(eq(orgId), eq("INV"), anyInt()))
+                .thenReturn(Optional.empty());
+        when(sequenceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var request = new CreateInvoiceRequest(
+                contact.getId(),
+                LocalDate.of(2026, 4, 11),
+                null, "MH", false, null, null,
+                List.of(new InvoiceLineRequest("Free after discount", "8471", BigDecimal.ONE,
+                        new BigDecimal("100"), new BigDecimal("100"), new BigDecimal("18"), "4010", null, null, null))
+        );
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> invoiceService.createInvoice(request));
+
+        assertEquals("AR_INVOICE_LINE_AMOUNT_NOT_POSITIVE", ex.getErrorCode());
+        verify(invoiceRepository, never()).save(any());
+        verify(taxLineItemRepository, never()).saveAll(any());
     }
 }

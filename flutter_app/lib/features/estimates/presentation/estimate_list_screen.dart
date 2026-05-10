@@ -178,23 +178,29 @@ class _EstimateListScreenState extends ConsumerState<EstimateListScreen> {
                   );
                 }
 
-                return RefreshIndicator(
+                final estimateMaps = estimates
+                    .whereType<Map>()
+                    .map((estimate) => estimate.cast<String, dynamic>())
+                    .toList();
+
+                return KResponsiveEntityList<Map<String, dynamic>>(
+                  items: estimateMaps,
                   onRefresh: () async =>
                       ref.invalidate(estimateListProvider(filters)),
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: estimates.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, i) {
-                      final est = estimates[i] as Map<String, dynamic>;
-                      final id = est['id']?.toString() ?? '';
-                      return _EstimateCard(
-                        estimate: est,
-                        selected: _selectedIds.contains(id),
-                        inSelection: inSelection,
-                        onToggleSelect: () => _toggleSelect(id),
-                      );
-                    },
+                  mobileItemBuilder: (context, est) {
+                    final id = est['id']?.toString() ?? '';
+                    return _EstimateCard(
+                      estimate: est,
+                      selected: _selectedIds.contains(id),
+                      inSelection: inSelection,
+                      onToggleSelect: () => _toggleSelect(id),
+                    );
+                  },
+                  tableBuilder: (context) => _EstimateTable(
+                    estimates: estimateMaps,
+                    selectedIds: _selectedIds,
+                    inSelection: inSelection,
+                    onToggleSelect: _toggleSelect,
                   ),
                 );
               },
@@ -209,6 +215,78 @@ class _EstimateListScreenState extends ConsumerState<EstimateListScreen> {
               icon: const Icon(Icons.add),
               label: const Text('New Estimate'),
             ),
+    );
+  }
+}
+
+class _EstimateTable extends StatelessWidget {
+  final List<Map<String, dynamic>> estimates;
+  final Set<String> selectedIds;
+  final bool inSelection;
+  final ValueChanged<String> onToggleSelect;
+
+  const _EstimateTable({
+    required this.estimates,
+    required this.selectedIds,
+    required this.inSelection,
+    required this.onToggleSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return KEntityDataTable(
+      columnSpacing: 18,
+      horizontalMargin: 12,
+      columns: const [
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+        DataColumn(label: Text('Estimate')),
+        DataColumn(label: Text('Customer')),
+        DataColumn(label: Text('Subject')),
+        DataColumn(label: Text('Date')),
+        DataColumn(label: Text('Status')),
+        DataColumn(label: Text('Total'), numeric: true),
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+      ],
+      rows: estimates.map((estimate) {
+        final id = estimate['id']?.toString() ?? '';
+        final number = estimate['estimateNumber']?.toString() ?? '--';
+        final contactName = estimate['contactName']?.toString() ?? '--';
+        final subject = estimate['subject']?.toString() ?? '--';
+        final date = estimate['estimateDate']?.toString();
+        final status = estimate['status']?.toString() ?? 'DRAFT';
+        final total = (estimate['total'] as num?)?.toDouble() ??
+            (estimate['totalAmount'] as num?)?.toDouble() ??
+            0;
+        final selected = selectedIds.contains(id);
+
+        return DataRow(
+          color: kEntityRowColor(context, selected: selected),
+          onSelectChanged: (_) {
+            if (id.isEmpty) return;
+            if (inSelection) {
+              onToggleSelect(id);
+            } else {
+              context.push('/estimates/$id');
+            }
+          },
+          cells: [
+            DataCell(KTableSelectionCell(
+              selected: selected,
+              onChanged: id.isEmpty ? null : (_) => onToggleSelect(id),
+            )),
+            DataCell(KTablePrimaryTextCell(value: number, width: 145)),
+            DataCell(KTableTextCell(value: contactName, width: 180)),
+            DataCell(KTableTextCell(value: subject, width: 220)),
+            DataCell(KTableDateCell(value: date)),
+            DataCell(KTableStatusCell(status: status)),
+            DataCell(KTableAmountCell(value: total)),
+            DataCell(KTableOpenActionCell(
+              tooltip: 'Open estimate',
+              onPressed: id.isEmpty ? null : () => context.push('/estimates/$id'),
+            )),
+          ],
+        );
+      }).toList(),
     );
   }
 }

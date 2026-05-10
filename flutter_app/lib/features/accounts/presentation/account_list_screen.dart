@@ -93,27 +93,29 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
                 _searchQuery.isEmpty ? () => context.push('/accounts/create') : null,
           );
         }
-        return RefreshIndicator(
+        return KResponsiveEntityList<_Row>(
+          items: rows,
           onRefresh: () async => ref.invalidate(accountsProvider),
-          child: ListView.separated(
-            padding: KSpacing.pagePadding,
-            itemCount: rows.length,
-            separatorBuilder: (_, __) => KSpacing.vGapSm,
-            itemBuilder: (context, i) {
-              final row = rows[i];
-              return _AccountCard(
-                account: row.account,
-                depth: row.depth,
-                isCollapsed: _collapsed.contains(row.account.id),
-                onToggle: row.account.hasChildren
-                    ? () => setState(() {
-                          if (!_collapsed.remove(row.account.id)) {
-                            _collapsed.add(row.account.id);
-                          }
-                        })
-                    : null,
-              );
-            },
+          mobileItemBuilder: (context, row) => _AccountCard(
+            account: row.account,
+            depth: row.depth,
+            isCollapsed: _collapsed.contains(row.account.id),
+            onToggle: row.account.hasChildren
+                ? () => setState(() {
+                      if (!_collapsed.remove(row.account.id)) {
+                        _collapsed.add(row.account.id);
+                      }
+                    })
+                : null,
+          ),
+          tableBuilder: (context) => _AccountTable(
+            rows: rows,
+            collapsed: _collapsed,
+            onToggle: (id) => setState(() {
+              if (!_collapsed.remove(id)) {
+                _collapsed.add(id);
+              }
+            }),
           ),
         );
       },
@@ -178,6 +180,163 @@ class _Row {
   const _Row(this.account, this.depth);
 }
 
+class _AccountTable extends StatelessWidget {
+  final List<_Row> rows;
+  final Set<String> collapsed;
+  final ValueChanged<String> onToggle;
+
+  const _AccountTable({
+    required this.rows,
+    required this.collapsed,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return KEntityDataTable(
+      columnSpacing: 20,
+      horizontalMargin: 14,
+      columns: const [
+        DataColumn(label: Text('Account')),
+        DataColumn(label: Text('Code')),
+        DataColumn(label: Text('Type')),
+        DataColumn(label: Text('Subtype')),
+        DataColumn(label: Text('Children')),
+        DataColumn(label: Text('Flags')),
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+      ],
+      rows: rows.map((row) {
+        final account = row.account;
+        final type = account.type.toUpperCase();
+        final typeColor = _accountTypeColor(type);
+        final isCollapsed = collapsed.contains(account.id);
+
+        return DataRow(
+          color: kEntityRowColor(context),
+          onSelectChanged: (_) => context.push('/accounts/${account.id}'),
+          cells: [
+            DataCell(SizedBox(
+              width: 280,
+              child: Row(
+                children: [
+                  SizedBox(width: row.depth * 18.0),
+                  SizedBox(
+                    width: 28,
+                    child: account.hasChildren
+                        ? IconButton(
+                            tooltip: isCollapsed ? 'Expand' : 'Collapse',
+                            padding: EdgeInsets.zero,
+                            visualDensity: VisualDensity.compact,
+                            icon: Icon(
+                              isCollapsed
+                                  ? Icons.chevron_right
+                                  : Icons.keyboard_arrow_down,
+                              size: 20,
+                            ),
+                            onPressed: () => onToggle(account.id),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  KSpacing.hGapXs,
+                  Expanded(
+                    child: Text(
+                      account.name,
+                      style: KTypography.labelLarge.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            )),
+            DataCell(Text(account.code)),
+            DataCell(_AccountTypePill(
+              label: _accountTypeLabel(type),
+              color: typeColor,
+            )),
+            DataCell(KTableTextCell(
+              value: account.subType?.replaceAll('_', ' ').toLowerCase() ?? '--',
+              width: 180,
+            )),
+            DataCell(Text(account.hasChildren ? '${account.childCount}' : '--')),
+            DataCell(_AccountFlags(account: account)),
+            DataCell(KTableOpenActionCell(
+              tooltip: 'Open account',
+              onPressed: () => context.push('/accounts/${account.id}'),
+            )),
+          ],
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _AccountTypePill extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _AccountTypePill({
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: KTypography.labelSmall.copyWith(color: color),
+      ),
+    );
+  }
+}
+
+class _AccountFlags extends StatelessWidget {
+  final AccountDto account;
+
+  const _AccountFlags({required this.account});
+
+  @override
+  Widget build(BuildContext context) {
+    final flags = <Widget>[];
+    if (account.isSystem) {
+      flags.add(const Tooltip(
+        message: 'System account',
+        child: Icon(Icons.lock_outline, size: 15, color: KColors.textHint),
+      ));
+    }
+    if (account.isInvolvedInTransaction) {
+      flags.add(const Tooltip(
+        message: 'Has posted transactions',
+        child:
+            Icon(Icons.receipt_long_outlined, size: 15, color: KColors.textHint),
+      ));
+    }
+    if (!account.isActive) {
+      flags.add(Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: KColors.draftBg,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          'Inactive',
+          style: KTypography.labelSmall.copyWith(color: KColors.draft),
+        ),
+      ));
+    }
+    if (flags.isEmpty) return const Text('--');
+    return Row(mainAxisSize: MainAxisSize.min, children: flags);
+  }
+}
+
 class _AccountCard extends StatelessWidget {
   final AccountDto account;
   final int depth;
@@ -194,7 +353,7 @@ class _AccountCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final type = account.type.toUpperCase();
-    final typeColor = _typeColor(type);
+    final typeColor = _accountTypeColor(type);
 
     return KCard(
       onTap: () => context.push('/accounts/${account.id}'),
@@ -272,7 +431,7 @@ class _AccountCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  _typeLabel(type),
+                  _accountTypeLabel(type),
                   style: KTypography.labelSmall.copyWith(color: typeColor),
                 ),
               ),
@@ -323,21 +482,22 @@ class _AccountCard extends StatelessWidget {
     );
   }
 
-  Color _typeColor(String type) => switch (type) {
-        'ASSET' => KColors.info,
-        'LIABILITY' => KColors.warning,
-        'EQUITY' => KColors.success,
-        'REVENUE' || 'INCOME' => KColors.primary,
-        'EXPENSE' => KColors.error,
-        _ => KColors.textSecondary,
-      };
-
-  String _typeLabel(String type) => switch (type) {
-        'ASSET' => 'Asset',
-        'LIABILITY' => 'Liability',
-        'EQUITY' => 'Equity',
-        'REVENUE' || 'INCOME' => 'Income',
-        'EXPENSE' => 'Expense',
-        _ => type,
-      };
 }
+
+Color _accountTypeColor(String type) => switch (type) {
+      'ASSET' => KColors.info,
+      'LIABILITY' => KColors.warning,
+      'EQUITY' => KColors.success,
+      'REVENUE' || 'INCOME' => KColors.primary,
+      'EXPENSE' => KColors.error,
+      _ => KColors.textSecondary,
+    };
+
+String _accountTypeLabel(String type) => switch (type) {
+      'ASSET' => 'Asset',
+      'LIABILITY' => 'Liability',
+      'EQUITY' => 'Equity',
+      'REVENUE' || 'INCOME' => 'Income',
+      'EXPENSE' => 'Expense',
+      _ => type,
+    };

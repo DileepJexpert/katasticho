@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/recurring_invoice_repository.dart';
 
@@ -70,17 +71,19 @@ class _RecurringInvoiceListScreenState
                   );
                 }
 
-                return RefreshIndicator(
+                final templateMaps = templates
+                    .whereType<Map>()
+                    .map((template) => template.cast<String, dynamic>())
+                    .toList();
+
+                return KResponsiveEntityList<Map<String, dynamic>>(
+                  items: templateMaps,
                   onRefresh: () async =>
                       ref.invalidate(recurringInvoiceListProvider(filters)),
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: templates.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, i) => _TemplateCard(
-                      template: templates[i] as Map<String, dynamic>,
-                    ),
-                  ),
+                  mobileItemBuilder: (context, template) =>
+                      _TemplateCard(template: template),
+                  tableBuilder: (context) =>
+                      _TemplateTable(templates: templateMaps),
                 );
               },
             ),
@@ -92,6 +95,74 @@ class _RecurringInvoiceListScreenState
         icon: const Icon(Icons.add),
         label: const Text('New Template'),
       ),
+    );
+  }
+}
+
+class _TemplateTable extends StatelessWidget {
+  final List<Map<String, dynamic>> templates;
+
+  const _TemplateTable({required this.templates});
+
+  @override
+  Widget build(BuildContext context) {
+    return KEntityDataTable(
+      columnSpacing: 20,
+      horizontalMargin: 14,
+      columns: const [
+        DataColumn(label: Text('Template')),
+        DataColumn(label: Text('Customer')),
+        DataColumn(label: Text('Frequency')),
+        DataColumn(label: Text('Next Invoice')),
+        DataColumn(label: Text('Auto')),
+        DataColumn(label: Text('Generated')),
+        DataColumn(label: Text('Status')),
+        DataColumn(label: Text('Total'), numeric: true),
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+      ],
+      rows: templates.map((template) {
+        final id = template['id']?.toString() ?? '';
+        final name = template['profileName']?.toString() ?? 'Template';
+        final contactName = template['contactName']?.toString() ?? '--';
+        final frequency = template['frequency']?.toString() ?? '';
+        final status = template['status']?.toString() ?? 'ACTIVE';
+        final total = (template['templateTotal'] as num?)?.toDouble() ?? 0;
+        final nextDate = template['nextInvoiceDate']?.toString();
+        final autoSend = template['autoSend'] == true;
+        final generated = (template['totalGenerated'] as num?)?.toInt() ?? 0;
+
+        return DataRow(
+          color: kEntityRowColor(context),
+          onSelectChanged: (_) {
+            if (id.isNotEmpty) context.push('/recurring-invoices/$id');
+          },
+          cells: [
+            DataCell(KTablePrimaryTextCell(value: name, width: 190)),
+            DataCell(KTableTextCell(value: contactName, width: 190)),
+            DataCell(KTableTextCell(
+              value: _recurringFrequencyLabel(frequency),
+              width: 115,
+            )),
+            DataCell(KTableDateCell(value: nextDate)),
+            DataCell(Icon(
+              autoSend
+                  ? Icons.check_circle_rounded
+                  : Icons.remove_circle_outline,
+              color: autoSend ? KColors.success : KColors.textHint,
+              size: 18,
+            )),
+            DataCell(Text('$generated')),
+            DataCell(KTableStatusCell(status: status)),
+            DataCell(KTableAmountCell(value: total)),
+            DataCell(KTableOpenActionCell(
+              tooltip: 'Open recurring invoice',
+              onPressed: id.isEmpty
+                  ? null
+                  : () => context.push('/recurring-invoices/$id'),
+            )),
+          ],
+        );
+      }).toList(),
     );
   }
 }
@@ -146,7 +217,7 @@ class _TemplateCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Text('₹${total.toStringAsFixed(0)}',
+                    Text(CurrencyFormatter.formatIndian(total),
                         style: KTypography.labelLarge),
                   ],
                 ),
@@ -162,7 +233,7 @@ class _TemplateCard extends StatelessWidget {
                   children: [
                     Icon(Icons.repeat, size: 12, color: KColors.textHint),
                     const SizedBox(width: 4),
-                    Text(_prettyFrequency(frequency),
+                    Text(_recurringFrequencyLabel(frequency),
                         style: KTypography.labelSmall),
                     const SizedBox(width: 10),
                     Icon(Icons.event, size: 12, color: KColors.textHint),
@@ -230,17 +301,6 @@ class _TemplateCard extends StatelessWidget {
     };
   }
 
-  String _prettyFrequency(String f) {
-    return switch (f) {
-      'WEEKLY' => 'Weekly',
-      'MONTHLY' => 'Monthly',
-      'QUARTERLY' => 'Quarterly',
-      'HALF_YEARLY' => 'Half-yearly',
-      'YEARLY' => 'Yearly',
-      _ => f,
-    };
-  }
-
   String _formatDate(String iso) {
     try {
       final dt = DateTime.parse(iso);
@@ -250,3 +310,12 @@ class _TemplateCard extends StatelessWidget {
     }
   }
 }
+
+String _recurringFrequencyLabel(String f) => switch (f) {
+      'WEEKLY' => 'Weekly',
+      'MONTHLY' => 'Monthly',
+      'QUARTERLY' => 'Quarterly',
+      'HALF_YEARLY' => 'Half-yearly',
+      'YEARLY' => 'Yearly',
+      _ => f,
+    };

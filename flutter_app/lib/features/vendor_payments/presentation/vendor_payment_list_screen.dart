@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../data/vendor_payment_dto.dart';
 import '../data/vendor_payment_providers.dart';
 import 'widgets/vendor_payment_card.dart';
 
@@ -97,19 +100,19 @@ class VendorPaymentListScreen extends ConsumerWidget {
                   );
                 }
 
-                return RefreshIndicator(
+                final paymentMaps = payments
+                    .whereType<Map>()
+                    .map((payment) => payment.cast<String, dynamic>())
+                    .toList();
+
+                return KResponsiveEntityList<Map<String, dynamic>>(
+                  items: paymentMaps,
                   onRefresh: () async =>
                       ref.invalidate(vendorPaymentListProvider),
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: payments.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) {
-                      final payment =
-                          payments[index] as Map<String, dynamic>;
-                      return VendorPaymentCard(payment: payment);
-                    },
-                  ),
+                  mobileItemBuilder: (context, payment) =>
+                      VendorPaymentCard(payment: payment),
+                  tableBuilder: (context) =>
+                      _VendorPaymentTable(payments: paymentMaps),
                 );
               },
             ),
@@ -201,6 +204,81 @@ class VendorPaymentListScreen extends ConsumerWidget {
               KSpacing.vGapMd,
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VendorPaymentTable extends StatelessWidget {
+  final List<Map<String, dynamic>> payments;
+
+  const _VendorPaymentTable({required this.payments});
+
+  @override
+  Widget build(BuildContext context) {
+    return KEntityDataTable(
+      columnSpacing: 20,
+      horizontalMargin: 14,
+      columns: const [
+        DataColumn(label: Text('Payment')),
+        DataColumn(label: Text('Vendor')),
+        DataColumn(label: Text('Date')),
+        DataColumn(label: Text('Mode')),
+        DataColumn(label: Text('Amount'), numeric: true),
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+      ],
+      rows: payments.map((payment) {
+        final dto = VendorPaymentDto(payment);
+        return DataRow(
+          color: kEntityRowColor(context),
+          onSelectChanged: (_) {
+            if (dto.id.isNotEmpty) context.go('/vendor-payments/${dto.id}');
+          },
+          cells: [
+            DataCell(KTablePrimaryTextCell(
+              value: dto.paymentNumber,
+              width: 165,
+            )),
+            DataCell(KTableTextCell(value: dto.vendorName, width: 220)),
+            DataCell(KTableDateCell(value: dto.paymentDate)),
+            DataCell(_PaymentModePill(label: dto.paymentModeLabel)),
+            DataCell(Text(
+              CurrencyFormatter.formatIndian(dto.amount),
+              textAlign: TextAlign.end,
+              style: KTypography.amountSmall.copyWith(color: KColors.success),
+            )),
+            DataCell(KTableOpenActionCell(
+              tooltip: 'Open vendor payment',
+              onPressed: dto.id.isEmpty
+                  ? null
+                  : () => context.go('/vendor-payments/${dto.id}'),
+            )),
+          ],
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _PaymentModePill extends StatelessWidget {
+  final String label;
+
+  const _PaymentModePill({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: KColors.textHint.withValues(alpha: 0.12),
+        borderRadius: KSpacing.borderRadiusXl,
+      ),
+      child: Text(
+        label,
+        style: KTypography.labelSmall.copyWith(
+          color: KColors.textSecondary,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

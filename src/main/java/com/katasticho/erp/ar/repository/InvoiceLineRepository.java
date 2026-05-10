@@ -16,6 +16,16 @@ public interface InvoiceLineRepository extends JpaRepository<InvoiceLine, UUID> 
 
     List<InvoiceLine> findByInvoiceIdOrderByLineNumber(UUID invoiceId);
 
+    @Query("""
+        SELECT l FROM InvoiceLine l
+        WHERE l.invoice.orgId = :orgId
+          AND l.invoice.isDeleted = false
+          AND l.invoice.status NOT IN ('DRAFT','CANCELLED')
+          AND l.invoice.invoiceDate BETWEEN :from AND :to
+        ORDER BY l.invoice.invoiceDate DESC, l.lineNumber ASC
+    """)
+    List<InvoiceLine> findPostedLinesByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to, Pageable pageable);
+
     /**
      * Top-selling items by total quantity invoiced in a date range.
      * Returns (itemId, description, totalQty, totalRevenue) tuples.

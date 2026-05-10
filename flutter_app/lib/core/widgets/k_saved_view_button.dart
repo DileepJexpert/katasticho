@@ -2,7 +2,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/saved_views.dart';
-import '../theme/k_colors.dart';
 import '../theme/k_spacing.dart';
 import '../theme/k_typography.dart';
 
@@ -172,6 +171,6 @@ class _ViewAction {
   T when<T>({
     required T Function(SavedView) apply,
     required T Function() save,
-  }) =>
-      _view != null ? apply(_view!) : save();
+    }) =>
+      _view != null ? apply(_view) : save();
 }

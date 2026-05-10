@@ -36,10 +36,13 @@ class ApiConfig {
   static const String balanceSheet = '/api/v1/reports/balance-sheet';
   static String generalLedger(String accountId) =>
       '/api/v1/reports/general-ledger/$accountId';
+  static String operationalReport(String key) => '/api/v1/reports/$key';
 
   // AR
   static const String invoices = '/api/v1/invoices';
   static String invoiceById(String id) => '/api/v1/invoices/$id';
+  static String invoicesByContact(String contactId) =>
+      '/api/v1/invoices/contact/$contactId';
   static String invoiceWhatsAppLink(String id) =>
       '/api/v1/invoices/$id/whatsapp-link';
   static String invoiceWhatsAppReminder(String id) =>
@@ -101,8 +104,8 @@ class ApiConfig {
   static String uomById(String id) => '/api/v1/uoms/$id';
 
   // Batches (v2 — perishables / FEFO)
-  static String batchesByItem(String itemId) =>
-      '/api/v1/batches/item/$itemId';
+  static String batchesByItem(String itemId) => '/api/v1/batches/item/$itemId';
+
   /// FEFO-ordered list of batches with non-zero quantity available.
   /// Omit [warehouseId] to fall back to the org's default warehouse
   /// (the backend resolves it via TenantContext).
@@ -110,6 +113,7 @@ class ApiConfig {
     final base = '/api/v1/batches/item/$itemId/available';
     return warehouseId == null ? base : '$base?warehouseId=$warehouseId';
   }
+
   static String batchById(String id) => '/api/v1/batches/$id';
 
   // Procurement
@@ -156,7 +160,8 @@ class ApiConfig {
   static String contactById(String id) => '/api/v1/contacts/$id';
   static const String contactImport = '/api/v1/contacts/import';
   static const String contactImportPreview = '/api/v1/contacts/import/preview';
-  static const String contactImportTemplate = '/api/v1/contacts/import/template';
+  static const String contactImportTemplate =
+      '/api/v1/contacts/import/template';
   static String contactPersons(String contactId) =>
       '/api/v1/contacts/$contactId/persons';
   static String contactPersonById(String contactId, String personId) =>
@@ -177,7 +182,8 @@ class ApiConfig {
   static const String aiQuery = '/api/v1/ai/query';
   static const String aiScanBill = '/api/v1/ai/scan-bill';
   static const String aiScanProductLabel = '/api/v1/ai/scan-product-label';
-  static const String aiScanPurchaseInvoice = '/api/v1/ai/scan-purchase-invoice';
+  static const String aiScanPurchaseInvoice =
+      '/api/v1/ai/scan-purchase-invoice';
 
   // Branches (multi-branch rollup)
   static const String branches = '/api/v1/branches';
@@ -189,13 +195,16 @@ class ApiConfig {
   static const String dashboardApSummary = '/api/v1/dashboard/ap-summary';
   static const String dashboardRecentBills = '/api/v1/dashboard/recent-bills';
   static const String dashboardReceivables = '/api/v1/dashboard/receivables';
-  static const String dashboardMonthlyProfit = '/api/v1/dashboard/monthly-profit';
+  static const String dashboardMonthlyProfit =
+      '/api/v1/dashboard/monthly-profit';
   static const String dashboardRevenueTrend = '/api/v1/dashboard/revenue-trend';
   static const String dashboardDailySummary = '/api/v1/dashboard/daily-summary';
   static const String dashboardExpiringSoon = '/api/v1/dashboard/expiring-soon';
-  static const String dashboardOutstandingReceivable = '/api/v1/dashboard/outstanding-receivable';
+  static const String dashboardOutstandingReceivable =
+      '/api/v1/dashboard/outstanding-receivable';
   static const String dashboardCashFlow = '/api/v1/dashboard/cash-flow';
-  static const String dashboardRecentJournals = '/api/v1/dashboard/recent-journals';
+  static const String dashboardRecentJournals =
+      '/api/v1/dashboard/recent-journals';
   static const String profitLossReport = '/api/v1/reports/profit-loss';
   static const String arAgeing = '/api/v1/ar/reports/ageing';
   static const String apAgeing = '/api/v1/ap/reports/ageing';
@@ -255,7 +264,8 @@ class ApiConfig {
   // POS — Sales Receipts
   static const String salesReceipts = '/api/v1/sales-receipts';
   static String salesReceiptById(String id) => '/api/v1/sales-receipts/$id';
-  static String salesReceiptPrint(String id) => '/api/v1/sales-receipts/$id/print';
+  static String salesReceiptPrint(String id) =>
+      '/api/v1/sales-receipts/$id/print';
   static String salesReceiptWhatsAppLink(String id) =>
       '/api/v1/sales-receipts/$id/whatsapp-link';
   static const String posSearch = '/api/v1/items/pos-search';
@@ -263,22 +273,34 @@ class ApiConfig {
   // Sales Orders
   static const String salesOrders = '/api/v1/sales-orders';
   static String salesOrderById(String id) => '/api/v1/sales-orders/$id';
-  static String confirmSalesOrder(String id) => '/api/v1/sales-orders/$id/confirm';
-  static String cancelSalesOrder(String id) => '/api/v1/sales-orders/$id/cancel';
-  static String convertSalesOrderToInvoice(String id) => '/api/v1/sales-orders/$id/convert-to-invoice';
-  static String salesOrderFromEstimate(String estimateId) => '/api/v1/sales-orders/from-estimate/$estimateId';
-  static String salesOrderReservations(String id) => '/api/v1/sales-orders/$id/reservations';
-  static String salesOrderInvoices(String id) => '/api/v1/sales-orders/$id/invoices';
+  static String confirmSalesOrder(String id) =>
+      '/api/v1/sales-orders/$id/confirm';
+  static String cancelSalesOrder(String id) =>
+      '/api/v1/sales-orders/$id/cancel';
+  static String convertSalesOrderToInvoice(String id) =>
+      '/api/v1/sales-orders/$id/convert-to-invoice';
+  static String salesOrderFromEstimate(String estimateId) =>
+      '/api/v1/sales-orders/from-estimate/$estimateId';
+  static String salesOrderReservations(String id) =>
+      '/api/v1/sales-orders/$id/reservations';
+  static String salesOrderInvoices(String id) =>
+      '/api/v1/sales-orders/$id/invoices';
   static String salesOrderPdf(String id) => '/api/v1/sales-orders/$id/pdf';
 
   // Delivery Challans
   static const String deliveryChallans = '/api/v1/delivery-challans';
-  static String deliveryChallanById(String id) => '/api/v1/delivery-challans/$id';
-  static String dispatchChallan(String id) => '/api/v1/delivery-challans/$id/dispatch';
-  static String deliverChallan(String id) => '/api/v1/delivery-challans/$id/deliver';
-  static String cancelChallan(String id) => '/api/v1/delivery-challans/$id/cancel';
-  static String deliveryChallanPdf(String id) => '/api/v1/delivery-challans/$id/pdf';
-  static String challansBySalesOrder(String soId) => '/api/v1/delivery-challans/by-sales-order/$soId';
+  static String deliveryChallanById(String id) =>
+      '/api/v1/delivery-challans/$id';
+  static String dispatchChallan(String id) =>
+      '/api/v1/delivery-challans/$id/dispatch';
+  static String deliverChallan(String id) =>
+      '/api/v1/delivery-challans/$id/deliver';
+  static String cancelChallan(String id) =>
+      '/api/v1/delivery-challans/$id/cancel';
+  static String deliveryChallanPdf(String id) =>
+      '/api/v1/delivery-challans/$id/pdf';
+  static String challansBySalesOrder(String soId) =>
+      '/api/v1/delivery-challans/by-sales-order/$soId';
 
   // Pricing (v2 — F3 price lists)
   static const String priceLists = '/api/v1/price-lists';

@@ -1,6 +1,7 @@
 package com.katasticho.erp.ar.dto;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -18,9 +19,11 @@ public record InvoiceLineRequest(
         BigDecimal quantity,
 
         @NotNull(message = "Unit price is required")
-        @DecimalMin(value = "0.00", message = "Unit price must be >= 0")
+        @DecimalMin(value = "0.01", message = "Unit price must be positive")
         BigDecimal unitPrice,
 
+        @DecimalMin(value = "0.00", message = "Discount cannot be negative")
+        @DecimalMax(value = "99.99", message = "Discount cannot make the line zero")
         BigDecimal discountPercent,
 
         @NotNull(message = "GST rate is required")

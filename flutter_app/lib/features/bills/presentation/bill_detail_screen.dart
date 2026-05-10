@@ -10,6 +10,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/whatsapp_share.dart';
+import '../../../routing/app_router.dart';
 import '../data/bill_dto.dart';
 import '../data/bill_providers.dart';
 import '../data/bill_repository.dart';
@@ -27,6 +28,11 @@ class BillDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to bills',
+          onPressed: () => context.go(Routes.bills),
+        ),
         title: const Text('Bill Details'),
         actions: [
           billAsync.whenOrNull(
@@ -38,11 +44,9 @@ class BillDetailScreen extends ConsumerWidget {
                         _handleAction(context, ref, value, b),
                     itemBuilder: (context) => [
                       const PopupMenuItem(
-                          value: 'pdf',
-                          child: Text('Download PDF')),
+                          value: 'pdf', child: Text('Download PDF')),
                       const PopupMenuItem(
-                          value: 'share',
-                          child: Text('Share via WhatsApp')),
+                          value: 'share', child: Text('Share via WhatsApp')),
                       if (b.isDraft)
                         const PopupMenuItem(
                             value: 'post', child: Text('Post Bill')),
@@ -152,9 +156,11 @@ class BillDetailScreen extends ConsumerWidget {
           final api = ref.read(apiClientProvider);
           launchWhatsAppShare(
             context,
-            fetchShareData: () => api.get(
-              ApiConfig.billWhatsAppLink(billId),
-            ).then((r) => r.data as Map<String, dynamic>),
+            fetchShareData: () => api
+                .get(
+                  ApiConfig.billWhatsAppLink(billId),
+                )
+                .then((r) => r.data as Map<String, dynamic>),
           );
         }
         break;
@@ -350,8 +356,7 @@ class _BillDetailBody extends ConsumerWidget {
                   child: KCard(
                     child: Column(
                       children: [
-                        KDetailRow(
-                            label: 'Bill Number', value: b.billNumber),
+                        KDetailRow(label: 'Bill Number', value: b.billNumber),
                         KDetailRow(label: 'Vendor', value: b.vendorName),
                         KDetailRow(
                           label: 'Vendor Bill #',
@@ -369,9 +374,8 @@ class _BillDetailBody extends ConsumerWidget {
                         ),
                         KDetailRow(
                           label: 'Place of Supply',
-                          value: b.placeOfSupply.isEmpty
-                              ? '--'
-                              : b.placeOfSupply,
+                          value:
+                              b.placeOfSupply.isEmpty ? '--' : b.placeOfSupply,
                         ),
                         if (b.reverseCharge)
                           const KDetailRow(
@@ -388,14 +392,12 @@ class _BillDetailBody extends ConsumerWidget {
                         const Divider(),
                         KDetailRow(
                           label: 'Total',
-                          value:
-                              CurrencyFormatter.formatIndian(b.totalAmount),
+                          value: CurrencyFormatter.formatIndian(b.totalAmount),
                           valueStyle: KTypography.amountMedium,
                         ),
                         KDetailRow(
                           label: 'Amount Paid',
-                          value:
-                              CurrencyFormatter.formatIndian(b.amountPaid),
+                          value: CurrencyFormatter.formatIndian(b.amountPaid),
                           valueStyle: KTypography.amountSmall.copyWith(
                             color: KColors.success,
                           ),
@@ -464,8 +466,8 @@ class _LinesTab extends StatelessWidget {
                                 .copyWith(fontWeight: FontWeight.w600)),
                         if (line.description.isNotEmpty)
                           Text(line.description,
-                              style: KTypography.bodySmall.copyWith(
-                                  color: KColors.textSecondary)),
+                              style: KTypography.bodySmall
+                                  .copyWith(color: KColors.textSecondary)),
                       ],
                     ),
                   ),
@@ -536,8 +538,8 @@ class _PaymentsTab extends ConsumerWidget {
           padding: KSpacing.pagePadding,
           itemCount: payments.length,
           itemBuilder: (context, index) {
-            final payment = BillPaymentDto(
-                payments[index] as Map<String, dynamic>);
+            final payment =
+                BillPaymentDto(payments[index] as Map<String, dynamic>);
 
             return KCard(
               margin: const EdgeInsets.only(bottom: KSpacing.sm),
@@ -587,4 +589,3 @@ class _PaymentsTab extends ConsumerWidget {
     );
   }
 }
-

@@ -5,6 +5,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../routing/app_router.dart';
 import '../data/contact_repository.dart';
 
 class ContactDetailScreen extends ConsumerWidget {
@@ -42,12 +43,16 @@ class ContactDetailScreen extends ConsumerWidget {
           length: 3,
           child: Scaffold(
             appBar: AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: 'Back to contacts',
+                onPressed: () => context.go(Routes.contacts),
+              ),
               title: Text(displayName),
               actions: [
                 IconButton(
                   icon: const Icon(Icons.edit_outlined),
-                  onPressed: () =>
-                      context.push('/contacts/$contactId/edit'),
+                  onPressed: () => context.push('/contacts/$contactId/edit'),
                 ),
                 PopupMenuButton<String>(
                   onSelected: (v) async {
@@ -59,7 +64,8 @@ class ContactDetailScreen extends ConsumerWidget {
                         context: context,
                         builder: (ctx) => AlertDialog(
                           title: const Text('Delete contact?'),
-                          content: Text('Delete $displayName? This cannot be undone.'),
+                          content: Text(
+                              'Delete $displayName? This cannot be undone.'),
                           actions: [
                             TextButton(
                                 onPressed: () => Navigator.pop(ctx, false),
@@ -81,7 +87,8 @@ class ContactDetailScreen extends ConsumerWidget {
                     }
                   },
                   itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'statement', child: Text('View Statement')),
+                    PopupMenuItem(
+                        value: 'statement', child: Text('View Statement')),
                     PopupMenuItem(value: 'delete', child: Text('Delete')),
                   ],
                 ),
@@ -97,8 +104,7 @@ class ContactDetailScreen extends ConsumerWidget {
             body: TabBarView(
               children: [
                 _DetailsTab(contact: contact, typeColor: typeColor),
-                _PersonsTab(
-                    contact: contact, contactId: contactId),
+                _PersonsTab(contact: contact, contactId: contactId),
                 KActivityTimeline(
                   entityType: 'CONTACT',
                   entityId: contactId,
@@ -149,8 +155,7 @@ class _DetailsTab extends StatelessWidget {
                   backgroundColor: typeColor.withValues(alpha: 0.15),
                   child: Text(
                     displayName[0].toUpperCase(),
-                    style:
-                        KTypography.displayLarge.copyWith(color: typeColor),
+                    style: KTypography.displayLarge.copyWith(color: typeColor),
                   ),
                 ),
                 KSpacing.vGapMd,
@@ -161,8 +166,8 @@ class _DetailsTab extends StatelessWidget {
                 ],
                 KSpacing.vGapSm,
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
                     color: typeColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
@@ -191,8 +196,8 @@ class _DetailsTab extends StatelessWidget {
             _SectionHeader('Tax'),
             _InfoRow(Icons.receipt_long_outlined, 'GSTIN', gstin),
             _InfoRow(Icons.credit_card_outlined, 'PAN', pan),
-            _InfoRow(Icons.account_balance_outlined, 'GST Treatment',
-                gstTreatment),
+            _InfoRow(
+                Icons.account_balance_outlined, 'GST Treatment', gstTreatment),
             KSpacing.vGapMd,
           ],
 
@@ -270,8 +275,8 @@ class _PersonsTab extends StatelessWidget {
                 backgroundColor: KColors.primaryLight.withValues(alpha: 0.15),
                 child: Text(
                   fullName.isNotEmpty ? fullName[0].toUpperCase() : '?',
-                  style: KTypography.labelMedium
-                      .copyWith(color: KColors.primary),
+                  style:
+                      KTypography.labelMedium.copyWith(color: KColors.primary),
                 ),
               ),
               KSpacing.hGapMd,
@@ -360,4 +365,3 @@ class _InfoRow extends StatelessWidget {
     );
   }
 }
-

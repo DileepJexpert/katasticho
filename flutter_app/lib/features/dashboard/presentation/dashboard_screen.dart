@@ -13,7 +13,7 @@ import '../widgets/aaj_ka_hisaab_card.dart';
 import '../widgets/ar_aging_card.dart';
 import '../widgets/week_trend_card.dart';
 import '../widgets/top_selling_widget.dart';
-import '../widgets/udhari_card.dart';
+import '../widgets/credit_due_card.dart';
 import '../widgets/low_stock_widget.dart';
 import '../widgets/bills_to_pay_card.dart';
 import '../widgets/expiring_soon_widget.dart';
@@ -26,6 +26,7 @@ import '../widgets/purchases_by_branch_widget.dart';
 import '../widgets/recent_bills_widget.dart';
 import '../widgets/branch_selector_widget.dart';
 import '../widgets/date_range_picker_widget.dart';
+import '../widgets/finance_command_center.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -49,10 +50,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final config = DashboardConfig.forIndustry(authState.industry);
+    final config = DashboardConfig.forProfile(
+      businessType: authState.businessType,
+      industry: authState.industry,
+      industryCode: authState.industryCode,
+    );
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= KSpacing.desktopBreakpoint;
-    final isRetail = _retailIndustries.contains(authState.industry);
+    final isRetail = config.vertical == DashboardVertical.retail ||
+        config.vertical == DashboardVertical.pharmacy ||
+        config.vertical == DashboardVertical.foodBeverage ||
+        _retailIndustries.contains(authState.industry);
     final role = authState.role?.toUpperCase() ?? 'OWNER';
 
     // Accountant role redirects to accounting dashboard
@@ -100,7 +108,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 orgName: authState.orgName ?? 'Your Business',
               ),
               KSpacing.vGapMd,
-
               if (isCashier)
                 _CashierDashboard(isDesktop: isDesktop)
               else if (isRetail)
@@ -149,7 +156,10 @@ class _CashierDashboard extends ConsumerWidget {
         todaySalesAsync.when(
           loading: () => const KCard(
             title: "Today's Sales",
-            child: SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+            child: SizedBox(
+                height: 80,
+                child:
+                    Center(child: CircularProgressIndicator(strokeWidth: 2))),
           ),
           error: (err, _) => KCard(
             title: "Today's Sales",
@@ -168,7 +178,8 @@ class _CashierDashboard extends ConsumerWidget {
                         color: cs.primary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(Icons.point_of_sale_rounded, color: cs.primary, size: 22),
+                      child: Icon(Icons.point_of_sale_rounded,
+                          color: cs.primary, size: 22),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -176,12 +187,14 @@ class _CashierDashboard extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            CurrencyFormatter.formatIndian(data.totalSales),
-                            style: KTypography.amountMedium.copyWith(fontSize: 22),
+                            CurrencyFormatter.formatIndian(data.posSalesTotal),
+                            style:
+                                KTypography.amountMedium.copyWith(fontSize: 22),
                           ),
                           Text(
-                            '${data.transactionCount} transactions',
-                            style: KTypography.labelSmall.copyWith(color: cs.onSurfaceVariant),
+                            '${data.posTransactionCount} transactions',
+                            style: KTypography.labelSmall
+                                .copyWith(color: cs.onSurfaceVariant),
                           ),
                         ],
                       ),
@@ -191,13 +204,15 @@ class _CashierDashboard extends ConsumerWidget {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: _CashierStat(
+                    Expanded(
+                        child: _CashierStat(
                       label: 'Cash / UPI',
-                      value: CurrencyFormatter.formatCompact(data.cashUpiTotal),
+                      value: CurrencyFormatter.formatCompact(data.posSalesTotal),
                       color: KColors.success,
                     )),
                     const SizedBox(width: 8),
-                    Expanded(child: _CashierStat(
+                    Expanded(
+                        child: _CashierStat(
                       label: 'Credit',
                       value: CurrencyFormatter.formatCompact(data.creditTotal),
                       color: KColors.warning,
@@ -220,7 +235,8 @@ class _CashierStat extends StatelessWidget {
   final String value;
   final Color color;
 
-  const _CashierStat({required this.label, required this.value, required this.color});
+  const _CashierStat(
+      {required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -235,8 +251,11 @@ class _CashierStat extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(value, style: KTypography.amountSmall.copyWith(color: cs.onSurface)),
-          Text(label, style: KTypography.labelSmall.copyWith(color: cs.onSurfaceVariant, fontSize: 10)),
+          Text(value,
+              style: KTypography.amountSmall.copyWith(color: cs.onSurface)),
+          Text(label,
+              style: KTypography.labelSmall
+                  .copyWith(color: cs.onSurfaceVariant, fontSize: 10)),
         ],
       ),
     );
@@ -261,6 +280,11 @@ class _RetailDashboard extends StatelessWidget {
   Widget _buildMobile() {
     return Column(
       children: [
+        BusinessCommandCenter(
+          isDesktop: isDesktop,
+          vertical: config.vertical,
+        ),
+        const SizedBox(height: 12),
         QuickActionGrid(actions: config.quickActions),
         const SizedBox(height: 12),
         const TodaySummaryCard(),
@@ -285,6 +309,11 @@ class _RetailDashboard extends StatelessWidget {
   Widget _buildDesktop() {
     return Column(
       children: [
+        BusinessCommandCenter(
+          isDesktop: isDesktop,
+          vertical: config.vertical,
+        ),
+        const SizedBox(height: 16),
         QuickActionGrid(actions: config.quickActions),
         const SizedBox(height: 16),
         Row(
@@ -352,16 +381,18 @@ class _AccountingDashboard extends StatelessWidget {
         KSpacing.vGapMd,
         const _FilterBar(),
         KSpacing.vGapMd,
-
+        BusinessCommandCenter(
+          isDesktop: isDesktop,
+          vertical: config.vertical,
+        ),
+        KSpacing.vGapMd,
         _KpiGrid(
           kpis: config.kpis,
           isDesktop: isDesktop,
           expandedAging: expandedAging,
           onToggleAging: onToggleAging,
         ),
-
         KSpacing.vGapLg,
-
         if (isDesktop)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -453,8 +484,7 @@ class _GreetingStrip extends StatelessWidget {
               color: cs.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.waving_hand_rounded,
-                size: 18, color: cs.primary),
+            child: Icon(Icons.waving_hand_rounded, size: 18, color: cs.primary),
           ),
           KSpacing.hGapMd,
           Expanded(
@@ -554,8 +584,7 @@ class _KpiGrid extends ConsumerWidget {
           loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
           error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
           data: (ap) {
-            final value =
-                CurrencyFormatter.formatCompact(ap.totalOutstanding);
+            final value = CurrencyFormatter.formatCompact(ap.totalOutstanding);
             final String trend;
             final bool trendPositive;
             if (ap.dueThisWeekCount > 0) {
@@ -589,8 +618,7 @@ class _KpiGrid extends ConsumerWidget {
           loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
           error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
           data: (ar) {
-            final value =
-                CurrencyFormatter.formatCompact(ar.totalOutstanding);
+            final value = CurrencyFormatter.formatCompact(ar.totalOutstanding);
             final String trend;
             final bool trendPositive;
             if (ar.dueThisWeekCount > 0) {
@@ -742,9 +770,15 @@ class _KpiGrid extends ConsumerWidget {
   (String, String) _valueFor(String id, dynamic data) {
     switch (id) {
       case 'today_sales':
-        return (CurrencyFormatter.formatCompact(data.totalSales as double), 'Today');
+        return (
+          CurrencyFormatter.formatCompact(data.totalSales as double),
+          'Today'
+        );
       case 'cash_collected':
-        return (CurrencyFormatter.formatCompact(data.cashUpiTotal as double), 'Today');
+        return (
+          CurrencyFormatter.formatCompact(data.cashUpiTotal as double),
+          'Today'
+        );
       case 'avg_order_value':
         final count = (data.transactionCount as int);
         final avg = count > 0 ? (data.totalSales as double) / count : 0.0;

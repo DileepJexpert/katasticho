@@ -79,18 +79,18 @@ class JournalListScreen extends ConsumerWidget {
                   );
                 }
 
-                return RefreshIndicator(
+                final journalMaps = journals
+                    .whereType<Map>()
+                    .map((journal) => journal.cast<String, dynamic>())
+                    .toList();
+
+                return KResponsiveEntityList<Map<String, dynamic>>(
+                  items: journalMaps,
                   onRefresh: () async => ref.invalidate(journalListProvider),
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: journals.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) {
-                      final je =
-                          journals[index] as Map<String, dynamic>;
-                      return _JournalCard(journal: je);
-                    },
-                  ),
+                  mobileItemBuilder: (context, journal) =>
+                      _JournalCard(journal: journal),
+                  tableBuilder: (context) =>
+                      _JournalTable(journals: journalMaps),
                 );
               },
             ),
@@ -102,6 +102,67 @@ class JournalListScreen extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('Manual Journal'),
       ),
+    );
+  }
+}
+
+class _JournalTable extends StatelessWidget {
+  final List<Map<String, dynamic>> journals;
+
+  const _JournalTable({required this.journals});
+
+  @override
+  Widget build(BuildContext context) {
+    return KEntityDataTable(
+      columnSpacing: 20,
+      horizontalMargin: 14,
+      columns: const [
+        DataColumn(label: Text('Entry')),
+        DataColumn(label: Text('Date')),
+        DataColumn(label: Text('Description')),
+        DataColumn(label: Text('Source')),
+        DataColumn(label: Text('Status')),
+        DataColumn(label: Text('Debit'), numeric: true),
+        DataColumn(label: Text('Credit'), numeric: true),
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+      ],
+      rows: journals.map((journal) {
+        final id = journal['id']?.toString() ?? '';
+        final entryNumber = journal['entryNumber']?.toString() ?? '--';
+        final description = journal['description']?.toString() ?? '--';
+        final effectiveDate = journal['effectiveDate']?.toString();
+        final sourceModule = journal['sourceModule']?.toString() ?? '';
+        final status = journal['status']?.toString() ?? 'POSTED';
+        final totalDebit = (journal['totalDebit'] as num?)?.toDouble() ?? 0;
+        final totalCredit = (journal['totalCredit'] as num?)?.toDouble() ??
+            totalDebit;
+
+        return DataRow(
+          color: kEntityRowColor(context),
+          onSelectChanged: (_) {
+            if (id.isNotEmpty) {
+              context.push('/accounting/journal-entries/$id');
+            }
+          },
+          cells: [
+            DataCell(KTablePrimaryTextCell(value: entryNumber, width: 160)),
+            DataCell(KTableDateCell(value: effectiveDate)),
+            DataCell(KTableTextCell(value: description, width: 280)),
+            DataCell(_SourceChip(sourceModule: sourceModule)),
+            DataCell(status == 'POSTED'
+                ? const Text('--')
+                : KTableStatusCell(status: status)),
+            DataCell(KTableAmountCell(value: totalDebit)),
+            DataCell(KTableAmountCell(value: totalCredit)),
+            DataCell(KTableOpenActionCell(
+              tooltip: 'Open journal entry',
+              onPressed: id.isEmpty
+                  ? null
+                  : () => context.push('/accounting/journal-entries/$id'),
+            )),
+          ],
+        );
+      }).toList(),
     );
   }
 }

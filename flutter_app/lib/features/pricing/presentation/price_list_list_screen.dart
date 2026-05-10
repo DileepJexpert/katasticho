@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -41,17 +40,12 @@ class PriceListListScreen extends ConsumerWidget {
                   );
                 }
 
-                return RefreshIndicator(
+                return KResponsiveEntityList<Map<String, dynamic>>(
+                  items: lists,
                   onRefresh: () async => ref.invalidate(priceListsProvider),
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: lists.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) {
-                      final list = lists[index];
-                      return _PriceListCard(list: list);
-                    },
-                  ),
+                  mobileItemBuilder: (context, list) =>
+                      _PriceListCard(list: list),
+                  tableBuilder: (context) => _PriceListTable(lists: lists),
                 );
               },
             ),
@@ -63,6 +57,63 @@ class PriceListListScreen extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('New List'),
       ),
+    );
+  }
+}
+
+class _PriceListTable extends StatelessWidget {
+  final List<Map<String, dynamic>> lists;
+
+  const _PriceListTable({required this.lists});
+
+  @override
+  Widget build(BuildContext context) {
+    return KEntityDataTable(
+      columnSpacing: 22,
+      horizontalMargin: 14,
+      columns: const [
+        DataColumn(label: Text('Name')),
+        DataColumn(label: Text('Description')),
+        DataColumn(label: Text('Currency')),
+        DataColumn(label: Text('Default')),
+        DataColumn(label: Text('Status')),
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+      ],
+      rows: lists.map((list) {
+        final id = list['id']?.toString() ?? '';
+        final name = list['name']?.toString() ?? 'Unnamed list';
+        final currency = list['currency']?.toString() ?? 'INR';
+        final description = list['description']?.toString() ?? '--';
+        final isDefault = list['isDefault'] == true;
+        final active = list['active'] != false;
+
+        return DataRow(
+          color: kEntityRowColor(context),
+          onSelectChanged: (_) {
+            if (id.isNotEmpty) context.go('/price-lists/$id');
+          },
+          cells: [
+            DataCell(KTablePrimaryTextCell(value: name, width: 190)),
+            DataCell(KTableTextCell(value: description, width: 280)),
+            DataCell(Text(currency)),
+            DataCell(Icon(
+              isDefault
+                  ? Icons.check_circle_rounded
+                  : Icons.remove_circle_outline,
+              color: isDefault ? KColors.primary : KColors.textHint,
+              size: 18,
+            )),
+            DataCell(_Pill(
+              label: active ? 'Active' : 'Inactive',
+              color: active ? KColors.success : KColors.textSecondary,
+            )),
+            DataCell(KTableOpenActionCell(
+              tooltip: 'Open price list',
+              onPressed: id.isEmpty ? null : () => context.go('/price-lists/$id'),
+            )),
+          ],
+        );
+      }).toList(),
     );
   }
 }

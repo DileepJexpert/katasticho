@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -46,6 +48,8 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
     Page<Contact> findVendors(@Param("orgId") UUID orgId, Pageable pageable);
 
     Optional<Contact> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
+
+    List<Contact> findByOrgIdAndIsDeletedFalseAndIdIn(UUID orgId, Collection<UUID> ids);
 
     boolean existsByOrgIdAndGstinAndIsDeletedFalse(UUID orgId, String gstin);
 

@@ -75,4 +75,7 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, UU
     BigDecimal sumSalesCostByOrgAndDateRange(@Param("orgId") UUID orgId,
                                              @Param("from") LocalDate from,
                                              @Param("to") LocalDate to);
+
+    List<StockMovement> findByOrgIdAndMovementDateBetweenOrderByMovementDateDescCreatedAtDesc(
+            UUID orgId, LocalDate from, LocalDate to);
 }

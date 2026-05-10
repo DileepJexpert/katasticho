@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/expense_repository.dart';
 
@@ -97,17 +98,19 @@ class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
                   );
                 }
 
-                return RefreshIndicator(
+                final expenseMaps = expenses
+                    .whereType<Map>()
+                    .map((expense) => expense.cast<String, dynamic>())
+                    .toList();
+
+                return KResponsiveEntityList<Map<String, dynamic>>(
+                  items: expenseMaps,
                   onRefresh: () async =>
                       ref.invalidate(expenseListProvider(filters)),
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: expenses.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, i) => _ExpenseCard(
-                      expense: expenses[i] as Map<String, dynamic>,
-                    ),
-                  ),
+                  mobileItemBuilder: (context, expense) =>
+                      _ExpenseCard(expense: expense),
+                  tableBuilder: (context) =>
+                      _ExpenseTable(expenses: expenseMaps),
                 );
               },
             ),
@@ -139,6 +142,77 @@ class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
           });
         },
       ),
+    );
+  }
+}
+
+class _ExpenseTable extends StatelessWidget {
+  final List<Map<String, dynamic>> expenses;
+
+  const _ExpenseTable({required this.expenses});
+
+  @override
+  Widget build(BuildContext context) {
+    return KEntityDataTable(
+      columnSpacing: 20,
+      horizontalMargin: 14,
+      columns: const [
+        DataColumn(label: Text('Expense')),
+        DataColumn(label: Text('Date')),
+        DataColumn(label: Text('Category')),
+        DataColumn(label: Text('Contact')),
+        DataColumn(label: Text('Payment')),
+        DataColumn(label: Text('Status')),
+        DataColumn(label: Text('Amount'), numeric: true),
+        DataColumn(label: SizedBox(width: 32, child: Text(''))),
+      ],
+      rows: expenses.map((expense) {
+        final id = expense['id']?.toString() ?? '';
+        final number = expense['expenseNumber']?.toString() ?? '--';
+        final date = expense['expenseDate']?.toString();
+        final category = expense['category']?.toString() ?? '--';
+        final description = expense['description']?.toString() ?? '';
+        final contactName = expense['contactName']?.toString() ?? '--';
+        final paymentMode = expense['paymentMode']?.toString() ?? 'CASH';
+        final status = expense['status']?.toString() ?? 'RECORDED';
+        final total = (expense['total'] as num?)?.toDouble() ??
+            (expense['totalAmount'] as num?)?.toDouble() ??
+            0;
+
+        return DataRow(
+          color: kEntityRowColor(context),
+          onSelectChanged: (_) {
+            if (id.isNotEmpty) context.push('/expenses/$id');
+          },
+          cells: [
+            DataCell(Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                KTablePrimaryTextCell(value: number, width: 150),
+                if (description.isNotEmpty)
+                  KTableTextCell(
+                    value: description,
+                    width: 150,
+                    style: KTypography.labelSmall.copyWith(
+                      color: KColors.textSecondary,
+                    ),
+                  ),
+              ],
+            )),
+            DataCell(KTableDateCell(value: date)),
+            DataCell(KTableTextCell(value: category, width: 130)),
+            DataCell(KTableTextCell(value: contactName, width: 180)),
+            DataCell(KTableTextCell(value: paymentMode, width: 95)),
+            DataCell(KTableStatusCell(status: status)),
+            DataCell(KTableAmountCell(value: total)),
+            DataCell(KTableOpenActionCell(
+              tooltip: 'Open expense',
+              onPressed: id.isEmpty ? null : () => context.push('/expenses/$id'),
+            )),
+          ],
+        );
+      }).toList(),
     );
   }
 }
@@ -399,7 +473,7 @@ class _ExpenseCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Text('₹${total.toStringAsFixed(0)}',
+                    Text(CurrencyFormatter.formatIndian(total),
                         style: KTypography.labelLarge),
                   ],
                 ),

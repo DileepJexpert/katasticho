@@ -1,0 +1,45 @@
+package com.katasticho.erp.ai.repository;
+
+import com.katasticho.erp.ai.entity.AiSuggestion;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import java.util.Collection;
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface AiSuggestionRepository extends JpaRepository<AiSuggestion, UUID> {
+
+    Optional<AiSuggestion> findByIdAndOrgId(UUID id, UUID orgId);
+
+    Page<AiSuggestion> findByOrgIdOrderByPriorityScoreDescCreatedAtDesc(UUID orgId, Pageable pageable);
+
+    Page<AiSuggestion> findByOrgIdAndStatusOrderByPriorityScoreDescCreatedAtDesc(
+            UUID orgId, String status, Pageable pageable);
+
+    long countByOrgIdAndStatus(UUID orgId, String status);
+
+    @Query("""
+        SELECT COUNT(s) > 0 FROM AiSuggestion s
+        WHERE s.orgId = :orgId
+          AND s.entityType = :entityType
+          AND s.entityId = :entityId
+          AND (:entityLineId IS NULL OR s.entityLineId = :entityLineId)
+          AND s.suggestionType = :suggestionType
+          AND s.status IN :statuses
+    """)
+    boolean existsOpenSuggestion(UUID orgId, String entityType, UUID entityId, UUID entityLineId,
+                                 String suggestionType, Collection<String> statuses);
+
+    @Query("""
+        SELECT COUNT(s) FROM AiSuggestion s
+        WHERE s.orgId = :orgId
+          AND s.status = 'PENDING'
+          AND s.priority IN ('HIGH', 'CRITICAL')
+    """)
+    long countHighPriorityPending(UUID orgId);
+}

@@ -170,7 +170,7 @@ class CreditNoteServiceTest {
         verify(journalService).postJournal(captor.capture());
 
         JournalPostRequest journalReq = captor.getValue();
-        assertEquals("AR", journalReq.sourceModule());
+        assertEquals("SALES", journalReq.sourceModule());
         assertEquals(4, journalReq.lines().size());
 
         assertEquals("4010", journalReq.lines().get(0).accountCode());

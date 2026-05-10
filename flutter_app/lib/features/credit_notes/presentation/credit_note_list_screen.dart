@@ -6,6 +6,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/credit_note_providers.dart';
 
@@ -37,7 +38,7 @@ class _CreditNoteListScreenState extends ConsumerState<CreditNoteListScreen> {
         children: [
           KListPageHeader(
             title: 'Credit Notes',
-            searchHint: 'Search credit notes…',
+            searchHint: 'Search credit notes...',
             tabs: _statusTabs,
             selectedTab: _status,
             onTabChanged: (v) => setState(() => _status = v),
@@ -85,19 +86,14 @@ class _CreditNoteListScreenState extends ConsumerState<CreditNoteListScreen> {
                   );
                 }
 
-                return RefreshIndicator(
-                  onRefresh: () async =>
-                      ref.invalidate(creditNoteListProvider),
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: creditNotes.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) {
-                      final cn =
-                          creditNotes[index] as Map<String, dynamic>;
-                      return _CreditNoteCard(creditNote: cn);
-                    },
-                  ),
+                final creditNoteMaps = creditNotes.cast<Map<String, dynamic>>();
+
+                return KResponsiveEntityList<Map<String, dynamic>>(
+                  items: creditNoteMaps,
+                  onRefresh: () async => ref.invalidate(creditNoteListProvider),
+                  tableBuilder: (_) =>
+                      _CreditNoteTable(creditNotes: creditNoteMaps),
+                  mobileItemBuilder: (_, cn) => _CreditNoteCard(creditNote: cn),
                 );
               },
             ),
@@ -121,12 +117,9 @@ class _CreditNoteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = creditNote['status'] as String? ?? 'DRAFT';
-    final totalAmount =
-        (creditNote['totalAmount'] as num?)?.toDouble() ?? 0;
-    final customerName =
-        creditNote['contactName'] as String? ?? 'Unknown';
-    final creditNoteNumber =
-        creditNote['creditNoteNumber'] as String? ?? '--';
+    final totalAmount = (creditNote['totalAmount'] as num?)?.toDouble() ?? 0;
+    final customerName = creditNote['contactName'] as String? ?? 'Unknown';
+    final creditNoteNumber = creditNote['creditNoteNumber'] as String? ?? '--';
     final invoiceNumber = creditNote['invoiceNumber'] as String?;
     final reason = creditNote['reason'] as String? ?? '';
 
@@ -197,6 +190,126 @@ class _CreditNoteCard extends StatelessWidget {
           KSpacing.hGapSm,
           const Icon(Icons.chevron_right, color: KColors.textHint),
         ],
+      ),
+    );
+  }
+}
+
+class _CreditNoteTable extends StatelessWidget {
+  final List<Map<String, dynamic>> creditNotes;
+
+  const _CreditNoteTable({required this.creditNotes});
+
+  @override
+  Widget build(BuildContext context) {
+    return KEntityDataTable(
+      columnSpacing: 12,
+      horizontalMargin: 8,
+      dataRowMaxHeight: 62,
+      columns: const [
+        DataColumn(label: Text('Credit Note')),
+        DataColumn(label: Text('Customer')),
+        DataColumn(label: Text('Reference')),
+        DataColumn(label: Text('Reason')),
+        DataColumn(label: Text('Status')),
+        DataColumn(label: Text('Amount'), numeric: true),
+        DataColumn(label: SizedBox(width: 28)),
+      ],
+      rows: creditNotes.map((creditNote) {
+        final id = creditNote['id']?.toString() ?? '';
+        final status = creditNote['status'] as String? ?? 'DRAFT';
+        final number = creditNote['creditNoteNumber'] as String? ?? '--';
+        final customerName = creditNote['contactName'] as String? ?? 'Unknown';
+        final invoiceNumber = creditNote['invoiceNumber'] as String? ?? '--';
+        final date = creditNote['creditNoteDate'] as String?;
+        final reason = creditNote['reason'] as String? ?? '--';
+        final amount = (creditNote['totalAmount'] as num?)?.toDouble() ?? 0;
+
+        return DataRow(
+          onSelectChanged: (_) {
+            if (id.isNotEmpty) context.go('/credit-notes/$id');
+          },
+          color: kEntityRowColor(context),
+          cells: [
+            DataCell(KTablePrimaryTextCell(value: number, width: 132)),
+            DataCell(KTableTextCell(value: customerName, width: 160)),
+            DataCell(_CreditNoteReferenceCell(
+              invoiceNumber: invoiceNumber,
+              date: date,
+            )),
+            DataCell(KTableTextCell(value: reason, width: 170)),
+            DataCell(KTableStatusCell(status: status)),
+            DataCell(KTableAmountCell(value: amount, color: KColors.error)),
+            DataCell(_CompactOpenActionCell(
+              onPressed:
+                  id.isEmpty ? null : () => context.go('/credit-notes/$id'),
+            )),
+          ],
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _CreditNoteReferenceCell extends StatelessWidget {
+  final String invoiceNumber;
+  final String? date;
+
+  const _CreditNoteReferenceCell({
+    required this.invoiceNumber,
+    required this.date,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dateText = date == null || date!.isEmpty
+        ? '--'
+        : DateFormatter.short(DateTime.parse(date!));
+
+    return SizedBox(
+      width: 126,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            invoiceNumber,
+            style: KTypography.bodyMedium,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          KSpacing.vGapXxs,
+          Text(
+            dateText,
+            style: KTypography.bodySmall.copyWith(
+              color: KColors.textSecondary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactOpenActionCell extends StatelessWidget {
+  final VoidCallback? onPressed;
+
+  const _CompactOpenActionCell({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 28,
+      height: 32,
+      child: IconButton(
+        tooltip: 'Open credit note',
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 28, height: 32),
+        icon: const Icon(Icons.chevron_right, size: 18),
+        onPressed: onPressed,
       ),
     );
   }

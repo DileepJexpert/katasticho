@@ -24,12 +24,16 @@ public record InvoiceResponse(
         boolean reverseCharge,
         UUID journalEntryId,
         String notes,
+        String termsAndConditions,
         List<LineResponse> lines,
         List<TaxLineResponse> taxLines,
         Instant createdAt
 ) {
     public record LineResponse(
             UUID id,
+            UUID itemId,
+            UUID batchId,
+            UUID taxGroupId,
             int lineNumber,
             String description,
             String hsnCode,

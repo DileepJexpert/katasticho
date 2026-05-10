@@ -78,6 +78,7 @@ class KTextField extends StatefulWidget {
     String currencySymbol = '\u20B9',
     bool isRequired = false,
     String? serverError,
+    int? maxLength,
   }) {
     return KTextField(
       key: key,
@@ -94,6 +95,7 @@ class KTextField extends StatefulWidget {
       selectAllOnFocus: true,
       isRequired: isRequired,
       serverError: serverError,
+      maxLength: maxLength,
     );
   }
 
@@ -178,9 +180,12 @@ class _KTextFieldState extends State<KTextField> {
     if (widget.serverError != null) {
       final original = widget.validator;
       effectiveValidator = (v) {
+        if (widget.serverError != null && widget.serverError!.isNotEmpty) {
+          return widget.serverError;
+        }
         final clientErr = original?.call(v);
         if (clientErr != null) return clientErr;
-        return widget.serverError;
+        return null;
       };
     }
 
@@ -196,7 +201,8 @@ class _KTextFieldState extends State<KTextField> {
       enabled: widget.enabled,
       maxLines: widget.maxLines,
       maxLength: widget.maxLength,
-      focusNode: widget.selectAllOnFocus ? _effectiveFocusNode : widget.focusNode,
+      focusNode:
+          widget.selectAllOnFocus ? _effectiveFocusNode : widget.focusNode,
       textInputAction: widget.textInputAction,
       onTap: widget.onTap,
       onFieldSubmitted: widget.onFieldSubmitted,

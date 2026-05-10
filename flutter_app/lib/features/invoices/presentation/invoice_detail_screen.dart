@@ -8,7 +8,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
-import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/whatsapp_share.dart';
 import '../../../routing/app_router.dart';
 import '../data/invoice_providers.dart';
@@ -25,14 +25,21 @@ class InvoiceDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to invoices',
+          onPressed: () => context.go(Routes.invoices),
+        ),
         title: const Text('Invoice Details'),
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) => _handleAction(context, ref, value),
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'send', child: Text('Send Invoice')),
-              const PopupMenuItem(value: 'share', child: Text('Share via WhatsApp')),
-              const PopupMenuItem(value: 'reminder', child: Text('Send Payment Reminder')),
+              const PopupMenuItem(
+                  value: 'share', child: Text('Share via WhatsApp')),
+              const PopupMenuItem(
+                  value: 'reminder', child: Text('Send Payment Reminder')),
               const PopupMenuItem(value: 'pdf', child: Text('Download PDF')),
               const PopupMenuItem(
                 value: 'cancel',
@@ -60,7 +67,9 @@ class InvoiceDetailScreen extends ConsumerWidget {
           final status = invoice['status'] as String? ?? '';
           final balanceDue = (invoice['balanceDue'] as num?)?.toDouble() ?? 0;
 
-          if (status == 'SENT' || status == 'PARTIALLY_PAID' || status == 'OVERDUE') {
+          if (status == 'SENT' ||
+              status == 'PARTIALLY_PAID' ||
+              status == 'OVERDUE') {
             return Container(
               padding: const EdgeInsets.all(KSpacing.md),
               decoration: BoxDecoration(
@@ -123,7 +132,10 @@ class InvoiceDetailScreen extends ConsumerWidget {
         } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Failed to send invoice')),
+              SnackBar(
+                content: Text(ApiErrorParser.message(e)),
+                backgroundColor: KColors.error,
+              ),
             );
           }
         }
@@ -155,9 +167,11 @@ class InvoiceDetailScreen extends ConsumerWidget {
           final api = ref.read(apiClientProvider);
           launchWhatsAppShare(
             context,
-            fetchShareData: () => api.get(
-              ApiConfig.invoiceWhatsAppLink(invoiceId),
-            ).then((r) => r.data as Map<String, dynamic>),
+            fetchShareData: () => api
+                .get(
+                  ApiConfig.invoiceWhatsAppLink(invoiceId),
+                )
+                .then((r) => r.data as Map<String, dynamic>),
           );
         }
         break;
@@ -166,9 +180,11 @@ class InvoiceDetailScreen extends ConsumerWidget {
           final api = ref.read(apiClientProvider);
           launchWhatsAppShare(
             context,
-            fetchShareData: () => api.get(
-              ApiConfig.invoiceWhatsAppReminder(invoiceId),
-            ).then((r) => r.data as Map<String, dynamic>),
+            fetchShareData: () => api
+                .get(
+                  ApiConfig.invoiceWhatsAppReminder(invoiceId),
+                )
+                .then((r) => r.data as Map<String, dynamic>),
           );
         }
         break;
@@ -193,7 +209,6 @@ class InvoiceDetailScreen extends ConsumerWidget {
       ref.invalidate(invoiceDetailProvider(invoiceId));
     } catch (_) {}
   }
-
 }
 
 class _InvoiceDetailBody extends ConsumerWidget {
@@ -319,10 +334,8 @@ class _InvoiceDetailBody extends ConsumerWidget {
                         padding: KSpacing.pagePadding,
                         itemCount: lines.length,
                         itemBuilder: (context, index) {
-                          final line =
-                              lines[index] as Map<String, dynamic>;
-                          final desc =
-                              line['description'] as String? ?? 'Item';
+                          final line = lines[index] as Map<String, dynamic>;
+                          final desc = line['description'] as String? ?? 'Item';
                           final qty =
                               (line['quantity'] as num?)?.toDouble() ?? 0;
                           final price =
@@ -330,16 +343,12 @@ class _InvoiceDetailBody extends ConsumerWidget {
                           final lineTotal =
                               (line['lineTotal'] as num?)?.toDouble() ?? 0;
 
-                          final batchNum =
-                              line['batchNumber'] as String?;
-                          final batchExp =
-                              line['batchExpiry'] as String?;
-                          final itemMrp =
-                              (line['itemMrp'] as num?)?.toDouble();
+                          final batchNum = line['batchNumber'] as String?;
+                          final batchExp = line['batchExpiry'] as String?;
+                          final itemMrp = (line['itemMrp'] as num?)?.toDouble();
 
                           return KCard(
-                            margin:
-                                const EdgeInsets.only(bottom: KSpacing.sm),
+                            margin: const EdgeInsets.only(bottom: KSpacing.sm),
                             child: Row(
                               children: [
                                 Expanded(
@@ -347,8 +356,7 @@ class _InvoiceDetailBody extends ConsumerWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(desc,
-                                          style: KTypography.bodyMedium),
+                                      Text(desc, style: KTypography.bodyMedium),
                                       Text(
                                         '${qty.toStringAsFixed(0)} x ${CurrencyFormatter.formatIndian(price)}',
                                         style: KTypography.bodySmall,
@@ -356,8 +364,8 @@ class _InvoiceDetailBody extends ConsumerWidget {
                                       if (itemMrp != null && itemMrp > 0)
                                         Text(
                                           'MRP ${CurrencyFormatter.formatIndian(itemMrp)}',
-                                          style: KTypography.labelSmall
-                                              .copyWith(
+                                          style:
+                                              KTypography.labelSmall.copyWith(
                                             fontSize: 10,
                                             color: KColors.textHint,
                                           ),
@@ -503,4 +511,3 @@ class _PaymentsTab extends ConsumerWidget {
     }
   }
 }
-

@@ -46,15 +46,13 @@ public class CreditNoteController {
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<CreditNoteResponse>> getCreditNote(@PathVariable UUID id) {
-        CreditNote cn = creditNoteService.getCreditNote(id);
-        return ResponseEntity.ok(ApiResponse.ok(creditNoteService.toResponse(cn)));
+        return ResponseEntity.ok(ApiResponse.ok(creditNoteService.getCreditNoteResponse(id)));
     }
 
     @GetMapping("/{id}/pdf")
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<byte[]> downloadPdf(@PathVariable UUID id) {
-        CreditNote cn = creditNoteService.getCreditNote(id);
-        CreditNoteResponse response = creditNoteService.toResponse(cn);
+        CreditNoteResponse response = creditNoteService.getCreditNoteResponse(id);
         byte[] pdf = creditNotePdfService.generatePdf(response);
         String filename = "credit-note-" + response.creditNoteNumber().replaceAll("[/\\\\:*?\"<>|]", "-") + ".pdf";
         return ResponseEntity.ok()
@@ -66,8 +64,7 @@ public class CreditNoteController {
     @GetMapping
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<CreditNoteResponse>>> listCreditNotes(Pageable pageable) {
-        Page<CreditNote> page = creditNoteService.listCreditNotes(pageable);
-        Page<CreditNoteResponse> responsePage = page.map(creditNoteService::toResponse);
+        Page<CreditNoteResponse> responsePage = creditNoteService.listCreditNoteResponses(pageable);
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(responsePage)));
     }
 }

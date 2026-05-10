@@ -3,8 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/utils/api_error_parser.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
+import '../data/bill_dto.dart';
 import '../data/bill_providers.dart';
 import '../data/bill_repository.dart';
 import 'widgets/bill_card.dart';
@@ -60,18 +65,31 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
 
     final repo = ref.read(billRepositoryProvider);
     final ids = _selectedIds.toList();
-    try {
-      final result = await repo.bulkPost(ids);
-      if (!mounted) return;
-      setState(_selectedIds.clear);
-      ref.invalidate(billListProvider);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(_bulkMsg(result, 'Posted'))));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error));
+
+    var success = 0;
+    final failures = <String>[];
+    for (final id in ids) {
+      try {
+        await repo.postBill(id);
+        success++;
+      } catch (e) {
+        failures.add(ApiErrorParser.message(e));
+      }
     }
+
+    if (!mounted) return;
+    setState(_selectedIds.clear);
+    ref.invalidate(billListProvider);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          failures.isEmpty
+              ? 'Posted $success bill${success == 1 ? '' : 's'}'
+              : 'Posted $success, ${failures.length} failed: ${failures.first}',
+        ),
+        backgroundColor: failures.isEmpty ? null : KColors.error,
+      ),
+    );
   }
 
   Future<void> _bulkVoid() async {
@@ -111,7 +129,11 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error));
+        SnackBar(
+          content: Text(ApiErrorParser.message(e)),
+          backgroundColor: KColors.error,
+        ),
+      );
     }
   }
 
@@ -180,12 +202,11 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
         children: [
           KListPageHeader(
             title: 'Bills',
-            searchHint: 'Search bills…',
+            searchHint: 'Search bills...',
             tabs: _statusTabs,
             selectedTab: filter.status,
-            onTabChanged: (v) => ref
-                .read(billFilterProvider.notifier)
-                .state = filter.copyWith(status: v, page: 0),
+            onTabChanged: (v) => ref.read(billFilterProvider.notifier).state =
+                filter.copyWith(status: v, page: 0),
             onSearchChanged: (q) => ref
                 .read(billFilterProvider.notifier)
                 .state = filter.copyWith(search: q.isEmpty ? null : q, page: 0),
@@ -249,23 +270,25 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
                   );
                 }
 
-                return RefreshIndicator(
+                final billMaps = bills.cast<Map<String, dynamic>>();
+
+                return KResponsiveEntityList<Map<String, dynamic>>(
+                  items: billMaps,
                   onRefresh: () async => ref.invalidate(billListProvider),
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: bills.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) {
-                      final bill = bills[index] as Map<String, dynamic>;
-                      final id = bill['id']?.toString() ?? '';
-                      return BillCard(
-                        bill: bill,
-                        selected: _selectedIds.contains(id),
-                        inSelection: inSelection,
-                        onToggleSelect: () => _toggleSelect(id),
-                      );
-                    },
+                  tableBuilder: (_) => _BillTable(
+                    bills: billMaps,
+                    selectedIds: _selectedIds,
+                    onToggleSelect: _toggleSelect,
                   ),
+                  mobileItemBuilder: (_, bill) {
+                    final id = bill['id']?.toString() ?? '';
+                    return BillCard(
+                      bill: bill,
+                      selected: _selectedIds.contains(id),
+                      inSelection: inSelection,
+                      onToggleSelect: () => _toggleSelect(id),
+                    );
+                  },
                 );
               },
             ),
@@ -279,6 +302,199 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
               icon: const Icon(Icons.add),
               label: const Text('New Bill'),
             ),
+    );
+  }
+}
+
+class _BillTable extends StatelessWidget {
+  final List<Map<String, dynamic>> bills;
+  final Set<String> selectedIds;
+  final ValueChanged<String> onToggleSelect;
+
+  const _BillTable({
+    required this.bills,
+    required this.selectedIds,
+    required this.onToggleSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final inSelection = selectedIds.isNotEmpty;
+
+    return KEntityDataTable(
+      columnSpacing: 12,
+      horizontalMargin: 8,
+      dataRowMaxHeight: 64,
+      columns: const [
+        DataColumn(label: SizedBox(width: 24)),
+        DataColumn(label: Text('Bill')),
+        DataColumn(label: Text('Vendor')),
+        DataColumn(label: Text('Vendor Ref')),
+        DataColumn(label: Text('Dates')),
+        DataColumn(label: Text('Status')),
+        DataColumn(label: Text('Total'), numeric: true),
+        DataColumn(label: Text('Settlement'), numeric: true),
+        DataColumn(label: SizedBox(width: 28)),
+      ],
+      rows: bills.map((raw) {
+        final b = BillDto(raw);
+        final selected = selectedIds.contains(b.id);
+
+        return DataRow(
+          selected: selected,
+          color: kEntityRowColor(context, selected: selected),
+          onSelectChanged: (_) {
+            if (b.id.isEmpty) return;
+            if (inSelection) {
+              onToggleSelect(b.id);
+            } else {
+              context.go('/bills/${b.id}');
+            }
+          },
+          cells: [
+            DataCell(KTableSelectionCell(
+              selected: selected,
+              onChanged: b.id.isEmpty ? null : (_) => onToggleSelect(b.id),
+            )),
+            DataCell(KTablePrimaryTextCell(value: b.billNumber, width: 124)),
+            DataCell(KTableTextCell(value: b.vendorName, width: 148)),
+            DataCell(KTableTextCell(
+              value: b.vendorBillNumber.isEmpty ? '--' : b.vendorBillNumber,
+              width: 96,
+            )),
+            DataCell(_BillDatesCell(
+              billDate: b.billDate,
+              dueDate: b.dueDate,
+              overdue: b.isOverdue,
+            )),
+            DataCell(KTableStatusCell(status: b.status)),
+            DataCell(KTableAmountCell(value: b.totalAmount)),
+            DataCell(_BillSettlementCell(
+              paid: b.amountPaid,
+              balance: b.balanceDue,
+              overdue: b.isOverdue,
+            )),
+            DataCell(_CompactOpenActionCell(
+              onPressed:
+                  b.id.isEmpty ? null : () => context.go('/bills/${b.id}'),
+            )),
+          ],
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _BillDatesCell extends StatelessWidget {
+  final String? billDate;
+  final String? dueDate;
+  final bool overdue;
+
+  const _BillDatesCell({
+    required this.billDate,
+    required this.dueDate,
+    required this.overdue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 104,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _formatDate(billDate),
+            style: KTypography.bodyMedium,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          KSpacing.vGapXxs,
+          Text(
+            'Due ${_formatDate(dueDate)}',
+            style: KTypography.bodySmall.copyWith(
+              color: overdue ? KColors.error : KColors.textSecondary,
+              fontWeight: overdue ? FontWeight.w700 : FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(String? value) {
+    if (value == null || value.isEmpty) return '--';
+    final parsed = DateTime.tryParse(value);
+    return parsed == null ? value : DateFormatter.short(parsed);
+  }
+}
+
+class _BillSettlementCell extends StatelessWidget {
+  final double paid;
+  final double balance;
+  final bool overdue;
+
+  const _BillSettlementCell({
+    required this.paid,
+    required this.balance,
+    required this.overdue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final balanceColor = balance > 0
+        ? (overdue ? KColors.error : KColors.warning)
+        : KColors.success;
+
+    return SizedBox(
+      width: 118,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            'Paid ${CurrencyFormatter.formatIndian(paid)}',
+            style: KTypography.bodySmall.copyWith(
+              color: KColors.success,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          KSpacing.vGapXxs,
+          Text(
+            'Bal ${CurrencyFormatter.formatIndian(balance)}',
+            style: KTypography.amountSmall.copyWith(color: balanceColor),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactOpenActionCell extends StatelessWidget {
+  final VoidCallback? onPressed;
+
+  const _CompactOpenActionCell({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 28,
+      height: 32,
+      child: IconButton(
+        tooltip: 'Open bill',
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 28, height: 32),
+        icon: const Icon(Icons.chevron_right, size: 18),
+        onPressed: onPressed,
+      ),
     );
   }
 }
