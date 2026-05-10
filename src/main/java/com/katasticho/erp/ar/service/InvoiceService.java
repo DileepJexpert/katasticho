@@ -1,10 +1,7 @@
 package com.katasticho.erp.ar.service;
 
-import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
-import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
-import com.katasticho.erp.accounting.dto.JournalLineRequest;
-import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.JournalEntry;
+import com.katasticho.erp.accounting.posting.AccountingPostingEngine;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ar.dto.*;
 import com.katasticho.erp.ar.entity.*;
@@ -68,13 +65,13 @@ public class InvoiceService {
     private final OrganisationRepository organisationRepository;
     private final BranchRepository branchRepository;
     private final JournalService journalService;
+    private final AccountingPostingEngine postingEngine;
     private final TaxEngine taxEngine;
     private final CurrencyService currencyService;
     private final AuditService auditService;
     private final InventoryService inventoryService;
     private final PriceListService priceListService;
     private final CommentService commentService;
-    private final DefaultAccountService defaultAccountService;
     private final DocumentEmailService documentEmailService;
     private final ItemRepository itemRepository;
     private final StockBatchRepository stockBatchRepository;
@@ -320,85 +317,8 @@ public class InvoiceService {
             inventoryService.validateStockForInvoice(invoice);
         }
 
-        // Build journal lines
-        List<JournalLineRequest> journalLines = new ArrayList<>();
-
-        // DR: Accounts Receivable for total amount (per-org default)
-        journalLines.add(new JournalLineRequest(
-                defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR),
-                invoice.getTotalAmount(),
-                BigDecimal.ZERO,
-                "AR: " + invoice.getInvoiceNumber(),
-                null, null));
-
-        // CR: Revenue per invoice line
-        for (InvoiceLine line : invoice.getLines()) {
-            journalLines.add(new JournalLineRequest(
-                    line.getAccountCode(),
-                    BigDecimal.ZERO,
-                    line.getTaxableAmount(),
-                    "Revenue: " + line.getDescription(),
-                    null, null));
-        }
-
-        // CR: Tax payable per component
-        List<TaxLineItem> taxLines = taxLineItemRepository.findBySourceTypeAndSourceId("INVOICE", invoice.getId());
-        for (TaxLineItem tli : taxLines) {
-            if (tli.getAccountCode() == null || tli.getAccountCode().isBlank()) {
-                throw new BusinessException(
-                        "Tax component " + tli.getComponentCode()
-                                + " has no GL output account. Configure it in Settings → Tax Account Mapping.",
-                        "TAX_GL_ACCOUNT_MISSING", HttpStatus.BAD_REQUEST);
-            }
-            journalLines.add(new JournalLineRequest(
-                    tli.getAccountCode(),
-                    BigDecimal.ZERO,
-                    tli.getTaxAmount(),
-                    tli.getComponentCode() + " Payable",
-                    tli.getComponentCode(), null));
-        }
-
-        // DR COGS / CR Inventory for tracked items
-        Set<UUID> lineItemIds = invoice.getLines().stream()
-                .map(InvoiceLine::getItemId).filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        Map<UUID, Item> itemMap = lineItemIds.isEmpty() ? Map.of()
-                : itemRepository.findAllById(lineItemIds).stream()
-                .collect(Collectors.toMap(Item::getId, i -> i));
-
-        BigDecimal totalCost = BigDecimal.ZERO;
-        for (InvoiceLine line : invoice.getLines()) {
-            if (line.getItemId() == null) continue;
-            Item item = itemMap.get(line.getItemId());
-            if (item == null || !item.isTrackInventory()) continue;
-            totalCost = totalCost.add(
-                    item.getPurchasePrice().multiply(line.getQuantity()).setScale(2, RoundingMode.HALF_UP));
-        }
-        if (totalCost.compareTo(BigDecimal.ZERO) > 0) {
-            try {
-                String cogsCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.COGS);
-                String inventoryCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.INVENTORY_ASSET);
-                journalLines.add(new JournalLineRequest(
-                        cogsCode, totalCost, BigDecimal.ZERO,
-                        "COGS: " + invoice.getInvoiceNumber(), null, null));
-                journalLines.add(new JournalLineRequest(
-                        inventoryCode, BigDecimal.ZERO, totalCost,
-                        "Inventory: " + invoice.getInvoiceNumber(), null, null));
-            } catch (BusinessException e) {
-                log.warn("COGS/Inventory accounts not configured — skipping: {}", e.getMessage());
-            }
-        }
-
-        // Post journal via the single posting gate
-        JournalPostRequest journalRequest = new JournalPostRequest(
-                invoice.getInvoiceDate(),
-                "Invoice " + invoice.getInvoiceNumber(),
-                "SALES",
-                invoice.getId(),
-                journalLines,
-                true);
-
-        JournalEntry journalEntry = journalService.postJournal(journalRequest);
+        // Post journal via the accounting posting engine
+        JournalEntry journalEntry = postingEngine.postSalesInvoice(invoice);
 
         // Deduct stock for any itemised lines (free-text lines are silently
         // skipped). Skip when invoice originates from a Sales Order — stock

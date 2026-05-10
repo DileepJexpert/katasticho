@@ -1,11 +1,8 @@
 package com.katasticho.erp.ap.service;
 
-import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
-import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
-import com.katasticho.erp.accounting.dto.JournalLineRequest;
-import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.Account;
 import com.katasticho.erp.accounting.entity.JournalEntry;
+import com.katasticho.erp.accounting.posting.AccountingPostingEngine;
 import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ap.dto.VendorPaymentRequest;
@@ -66,9 +63,9 @@ public class VendorPaymentService {
     private final BranchRepository branchRepository;
     private final InvoiceNumberSequenceRepository sequenceRepository;
     private final JournalService journalService;
+    private final AccountingPostingEngine postingEngine;
     private final PurchaseBillService billService;
     private final CurrencyService currencyService;
-    private final DefaultAccountService defaultAccountService;
     private final CommentService commentService;
 
     @Transactional
@@ -129,40 +126,11 @@ public class VendorPaymentService {
         int periodYear = billService.computeFiscalYear(request.paymentDate(), org.getFiscalYearStart());
         String paymentNumber = billService.generateNumber(orgId, "VPAY", periodYear);
 
-        // ── Post journal: DR AP (+TDS), CR Cash/Bank ────────────
-
-        List<JournalLineRequest> journalLines = new ArrayList<>();
-
-        BigDecimal apDebit = request.amount().subtract(request.tdsAmount());
-        journalLines.add(new JournalLineRequest(
-                defaultAccountService.getCode(orgId, DefaultAccountPurpose.AP),
-                apDebit, BigDecimal.ZERO,
-                "AP cleared: " + paymentNumber,
-                null, null));
-
-        if (request.tdsAmount().compareTo(BigDecimal.ZERO) > 0) {
-            journalLines.add(new JournalLineRequest(
-                    defaultAccountService.getCode(orgId, DefaultAccountPurpose.TDS_PAYABLE),
-                    request.tdsAmount(), BigDecimal.ZERO,
-                    "TDS: " + paymentNumber,
-                    null, null));
-        }
-
-        journalLines.add(new JournalLineRequest(
-                paidThroughAccount.getCode(),
-                BigDecimal.ZERO, request.amount(),
-                "Payment " + paymentNumber + " to vendor",
-                null, null));
-
-        JournalPostRequest journalRequest = new JournalPostRequest(
-                request.paymentDate(),
-                "Vendor Payment " + paymentNumber,
-                "PAYMENT",
-                null,
-                journalLines,
-                true);
-
-        JournalEntry journalEntry = journalService.postJournal(journalRequest);
+        // Post journal via the accounting posting engine
+        JournalEntry journalEntry = postingEngine.postVendorPayment(
+                orgId, paymentNumber, request.paymentDate(),
+                request.amount(), request.tdsAmount(),
+                paidThroughAccount.getCode());
 
         // ── Resolve branch ──────────────────────────────────────
 

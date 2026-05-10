@@ -1,10 +1,7 @@
 package com.katasticho.erp.ar.service;
 
-import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
-import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
-import com.katasticho.erp.accounting.dto.JournalLineRequest;
-import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.JournalEntry;
+import com.katasticho.erp.accounting.posting.AccountingPostingEngine;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ar.dto.PaymentResponse;
 import com.katasticho.erp.ar.dto.RecordPaymentForInvoiceRequest;
@@ -57,11 +54,11 @@ public class PaymentService {
     private final OrganisationRepository organisationRepository;
     private final BranchRepository branchRepository;
     private final JournalService journalService;
+    private final AccountingPostingEngine postingEngine;
     private final InvoiceService invoiceService;
     private final CurrencyService currencyService;
     private final AuditService auditService;
     private final CommentService commentService;
-    private final DefaultAccountService defaultAccountService;
 
     /**
      * Record a payment against an invoice (supports partial payments).
@@ -99,32 +96,10 @@ public class PaymentService {
         int periodYear = invoiceService.computeFiscalYear(request.paymentDate(), org.getFiscalYearStart());
         String paymentNumber = invoiceService.generateNumber(orgId, "PAY", periodYear);
 
-        // Determine debit account: CASH for cash/UPI, BANK for bank transfer/cheque/card
-        String debitAccountCode = resolvePaymentAccount(orgId, request.paymentMethod());
-
-        // Post journal: DR Cash/Bank, CR AR (per-org defaults)
-        List<JournalLineRequest> journalLines = List.of(
-                new JournalLineRequest(
-                        debitAccountCode,
-                        request.amount(), BigDecimal.ZERO,
-                        "Payment " + paymentNumber + " received",
-                        null, null),
-                new JournalLineRequest(
-                        defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR),
-                        BigDecimal.ZERO, request.amount(),
-                        "AR cleared: " + invoice.getInvoiceNumber(),
-                        null, null)
-        );
-
-        JournalPostRequest journalRequest = new JournalPostRequest(
-                request.paymentDate(),
-                "Payment " + paymentNumber + " for " + invoice.getInvoiceNumber(),
-                "PAYMENT",
-                null, // will be set after payment is saved
-                journalLines,
-                true);
-
-        JournalEntry journalEntry = journalService.postJournal(journalRequest);
+        // Post journal via the accounting posting engine
+        JournalEntry journalEntry = postingEngine.postPaymentReceived(
+                orgId, paymentNumber, invoice.getInvoiceNumber(),
+                request.paymentDate(), request.amount(), request.paymentMethod());
 
         // Resolve contactId: prefer explicit value, else inherit from invoice
         UUID resolvedContactId = request.contactId() != null ? request.contactId() : invoice.getContactId();
@@ -237,12 +212,4 @@ public class PaymentService {
                 p.getJournalEntryId(), p.getCreatedAt());
     }
 
-    private String resolvePaymentAccount(UUID orgId, String paymentMethod) {
-        DefaultAccountPurpose purpose = switch (paymentMethod) {
-            case "CASH", "UPI" -> DefaultAccountPurpose.CASH;
-            case "BANK_TRANSFER", "CHEQUE", "CARD" -> DefaultAccountPurpose.BANK;
-            default -> DefaultAccountPurpose.CASH;
-        };
-        return defaultAccountService.getCode(orgId, purpose);
-    }
 }

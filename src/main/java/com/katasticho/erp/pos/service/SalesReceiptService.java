@@ -1,10 +1,7 @@
 package com.katasticho.erp.pos.service;
 
-import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
-import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
-import com.katasticho.erp.accounting.dto.JournalLineRequest;
-import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.JournalEntry;
+import com.katasticho.erp.accounting.posting.AccountingPostingEngine;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ar.entity.TaxLineItem;
 import com.katasticho.erp.ar.entity.InvoiceNumberSequence;
@@ -78,11 +75,11 @@ public class SalesReceiptService {
     private final TaxLineItemRepository taxLineItemRepository;
     private final ContactRepository contactRepository;
     private final JournalService journalService;
+    private final AccountingPostingEngine postingEngine;
     private final InventoryService inventoryService;
     private final BatchService batchService;
     private final TaxEngine taxEngine;
     private final AuditService auditService;
-    private final DefaultAccountService defaultAccountService;
     private final CacheInvalidationService cacheInvalidationService;
     private final OrganisationRepository organisationRepository;
 
@@ -272,7 +269,7 @@ public class SalesReceiptService {
         taxLineItemRepository.saveAll(allTaxLines);
 
         // 5. Post journal — immediate payment, no AR
-        JournalEntry journalEntry = postJournal(receipt, allTaxLines, itemMap);
+        JournalEntry journalEntry = postingEngine.postPosReceipt(receipt, allTaxLines, itemMap);
         receipt.setJournalEntryId(journalEntry.getId());
         receiptRepository.save(receipt);
 
@@ -310,95 +307,7 @@ public class SalesReceiptService {
         return PagedResponse.from(page.map(this::toResponse));
     }
 
-    // ── Journal posting ─────────────────────────────────────────
-
-    private JournalEntry postJournal(SalesReceipt receipt, List<TaxLineItem> taxLines,
-                                     Map<UUID, Item> itemMap) {
-        UUID orgId = receipt.getOrgId();
-        List<JournalLineRequest> journalLines = new ArrayList<>();
-
-        // DR: Paid-through account (Cash / Bank / UPI)
-        String paidThroughCode = resolvePaidThroughAccount(orgId, receipt.getPaymentMode());
-        journalLines.add(new JournalLineRequest(
-                paidThroughCode,
-                receipt.getTotal(),
-                BigDecimal.ZERO,
-                "POS Sale: " + receipt.getReceiptNumber(),
-                null, null));
-
-        // CR: Revenue
-        String revenueCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.SALES_REVENUE);
-        journalLines.add(new JournalLineRequest(
-                revenueCode,
-                BigDecimal.ZERO,
-                receipt.getSubtotal(),
-                "Revenue: " + receipt.getReceiptNumber(),
-                null, null));
-
-        // CR: Tax payable per component
-        for (TaxLineItem tli : taxLines) {
-            if (tli.getAccountCode() == null || tli.getAccountCode().isBlank()) {
-                throw new BusinessException(
-                        "Tax component " + tli.getComponentCode()
-                                + " has no GL output account. Configure it in Settings → Tax Account Mapping.",
-                        "TAX_GL_ACCOUNT_MISSING", HttpStatus.BAD_REQUEST);
-            }
-            journalLines.add(new JournalLineRequest(
-                    tli.getAccountCode(),
-                    BigDecimal.ZERO,
-                    tli.getTaxAmount(),
-                    tli.getComponentCode() + " Payable",
-                    tli.getComponentCode(), null));
-        }
-
-        // DR COGS / CR Inventory for tracked items
-        BigDecimal totalCost = BigDecimal.ZERO;
-        for (SalesReceiptLine line : receipt.getLines()) {
-            if (line.getItemId() == null) continue;
-            Item item = itemMap.get(line.getItemId());
-            if (item == null || !item.isTrackInventory()) continue;
-
-            BigDecimal qty = line.getBaseQuantity() != null ? line.getBaseQuantity() : line.getQuantity();
-            BigDecimal lineCost = item.getPurchasePrice().multiply(qty)
-                    .setScale(2, RoundingMode.HALF_UP);
-            totalCost = totalCost.add(lineCost);
-        }
-
-        if (totalCost.compareTo(BigDecimal.ZERO) > 0) {
-            try {
-                String cogsCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.COGS);
-                String inventoryCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.INVENTORY_ASSET);
-
-                journalLines.add(new JournalLineRequest(
-                        cogsCode, totalCost, BigDecimal.ZERO,
-                        "COGS: " + receipt.getReceiptNumber(),
-                        null, null));
-                journalLines.add(new JournalLineRequest(
-                        inventoryCode, BigDecimal.ZERO, totalCost,
-                        "Inventory: " + receipt.getReceiptNumber(),
-                        null, null));
-            } catch (BusinessException e) {
-                log.warn("COGS/Inventory accounts not configured — skipping COGS journal lines: {}", e.getMessage());
-            }
-        }
-
-        JournalPostRequest journalRequest = new JournalPostRequest(
-                receipt.getReceiptDate(),
-                "POS Sale " + receipt.getReceiptNumber(),
-                "POS",
-                receipt.getId(),
-                journalLines,
-                true);
-
-        return journalService.postJournal(journalRequest);
-    }
-
-    private String resolvePaidThroughAccount(UUID orgId, PaymentMode mode) {
-        return switch (mode) {
-            case CASH -> defaultAccountService.getCode(orgId, DefaultAccountPurpose.CASH);
-            case UPI, CARD, MIXED -> defaultAccountService.getCode(orgId, DefaultAccountPurpose.BANK);
-        };
-    }
+    // Journal posting is now delegated to AccountingPostingEngine
 
     // ── Stock deduction ─────────────────────────────────────────
 

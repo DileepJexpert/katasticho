@@ -1,11 +1,8 @@
 package com.katasticho.erp.ap.service;
 
-import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
-import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
-import com.katasticho.erp.accounting.dto.JournalLineRequest;
-import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.Account;
 import com.katasticho.erp.accounting.entity.JournalEntry;
+import com.katasticho.erp.accounting.posting.AccountingPostingEngine;
 import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ap.dto.ApplyVendorCreditRequest;
@@ -81,11 +78,11 @@ public class VendorCreditService {
     private final BranchRepository branchRepository;
     private final WarehouseRepository warehouseRepository;
     private final JournalService journalService;
+    private final AccountingPostingEngine postingEngine;
     private final PurchaseBillService billService;
     private final TaxEngine taxEngine;
     private final CurrencyService currencyService;
     private final InventoryService inventoryService;
-    private final DefaultAccountService defaultAccountService;
 
     // ── Create ──────────────────────────────────────────────────
 
@@ -253,46 +250,8 @@ public class VendorCreditService {
                     "AP_CREDIT_NOT_DRAFT", HttpStatus.BAD_REQUEST);
         }
 
-        List<JournalLineRequest> journalLines = new ArrayList<>();
-
-        // DR: Accounts Payable (reduces what we owe) — per-org default
-        journalLines.add(new JournalLineRequest(
-                defaultAccountService.getCode(orgId, DefaultAccountPurpose.AP),
-                credit.getTotalAmount(), BigDecimal.ZERO,
-                "AP debit: VC " + credit.getCreditNumber(),
-                null, null));
-
-        // CR: Expense reversal per line
-        for (VendorCreditLine line : credit.getLines()) {
-            Account lineAccount = accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, line.getAccountId())
-                    .orElseThrow(() -> BusinessException.notFound("Account", line.getAccountId()));
-
-            journalLines.add(new JournalLineRequest(
-                    lineAccount.getCode(),
-                    BigDecimal.ZERO, line.getTaxableAmount(),
-                    "Expense reversal: " + line.getDescription(),
-                    null, null));
-        }
-
-        // CR: Tax input credit reversal per component (account code from tax engine, not hardcoded)
-        List<TaxLineItem> taxLines = taxLineItemRepository.findBySourceTypeAndSourceId("VENDOR_CREDIT", credit.getId());
-        for (TaxLineItem tli : taxLines) {
-            journalLines.add(new JournalLineRequest(
-                    tli.getAccountCode(),
-                    BigDecimal.ZERO, tli.getTaxAmount(),
-                    tli.getComponentCode() + " Input Credit reversal",
-                    tli.getComponentCode(), null));
-        }
-
-        JournalPostRequest journalRequest = new JournalPostRequest(
-                credit.getCreditDate(),
-                "Vendor Credit " + credit.getCreditNumber(),
-                "PURCHASE",
-                credit.getId(),
-                journalLines,
-                true);
-
-        JournalEntry journalEntry = journalService.postJournal(journalRequest);
+        // Post journal via the accounting posting engine
+        JournalEntry journalEntry = postingEngine.postVendorCredit(credit);
 
         // Record stock return movements (goods returned to vendor)
         recordStockReturnForCredit(credit);
