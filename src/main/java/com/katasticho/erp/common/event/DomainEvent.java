@@ -59,6 +59,9 @@ public class DomainEvent {
     @Column(name = "retry_count", nullable = false)
     private int retryCount;
 
+    @Column(name = "dead_letter", nullable = false)
+    private boolean deadLetter;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 }
