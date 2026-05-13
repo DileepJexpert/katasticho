@@ -5,6 +5,8 @@ import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.repository.OrgFeatureFlagRepository;
 import com.katasticho.erp.organisation.IndustryFeatureConfig;
 import com.katasticho.erp.organisation.IndustryFeatureConfigRepository;
+import com.katasticho.erp.organisation.IndustrySubCategoryRepository;
+import com.katasticho.erp.organisation.IndustryTemplate;
 import com.katasticho.erp.organisation.IndustryTemplateRepository;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ public class FeatureFlagService {
     private final OrgFeatureFlagRepository flagRepository;
     private final StringRedisTemplate redisTemplate;
     private final IndustryTemplateRepository industryTemplateRepository;
+    private final IndustrySubCategoryRepository subCategoryRepository;
     private final IndustryFeatureConfigRepository featureConfigRepository;
     private final OrganisationRepository organisationRepository;
 
@@ -61,11 +64,6 @@ public class FeatureFlagService {
         invalidateCache(orgId);
     }
 
-    /**
-     * Seeds feature flags for an org based on one or more sub-category codes.
-     * Flags from all sub-categories are merged with OR logic — if any sub-category
-     * enables a flag, the flag is enabled.
-     */
     @Transactional
     public void seedForIndustry(UUID orgId, String industryCode) {
         seedForSubCategories(orgId, industryCode == null
@@ -79,21 +77,26 @@ public class FeatureFlagService {
 
         Map<String, Boolean> merged = defaultFlags();
 
-        // Look up template-level default config using the first sub-category code to find the template
         if (subCategoryCodes != null && !subCategoryCodes.isEmpty()) {
-            // Find the industry template that owns any of these sub-category codes
-            // Use the sub-category configs from the DB; fall back to hardcoded defaults only if DB is empty
-            List<IndustryFeatureConfig> dbConfigs = featureConfigRepository
-                    .findByIndustryTemplateIdAndSubCategoryCodeIn(resolveTemplateId(subCategoryCodes), subCategoryCodes);
+            UUID templateId = resolveTemplateId(subCategoryCodes);
 
-            if (!dbConfigs.isEmpty()) {
-                for (IndustryFeatureConfig cfg : dbConfigs) {
-                    if (cfg.getFeatureFlags() != null) {
-                        cfg.getFeatureFlags().forEach(f -> merged.put(f, true));
-                    }
+            if (templateId != null) {
+                // Apply module-level flags (INVENTORY, POS, etc.) from businessType
+                industryTemplateRepository.findById(templateId)
+                        .ifPresent(t -> applyModuleFlagsForTemplate(merged, t));
+
+                // Apply default (template-level) feature flags (BATCH_TRACKING etc.)
+                featureConfigRepository.findByIndustryTemplateIdAndSubCategoryCodeIsNull(templateId)
+                        .ifPresent(cfg -> cfg.getFeatureFlags().forEach(f -> merged.put(f, true)));
+
+                // Overlay sub-category-specific overrides
+                List<IndustryFeatureConfig> subCatConfigs = featureConfigRepository
+                        .findByIndustryTemplateIdAndSubCategoryCodeIn(templateId, subCategoryCodes);
+                for (IndustryFeatureConfig cfg : subCatConfigs) {
+                    cfg.getFeatureFlags().forEach(f -> merged.put(f, true));
                 }
             } else {
-                // DB not yet seeded — fall back to legacy hardcoded logic (will become dead code once seeded)
+                // Ultimate fallback for legacy / unknown codes not in DB
                 for (String code : subCategoryCodes) {
                     flagsForSubCategoryFallback(code).forEach((f, enabled) -> {
                         if (enabled) merged.put(f, true);
@@ -115,19 +118,50 @@ public class FeatureFlagService {
                 merged.size(), orgId, subCategoryCodes);
     }
 
-    private UUID resolveTemplateId(List<String> subCategoryCodes) {
-        // Find which template contains at least one of these sub-category codes
-        for (String code : subCategoryCodes) {
-            Optional<IndustryFeatureConfig> cfg = featureConfigRepository
-                    .findAll().stream()
-                    .filter(c -> code.equals(c.getSubCategoryCode()))
-                    .findFirst();
-            if (cfg.isPresent()) return cfg.get().getIndustryTemplateId();
+    /**
+     * Resolves the IndustryTemplate UUID for a list of codes.
+     * Codes may be either sub-category codes (PHARMACY_CHAIN) or industry codes (PHARMACY).
+     */
+    private UUID resolveTemplateId(List<String> codes) {
+        // Step 1: look up via IndustrySubCategory table (handles sub-category codes)
+        for (String code : codes) {
+            Optional<UUID> templateId = subCategoryRepository.findBySubCategoryCode(code)
+                    .map(sc -> sc.getIndustryTemplateId());
+            if (templateId.isPresent()) return templateId.get();
         }
-        // Fallback: try industryCode as a direct template lookup
-        return industryTemplateRepository.findByIndustryCode(subCategoryCodes.get(0))
-                .map(t -> t.getId())
-                .orElse(UUID.randomUUID()); // will produce empty list in subsequent query
+        // Step 2: treat code as an industry code directly (handles industry-level codes)
+        for (String code : codes) {
+            Optional<UUID> templateId = industryTemplateRepository.findByIndustryCode(code)
+                    .map(IndustryTemplate::getId);
+            if (templateId.isPresent()) return templateId.get();
+        }
+        return null;
+    }
+
+    /**
+     * Applies module-level flags (INVENTORY, POS, MANUFACTURING, PHARMA, BATCH_EXPIRY)
+     * based on the industry template's businessType and industryCode.
+     * These are separate from the fine-grained feature flags stored in IndustryFeatureConfig.
+     */
+    private void applyModuleFlagsForTemplate(Map<String, Boolean> merged, IndustryTemplate template) {
+        switch (template.getBusinessType()) {
+            case "RETAILER" -> {
+                merged.put(ModuleCode.POS, true);
+                merged.put(ModuleCode.INVENTORY, true);
+            }
+            case "DISTRIBUTOR" -> merged.put(ModuleCode.INVENTORY, true);
+            case "MANUFACTURER" -> {
+                merged.put(ModuleCode.INVENTORY, true);
+                merged.put(ModuleCode.MANUFACTURING, true);
+            }
+            default -> { }
+        }
+        // Pharma-specific modules
+        String ic = template.getIndustryCode();
+        if (ic.contains("PHARMA") || ic.equals("PHARMACY")) {
+            merged.put(ModuleCode.PHARMA, true);
+            merged.put(ModuleCode.BATCH_EXPIRY, true);
+        }
     }
 
     private Map<String, Boolean> defaultFlags() {
@@ -166,10 +200,7 @@ public class FeatureFlagService {
         Map<String, Boolean> flags = defaultFlags();
         if (code == null) return flags;
         switch (code) {
-            case "ACCOUNTING_FIRM", "FINANCE_ERP", "SERVICE_BUSINESS" -> {
-                // Finance-first edition: accounting, GST, reports, AI inbox and bank recon stay enabled
-                // from defaults; operational modules remain add-ons.
-            }
+            case "ACCOUNTING_FIRM", "FINANCE_ERP", "SERVICE_BUSINESS" -> { }
             case "TRADING", "KIRANA", "OTHER_RETAIL", "RETAIL", "RETAILER", "DISTRIBUTOR" -> {
                 flags.put(ModuleCode.POS, true); flags.put(ModuleCode.INVENTORY, true);
             }
