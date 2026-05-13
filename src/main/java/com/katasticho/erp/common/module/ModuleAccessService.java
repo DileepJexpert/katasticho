@@ -2,6 +2,7 @@ package com.katasticho.erp.common.module;
 
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.billing.SubscriptionEntitlementService;
 import com.katasticho.erp.common.service.FeatureFlagService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -14,12 +15,14 @@ import java.util.UUID;
 public class ModuleAccessService {
 
     private final FeatureFlagService featureFlagService;
+    private final SubscriptionEntitlementService subscriptionEntitlementService;
 
     public boolean isEnabled(UUID orgId, String moduleCode) {
         if (orgId == null) {
             return false;
         }
-        return featureFlagService.isEnabled(orgId, moduleCode);
+        return subscriptionEntitlementService.isEntitled(orgId, moduleCode)
+                && featureFlagService.isEnabled(orgId, moduleCode);
     }
 
     public void requireEnabled(String moduleCode) {
@@ -27,6 +30,7 @@ public class ModuleAccessService {
         if (orgId == null) {
             throw new BusinessException("Organisation context is required", "ORG_CONTEXT_REQUIRED", HttpStatus.FORBIDDEN);
         }
+        subscriptionEntitlementService.requireEntitled(orgId, moduleCode);
         String role = TenantContext.getCurrentRole();
         if ("OWNER".equals(role) || "ADMIN".equals(role)) {
             return;
@@ -35,6 +39,7 @@ public class ModuleAccessService {
     }
 
     public void requireEnabled(UUID orgId, String moduleCode) {
+        subscriptionEntitlementService.requireEntitled(orgId, moduleCode);
         if (!isEnabled(orgId, moduleCode)) {
             throw new BusinessException(
                     "Module is not enabled for this organisation: " + moduleCode,

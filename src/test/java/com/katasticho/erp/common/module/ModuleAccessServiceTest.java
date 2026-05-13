@@ -2,6 +2,7 @@ package com.katasticho.erp.common.module;
 
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.billing.SubscriptionEntitlementService;
 import com.katasticho.erp.common.service.FeatureFlagService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,9 @@ class ModuleAccessServiceTest {
     @Mock
     private FeatureFlagService featureFlagService;
 
+    @Mock
+    private SubscriptionEntitlementService subscriptionEntitlementService;
+
     @InjectMocks
     private ModuleAccessService moduleAccessService;
 
@@ -35,6 +39,7 @@ class ModuleAccessServiceTest {
     @Test
     void requireEnabledPassesWhenFeatureFlagIsEnabled() {
         UUID orgId = UUID.randomUUID();
+        when(subscriptionEntitlementService.isEntitled(orgId, ModuleCode.POS)).thenReturn(true);
         when(featureFlagService.isEnabled(orgId, ModuleCode.POS)).thenReturn(true);
 
         assertThatCode(() -> moduleAccessService.requireEnabled(orgId, ModuleCode.POS))
@@ -44,6 +49,7 @@ class ModuleAccessServiceTest {
     @Test
     void requireEnabledRejectsDisabledModule() {
         UUID orgId = UUID.randomUUID();
+        when(subscriptionEntitlementService.isEntitled(orgId, ModuleCode.POS)).thenReturn(true);
         when(featureFlagService.isEnabled(orgId, ModuleCode.POS)).thenReturn(false);
 
         assertThatThrownBy(() -> moduleAccessService.requireEnabled(orgId, ModuleCode.POS))
@@ -57,6 +63,7 @@ class ModuleAccessServiceTest {
     void requireEnabledUsesTenantContext() {
         UUID orgId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);
+        when(subscriptionEntitlementService.isEntitled(orgId, ModuleCode.AI_INBOX)).thenReturn(true);
         when(featureFlagService.isEnabled(orgId, ModuleCode.AI_INBOX)).thenReturn(true);
 
         assertThatCode(() -> moduleAccessService.requireEnabled(ModuleCode.AI_INBOX))
@@ -75,5 +82,23 @@ class ModuleAccessServiceTest {
     @Test
     void isEnabledReturnsFalseWhenOrgIsMissing() {
         assertThat(moduleAccessService.isEnabled(null, ModuleCode.REPORTS)).isFalse();
+    }
+
+    @Test
+    void ownerStillCannotBypassSubscriptionEntitlementWhenBillingIsEnforced() {
+        UUID orgId = UUID.randomUUID();
+        TenantContext.setCurrentOrgId(orgId);
+        TenantContext.setCurrentRole("OWNER");
+
+        org.mockito.Mockito.doThrow(new BusinessException(
+                        "Module is not included in this organisation's subscription plan: POS",
+                        "MODULE_NOT_INCLUDED_IN_PLAN",
+                        HttpStatus.FORBIDDEN
+                ))
+                .when(subscriptionEntitlementService).requireEntitled(orgId, ModuleCode.POS);
+
+        assertThatThrownBy(() -> moduleAccessService.requireEnabled(ModuleCode.POS))
+                .isInstanceOfSatisfying(BusinessException.class, ex ->
+                        assertThat(ex.getErrorCode()).isEqualTo("MODULE_NOT_INCLUDED_IN_PLAN"));
     }
 }
