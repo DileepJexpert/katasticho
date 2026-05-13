@@ -6,6 +6,7 @@ import com.katasticho.erp.common.repository.OrgFeatureFlagRepository;
 import com.katasticho.erp.organisation.IndustryFeatureConfig;
 import com.katasticho.erp.organisation.IndustryFeatureConfigRepository;
 import com.katasticho.erp.organisation.IndustryTemplateRepository;
+import com.katasticho.erp.organisation.OrganisationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -25,6 +26,7 @@ public class FeatureFlagService {
     private final StringRedisTemplate redisTemplate;
     private final IndustryTemplateRepository industryTemplateRepository;
     private final IndustryFeatureConfigRepository featureConfigRepository;
+    private final OrganisationRepository organisationRepository;
 
     private static final String CACHE_PREFIX = "features:";
     private static final Duration CACHE_TTL = Duration.ofHours(1);
@@ -237,6 +239,10 @@ public class FeatureFlagService {
             log.debug("Redis cache miss for features:{}: {}", orgId, e.getMessage());
         }
 
+        if (!flagRepository.existsByOrgId(orgId)) {
+            lazySeedFlags(orgId);
+        }
+
         List<OrgFeatureFlag> flags = flagRepository.findByOrgIdAndEnabledTrue(orgId);
         Set<String> enabled = flags.stream()
                 .map(OrgFeatureFlag::getFeature)
@@ -260,5 +266,13 @@ public class FeatureFlagService {
         } catch (Exception e) {
             log.debug("Failed to invalidate feature cache for org {}: {}", orgId, e.getMessage());
         }
+    }
+
+    private void lazySeedFlags(UUID orgId) {
+        String industryCode = organisationRepository.findById(orgId)
+                .map(org -> org.getIndustryCode())
+                .orElse("OTHER_RETAIL");
+        log.info("No feature flags found for org {} — lazy-seeding from industry code {}", orgId, industryCode);
+        seedForIndustry(orgId, industryCode);
     }
 }
