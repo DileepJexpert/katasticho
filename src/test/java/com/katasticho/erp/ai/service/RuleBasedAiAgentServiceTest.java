@@ -32,12 +32,14 @@ class RuleBasedAiAgentServiceTest {
     private final InvoiceLineRepository invoiceLineRepository = mock(InvoiceLineRepository.class);
     private final StockMovementRepository stockMovementRepository = mock(StockMovementRepository.class);
     private final AiSuggestionRepository aiSuggestionRepository = mock(AiSuggestionRepository.class);
+    private final AiTelemetryService aiTelemetryService = mock(AiTelemetryService.class);
 
     private final RuleBasedAiAgentService service = new RuleBasedAiAgentService(
             invoiceRepository,
             invoiceLineRepository,
             stockMovementRepository,
-            aiSuggestionRepository
+            aiSuggestionRepository,
+            aiTelemetryService
     );
 
     @Test
@@ -78,6 +80,17 @@ class RuleBasedAiAgentServiceTest {
         verify(aiSuggestionRepository).save(captor.capture());
         assertThat(captor.getValue().getSuggestionType()).isEqualTo("MISSING_HSN");
         assertThat(captor.getValue().getSuggestedAction()).isEqualTo("REVIEW_HSN");
+        verify(aiTelemetryService).recordModelRun(
+                eq(orgId),
+                eq("INVOICE_REVIEW"),
+                eq("deterministic_rules"),
+                eq("1"),
+                eq("internal"),
+                any(),
+                any(),
+                eq(BigDecimal.ONE),
+                any()
+        );
     }
 
     @Test

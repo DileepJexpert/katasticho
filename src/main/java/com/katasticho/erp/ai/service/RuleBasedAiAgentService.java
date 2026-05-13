@@ -39,6 +39,7 @@ public class RuleBasedAiAgentService {
     private final InvoiceLineRepository invoiceLineRepository;
     private final StockMovementRepository stockMovementRepository;
     private final AiSuggestionRepository aiSuggestionRepository;
+    private final AiTelemetryService aiTelemetryService;
 
     @Transactional
     public AiAgentRunResponse runRuleChecks(Integer days) {
@@ -75,6 +76,7 @@ public class RuleBasedAiAgentService {
 
     @Transactional
     public int scanPostedInvoice(UUID orgId, UUID invoiceId) {
+        long started = System.nanoTime();
         Invoice invoice = invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)
                 .orElseThrow(() -> new BusinessException(
                         "Invoice not found",
@@ -89,6 +91,25 @@ public class RuleBasedAiAgentService {
         Counter counter = new Counter();
         scanHighValueInvoices(orgId, List.of(invoice), counter);
         scanInvoiceLineTaxIssues(orgId, lines, counter);
+        aiTelemetryService.recordModelRun(
+                orgId,
+                "INVOICE_REVIEW",
+                "deterministic_rules",
+                "1",
+                "internal",
+                Map.of(
+                        "entityType", "INVOICE",
+                        "entityId", invoiceId.toString(),
+                        "invoiceNumber", invoice.getInvoiceNumber(),
+                        "lineCount", lines.size()
+                ),
+                Map.of(
+                        "suggestionsCreated", counter.created,
+                        "duplicatesSkipped", counter.skippedDuplicates
+                ),
+                BigDecimal.ONE,
+                elapsedMs(started)
+        );
         return counter.created;
     }
 
@@ -272,6 +293,10 @@ public class RuleBasedAiAgentService {
 
     private BigDecimal abs(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value.abs();
+    }
+
+    private int elapsedMs(long startedNanos) {
+        return Math.toIntExact((System.nanoTime() - startedNanos) / 1_000_000);
     }
 
     private static class Counter {
