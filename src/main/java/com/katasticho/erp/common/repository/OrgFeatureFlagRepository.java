@@ -20,6 +20,8 @@ public interface OrgFeatureFlagRepository extends JpaRepository<OrgFeatureFlag, 
 
     List<OrgFeatureFlag> findByOrgIdAndEnabledTrue(UUID orgId);
 
+    boolean existsByOrgId(UUID orgId);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from OrgFeatureFlag f where f.orgId = :orgId")
     void deleteByOrgId(@Param("orgId") UUID orgId);
