@@ -4,6 +4,7 @@ import com.katasticho.erp.ai.entity.AiModelRun;
 import com.katasticho.erp.ai.entity.AiUsageLog;
 import com.katasticho.erp.ai.repository.AiModelRunRepository;
 import com.katasticho.erp.ai.repository.AiUsageLogRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -20,7 +21,7 @@ class AiTelemetryServiceTest {
 
     private final AiModelRunRepository modelRunRepository = mock(AiModelRunRepository.class);
     private final AiUsageLogRepository usageLogRepository = mock(AiUsageLogRepository.class);
-    private final AiTelemetryService service = new AiTelemetryService(modelRunRepository, usageLogRepository);
+    private final AiTelemetryService service = new AiTelemetryService(modelRunRepository, usageLogRepository, new ObjectMapper());
 
     @Test
     void recordModelRunPersistsAuditMetadata() {
@@ -70,5 +71,20 @@ class AiTelemetryServiceTest {
         assertThat(captor.getValue().getFeature()).isEqualTo("BILL_SCAN");
         assertThat(captor.getValue().getEntityId()).isEqualTo(entityId);
         assertThat(captor.getValue().getEstimatedCostUsd()).isEqualByComparingTo("0.001200");
+    }
+
+    @Test
+    void recordModelRunUsesCanonicalInputHash() {
+        when(modelRunRepository.save(org.mockito.ArgumentMatchers.any(AiModelRun.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        AiModelRun first = service.recordModelRun(
+                UUID.randomUUID(), "TASK", "model", "1", "provider",
+                Map.of("b", 2, "a", 1), Map.of(), BigDecimal.ONE, 1);
+        AiModelRun second = service.recordModelRun(
+                first.getOrgId(), "TASK", "model", "1", "provider",
+                Map.of("a", 1, "b", 2), Map.of(), BigDecimal.ONE, 1);
+
+        assertThat(first.getInputHash()).isEqualTo(second.getInputHash());
     }
 }

@@ -15,7 +15,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +26,7 @@ public class AiTelemetryService {
 
     private final AiModelRunRepository modelRunRepository;
     private final AiUsageLogRepository usageLogRepository;
+    private final ObjectMapper objectMapper;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public AiModelRun recordModelRun(UUID orgId,
@@ -42,7 +46,7 @@ public class AiTelemetryService {
                 .modelName(modelName)
                 .modelVersion(modelVersion)
                 .provider(provider)
-                .inputHash(hash(safeInput.toString()))
+                .inputHash(hash(canonicalJson(safeInput)))
                 .inputSnapshot(safeInput)
                 .output(safeOutput)
                 .confidence(confidence)
@@ -79,6 +83,14 @@ public class AiTelemetryService {
             return HexFormat.of().formatHex(digest.digest(input.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
+        }
+    }
+
+    private String canonicalJson(Map<String, Object> input) {
+        try {
+            return objectMapper.writeValueAsString(new TreeMap<>(input));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to canonicalize AI telemetry input", e);
         }
     }
 }

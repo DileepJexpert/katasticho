@@ -12,6 +12,7 @@ import org.springframework.web.client.RestTemplate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import com.katasticho.erp.common.context.TenantContext;
 
 /**
  * Low-level client for calling the Anthropic Messages API via RestTemplate.
@@ -25,6 +26,7 @@ public class ClaudeApiClient {
     private final RestTemplate claudeRestTemplate;
     private final AiConfig aiConfig;
     private final ObjectMapper objectMapper;
+    private final AiTelemetryService aiTelemetryService;
 
     /**
      * Send a text-only message to Claude and get the response text.
@@ -86,6 +88,7 @@ public class ClaudeApiClient {
             }
 
             JsonNode root = objectMapper.readTree(response.getBody());
+            recordUsage(root);
             JsonNode contentArray = root.path("content");
 
             if (contentArray.isArray() && !contentArray.isEmpty()) {
@@ -97,6 +100,27 @@ public class ClaudeApiClient {
         } catch (Exception e) {
             log.error("Claude API call failed: {}", e.getMessage(), e);
             throw new RuntimeException("AI service unavailable: " + e.getMessage(), e);
+        }
+    }
+
+    private void recordUsage(JsonNode root) {
+        try {
+            JsonNode usage = root.path("usage");
+            Integer inputTokens = usage.has("input_tokens") ? usage.path("input_tokens").asInt() : null;
+            Integer outputTokens = usage.has("output_tokens") ? usage.path("output_tokens").asInt() : null;
+            aiTelemetryService.recordUsage(
+                    TenantContext.getCurrentOrgId(),
+                    "CLAUDE_API",
+                    "anthropic",
+                    aiConfig.getModel(),
+                    inputTokens,
+                    outputTokens,
+                    null,
+                    null,
+                    null
+            );
+        } catch (Exception e) {
+            log.warn("Failed to record Claude usage telemetry: {}", e.getMessage());
         }
     }
 }
