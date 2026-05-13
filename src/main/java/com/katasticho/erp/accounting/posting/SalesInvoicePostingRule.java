@@ -12,6 +12,7 @@ import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class SalesInvoicePostingRule implements PostingRuleStrategy {
 
     private final DefaultAccountService defaultAccountService;
@@ -111,6 +113,8 @@ public class SalesInvoicePostingRule implements PostingRuleStrategy {
             cogsCode = defaultAccountService.getCode(invoice.getOrgId(), DefaultAccountPurpose.COGS);
             inventoryCode = defaultAccountService.getCode(invoice.getOrgId(), DefaultAccountPurpose.INVENTORY_ASSET);
         } catch (BusinessException e) {
+            log.warn("COGS/inventory accounts not configured for org {}, skipping COGS entry for invoice {}",
+                    invoice.getOrgId(), invoice.getId());
             return;
         }
         lines.add(new JournalLineRequest(

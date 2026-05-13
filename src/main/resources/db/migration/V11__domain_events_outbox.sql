@@ -9,12 +9,13 @@ CREATE TABLE domain_events (
     processed_at TIMESTAMPTZ,
     processing_error TEXT,
     retry_count INT NOT NULL DEFAULT 0,
+    dead_letter BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_domain_events_unprocessed
     ON domain_events(processed, created_at)
-    WHERE processed = false;
+    WHERE processed = false AND dead_letter = false;
 
 CREATE INDEX idx_domain_events_org_entity
     ON domain_events(org_id, entity_type, entity_id);

@@ -8,5 +8,5 @@ import java.util.UUID;
 
 public interface DomainEventRepository extends JpaRepository<DomainEvent, UUID> {
 
-    List<DomainEvent> findByProcessedFalseOrderByCreatedAtAsc(Pageable pageable);
+    List<DomainEvent> findByProcessedFalseAndDeadLetterFalseOrderByCreatedAtAsc(Pageable pageable);
 }
