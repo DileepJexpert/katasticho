@@ -194,11 +194,6 @@ class DashboardServiceTest {
                 eq(orgId), eq(sec62), any(), any()))
                 .thenReturn(new BigDecimal("1000"));
 
-        when(salesReceiptRepository.countByOrgAndDateRange(eq(orgId), any(), any()))
-                .thenReturn(10L);
-        when(invoiceRepository.countByOrgAndDateRange(eq(orgId), any(), any()))
-                .thenReturn(3L);
-
         when(invoiceRepository.sumRevenueByBranch(eq(orgId), any(), any()))
                 .thenReturn(List.of(invoiceBranchRow(sec62, new BigDecimal("2000"))));
         when(salesReceiptRepository.sumTotalByBranch(eq(orgId), any(), any()))

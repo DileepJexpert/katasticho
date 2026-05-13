@@ -1,6 +1,8 @@
 package com.katasticho.erp.pricing.controller;
 
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.pricing.dto.CreatePriceListRequest;
 import com.katasticho.erp.pricing.dto.PriceListItemRequest;
 import com.katasticho.erp.pricing.dto.PriceListItemResponse;
@@ -25,6 +27,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/price-lists")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.INVENTORY)
 public class PriceListController {
 
     private final PriceListService priceListService;

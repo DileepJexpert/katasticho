@@ -15,13 +15,11 @@ import com.katasticho.erp.ap.entity.VendorCreditLine;
 import com.katasticho.erp.ar.entity.CreditNote;
 import com.katasticho.erp.ar.entity.CreditNoteLine;
 import com.katasticho.erp.ar.entity.Invoice;
-import com.katasticho.erp.ar.entity.InvoiceLine;
 import com.katasticho.erp.ar.entity.TaxLineItem;
 import com.katasticho.erp.ar.repository.TaxLineItemRepository;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.expense.entity.Expense;
 import com.katasticho.erp.inventory.entity.Item;
-import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.pos.entity.PaymentMode;
 import com.katasticho.erp.pos.entity.SalesReceipt;
 import com.katasticho.erp.pos.entity.SalesReceiptLine;
@@ -36,8 +34,6 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -50,43 +46,12 @@ public class AccountingPostingEngine {
     private final DefaultAccountService defaultAccountService;
     private final TaxLineItemRepository taxLineItemRepository;
     private final AccountRepository accountRepository;
-    private final ItemRepository itemRepository;
+    private final SalesInvoicePostingRule salesInvoicePostingRule;
 
     // ── Sales Invoice ──────────────────────────────────────────
 
     public JournalEntry postSalesInvoice(Invoice invoice) {
-        UUID orgId = invoice.getOrgId();
-        List<JournalLineRequest> lines = new ArrayList<>();
-
-        // DR: Accounts Receivable
-        lines.add(new JournalLineRequest(
-                defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR),
-                invoice.getTotalAmount(), BigDecimal.ZERO,
-                "AR: " + invoice.getInvoiceNumber(),
-                null, null));
-
-        // CR: Revenue per invoice line
-        for (InvoiceLine line : invoice.getLines()) {
-            lines.add(new JournalLineRequest(
-                    line.getAccountCode(),
-                    BigDecimal.ZERO, line.getTaxableAmount(),
-                    "Revenue: " + line.getDescription(),
-                    null, null));
-        }
-
-        // CR: Tax payable per component
-        appendTaxPayableLines(lines, "INVOICE", invoice.getId());
-
-        // DR COGS / CR Inventory for tracked items
-        appendCogs(lines, orgId, invoice.getInvoiceNumber(), invoice.getLines());
-
-        return journalService.postJournal(new JournalPostRequest(
-                invoice.getInvoiceDate(),
-                "Invoice " + invoice.getInvoiceNumber(),
-                "SALES",
-                invoice.getId(),
-                lines,
-                true));
+        return journalService.postJournal(salesInvoicePostingRule.generate(PostingContext.salesInvoice(invoice)));
     }
 
     // ── POS Receipt ────────────────────────────────────────────
@@ -425,42 +390,6 @@ public class AccountingPostingEngine {
     }
 
     // ── Shared helpers ─────────────────────────────────────────
-
-    private void appendTaxPayableLines(List<JournalLineRequest> lines,
-                                        String sourceType, UUID sourceId) {
-        List<TaxLineItem> taxLines = taxLineItemRepository
-                .findBySourceTypeAndSourceId(sourceType, sourceId);
-        for (TaxLineItem tli : taxLines) {
-            requireTaxGlAccount(tli);
-            lines.add(new JournalLineRequest(
-                    tli.getAccountCode(),
-                    BigDecimal.ZERO, tli.getTaxAmount(),
-                    tli.getComponentCode() + " Payable",
-                    tli.getComponentCode(), null));
-        }
-    }
-
-    private void appendCogs(List<JournalLineRequest> lines, UUID orgId,
-                             String docNumber, List<InvoiceLine> invoiceLines) {
-        Set<UUID> itemIds = invoiceLines.stream()
-                .map(InvoiceLine::getItemId).filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        if (itemIds.isEmpty()) return;
-
-        Map<UUID, Item> itemMap = itemRepository.findAllById(itemIds).stream()
-                .collect(Collectors.toMap(Item::getId, i -> i));
-
-        BigDecimal totalCost = BigDecimal.ZERO;
-        for (InvoiceLine line : invoiceLines) {
-            if (line.getItemId() == null) continue;
-            Item item = itemMap.get(line.getItemId());
-            if (item == null || !item.isTrackInventory()) continue;
-            totalCost = totalCost.add(
-                    item.getPurchasePrice().multiply(line.getQuantity())
-                            .setScale(2, RoundingMode.HALF_UP));
-        }
-        appendCogsLines(lines, orgId, docNumber, totalCost);
-    }
 
     private void appendCogsLines(List<JournalLineRequest> lines, UUID orgId,
                                   String docNumber, BigDecimal totalCost) {

@@ -19,6 +19,7 @@ import com.katasticho.erp.ar.entity.TaxLineItem;
 import com.katasticho.erp.ar.repository.TaxLineItemRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.snapshot.DocumentSnapshotService;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.entity.ContactType;
 import com.katasticho.erp.contact.repository.ContactRepository;
@@ -83,6 +84,7 @@ public class VendorCreditService {
     private final TaxEngine taxEngine;
     private final CurrencyService currencyService;
     private final InventoryService inventoryService;
+    private final DocumentSnapshotService documentSnapshotService;
 
     // ── Create ──────────────────────────────────────────────────
 
@@ -283,6 +285,7 @@ public class VendorCreditService {
 
         log.info("Vendor credit {} posted, journal={}", credit.getCreditNumber(),
                 journalEntry.getEntryNumber());
+        documentSnapshotService.createSnapshot("VENDOR_CREDIT", credit.getId(), credit.getCreditNumber(), toResponse(credit));
         return credit;
     }
 

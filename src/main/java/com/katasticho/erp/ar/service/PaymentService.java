@@ -16,6 +16,7 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.common.snapshot.DocumentSnapshotService;
 import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.organisation.Branch;
 import com.katasticho.erp.organisation.BranchRepository;
@@ -59,6 +60,7 @@ public class PaymentService {
     private final CurrencyService currencyService;
     private final AuditService auditService;
     private final CommentService commentService;
+    private final DocumentSnapshotService documentSnapshotService;
 
     /**
      * Record a payment against an invoice (supports partial payments).
@@ -144,6 +146,7 @@ public class PaymentService {
                 "{\"paymentNumber\":\"" + payment.getPaymentNumber()
                         + "\",\"amount\":\"" + payment.getAmount()
                         + "\",\"invoice\":\"" + invoice.getInvoiceNumber() + "\"}");
+        documentSnapshotService.createSnapshot("PAYMENT", payment.getId(), payment.getPaymentNumber(), toResponse(payment));
 
         log.info("Payment {} recorded: {} for invoice {}", payment.getPaymentNumber(),
                 payment.getAmount(), invoice.getInvoiceNumber());

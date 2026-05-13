@@ -1,6 +1,8 @@
 package com.katasticho.erp.inventory.controller;
 
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.inventory.dto.CreateUomRequest;
 import com.katasticho.erp.inventory.dto.UomResponse;
 import com.katasticho.erp.inventory.entity.UomCategory;
@@ -23,6 +25,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/uoms")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.INVENTORY)
 public class UomController {
 
     private final UomService uomService;

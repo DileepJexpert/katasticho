@@ -2,6 +2,8 @@ package com.katasticho.erp.tax.controller;
 
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.tax.dto.TaxAccountMappingResponse;
 import com.katasticho.erp.tax.dto.UpdateTaxAccountMappingsRequest;
 import com.katasticho.erp.tax.service.TaxAccountMappingService;
@@ -29,6 +31,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/settings/tax-accounts")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.GST)
 public class TaxAccountMappingController {
 
     private final TaxAccountMappingService service;

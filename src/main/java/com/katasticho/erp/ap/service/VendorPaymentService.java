@@ -17,6 +17,7 @@ import com.katasticho.erp.ar.repository.InvoiceNumberSequenceRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.common.snapshot.DocumentSnapshotService;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.entity.ContactType;
 import com.katasticho.erp.contact.repository.ContactRepository;
@@ -67,6 +68,7 @@ public class VendorPaymentService {
     private final PurchaseBillService billService;
     private final CurrencyService currencyService;
     private final CommentService commentService;
+    private final DocumentSnapshotService documentSnapshotService;
 
     @Transactional
     public VendorPaymentResponse recordPayment(VendorPaymentRequest request) {
@@ -185,7 +187,9 @@ public class VendorPaymentService {
 
         log.info("Vendor payment {} recorded: {} allocated across {} bills",
                 payment.getPaymentNumber(), payment.getAmount(), request.allocations().size());
-        return toResponse(payment);
+        VendorPaymentResponse response = toResponse(payment);
+        documentSnapshotService.createSnapshot("VENDOR_PAYMENT", payment.getId(), payment.getPaymentNumber(), response);
+        return response;
     }
 
     // ── Queries ─────────────────────────────────────────────────

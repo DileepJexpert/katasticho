@@ -10,6 +10,7 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.common.snapshot.DocumentSnapshotService;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.currency.CurrencyService;
@@ -60,6 +61,7 @@ public class CreditNoteService {
     private final AuditService auditService;
     private final InventoryService inventoryService;
     private final CommentService commentService;
+    private final DocumentSnapshotService documentSnapshotService;
 
     /**
      * Create a DRAFT credit note with tax calculation.
@@ -250,6 +252,7 @@ public class CreditNoteService {
 
         auditService.log("CREDIT_NOTE", cn.getId(), "ISSUE", "{\"status\":\"DRAFT\"}",
                 "{\"status\":\"" + cn.getStatus() + "\",\"journalEntryId\":\"" + journalEntry.getId() + "\"}");
+        documentSnapshotService.createSnapshot("CREDIT_NOTE", cn.getId(), cn.getCreditNoteNumber(), mapToResponse(cn));
 
         log.info("Credit note {} issued, journal={}", cn.getCreditNoteNumber(), journalEntry.getEntryNumber());
         return cn;

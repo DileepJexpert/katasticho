@@ -8,6 +8,8 @@ import com.katasticho.erp.accounting.service.AccountService;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -25,6 +27,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/accounts")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.ACCOUNTING)
 public class AccountController {
 
     private final AccountService accountService;

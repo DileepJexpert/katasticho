@@ -6,6 +6,7 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.cache.CacheInvalidationService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.snapshot.DocumentSnapshotService;
 import com.katasticho.erp.inventory.dto.StockAdjustmentRequest;
 import com.katasticho.erp.inventory.dto.StockMovementRequest;
 import com.katasticho.erp.inventory.entity.*;
@@ -57,6 +58,7 @@ public class InventoryService {
     private final BatchService batchService;
     private final AuditService auditService;
     private final CacheInvalidationService cacheInvalidationService;
+    private final DocumentSnapshotService documentSnapshotService;
 
     /**
      * THE MOST IMPORTANT METHOD IN THIS MODULE.
@@ -161,6 +163,10 @@ public class InventoryService {
 
         log.info("Stock movement {} {} qty={} for item {} @ warehouse {}",
                 movement.getId(), request.movementType(), qty, item.getSku(), warehouse.getCode());
+        if (request.referenceType() == ReferenceType.STOCK_ADJUSTMENT) {
+            documentSnapshotService.createSnapshot("STOCK_ADJUSTMENT", movement.getId(),
+                    movement.getReferenceNumber(), movement);
+        }
         return movement;
     }
 

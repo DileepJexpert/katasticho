@@ -51,6 +51,7 @@ class PaymentServiceTest {
     @Mock private AuditService auditService;
     @Mock private CommentService commentService;
     @Mock private CurrencyService currencyService;
+    @Mock private com.katasticho.erp.common.snapshot.DocumentSnapshotService documentSnapshotService;
 
     private PaymentService paymentService;
     private UUID orgId;
@@ -62,7 +63,7 @@ class PaymentServiceTest {
         paymentService = new PaymentService(
                 paymentRepository, invoiceRepository, contactRepository,
                 organisationRepository, branchRepository, journalService, postingEngine,
-                invoiceService, currencyService, auditService, commentService);
+                invoiceService, currencyService, auditService, commentService, documentSnapshotService);
 
         lenient().when(currencyService.getRate(any(), any(), any())).thenReturn(BigDecimal.ONE);
 

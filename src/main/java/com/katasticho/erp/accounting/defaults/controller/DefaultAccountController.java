@@ -5,6 +5,8 @@ import com.katasticho.erp.accounting.defaults.dto.UpdateDefaultAccountsRequest;
 import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +32,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/settings/default-accounts")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.ACCOUNTING)
 public class DefaultAccountController {
 
     private final DefaultAccountService defaultAccountService;

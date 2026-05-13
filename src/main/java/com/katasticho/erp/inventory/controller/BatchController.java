@@ -3,6 +3,8 @@ package com.katasticho.erp.inventory.controller;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.inventory.dto.BatchResponse;
 import com.katasticho.erp.inventory.entity.StockBatch;
 import com.katasticho.erp.inventory.entity.Warehouse;
@@ -29,6 +31,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/batches")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.BATCH_EXPIRY)
 public class BatchController {
 
     private final BatchService batchService;

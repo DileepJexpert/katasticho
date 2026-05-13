@@ -2,6 +2,8 @@ package com.katasticho.erp.inventory.controller;
 
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.inventory.dto.GenerateVariantsRequest;
 import com.katasticho.erp.inventory.dto.GenerateVariantsResponse;
 import com.katasticho.erp.inventory.dto.ItemGroupRequest;
@@ -28,6 +30,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/item-groups")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.INVENTORY)
 public class ItemGroupController {
 
     private final ItemGroupService itemGroupService;

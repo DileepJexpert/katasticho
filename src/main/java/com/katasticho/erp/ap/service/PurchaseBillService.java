@@ -21,6 +21,7 @@ import com.katasticho.erp.ar.entity.InvoiceNumberSequence;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.common.snapshot.DocumentSnapshotService;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.entity.ContactType;
 import com.katasticho.erp.contact.repository.ContactRepository;
@@ -88,6 +89,7 @@ public class PurchaseBillService {
     private final InventoryService inventoryService;
     private final DefaultAccountService defaultAccountService;
     private final CommentService commentService;
+    private final DocumentSnapshotService documentSnapshotService;
 
     // ── Create ──────────────────────────────────────────────────
 
@@ -313,9 +315,11 @@ public class PurchaseBillService {
 
         commentService.addSystemComment("BILL", bill.getId(),
                 "Bill posted to accounts payable");
+        PurchaseBillResponse response = toResponse(bill);
+        documentSnapshotService.createSnapshot("PURCHASE_BILL", bill.getId(), bill.getBillNumber(), response);
         log.info("Purchase bill {} posted, journal={}", bill.getBillNumber(),
                 journalEntry.getEntryNumber());
-        return toResponse(bill);
+        return response;
     }
 
     // ── Void ────────────────────────────────────────────────────

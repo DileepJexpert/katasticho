@@ -3,6 +3,8 @@ package com.katasticho.erp.reporting.controller;
 import com.katasticho.erp.reporting.dto.*;
 import com.katasticho.erp.reporting.service.InventoryReportService;
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +17,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/inventory-reports")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.INVENTORY)
 public class InventoryReportController {
 
     private final InventoryReportService reportService;

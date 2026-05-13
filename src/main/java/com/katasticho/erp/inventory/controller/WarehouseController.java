@@ -1,6 +1,8 @@
 package com.katasticho.erp.inventory.controller;
 
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.inventory.dto.CreateWarehouseRequest;
 import com.katasticho.erp.inventory.dto.WarehouseResponse;
 import com.katasticho.erp.inventory.service.WarehouseService;
@@ -17,6 +19,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/warehouses")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.INVENTORY)
 public class WarehouseController {
 
     private final WarehouseService warehouseService;

@@ -2,6 +2,8 @@ package com.katasticho.erp.pos.controller;
 
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.pos.dto.CreateSalesReceiptRequest;
 import com.katasticho.erp.pos.dto.SalesReceiptResponse;
 import com.katasticho.erp.pos.service.ReceiptPdfService;
@@ -25,6 +27,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/sales-receipts")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.POS)
 public class SalesReceiptController {
 
     private final SalesReceiptService salesReceiptService;

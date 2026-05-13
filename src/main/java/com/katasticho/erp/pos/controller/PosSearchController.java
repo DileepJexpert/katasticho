@@ -2,6 +2,8 @@ package com.katasticho.erp.pos.controller;
 
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.pos.dto.PosSearchResult;
 import com.katasticho.erp.pos.service.PosSearchService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/items")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.POS)
 public class PosSearchController {
 
     private final PosSearchService posSearchService;

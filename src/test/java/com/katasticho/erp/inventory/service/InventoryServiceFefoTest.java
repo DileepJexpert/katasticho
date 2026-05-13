@@ -71,6 +71,7 @@ class InventoryServiceFefoTest {
     @Mock private BatchService batchService;
     @Mock private AuditService auditService;
     @Mock private com.katasticho.erp.common.cache.CacheInvalidationService cacheInvalidationService;
+    @Mock private com.katasticho.erp.common.snapshot.DocumentSnapshotService documentSnapshotService;
 
     private InventoryService inventoryService;
     private UUID orgId;
@@ -83,7 +84,7 @@ class InventoryServiceFefoTest {
         inventoryService = new InventoryService(
                 itemRepository, warehouseRepository, stockMovementRepository,
                 stockBalanceRepository, bomComponentRepository, batchService, auditService,
-                cacheInvalidationService);
+                cacheInvalidationService, documentSnapshotService);
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();

@@ -13,6 +13,7 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.common.snapshot.DocumentSnapshotService;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.expense.dto.CreateExpenseRequest;
@@ -71,6 +72,7 @@ public class ExpenseService {
     private final TaxLineItemRepository taxLineItemRepository;
     private final AuditService auditService;
     private final CommentService commentService;
+    private final DocumentSnapshotService documentSnapshotService;
 
     // ─────────────────────────────────────────────────────────────
     // CREATE
@@ -158,7 +160,9 @@ public class ExpenseService {
 
         log.info("Expense {} created: total={} journal={}",
                 expense.getExpenseNumber(), expense.getTotal(), journalEntry.getEntryNumber());
-        return toResponse(expense);
+        ExpenseResponse response = toResponse(expense);
+        documentSnapshotService.createSnapshot("EXPENSE", expense.getId(), expense.getExpenseNumber(), response);
+        return response;
     }
 
     // ─────────────────────────────────────────────────────────────

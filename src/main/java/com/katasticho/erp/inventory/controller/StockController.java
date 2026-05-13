@@ -3,6 +3,8 @@ package com.katasticho.erp.inventory.controller;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.inventory.dto.StockAdjustmentRequest;
 import com.katasticho.erp.inventory.dto.StockBalanceResponse;
 import com.katasticho.erp.inventory.dto.StockMovementResponse;
@@ -31,6 +33,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/stock")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.INVENTORY)
 public class StockController {
 
     private final InventoryService inventoryService;

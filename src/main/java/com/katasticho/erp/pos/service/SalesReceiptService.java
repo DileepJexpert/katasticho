@@ -12,6 +12,7 @@ import com.katasticho.erp.common.cache.CacheInvalidationService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.PagedResponse;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.snapshot.DocumentSnapshotService;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.inventory.dto.StockMovementRequest;
@@ -82,6 +83,7 @@ public class SalesReceiptService {
     private final AuditService auditService;
     private final CacheInvalidationService cacheInvalidationService;
     private final OrganisationRepository organisationRepository;
+    private final DocumentSnapshotService documentSnapshotService;
 
     @Transactional
     public SalesReceiptResponse create(CreateSalesReceiptRequest request) {
@@ -281,7 +283,9 @@ public class SalesReceiptService {
 
         cacheInvalidationService.onPosSale(TenantContext.getCurrentOrgId());
 
-        return toResponse(receipt);
+        SalesReceiptResponse response = toResponse(receipt);
+        documentSnapshotService.createSnapshot("SALES_RECEIPT", receipt.getId(), receipt.getReceiptNumber(), response);
+        return response;
     }
 
     @Transactional(readOnly = true)

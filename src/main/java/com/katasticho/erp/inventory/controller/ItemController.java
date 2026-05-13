@@ -2,6 +2,8 @@ package com.katasticho.erp.inventory.controller;
 
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.inventory.dto.BomComponentRequest;
 import com.katasticho.erp.inventory.dto.BomComponentResponse;
 import com.katasticho.erp.inventory.dto.CreateItemRequest;
@@ -30,6 +32,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/items")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.INVENTORY)
 public class ItemController {
 
     private final ItemService itemService;

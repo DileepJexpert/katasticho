@@ -3,6 +3,8 @@ package com.katasticho.erp.tax.controller;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.tax.dto.TaxGroupResponse;
 import com.katasticho.erp.tax.entity.TaxGroup;
 import com.katasticho.erp.tax.entity.TaxGroupRate;
@@ -22,6 +24,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/tax-groups")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.GST)
 public class TaxGroupController {
 
     private final TaxGroupRepository taxGroupRepository;

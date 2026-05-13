@@ -73,6 +73,25 @@ public class RuleBasedAiAgentService {
         );
     }
 
+    @Transactional
+    public int scanPostedInvoice(UUID orgId, UUID invoiceId) {
+        Invoice invoice = invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)
+                .orElseThrow(() -> new BusinessException(
+                        "Invoice not found",
+                        "INVOICE_NOT_FOUND"
+                ));
+
+        if ("DRAFT".equals(invoice.getStatus()) || "CANCELLED".equals(invoice.getStatus())) {
+            return 0;
+        }
+
+        List<InvoiceLine> lines = invoiceLineRepository.findByInvoiceIdOrderByLineNumber(invoiceId);
+        Counter counter = new Counter();
+        scanHighValueInvoices(orgId, List.of(invoice), counter);
+        scanInvoiceLineTaxIssues(orgId, lines, counter);
+        return counter.created;
+    }
+
     private void scanHighValueInvoices(UUID orgId, List<Invoice> invoices, Counter counter) {
         for (Invoice invoice : invoices) {
             if (invoice.getTotalAmount() == null ||

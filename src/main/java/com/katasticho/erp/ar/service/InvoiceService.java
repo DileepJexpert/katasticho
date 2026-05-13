@@ -9,9 +9,11 @@ import com.katasticho.erp.ar.repository.*;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.cache.CacheInvalidationService;
 import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.common.event.DomainEventPublisher;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.common.service.DocumentEmailService;
+import com.katasticho.erp.common.snapshot.DocumentSnapshotService;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.currency.CurrencyService;
@@ -78,6 +80,8 @@ public class InvoiceService {
     private final ItemRepository itemRepository;
     private final StockBatchRepository stockBatchRepository;
     private final CacheInvalidationService cacheInvalidationService;
+    private final DocumentSnapshotService documentSnapshotService;
+    private final DomainEventPublisher domainEventPublisher;
 
     /**
      * Create a DRAFT invoice with tax calculation via TaxEngine.
@@ -339,6 +343,13 @@ public class InvoiceService {
                 "{\"status\":\"SENT\",\"journalEntryId\":\"" + journalEntry.getId() + "\"}");
 
         InvoiceResponse response = toResponse(invoice);
+        documentSnapshotService.createSnapshot("INVOICE", invoice.getId(), invoice.getInvoiceNumber(), response);
+        domainEventPublisher.publish("INVOICE_POSTED", "INVOICE", invoice.getId(), Map.of(
+                "invoiceNumber", invoice.getInvoiceNumber(),
+                "status", invoice.getStatus(),
+                "totalAmount", invoice.getTotalAmount(),
+                "journalEntryId", journalEntry.getId()
+        ));
 
         // Side effects run after commit — email/comment/cache failure cannot roll back the posting
         final UUID invoiceId2 = invoice.getId();

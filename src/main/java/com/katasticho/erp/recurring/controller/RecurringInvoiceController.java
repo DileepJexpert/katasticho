@@ -3,6 +3,8 @@ package com.katasticho.erp.recurring.controller;
 import com.katasticho.erp.ar.dto.InvoiceResponse;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.recurring.dto.CreateRecurringInvoiceRequest;
 import com.katasticho.erp.recurring.dto.GeneratedInvoiceResponse;
 import com.katasticho.erp.recurring.dto.RecurringInvoiceResponse;
@@ -23,6 +25,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/recurring-invoices")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.RECURRING_BILLING)
 public class RecurringInvoiceController {
 
     private final RecurringInvoiceService recurringInvoiceService;

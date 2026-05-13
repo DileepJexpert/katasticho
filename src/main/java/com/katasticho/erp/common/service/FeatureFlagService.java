@@ -1,6 +1,7 @@
 package com.katasticho.erp.common.service;
 
 import com.katasticho.erp.common.entity.OrgFeatureFlag;
+import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.repository.OrgFeatureFlagRepository;
 import com.katasticho.erp.organisation.IndustryFeatureConfig;
 import com.katasticho.erp.organisation.IndustryFeatureConfigRepository;
@@ -129,6 +130,22 @@ public class FeatureFlagService {
 
     private Map<String, Boolean> defaultFlags() {
         Map<String, Boolean> flags = new LinkedHashMap<>();
+        flags.put(ModuleCode.ACCOUNTING, true);
+        flags.put(ModuleCode.AR, true);
+        flags.put(ModuleCode.AP, true);
+        flags.put(ModuleCode.GST, true);
+        flags.put(ModuleCode.BANK_RECON, true);
+        flags.put(ModuleCode.AI_INBOX, true);
+        flags.put(ModuleCode.REPORTS, true);
+        flags.put(ModuleCode.COLLECTIONS, true);
+        flags.put(ModuleCode.PAYMENTS, true);
+        flags.put(ModuleCode.POS, false);
+        flags.put(ModuleCode.INVENTORY, false);
+        flags.put(ModuleCode.PHARMA, false);
+        flags.put(ModuleCode.MANUFACTURING, false);
+        flags.put(ModuleCode.RECURRING_BILLING, false);
+        flags.put(ModuleCode.MULTI_ENTITY, false);
+        flags.put(ModuleCode.BATCH_EXPIRY, false);
         flags.put("BATCH_TRACKING", false);
         flags.put("EXPIRY_TRACKING", false);
         flags.put("MRP_PRICING", false);
@@ -147,44 +164,62 @@ public class FeatureFlagService {
         Map<String, Boolean> flags = defaultFlags();
         if (code == null) return flags;
         switch (code) {
+            case "ACCOUNTING_FIRM", "FINANCE_ERP", "SERVICE_BUSINESS" -> {
+                // Finance-first edition: accounting, GST, reports, AI inbox and bank recon stay enabled
+                // from defaults; operational modules remain add-ons.
+            }
+            case "TRADING", "KIRANA", "OTHER_RETAIL", "RETAIL", "RETAILER", "DISTRIBUTOR" -> {
+                flags.put(ModuleCode.POS, true); flags.put(ModuleCode.INVENTORY, true);
+            }
             case "PHARMACY", "AYURVEDIC", "ALLOPATHIC_MEDICINE", "AYURVEDIC_HERBAL",
                  "SINGLE_MEDICAL_STORE", "MEDICAL_SHOP_CHAIN" -> {
+                flags.put(ModuleCode.INVENTORY, true); flags.put(ModuleCode.PHARMA, true);
+                flags.put(ModuleCode.BATCH_EXPIRY, true);
                 flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
                 flags.put("MRP_PRICING", true); flags.put("DRUG_SCHEDULE_FIELDS", true);
             }
             case "GROCERY", "SUPERMARKET", "FRUITS_VEG", "ORGANIC", "KIRANA_STORE",
                  "SUPERMARKET_CHAIN", "FRUITS_VEGETABLES", "ORGANIC_STORE" -> {
+                flags.put(ModuleCode.POS, true); flags.put(ModuleCode.INVENTORY, true);
                 flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
                 flags.put("MRP_PRICING", true); flags.put("WEIGHT_BASED_BILLING", true);
             }
             case "ELECTRONICS", "MOBILE", "APPLIANCES", "LED", "CCTV",
                  "COMPUTER_LAPTOP", "MOBILE_ACCESSORIES", "HOME_APPLIANCES",
                  "LED_LIGHTING", "CCTV_SECURITY" -> {
+                flags.put(ModuleCode.POS, true); flags.put(ModuleCode.INVENTORY, true);
                 flags.put("SERIAL_TRACKING", true); flags.put("WARRANTY_MANAGEMENT", true);
             }
             case "GARMENTS", "FABRIC", "FOOTWEAR", "JEWELRY", "COSMETICS",
                  "READYMADE_GARMENTS", "FABRIC_STORE", "FOOTWEAR_SHOP",
                  "JEWELLERY_SHOP", "COSMETICS_BEAUTY" -> {
+                flags.put(ModuleCode.POS, true); flags.put(ModuleCode.INVENTORY, true);
                 flags.put("SIZE_COLOR_VARIANTS", true);
             }
             case "FOOD", "BAKERY", "CATERING", "CLOUD_KITCHEN", "JUICE",
                  "RESTAURANT", "BAKERY_CONFECTIONERY", "CATERING_SERVICE",
                  "CLOUD_KITCHEN_BRAND", "JUICE_BEVERAGE" -> {
+                flags.put(ModuleCode.POS, true); flags.put(ModuleCode.INVENTORY, true);
                 flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
                 flags.put("BOM_ASSEMBLY", true); flags.put("WEIGHT_BASED_BILLING", true);
             }
             case "PHARMA_MANUFACTURER", "ALLOPATHIC_MANUFACTURER" -> {
+                flags.put(ModuleCode.INVENTORY, true); flags.put(ModuleCode.PHARMA, true);
+                flags.put(ModuleCode.MANUFACTURING, true); flags.put(ModuleCode.BATCH_EXPIRY, true);
                 flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
                 flags.put("BOM_ASSEMBLY", true); flags.put("DRUG_SCHEDULE_FIELDS", true);
             }
             case "FOOD_MANUFACTURER", "FOOD_PROCESSING" -> {
+                flags.put(ModuleCode.INVENTORY, true); flags.put(ModuleCode.MANUFACTURING, true);
                 flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
                 flags.put("BOM_ASSEMBLY", true); flags.put("WEIGHT_BASED_BILLING", true);
             }
             case "GARMENT_MANUFACTURER", "APPAREL_MANUFACTURER" -> {
+                flags.put(ModuleCode.INVENTORY, true); flags.put(ModuleCode.MANUFACTURING, true);
                 flags.put("SIZE_COLOR_VARIANTS", true); flags.put("BOM_ASSEMBLY", true);
             }
             case "ELECTRONICS_MANUFACTURER", "ELECTRONICS_MFG" -> {
+                flags.put(ModuleCode.INVENTORY, true); flags.put(ModuleCode.MANUFACTURING, true);
                 flags.put("SERIAL_TRACKING", true); flags.put("BOM_ASSEMBLY", true);
                 flags.put("WARRANTY_MANAGEMENT", true);
             }

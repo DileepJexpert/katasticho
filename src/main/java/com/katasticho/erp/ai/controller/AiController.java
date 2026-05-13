@@ -16,6 +16,8 @@ import com.katasticho.erp.ai.service.NlpQueryService;
 import com.katasticho.erp.ai.service.RuleBasedAiAgentService;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +30,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/ai")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.AI_INBOX)
 public class AiController {
 
     private final NlpQueryService nlpQueryService;

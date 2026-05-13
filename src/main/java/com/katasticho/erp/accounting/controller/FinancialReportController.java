@@ -4,6 +4,8 @@ import com.katasticho.erp.accounting.dto.report.*;
 import com.katasticho.erp.accounting.service.FinancialReportService;
 import com.katasticho.erp.accounting.service.OperationalReportService;
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/reports")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.REPORTS)
 public class FinancialReportController {
 
     private final FinancialReportService reportService;

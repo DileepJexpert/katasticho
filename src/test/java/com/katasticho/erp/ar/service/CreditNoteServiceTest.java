@@ -57,6 +57,7 @@ class CreditNoteServiceTest {
     @Mock private CommentService commentService;
     @Mock private CurrencyService currencyService;
     @Mock private DefaultAccountService defaultAccountService;
+    @Mock private com.katasticho.erp.common.snapshot.DocumentSnapshotService documentSnapshotService;
 
     private CreditNoteService creditNoteService;
     private UUID orgId;
@@ -71,7 +72,7 @@ class CreditNoteServiceTest {
                 invoiceRepository, sequenceRepository, organisationRepository,
                 invoiceService, journalService, postingEngine, taxEngine,
                 currencyService, auditService, inventoryService,
-                commentService);
+                commentService, documentSnapshotService);
 
         lenient().when(currencyService.getRate(any(), any(), any())).thenReturn(BigDecimal.ONE);
         lenient().when(defaultAccountService.getCode(any(), eq(DefaultAccountPurpose.AR))).thenReturn("1200");

@@ -3,6 +3,8 @@ package com.katasticho.erp.ap.controller;
 import com.katasticho.erp.ap.dto.ApAgeingReportResponse;
 import com.katasticho.erp.ap.service.ApReportService;
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +16,7 @@ import java.time.LocalDate;
 @RestController
 @RequestMapping("/api/v1/ap/reports")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.REPORTS)
 public class ApReportController {
 
     private final ApReportService reportService;

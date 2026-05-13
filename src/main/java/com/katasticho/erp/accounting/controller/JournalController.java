@@ -7,6 +7,8 @@ import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -23,6 +25,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/journal-entries")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.ACCOUNTING)
 public class JournalController {
 
     private final JournalService journalService;

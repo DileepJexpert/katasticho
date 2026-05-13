@@ -2,6 +2,8 @@ package com.katasticho.erp.procurement.controller;
 
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.procurement.dto.CreateStockReceiptRequest;
 import com.katasticho.erp.procurement.dto.StockReceiptResponse;
 import com.katasticho.erp.procurement.service.StockReceiptService;
@@ -20,6 +22,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/stock-receipts")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.INVENTORY)
 public class StockReceiptController {
 
     private final StockReceiptService stockReceiptService;
