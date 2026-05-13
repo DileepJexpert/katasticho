@@ -31,7 +31,7 @@ public class FeatureFlagService {
     private final IndustryFeatureConfigRepository featureConfigRepository;
     private final OrganisationRepository organisationRepository;
 
-    private static final String CACHE_PREFIX = "features:";
+    private static final String CACHE_PREFIX = "features:v2:";
     private static final Duration CACHE_TTL = Duration.ofHours(1);
 
     public boolean isEnabled(UUID orgId, String feature) {
@@ -175,13 +175,16 @@ public class FeatureFlagService {
         flags.put(ModuleCode.REPORTS, true);
         flags.put(ModuleCode.COLLECTIONS, true);
         flags.put(ModuleCode.PAYMENTS, true);
-        flags.put(ModuleCode.POS, false);
-        flags.put(ModuleCode.INVENTORY, false);
-        flags.put(ModuleCode.PHARMA, false);
-        flags.put(ModuleCode.MANUFACTURING, false);
-        flags.put(ModuleCode.RECURRING_BILLING, false);
-        flags.put(ModuleCode.MULTI_ENTITY, false);
-        flags.put(ModuleCode.BATCH_EXPIRY, false);
+        // All modules default to enabled. The org owner/admin always has access
+        // to every module; subscription/plan-based gating is a future concern.
+        // Industry/sub-category only seeds fine-grained UX flags below.
+        flags.put(ModuleCode.POS, true);
+        flags.put(ModuleCode.INVENTORY, true);
+        flags.put(ModuleCode.PHARMA, true);
+        flags.put(ModuleCode.MANUFACTURING, true);
+        flags.put(ModuleCode.RECURRING_BILLING, true);
+        flags.put(ModuleCode.MULTI_ENTITY, true);
+        flags.put(ModuleCode.BATCH_EXPIRY, true);
         flags.put("BATCH_TRACKING", false);
         flags.put("EXPIRY_TRACKING", false);
         flags.put("MRP_PRICING", false);
