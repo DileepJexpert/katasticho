@@ -27,6 +27,10 @@ public class ModuleAccessService {
         if (orgId == null) {
             throw new BusinessException("Organisation context is required", "ORG_CONTEXT_REQUIRED", HttpStatus.FORBIDDEN);
         }
+        String role = TenantContext.getCurrentRole();
+        if ("OWNER".equals(role) || "ADMIN".equals(role)) {
+            return;
+        }
         requireEnabled(orgId, moduleCode);
     }
 
