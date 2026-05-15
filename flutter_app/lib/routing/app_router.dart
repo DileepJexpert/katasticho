@@ -38,6 +38,7 @@ import '../features/reports/presentation/ageing_report_screen.dart';
 import '../features/reports/presentation/ap_ageing_screen.dart';
 import '../features/reports/presentation/operational_report_screen.dart';
 import '../features/ai_chat/presentation/ai_chat_screen.dart';
+import '../features/banking/presentation/bank_reconciliation_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/settings/presentation/inventory_features_screen.dart';
 import '../features/settings/presentation/org_details_screen.dart';
@@ -177,6 +178,7 @@ class Routes {
   static const salesReceiptDetail = '/sales-receipts/:id';
   static const receiptSettings = '/pos/receipt-settings';
   static const aiChat = '/ai-chat';
+  static const bankReconciliation = '/banking/reconciliation';
   static const gst = '/gst';
   static const reorder = '/reorder';
   static const contactStatement = '/contacts/:id/statement';
@@ -744,6 +746,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.aiChat,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: AiChatScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.bankReconciliation,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: BankReconciliationScreen(),
             ),
           ),
           GoRoute(

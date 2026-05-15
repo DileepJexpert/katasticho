@@ -249,6 +249,20 @@ const _inventoryGroup = NavGroup(
   ],
 );
 
+const _bankingGroup = NavGroup(
+  label: 'Banking',
+  icon: Icons.account_balance_outlined,
+  activeIcon: Icons.account_balance_rounded,
+  children: [
+    NavItem(
+      label: 'Reconciliation',
+      icon: Icons.compare_arrows_outlined,
+      activeIcon: Icons.compare_arrows_rounded,
+      route: Routes.bankReconciliation,
+    ),
+  ],
+);
+
 const _accountingGroup = NavGroup(
   label: 'Accounting',
   icon: Icons.account_balance_outlined,
@@ -736,6 +750,7 @@ List<Widget> _buildSidebarSections({
     if (!isCashier) ...[
       _SidebarNavGroup(group: _purchasesGroup, collapsed: collapsed),
       _SidebarNavGroup(group: _inventoryGroup, collapsed: collapsed),
+      _SidebarNavGroup(group: _bankingGroup, collapsed: collapsed),
       _SidebarNavGroup(group: _accountingGroup, collapsed: collapsed),
     ] else ...[
       _SidebarNavGroup(group: _inventoryGroup, collapsed: collapsed),

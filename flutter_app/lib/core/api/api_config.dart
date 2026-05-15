@@ -180,10 +180,28 @@ class ApiConfig {
 
   // AI
   static const String aiQuery = '/api/v1/ai/query';
+  static const String aiSuggestions = '/api/v1/ai/suggestions';
+  static const String aiSuggestionsSummary = '/api/v1/ai/suggestions/summary';
+  static String aiSuggestionById(String id) => '/api/v1/ai/suggestions/$id';
+  static String aiSuggestionReview(String id) =>
+      '/api/v1/ai/suggestions/$id/review';
   static const String aiScanBill = '/api/v1/ai/scan-bill';
   static const String aiScanProductLabel = '/api/v1/ai/scan-product-label';
   static const String aiScanPurchaseInvoice =
       '/api/v1/ai/scan-purchase-invoice';
+
+  // Banking / reconciliation
+  static const String bankingTransactions = '/api/v1/banking/transactions';
+  static const String bankingImportCsv =
+      '/api/v1/banking/transactions/import-csv';
+  static String bankingRerunMatch(String id) =>
+      '/api/v1/banking/transactions/$id/rerun-match';
+  static String bankingIgnoreTransaction(String id) =>
+      '/api/v1/banking/transactions/$id/ignore';
+  static String bankingAcceptMatch(String id) =>
+      '/api/v1/banking/matches/$id/accept';
+  static String bankingRejectMatch(String id) =>
+      '/api/v1/banking/matches/$id/reject';
 
   // Branches (multi-branch rollup)
   static const String branches = '/api/v1/branches';
