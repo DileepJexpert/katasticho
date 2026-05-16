@@ -25,7 +25,8 @@ public class BillScanService {
     private final ObjectMapper objectMapper;
 
     private static final String SYSTEM_PROMPT = """
-            You are an expert Indian bill/invoice OCR system. Extract structured data from the bill image.
+            You are an expert Indian bill/invoice OCR system, specialised in pharmaceutical
+            and medical store distributor invoices. Extract structured data from the bill image.
 
             Return ONLY a valid JSON object with this exact structure (no markdown, no explanations):
             {
@@ -46,7 +47,11 @@ public class BillScanService {
                   "quantity": number,
                   "unitPrice": number,
                   "amount": number,
-                  "gstRate": number or null
+                  "gstRate": number or null,
+                  "batchNumber": "string or null",
+                  "expiryDate": "YYYY-MM-DD or null",
+                  "mrp": number or null,
+                  "freeQuantity": number or null
                 }
               ],
               "taxDetails": {
@@ -59,13 +64,30 @@ public class BillScanService {
             }
 
             Rules:
-            - Extract ALL line items visible on the bill
+            - Extract ALL line items visible on the bill, even faint or partially legible rows
             - If GSTIN is visible, extract the full 15-character code
             - Identify HSN/SAC codes if present
             - Separate CGST, SGST, IGST amounts if shown
+
+            Pharmaceutical / medical store bill columns (common headers):
+            - "Product"/"Description": the medicine name with strength & pack (e.g. "DYTOR 5MG TAB 15'S")
+            - "Pack": pack size — fold this into the description, do NOT treat as quantity
+            - "Qty"/"Quantity": number of packs/strips purchased -> "quantity"
+            - "Free": free/scheme units given by distributor -> "freeQuantity" (0 if none)
+            - "Batch"/"Batch No": the batch code (e.g. "NM4820054A") -> "batchNumber"
+            - "Exp"/"Expiry": expiry date, usually MM/YY or MM/YYYY (e.g. "12/26" means Dec 2026).
+              Convert to YYYY-MM-DD using the LAST day of that month (e.g. "12/26" -> "2026-12-31")
+            - "MRP": Maximum Retail Price per pack -> "mrp"
+            - "Rate"/"Net Rate": the distributor's selling/purchase price per pack -> "unitPrice"
+            - "Amount": line total -> "amount"
+            - The bill is GST-inclusive of MRP; gstRate is the % shown (often 5, 12, 18). For pharma
+              the GST is frequently 5% split as CGST 2.5% + SGST 2.5% — set gstRate to the combined %.
+
+            General:
             - Set confidence based on image clarity and extraction certainty
-            - Use 0 for amounts you cannot determine
-            - Dates must be in YYYY-MM-DD format
+            - Use 0 for numeric values you cannot determine, null for unknown strings/dates
+            - All dates must be in YYYY-MM-DD format
+            - Never invent batch numbers or expiry dates — use null if not clearly visible
             """;
 
     public BillScanResponse scanBill(String base64Image, String mediaType) {

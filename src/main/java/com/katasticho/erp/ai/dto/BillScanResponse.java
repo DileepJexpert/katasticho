@@ -24,7 +24,11 @@ public record BillScanResponse(
             BigDecimal quantity,
             BigDecimal unitPrice,
             BigDecimal amount,
-            BigDecimal gstRate
+            BigDecimal gstRate,
+            String batchNumber,
+            String expiryDate,
+            BigDecimal mrp,
+            BigDecimal freeQuantity
     ) {}
 
     public record TaxDetails(

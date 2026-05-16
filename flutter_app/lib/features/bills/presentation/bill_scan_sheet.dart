@@ -563,12 +563,85 @@ class _BillScanSheetState extends ConsumerState<_BillScanSheet> {
             ],
           ),
           KSpacing.vGapSm,
-          KTextField(
-            label: 'GST Rate (%)',
-            controller: item.gstRateCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            hint: 'e.g. 18',
-            onChanged: (_) => setState(() {}),
+          Row(
+            children: [
+              Expanded(
+                child: KTextField(
+                  label: 'GST Rate (%)',
+                  controller: item.gstRateCtrl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  hint: 'e.g. 5',
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              KSpacing.hGapMd,
+              Expanded(
+                child: KTextField.amount(
+                  label: 'MRP',
+                  controller: item.mrpCtrl,
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+            ],
+          ),
+          KSpacing.vGapSm,
+          // Pharma: batch + expiry + free qty
+          Container(
+            padding: const EdgeInsets.all(KSpacing.sm),
+            decoration: BoxDecoration(
+              color: KColors.info.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+              border: Border.all(color: KColors.info.withValues(alpha: 0.25)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.medical_services_outlined,
+                        size: 14, color: KColors.info),
+                    KSpacing.hGapSm,
+                    Text('Batch & Expiry',
+                        style: KTypography.labelSmall
+                            .copyWith(color: KColors.info)),
+                  ],
+                ),
+                KSpacing.vGapSm,
+                Row(
+                  children: [
+                    Expanded(
+                      child: KTextField(
+                        label: 'Batch No.',
+                        controller: item.batchCtrl,
+                        hint: 'e.g. NM4820054A',
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    KSpacing.hGapMd,
+                    Expanded(
+                      child: KTextField(
+                        label: 'Free Qty',
+                        controller: item.freeQtyCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        hint: '0',
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                  ],
+                ),
+                KSpacing.vGapSm,
+                KDatePicker(
+                  label: 'Expiry Date',
+                  value: item.expiryDate,
+                  onChanged: (date) =>
+                      setState(() => item.expiryDate = date),
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2040),
+                ),
+              ],
+            ),
           ),
           KSpacing.vGapSm,
           Container(
@@ -711,6 +784,10 @@ class _LineItemData {
   final TextEditingController quantityCtrl;
   final TextEditingController unitPriceCtrl;
   final TextEditingController gstRateCtrl;
+  final TextEditingController batchCtrl;
+  final TextEditingController mrpCtrl;
+  final TextEditingController freeQtyCtrl;
+  DateTime? expiryDate;
 
   _LineItemData({
     required this.descriptionCtrl,
@@ -718,6 +795,10 @@ class _LineItemData {
     required this.quantityCtrl,
     required this.unitPriceCtrl,
     required this.gstRateCtrl,
+    required this.batchCtrl,
+    required this.mrpCtrl,
+    required this.freeQtyCtrl,
+    this.expiryDate,
   });
 
   factory _LineItemData.fromMap(Map<String, dynamic> map) {
@@ -732,6 +813,13 @@ class _LineItemData {
           text: (map['unitPrice'] as num?)?.toString() ?? '0'),
       gstRateCtrl: TextEditingController(
           text: (map['gstRate'] as num?)?.toString() ?? '0'),
+      batchCtrl:
+          TextEditingController(text: map['batchNumber']?.toString() ?? ''),
+      mrpCtrl: TextEditingController(
+          text: (map['mrp'] as num?)?.toString() ?? ''),
+      freeQtyCtrl: TextEditingController(
+          text: (map['freeQuantity'] as num?)?.toString() ?? '0'),
+      expiryDate: DateTime.tryParse(map['expiryDate']?.toString() ?? ''),
     );
   }
 
@@ -742,12 +830,17 @@ class _LineItemData {
       quantityCtrl: TextEditingController(text: '1'),
       unitPriceCtrl: TextEditingController(text: '0'),
       gstRateCtrl: TextEditingController(text: '0'),
+      batchCtrl: TextEditingController(),
+      mrpCtrl: TextEditingController(),
+      freeQtyCtrl: TextEditingController(text: '0'),
     );
   }
 
   double get quantity => double.tryParse(quantityCtrl.text) ?? 0;
   double get unitPrice => double.tryParse(unitPriceCtrl.text) ?? 0;
   double get gstRate => double.tryParse(gstRateCtrl.text) ?? 0;
+  double get mrp => double.tryParse(mrpCtrl.text) ?? 0;
+  double get freeQuantity => double.tryParse(freeQtyCtrl.text) ?? 0;
   double get lineTotal => quantity * unitPrice;
 
   Map<String, dynamic> toMap() {
@@ -757,6 +850,10 @@ class _LineItemData {
       'quantity': quantity,
       'unitPrice': unitPrice,
       'gstRate': gstRate,
+      'batchNumber': batchCtrl.text.isEmpty ? null : batchCtrl.text,
+      'expiryDate': expiryDate,
+      'mrp': mrp,
+      'freeQuantity': freeQuantity,
     };
   }
 
@@ -766,5 +863,8 @@ class _LineItemData {
     quantityCtrl.dispose();
     unitPriceCtrl.dispose();
     gstRateCtrl.dispose();
+    batchCtrl.dispose();
+    mrpCtrl.dispose();
+    freeQtyCtrl.dispose();
   }
 }

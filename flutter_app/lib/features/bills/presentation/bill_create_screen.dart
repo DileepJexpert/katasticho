@@ -12,6 +12,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../contacts/data/contact_repository.dart';
+import '../../inventory/data/item_repository.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../tax_groups/data/tax_group_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
@@ -92,50 +93,247 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
     final result = await showBillScanSheet(context);
     if (result == null || !mounted) return;
 
+    // Populate vendor info immediately
     setState(() {
-      // Populate vendor info
-      _vendorBillNumber = result['invoiceNumber'] as String? ?? _vendorBillNumber;
-      if (result['billDate'] is DateTime) _billDate = result['billDate'] as DateTime;
-      if (result['dueDate'] is DateTime) _dueDate = result['dueDate'] as DateTime;
+      _vendorBillNumber =
+          result['invoiceNumber'] as String? ?? _vendorBillNumber;
+      if (result['billDate'] is DateTime) {
+        _billDate = result['billDate'] as DateTime;
+      }
+      if (result['dueDate'] is DateTime) {
+        _dueDate = result['dueDate'] as DateTime;
+      }
 
-      // Try to match vendor by GSTIN
       final gstin = result['vendorGstin'] as String? ?? '';
       if (gstin.isNotEmpty) {
         final match = _contacts.cast<Map<String, dynamic>?>().firstWhere(
-          (c) => (c?['gstin'] as String? ?? '').toUpperCase() == gstin.toUpperCase(),
+          (c) =>
+              (c?['gstin'] as String? ?? '').toUpperCase() ==
+              gstin.toUpperCase(),
           orElse: () => null,
         );
         if (match != null) {
           _selectedContactId = match['id']?.toString();
           _vendorName = match['displayName'] as String? ??
-              match['companyName'] as String? ?? '';
+              match['companyName'] as String? ??
+              '';
+        }
+      }
+    });
+
+    final scannedLines = (result['lineItems'] as List?) ?? [];
+    if (scannedLines.isEmpty) {
+      if (mounted) {
+        setState(() => _currentStep = 1);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bill scanned — no items detected')),
+        );
+      }
+      return;
+    }
+
+    // Match / create inventory items with a progress dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Matching items to inventory...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final itemRepo = ref.read(itemRepositoryProvider);
+    final newLines = <_BillLineItem>[];
+    int matched = 0;
+    int created = 0;
+    int failed = 0;
+
+    for (final line in scannedLines) {
+      final l = line as Map<String, dynamic>;
+      final desc = (l['description'] as String? ?? '').trim();
+      final qty = (l['quantity'] as num?)?.toDouble() ?? 1;
+      final price = (l['unitPrice'] as num?)?.toDouble() ?? 0;
+      final gst = (l['gstRate'] as num?)?.toDouble() ?? 0;
+      final hsn = l['hsnCode'] as String?;
+      final mrp = (l['mrp'] as num?)?.toDouble() ?? 0;
+      final batch = (l['batchNumber'] as String? ?? '').trim();
+      final expiry = l['expiryDate'] is DateTime
+          ? l['expiryDate'] as DateTime
+          : null;
+
+      final bill = _BillLineItem()
+        ..lineType = 'GOODS'
+        ..description = desc
+        ..quantity = qty
+        ..unitPrice = price
+        ..taxRate = gst;
+
+      if (desc.isNotEmpty) {
+        try {
+          final existing = await _findInventoryMatch(itemRepo, desc);
+          if (existing != null) {
+            bill.itemId = existing['id']?.toString();
+            bill.trackBatches = existing['trackBatches'] as bool? ?? false;
+            matched++;
+          } else {
+            final createdItem = await _createInventoryItem(
+              itemRepo,
+              name: desc,
+              hsnCode: hsn,
+              mrp: mrp,
+              gstRate: gst,
+              purchasePrice: price,
+            );
+            bill.itemId = createdItem['id']?.toString();
+            bill.trackBatches = createdItem['trackBatches'] as bool? ?? true;
+            created++;
+          }
+        } catch (_) {
+          failed++;
         }
       }
 
-      // Populate line items
-      final scannedLines = result['lineItems'] as List? ?? [];
-      if (scannedLines.isNotEmpty) {
-        _lineItems.clear();
-        for (final line in scannedLines) {
-          final l = line as Map<String, dynamic>;
-          final item = _BillLineItem()
-            ..description = l['description'] as String? ?? ''
-            ..quantity = (l['quantity'] as num?)?.toDouble() ?? 1
-            ..unitPrice = (l['unitPrice'] as num?)?.toDouble() ?? 0
-            ..taxRate = (l['gstRate'] as num?)?.toDouble() ?? 0;
-          _lineItems.add(item);
-        }
+      // Populate batch / expiry when the item tracks batches
+      if (bill.trackBatches) {
+        if (batch.isNotEmpty) bill.batchNumber = batch;
+        if (expiry != null) bill.expiryDate = expiry;
       }
 
-      // Jump to Items step so user can review
+      newLines.add(bill);
+    }
+
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop(); // close progress dialog
+
+    setState(() {
+      _lineItems
+        ..clear()
+        ..addAll(newLines.isEmpty ? [_BillLineItem()] : newLines);
       _currentStep = 1;
     });
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bill scanned — review items below')),
-      );
+    final summary = StringBuffer('Scan complete: ');
+    final parts = <String>[];
+    if (matched > 0) parts.add('$matched matched');
+    if (created > 0) parts.add('$created new items created');
+    if (failed > 0) parts.add('$failed need manual linking');
+    summary.write(parts.isEmpty ? 'review items below' : parts.join(', '));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(summary.toString())),
+    );
+  }
+
+  /// Fuzzy-match a scanned product name against existing inventory.
+  /// Returns the best item map or null if no confident match.
+  Future<Map<String, dynamic>?> _findInventoryMatch(
+      ItemRepository repo, String name) async {
+    // Search by the first 2 significant tokens for a focused result set
+    final tokens = _significantTokens(name);
+    if (tokens.isEmpty) return null;
+    final query = tokens.take(2).join(' ');
+
+    final resp = await repo.listItems(search: query, size: 20);
+    final content = resp['data'];
+    final items = content is List
+        ? content.cast<Map<String, dynamic>>()
+        : (content is Map
+            ? ((content['content'] as List?)?.cast<Map<String, dynamic>>() ??
+                [])
+            : <Map<String, dynamic>>[]);
+    if (items.isEmpty) return null;
+
+    final target = _normalize(name);
+    Map<String, dynamic>? best;
+    double bestScore = 0;
+    for (final it in items) {
+      final candidate = _normalize(it['name']?.toString() ?? '');
+      final score = _similarity(target, candidate);
+      if (score > bestScore) {
+        bestScore = score;
+        best = it;
+      }
     }
+    // Require a strong match to auto-link; otherwise treat as new
+    return bestScore >= 0.6 ? best : null;
+  }
+
+  Future<Map<String, dynamic>> _createInventoryItem(
+    ItemRepository repo, {
+    required String name,
+    String? hsnCode,
+    required double mrp,
+    required double gstRate,
+    required double purchasePrice,
+  }) async {
+    final sku = _generateSku(name);
+    final data = <String, dynamic>{
+      'sku': sku,
+      'name': name.length > 255 ? name.substring(0, 255) : name,
+      'itemType': 'GOODS',
+      'trackInventory': true,
+      // Pharma: batch + expiry tracking is essential for FEFO dispensing
+      'trackBatches': true,
+      if (hsnCode != null && hsnCode.isNotEmpty) 'hsnCode': hsnCode,
+      if (mrp > 0) 'mrp': mrp,
+      if (gstRate > 0) 'gstRate': gstRate,
+      if (purchasePrice > 0) 'purchasePrice': purchasePrice,
+    };
+    final resp = await repo.createItem(data);
+    return (resp['data'] ?? resp) as Map<String, dynamic>;
+  }
+
+  String _generateSku(String name) {
+    final slug = name
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9]+'), '')
+        .padRight(4, 'X');
+    final base = slug.length > 10 ? slug.substring(0, 10) : slug;
+    final suffix =
+        DateTime.now().millisecondsSinceEpoch.toString();
+    return 'AUTO-$base-${suffix.substring(suffix.length - 5)}';
+  }
+
+  static final _stopWords = {
+    'tab', 'tabs', 'cap', 'caps', 'syp', 'syrup', 'inj', 'cream',
+    'gel', 'mg', 'ml', 'gm', 'mcg', 'the', 'of', 's',
+  };
+
+  List<String> _significantTokens(String name) {
+    return _normalize(name)
+        .split(' ')
+        .where((t) => t.length > 1 && !_stopWords.contains(t))
+        .toList();
+  }
+
+  String _normalize(String s) {
+    return s
+        .toLowerCase()
+        .replaceAll(RegExp(r"[^a-z0-9\s]"), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  /// Jaccard token-overlap similarity in [0,1].
+  double _similarity(String a, String b) {
+    if (a.isEmpty || b.isEmpty) return 0;
+    final sa = a.split(' ').toSet();
+    final sb = b.split(' ').toSet();
+    if (sa.isEmpty || sb.isEmpty) return 0;
+    final inter = sa.intersection(sb).length;
+    final union = sa.union(sb).length;
+    return inter / union;
   }
 
   void _filterContacts(String query) {
@@ -530,6 +728,7 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
 
         ...List.generate(_lineItems.length, (index) {
           return _BillLineItemCard(
+            key: ObjectKey(_lineItems[index]),
             item: _lineItems[index],
             index: index,
             onRemove: _lineItems.length > 1
@@ -727,6 +926,7 @@ class _BillLineItemCard extends StatefulWidget {
   final VoidCallback onChanged;
 
   const _BillLineItemCard({
+    super.key,
     required this.item,
     required this.index,
     this.onRemove,
