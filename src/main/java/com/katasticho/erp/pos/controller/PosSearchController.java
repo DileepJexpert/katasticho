@@ -28,7 +28,7 @@ public class PosSearchController {
      * Cached in Redis for 5 minutes per (org, query) pair.
      */
     @GetMapping("/pos-search")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<List<PosSearchResult>>> posSearch(
             @RequestParam String q,
             @RequestParam(name = "branch_id", required = false) UUID branchId,

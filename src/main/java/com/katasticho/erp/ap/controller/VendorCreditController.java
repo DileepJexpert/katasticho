@@ -30,7 +30,7 @@ public class VendorCreditController {
     private final CommentService commentService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<VendorCreditResponse>> createCredit(
             @Valid @RequestBody CreateVendorCreditRequest request) {
         VendorCredit credit = creditService.createCredit(request);
@@ -39,7 +39,7 @@ public class VendorCreditController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<VendorCreditResponse>>> listCredits(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) UUID contact_id,
@@ -50,21 +50,21 @@ public class VendorCreditController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<VendorCreditResponse>> getCredit(@PathVariable UUID id) {
         VendorCredit credit = creditService.getCredit(id);
         return ResponseEntity.ok(ApiResponse.ok(creditService.toResponse(credit)));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> deleteCredit(@PathVariable UUID id) {
         creditService.deleteCredit(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Credit deleted"));
     }
 
     @PostMapping("/{id}/post")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<VendorCreditResponse>> postCredit(@PathVariable UUID id) {
         VendorCredit credit = creditService.postCredit(id);
         return ResponseEntity.ok(ApiResponse.ok(creditService.toResponse(credit),
@@ -72,7 +72,7 @@ public class VendorCreditController {
     }
 
     @PostMapping("/{id}/void")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<VendorCreditResponse>> voidCredit(
             @PathVariable UUID id,
             @RequestBody(required = false) Map<String, String> body) {
@@ -82,7 +82,7 @@ public class VendorCreditController {
     }
 
     @PostMapping("/{id}/apply")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<VendorCreditResponse>> applyCredit(
             @PathVariable UUID id,
             @Valid @RequestBody ApplyVendorCreditRequest request) {
@@ -92,7 +92,7 @@ public class VendorCreditController {
     }
 
     @PostMapping("/{id}/comments")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<EntityCommentResponse>> addComment(
             @PathVariable UUID id,
             @RequestBody Map<String, String> body) {
@@ -102,7 +102,7 @@ public class VendorCreditController {
     }
 
     @GetMapping("/{id}/comments")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<EntityCommentResponse>>> listComments(
             @PathVariable UUID id, Pageable pageable) {
         Page<EntityCommentResponse> page = commentService.listComments("VENDOR_CREDIT", id, pageable);

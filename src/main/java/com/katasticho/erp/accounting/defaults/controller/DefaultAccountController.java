@@ -38,14 +38,14 @@ public class DefaultAccountController {
     private final DefaultAccountService defaultAccountService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<List<DefaultAccountResponse>>> list() {
         UUID orgId = TenantContext.getCurrentOrgId();
         return ResponseEntity.ok(ApiResponse.ok(defaultAccountService.listForOrg(orgId)));
     }
 
     @PutMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<List<DefaultAccountResponse>>> update(
             @Valid @RequestBody UpdateDefaultAccountsRequest request) {
         UUID orgId = TenantContext.getCurrentOrgId();

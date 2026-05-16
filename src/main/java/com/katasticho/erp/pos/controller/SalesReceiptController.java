@@ -35,7 +35,7 @@ public class SalesReceiptController {
     private final ReceiptShareService receiptShareService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<SalesReceiptResponse>> create(
             @Valid @RequestBody CreateSalesReceiptRequest request) {
         SalesReceiptResponse response = salesReceiptService.create(request);
@@ -44,13 +44,13 @@ public class SalesReceiptController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<SalesReceiptResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(salesReceiptService.getById(id)));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<SalesReceiptResponse>>> list(
             @RequestParam(required = false) UUID branchId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
@@ -62,7 +62,7 @@ public class SalesReceiptController {
     }
 
     @GetMapping("/{id}/print")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<byte[]> printReceipt(@PathVariable UUID id) {
         byte[] pdf = receiptPdfService.generateReceiptPdf(id);
         return ResponseEntity.ok()
@@ -74,7 +74,7 @@ public class SalesReceiptController {
     }
 
     @PostMapping("/{id}/whatsapp-link")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<Map<String, String>>> whatsappLink(@PathVariable UUID id) {
         Map<String, String> linkData = receiptShareService.generateShareLink(id);
         return ResponseEntity.ok(ApiResponse.ok(linkData));

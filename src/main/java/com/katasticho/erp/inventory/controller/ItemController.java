@@ -40,20 +40,20 @@ public class ItemController {
     private final BomService bomService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<ItemResponse>> createItem(@Valid @RequestBody CreateItemRequest request) {
         ItemResponse item = itemService.createItem(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(item));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<ItemResponse>> getItem(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(itemService.getItem(id)));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<ItemResponse>>> listItems(
             @RequestParam(required = false) String search,
             @RequestParam(required = false, defaultValue = "false") boolean activeOnly,
@@ -63,14 +63,14 @@ public class ItemController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<ItemResponse>> updateItem(
             @PathVariable UUID id, @Valid @RequestBody UpdateItemRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(itemService.updateItem(id, request), "Item updated"));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> deleteItem(@PathVariable UUID id) {
         itemService.deleteItem(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Item deleted"));
@@ -84,7 +84,7 @@ public class ItemController {
      * still imports.
      */
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<ItemImportResult>> importItems(
             @RequestParam("file") MultipartFile file) {
         ItemImportResult result = itemImportService.importItems(file);
@@ -98,7 +98,7 @@ public class ItemController {
      * preview grid before the user commits. Writes nothing to the database.
      */
     @PostMapping(value = "/import/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<ItemImportPreview>> previewImport(
             @RequestParam("file") MultipartFile file) {
         ItemImportPreview preview = itemImportService.previewImport(file);
@@ -112,7 +112,7 @@ public class ItemController {
      * latest column set without a client update.
      */
     @GetMapping(value = "/import/template", produces = "text/csv")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<byte[]> downloadImportTemplate() {
         String csv = ItemImportService.TEMPLATE_HEADER + "\n"
                 + "SKU001,Widget A,Sample item,GOODS,General,,8471,PCS,100,150,180,18,10,20,50,,,,,\n";
@@ -129,7 +129,7 @@ public class ItemController {
     // never called over HTTP.
 
     @PostMapping("/{id}/bom")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<BomComponentResponse>> addBomComponent(
             @PathVariable UUID id,
             @Valid @RequestBody BomComponentRequest request) {
@@ -139,7 +139,7 @@ public class ItemController {
     }
 
     @GetMapping("/{id}/bom")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<BomComponentResponse>>> listBomComponents(
             @PathVariable UUID id) {
         // Enriched variant joins each row with the child's SKU + name
@@ -150,7 +150,7 @@ public class ItemController {
     }
 
     @DeleteMapping("/bom/{componentId}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<Void>> deleteBomComponent(
             @PathVariable UUID componentId) {
         bomService.deleteComponent(componentId);

@@ -24,7 +24,7 @@ public class DetailedReportController {
     private final DetailedReportService reportService;
 
     @GetMapping("/financial-reports/cash-flow")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<CashFlowStatement>> getCashFlowStatement(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
@@ -33,7 +33,7 @@ public class DetailedReportController {
     }
 
     @GetMapping("/accounting-reports/journal-register")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<List<JournalRegisterLine>>> getJournalRegister(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
@@ -46,7 +46,7 @@ public class DetailedReportController {
     }
 
     @GetMapping("/sales-reports/sales-register")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<SalesRegisterReport>> getSalesRegister(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
@@ -57,7 +57,7 @@ public class DetailedReportController {
     }
 
     @GetMapping("/ar-reports/customer-statement/{customerId}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<CustomerStatementReport>> getCustomerStatement(
             @PathVariable UUID customerId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -68,7 +68,7 @@ public class DetailedReportController {
     }
 
     @GetMapping("/purchase-reports/purchase-register")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PurchaseRegisterReport>> getPurchaseRegister(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
@@ -78,7 +78,7 @@ public class DetailedReportController {
     }
 
     @GetMapping("/pos-reports/daily-summary")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<DailySalesReport>> getDailySalesReport(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return ResponseEntity.ok(ApiResponse.ok(
@@ -87,7 +87,7 @@ public class DetailedReportController {
     }
 
     @GetMapping("/tax-reports/gst-summary")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<GstSummaryReport>> getGstSummary(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {

@@ -47,7 +47,7 @@ public class PurchaseBillController {
     private final BillPdfService billPdfService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PurchaseBillResponse>> createBill(
             @Valid @RequestBody CreatePurchaseBillRequest request) {
         PurchaseBillResponse response = billService.createBill(request);
@@ -55,7 +55,7 @@ public class PurchaseBillController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<PurchaseBillResponse>>> listBills(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) UUID contact_id,
@@ -69,13 +69,13 @@ public class PurchaseBillController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<PurchaseBillResponse>> getBill(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(billService.getBillResponse(id)));
     }
 
     @GetMapping("/{id}/pdf")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<byte[]> downloadPdf(@PathVariable UUID id) {
         PurchaseBillResponse bill = billService.getBillResponse(id);
         byte[] pdf = billPdfService.generatePdf(bill);
@@ -87,7 +87,7 @@ public class PurchaseBillController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PurchaseBillResponse>> updateBill(
             @PathVariable UUID id,
             @Valid @RequestBody UpdatePurchaseBillRequest request) {
@@ -96,21 +96,21 @@ public class PurchaseBillController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> deleteBill(@PathVariable UUID id) {
         billService.deleteBill(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Bill deleted"));
     }
 
     @PostMapping("/{id}/post")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PurchaseBillResponse>> postBill(@PathVariable UUID id) {
         PurchaseBillResponse response = billService.postBill(id);
         return ResponseEntity.ok(ApiResponse.ok(response, "Bill posted — journal entry created"));
     }
 
     @PostMapping("/{id}/void")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PurchaseBillResponse>> voidBill(
             @PathVariable UUID id,
             @RequestBody(required = false) Map<String, String> body) {
@@ -120,7 +120,7 @@ public class PurchaseBillController {
     }
 
     @GetMapping("/{id}/payments")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<List<VendorPaymentResponse>>> getBillPayments(
             @PathVariable UUID id) {
         List<VendorPaymentResponse> payments = paymentService.listPaymentsForBill(id);
@@ -128,7 +128,7 @@ public class PurchaseBillController {
     }
 
     @PostMapping("/{id}/comments")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<EntityCommentResponse>> addComment(
             @PathVariable UUID id,
             @RequestBody Map<String, String> body) {
@@ -138,7 +138,7 @@ public class PurchaseBillController {
     }
 
     @GetMapping("/{id}/comments")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<EntityCommentResponse>>> listComments(
             @PathVariable UUID id, Pageable pageable) {
         Page<EntityCommentResponse> page = commentService.listComments("BILL", id, pageable);
@@ -146,7 +146,7 @@ public class PurchaseBillController {
     }
 
     @PostMapping("/{id}/attachments")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<EntityAttachment>> uploadAttachment(
             @PathVariable UUID id,
             @RequestParam("file") MultipartFile file) {
@@ -155,14 +155,14 @@ public class PurchaseBillController {
     }
 
     @GetMapping("/{id}/attachments")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<List<EntityAttachment>>> listAttachments(@PathVariable UUID id) {
         List<EntityAttachment> attachments = attachmentService.list("BILL", id);
         return ResponseEntity.ok(ApiResponse.ok(attachments));
     }
 
     @PostMapping("/bulk-post")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<BulkOperationResult>> bulkPost(
             @Valid @RequestBody BulkIdsRequest request) {
         BulkOperationResult result = billService.bulkPost(request.ids());
@@ -171,7 +171,7 @@ public class PurchaseBillController {
     }
 
     @PostMapping("/bulk-void")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<BulkOperationResult>> bulkVoid(
             @Valid @RequestBody BulkIdsRequest request) {
         String reason = request.resolvedReason("Bulk voided");
@@ -181,7 +181,7 @@ public class PurchaseBillController {
     }
 
     @GetMapping("/{id}/whatsapp-link")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Map<String, String>>> whatsappLink(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(documentShareService.shareBill(id)));
     }

@@ -46,7 +46,7 @@ public class StockController {
      * Manual stock adjustment (loss, damage, found stock).
      */
     @PostMapping("/adjust")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<StockMovementResponse>> adjust(
             @Valid @RequestBody StockAdjustmentRequest request) {
         StockMovement movement = inventoryService.adjustStock(request);
@@ -57,7 +57,7 @@ public class StockController {
      * Reverse a previously-recorded movement.
      */
     @PostMapping("/movements/{id}/reverse")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<StockMovementResponse>> reverse(
             @PathVariable UUID id,
             @RequestBody(required = false) Map<String, String> body) {
@@ -70,7 +70,7 @@ public class StockController {
      * Movement history for an item — newest first.
      */
     @GetMapping("/items/{itemId}/movements")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<StockMovementResponse>>> itemMovements(
             @PathVariable UUID itemId,
             Pageable pageable) {
@@ -84,7 +84,7 @@ public class StockController {
      * Current on-hand balances for an item across all warehouses.
      */
     @GetMapping("/items/{itemId}/balances")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<StockBalanceResponse>>> itemBalances(@PathVariable UUID itemId) {
         UUID orgId = TenantContext.getCurrentOrgId();
         List<StockBalance> balances = stockBalanceRepository.findByOrgIdAndItemId(orgId, itemId);
@@ -96,7 +96,7 @@ public class StockController {
      * Includes items with no StockBalance record (treated as qty=0).
      */
     @GetMapping("/low-stock")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<StockBalanceResponse>>> lowStock() {
         UUID orgId = TenantContext.getCurrentOrgId();
 

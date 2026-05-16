@@ -35,7 +35,7 @@ public class PriceListController {
     // ── Price list CRUD ─────────────────────────────────────────────────
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PriceListResponse>> create(
             @Valid @RequestBody CreatePriceListRequest request) {
         PriceListResponse response = PriceListResponse.from(priceListService.createPriceList(request));
@@ -43,7 +43,7 @@ public class PriceListController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<PriceListResponse>>> list() {
         List<PriceListResponse> result = priceListService.listPriceLists().stream()
                 .map(PriceListResponse::from)
@@ -52,14 +52,14 @@ public class PriceListController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PriceListResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(
                 PriceListResponse.from(priceListService.getPriceList(id))));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         priceListService.deletePriceList(id);
         return ResponseEntity.ok(ApiResponse.ok(null));
@@ -68,7 +68,7 @@ public class PriceListController {
     // ── Price list item (tier) CRUD ─────────────────────────────────────
 
     @PostMapping("/{id}/items")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PriceListItemResponse>> addItem(
             @PathVariable UUID id,
             @Valid @RequestBody PriceListItemRequest request) {
@@ -78,7 +78,7 @@ public class PriceListController {
     }
 
     @GetMapping("/{id}/items")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<PriceListItemResponse>>> listItems(
             @PathVariable UUID id) {
         // Enriched variant joins each row with the item's SKU + name in
@@ -89,7 +89,7 @@ public class PriceListController {
     }
 
     @DeleteMapping("/items/{itemRowId}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> deleteItem(@PathVariable UUID itemRowId) {
         priceListService.deleteItem(itemRowId);
         return ResponseEntity.ok(ApiResponse.ok(null));

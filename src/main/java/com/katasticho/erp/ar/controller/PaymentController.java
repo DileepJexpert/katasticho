@@ -26,7 +26,7 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PaymentResponse>> recordPayment(@Valid @RequestBody RecordPaymentRequest request) {
         Payment payment = paymentService.recordPayment(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -34,14 +34,14 @@ public class PaymentController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<PaymentResponse>> getPayment(@PathVariable UUID id) {
         Payment payment = paymentService.getPayment(id);
         return ResponseEntity.ok(ApiResponse.ok(paymentService.toResponse(payment)));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<PaymentResponse>>> listPayments(Pageable pageable) {
         Page<Payment> page = paymentService.listPayments(pageable);
         Page<PaymentResponse> responsePage = page.map(paymentService::toResponse);
@@ -49,7 +49,7 @@ public class PaymentController {
     }
 
     @GetMapping("/invoice/{invoiceId}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<List<PaymentResponse>>> getPaymentsForInvoice(@PathVariable UUID invoiceId) {
         List<PaymentResponse> payments = paymentService.getPaymentsForInvoice(invoiceId).stream()
                 .map(paymentService::toResponse)

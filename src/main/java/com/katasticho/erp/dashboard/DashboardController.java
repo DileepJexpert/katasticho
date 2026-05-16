@@ -31,7 +31,7 @@ public class DashboardController {
     private final DashboardService dashboardService;
 
     @GetMapping("/today-sales")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<TodaySalesResponse>> todaySales(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
@@ -40,7 +40,7 @@ public class DashboardController {
     }
 
     @GetMapping("/top-selling")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<TopSellingItem>>> topSelling(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
@@ -49,7 +49,7 @@ public class DashboardController {
     }
 
     @GetMapping("/ap-summary")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<ApSummaryResponse>> apSummary(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
@@ -58,20 +58,20 @@ public class DashboardController {
     }
 
     @GetMapping("/revenue-trend")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<RevenueTrendResponse>> revenueTrend(
             @RequestParam(required = false, defaultValue = "30") int days) {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.getRevenueTrend(days)));
     }
 
     @GetMapping("/receivables")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<ArSummaryResponse>> receivables() {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.getArSummary()));
     }
 
     @GetMapping("/monthly-profit")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<MonthlyProfitResponse>> monthlyProfit(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
@@ -79,14 +79,14 @@ public class DashboardController {
     }
 
     @GetMapping("/recent-bills")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<RecentBillResponse>>> recentBills(
             @RequestParam(required = false, defaultValue = "5") int limit) {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.getRecentBills(limit)));
     }
 
     @GetMapping("/recent-transactions")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<RecentTransactionResponse>>> recentTransactions(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
@@ -95,27 +95,27 @@ public class DashboardController {
     }
 
     @GetMapping("/daily-summary")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<DailySummaryResponse>> dailySummary(
             @RequestParam(required = false, defaultValue = "7") int days) {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.getDailySummary(days)));
     }
 
     @GetMapping("/expiring-soon")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<ExpiringSoonResponse>>> expiringSoon(
             @RequestParam(required = false, defaultValue = "90") int withinDays) {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.getExpiringSoon(withinDays)));
     }
 
     @GetMapping("/outstanding-receivable")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<OutstandingReceivableResponse>> outstandingReceivable() {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.getOutstandingReceivable()));
     }
 
     @GetMapping("/cash-flow")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<CashFlowResponse>> cashFlow(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
@@ -123,7 +123,7 @@ public class DashboardController {
     }
 
     @GetMapping("/recent-journals")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<List<RecentJournalResponse>>> recentJournals(
             @RequestParam(required = false, defaultValue = "10") int limit) {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.getRecentJournals(limit)));

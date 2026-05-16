@@ -1,5 +1,7 @@
 package com.katasticho.erp.auth.filter;
 
+import com.katasticho.erp.auth.entity.AppUser;
+import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.auth.service.JwtService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.service.OrgBootstrapService;
@@ -10,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,6 +30,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final OrgBootstrapService orgBootstrapService;
+    private final AppUserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -42,12 +46,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     UUID orgId = jwtService.extractOrgId(claims);
                     String role = jwtService.extractRole(claims);
 
-                    // Set TenantContext for org_id filtering
+                    AppUser user = userRepository.findById(userId).orElse(null);
+                    if (user == null || !user.isActive() || user.isDeleted()) {
+                        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"error\":\"AUTH_ACCOUNT_INACTIVE\",\"message\":\"Account is deactivated or deleted\"}");
+                        return;
+                    }
+
                     TenantContext.setCurrentOrgId(orgId);
                     TenantContext.setCurrentUserId(userId);
                     TenantContext.setCurrentRole(role);
 
-                    // Set Spring Security context
                     var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
                     var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
                     SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -62,7 +72,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             filterChain.doFilter(request, response);
         } finally {
-            // Always clear ThreadLocal to prevent leaks
             TenantContext.clear();
         }
     }

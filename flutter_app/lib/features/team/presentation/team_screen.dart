@@ -312,6 +312,7 @@ class _UserCard extends StatelessWidget {
     final phone = user['phone'] as String?;
     final role = (user['role'] as String).toUpperCase();
     final isActive = user['active'] as bool? ?? true;
+    final lastLogin = user['lastLoginAt'] as String?;
     final roleColor = _roleColors[role] ?? KColors.textHint;
 
     return KCard(
@@ -361,6 +362,22 @@ class _UserCard extends StatelessWidget {
                     child: Text('Inactive',
                         style: KTypography.bodySmall
                             .copyWith(color: KColors.error)),
+                  )
+                else if (lastLogin != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      _formatLastLogin(lastLogin),
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.textHint, fontSize: 11),
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text('Never logged in',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textHint, fontSize: 11)),
                   ),
               ],
             ),
@@ -749,6 +766,22 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
         _error = e.toString();
       });
     }
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────
+
+String _formatLastLogin(String iso) {
+  try {
+    final dt = DateTime.parse(iso);
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'Active now';
+    if (diff.inMinutes < 60) return 'Active ${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return 'Active ${diff.inHours}h ago';
+    if (diff.inDays < 7) return 'Active ${diff.inDays}d ago';
+    return 'Last seen ${dt.day}/${dt.month}/${dt.year}';
+  } catch (_) {
+    return '';
   }
 }
 

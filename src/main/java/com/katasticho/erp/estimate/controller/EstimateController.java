@@ -35,7 +35,7 @@ public class EstimateController {
     private final EstimatePdfService estimatePdfService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<EstimateResponse>> create(
             @Valid @RequestBody CreateEstimateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -43,7 +43,7 @@ public class EstimateController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<EstimateResponse>>> list(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) UUID contactId,
@@ -53,13 +53,13 @@ public class EstimateController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<EstimateResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(estimateService.getEstimate(id)));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<EstimateResponse>> update(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateEstimateRequest request) {
@@ -67,42 +67,42 @@ public class EstimateController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         estimateService.deleteEstimate(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Estimate deleted"));
     }
 
     @PostMapping("/{id}/send")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<EstimateResponse>> send(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(
                 estimateService.sendEstimate(id), "Estimate sent"));
     }
 
     @PostMapping("/{id}/accept")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<EstimateResponse>> accept(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(
                 estimateService.acceptEstimate(id), "Estimate accepted"));
     }
 
     @PostMapping("/{id}/decline")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<EstimateResponse>> decline(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(
                 estimateService.declineEstimate(id), "Estimate declined"));
     }
 
     @PostMapping("/{id}/convert-to-invoice")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> convert(@PathVariable UUID id) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created(estimateService.convertToInvoice(id)));
     }
 
     @GetMapping("/{id}/pdf")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<byte[]> downloadPdf(@PathVariable UUID id) {
         EstimateResponse estimate = estimateService.getEstimate(id);
         byte[] pdf = estimatePdfService.generatePdf(estimate);
@@ -114,7 +114,7 @@ public class EstimateController {
     }
 
     @PostMapping("/bulk-send")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<BulkOperationResult>> bulkSend(
             @Valid @RequestBody BulkIdsRequest request) {
         BulkOperationResult result = estimateService.bulkSend(request.ids());
@@ -123,7 +123,7 @@ public class EstimateController {
     }
 
     @DeleteMapping("/bulk-delete")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<BulkOperationResult>> bulkDelete(
             @Valid @RequestBody BulkIdsRequest request) {
         BulkOperationResult result = estimateService.bulkDelete(request.ids());
@@ -132,7 +132,7 @@ public class EstimateController {
     }
 
     @GetMapping("/{id}/whatsapp-link")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<Map<String, String>>> whatsappLink(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(documentShareService.shareEstimate(id)));
     }

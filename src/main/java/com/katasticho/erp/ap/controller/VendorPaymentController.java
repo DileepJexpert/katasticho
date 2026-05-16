@@ -30,7 +30,7 @@ public class VendorPaymentController {
     private final CommentService commentService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<VendorPaymentResponse>> recordPayment(
             @Valid @RequestBody VendorPaymentRequest request) {
         VendorPaymentResponse response = paymentService.recordPayment(request);
@@ -38,7 +38,7 @@ public class VendorPaymentController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<VendorPaymentResponse>>> listPayments(
             @RequestParam(required = false) UUID contact_id,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date_from,
@@ -50,13 +50,13 @@ public class VendorPaymentController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<VendorPaymentResponse>> getPayment(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(paymentService.getPaymentResponse(id)));
     }
 
     @PostMapping("/{id}/void")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<VendorPaymentResponse>> voidPayment(
             @PathVariable UUID id) {
         VendorPaymentResponse response = paymentService.voidPayment(id);
@@ -64,7 +64,7 @@ public class VendorPaymentController {
     }
 
     @PostMapping("/{id}/comments")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<EntityCommentResponse>> addComment(
             @PathVariable UUID id,
             @RequestBody Map<String, String> body) {
@@ -74,7 +74,7 @@ public class VendorPaymentController {
     }
 
     @GetMapping("/{id}/comments")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<EntityCommentResponse>>> listComments(
             @PathVariable UUID id, Pageable pageable) {
         Page<EntityCommentResponse> page = commentService.listComments("VENDOR_PAYMENT", id, pageable);

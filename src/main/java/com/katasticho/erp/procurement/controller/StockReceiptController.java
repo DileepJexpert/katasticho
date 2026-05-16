@@ -28,7 +28,7 @@ public class StockReceiptController {
     private final StockReceiptService stockReceiptService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<StockReceiptResponse>> createReceipt(
             @Valid @RequestBody CreateStockReceiptRequest request) {
         StockReceiptResponse response = stockReceiptService.createDraft(request);
@@ -36,14 +36,14 @@ public class StockReceiptController {
     }
 
     @PostMapping("/{id}/receive")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<StockReceiptResponse>> receiveReceipt(@PathVariable UUID id) {
         StockReceiptResponse response = stockReceiptService.receive(id);
         return ResponseEntity.ok(ApiResponse.ok(response, "Stock received and ledger updated"));
     }
 
     @PostMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<StockReceiptResponse>> cancelReceipt(
             @PathVariable UUID id, @RequestBody Map<String, String> body) {
         String reason = body.getOrDefault("reason", "Cancelled");
@@ -52,13 +52,13 @@ public class StockReceiptController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<StockReceiptResponse>> getReceipt(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(stockReceiptService.getReceipt(id)));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<StockReceiptResponse>>> listReceipts(
             @RequestParam(required = false) UUID supplierId,
             Pageable pageable) {

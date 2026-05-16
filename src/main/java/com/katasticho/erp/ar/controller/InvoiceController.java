@@ -39,21 +39,21 @@ public class InvoiceController {
     private final InvoicePdfService invoicePdfService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> createInvoice(@Valid @RequestBody CreateInvoiceRequest request) {
         InvoiceResponse response = invoiceService.createInvoice(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(response));
     }
 
     @PostMapping("/{id}/send")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> sendInvoice(@PathVariable UUID id) {
         InvoiceResponse response = invoiceService.sendInvoice(id);
         return ResponseEntity.ok(ApiResponse.ok(response, "Invoice sent and journal posted"));
     }
 
     @PostMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> cancelInvoice(
             @PathVariable UUID id, @RequestBody Map<String, String> body) {
         String reason = body.getOrDefault("reason", "Cancelled");
@@ -62,7 +62,7 @@ public class InvoiceController {
     }
 
     @PostMapping("/{invoiceId}/payments")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PaymentResponse>> recordPaymentForInvoice(
             @PathVariable UUID invoiceId,
             @Valid @RequestBody RecordPaymentForInvoiceRequest request) {
@@ -71,7 +71,7 @@ public class InvoiceController {
     }
 
     @GetMapping("/{invoiceId}/payments")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<List<PaymentResponse>>> listPaymentsForInvoice(
             @PathVariable UUID invoiceId) {
         List<PaymentResponse> payments = paymentService.listForInvoice(invoiceId);
@@ -79,13 +79,13 @@ public class InvoiceController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> getInvoice(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(invoiceService.getInvoiceResponse(id)));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<InvoiceResponse>>> listInvoices(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String search,
@@ -95,7 +95,7 @@ public class InvoiceController {
     }
 
     @GetMapping("/contact/{contactId}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<InvoiceResponse>>> listByContact(
             @PathVariable UUID contactId, Pageable pageable) {
         Page<InvoiceResponse> page = invoiceService.listInvoiceResponsesByContact(contactId, pageable);
@@ -103,7 +103,7 @@ public class InvoiceController {
     }
 
     @GetMapping("/{id}/pdf")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<byte[]> downloadPdf(@PathVariable UUID id) {
         InvoiceResponse inv = invoiceService.getInvoiceResponse(id);
         byte[] pdf = invoicePdfService.generatePdf(inv);
@@ -115,7 +115,7 @@ public class InvoiceController {
     }
 
     @PostMapping("/bulk-send")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<BulkOperationResult>> bulkSend(
             @Valid @RequestBody BulkIdsRequest request) {
         BulkOperationResult result = invoiceService.bulkSend(request.ids());
@@ -124,7 +124,7 @@ public class InvoiceController {
     }
 
     @PostMapping("/bulk-cancel")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<BulkOperationResult>> bulkCancel(
             @Valid @RequestBody BulkIdsRequest request) {
         String reason = request.resolvedReason("Bulk cancelled");
@@ -134,13 +134,13 @@ public class InvoiceController {
     }
 
     @GetMapping("/{id}/whatsapp-link")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<Map<String, String>>> whatsappLink(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(documentShareService.shareInvoice(id)));
     }
 
     @GetMapping("/{id}/whatsapp-reminder")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<Map<String, String>>> whatsappReminder(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(documentShareService.shareInvoiceReminder(id)));
     }

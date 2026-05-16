@@ -29,7 +29,7 @@ public class DeliveryChallanController {
     private final DeliveryChallanPdfService challanPdfService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<DeliveryChallanResponse>> create(
             @Valid @RequestBody CreateDeliveryChallanRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -37,7 +37,7 @@ public class DeliveryChallanController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<DeliveryChallanResponse>>> list(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) UUID salesOrderId,
@@ -47,13 +47,13 @@ public class DeliveryChallanController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<DeliveryChallanResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(challanService.get(id)));
     }
 
     @GetMapping("/{id}/pdf")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<byte[]> downloadPdf(@PathVariable UUID id) {
         DeliveryChallanResponse dc = challanService.get(id);
         byte[] pdf = challanPdfService.generatePdf(dc);
@@ -65,35 +65,35 @@ public class DeliveryChallanController {
     }
 
     @PostMapping("/{id}/dispatch")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<DeliveryChallanResponse>> dispatch(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(
                 challanService.dispatch(id), "Challan dispatched — stock deducted"));
     }
 
     @PostMapping("/{id}/deliver")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<DeliveryChallanResponse>> markDelivered(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(
                 challanService.markDelivered(id), "Challan marked as delivered"));
     }
 
     @PostMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> cancel(@PathVariable UUID id) {
         challanService.cancel(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Challan cancelled"));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         challanService.delete(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Challan deleted"));
     }
 
     @GetMapping("/by-sales-order/{salesOrderId}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<DeliveryChallanResponse>>> getBySalesOrder(
             @PathVariable UUID salesOrderId) {
         return ResponseEntity.ok(ApiResponse.ok(challanService.getChallansForSalesOrder(salesOrderId)));

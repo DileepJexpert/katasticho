@@ -29,7 +29,7 @@ public class CreditNoteController {
     private final CreditNotePdfService creditNotePdfService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<CreditNoteResponse>> createCreditNote(@Valid @RequestBody CreateCreditNoteRequest request) {
         CreditNote cn = creditNoteService.createCreditNote(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -37,20 +37,20 @@ public class CreditNoteController {
     }
 
     @PostMapping("/{id}/issue")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<CreditNoteResponse>> issueCreditNote(@PathVariable UUID id) {
         CreditNote cn = creditNoteService.issueCreditNote(id);
         return ResponseEntity.ok(ApiResponse.ok(creditNoteService.toResponse(cn), "Credit note issued and journal posted"));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<CreditNoteResponse>> getCreditNote(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(creditNoteService.getCreditNoteResponse(id)));
     }
 
     @GetMapping("/{id}/pdf")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<byte[]> downloadPdf(@PathVariable UUID id) {
         CreditNoteResponse response = creditNoteService.getCreditNoteResponse(id);
         byte[] pdf = creditNotePdfService.generatePdf(response);
@@ -62,7 +62,7 @@ public class CreditNoteController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<CreditNoteResponse>>> listCreditNotes(Pageable pageable) {
         Page<CreditNoteResponse> responsePage = creditNoteService.listCreditNoteResponses(pageable);
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(responsePage)));

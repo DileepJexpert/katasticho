@@ -31,7 +31,7 @@ public class UomController {
     private final UomService uomService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<UomResponse>>> list(
             @RequestParam(required = false) UomCategory category) {
         List<UomResponse> uoms = category != null
@@ -41,13 +41,13 @@ public class UomController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<UomResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(uomService.get(id)));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<UomResponse>> create(
             @Valid @RequestBody CreateUomRequest request) {
         UomResponse created = uomService.create(request);
@@ -55,7 +55,7 @@ public class UomController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<UomResponse>> update(
             @PathVariable UUID id,
             @Valid @RequestBody CreateUomRequest request) {
@@ -63,7 +63,7 @@ public class UomController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         uomService.softDelete(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "UoM deleted"));

@@ -28,7 +28,7 @@ public class ExpenseController {
     private final ExpenseService expenseService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<ExpenseResponse>> createExpense(
             @Valid @RequestBody CreateExpenseRequest request) {
         ExpenseResponse response = expenseService.createExpense(request);
@@ -36,7 +36,7 @@ public class ExpenseController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<ExpenseResponse>>> listExpenses(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
@@ -48,13 +48,13 @@ public class ExpenseController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<ExpenseResponse>> getExpense(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(expenseService.getExpense(id)));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<ExpenseResponse>> updateExpense(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateExpenseRequest request) {
@@ -64,7 +64,7 @@ public class ExpenseController {
 
     /** DELETE is a VOID — creates a reversal journal; record stays for audit. */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<ExpenseResponse>> voidExpense(
             @PathVariable UUID id,
             @RequestBody(required = false) Map<String, String> body) {

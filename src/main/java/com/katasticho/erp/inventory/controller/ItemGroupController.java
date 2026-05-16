@@ -36,7 +36,7 @@ public class ItemGroupController {
     private final ItemGroupService itemGroupService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<ItemGroupResponse>> createGroup(
             @Valid @RequestBody ItemGroupRequest request) {
         ItemGroupResponse group = itemGroupService.createGroup(request);
@@ -44,20 +44,20 @@ public class ItemGroupController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<ItemGroupResponse>>> listGroups(Pageable pageable) {
         Page<ItemGroupResponse> page = itemGroupService.listGroups(pageable);
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(page)));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<ItemGroupResponse>> getGroup(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(itemGroupService.getGroup(id)));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<ItemGroupResponse>> updateGroup(
             @PathVariable UUID id,
             @Valid @RequestBody ItemGroupRequest request) {
@@ -66,7 +66,7 @@ public class ItemGroupController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> deleteGroup(@PathVariable UUID id) {
         itemGroupService.deleteGroup(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Group deleted"));
@@ -78,7 +78,7 @@ public class ItemGroupController {
      * because v1 caps a group at a few dozen variants in practice.
      */
     @GetMapping("/{id}/items")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<ItemResponse>>> listVariants(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(itemGroupService.listVariants(id)));
     }
@@ -91,7 +91,7 @@ public class ItemGroupController {
      * with the same body is safe.
      */
     @PostMapping("/{id}/generate-variants")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<GenerateVariantsResponse>> generateVariants(
             @PathVariable UUID id,
             @Valid @RequestBody GenerateVariantsRequest request) {

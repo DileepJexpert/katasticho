@@ -25,7 +25,7 @@ public class WarehouseController {
     private final WarehouseService warehouseService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<WarehouseResponse>> createWarehouse(
             @Valid @RequestBody CreateWarehouseRequest request) {
         WarehouseResponse w = warehouseService.createWarehouse(request);
@@ -33,13 +33,13 @@ public class WarehouseController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<WarehouseResponse>>> listWarehouses() {
         return ResponseEntity.ok(ApiResponse.ok(warehouseService.listWarehouses()));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<WarehouseResponse>> getWarehouse(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(warehouseService.getWarehouse(id)));
     }

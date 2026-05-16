@@ -79,7 +79,7 @@ public class ContactController {
     }
 
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<ContactImportResult>> importContacts(
             @RequestParam("file") MultipartFile file) {
         ContactImportResult result = contactImportService.importContacts(file);
@@ -88,7 +88,7 @@ public class ContactController {
     }
 
     @PostMapping(value = "/import/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<ContactImportPreview>> previewImport(
             @RequestParam("file") MultipartFile file) {
         ContactImportPreview preview = contactImportService.previewImport(file);
@@ -97,7 +97,7 @@ public class ContactController {
     }
 
     @GetMapping(value = "/import/template", produces = "text/csv")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<byte[]> downloadImportTemplate() {
         String csv = ContactImportService.TEMPLATE_HEADER + "\n"
                 + "Rajesh Builder,CUSTOMER,9876543210,rajesh@example.com,,MG Road,Mumbai,Maharashtra,30,0\n";
@@ -108,7 +108,7 @@ public class ContactController {
     }
 
     @GetMapping("/{id}/ledger")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ApiResponse<ContactLedgerResponse> getLedger(
             @PathVariable UUID id,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,

@@ -22,7 +22,7 @@ public class ApReportController {
     private final ApReportService reportService;
 
     @GetMapping("/ageing")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<ApAgeingReportResponse>> getAgeingReport(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {
         if (asOfDate == null) asOfDate = LocalDate.now();

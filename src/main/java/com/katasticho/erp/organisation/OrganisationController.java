@@ -33,7 +33,7 @@ public class OrganisationController {
     private final OrgBootstrapStatusRepository bootstrapStatusRepository;
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<OrgDetailsResponse>> getOrg(@PathVariable UUID id) {
         UUID callerOrgId = TenantContext.getCurrentOrgId();
         if (!callerOrgId.equals(id)) {
@@ -45,7 +45,7 @@ public class OrganisationController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<OrgDetailsResponse>> updateOrg(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateOrgRequest req) {

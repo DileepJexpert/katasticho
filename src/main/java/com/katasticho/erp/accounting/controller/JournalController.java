@@ -31,7 +31,7 @@ public class JournalController {
     private final JournalService journalService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<JournalEntryResponse>> createJournal(@Valid @RequestBody JournalPostRequest request) {
         JournalEntry entry = journalService.postJournal(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -39,14 +39,14 @@ public class JournalController {
     }
 
     @PostMapping("/{id}/post")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<JournalEntryResponse>> postJournal(@PathVariable UUID id) {
         JournalEntry entry = journalService.postEntry(id);
         return ResponseEntity.ok(ApiResponse.ok(journalService.toResponse(entry), "Journal entry posted"));
     }
 
     @PostMapping("/{id}/reverse")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<JournalEntryResponse>> reverseJournal(@PathVariable UUID id) {
         JournalEntry reversal = journalService.reverseEntry(id);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -54,14 +54,14 @@ public class JournalController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<JournalEntryResponse>> getJournal(@PathVariable UUID id) {
         JournalEntry entry = journalService.getEntry(id, TenantContext.getCurrentOrgId());
         return ResponseEntity.ok(ApiResponse.ok(journalService.toResponse(entry)));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<JournalEntryResponse>>> listJournals(
             @RequestParam(required = false) String sourceModule,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
@@ -74,7 +74,7 @@ public class JournalController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> deleteJournal(@PathVariable UUID id) {
         journalService.deleteEntry(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Journal entry deleted"));

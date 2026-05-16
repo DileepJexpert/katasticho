@@ -21,7 +21,7 @@ public class BranchController {
     private final BranchService branchService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<BranchResponse>> createBranch(
             @Valid @RequestBody CreateBranchRequest request) {
         BranchResponse b = branchService.createBranch(request);
@@ -29,13 +29,13 @@ public class BranchController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<BranchResponse>>> listBranches() {
         return ResponseEntity.ok(ApiResponse.ok(branchService.listBranches()));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<BranchResponse>> getBranch(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(branchService.getBranch(id)));
     }

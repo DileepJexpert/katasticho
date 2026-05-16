@@ -34,21 +34,21 @@ public class AccountController {
     private final JournalService journalService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<AccountResponse>>> listAccounts() {
         List<AccountResponse> accounts = accountService.listAccounts(TenantContext.getCurrentOrgId());
         return ResponseEntity.ok(ApiResponse.ok(accounts));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<AccountResponse>> createAccount(@Valid @RequestBody CreateAccountRequest request) {
         AccountResponse account = accountService.createAccount(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(account));
     }
 
     @PostMapping("/template")
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> seedTemplate(@RequestBody Map<String, String> request) {
         String industry = request.getOrDefault("industry", "TRADING");
         var result = accountService.seedFromTemplate(TenantContext.getCurrentOrgId(), industry);
@@ -56,13 +56,13 @@ public class AccountController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<AccountResponse>> getAccount(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(accountService.getAccount(id)));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<AccountResponse>> updateAccount(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateAccountRequest request) {
@@ -70,34 +70,34 @@ public class AccountController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> deleteAccount(@PathVariable UUID id) {
         accountService.deleteAccount(id);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     @PatchMapping("/{id}/activate")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> activateAccount(@PathVariable UUID id) {
         accountService.setActive(id, true);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     @PatchMapping("/{id}/deactivate")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> deactivateAccount(@PathVariable UUID id) {
         accountService.setActive(id, false);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     @GetMapping("/{id}/transactions")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<AccountTransactionResponse>>> getAccountTransactions(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(accountService.getAccountTransactions(id)));
     }
 
     @GetMapping("/{id}/balance")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getBalance(
             @PathVariable UUID id,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {

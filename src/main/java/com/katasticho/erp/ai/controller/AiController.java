@@ -40,7 +40,7 @@ public class AiController {
     private final RuleBasedAiAgentService ruleBasedAiAgentService;
 
     @GetMapping("/suggestions")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PagedResponse<AiSuggestionResponse>>> listSuggestions(
             @RequestParam(required = false) String status,
             Pageable pageable) {
@@ -48,19 +48,19 @@ public class AiController {
     }
 
     @GetMapping("/suggestions/summary")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<AiInboxSummaryResponse>> suggestionSummary() {
         return ResponseEntity.ok(ApiResponse.ok(aiSuggestionService.summary()));
     }
 
     @GetMapping("/suggestions/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<AiSuggestionResponse>> getSuggestion(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(aiSuggestionService.get(id)));
     }
 
     @PostMapping("/suggestions/{id}/review")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<AiSuggestionResponse>> reviewSuggestion(
             @PathVariable UUID id,
             @Valid @RequestBody AiSuggestionReviewRequest request) {
@@ -68,7 +68,7 @@ public class AiController {
     }
 
     @PostMapping("/agents/rule-checks/run")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<AiAgentRunResponse>> runRuleChecks(
             @RequestParam(required = false) Integer days) {
         return ResponseEntity.ok(ApiResponse.ok(ruleBasedAiAgentService.runRuleChecks(days)));
@@ -80,7 +80,7 @@ public class AiController {
      * Read-only. Uses Claude to generate safe SELECT queries.
      */
     @PostMapping("/query")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<AiQueryResponse>> query(
             @Valid @RequestBody AiQueryRequest request) {
         AiQueryResponse response = nlpQueryService.processQuery(request.message());
@@ -93,7 +93,7 @@ public class AiController {
      * Returns vendor, items, GST breakdown for pre-filling invoice forms.
      */
     @PostMapping("/scan-bill")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<BillScanResponse>> scanBill(
             @Valid @RequestBody BillScanRequest request) {
         BillScanResponse response = billScanService.scanBill(
@@ -107,7 +107,7 @@ public class AiController {
      * Returns name, barcode, MRP, brand, category, etc. for pre-filling item form.
      */
     @PostMapping("/scan-product-label")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<ItemScanResponse>> scanProductLabel(
             @Valid @RequestBody BillScanRequest request) {
         ItemScanResponse response = itemScanService.scanProductLabel(
@@ -121,7 +121,7 @@ public class AiController {
      * Returns items list for bulk creation with purchase prices pre-filled.
      */
     @PostMapping("/scan-purchase-invoice")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<ItemScanResponse>> scanPurchaseInvoice(
             @Valid @RequestBody BillScanRequest request) {
         ItemScanResponse response = itemScanService.scanPurchaseInvoice(

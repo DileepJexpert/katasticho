@@ -37,14 +37,14 @@ public class TaxAccountMappingController {
     private final TaxAccountMappingService service;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<List<TaxAccountMappingResponse>>> list() {
         UUID orgId = TenantContext.getCurrentOrgId();
         return ResponseEntity.ok(ApiResponse.ok(service.listForOrg(orgId)));
     }
 
     @PutMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<List<TaxAccountMappingResponse>>> update(
             @Valid @RequestBody UpdateTaxAccountMappingsRequest request) {
         UUID orgId = TenantContext.getCurrentOrgId();
@@ -54,7 +54,7 @@ public class TaxAccountMappingController {
     }
 
     @PostMapping("/reset")
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<List<TaxAccountMappingResponse>>> reset() {
         UUID orgId = TenantContext.getCurrentOrgId();
         return ResponseEntity.ok(ApiResponse.ok(

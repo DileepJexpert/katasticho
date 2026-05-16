@@ -31,7 +31,7 @@ public class RecurringInvoiceController {
     private final RecurringInvoiceService recurringInvoiceService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<RecurringInvoiceResponse>> create(
             @Valid @RequestBody CreateRecurringInvoiceRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -39,7 +39,7 @@ public class RecurringInvoiceController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<RecurringInvoiceResponse>>> list(
             @RequestParam(required = false) String status,
             Pageable pageable) {
@@ -48,13 +48,13 @@ public class RecurringInvoiceController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<RecurringInvoiceResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(recurringInvoiceService.getTemplate(id)));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<RecurringInvoiceResponse>> update(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateRecurringInvoiceRequest request) {
@@ -62,21 +62,21 @@ public class RecurringInvoiceController {
     }
 
     @PostMapping("/{id}/stop")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<RecurringInvoiceResponse>> stop(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(
                 recurringInvoiceService.stopTemplate(id), "Recurring invoice stopped"));
     }
 
     @PostMapping("/{id}/resume")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<RecurringInvoiceResponse>> resume(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(
                 recurringInvoiceService.resumeTemplate(id), "Recurring invoice resumed"));
     }
 
     @GetMapping("/{id}/generated-invoices")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<GeneratedInvoiceResponse>>> generatedInvoices(
             @PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(
@@ -89,7 +89,7 @@ public class RecurringInvoiceController {
      * cron isn't practical.
      */
     @PostMapping("/{id}/generate-now")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> generateNow(@PathVariable UUID id) {
         InvoiceResponse invoice = recurringInvoiceService.generateFromTemplate(id);
         return ResponseEntity.status(HttpStatus.CREATED)

@@ -24,20 +24,20 @@ public class SupplierController {
     private final SupplierService supplierService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<SupplierResponse>> createSupplier(@Valid @RequestBody SupplierRequest request) {
         SupplierResponse response = supplierService.createSupplier(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(response));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<SupplierResponse>> getSupplier(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(supplierService.getSupplier(id)));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<SupplierResponse>>> listSuppliers(
             @RequestParam(required = false) String search,
             Pageable pageable) {
@@ -46,14 +46,14 @@ public class SupplierController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<SupplierResponse>> updateSupplier(
             @PathVariable UUID id, @Valid @RequestBody SupplierRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(supplierService.updateSupplier(id, request), "Supplier updated"));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> deleteSupplier(@PathVariable UUID id) {
         supplierService.deleteSupplier(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Supplier deleted"));

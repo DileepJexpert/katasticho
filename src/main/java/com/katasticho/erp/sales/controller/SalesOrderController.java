@@ -29,7 +29,7 @@ public class SalesOrderController {
     private final SalesOrderPdfService salesOrderPdfService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<SalesOrderResponse>> create(
             @Valid @RequestBody CreateSalesOrderRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -37,7 +37,7 @@ public class SalesOrderController {
     }
 
     @PostMapping("/from-estimate/{estimateId}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<SalesOrderResponse>> createFromEstimate(
             @PathVariable UUID estimateId) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -45,7 +45,7 @@ public class SalesOrderController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<SalesOrderResponse>>> list(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) UUID contactId,
@@ -56,13 +56,13 @@ public class SalesOrderController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<SalesOrderResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(salesOrderService.get(id)));
     }
 
     @GetMapping("/{id}/pdf")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<byte[]> downloadPdf(@PathVariable UUID id) {
         SalesOrderResponse so = salesOrderService.get(id);
         byte[] pdf = salesOrderPdfService.generatePdf(so);
@@ -74,7 +74,7 @@ public class SalesOrderController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<SalesOrderResponse>> update(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateSalesOrderRequest request) {
@@ -82,28 +82,28 @@ public class SalesOrderController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         salesOrderService.delete(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Sales order deleted"));
     }
 
     @PostMapping("/{id}/confirm")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<SalesOrderResponse>> confirm(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(
                 salesOrderService.confirm(id), "Sales order confirmed"));
     }
 
     @PostMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<SalesOrderResponse>> cancel(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(
                 salesOrderService.cancel(id), "Sales order cancelled"));
     }
 
     @PostMapping("/{id}/convert-to-invoice")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> convertToInvoice(
             @PathVariable UUID id,
             @Valid @RequestBody ConvertToInvoiceRequest request) {
@@ -112,14 +112,14 @@ public class SalesOrderController {
     }
 
     @GetMapping("/{id}/reservations")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<StockReservationResponse>>> getReservations(
             @PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(salesOrderService.getReservations(id)));
     }
 
     @GetMapping("/{id}/invoices")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<InvoiceResponse>>> getLinkedInvoices(
             @PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(salesOrderService.getLinkedInvoices(id)));

@@ -23,13 +23,13 @@ public class InventoryReportController {
     private final InventoryReportService reportService;
 
     @GetMapping("/stock-summary")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<StockSummaryReport>> getStockSummary() {
         return ResponseEntity.ok(ApiResponse.ok(reportService.getStockSummary()));
     }
 
     @GetMapping("/stock-movements")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<StockMovementReport>> getStockMovement(
             @RequestParam(required = false) UUID itemId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -42,7 +42,7 @@ public class InventoryReportController {
     }
 
     @GetMapping("/low-stock-alert")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<LowStockAlertReport>> getLowStockAlert() {
         return ResponseEntity.ok(ApiResponse.ok(reportService.getLowStockAlert()));
     }

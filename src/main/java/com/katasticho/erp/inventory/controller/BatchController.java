@@ -43,7 +43,7 @@ public class BatchController {
      * detail page to show batch history.
      */
     @GetMapping("/item/{itemId}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<BatchResponse>>> listByItem(@PathVariable UUID itemId) {
         UUID orgId = TenantContext.getCurrentOrgId();
         List<BatchResponse> result = batchRepository
@@ -68,7 +68,7 @@ public class BatchController {
      * scenarios without breaking the simple path.
      */
     @GetMapping("/item/{itemId}/available")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<BatchResponse>>> listFefo(
             @PathVariable UUID itemId,
             @RequestParam(required = false) UUID warehouseId) {
@@ -92,7 +92,7 @@ public class BatchController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','OPERATOR','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<BatchResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(BatchResponse.from(batchService.getBatch(id))));
     }

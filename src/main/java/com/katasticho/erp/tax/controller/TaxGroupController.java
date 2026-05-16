@@ -32,7 +32,7 @@ public class TaxGroupController {
     private final TaxRateRepository taxRateRepository;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<List<TaxGroupResponse>>> listTaxGroups() {
         UUID orgId = TenantContext.getCurrentOrgId();
         List<TaxGroup> groups = taxGroupRepository.findByOrgIdAndActiveTrue(orgId);
@@ -43,7 +43,7 @@ public class TaxGroupController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT','VIEWER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<TaxGroupResponse>> getTaxGroup(@PathVariable UUID id) {
         UUID orgId = TenantContext.getCurrentOrgId();
         TaxGroup group = taxGroupRepository.findByIdAndOrgId(id, orgId)
