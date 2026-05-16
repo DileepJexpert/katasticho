@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -15,21 +17,30 @@ class GstDashboardScreen extends ConsumerStatefulWidget {
       _GstDashboardScreenState();
 }
 
-class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen> {
+class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
+    with SingleTickerProviderStateMixin {
   late int _year;
   late int _month;
   Map<String, dynamic>? _gstr1;
   Map<String, dynamic>? _gstr3b;
   bool _isLoading = false;
   String? _error;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     final now = DateTime.now();
     _year = now.month == 1 ? now.year - 1 : now.year;
     _month = now.month == 1 ? 12 : now.month - 1;
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -85,54 +96,87 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen> {
     _loadData();
   }
 
+  Future<void> _exportJson(String type) async {
+    final data = type == 'GSTR-1' ? _gstr1 : _gstr3b;
+    if (data == null) return;
+    final pretty = const JsonEncoder.withIndent('  ').convert(data);
+    final filename = '${type.replaceAll('-', '')}_${_year}_${_month.toString().padLeft(2, '0')}.json';
+    await SharePlus.instance.share(
+      ShareParams(
+        text: pretty,
+        subject: '$type Export — ${_months[_month - 1]} $_year',
+        fileNameOverride: filename,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('GST Returns')),
+      appBar: AppBar(
+        title: const Text('GST Returns'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'GSTR-3B'),
+            Tab(text: 'GSTR-1'),
+          ],
+        ),
+      ),
       body: RefreshIndicator(
         onRefresh: _loadData,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: KSpacing.pagePadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildPeriodSelector(),
-              KSpacing.vGapLg,
-
-              if (_isLoading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(48),
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              else if (_error != null)
-                KErrorBanner(message: _error!)
-              else ...[
-                _buildGstr3bSection(),
-                KSpacing.vGapLg,
-                _buildGstr1Section(),
-              ],
-            ],
-          ),
+        child: Column(
+          children: [
+            _buildPeriodSelector(),
+            if (_isLoading)
+              const Expanded(
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_error != null)
+              Expanded(child: KErrorBanner(message: _error!))
+            else
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _Gstr3bTab(
+                      data: _gstr3b,
+                      onExport: () => _exportJson('GSTR-3B'),
+                    ),
+                    _Gstr1Tab(
+                      data: _gstr1,
+                      months: _months,
+                      month: _month,
+                      year: _year,
+                      onExport: () => _exportJson('GSTR-1'),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildPeriodSelector() {
-    return KCard(
+    return Container(
+      color: Theme.of(context).colorScheme.surface,
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
             onPressed: _prevMonth,
             icon: const Icon(Icons.chevron_left),
           ),
-          Text(
-            '${_months[_month - 1]} $_year',
-            style: KTypography.h3,
+          SizedBox(
+            width: 120,
+            child: Text(
+              '${_months[_month - 1]} $_year',
+              style: KTypography.h3,
+              textAlign: TextAlign.center,
+            ),
           ),
           IconButton(
             onPressed: _nextMonth,
@@ -142,43 +186,51 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen> {
       ),
     );
   }
+}
 
-  Widget _buildGstr3bSection() {
-    if (_gstr3b == null) return const SizedBox.shrink();
+// ── GSTR-3B Tab ──────────────────────────────────────────────────────────────
 
-    final totalInvoices = (_gstr3b!['totalInvoices'] as num?)?.toInt() ?? 0;
-    final b2b = (_gstr3b!['b2bInvoices'] as num?)?.toInt() ?? 0;
-    final b2cs = (_gstr3b!['b2csInvoices'] as num?)?.toInt() ?? 0;
-    final totalTaxable = (_gstr3b!['totalTaxable'] as num?)?.toDouble() ?? 0;
-    final totalTax = (_gstr3b!['totalTax'] as num?)?.toDouble() ?? 0;
-    final igst = (_gstr3b!['totalIgst'] as num?)?.toDouble() ?? 0;
-    final cgst = (_gstr3b!['totalCgst'] as num?)?.toDouble() ?? 0;
-    final sgst = (_gstr3b!['totalSgst'] as num?)?.toDouble() ?? 0;
-    final cess = (_gstr3b!['totalCess'] as num?)?.toDouble() ?? 0;
+class _Gstr3bTab extends StatelessWidget {
+  final Map<String, dynamic>? data;
+  final VoidCallback onExport;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  const _Gstr3bTab({required this.data, required this.onExport});
+
+  @override
+  Widget build(BuildContext context) {
+    if (data == null) return const SizedBox.shrink();
+
+    final totalInvoices = (data!['totalInvoices'] as num?)?.toInt() ?? 0;
+    final b2b = (data!['b2bInvoices'] as num?)?.toInt() ?? 0;
+    final b2cs = (data!['b2csInvoices'] as num?)?.toInt() ?? 0;
+    final cnCount = (data!['creditNoteCount'] as num?)?.toInt() ?? 0;
+    final billCount = (data!['billCount'] as num?)?.toInt() ?? 0;
+    final totalTaxable = (data!['totalTaxable'] as num?)?.toDouble() ?? 0;
+    final totalTax = (data!['totalTax'] as num?)?.toDouble() ?? 0;
+    final igst = (data!['totalIgst'] as num?)?.toDouble() ?? 0;
+    final cgst = (data!['totalCgst'] as num?)?.toDouble() ?? 0;
+    final sgst = (data!['totalSgst'] as num?)?.toDouble() ?? 0;
+    final cess = (data!['totalCess'] as num?)?.toDouble() ?? 0;
+    final itcIgst = (data!['totalItcIgst'] as num?)?.toDouble() ?? 0;
+    final itcCgst = (data!['totalItcCgst'] as num?)?.toDouble() ?? 0;
+    final itcSgst = (data!['totalItcSgst'] as num?)?.toDouble() ?? 0;
+    final itcCess = (data!['totalItcCess'] as num?)?.toDouble() ?? 0;
+    final totalItc = (data!['totalItc'] as num?)?.toDouble() ?? 0;
+    final netPayable = (data!['netPayable'] as num?)?.toDouble() ?? 0;
+
+    return ListView(
+      padding: KSpacing.pagePadding,
       children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: KColors.secondary.withValues(alpha: 0.1),
-                borderRadius: KSpacing.borderRadiusMd,
-              ),
-              child: const Icon(Icons.summarize, color: KColors.secondary, size: 20),
-            ),
-            KSpacing.hGapSm,
-            Text('GSTR-3B Summary', style: KTypography.h3),
-          ],
-        ),
-        KSpacing.vGapMd,
+        // Net payable highlight card
+        _NetPayableCard(netPayable: netPayable),
+        KSpacing.vGapLg,
+
+        // Counts
         Row(
           children: [
             Expanded(
               child: _GstStatCard(
-                label: 'Total Invoices',
+                label: 'Sales Invoices',
                 value: '$totalInvoices',
                 subtitle: 'B2B: $b2b  |  B2CS: $b2cs',
                 icon: Icons.receipt_long,
@@ -188,21 +240,35 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen> {
             KSpacing.hGapSm,
             Expanded(
               child: _GstStatCard(
-                label: 'Taxable Value',
-                value: CurrencyFormatter.formatCompact(totalTaxable),
-                icon: Icons.account_balance_wallet,
-                color: KColors.accent,
+                label: 'Credit Notes',
+                value: '$cnCount',
+                subtitle: '$billCount purchase bills',
+                icon: Icons.receipt,
+                color: KColors.error,
               ),
             ),
           ],
         ),
         KSpacing.vGapSm,
+        _GstStatCard(
+          label: 'Taxable Value (Net)',
+          value: CurrencyFormatter.formatIndian(totalTaxable),
+          icon: Icons.account_balance_wallet,
+          color: KColors.accent,
+          wide: true,
+        ),
+        KSpacing.vGapLg,
+
+        // Output tax section
+        _SectionHeader(
+          icon: Icons.arrow_upward,
+          color: KColors.error,
+          title: 'Output Tax Liability',
+        ),
+        KSpacing.vGapSm,
         KCard(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Tax Breakdown', style: KTypography.labelLarge),
-              KSpacing.vGapMd,
               _TaxRow(label: 'IGST', amount: igst),
               const Divider(height: 16),
               _TaxRow(label: 'CGST', amount: cgst),
@@ -213,130 +279,531 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen> {
                 _TaxRow(label: 'CESS', amount: cess),
               ],
               const Divider(height: 16),
-              _TaxRow(label: 'Total Tax Liability', amount: totalTax, bold: true),
+              _TaxRow(label: 'Total Output Tax', amount: totalTax, bold: true),
             ],
           ),
         ),
+        KSpacing.vGapLg,
+
+        // ITC section
+        _SectionHeader(
+          icon: Icons.arrow_downward,
+          color: KColors.success,
+          title: 'Input Tax Credit (ITC)',
+        ),
+        KSpacing.vGapSm,
+        KCard(
+          child: Column(
+            children: [
+              _TaxRow(label: 'IGST (ITC)', amount: itcIgst),
+              const Divider(height: 16),
+              _TaxRow(label: 'CGST (ITC)', amount: itcCgst),
+              const Divider(height: 16),
+              _TaxRow(label: 'SGST (ITC)', amount: itcSgst),
+              if (itcCess > 0) ...[
+                const Divider(height: 16),
+                _TaxRow(label: 'CESS (ITC)', amount: itcCess),
+              ],
+              const Divider(height: 16),
+              _TaxRow(label: 'Total ITC Available', amount: totalItc, bold: true),
+            ],
+          ),
+        ),
+        KSpacing.vGapLg,
+
+        // Export button
+        OutlinedButton.icon(
+          onPressed: onExport,
+          icon: const Icon(Icons.share),
+          label: const Text('Export GSTR-3B JSON'),
+        ),
+        KSpacing.vGapLg,
       ],
     );
   }
+}
 
-  Widget _buildGstr1Section() {
-    if (_gstr1 == null) return const SizedBox.shrink();
+// ── GSTR-1 Tab ───────────────────────────────────────────────────────────────
 
-    final b2b = (_gstr1!['b2b'] as List?) ?? [];
-    final fp = _gstr1!['fp']?.toString() ?? '';
+class _Gstr1Tab extends StatelessWidget {
+  final Map<String, dynamic>? data;
+  final List<String> months;
+  final int month;
+  final int year;
+  final VoidCallback onExport;
 
-    int invoiceCount = 0;
+  const _Gstr1Tab({
+    required this.data,
+    required this.months,
+    required this.month,
+    required this.year,
+    required this.onExport,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (data == null) return const SizedBox.shrink();
+
+    final b2b = (data!['b2b'] as List?) ?? [];
+    final b2cs = (data!['b2cs'] as List?) ?? [];
+    final cdnr = (data!['cdnr'] as List?) ?? [];
+    final cdnur = (data!['cdnur'] as List?) ?? [];
+    final hsnsac = (data!['hsnsac'] as List?) ?? [];
+    final fp = data!['fp']?.toString() ?? '';
+
+    int b2bInvoiceCount = 0;
     for (final record in b2b) {
       final inv = (record as Map)['inv'] as List? ?? [];
-      invoiceCount += inv.length;
+      b2bInvoiceCount += inv.length;
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return ListView(
+      padding: KSpacing.pagePadding,
       children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: KColors.primary.withValues(alpha: 0.1),
-                borderRadius: KSpacing.borderRadiusMd,
-              ),
-              child: const Icon(Icons.upload_file, color: KColors.primary, size: 20),
-            ),
-            KSpacing.hGapSm,
-            Expanded(child: Text('GSTR-1 Detail', style: KTypography.h3)),
-            if (fp.isNotEmpty)
-              KStatusChip(status: 'INFO', label: 'FP: $fp'),
-          ],
-        ),
+        // Period chip
+        if (fp.isNotEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: KStatusChip(status: 'INFO', label: 'Period: $fp'),
+          ),
         KSpacing.vGapMd,
 
-        if (b2b.isEmpty)
-          KCard(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    const Icon(Icons.info_outline, size: 32, color: KColors.textHint),
-                    KSpacing.vGapSm,
-                    Text('No B2B invoices for this period',
-                        style: KTypography.bodyMedium),
-                  ],
-                ),
-              ),
-            ),
-          )
-        else ...[
-          Text('B2B Invoices ($invoiceCount)', style: KTypography.labelLarge),
-          KSpacing.vGapSm,
-          ...b2b.map((record) {
-            final rec = record as Map<String, dynamic>;
-            final ctin = rec['ctin']?.toString() ?? '';
-            final invList = (rec['inv'] as List?) ?? [];
+        // Summary chips
+        Row(
+          children: [
+            _CountBadge(label: 'B2B', count: b2bInvoiceCount, color: KColors.primary),
+            KSpacing.hGapSm,
+            _CountBadge(label: 'B2CS', count: b2cs.length, color: KColors.accent),
+            KSpacing.hGapSm,
+            _CountBadge(label: 'CDNR', count: cdnr.length, color: KColors.error),
+          ],
+        ),
+        KSpacing.vGapLg,
 
-            return KCard(
+        // B2B section
+        _SectionHeader(
+          icon: Icons.business,
+          color: KColors.primary,
+          title: 'B2B Invoices ($b2bInvoiceCount)',
+        ),
+        KSpacing.vGapSm,
+        if (b2b.isEmpty)
+          _EmptySection(message: 'No B2B invoices for this period')
+        else
+          ...b2b.map((record) => _B2bRecord(record: record as Map<String, dynamic>)),
+        KSpacing.vGapLg,
+
+        // B2CS section
+        _SectionHeader(
+          icon: Icons.person,
+          color: KColors.accent,
+          title: 'B2CS Supplies (${b2cs.length})',
+        ),
+        KSpacing.vGapSm,
+        if (b2cs.isEmpty)
+          _EmptySection(message: 'No B2CS supplies for this period')
+        else
+          KCard(
+            child: Column(
+              children: b2cs.asMap().entries.map((entry) {
+                final rec = entry.value as Map<String, dynamic>;
+                final typ = rec['sply_tp']?.toString() ?? '';
+                final pos = rec['pos']?.toString() ?? '';
+                final rt = (rec['rt'] as num?)?.toDouble() ?? 0;
+                final txval = (rec['txval'] as num?)?.toDouble() ?? 0;
+                final iamt = (rec['iamt'] as num?)?.toDouble() ?? 0;
+                final camt = (rec['camt'] as num?)?.toDouble() ?? 0;
+                final samt = (rec['samt'] as num?)?.toDouble() ?? 0;
+                final totalTax = iamt + camt + samt;
+                return Column(
+                  children: [
+                    if (entry.key > 0) const Divider(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('$typ — State $pos', style: KTypography.labelMedium),
+                              Text('Rate: $rt%',
+                                  style: KTypography.bodySmall
+                                      .copyWith(color: KColors.textHint)),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(CurrencyFormatter.formatIndian(txval),
+                                style: KTypography.amountSmall),
+                            Text('Tax: ${CurrencyFormatter.formatIndian(totalTax)}',
+                                style: KTypography.bodySmall
+                                    .copyWith(color: KColors.textHint)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        KSpacing.vGapLg,
+
+        // CDNR section
+        if (cdnr.isNotEmpty || cdnur.isNotEmpty) ...[
+          _SectionHeader(
+            icon: Icons.undo,
+            color: KColors.error,
+            title: 'Credit Notes (CDNR: ${cdnr.length}, CDNUR: ${cdnur.length})',
+          ),
+          KSpacing.vGapSm,
+          if (cdnr.isNotEmpty)
+            ...cdnr.map((record) => _CdnrRecord(record: record as Map<String, dynamic>)),
+          if (cdnur.isNotEmpty)
+            KCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.business, size: 16, color: KColors.textSecondary),
-                      KSpacing.hGapSm,
-                      Expanded(
-                        child: Text(ctin,
-                            style: KTypography.labelMedium,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                    ],
-                  ),
+                  Text('Unregistered (${cdnur.length})', style: KTypography.labelMedium),
                   KSpacing.vGapSm,
-                  ...invList.map((inv) {
-                    final invMap = inv as Map<String, dynamic>;
-                    final inum = invMap['inum']?.toString() ?? '';
-                    final idt = invMap['idt']?.toString() ?? '';
-                    final val = (invMap['val'] as num?)?.toDouble() ?? 0;
-                    final items = (invMap['itms'] as List?) ?? [];
+                  ...cdnur.map((cn) {
+                    final m = cn as Map<String, dynamic>;
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(bottom: 4),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(inum, style: KTypography.labelSmall),
-                                Text(idt,
-                                    style: KTypography.bodySmall
-                                        .copyWith(color: KColors.textHint)),
-                              ],
-                            ),
+                          Text(m['nt_num']?.toString() ?? '',
+                              style: KTypography.labelSmall),
+                          Text(
+                            CurrencyFormatter.formatIndian(
+                                (m['val'] as num?)?.toDouble() ?? 0),
+                            style: KTypography.amountSmall,
                           ),
-                          Expanded(
-                            child: Text(
-                              CurrencyFormatter.formatIndian(val),
-                              style: KTypography.amountSmall,
-                              textAlign: TextAlign.right,
-                            ),
-                          ),
-                          KSpacing.hGapSm,
-                          Text('${items.length} rate${items.length == 1 ? '' : 's'}',
-                              style: KTypography.labelSmall
-                                  .copyWith(color: KColors.textHint)),
                         ],
                       ),
                     );
                   }),
                 ],
               ),
-            );
-          }),
+            ),
+          KSpacing.vGapLg,
         ],
+
+        // HSN summary
+        _SectionHeader(
+          icon: Icons.category,
+          color: KColors.secondary,
+          title: 'HSN/SAC Summary (${hsnsac.length})',
+        ),
+        KSpacing.vGapSm,
+        if (hsnsac.isEmpty)
+          _EmptySection(message: 'No HSN data for this period')
+        else
+          KCard(
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(flex: 2, child: Text('HSN', style: KTypography.labelSmall)),
+                    Expanded(child: Text('Taxable', style: KTypography.labelSmall, textAlign: TextAlign.right)),
+                    Expanded(child: Text('Tax', style: KTypography.labelSmall, textAlign: TextAlign.right)),
+                  ],
+                ),
+                const Divider(),
+                ...hsnsac.map((item) {
+                  final m = item as Map<String, dynamic>;
+                  final hsn = m['hsn_sc']?.toString() ?? '';
+                  final txval = (m['txval'] as num?)?.toDouble() ?? 0;
+                  final totTx = (m['tot_tx'] as num?)?.toDouble() ?? 0;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: Text(hsn, style: KTypography.bodySmall),
+                        ),
+                        Expanded(
+                          child: Text(
+                            CurrencyFormatter.formatCompact(txval),
+                            style: KTypography.amountSmall,
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            CurrencyFormatter.formatCompact(totTx),
+                            style: KTypography.amountSmall,
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        KSpacing.vGapLg,
+
+        // Export button
+        OutlinedButton.icon(
+          onPressed: onExport,
+          icon: const Icon(Icons.share),
+          label: const Text('Export GSTR-1 JSON'),
+        ),
+        KSpacing.vGapLg,
       ],
+    );
+  }
+}
+
+// ── Helper Widgets ────────────────────────────────────────────────────────────
+
+class _NetPayableCard extends StatelessWidget {
+  final double netPayable;
+
+  const _NetPayableCard({required this.netPayable});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: netPayable > 0
+              ? [KColors.error.withValues(alpha: 0.85), KColors.error]
+              : [KColors.success.withValues(alpha: 0.85), KColors.success],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: KSpacing.borderRadiusLg,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Net Tax Payable',
+              style: KTypography.labelLarge.copyWith(color: Colors.white70)),
+          KSpacing.vGapSm,
+          Text(
+            CurrencyFormatter.formatIndian(netPayable),
+            style: KTypography.h1.copyWith(color: Colors.white),
+          ),
+          KSpacing.vGapXs,
+          Text(
+            netPayable > 0 ? 'Amount to be paid to government' : 'No liability this period',
+            style: KTypography.bodySmall.copyWith(color: Colors.white70),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+
+  const _SectionHeader({
+    required this.icon,
+    required this.color,
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: KSpacing.borderRadiusSm,
+          ),
+          child: Icon(icon, color: color, size: 16),
+        ),
+        KSpacing.hGapSm,
+        Text(title, style: KTypography.h3),
+      ],
+    );
+  }
+}
+
+class _CountBadge extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+
+  const _CountBadge({required this.label, required this.count, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: KSpacing.borderRadiusMd,
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Text(label, style: KTypography.labelSmall.copyWith(color: color)),
+          KSpacing.hGapXs,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '$count',
+              style: KTypography.labelSmall.copyWith(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptySection extends StatelessWidget {
+  final String message;
+
+  const _EmptySection({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return KCard(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              const Icon(Icons.info_outline, size: 28, color: KColors.textHint),
+              KSpacing.vGapSm,
+              Text(message, style: KTypography.bodyMedium),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _B2bRecord extends StatelessWidget {
+  final Map<String, dynamic> record;
+
+  const _B2bRecord({required this.record});
+
+  @override
+  Widget build(BuildContext context) {
+    final ctin = record['ctin']?.toString() ?? '';
+    final invList = (record['inv'] as List?) ?? [];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: KCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.business, size: 14, color: KColors.textSecondary),
+                KSpacing.hGapXs,
+                Expanded(
+                  child: Text(ctin,
+                      style: KTypography.labelMedium,
+                      overflow: TextOverflow.ellipsis),
+                ),
+                Text('${invList.length} inv',
+                    style: KTypography.labelSmall.copyWith(color: KColors.textHint)),
+              ],
+            ),
+            KSpacing.vGapSm,
+            ...invList.map((inv) {
+              final invMap = inv as Map<String, dynamic>;
+              final inum = invMap['inum']?.toString() ?? '';
+              final idt = invMap['idt']?.toString() ?? '';
+              final val = (invMap['val'] as num?)?.toDouble() ?? 0;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(inum, style: KTypography.labelSmall),
+                          Text(idt,
+                              style: KTypography.bodySmall
+                                  .copyWith(color: KColors.textHint)),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      CurrencyFormatter.formatIndian(val),
+                      style: KTypography.amountSmall,
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CdnrRecord extends StatelessWidget {
+  final Map<String, dynamic> record;
+
+  const _CdnrRecord({required this.record});
+
+  @override
+  Widget build(BuildContext context) {
+    final ctin = record['ctin']?.toString() ?? '';
+    final ntList = (record['nt'] as List?) ?? [];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: KCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.business, size: 14, color: KColors.textSecondary),
+                KSpacing.hGapXs,
+                Expanded(
+                  child: Text(ctin,
+                      style: KTypography.labelMedium,
+                      overflow: TextOverflow.ellipsis),
+                ),
+              ],
+            ),
+            KSpacing.vGapSm,
+            ...ntList.map((nt) {
+              final m = nt as Map<String, dynamic>;
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(m['nt_num']?.toString() ?? '', style: KTypography.labelSmall),
+                  Text(
+                    CurrencyFormatter.formatIndian(
+                        (m['val'] as num?)?.toDouble() ?? 0),
+                    style: KTypography.amountSmall,
+                  ),
+                ],
+              );
+            }),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -347,6 +814,7 @@ class _GstStatCard extends StatelessWidget {
   final String? subtitle;
   final IconData icon;
   final Color color;
+  final bool wide;
 
   const _GstStatCard({
     required this.label,
@@ -354,23 +822,43 @@ class _GstStatCard extends StatelessWidget {
     this.subtitle,
     required this.icon,
     required this.color,
+    this.wide = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return KCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 24),
-          KSpacing.vGapSm,
-          Text(value, style: KTypography.amountMedium),
-          Text(label, style: KTypography.bodySmall),
-          if (subtitle != null)
-            Text(subtitle!,
-                style: KTypography.labelSmall.copyWith(color: KColors.textHint)),
-        ],
-      ),
+      child: wide
+          ? Row(
+              children: [
+                Icon(icon, color: color, size: 28),
+                KSpacing.hGapMd,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(value, style: KTypography.amountMedium),
+                    Text(label, style: KTypography.bodySmall),
+                    if (subtitle != null)
+                      Text(subtitle!,
+                          style: KTypography.labelSmall
+                              .copyWith(color: KColors.textHint)),
+                  ],
+                ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: color, size: 24),
+                KSpacing.vGapSm,
+                Text(value, style: KTypography.amountMedium),
+                Text(label, style: KTypography.bodySmall),
+                if (subtitle != null)
+                  Text(subtitle!,
+                      style: KTypography.labelSmall
+                          .copyWith(color: KColors.textHint)),
+              ],
+            ),
     );
   }
 }

@@ -6,6 +6,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -15,4 +17,7 @@ public interface CreditNoteRepository extends JpaRepository<CreditNote, UUID> {
     Optional<CreditNote> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
     Page<CreditNote> findByOrgIdAndIsDeletedFalseOrderByCreditNoteDateDesc(UUID orgId, Pageable pageable);
+
+    List<CreditNote> findByOrgIdAndIsDeletedFalseAndCreditNoteDateBetweenAndStatusNot(
+            UUID orgId, LocalDate from, LocalDate to, String excludeStatus);
 }

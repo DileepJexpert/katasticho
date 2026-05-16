@@ -59,8 +59,12 @@ class ApiConfig {
 
   // AR Reports
   static const String ageingReport = '/api/v1/ar/reports/ageing';
-  static const String gstr1 = '/api/v1/ar/reports/gstr1';
-  static const String gstr3b = '/api/v1/ar/reports/gstr3b';
+
+  // GST Returns
+  static const String gstr1 = '/api/v1/gst/gstr1';
+  static const String gstr3b = '/api/v1/gst/gstr3b';
+  static const String gstr1Export = '/api/v1/gst/gstr1/export';
+  static const String gstr3bExport = '/api/v1/gst/gstr3b/export';
 
   // Contact Ledger
   static String contactLedger(String id) => '/api/v1/contacts/$id/ledger';

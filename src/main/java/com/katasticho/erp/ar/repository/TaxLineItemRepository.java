@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,4 +26,17 @@ public interface TaxLineItemRepository extends JpaRepository<TaxLineItem, UUID> 
         ORDER BY t.createdAt
     """)
     List<TaxLineItem> findByOrgAndSourceTypeAndRegime(UUID orgId, String sourceType, String taxRegime);
+
+    @Query("""
+        SELECT t FROM TaxLineItem t
+        WHERE t.orgId = :orgId
+          AND t.sourceType IN :sourceTypes
+          AND t.taxRegime = :taxRegime
+          AND t.sourceId IN :sourceIds
+    """)
+    List<TaxLineItem> findByOrgAndSourceTypesAndRegimeAndSourceIds(
+            UUID orgId,
+            Collection<String> sourceTypes,
+            String taxRegime,
+            Collection<UUID> sourceIds);
 }
