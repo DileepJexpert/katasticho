@@ -153,6 +153,12 @@ class SettingsScreen extends ConsumerWidget {
             Text('Preferences', style: KTypography.h3),
             KSpacing.vGapSm,
             _SettingsTile(
+              icon: Icons.smart_toy_outlined,
+              title: 'AI & Scanning Model',
+              subtitle: 'Choose OCR model for bill & label scanning',
+              onTap: () => context.push(Routes.aiSettings),
+            ),
+            _SettingsTile(
               icon: Icons.notifications_outlined,
               title: 'Notifications',
               subtitle: 'Push, email & SMS alerts',
