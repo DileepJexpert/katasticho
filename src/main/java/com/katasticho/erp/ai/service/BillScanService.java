@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class BillScanService {
 
-    private final ClaudeApiClient claudeApiClient;
+    private final VisionModelRouter visionModelRouter;
     private final ObjectMapper objectMapper;
 
     private static final String SYSTEM_PROMPT = """
@@ -71,7 +71,7 @@ public class BillScanService {
     public BillScanResponse scanBill(String base64Image, String mediaType) {
         log.info("Scanning bill image (mediaType={})", mediaType);
 
-        String response = claudeApiClient.sendMessageWithImage(
+        String response = visionModelRouter.sendMessageWithImage(
                 SYSTEM_PROMPT,
                 "Extract all data from this bill/invoice image.",
                 base64Image,

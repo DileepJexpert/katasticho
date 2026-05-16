@@ -66,6 +66,10 @@ class ApiConfig {
   static const String gstr1Export = '/api/v1/gst/gstr1/export';
   static const String gstr3bExport = '/api/v1/gst/gstr3b/export';
 
+  // AI Model Settings
+  static const String aiSettings = '/api/v1/settings/ai';
+  static const String aiSettingsTest = '/api/v1/settings/ai/test';
+
   // Contact Ledger
   static String contactLedger(String id) => '/api/v1/contacts/$id/ledger';
 

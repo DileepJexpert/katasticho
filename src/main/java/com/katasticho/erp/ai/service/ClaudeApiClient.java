@@ -20,7 +20,7 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class ClaudeApiClient {
+public class ClaudeApiClient implements VisionModelClient {
 
     private final RestTemplate claudeRestTemplate;
     private final AiConfig aiConfig;

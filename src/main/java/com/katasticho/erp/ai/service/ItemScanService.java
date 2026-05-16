@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class ItemScanService {
 
-    private final ClaudeApiClient claudeApiClient;
+    private final VisionModelRouter visionModelRouter;
     private final ObjectMapper objectMapper;
 
     private static final String LABEL_PROMPT = """
@@ -116,7 +116,7 @@ public class ItemScanService {
 
     private ItemScanResponse doScan(String base64Image, String mediaType,
                                      String systemPrompt, String userMessage) {
-        String response = claudeApiClient.sendMessageWithImage(
+        String response = visionModelRouter.sendMessageWithImage(
                 systemPrompt, userMessage, base64Image, mediaType);
 
         String cleaned = response.strip();
