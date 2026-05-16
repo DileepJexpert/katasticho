@@ -16,6 +16,7 @@ import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../tax_groups/data/tax_group_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/bill_repository.dart';
+import 'bill_scan_sheet.dart';
 
 class BillCreateScreen extends ConsumerStatefulWidget {
   const BillCreateScreen({super.key});
@@ -84,6 +85,56 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
       }
     } catch (e) {
       if (mounted) setState(() => _loadingContacts = false);
+    }
+  }
+
+  Future<void> _scanBill() async {
+    final result = await showBillScanSheet(context);
+    if (result == null || !mounted) return;
+
+    setState(() {
+      // Populate vendor info
+      _vendorBillNumber = result['invoiceNumber'] as String? ?? _vendorBillNumber;
+      if (result['billDate'] is DateTime) _billDate = result['billDate'] as DateTime;
+      if (result['dueDate'] is DateTime) _dueDate = result['dueDate'] as DateTime;
+
+      // Try to match vendor by GSTIN
+      final gstin = result['vendorGstin'] as String? ?? '';
+      if (gstin.isNotEmpty) {
+        final match = _contacts.cast<Map<String, dynamic>?>().firstWhere(
+          (c) => (c?['gstin'] as String? ?? '').toUpperCase() == gstin.toUpperCase(),
+          orElse: () => null,
+        );
+        if (match != null) {
+          _selectedContactId = match['id']?.toString();
+          _vendorName = match['displayName'] as String? ??
+              match['companyName'] as String? ?? '';
+        }
+      }
+
+      // Populate line items
+      final scannedLines = result['lineItems'] as List? ?? [];
+      if (scannedLines.isNotEmpty) {
+        _lineItems.clear();
+        for (final line in scannedLines) {
+          final l = line as Map<String, dynamic>;
+          final item = _BillLineItem()
+            ..description = l['description'] as String? ?? ''
+            ..quantity = (l['quantity'] as num?)?.toDouble() ?? 1
+            ..unitPrice = (l['unitPrice'] as num?)?.toDouble() ?? 0
+            ..taxRate = (l['gstRate'] as num?)?.toDouble() ?? 0;
+          _lineItems.add(item);
+        }
+      }
+
+      // Jump to Items step so user can review
+      _currentStep = 1;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bill scanned — review items below')),
+      );
     }
   }
 
@@ -206,6 +257,13 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
           icon: const Icon(Icons.close),
           onPressed: () => context.go(Routes.bills),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.document_scanner_outlined),
+            tooltip: 'Scan Bill',
+            onPressed: _scanBill,
+          ),
+        ],
       ),
       body: Form(
         key: _formKey,
@@ -458,7 +516,16 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Line Items', style: KTypography.h2),
+        Row(
+          children: [
+            Expanded(child: Text('Line Items', style: KTypography.h2)),
+            TextButton.icon(
+              onPressed: _scanBill,
+              icon: const Icon(Icons.document_scanner_outlined, size: 18),
+              label: const Text('Scan'),
+            ),
+          ],
+        ),
         KSpacing.vGapMd,
 
         ...List.generate(_lineItems.length, (index) {

@@ -348,6 +348,9 @@ class _ItemScanSheetState extends ConsumerState<_ItemScanSheet> {
                     setState(() => _error = null);
                   }
                 },
+                onUpdate: (updated) {
+                  setState(() => _scannedItems[index] = updated);
+                },
               );
             },
           ),
@@ -409,28 +412,116 @@ class _ScanOptionCard extends StatelessWidget {
   }
 }
 
-class _ScannedItemCard extends StatelessWidget {
+class _ScannedItemCard extends StatefulWidget {
   final Map<String, dynamic> item;
   final int index;
   final VoidCallback onUse;
   final VoidCallback onRemove;
+  final ValueChanged<Map<String, dynamic>> onUpdate;
 
   const _ScannedItemCard({
     required this.item,
     required this.index,
     required this.onUse,
     required this.onRemove,
+    required this.onUpdate,
   });
 
   @override
+  State<_ScannedItemCard> createState() => _ScannedItemCardState();
+}
+
+class _ScannedItemCardState extends State<_ScannedItemCard> {
+  bool _editing = false;
+
+  late TextEditingController _nameCtrl;
+  late TextEditingController _brandCtrl;
+  late TextEditingController _mrpCtrl;
+  late TextEditingController _purchasePriceCtrl;
+  late TextEditingController _barcodeCtrl;
+  late TextEditingController _categoryCtrl;
+  late TextEditingController _gstRateCtrl;
+  late TextEditingController _hsnCodeCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _initControllers();
+  }
+
+  void _initControllers() {
+    _nameCtrl = TextEditingController(text: widget.item['name']?.toString() ?? '');
+    _brandCtrl = TextEditingController(text: widget.item['brand']?.toString() ?? '');
+    _mrpCtrl = TextEditingController(text: widget.item['mrp']?.toString() ?? '');
+    _purchasePriceCtrl = TextEditingController(text: widget.item['purchasePrice']?.toString() ?? '');
+    _barcodeCtrl = TextEditingController(text: widget.item['barcode']?.toString() ?? '');
+    _categoryCtrl = TextEditingController(text: widget.item['category']?.toString() ?? '');
+    _gstRateCtrl = TextEditingController(text: widget.item['gstRate']?.toString() ?? '');
+    _hsnCodeCtrl = TextEditingController(text: widget.item['hsnCode']?.toString() ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _brandCtrl.dispose();
+    _mrpCtrl.dispose();
+    _purchasePriceCtrl.dispose();
+    _barcodeCtrl.dispose();
+    _categoryCtrl.dispose();
+    _gstRateCtrl.dispose();
+    _hsnCodeCtrl.dispose();
+    super.dispose();
+  }
+
+  void _startEditing() {
+    _nameCtrl.text = widget.item['name']?.toString() ?? '';
+    _brandCtrl.text = widget.item['brand']?.toString() ?? '';
+    _mrpCtrl.text = widget.item['mrp']?.toString() ?? '';
+    _purchasePriceCtrl.text = widget.item['purchasePrice']?.toString() ?? '';
+    _barcodeCtrl.text = widget.item['barcode']?.toString() ?? '';
+    _categoryCtrl.text = widget.item['category']?.toString() ?? '';
+    _gstRateCtrl.text = widget.item['gstRate']?.toString() ?? '';
+    _hsnCodeCtrl.text = widget.item['hsnCode']?.toString() ?? '';
+    setState(() => _editing = true);
+  }
+
+  void _cancelEditing() {
+    setState(() => _editing = false);
+  }
+
+  void _doneEditing() {
+    final updated = Map<String, dynamic>.from(widget.item);
+    updated['name'] = _nameCtrl.text.trim();
+    updated['brand'] = _brandCtrl.text.trim();
+    final mrpVal = double.tryParse(_mrpCtrl.text.trim());
+    updated['mrp'] = mrpVal ?? (_mrpCtrl.text.trim().isEmpty ? null : _mrpCtrl.text.trim());
+    final ppVal = double.tryParse(_purchasePriceCtrl.text.trim());
+    updated['purchasePrice'] = ppVal ?? (_purchasePriceCtrl.text.trim().isEmpty ? null : _purchasePriceCtrl.text.trim());
+    updated['barcode'] = _barcodeCtrl.text.trim();
+    updated['category'] = _categoryCtrl.text.trim();
+    final gstVal = double.tryParse(_gstRateCtrl.text.trim());
+    updated['gstRate'] = gstVal ?? (_gstRateCtrl.text.trim().isEmpty ? null : _gstRateCtrl.text.trim());
+    updated['hsnCode'] = _hsnCodeCtrl.text.trim();
+    widget.onUpdate(updated);
+    setState(() => _editing = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final name = item['name']?.toString() ?? 'Unknown';
-    final brand = item['brand']?.toString();
-    final mrp = item['mrp'];
-    final purchasePrice = item['purchasePrice'];
-    final barcode = item['barcode']?.toString();
-    final category = item['category']?.toString();
-    final gstRate = item['gstRate'];
+    if (_editing) {
+      return _buildEditingView();
+    }
+    return _buildReadOnlyView();
+  }
+
+  Widget _buildReadOnlyView() {
+    final name = widget.item['name']?.toString() ?? 'Unknown';
+    final brand = widget.item['brand']?.toString();
+    final mrp = widget.item['mrp'];
+    final purchasePrice = widget.item['purchasePrice'];
+    final barcode = widget.item['barcode']?.toString();
+    final category = widget.item['category']?.toString();
+    final gstRate = widget.item['gstRate'];
 
     return KCard(
       padding: const EdgeInsets.all(12),
@@ -444,7 +535,7 @@ class _ScannedItemCard extends StatelessWidget {
                 radius: 16,
                 backgroundColor: KColors.primarySoft,
                 child: Text(
-                  '${index + 1}',
+                  '${widget.index + 1}',
                   style: KTypography.labelSmall.copyWith(color: KColors.primary),
                 ),
               ),
@@ -462,8 +553,14 @@ class _ScannedItemCard extends StatelessWidget {
                 ),
               ),
               IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                onPressed: _startEditing,
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Edit',
+              ),
+              IconButton(
                 icon: const Icon(Icons.close, size: 18),
-                onPressed: onRemove,
+                onPressed: widget.onRemove,
                 visualDensity: VisualDensity.compact,
                 tooltip: 'Remove',
               ),
@@ -490,11 +587,101 @@ class _ScannedItemCard extends StatelessWidget {
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
-              onPressed: onUse,
+              onPressed: widget.onUse,
               icon: const Icon(Icons.check, size: 16),
               label: const Text('Use This Item'),
               style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditingView() {
+    return KCard(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: KColors.primarySoft,
+                child: Text(
+                  '${widget.index + 1}',
+                  style: KTypography.labelSmall.copyWith(color: KColors.primary),
+                ),
+              ),
+              KSpacing.hGapSm,
+              Expanded(
+                child: Text('Edit Item', style: KTypography.labelLarge),
+              ),
+            ],
+          ),
+          KSpacing.vGapSm,
+          KTextField(
+            label: 'Name',
+            controller: _nameCtrl,
+          ),
+          KSpacing.vGapXs,
+          KTextField(
+            label: 'Brand',
+            controller: _brandCtrl,
+          ),
+          KSpacing.vGapXs,
+          KCompactRow(
+            children: [
+              KTextField.amount(
+                label: 'MRP',
+                controller: _mrpCtrl,
+              ),
+              KTextField.amount(
+                label: 'Purchase Price',
+                controller: _purchasePriceCtrl,
+              ),
+            ],
+          ),
+          KSpacing.vGapXs,
+          KTextField(
+            label: 'Barcode',
+            controller: _barcodeCtrl,
+          ),
+          KSpacing.vGapXs,
+          KTextField(
+            label: 'Category',
+            controller: _categoryCtrl,
+          ),
+          KSpacing.vGapXs,
+          KCompactRow(
+            children: [
+              KTextField(
+                label: 'GST Rate (%)',
+                controller: _gstRateCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              KTextField(
+                label: 'HSN Code',
+                controller: _hsnCodeCtrl,
+              ),
+            ],
+          ),
+          KSpacing.vGapSm,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: _cancelEditing,
+                child: const Text('Cancel'),
+              ),
+              KSpacing.hGapSm,
+              KButton(
+                label: 'Done',
+                icon: Icons.check,
+                onPressed: _doneEditing,
+              ),
+            ],
           ),
         ],
       ),
