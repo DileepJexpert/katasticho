@@ -20,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -88,10 +89,11 @@ class BankReconciliationServiceTest {
 
         when(bankTransactionRepository.existsByOrgIdAndUtrAndDirection(any(), any(), any()))
                 .thenReturn(false);
-        when(invoiceRepository.findOutstandingInvoices(orgId)).thenReturn(List.of(invoice));
+        when(invoiceRepository.findOutstandingInvoicesForBankMatching(eq(orgId), eq(new BigDecimal("1000.00")), any(Pageable.class)))
+                .thenReturn(List.of(invoice));
         when(contactRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), any()))
                 .thenReturn(List.of(contact));
-        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(invoiceRepository.findAllById(any())).thenReturn(List.of(invoice));
         when(bankTransactionRepository.save(any(BankTransaction.class))).thenAnswer(inv -> {
             BankTransaction tx = inv.getArgument(0);
             if (tx.getId() == null) {
@@ -173,7 +175,7 @@ class BankReconciliationServiceTest {
         when(paymentService.recordPayment(any())).thenReturn(payment);
         when(paymentMatchRepository.findByOrgIdAndBankTransactionIdOrderByConfidenceDesc(orgId, transactionId))
                 .thenReturn(List.of(match));
-        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(invoiceRepository.findAllById(any())).thenReturn(List.of(invoice));
         when(contactRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), any()))
                 .thenReturn(List.of(contact));
         when(bankTransactionRepository.save(any(BankTransaction.class))).thenAnswer(inv -> inv.getArgument(0));

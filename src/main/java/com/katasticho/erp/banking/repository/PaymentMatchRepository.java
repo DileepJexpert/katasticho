@@ -2,6 +2,8 @@ package com.katasticho.erp.banking.repository;
 
 import com.katasticho.erp.banking.entity.PaymentMatch;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.Collection;
 import java.util.List;
@@ -16,5 +18,12 @@ public interface PaymentMatchRepository extends JpaRepository<PaymentMatch, UUID
 
     Optional<PaymentMatch> findByIdAndOrgId(UUID id, UUID orgId);
 
-    void deleteByOrgIdAndBankTransactionIdAndMatchStatus(UUID orgId, UUID bankTransactionId, String matchStatus);
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        DELETE FROM PaymentMatch pm
+        WHERE pm.orgId = :orgId
+          AND pm.bankTransactionId = :bankTransactionId
+          AND pm.matchStatus = :matchStatus
+    """)
+    int deleteByOrgIdAndBankTransactionIdAndMatchStatus(UUID orgId, UUID bankTransactionId, String matchStatus);
 }

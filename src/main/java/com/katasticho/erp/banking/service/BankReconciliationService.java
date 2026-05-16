@@ -20,6 +20,7 @@ import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -40,6 +41,12 @@ public class BankReconciliationService {
 
     private static final Pattern SPLIT_CSV_PATTERN =
             Pattern.compile(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
+    private static final Pattern UPI_VPA_PATTERN =
+            Pattern.compile("(^|[^A-Za-z0-9._-])([A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9._-]{1,64})(?=$|[^A-Za-z0-9._-])");
+    private static final Set<String> COMMON_EMAIL_DOMAINS = Set.of(
+            "gmail", "googlemail", "yahoo", "outlook", "hotmail", "live", "icloud", "proton", "protonmail"
+    );
+    private static final int MAX_INVOICES_TO_SCORE = 200;
 
     private final BankTransactionRepository bankTransactionRepository;
     private final PaymentMatchRepository paymentMatchRepository;
@@ -220,7 +227,7 @@ public class BankReconciliationService {
 
     private String inferPaymentMethod(BankTransaction transaction) {
         String combined = normalize(transaction.getNarration()) + " " + normalize(transaction.getPayerVpa());
-        return combined.contains("upi") || combined.contains("@") ? "UPI" : "BANK_TRANSFER";
+        return combined.contains("upi") || containsLikelyUpiVpa(combined) ? "UPI" : "BANK_TRANSFER";
     }
 
     private BankTransaction getTransaction(UUID transactionId, UUID orgId) {
@@ -233,7 +240,12 @@ public class BankReconciliationService {
             return List.of();
         }
 
-        List<Invoice> outstanding = invoiceRepository.findOutstandingInvoices(orgId);
+        BigDecimal txAmount = transaction.getAmount().setScale(2, RoundingMode.HALF_UP);
+        List<Invoice> outstanding = invoiceRepository.findOutstandingInvoicesForBankMatching(
+                orgId,
+                txAmount,
+                PageRequest.of(0, MAX_INVOICES_TO_SCORE)
+        );
         if (outstanding.isEmpty()) {
             return List.of();
         }
@@ -251,7 +263,6 @@ public class BankReconciliationService {
         String normalizedNarration = normalize(transaction.getNarration());
         String normalizedPayerName = normalize(transaction.getPayerName());
         String normalizedPayerVpa = normalize(transaction.getPayerVpa());
-        BigDecimal txAmount = transaction.getAmount().setScale(2, RoundingMode.HALF_UP);
 
         return outstanding.stream()
                 .map(invoice -> scoreCandidate(invoice, contactMap.get(invoice.getContactId()), transaction,
@@ -327,9 +338,14 @@ public class BankReconciliationService {
                 .map(PaymentMatch::getInvoiceId)
                 .filter(Objects::nonNull)
                 .distinct()
-                .map(invoiceId -> invoiceRepository.findById(invoiceId).orElse(null))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toMap(Invoice::getId, invoice -> invoice));
+                .collect(Collectors.collectingAndThen(Collectors.toList(), invoiceIds -> {
+                    if (invoiceIds.isEmpty()) {
+                        return Map.of();
+                    }
+                    return invoiceRepository.findAllById(invoiceIds).stream()
+                            .filter(invoice -> transaction.getOrgId().equals(invoice.getOrgId()))
+                            .collect(Collectors.toMap(Invoice::getId, invoice -> invoice, (left, right) -> left));
+                }));
 
         Set<UUID> contactIds = matches.stream()
                 .map(PaymentMatch::getContactId)
@@ -451,6 +467,25 @@ public class BankReconciliationService {
 
     private String normalize(String value) {
         return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ").trim();
+    }
+
+    private boolean containsLikelyUpiVpa(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        var matcher = UPI_VPA_PATTERN.matcher(value);
+        while (matcher.find()) {
+            String candidate = matcher.group(2);
+            int at = candidate.indexOf('@');
+            if (at < 0 || at == candidate.length() - 1) {
+                continue;
+            }
+            String provider = candidate.substring(at + 1).toLowerCase(Locale.ROOT);
+            if (!COMMON_EMAIL_DOMAINS.contains(provider)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private BigDecimal scale(BigDecimal value) {
