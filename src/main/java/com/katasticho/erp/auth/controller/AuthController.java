@@ -61,7 +61,7 @@ public class AuthController {
     }
 
     @PostMapping("/invite")
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, String>>> invite(@Valid @RequestBody InviteRequest request) {
         UserInvitation invitation = authService.invite(
                 request, TenantContext.getCurrentOrgId(), TenantContext.getCurrentUserId());

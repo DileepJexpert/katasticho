@@ -209,6 +209,20 @@ class ApiConfig {
   static const String arAgeing = '/api/v1/ar/reports/ageing';
   static const String apAgeing = '/api/v1/ap/reports/ageing';
 
+  // Team / User Management
+  static const String orgUsers = '/api/v1/org/users';
+  static const String orgPendingInvites = '/api/v1/org/users/invites';
+  static const String orgInvite = '/api/v1/org/users/invite';
+  static String orgUserRole(String userId) => '/api/v1/org/users/$userId/role';
+  static String orgUserDeactivate(String userId) =>
+      '/api/v1/org/users/$userId/deactivate';
+  static String orgUserReactivate(String userId) =>
+      '/api/v1/org/users/$userId/reactivate';
+  static String orgInviteResend(String inviteId) =>
+      '/api/v1/org/users/invites/$inviteId/resend';
+  static String orgInviteCancel(String inviteId) =>
+      '/api/v1/org/users/invites/$inviteId';
+
   // Demo seeding (owner-only, idempotent)
   static const String demoSeedSharmaMedical =
       '/api/v1/demo/seed-sharma-medical';

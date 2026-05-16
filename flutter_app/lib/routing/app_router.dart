@@ -95,6 +95,7 @@ import '../features/journals/presentation/journal_create_screen.dart';
 import '../features/journals/presentation/guided_transaction_screen.dart';
 import '../features/contacts/presentation/contact_statement_screen.dart';
 import '../features/inventory/presentation/reorder_screen.dart';
+import '../features/team/presentation/team_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -186,6 +187,7 @@ class Routes {
   static const defaultAccounts = '/settings/default-accounts';
   static const taxAccountMappings = '/settings/tax-accounts';
   static const inventoryFeatures = '/settings/inventory-features';
+  static const teamMembers = '/settings/team';
   // Onboarding wizard
   static const onboardingBusinessType = '/onboarding/business-type';
   static const onboardingIndustry = '/onboarding/industry';
@@ -777,6 +779,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.inventoryFeatures,
             builder: (context, state) => const InventoryFeaturesScreen(),
+          ),
+          GoRoute(
+            path: Routes.teamMembers,
+            builder: (context, state) => const TeamScreen(),
           ),
         ],
       ),

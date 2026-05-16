@@ -82,7 +82,7 @@ class SettingsScreen extends ConsumerWidget {
               icon: Icons.manage_accounts_outlined,
               title: 'Team Members',
               subtitle: 'Manage users & roles',
-              onTap: () => _showComingSoon(context, 'Team Members'),
+              onTap: () => context.push(Routes.teamMembers),
             ),
             _SettingsTile(
               icon: Icons.table_chart_outlined,

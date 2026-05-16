@@ -8,6 +8,6 @@ public record InviteRequest(
         String phone,
 
         @NotBlank(message = "Role is required")
-        @Pattern(regexp = "^(ACCOUNTANT|OPERATOR|VIEWER)$", message = "Role must be ACCOUNTANT, OPERATOR, or VIEWER")
+        @Pattern(regexp = "^(ADMIN|ACCOUNTANT|OPERATOR|VIEWER)$", message = "Role must be ADMIN, ACCOUNTANT, OPERATOR, or VIEWER")
         String role
 ) {}

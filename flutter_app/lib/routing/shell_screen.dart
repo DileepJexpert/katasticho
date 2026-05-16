@@ -725,24 +725,33 @@ List<Widget> _buildSidebarSections({
   required bool collapsed,
   required String role,
 }) {
-  final isCashier = role == 'OPERATOR' || role == 'CASHIER';
+  // Role hierarchy (highest to lowest):
+  // OWNER → ADMIN → ACCOUNTANT → OPERATOR → VIEWER
+  final canManage = role == 'OWNER' || role == 'ADMIN';
+  final canAccounting = canManage || role == 'ACCOUNTANT';
+  final isOperator = role == 'OPERATOR';
+  final isViewer = role == 'VIEWER';
 
   return [
     _SidebarNavItem(item: _dashboardNavItem, collapsed: collapsed),
-    _SidebarNavItem(item: _aiCommandCenterNavItem, collapsed: collapsed),
-    _SidebarNavItem(item: _posNavItem, collapsed: collapsed),
+    if (!isViewer)
+      _SidebarNavItem(item: _aiCommandCenterNavItem, collapsed: collapsed),
+    if (!isViewer)
+      _SidebarNavItem(item: _posNavItem, collapsed: collapsed),
     KSpacing.vGapSm,
-    _SidebarNavGroup(group: _salesGroup, collapsed: collapsed),
-    if (!isCashier) ...[
+    if (!isViewer)
+      _SidebarNavGroup(group: _salesGroup, collapsed: collapsed),
+    if (canAccounting) ...[
       _SidebarNavGroup(group: _purchasesGroup, collapsed: collapsed),
-      _SidebarNavGroup(group: _inventoryGroup, collapsed: collapsed),
       _SidebarNavGroup(group: _accountingGroup, collapsed: collapsed),
-    ] else ...[
-      _SidebarNavGroup(group: _inventoryGroup, collapsed: collapsed),
     ],
-    _SidebarNavGroup(group: _reportsGroup, collapsed: collapsed),
+    if (!isViewer)
+      _SidebarNavGroup(group: _inventoryGroup, collapsed: collapsed),
+    if (canAccounting)
+      _SidebarNavGroup(group: _reportsGroup, collapsed: collapsed),
     KSpacing.vGapSm,
-    _SidebarNavItem(item: _contactsNavItem, collapsed: collapsed),
+    if (!isOperator && !isViewer)
+      _SidebarNavItem(item: _contactsNavItem, collapsed: collapsed),
     _SidebarNavItem(item: _settingsNavItem, collapsed: collapsed),
   ];
 }
