@@ -232,6 +232,11 @@ const _inventoryGroup = NavGroup(
         activeIcon: Icons.shopping_cart_rounded,
         route: Routes.reorder),
     NavItem(
+        label: 'Expiry Alerts',
+        icon: Icons.timer_outlined,
+        activeIcon: Icons.timer_rounded,
+        route: Routes.nearExpiry),
+    NavItem(
         label: 'Goods Receipts',
         icon: Icons.local_shipping_outlined,
         activeIcon: Icons.local_shipping_rounded,

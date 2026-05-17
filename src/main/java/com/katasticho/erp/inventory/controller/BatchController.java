@@ -6,11 +6,14 @@ import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.inventory.dto.BatchResponse;
+import com.katasticho.erp.inventory.dto.ExpiryBatchResponse;
+import com.katasticho.erp.inventory.dto.ExpirySummaryResponse;
 import com.katasticho.erp.inventory.entity.StockBatch;
 import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.BatchService;
+import com.katasticho.erp.inventory.service.NearExpiryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +38,7 @@ import java.util.UUID;
 public class BatchController {
 
     private final BatchService batchService;
+    private final NearExpiryService nearExpiryService;
     private final StockBatchRepository batchRepository;
     private final WarehouseRepository warehouseRepository;
 
@@ -95,5 +99,28 @@ public class BatchController {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<BatchResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(BatchResponse.from(batchService.getBatch(id))));
+    }
+
+    /**
+     * Near-expiry dashboard: list of batches expiring within N days
+     * (default 90). Includes already-expired batches that still have stock.
+     * Sorted by urgency (expired first, then soonest-expiring).
+     */
+    @GetMapping("/near-expiry")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<List<ExpiryBatchResponse>>> nearExpiry(
+            @RequestParam(defaultValue = "90") int days) {
+        List<ExpiryBatchResponse> result = nearExpiryService.getExpiringBatches(days);
+        return ResponseEntity.ok(ApiResponse.ok(result));
+    }
+
+    /**
+     * Near-expiry dashboard: summary counts by urgency bucket.
+     */
+    @GetMapping("/expiry-summary")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<ExpirySummaryResponse>> expirySummary() {
+        ExpirySummaryResponse summary = nearExpiryService.getExpirySummary();
+        return ResponseEntity.ok(ApiResponse.ok(summary));
     }
 }

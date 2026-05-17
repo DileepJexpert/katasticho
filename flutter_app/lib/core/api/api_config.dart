@@ -124,6 +124,11 @@ class ApiConfig {
 
   static String batchById(String id) => '/api/v1/batches/$id';
 
+  // Near-expiry dashboard
+  static String nearExpiryBatches({int days = 90}) =>
+      '/api/v1/batches/near-expiry?days=$days';
+  static const String expirySummary = '/api/v1/batches/expiry-summary';
+
   // Procurement
   static const String suppliers = '/api/v1/suppliers';
   static String supplierById(String id) => '/api/v1/suppliers/$id';
@@ -300,6 +305,16 @@ class ApiConfig {
   static const String taxAccountMappings = '/api/v1/settings/tax-accounts';
   static const String taxAccountMappingsReset =
       '/api/v1/settings/tax-accounts/reset';
+
+  // Credit Reminders (Udhar Reminder)
+  static const String creditRemindersOverdue =
+      '/api/v1/ar/credit-reminders/overdue';
+  static String creditReminderOutstanding(String contactId) =>
+      '/api/v1/ar/credit-reminders/$contactId/outstanding';
+  static String creditReminderText(String contactId) =>
+      '/api/v1/ar/credit-reminders/$contactId/reminder-text';
+  static String creditReminderMarkSent(String contactId) =>
+      '/api/v1/ar/credit-reminders/$contactId/mark-sent';
 
   // POS — Sales Receipts
   static const String salesReceipts = '/api/v1/sales-receipts';

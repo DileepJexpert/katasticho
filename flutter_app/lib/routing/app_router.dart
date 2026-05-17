@@ -90,11 +90,13 @@ import '../features/pos/presentation/sales_receipt_list_screen.dart';
 import '../features/pos/presentation/sales_receipt_detail_screen.dart';
 import '../features/credit_ledger/presentation/credit_ledger_screen.dart';
 import '../features/credit_ledger/presentation/credit_ledger_detail_screen.dart';
+import '../features/credit_ledger/presentation/overdue_customers_screen.dart';
 import '../features/journals/presentation/journal_list_screen.dart';
 import '../features/journals/presentation/journal_detail_screen.dart';
 import '../features/journals/presentation/journal_create_screen.dart';
 import '../features/journals/presentation/guided_transaction_screen.dart';
 import '../features/contacts/presentation/contact_statement_screen.dart';
+import '../features/inventory/presentation/near_expiry_screen.dart';
 import '../features/inventory/presentation/reorder_screen.dart';
 import '../features/team/presentation/team_screen.dart';
 import '../features/settings/presentation/ai_model_settings_screen.dart';
@@ -183,6 +185,7 @@ class Routes {
   static const bankReconciliation = '/banking/reconciliation';
   static const gst = '/gst';
   static const reorder = '/reorder';
+  static const nearExpiry = '/inventory/near-expiry';
   static const contactStatement = '/contacts/:id/statement';
   static const settings = '/settings';
   static const orgDetails = '/settings/org-details';
@@ -206,6 +209,7 @@ class Routes {
   // Credit Ledger (Udhar Khata)
   static const creditLedger = '/credit-ledger';
   static const creditLedgerDetail = '/credit-ledger/:id';
+  static const creditReminders = '/credit-reminders';
   // Journal Entries
   static const guidedTransactionCreate = '/accounting/create-transaction';
   static const journalEntries = '/accounting/journal-entries';
@@ -575,6 +579,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.reorder,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: ReorderScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.nearExpiry,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: NearExpiryScreen(),
             ),
           ),
           // F5 — item groups (variant templates).
