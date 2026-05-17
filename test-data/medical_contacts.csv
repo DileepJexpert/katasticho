@@ -1,0 +1,26 @@
+display_name,type,phone,email,gstin,billing_address,city,state,payment_terms_days,opening_balance
+Cipla Ltd,VENDOR,9820012345,orders@cipla.com,27AAACR1718F1ZV,Cipla House Worli,Mumbai,Maharashtra,30,0
+Sun Pharmaceutical,VENDOR,9820023456,supply@sunpharma.com,27AABCS5765G1ZK,Sun House Andheri,Mumbai,Maharashtra,30,0
+Dr Reddys Laboratories,VENDOR,4027716221,procurement@drreddys.com,36AABCD1234F1ZN,Dr Reddys Campus,Hyderabad,Telangana,45,0
+Alkem Laboratories,VENDOR,2240578900,sales@alkem.com,27AABCA7800K1ZM,Alkem House Andheri,Mumbai,Maharashtra,30,0
+Mankind Pharma,VENDOR,1124681357,supply@mankind.in,07AACCM9862N1Z3,Mankind House,New Delhi,Delhi,30,0
+Apollo Pharmacy Distributor,VENDOR,9840056789,dist@apollopharmacy.com,33AABCA1234P1ZR,Apollo Complex,Chennai,Tamil Nadu,15,0
+Medplus Wholesale,VENDOR,4023456789,wholesale@medplus.in,36AAECM5678Q1ZT,Medplus Hub,Hyderabad,Telangana,21,0
+Wellness Forever Distribution,VENDOR,2228901234,orders@wellnessforever.in,27AAACW9012R1ZJ,WF Warehouse,Mumbai,Maharashtra,30,0
+Dabur India,VENDOR,1204567890,pharma@dabur.com,09AABCD1234M1ZL,Dabur House,Ghaziabad,Uttar Pradesh,45,0
+Himalaya Drug Company,VENDOR,8046712345,orders@himalayawellness.com,29AABCH1234N1ZP,Himalaya Campus,Bengaluru,Karnataka,30,0
+Ramesh Kumar,CUSTOMER,9876543210,ramesh.kumar@gmail.com,,45 MG Road,Bengaluru,Karnataka,,0
+Priya Sharma,CUSTOMER,9876543211,priya.sharma@yahoo.com,,12 Park Street,Kolkata,West Bengal,,0
+Dr Suresh Patel,CUSTOMER,9876543212,dr.suresh@clinic.com,,Patel Clinic Civil Lines,Ahmedabad,Gujarat,,5200
+Anita Deshmukh,CUSTOMER,9876543213,,,78 Shivaji Nagar,Pune,Maharashtra,,0
+Rajesh Gupta,CUSTOMER,9876543214,rajesh.g@hotmail.com,,23 Nehru Place,New Delhi,Delhi,,1800
+Meera Hospital,CUSTOMER,9876543215,pharmacy@meerahospital.com,29AABCM5678F1ZR,Meera Hospital Complex,Bengaluru,Karnataka,15,12500
+City Medical College,CUSTOMER,9876543216,stores@citymedical.edu.in,33AABCC9012G1ZK,City Medical Campus,Chennai,Tamil Nadu,30,45000
+Sunflower Old Age Home,CUSTOMER,9876543217,admin@sunflowerhome.org,,Sunflower Campus,Pune,Maharashtra,30,3200
+Green Cross Clinic,CUSTOMER,9876543218,greencross@gmail.com,07AABCG3456H1ZM,Green Cross Building,New Delhi,Delhi,15,8900
+Lakshmi Nursing Home,CUSTOMER,9876543219,lakshmi.nursing@gmail.com,27AABCL7890J1ZN,Lakshmi Complex,Mumbai,Maharashtra,15,6700
+Mohammed Irfan,CUSTOMER,9876543220,,,99 Jubilee Hills,Hyderabad,Telangana,,0
+Kavitha Nair,CUSTOMER,9876543221,kavitha.nair@gmail.com,,34 Marine Drive,Kochi,Kerala,,450
+Walk-in Customer,CUSTOMER,,,,,,,0,0
+Ravi Shankar,CUSTOMER,9876543223,,,Sector 15 Market,Chandigarh,Chandigarh,,0
+Sanjay Pharma,BOTH,9876543224,sanjay.pharma@gmail.com,09AABCS2345K1ZL,Sanjay Complex,Lucknow,Uttar Pradesh,15,2300
