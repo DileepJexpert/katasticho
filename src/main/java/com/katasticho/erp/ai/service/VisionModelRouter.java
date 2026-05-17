@@ -47,8 +47,13 @@ public class VisionModelRouter {
 
     private OrgAiSettings defaultSettings() {
         OrgAiSettings s = new OrgAiSettings();
-        s.setProvider("CLAUDE");
-        s.setModelName(aiConfig.getModel());
+        s.setProvider(aiConfig.getDefaultProvider());
+        if ("OLLAMA".equals(s.getProvider())) {
+            s.setModelName(aiConfig.getOllamaModel());
+            s.setBaseUrl(aiConfig.getOllamaBaseUrl());
+        } else {
+            s.setModelName(aiConfig.getModel());
+        }
         return s;
     }
 }

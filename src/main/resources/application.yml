@@ -87,6 +87,9 @@ app:
     model: claude-sonnet-4-20250514
     max-tokens: 4096
     max-sql-rows: 100
+    default-provider: ${AI_DEFAULT_PROVIDER:OLLAMA}
+    ollama-base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    ollama-model: ${OLLAMA_MODEL:llava}
   mail:
     from: ${MAIL_FROM:noreply@katasticho.com}
     from-name: ${MAIL_FROM_NAME:Katasticho}
