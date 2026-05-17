@@ -144,8 +144,8 @@ class CreditLedgerDetailScreen extends ConsumerWidget {
     final firstName = customerName.split(' ').first;
     final formattedAmount = CurrencyFormatter.formatIndian(amount);
 
-    final message = 'Hi $firstName ji, $formattedAmount baaki hai. '
-        'Jab ho sake payment kar dijiye. — $orgName';
+    final message = 'Dear $firstName, this is a reminder that your outstanding amount is $formattedAmount. '
+        'Please make the payment at your earliest convenience. — $orgName';
 
     String phoneNumber = phone ?? '';
     if (phoneNumber.isEmpty && context.mounted) {

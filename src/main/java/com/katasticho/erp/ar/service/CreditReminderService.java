@@ -205,7 +205,7 @@ public class CreditReminderService {
 
         // Build the reminder message
         StringBuilder sb = new StringBuilder();
-        sb.append("Namaste ").append(contact.getDisplayName()).append(" ji,\n\n");
+        sb.append("Dear ").append(contact.getDisplayName()).append(",\n\n");
         sb.append("This is a friendly reminder from ").append(org.getName()).append(".\n\n");
         sb.append("Your pending amount: ").append(formatAmount(totalOutstanding)).append("\n");
         if (oldestDueDate != null) {

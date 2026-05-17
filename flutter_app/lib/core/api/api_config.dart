@@ -306,7 +306,7 @@ class ApiConfig {
   static const String taxAccountMappingsReset =
       '/api/v1/settings/tax-accounts/reset';
 
-  // Credit Reminders (Udhar Reminder)
+  // Credit Reminders
   static const String creditRemindersOverdue =
       '/api/v1/ar/credit-reminders/overdue';
   static String creditReminderOutstanding(String contactId) =>

@@ -206,7 +206,7 @@ class Routes {
   static const accountCreate = '/accounts/create';
   static const accountDetail = '/accounts/:id';
   static const accountEdit = '/accounts/:id/edit';
-  // Credit Ledger (Udhar Khata)
+  // Credit Ledger
   static const creditLedger = '/credit-ledger';
   static const creditLedgerDetail = '/credit-ledger/:id';
   static const creditReminders = '/credit-reminders';
@@ -379,7 +379,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               contactName: state.extra as String?,
             ),
           ),
-          // Credit Ledger (Udhar Khata)
+          // Credit Ledger
           GoRoute(
             path: Routes.creditLedger,
             pageBuilder: (context, state) => const NoTransitionPage(

@@ -530,7 +530,7 @@ class _ReminderActionSheet extends StatelessWidget {
               decoration: BoxDecoration(
                 color: KColors.surface,
                 borderRadius: BorderRadius.circular(KSpacing.radiusSm),
-                border: Border.all(color: KColors.border),
+                border: Border.all(color: KColors.divider),
               ),
               constraints: const BoxConstraints(maxHeight: 200),
               child: SingleChildScrollView(
