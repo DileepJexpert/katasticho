@@ -32,12 +32,16 @@ class RuleBasedAiAgentServiceTest {
     private final InvoiceLineRepository invoiceLineRepository = mock(InvoiceLineRepository.class);
     private final StockMovementRepository stockMovementRepository = mock(StockMovementRepository.class);
     private final AiSuggestionRepository aiSuggestionRepository = mock(AiSuggestionRepository.class);
+    private final AiTelemetryService aiTelemetryService = mock(AiTelemetryService.class);
+    private final AiModelRegistryService aiModelRegistryService = mock(AiModelRegistryService.class);
 
     private final RuleBasedAiAgentService service = new RuleBasedAiAgentService(
             invoiceRepository,
             invoiceLineRepository,
             stockMovementRepository,
-            aiSuggestionRepository
+            aiSuggestionRepository,
+            aiTelemetryService,
+            aiModelRegistryService
     );
 
     @Test
@@ -70,6 +74,8 @@ class RuleBasedAiAgentServiceTest {
         when(aiSuggestionRepository.existsOpenSuggestion(
                 eq(orgId), eq("INVOICE"), eq(invoiceId), eq(lineId), eq("MISSING_HSN"), any(Collection.class)))
                 .thenReturn(false);
+        when(aiModelRegistryService.getActiveModel("INVOICE_REVIEW"))
+                .thenReturn(new ActiveAiModel("INVOICE_REVIEW", "deterministic_rules", "1", "internal"));
 
         int created = service.scanPostedInvoice(orgId, invoiceId);
 
@@ -78,6 +84,17 @@ class RuleBasedAiAgentServiceTest {
         verify(aiSuggestionRepository).save(captor.capture());
         assertThat(captor.getValue().getSuggestionType()).isEqualTo("MISSING_HSN");
         assertThat(captor.getValue().getSuggestedAction()).isEqualTo("REVIEW_HSN");
+        verify(aiTelemetryService).recordModelRun(
+                eq(orgId),
+                eq("INVOICE_REVIEW"),
+                eq("deterministic_rules"),
+                eq("1"),
+                eq("internal"),
+                any(),
+                any(),
+                eq(new BigDecimal("0.900")),
+                any()
+        );
     }
 
     @Test
@@ -100,5 +117,30 @@ class RuleBasedAiAgentServiceTest {
         assertThat(created).isZero();
         verify(invoiceLineRepository, never()).findByInvoiceIdOrderByLineNumber(invoiceId);
         verify(aiSuggestionRepository, never()).save(any(AiSuggestion.class));
+    }
+
+    @Test
+    void scanPostedInvoiceDoesNotFailWhenTelemetryFails() {
+        UUID orgId = UUID.randomUUID();
+        UUID invoiceId = UUID.randomUUID();
+        Invoice invoice = Invoice.builder()
+                .id(invoiceId)
+                .orgId(orgId)
+                .invoiceNumber("INV-1")
+                .invoiceDate(LocalDate.of(2026, 5, 13))
+                .status("SENT")
+                .totalAmount(new BigDecimal("10.00"))
+                .build();
+
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)).thenReturn(Optional.of(invoice));
+        when(invoiceLineRepository.findByInvoiceIdOrderByLineNumber(invoiceId)).thenReturn(List.of());
+        when(aiModelRegistryService.getActiveModel("INVOICE_REVIEW"))
+                .thenReturn(new ActiveAiModel("INVOICE_REVIEW", "deterministic_rules", "1", "internal"));
+        org.mockito.Mockito.doThrow(new RuntimeException("telemetry table missing"))
+                .when(aiTelemetryService).recordModelRun(any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+        int created = service.scanPostedInvoice(orgId, invoiceId);
+
+        assertThat(created).isZero();
     }
 }

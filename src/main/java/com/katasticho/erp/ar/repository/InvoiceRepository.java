@@ -59,6 +59,16 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
         WHERE i.orgId = :orgId
           AND i.status IN ('SENT','PARTIALLY_PAID','OVERDUE')
           AND i.isDeleted = false
+          AND i.balanceDue >= :amount
+        ORDER BY i.dueDate ASC
+    """)
+    List<Invoice> findOutstandingInvoicesForBankMatching(UUID orgId, BigDecimal amount, Pageable pageable);
+
+    @Query("""
+        SELECT i FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.status IN ('SENT','PARTIALLY_PAID','OVERDUE')
+          AND i.isDeleted = false
           AND i.dueDate < :asOfDate
         ORDER BY i.dueDate ASC
     """)

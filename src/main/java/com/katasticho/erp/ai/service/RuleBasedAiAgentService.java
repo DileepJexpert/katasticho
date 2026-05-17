@@ -13,6 +13,7 @@ import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.StockMovement;
 import com.katasticho.erp.inventory.repository.StockMovementRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class RuleBasedAiAgentService {
 
     private static final BigDecimal HIGH_VALUE_INVOICE_THRESHOLD = new BigDecimal("100000.00");
@@ -39,6 +41,8 @@ public class RuleBasedAiAgentService {
     private final InvoiceLineRepository invoiceLineRepository;
     private final StockMovementRepository stockMovementRepository;
     private final AiSuggestionRepository aiSuggestionRepository;
+    private final AiTelemetryService aiTelemetryService;
+    private final AiModelRegistryService aiModelRegistryService;
 
     @Transactional
     public AiAgentRunResponse runRuleChecks(Integer days) {
@@ -58,9 +62,26 @@ public class RuleBasedAiAgentService {
                 .findByOrgIdAndMovementDateBetweenOrderByMovementDateDescCreatedAtDesc(orgId, from, to);
 
         Counter counter = new Counter();
-        scanHighValueInvoices(orgId, invoices, counter);
-        scanInvoiceLineTaxIssues(orgId, lines, counter);
-        scanStockMovementIssues(orgId, movements, counter);
+        long started = System.nanoTime();
+        try {
+            scanHighValueInvoices(orgId, invoices, counter);
+            scanInvoiceLineTaxIssues(orgId, lines, counter);
+            scanStockMovementIssues(orgId, movements, counter);
+        } finally {
+            recordRuleRun(
+                    orgId,
+                    "BATCH_RULE_REVIEW",
+                    Map.of(
+                            "from", from.toString(),
+                            "to", to.toString(),
+                            "invoiceCount", invoices.size(),
+                            "lineCount", lines.size(),
+                            "movementCount", movements.size()
+                    ),
+                    counter,
+                    started
+            );
+        }
 
         return new AiAgentRunResponse(
                 from,
@@ -75,6 +96,7 @@ public class RuleBasedAiAgentService {
 
     @Transactional
     public int scanPostedInvoice(UUID orgId, UUID invoiceId) {
+        long started = System.nanoTime();
         Invoice invoice = invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)
                 .orElseThrow(() -> new BusinessException(
                         "Invoice not found",
@@ -87,8 +109,23 @@ public class RuleBasedAiAgentService {
 
         List<InvoiceLine> lines = invoiceLineRepository.findByInvoiceIdOrderByLineNumber(invoiceId);
         Counter counter = new Counter();
-        scanHighValueInvoices(orgId, List.of(invoice), counter);
-        scanInvoiceLineTaxIssues(orgId, lines, counter);
+        try {
+            scanHighValueInvoices(orgId, List.of(invoice), counter);
+            scanInvoiceLineTaxIssues(orgId, lines, counter);
+        } finally {
+            recordRuleRun(
+                    orgId,
+                    "INVOICE_REVIEW",
+                    Map.of(
+                            "entityType", "INVOICE",
+                            "entityId", invoiceId.toString(),
+                            "invoiceNumber", invoice.getInvoiceNumber(),
+                            "lineCount", lines.size()
+                    ),
+                    counter,
+                    started
+            );
+        }
         return counter.created;
     }
 
@@ -264,6 +301,7 @@ public class RuleBasedAiAgentService {
                 .status("PENDING")
                 .build());
         counter.created++;
+        counter.confidenceTotal = counter.confidenceTotal.add(confidence == null ? BigDecimal.ZERO : confidence);
     }
 
     private boolean positive(BigDecimal value) {
@@ -274,8 +312,46 @@ public class RuleBasedAiAgentService {
         return value == null ? BigDecimal.ZERO : value.abs();
     }
 
+    private int elapsedMs(long startedNanos) {
+        return Math.toIntExact((System.nanoTime() - startedNanos) / 1_000_000);
+    }
+
+    private void recordRuleRun(UUID orgId,
+                               String taskType,
+                               Map<String, Object> input,
+                               Counter counter,
+                               long startedNanos) {
+        try {
+            ActiveAiModel model = aiModelRegistryService.getActiveModel(taskType);
+            aiTelemetryService.recordModelRun(
+                    orgId,
+                    taskType,
+                    model.modelName(),
+                    model.modelVersion(),
+                    model.provider(),
+                    input,
+                    Map.of(
+                            "suggestionsCreated", counter.created,
+                            "duplicatesSkipped", counter.skippedDuplicates
+                    ),
+                    averageConfidence(counter),
+                    elapsedMs(startedNanos)
+            );
+        } catch (Exception e) {
+            log.warn("AI telemetry failed for task {} org {}: {}", taskType, orgId, e.getMessage());
+        }
+    }
+
+    private BigDecimal averageConfidence(Counter counter) {
+        if (counter.created <= 0 || counter.confidenceTotal.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ONE;
+        }
+        return counter.confidenceTotal.divide(new BigDecimal(counter.created), 3, RoundingMode.HALF_UP);
+    }
+
     private static class Counter {
         private int created;
         private int skippedDuplicates;
+        private BigDecimal confidenceTotal = BigDecimal.ZERO;
     }
 }
