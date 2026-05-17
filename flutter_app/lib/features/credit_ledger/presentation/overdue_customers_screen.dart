@@ -39,11 +39,10 @@ class _OverdueCustomersScreenState
     try {
       final repo = ref.read(creditReminderRepositoryProvider);
       final response = await repo.getOverdueCustomers();
-      final List data = response['data'] is List
-          ? response['data'] as List
-          : (response is List ? response : []);
+      final raw = response['data'];
+      final dataList = raw is List ? raw : <dynamic>[];
       setState(() {
-        _customers = data.cast<Map<String, dynamic>>();
+        _customers = dataList.cast<Map<String, dynamic>>();
       });
     } catch (e) {
       setState(() => _error = 'Failed to load overdue customers');
