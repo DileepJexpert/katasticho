@@ -59,6 +59,18 @@ class PosRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  /// Get customer purchase history for POS history panel.
+  Future<Map<String, dynamic>> getCustomerHistory(
+      String contactId, {
+      int days = 180,
+  }) async {
+    final response = await _api.get(
+      ApiConfig.customerPurchaseHistory(contactId),
+      queryParameters: {'days': days},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   /// List receipts with filters.
   Future<Map<String, dynamic>> listReceipts({
     int page = 0,

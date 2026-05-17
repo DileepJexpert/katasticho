@@ -5,6 +5,7 @@ import com.katasticho.erp.common.dto.PagedResponse;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.pos.dto.CreateSalesReceiptRequest;
+import com.katasticho.erp.pos.dto.CustomerHistoryResponse;
 import com.katasticho.erp.pos.dto.SalesReceiptResponse;
 import com.katasticho.erp.pos.service.ReceiptPdfService;
 import com.katasticho.erp.pos.service.ReceiptShareService;
@@ -78,5 +79,14 @@ public class SalesReceiptController {
     public ResponseEntity<ApiResponse<Map<String, String>>> whatsappLink(@PathVariable UUID id) {
         Map<String, String> linkData = receiptShareService.generateShareLink(id);
         return ResponseEntity.ok(ApiResponse.ok(linkData));
+    }
+
+    @GetMapping("/customer/{contactId}/history")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<CustomerHistoryResponse>> customerHistory(
+            @PathVariable UUID contactId,
+            @RequestParam(required = false, defaultValue = "180") int days) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                salesReceiptService.getCustomerHistory(contactId, days)));
     }
 }

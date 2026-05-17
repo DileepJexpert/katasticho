@@ -115,4 +115,30 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
         ORDER BY r.receiptDate DESC, r.createdAt DESC
     """)
     List<SalesReceipt> findByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
+
+    @Query("""
+        SELECT r FROM SalesReceipt r
+        WHERE r.orgId = :orgId
+          AND r.contactId = :contactId
+          AND r.isDeleted = false
+          AND r.receiptDate >= :from
+        ORDER BY r.receiptDate DESC, r.createdAt DESC
+    """)
+    List<SalesReceipt> findByContactAndDateRange(
+            @Param("orgId") UUID orgId,
+            @Param("contactId") UUID contactId,
+            @Param("from") LocalDate from,
+            Pageable pageable);
+
+    @Query("""
+        SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r
+        WHERE r.orgId = :orgId
+          AND r.contactId = :contactId
+          AND r.isDeleted = false
+          AND r.receiptDate >= :from
+    """)
+    BigDecimal sumTotalByContact(
+            @Param("orgId") UUID orgId,
+            @Param("contactId") UUID contactId,
+            @Param("from") LocalDate from);
 }

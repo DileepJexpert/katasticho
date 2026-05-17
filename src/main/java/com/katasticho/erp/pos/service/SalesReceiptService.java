@@ -27,7 +27,10 @@ import com.katasticho.erp.inventory.service.BatchService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
+import com.katasticho.erp.contact.dto.ContactLedgerResponse;
+import com.katasticho.erp.contact.service.ContactLedgerService;
 import com.katasticho.erp.pos.dto.CreateSalesReceiptRequest;
+import com.katasticho.erp.pos.dto.CustomerHistoryResponse;
 import com.katasticho.erp.pos.dto.SalesReceiptResponse;
 import com.katasticho.erp.pos.entity.PaymentMode;
 import com.katasticho.erp.pos.entity.SalesReceipt;
@@ -37,6 +40,7 @@ import com.katasticho.erp.tax.TaxEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -84,6 +88,7 @@ public class SalesReceiptService {
     private final CacheInvalidationService cacheInvalidationService;
     private final OrganisationRepository organisationRepository;
     private final DocumentSnapshotService documentSnapshotService;
+    private final ContactLedgerService contactLedgerService;
 
     @Transactional
     public SalesReceiptResponse create(CreateSalesReceiptRequest request) {
@@ -468,5 +473,56 @@ public class SalesReceiptService {
             return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         }
         return mrp.subtract(rate).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    public CustomerHistoryResponse getCustomerHistory(UUID contactId, int days) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Contact", contactId));
+
+        LocalDate from = LocalDate.now().minusDays(days);
+
+        List<SalesReceipt> receipts = receiptRepository.findByContactAndDateRange(
+                orgId, contactId, from, PageRequest.of(0, 20));
+
+        BigDecimal totalSpent = receiptRepository.sumTotalByContact(orgId, contactId, from);
+
+        BigDecimal outstanding = BigDecimal.ZERO;
+        try {
+            ContactLedgerResponse ledger = contactLedgerService.getLedger(
+                    contactId, from, LocalDate.now());
+            outstanding = ledger.closingBalance() != null ? ledger.closingBalance() : BigDecimal.ZERO;
+        } catch (Exception e) {
+            log.debug("Could not fetch ledger for customer history: {}", e.getMessage());
+        }
+
+        List<CustomerHistoryResponse.ReceiptSummary> summaries = receipts.stream()
+                .map(r -> new CustomerHistoryResponse.ReceiptSummary(
+                        r.getId(),
+                        r.getReceiptNumber(),
+                        r.getReceiptDate(),
+                        r.getTotal(),
+                        r.getPaymentMode() != null ? r.getPaymentMode().name() : "CASH",
+                        r.getLines().stream()
+                                .map(l -> new CustomerHistoryResponse.ItemSummary(
+                                        l.getDescription(),
+                                        l.getQuantity(),
+                                        l.getUnit(),
+                                        l.getAmount()))
+                                .collect(Collectors.toList())))
+                .collect(Collectors.toList());
+
+        String phone = contact.getMobile() != null && !contact.getMobile().isBlank()
+                ? contact.getMobile() : contact.getPhone();
+
+        return new CustomerHistoryResponse(
+                contactId,
+                contact.getDisplayName(),
+                phone,
+                outstanding,
+                totalSpent != null ? totalSpent : BigDecimal.ZERO,
+                receipts.size(),
+                days,
+                summaries);
     }
 }
