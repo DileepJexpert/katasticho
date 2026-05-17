@@ -101,7 +101,7 @@ CREATE TABLE app_user (
                           password_hash       VARCHAR(255),
                           full_name           VARCHAR(255) NOT NULL,
                           role                VARCHAR(20)  NOT NULL DEFAULT 'VIEWER'
-                              CHECK (role IN ('OWNER','ACCOUNTANT','OPERATOR','VIEWER')),
+                              CHECK (role IN ('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')),
                           is_active           BOOLEAN      NOT NULL DEFAULT TRUE,
                           failed_login_count  INTEGER      NOT NULL DEFAULT 0,
                           locked_until        TIMESTAMPTZ,
@@ -148,7 +148,7 @@ CREATE TABLE user_invitation (
                                  email       VARCHAR(255),
                                  phone       VARCHAR(20),
                                  role        VARCHAR(20)  NOT NULL DEFAULT 'VIEWER'
-                                     CHECK (role IN ('OWNER','ACCOUNTANT','OPERATOR','VIEWER')),
+                                     CHECK (role IN ('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')),
                                  token       VARCHAR(255) NOT NULL UNIQUE,
                                  invited_by  UUID        NOT NULL REFERENCES app_user(id),
                                  expires_at  TIMESTAMPTZ  NOT NULL,
@@ -1018,7 +1018,7 @@ CREATE TABLE tax_line_item (
                                id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                                org_id              UUID          NOT NULL REFERENCES organisation(id),
                                source_type         VARCHAR(30)   NOT NULL
-                                   CHECK (source_type IN ('INVOICE','CREDIT_NOTE','BILL','EXPENSE','VENDOR_CREDIT')),
+                                   CHECK (source_type IN ('INVOICE','CREDIT_NOTE','BILL','EXPENSE','VENDOR_CREDIT','SALES_RECEIPT')),
                                source_id           UUID          NOT NULL,
                                source_line_id      UUID,
                                tax_regime          VARCHAR(30)   NOT NULL,
@@ -1634,6 +1634,10 @@ CREATE TABLE sales_receipt (
                                amount_received DECIMAL(15,2) NOT NULL DEFAULT 0,
                                change_returned DECIMAL(15,2) NOT NULL DEFAULT 0,
                                upi_reference   VARCHAR(50),
+                               cgst            NUMERIC(19,2) NOT NULL DEFAULT 0,
+                               sgst            NUMERIC(19,2) NOT NULL DEFAULT 0,
+                               igst            NUMERIC(19,2) NOT NULL DEFAULT 0,
+                               gst_invoice     BOOLEAN       NOT NULL DEFAULT FALSE,
                                currency        VARCHAR(3) NOT NULL DEFAULT 'INR',
                                notes           VARCHAR(500),
                                journal_entry_id UUID REFERENCES journal_entry(id),
@@ -1665,7 +1669,10 @@ CREATE TABLE sales_receipt_line (
                                     stock_movement_id UUID REFERENCES stock_movement(id),
                                     unit_uom_id       UUID REFERENCES uom(id),
                                     unit_conversion_factor DECIMAL(15,4),
-                                    base_quantity     DECIMAL(15,4)
+                                    base_quantity     DECIMAL(15,4),
+                                    mrp               NUMERIC(19,2),
+                                    discount_per_unit NUMERIC(19,2) NOT NULL DEFAULT 0,
+                                    discount_amount   NUMERIC(19,2) NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_srl_receipt ON sales_receipt_line(receipt_id);
