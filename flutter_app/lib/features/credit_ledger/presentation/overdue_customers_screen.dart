@@ -39,7 +39,7 @@ class _OverdueCustomersScreenState
     try {
       final repo = ref.read(creditReminderRepositoryProvider);
       final response = await repo.getOverdueCustomers();
-      final data = response['data'] is List
+      final List data = response['data'] is List
           ? response['data'] as List
           : (response is List ? response : []);
       setState(() {
