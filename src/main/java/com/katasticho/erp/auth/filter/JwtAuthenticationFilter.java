@@ -41,32 +41,37 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String token = header.substring(7);
                 Claims claims = jwtService.validateAndExtract(token);
 
-                if (claims != null) {
-                    UUID userId = jwtService.extractUserId(claims);
-                    UUID orgId = jwtService.extractOrgId(claims);
-                    String role = jwtService.extractRole(claims);
+                if (claims == null) {
+                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\":\"AUTH_TOKEN_INVALID\",\"message\":\"Token is invalid or expired\"}");
+                    return;
+                }
 
-                    AppUser user = userRepository.findById(userId).orElse(null);
-                    if (user == null || !user.isActive() || user.isDeleted()) {
-                        response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                        response.setContentType("application/json");
-                        response.getWriter().write("{\"error\":\"AUTH_ACCOUNT_INACTIVE\",\"message\":\"Account is deactivated or deleted\"}");
-                        return;
-                    }
+                UUID userId = jwtService.extractUserId(claims);
+                UUID orgId = jwtService.extractOrgId(claims);
+                String role = jwtService.extractRole(claims);
 
-                    TenantContext.setCurrentOrgId(orgId);
-                    TenantContext.setCurrentUserId(userId);
-                    TenantContext.setCurrentRole(role);
+                AppUser user = userRepository.findById(userId).orElse(null);
+                if (user == null || !user.isActive() || user.isDeleted()) {
+                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\":\"AUTH_ACCOUNT_INACTIVE\",\"message\":\"Account is deactivated or deleted\"}");
+                    return;
+                }
 
-                    var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
-                    var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                TenantContext.setCurrentOrgId(orgId);
+                TenantContext.setCurrentUserId(userId);
+                TenantContext.setCurrentRole(role);
 
-                    try {
-                        orgBootstrapService.ensureBootstrapped(orgId);
-                    } catch (Exception e) {
-                        log.warn("Lazy bootstrap check failed for org {}: {}", orgId, e.getMessage());
-                    }
+                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+                var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                try {
+                    orgBootstrapService.ensureBootstrapped(orgId);
+                } catch (Exception e) {
+                    log.warn("Lazy bootstrap check failed for org {}: {}", orgId, e.getMessage());
                 }
             }
 
