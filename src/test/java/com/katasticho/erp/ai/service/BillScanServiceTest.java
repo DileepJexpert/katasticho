@@ -19,13 +19,13 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class BillScanServiceTest {
 
-    @Mock private ClaudeApiClient claudeApiClient;
+    @Mock private VisionModelRouter visionModelRouter;
 
     private BillScanService billScanService;
 
     @BeforeEach
     void setUp() {
-        billScanService = new BillScanService(claudeApiClient, new ObjectMapper());
+        billScanService = new BillScanService(visionModelRouter, new ObjectMapper());
     }
 
     @Test
@@ -63,7 +63,7 @@ class BillScanServiceTest {
                 }
                 """;
 
-        when(claudeApiClient.sendMessageWithImage(anyString(), anyString(), anyString(), anyString()))
+        when(visionModelRouter.sendMessageWithImage(anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(claudeResponse);
 
         BillScanResponse result = billScanService.scanBill("base64data", "image/jpeg");
@@ -102,7 +102,7 @@ class BillScanServiceTest {
                 ```
                 """;
 
-        when(claudeApiClient.sendMessageWithImage(anyString(), anyString(), anyString(), anyString()))
+        when(visionModelRouter.sendMessageWithImage(anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(claudeResponse);
 
         BillScanResponse result = billScanService.scanBill("base64data", "image/png");
@@ -115,7 +115,7 @@ class BillScanServiceTest {
     @Test
     @DisplayName("T-AI-19: Throws on unparseable response")
     void throwsOnBadResponse() {
-        when(claudeApiClient.sendMessageWithImage(anyString(), anyString(), anyString(), anyString()))
+        when(visionModelRouter.sendMessageWithImage(anyString(), anyString(), anyString(), anyString()))
                 .thenReturn("Sorry, I can't read this image.");
 
         assertThatThrownBy(() -> billScanService.scanBill("base64data", "image/jpeg"))
