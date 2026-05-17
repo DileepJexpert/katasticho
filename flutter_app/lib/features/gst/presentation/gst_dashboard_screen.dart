@@ -101,12 +101,9 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
     if (data == null) return;
     final pretty = const JsonEncoder.withIndent('  ').convert(data);
     final filename = '${type.replaceAll('-', '')}_${_year}_${_month.toString().padLeft(2, '0')}.json';
-    await SharePlus.instance.share(
-      ShareParams(
-        text: pretty,
-        subject: '$type Export — ${_months[_month - 1]} $_year',
-        fileNameOverride: filename,
-      ),
+    await Share.share(
+      pretty,
+      subject: '$type Export — ${_months[_month - 1]} $_year',
     );
   }
 
