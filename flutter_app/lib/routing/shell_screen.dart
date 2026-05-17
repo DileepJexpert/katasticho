@@ -156,6 +156,11 @@ const _salesGroup = NavGroup(
         activeIcon: Icons.account_balance_wallet_rounded,
         route: Routes.ageingReport),
     NavItem(
+        label: 'Udhar Reminders',
+        icon: Icons.notification_important_outlined,
+        activeIcon: Icons.notification_important_rounded,
+        route: Routes.creditReminders),
+    NavItem(
         label: 'Recurring',
         icon: Icons.autorenew_outlined,
         activeIcon: Icons.autorenew_rounded,

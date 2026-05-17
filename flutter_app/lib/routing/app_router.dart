@@ -393,6 +393,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               contactData: state.extra as Map<String, dynamic>?,
             ),
           ),
+          GoRoute(
+            path: Routes.creditReminders,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: OverdueCustomersScreen(),
+            ),
+          ),
           // Journal Entries
           GoRoute(
             path: Routes.guidedTransactionCreate,
