@@ -9,16 +9,6 @@ import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/auth_repository.dart';
 
-/// Industry options matching backend's supported industries.
-const _industries = [
-  ('KIRANA', 'Kirana / General Store', Icons.storefront),
-  ('PHARMACY', 'Pharmacy / Medical Store', Icons.local_pharmacy),
-  ('CLOTH_MANUFACTURING', 'Cloth / Textile Manufacturing', Icons.checkroom),
-  ('TRADING', 'Trading / Distribution', Icons.local_shipping),
-  ('FOOD_BEVERAGE', 'Food & Beverage / Restaurant', Icons.restaurant),
-  ('SERVICES', 'Professional Services', Icons.business_center),
-];
-
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
 
@@ -34,7 +24,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _orgNameController = TextEditingController();
   final _gstinController = TextEditingController();
 
-  String _selectedIndustry = 'KIRANA';
   String _selectedCountry = 'IN';
   bool _isLoading = false;
   String? _errorMessage;
@@ -51,11 +40,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   Future<void> _handleSignup() async {
-    debugPrint('[SignupScreen] _handleSignup called, step: $_currentStep');
-    if (!_formKey.currentState!.validate()) {
-      debugPrint('[SignupScreen] Form validation failed');
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _isLoading = true;
@@ -65,27 +50,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     try {
       final authRepo = ref.read(authRepositoryProvider);
       final phone = _phoneController.text.trim();
-      debugPrint('[SignupScreen] Requesting OTP for phone: $phone');
 
-      // Request OTP first, then go to OTP screen with signup context
-      final response = await authRepo.requestOtp(phone);
-      debugPrint('[SignupScreen] OTP request success, response: $response');
+      await authRepo.requestOtp(phone);
 
       final extra = {
         'phone': phone,
         'isSignup': true,
         'fullName': _nameController.text.trim(),
         'orgName': _orgNameController.text.trim(),
-        'industry': _selectedIndustry,
       };
-      debugPrint('[SignupScreen] Navigating to OTP screen with extra: $extra');
 
       if (mounted) {
         context.go(Routes.otp, extra: extra);
       }
-    } catch (e, st) {
-      debugPrint('[SignupScreen] Signup FAILED: $e');
-      debugPrint('[SignupScreen] Stack trace: $st');
+    } catch (e) {
       setState(() {
         _errorMessage = 'Registration failed. Please try again.';
       });
@@ -133,15 +111,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           ),
                         ),
                         _StepDot(active: _currentStep >= 1, label: '2'),
-                        Expanded(
-                          child: Container(
-                            height: 2,
-                            color: _currentStep >= 2
-                                ? KColors.primary
-                                : KColors.divider,
-                          ),
-                        ),
-                        _StepDot(active: _currentStep >= 2, label: '3'),
                       ],
                     ),
                     KSpacing.vGapLg,
@@ -242,73 +211,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       ],
                     ],
 
-                    // Step 2: Industry Selection
-                    if (_currentStep == 2) ...[
-                      Text('Select Your Industry', style: KTypography.h2),
-                      KSpacing.vGapSm,
-                      Text(
-                        'This personalizes your dashboard and workflow',
-                        style: KTypography.bodySmall,
-                      ),
-                      KSpacing.vGapMd,
-                      ..._industries.map((industry) {
-                        final isSelected =
-                            _selectedIndustry == industry.$1;
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: InkWell(
-                            onTap: () => setState(
-                                () => _selectedIndustry = industry.$1),
-                            borderRadius: KSpacing.borderRadiusMd,
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? KColors.primary.withValues(alpha: 0.06)
-                                    : KColors.surface,
-                                borderRadius: KSpacing.borderRadiusMd,
-                                border: Border.all(
-                                  color: isSelected
-                                      ? KColors.primary
-                                      : KColors.divider,
-                                  width: isSelected ? 2 : 1,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    industry.$3,
-                                    color: isSelected
-                                        ? KColors.primary
-                                        : KColors.textSecondary,
-                                  ),
-                                  KSpacing.hGapMd,
-                                  Expanded(
-                                    child: Text(
-                                      industry.$2,
-                                      style: KTypography.bodyLarge.copyWith(
-                                        color: isSelected
-                                            ? KColors.primary
-                                            : KColors.textPrimary,
-                                        fontWeight: isSelected
-                                            ? FontWeight.w600
-                                            : FontWeight.w400,
-                                      ),
-                                    ),
-                                  ),
-                                  if (isSelected)
-                                    const Icon(
-                                      Icons.check_circle,
-                                      color: KColors.primary,
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ],
-
                     KSpacing.vGapXl,
 
                     // Navigation buttons
@@ -325,26 +227,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           ),
                         if (_currentStep > 0) KSpacing.hGapMd,
                         Expanded(
-                          child: _currentStep < 2
+                          child: _currentStep < 1
                               ? KButton(
                                   label: 'Next',
                                   onPressed: () {
-                                    if (_currentStep == 0 &&
-                                        _formKey.currentState!.validate()) {
+                                    if (_formKey.currentState!.validate()) {
                                       setState(() => _currentStep++);
-                                    } else if (_currentStep == 1) {
-                                      if (_orgNameController.text
-                                          .trim()
-                                          .isNotEmpty) {
-                                        setState(() => _currentStep++);
-                                      }
                                     }
                                   },
                                   fullWidth: true,
                                 )
                               : KButton(
                                   label: 'Create Account',
-                                  onPressed: _handleSignup,
+                                  onPressed: () {
+                                    if (_orgNameController.text.trim().isNotEmpty) {
+                                      _handleSignup();
+                                    }
+                                  },
                                   isLoading: _isLoading,
                                   fullWidth: true,
                                   size: KButtonSize.large,
