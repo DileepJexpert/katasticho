@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -20,12 +21,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _orgNameController = TextEditingController();
   final _gstinController = TextEditingController();
 
   String _selectedCountry = 'IN';
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirm = true;
   String? _errorMessage;
   int _currentStep = 0;
 
@@ -33,13 +37,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
-    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _orgNameController.dispose();
     _gstinController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleSignup() async {
+  Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -49,27 +54,52 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
     try {
       final authRepo = ref.read(authRepositoryProvider);
-      final phone = _phoneController.text.trim();
+      final response = await authRepo.register(
+        phone: _phoneController.text.trim(),
+        password: _passwordController.text,
+        fullName: _nameController.text.trim(),
+        orgName: _orgNameController.text.trim(),
+      );
 
-      await authRepo.requestOtp(phone);
+      final data = response['data'] as Map<String, dynamic>;
+      final user = data['user'] as Map<String, dynamic>;
+      final onboardingCompleted = user['onboardingCompleted'] as bool? ?? false;
+      final defaultLandingPage = user['defaultLandingPage'] as String?;
 
-      final extra = {
-        'phone': phone,
-        'isSignup': true,
-        'fullName': _nameController.text.trim(),
-        'orgName': _orgNameController.text.trim(),
-      };
+      await ref.read(authProvider.notifier).onLoginSuccess(
+            accessToken: data['accessToken'] as String,
+            refreshToken: data['refreshToken'] as String,
+            userId: user['id'].toString(),
+            userName: user['fullName'] as String,
+            role: user['role'] as String,
+            orgId: user['orgId'].toString(),
+            orgName: user['orgName'] as String,
+            industry: user['industry'] as String?,
+            businessType: user['businessType'] as String?,
+            industryCode: user['industryCode'] as String?,
+            onboardingCompleted: onboardingCompleted,
+            defaultLandingPage: defaultLandingPage,
+          );
 
       if (mounted) {
-        context.go(Routes.otp, extra: extra);
+        context.go(onboardingCompleted
+            ? (defaultLandingPage ?? Routes.dashboard)
+            : Routes.onboardingBusinessType);
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Registration failed. Please try again.';
+        _errorMessage = _friendlyError(e.toString());
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  String _friendlyError(String raw) {
+    if (raw.contains('AUTH_PHONE_EXISTS') || raw.contains('409')) {
+      return 'This phone number is already registered. Please login instead.';
+    }
+    return 'Registration failed. Please try again.';
   }
 
   @override
@@ -124,14 +154,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       KSpacing.vGapMd,
                     ],
 
-                    // Step 0: Personal Details
+                    // Step 0: Personal Details + Password
                     if (_currentStep == 0) ...[
-                      Text('Personal Details', style: KTypography.h2),
+                      Text('Your Details', style: KTypography.h2),
+                      Text(
+                        'Set up your login credentials',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary),
+                      ),
                       KSpacing.vGapMd,
                       KTextField(
                         label: 'Full Name',
                         controller: _nameController,
                         prefixIcon: Icons.person_outline,
+                        textInputAction: TextInputAction.next,
                         validator: (v) =>
                             v?.trim().isEmpty == true ? 'Name is required' : null,
                       ),
@@ -141,27 +177,61 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         controller: _phoneController,
                         prefixIcon: Icons.phone_outlined,
                         keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.next,
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[+\d\s]')),
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[+\d\s]')),
+                          LengthLimitingTextInputFormatter(15),
                         ],
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
                             return 'Phone number is required';
+                          }
+                          final digits = v.replaceAll(RegExp(r'[^\d]'), '');
+                          if (digits.length < 10) {
+                            return 'Enter a valid phone number';
                           }
                           return null;
                         },
                       ),
                       KSpacing.vGapMd,
                       KTextField(
-                        label: 'Email',
-                        controller: _emailController,
-                        prefixIcon: Icons.email_outlined,
-                        keyboardType: TextInputType.emailAddress,
+                        label: 'Password',
+                        controller: _passwordController,
+                        prefixIcon: Icons.lock_outline,
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.next,
+                        suffixIcon: _obscurePassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        onSuffixTap: () =>
+                            setState(() => _obscurePassword = !_obscurePassword),
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty) {
-                            return 'Email is required';
+                          if (v == null || v.isEmpty) {
+                            return 'Password is required';
                           }
-                          if (!v.contains('@')) return 'Enter a valid email';
+                          if (v.length < 8) {
+                            return 'Password must be at least 8 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      KSpacing.vGapMd,
+                      KTextField(
+                        label: 'Confirm Password',
+                        controller: _confirmPasswordController,
+                        prefixIcon: Icons.lock_outline,
+                        obscureText: _obscureConfirm,
+                        textInputAction: TextInputAction.done,
+                        suffixIcon: _obscureConfirm
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        onSuffixTap: () =>
+                            setState(() => _obscureConfirm = !_obscureConfirm),
+                        validator: (v) {
+                          if (v != _passwordController.text) {
+                            return 'Passwords do not match';
+                          }
                           return null;
                         },
                       ),
@@ -170,11 +240,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     // Step 1: Business Details
                     if (_currentStep == 1) ...[
                       Text('Business Details', style: KTypography.h2),
+                      Text(
+                        'Tell us about your business',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary),
+                      ),
                       KSpacing.vGapMd,
                       KTextField(
                         label: 'Business Name',
                         controller: _orgNameController,
                         prefixIcon: Icons.business_outlined,
+                        textInputAction: TextInputAction.next,
                         validator: (v) => v?.trim().isEmpty == true
                             ? 'Business name is required'
                             : null,
@@ -189,10 +265,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         items: const [
                           DropdownMenuItem(value: 'IN', child: Text('India')),
                           DropdownMenuItem(value: 'KE', child: Text('Kenya')),
-                          DropdownMenuItem(value: 'NG', child: Text('Nigeria')),
-                          DropdownMenuItem(value: 'ZA', child: Text('South Africa')),
+                          DropdownMenuItem(
+                              value: 'NG', child: Text('Nigeria')),
+                          DropdownMenuItem(
+                              value: 'ZA',
+                              child: Text('South Africa')),
                         ],
-                        onChanged: (v) => setState(() => _selectedCountry = v!),
+                        onChanged: (v) =>
+                            setState(() => _selectedCountry = v!),
                       ),
                       if (_selectedCountry == 'IN') ...[
                         KSpacing.vGapMd,
@@ -204,8 +284,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           inputFormatters: [
                             LengthLimitingTextInputFormatter(15),
                             FilteringTextInputFormatter.allow(
-                              RegExp(r'[A-Z0-9]'),
-                            ),
+                                RegExp(r'[A-Z0-9]')),
                           ],
                         ),
                       ],
@@ -239,11 +318,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                 )
                               : KButton(
                                   label: 'Create Account',
-                                  onPressed: () {
-                                    if (_orgNameController.text.trim().isNotEmpty) {
-                                      _handleSignup();
-                                    }
-                                  },
+                                  onPressed: _handleRegister,
                                   isLoading: _isLoading,
                                   fullWidth: true,
                                   size: KButtonSize.large,

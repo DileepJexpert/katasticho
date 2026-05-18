@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -17,26 +18,26 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _phoneController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _identifierController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _phoneOtpController = TextEditingController();
+
+  bool _useOtp = false;
   bool _isLoading = false;
+  bool _obscurePassword = true;
   String? _errorMessage;
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _identifierController.dispose();
+    _passwordController.dispose();
+    _phoneOtpController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
-    debugPrint('[LoginScreen] _handleLogin called');
-    if (!_formKey.currentState!.validate()) {
-      debugPrint('[LoginScreen] Form validation failed');
-      return;
-    }
-
-    final phone = _phoneController.text.trim();
-    debugPrint('[LoginScreen] Requesting OTP for phone: $phone');
+  Future<void> _handlePasswordLogin() async {
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _isLoading = true;
@@ -45,22 +46,74 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final authRepo = ref.read(authRepositoryProvider);
-      final response = await authRepo.requestOtp(phone);
-      debugPrint('[LoginScreen] OTP request success, response: $response');
+      final response = await authRepo.loginWithPassword(
+        identifier: _identifierController.text.trim(),
+        password: _passwordController.text,
+      );
+      final data = response['data'] as Map<String, dynamic>;
+      final user = data['user'] as Map<String, dynamic>;
+      final onboardingCompleted = user['onboardingCompleted'] as bool? ?? false;
+      final defaultLandingPage = user['defaultLandingPage'] as String?;
+
+      await ref.read(authProvider.notifier).onLoginSuccess(
+            accessToken: data['accessToken'] as String,
+            refreshToken: data['refreshToken'] as String,
+            userId: user['id'].toString(),
+            userName: user['fullName'] as String,
+            role: user['role'] as String,
+            orgId: user['orgId'].toString(),
+            orgName: user['orgName'] as String,
+            industry: user['industry'] as String?,
+            businessType: user['businessType'] as String?,
+            industryCode: user['industryCode'] as String?,
+            onboardingCompleted: onboardingCompleted,
+            defaultLandingPage: defaultLandingPage,
+          );
 
       if (mounted) {
-        debugPrint('[LoginScreen] Navigating to OTP screen');
-        context.go(Routes.otp, extra: phone);
+        context.go(onboardingCompleted
+            ? (defaultLandingPage ?? Routes.dashboard)
+            : Routes.onboardingBusinessType);
       }
-    } catch (e, st) {
-      debugPrint('[LoginScreen] OTP request FAILED: $e');
-      debugPrint('[LoginScreen] Stack trace: $st');
+    } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to send OTP. Please try again.';
+        _errorMessage = _friendlyError(e.toString());
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _handleOtpRequest() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final phone = _phoneOtpController.text.trim();
+      await ref.read(authRepositoryProvider).requestOtp(phone);
+      if (mounted) context.go(Routes.otp, extra: phone);
+    } catch (e) {
+      setState(() => _errorMessage = 'Failed to send OTP. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  String _friendlyError(String raw) {
+    if (raw.contains('AUTH_BAD_CREDENTIALS') || raw.contains('401')) {
+      return 'Incorrect phone number or password.';
+    }
+    if (raw.contains('AUTH_ACCOUNT_LOCKED') || raw.contains('429')) {
+      return 'Account locked after too many attempts. Try again in 30 minutes.';
+    }
+    if (raw.contains('AUTH_ACCOUNT_INACTIVE') || raw.contains('403')) {
+      return 'Your account has been deactivated. Contact your administrator.';
+    }
+    return 'Login failed. Please try again.';
   }
 
   @override
@@ -101,7 +154,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     KSpacing.vGapLg,
 
-                    // Title
                     Text(
                       'Welcome to Katasticho',
                       style: KTypography.h1,
@@ -109,15 +161,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     KSpacing.vGapSm,
                     Text(
-                      'Enter your phone number to get started',
-                      style: KTypography.bodyMedium.copyWith(
-                        color: KColors.textSecondary,
-                      ),
+                      _useOtp
+                          ? 'Enter your phone number to get OTP'
+                          : 'Sign in with your phone and password',
+                      style: KTypography.bodyMedium
+                          .copyWith(color: KColors.textSecondary),
                       textAlign: TextAlign.center,
                     ),
                     KSpacing.vGapXl,
 
-                    // Error banner
                     if (_errorMessage != null) ...[
                       KErrorBanner(
                         message: _errorMessage!,
@@ -127,43 +179,111 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       KSpacing.vGapMd,
                     ],
 
-                    // Phone input
-                    KTextField(
-                      label: 'Phone Number',
-                      hint: '+91 98765 43210',
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      prefixIcon: Icons.phone_outlined,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'[+\d\s]'),
-                        ),
-                        LengthLimitingTextInputFormatter(15),
-                      ],
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Phone number is required';
-                        }
-                        final digits =
-                            value.replaceAll(RegExp(r'[^\d]'), '');
-                        if (digits.length < 10) {
-                          return 'Enter a valid phone number';
-                        }
-                        return null;
-                      },
-                      textInputAction: TextInputAction.done,
-                    ),
-                    KSpacing.vGapLg,
+                    if (_useOtp) ...[
+                      // OTP mode
+                      KTextField(
+                        label: 'Phone Number',
+                        hint: '+91 98765 43210',
+                        controller: _phoneOtpController,
+                        keyboardType: TextInputType.phone,
+                        prefixIcon: Icons.phone_outlined,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[+\d\s]')),
+                          LengthLimitingTextInputFormatter(15),
+                        ],
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Phone number is required';
+                          }
+                          final digits = v.replaceAll(RegExp(r'[^\d]'), '');
+                          if (digits.length < 10) {
+                            return 'Enter a valid phone number';
+                          }
+                          return null;
+                        },
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _handleOtpRequest(),
+                      ),
+                      KSpacing.vGapLg,
+                      KButton(
+                        label: 'Send OTP',
+                        onPressed: _handleOtpRequest,
+                        isLoading: _isLoading,
+                        fullWidth: true,
+                        size: KButtonSize.large,
+                      ),
+                    ] else ...[
+                      // Password mode
+                      KTextField(
+                        label: 'Phone Number',
+                        hint: '+91 98765 43210',
+                        controller: _identifierController,
+                        keyboardType: TextInputType.phone,
+                        prefixIcon: Icons.phone_outlined,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[+\d\s]')),
+                          LengthLimitingTextInputFormatter(15),
+                        ],
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Phone number is required';
+                          }
+                          return null;
+                        },
+                        textInputAction: TextInputAction.next,
+                      ),
+                      KSpacing.vGapMd,
+                      KTextField(
+                        label: 'Password',
+                        controller: _passwordController,
+                        prefixIcon: Icons.lock_outline,
+                        obscureText: _obscurePassword,
+                        suffixIcon: _obscurePassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        onSuffixTap: () =>
+                            setState(() => _obscurePassword = !_obscurePassword),
+                        validator: (v) {
+                          if (v == null || v.isEmpty) {
+                            return 'Password is required';
+                          }
+                          return null;
+                        },
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _handlePasswordLogin(),
+                      ),
+                      KSpacing.vGapLg,
+                      KButton(
+                        label: 'Login',
+                        onPressed: _handlePasswordLogin,
+                        isLoading: _isLoading,
+                        fullWidth: true,
+                        size: KButtonSize.large,
+                      ),
+                    ],
 
-                    // Login button
-                    KButton(
-                      label: 'Send OTP',
-                      onPressed: _handleLogin,
-                      isLoading: _isLoading,
-                      fullWidth: true,
-                      size: KButtonSize.large,
-                    ),
                     KSpacing.vGapMd,
+
+                    // Toggle OTP / Password
+                    Center(
+                      child: TextButton(
+                        onPressed: () => setState(() {
+                          _useOtp = !_useOtp;
+                          _errorMessage = null;
+                        }),
+                        child: Text(
+                          _useOtp
+                              ? 'Login with password instead'
+                              : 'Login with OTP instead',
+                          style: KTypography.labelMedium
+                              .copyWith(color: KColors.primary),
+                        ),
+                      ),
+                    ),
+
+                    KSpacing.vGapSm,
 
                     // Signup link
                     Row(
@@ -171,17 +291,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       children: [
                         Text(
                           "Don't have an account? ",
-                          style: KTypography.bodyMedium.copyWith(
-                            color: KColors.textSecondary,
-                          ),
+                          style: KTypography.bodyMedium
+                              .copyWith(color: KColors.textSecondary),
                         ),
                         GestureDetector(
                           onTap: () => context.go(Routes.signup),
                           child: Text(
                             'Sign Up',
-                            style: KTypography.labelLarge.copyWith(
-                              color: KColors.primary,
-                            ),
+                            style: KTypography.labelLarge
+                                .copyWith(color: KColors.primary),
                           ),
                         ),
                       ],

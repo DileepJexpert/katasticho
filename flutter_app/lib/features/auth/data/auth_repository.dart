@@ -83,6 +83,41 @@ class AuthRepository {
     }
   }
 
+  /// Login with phone/email + password (no OTP required).
+  Future<Map<String, dynamic>> loginWithPassword({
+    required String identifier,
+    required String password,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConfig.login,
+      data: {'email': identifier, 'password': password},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Register new account with password (no OTP required).
+  Future<Map<String, dynamic>> register({
+    required String phone,
+    required String password,
+    required String fullName,
+    required String orgName,
+    String? businessType,
+    String? industryCode,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConfig.register,
+      data: {
+        'phone': phone,
+        'password': password,
+        'fullName': fullName,
+        'orgName': orgName,
+        if (businessType != null) 'businessType': businessType,
+        if (industryCode != null) 'industryCode': industryCode,
+      },
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   /// Get current user profile.
   Future<Map<String, dynamic>> getMe() async {
     debugPrint('[AuthRepo] getMe called');

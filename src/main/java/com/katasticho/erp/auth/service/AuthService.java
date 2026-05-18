@@ -170,6 +170,65 @@ public class AuthService {
     }
 
     @Transactional
+    public AuthResponse register(RegisterRequest request) {
+        if (userRepository.existsByPhoneAndIsDeletedFalse(request.phone())) {
+            throw new BusinessException("Phone number already registered", "AUTH_PHONE_EXISTS", HttpStatus.CONFLICT);
+        }
+
+        Organisation org = Organisation.builder()
+                .name(request.orgName())
+                .businessType(request.businessType() != null ? request.businessType() : "RETAILER")
+                .industryCode(request.industryCode() != null ? request.industryCode() : "OTHER_RETAIL")
+                .subCategories(request.subCategories() != null ? request.subCategories() : List.of())
+                .build();
+        org = organisationRepository.saveAndFlush(org);
+
+        UUID defaultBranchId = UUID.randomUUID();
+        jdbcTemplate.update(
+                "INSERT INTO branch (id, org_id, code, name, is_default, is_active) " +
+                "VALUES (?, ?, 'HO', 'Head Office', TRUE, TRUE)",
+                defaultBranchId, org.getId());
+
+        jdbcTemplate.update(
+                "INSERT INTO warehouse (id, org_id, branch_id, code, name, is_default, is_active, is_deleted, created_at, updated_at) " +
+                "VALUES (?, ?, ?, 'MAIN', 'Main Warehouse', TRUE, TRUE, FALSE, now(), now())",
+                UUID.randomUUID(), org.getId(), defaultBranchId);
+
+        AppUser user = AppUser.builder()
+                .phone(request.phone())
+                .fullName(request.fullName())
+                .passwordHash(passwordEncoder.encode(request.password()))
+                .role("OWNER")
+                .build();
+        user.setOrgId(org.getId());
+        user.setLastLoginAt(Instant.now());
+        user = userRepository.saveAndFlush(user);
+
+        jdbcTemplate.update(
+                "UPDATE app_user SET branch_id = ? WHERE id = ?",
+                defaultBranchId, user.getId());
+
+        auditService.logSync(org.getId(), user.getId(), "APP_USER", user.getId(),
+                "CREATE", null, "{\"action\":\"register\"}");
+
+        log.info("New org created via register: {} ({}), owner: {}", org.getName(), org.getId(), user.getFullName());
+
+        Organisation orgRef = org;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    bootstrapService.bootstrap(orgRef);
+                } catch (Exception e) {
+                    log.error("Post-register bootstrap failed for org {}: {}", orgRef.getId(), e.getMessage(), e);
+                }
+            }
+        });
+
+        return buildAuthResponse(user, org);
+    }
+
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         // Try phone first, then email — both may match multiple orgs
         List<AppUser> loginMatches = userRepository.findAllByPhoneAndIsDeletedFalse(request.email());
