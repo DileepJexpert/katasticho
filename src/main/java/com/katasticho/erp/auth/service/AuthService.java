@@ -231,9 +231,9 @@ public class AuthService {
     @Transactional
     public AuthResponse login(LoginRequest request) {
         // Try phone first, then email — both may match multiple orgs
-        List<AppUser> loginMatches = userRepository.findAllByPhoneAndIsDeletedFalse(request.email());
+        List<AppUser> loginMatches = userRepository.findAllByPhoneAndIsDeletedFalse(request.identifier());
         if (loginMatches.isEmpty()) {
-            loginMatches = userRepository.findAllByEmailAndIsDeletedFalse(request.email());
+            loginMatches = userRepository.findAllByEmailAndIsDeletedFalse(request.identifier());
         }
         if (loginMatches.isEmpty()) {
             throw new BusinessException(

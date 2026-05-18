@@ -90,7 +90,7 @@ class AuthRepository {
   }) async {
     final response = await _apiClient.post(
       ApiConfig.login,
-      data: {'email': identifier, 'password': password},
+      data: {'identifier': identifier, 'password': password},
     );
     return response.data as Map<String, dynamic>;
   }
