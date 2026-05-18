@@ -94,6 +94,7 @@ public class AccountingPostingEngine {
             if (line.getItemId() == null) continue;
             Item item = itemMap.get(line.getItemId());
             if (item == null || !item.isTrackInventory()) continue;
+            if (item.getPurchasePrice() == null || item.getPurchasePrice().compareTo(BigDecimal.ZERO) <= 0) continue;
             BigDecimal qty = line.getBaseQuantity() != null ? line.getBaseQuantity() : line.getQuantity();
             totalCost = totalCost.add(
                     item.getPurchasePrice().multiply(qty).setScale(2, RoundingMode.HALF_UP));
@@ -384,6 +385,43 @@ public class AccountingPostingEngine {
                 expense.getExpenseDate(),
                 expenseAccount.getName() + ": " + expense.getExpenseNumber(),
                 "EXPENSE",
+                null,
+                lines,
+                true));
+    }
+
+    // ── Opening Stock ──────────────────────────────────────────
+
+    public JournalEntry postOpeningStock(UUID orgId, String itemSku, BigDecimal totalCost) {
+        if (totalCost == null || totalCost.compareTo(BigDecimal.ZERO) <= 0) return null;
+
+        String inventoryCode;
+        String equityCode;
+        try {
+            inventoryCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.INVENTORY_ASSET);
+            equityCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.OPENING_BALANCE_EQUITY);
+        } catch (BusinessException e) {
+            log.warn("Opening stock journal skipped — accounts not configured: {}", e.getMessage());
+            return null;
+        }
+
+        List<JournalLineRequest> lines = List.of(
+                new JournalLineRequest(
+                        inventoryCode,
+                        totalCost.setScale(2, RoundingMode.HALF_UP), BigDecimal.ZERO,
+                        "Opening stock: " + itemSku,
+                        null, null),
+                new JournalLineRequest(
+                        equityCode,
+                        BigDecimal.ZERO, totalCost.setScale(2, RoundingMode.HALF_UP),
+                        "Opening stock: " + itemSku,
+                        null, null)
+        );
+
+        return journalService.postJournal(new JournalPostRequest(
+                java.time.LocalDate.now(),
+                "Opening stock: " + itemSku,
+                "OPENING",
                 null,
                 lines,
                 true));

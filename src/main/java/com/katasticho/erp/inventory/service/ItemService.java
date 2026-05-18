@@ -1,5 +1,6 @@
 package com.katasticho.erp.inventory.service;
 
+import com.katasticho.erp.accounting.posting.AccountingPostingEngine;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.cache.CacheInvalidationService;
 import com.katasticho.erp.common.context.TenantContext;
@@ -78,6 +79,7 @@ public class ItemService {
     private final ItemUnitPriceRepository itemUnitPriceRepository;
     private final UomRepository uomRepository;
     private final CacheInvalidationService cacheInvalidationService;
+    private final AccountingPostingEngine postingEngine;
 
     public ItemService(ItemRepository itemRepository,
                        StockBalanceRepository stockBalanceRepository,
@@ -92,7 +94,8 @@ public class ItemService {
                        UomConversionRepository uomConversionRepository,
                        ItemUnitPriceRepository itemUnitPriceRepository,
                        UomRepository uomRepository,
-                       CacheInvalidationService cacheInvalidationService) {
+                       CacheInvalidationService cacheInvalidationService,
+                       AccountingPostingEngine postingEngine) {
         this.itemRepository = itemRepository;
         this.stockBalanceRepository = stockBalanceRepository;
         this.warehouseRepository = warehouseRepository;
@@ -107,6 +110,7 @@ public class ItemService {
         this.itemUnitPriceRepository = itemUnitPriceRepository;
         this.uomRepository = uomRepository;
         this.cacheInvalidationService = cacheInvalidationService;
+        this.postingEngine = postingEngine;
     }
 
     @Transactional
@@ -320,6 +324,10 @@ public class ItemService {
                     null,
                     "Opening stock for " + item.getSku(),
                     batchId));
+
+            BigDecimal totalCost = (item.getPurchasePrice() != null ? item.getPurchasePrice() : BigDecimal.ZERO)
+                    .multiply(openingStock);
+            postingEngine.postOpeningStock(orgId, item.getSku(), totalCost);
         }
 
         auditService.log("ITEM", item.getId(), "CREATE", null,

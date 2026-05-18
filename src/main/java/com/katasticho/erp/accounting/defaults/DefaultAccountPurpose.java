@@ -42,6 +42,9 @@ public enum DefaultAccountPurpose {
     CUSTOMER_ADVANCE    ("2100", "Advance from Customers"),
     VENDOR_ADVANCE      ("1400", "Advances to Suppliers"),
 
+    // ── Opening Balance ───────────────────────────────────────
+    OPENING_BALANCE_EQUITY ("3040", "Opening Balance Equity"),
+
     // ── Withholding (TDS) ─────────────────────────────────────
     TDS_PAYABLE         ("2030", "TDS Payable");
 

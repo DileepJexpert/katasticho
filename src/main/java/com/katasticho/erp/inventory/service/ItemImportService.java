@@ -1,5 +1,6 @@
 package com.katasticho.erp.inventory.service;
 
+import com.katasticho.erp.accounting.posting.AccountingPostingEngine;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
@@ -90,6 +91,7 @@ public class ItemImportService {
     private final StockBatchRepository stockBatchRepository;
     private final AuditService auditService;
     private final UomService uomService;
+    private final AccountingPostingEngine postingEngine;
 
     public static final String TEMPLATE_HEADER =
             "sku,name,description,item_type,category,brand,hsn_code,"
@@ -171,6 +173,7 @@ public class ItemImportService {
                             null,
                             "Opening stock from bulk import for " + p.preview.sku(),
                             batch.getId()));
+                    postOpeningStockJournal(orgId, p);
                 }
             } else if (p.trackInventory && p.openingStock != null
                     && p.openingStock.compareTo(BigDecimal.ZERO) > 0) {
@@ -185,6 +188,7 @@ public class ItemImportService {
                         null,
                         null,
                         "Opening stock from bulk import for " + p.preview.sku()));
+                postOpeningStockJournal(orgId, p);
             }
         }
 
@@ -196,6 +200,13 @@ public class ItemImportService {
                 totalRows, created, totalRows - created);
 
         return new ItemImportResult(totalRows, created, totalRows - created, errors);
+    }
+
+    private void postOpeningStockJournal(UUID orgId, ParsedRow p) {
+        BigDecimal cost = p.itemTemplate.getPurchasePrice();
+        if (cost == null || cost.compareTo(BigDecimal.ZERO) <= 0) return;
+        BigDecimal totalCost = cost.multiply(p.openingStock);
+        postingEngine.postOpeningStock(orgId, p.preview.sku(), totalCost);
     }
 
     // ── Shared parse + validate pipeline ─────────────────────────────
