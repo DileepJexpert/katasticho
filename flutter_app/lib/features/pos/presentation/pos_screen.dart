@@ -230,6 +230,108 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     if (result != null && mounted) _handleRecentAction(result);
   }
 
+  Future<void> _showCartDiscount() async {
+    final cart = ref.read(posCartProvider);
+    if (cart.items.isEmpty) return;
+
+    final currentPct = cart.items.isNotEmpty ? cart.items.first.discountPct : 0.0;
+    final controller = TextEditingController(
+      text: currentPct > 0 ? currentPct.toStringAsFixed(1) : '',
+    );
+
+    final result = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cart Discount'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Apply % discount to all ${cart.items.length} items',
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Discount %',
+                suffixText: '%',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx, 0.0);
+            },
+            child: const Text('Remove Discount'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final pct = double.tryParse(controller.text.trim()) ?? 0;
+              Navigator.pop(ctx, pct.clamp(0.0, 100.0));
+            },
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+    if (result != null && mounted) {
+      ref.read(posCartProvider.notifier).applyGlobalDiscount(result);
+    }
+  }
+
+  Future<void> _showNotesDialog() async {
+    final current = ref.read(posCartProvider).notes ?? '';
+    final controller = TextEditingController(text: current);
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Receipt Note'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 3,
+          maxLength: 200,
+          decoration: const InputDecoration(
+            hintText: 'e.g. Regular customer, special order…',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          if (current.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                ref.read(posCartProvider.notifier).setNotes(null);
+                Navigator.pop(ctx);
+              },
+              child: const Text('Clear'),
+            ),
+          FilledButton(
+            onPressed: () {
+              final note = controller.text.trim();
+              ref
+                  .read(posCartProvider.notifier)
+                  .setNotes(note.isEmpty ? null : note);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+  }
+
   Future<void> _handleRecentAction(Map<String, String> result) async {
     final receiptId = result['receiptId'] as String;
     final action = result['action'] as String;
@@ -598,6 +700,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final narrow = MediaQuery.of(context).size.width < 430;
     final hasItems = posCartState.items.isNotEmpty;
 
+    final hasNote = posCartState.notes != null && posCartState.notes!.isNotEmpty;
+
     final primary = <Widget>[
       const PosCustomerButton(),
       const SizedBox(width: 4),
@@ -610,6 +714,21 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         onPressed: _showRecentTransactions,
         icon: const Icon(Icons.receipt_long, size: 20),
         tooltip: 'Recent sales',
+      ),
+      if (hasItems)
+        IconButton(
+          onPressed: _showCartDiscount,
+          icon: const Icon(Icons.discount_outlined, size: 20),
+          tooltip: 'Apply cart discount',
+        ),
+      IconButton(
+        onPressed: _showNotesDialog,
+        icon: Icon(
+          hasNote ? Icons.note : Icons.note_outlined,
+          size: 20,
+          color: hasNote ? KColors.primary : null,
+        ),
+        tooltip: hasNote ? 'Edit note (${posCartState.notes})' : 'Add note to receipt',
       ),
       if (hasItems)
         IconButton(
@@ -632,9 +751,32 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 ref.read(posCartProvider.notifier).clear();
               case _PosOverflowAction.settings:
                 context.push('/pos/receipt-settings');
+              case _PosOverflowAction.discount:
+                _showCartDiscount();
+              case _PosOverflowAction.notes:
+                _showNotesDialog();
             }
           },
           itemBuilder: (_) => [
+            if (hasItems)
+              const PopupMenuItem(
+                value: _PosOverflowAction.discount,
+                child: ListTile(
+                  leading: Icon(Icons.discount_outlined),
+                  title: Text('Apply discount'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+            const PopupMenuItem(
+              value: _PosOverflowAction.notes,
+              child: ListTile(
+                leading: Icon(Icons.note_outlined),
+                title: Text('Add note'),
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              ),
+            ),
             if (hasItems)
               const PopupMenuItem(
                 value: _PosOverflowAction.clear,
@@ -692,7 +834,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         children: [
           Scaffold(
             appBar: AppBar(
-              title: const Text('Quick POS'),
+              title: _PosSessionTitle(),
               actions: _buildAppBarActions(context, cart),
             ),
             body: Row(
@@ -836,7 +978,40 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       color: Theme.of(context).colorScheme.outlineVariant, fontSize: 10);
 }
 
-enum _PosOverflowAction { clear, settings }
+enum _PosOverflowAction { clear, settings, discount, notes }
+
+/// AppBar title showing "Quick POS" + live session sales summary.
+class _PosSessionTitle extends ConsumerWidget {
+  const _PosSessionTitle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final txns = ref.watch(recentTransactionsProvider);
+    final sessionTotal = txns.fold<double>(0, (sum, t) => sum + t.total);
+    final billCount = txns.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('Quick POS',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        if (billCount > 0)
+          Text(
+            '${CurrencyFormatter.formatIndian(sessionTotal)} · $billCount bill${billCount == 1 ? '' : 's'}',
+            style: TextStyle(
+              fontSize: 11,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.55),
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+      ],
+    );
+  }
+}
 
 class _RecentTransactionsPanel extends ConsumerWidget {
   final VoidCallback onClose;

@@ -322,6 +322,14 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
     state = state.copyWith(items: updated);
   }
 
+  /// Apply a single discount % to every item in the cart.
+  void applyGlobalDiscount(double discountPct) {
+    final updated = state.items
+        .map((item) => item.copyWith(discountPct: discountPct))
+        .toList();
+    state = state.copyWith(items: updated);
+  }
+
   /// Remove item at index.
   void removeItem(int index) {
     if (index < 0 || index >= state.items.length) return;

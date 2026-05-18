@@ -475,6 +475,7 @@ public class SalesReceiptService {
         return mrp.subtract(rate).setScale(2, RoundingMode.HALF_UP);
     }
 
+    @Transactional(readOnly = true)
     public CustomerHistoryResponse getCustomerHistory(UUID contactId, int days) {
         UUID orgId = TenantContext.getCurrentOrgId();
         Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId)
