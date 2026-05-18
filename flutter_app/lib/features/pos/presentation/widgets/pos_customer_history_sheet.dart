@@ -305,26 +305,26 @@ class _CustomerHistorySheetState extends ConsumerState<_CustomerHistorySheet> {
             ),
           ),
 
-        // Summary row
+        // Compact summary row
         Row(
           children: [
-            Expanded(
-              child: _SummaryCard(
-                icon: Icons.currency_rupee_rounded,
-                label: 'Total Spent',
-                value: CurrencyFormatter.formatIndian(totalSpent),
-                color: KColors.success,
-              ),
-            ),
-            KSpacing.hGapMd,
-            Expanded(
-              child: _SummaryCard(
-                icon: Icons.receipt_long_outlined,
-                label: 'Visits',
-                value: '$visitCount',
-                color: KColors.primary,
-              ),
-            ),
+            const Icon(Icons.currency_rupee_rounded,
+                size: 14, color: KColors.textSecondary),
+            const SizedBox(width: 2),
+            Text(CurrencyFormatter.formatIndian(totalSpent),
+                style: KTypography.labelMedium
+                    .copyWith(color: KColors.success)),
+            const SizedBox(width: 4),
+            Text('spent',
+                style: KTypography.bodySmall
+                    .copyWith(color: KColors.textSecondary)),
+            const SizedBox(width: 12),
+            const Icon(Icons.receipt_long_outlined,
+                size: 14, color: KColors.textSecondary),
+            const SizedBox(width: 4),
+            Text('$visitCount bill${visitCount == 1 ? '' : 's'}',
+                style: KTypography.labelMedium
+                    .copyWith(color: KColors.primary)),
           ],
         ),
         KSpacing.vGapMd,
@@ -346,43 +346,6 @@ class _CustomerHistorySheetState extends ConsumerState<_CustomerHistorySheet> {
               )),
         ],
       ],
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _SummaryCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(KSpacing.md),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.07),
-        borderRadius: KSpacing.borderRadiusMd,
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 18),
-          KSpacing.vGapXs,
-          Text(value,
-              style:
-                  KTypography.amountSmall.copyWith(color: color)),
-          Text(label, style: KTypography.bodySmall),
-        ],
-      ),
     );
   }
 }
