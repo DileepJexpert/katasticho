@@ -116,9 +116,8 @@ public class InventoryService {
         }
 
         // Step 4: cost
-        BigDecimal unitCost = request.unitCost() != null
-                ? request.unitCost().setScale(4, RoundingMode.HALF_UP)
-                : item.getPurchasePrice().setScale(4, RoundingMode.HALF_UP);
+        BigDecimal rawCost = request.unitCost() != null ? request.unitCost() : item.getPurchasePrice();
+        BigDecimal unitCost = (rawCost != null ? rawCost : BigDecimal.ZERO).setScale(4, RoundingMode.HALF_UP);
         BigDecimal totalCost = unitCost.multiply(qty.abs()).setScale(2, RoundingMode.HALF_UP);
 
         // Step 5: persist immutable ledger row

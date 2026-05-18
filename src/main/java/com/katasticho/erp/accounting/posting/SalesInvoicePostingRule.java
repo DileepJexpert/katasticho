@@ -99,6 +99,7 @@ public class SalesInvoicePostingRule implements PostingRuleStrategy {
             if (line.getItemId() == null) continue;
             Item item = items.get(line.getItemId());
             if (item == null || !item.isTrackInventory()) continue;
+            if (item.getPurchasePrice() == null || item.getPurchasePrice().compareTo(BigDecimal.ZERO) <= 0) continue;
             totalCost = totalCost.add(item.getPurchasePrice()
                     .multiply(line.getQuantity())
                     .setScale(2, RoundingMode.HALF_UP));

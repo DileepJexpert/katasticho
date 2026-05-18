@@ -149,8 +149,8 @@ public class PosSearchService {
             }
 
             DiscountThresholds thresholds = DiscountThresholds.compute(
-                    item.getSalePrice().doubleValue(),
-                    item.getPurchasePrice().doubleValue());
+                    item.getSalePrice() != null ? item.getSalePrice().doubleValue() : 0,
+                    item.getPurchasePrice() != null ? item.getPurchasePrice().doubleValue() : 0);
 
             UUID effectiveTaxGroupId = resolvedTaxGroupIds.get(item.getId());
 
