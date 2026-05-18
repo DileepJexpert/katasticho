@@ -1,0 +1,71 @@
+sku,name,description,item_type,category,brand,hsn_code,unit_of_measure,purchase_price,sale_price,mrp,gst_rate,reorder_level,reorder_quantity,opening_stock,barcode,manufacturer,batch_number,mfg_date,expiry_date
+KIR001,Tata Salt 1kg,Iodized vacuum evaporated salt,GOODS,Salt & Sugar,Tata,25010010,PCS,18.00,22.00,22.00,0,30,50,150,8901725181017,Tata Chemicals Ltd,TS2024A,2024-06-01,2026-06-01
+KIR002,Sugar (Loose),White crystal sugar - sold by weight,GOODS,Salt & Sugar,,17019910,KG,38.00,44.00,,0,25,50,200,,Local Mill,,,
+KIR003,Aashirvaad Atta 5kg,Whole wheat flour premium quality,GOODS,Flour & Grains,Aashirvaad,11010020,PCS,215.00,260.00,265.00,5,15,30,80,8901063034600,ITC Limited,AA5K2024,2024-08-10,2025-08-10
+KIR004,Loose Atta (Chakki),Fresh ground wheat flour - by weight,GOODS,Flour & Grains,,11010020,KG,28.00,34.00,,0,30,50,300,,Local Chakki,,,
+KIR005,Basmati Rice 5kg,Daawat Basmati aged rice premium,GOODS,Rice,Daawat,10063020,PCS,425.00,510.00,520.00,5,10,20,60,8901242001054,LT Foods Ltd,DR5K24A,2024-05-01,2026-05-01
+KIR006,Rice (Loose Sona Masoori),Sona masoori rice - sold by weight,GOODS,Rice,,10063090,KG,42.00,50.00,,0,40,100,500,,Local Rice Mill,,,
+KIR007,India Gate Classic Rice 1kg,Classic basmati rice,GOODS,Rice,India Gate,10063020,PCS,99.00,115.00,120.00,5,20,40,100,8908001041218,KRBL Limited,IG1K24B,2024-07-01,2026-07-01
+KIR008,Toor Dal (Loose),Arhar/Toor dal - sold by weight,GOODS,Pulses & Dal,,07139090,KG,120.00,145.00,,0,20,40,250,,Local Supplier,,,
+KIR009,Tata Toor Dal 1kg,Premium quality toor dal,GOODS,Pulses & Dal,Tata Sampann,07139090,PCS,165.00,190.00,195.00,5,15,30,75,8901725182946,Tata Consumer Products,TD1K24,2024-04-01,2025-10-01
+KIR010,Moong Dal (Loose),Green gram split - by weight,GOODS,Pulses & Dal,,07132010,KG,100.00,125.00,,0,15,30,180,,Local Supplier,,,
+KIR011,Chana Dal (Loose),Bengal gram split - by weight,GOODS,Pulses & Dal,,07132090,KG,72.00,88.00,,0,15,30,200,,Local Supplier,,,
+KIR012,Fortune Sunflower Oil 1L,Refined sunflower cooking oil,GOODS,Cooking Oil,Fortune,15121110,BOTTLE,130.00,155.00,160.00,5,15,30,90,8901058852219,Adani Wilmar Ltd,FSO1L24A,2024-09-01,2025-09-01
+KIR013,Saffola Gold Oil 1L,Blended edible oil rice bran + safflower,GOODS,Cooking Oil,Saffola,15089090,BOTTLE,175.00,199.00,199.00,5,10,20,60,8904004400613,Marico Limited,SG1L24B,2024-08-15,2025-08-15
+KIR014,Mustard Oil (Loose),Cold pressed mustard oil - by litre,GOODS,Cooking Oil,,15141100,KG,150.00,178.00,,5,10,25,120,,Local Oil Mill,,,
+KIR015,Mother Dairy Ghee 1L,Pure cow ghee,GOODS,Dairy,Mother Dairy,04059020,PCS,550.00,620.00,625.00,12,5,10,30,8906002580126,Mother Dairy Fruit & Veg,MDG1L24,2024-10-01,2025-10-01
+KIR016,Amul Butter 500g,Pasteurized salted butter,GOODS,Dairy,Amul,04051020,PCS,255.00,290.00,295.00,12,10,15,40,8901262250337,Gujarat Co-op Milk,AB500G24,2024-09-10,2025-03-10
+KIR017,Amul Taaza Milk 500ml,Toned milk UHT processed,GOODS,Dairy,Amul,04011020,PCS,25.00,30.00,30.00,0,50,100,300,8901262011372,Gujarat Co-op Milk,ATM24OCT,2024-10-15,2025-01-15
+KIR018,Red Label Tea 500g,Brooke Bond Red Label premium tea,GOODS,Tea & Coffee,Red Label,09024010,PCS,240.00,285.00,290.00,5,10,20,50,8901030793042,Hindustan Unilever,RL500G24,2024-07-01,2025-07-01
+KIR019,Tea (Loose CTC),CTC leaf tea - by weight,GOODS,Tea & Coffee,,09024010,KG,280.00,340.00,,5,5,10,80,,Local Tea Trader,,,
+KIR020,Nescafe Classic 50g,Instant coffee powder,GOODS,Tea & Coffee,Nescafe,09019090,PCS,155.00,180.00,185.00,5,8,15,35,8901058847789,Nestle India Ltd,NC50G24,2024-06-01,2025-06-01
+KIR021,Bru Instant Coffee 200g,Roast and ground instant coffee,GOODS,Tea & Coffee,Bru,09019090,PCS,380.00,435.00,440.00,5,5,10,20,8901030596490,Hindustan Unilever,BRU200G24,2024-08-01,2025-08-01
+KIR022,MDH Chana Masala 100g,Blended chana spice mix,GOODS,Spices & Masala,MDH,09109190,PCS,58.00,70.00,72.00,5,15,30,100,8902519001194,MDH Limited,MDH100G24,2024-05-01,2025-11-01
+KIR023,Turmeric Powder (Loose),Haldi powder - by weight,GOODS,Spices & Masala,,09103010,KG,140.00,180.00,,5,5,10,50,,Local Spice Mill,,,
+KIR024,Red Chilli Powder (Loose),Lal mirch powder - by weight,GOODS,Spices & Masala,,09042110,KG,200.00,260.00,,5,5,10,40,,Local Spice Mill,,,
+KIR025,Everest Garam Masala 50g,Blended garam masala powder,GOODS,Spices & Masala,Everest,09109190,PCS,48.00,62.00,65.00,5,20,40,120,8901552003599,Everest Food Products,EGM50G24,2024-04-01,2025-10-01
+KIR026,Coriander Seeds (Loose),Whole dhania seeds - by weight,GOODS,Spices & Masala,,09092110,KG,80.00,110.00,,5,3,5,25,,Local Supplier,,,
+KIR027,Maggi Noodles 4-pack,2-minute instant noodles family pack,GOODS,Packaged Foods,Maggi,19023010,PCS,52.00,60.00,60.00,18,30,60,200,8901058853803,Nestle India Ltd,MAG4P24A,2024-09-01,2025-06-01
+KIR028,Parle-G Biscuit 800g,Glucose biscuit party pack,GOODS,Snacks & Biscuits,Parle,19053190,PCS,78.00,95.00,100.00,18,20,40,150,8901725133689,Parle Products Pvt Ltd,PG800G24,2024-08-01,2025-05-01
+KIR029,Britannia Good Day 250g,Cashew butter cookies,GOODS,Snacks & Biscuits,Britannia,19053190,PCS,48.00,55.00,58.00,18,25,50,180,8901063019294,Britannia Industries,BGD250G24,2024-07-20,2025-04-20
+KIR030,Haldiram Aloo Bhujia 400g,Namkeen aloo bhujia,GOODS,Snacks & Biscuits,Haldiram,21069099,PCS,100.00,120.00,125.00,12,15,25,80,8904063200068,Haldiram Foods,HAB400G24,2024-06-15,2025-03-15
+KIR031,Lays Classic Salted 52g,Potato chips classic salted,GOODS,Snacks & Biscuits,Lays,20052000,PCS,18.00,20.00,20.00,12,50,100,400,8901491101721,PepsiCo India,LAYS52G24,2024-10-01,2025-04-01
+KIR032,Surf Excel Quick Wash 1kg,Detergent powder for washing,GOODS,Cleaning,Surf Excel,34022090,PCS,115.00,135.00,140.00,18,10,20,60,8901030345753,Hindustan Unilever,SE1K24A,2024-05-01,2026-05-01
+KIR033,Vim Dishwash Bar 300g,Dishwash soap bar lemon,GOODS,Cleaning,Vim,34011190,PCS,25.00,30.00,32.00,18,20,40,150,8901030523960,Hindustan Unilever,VIM300G24,2024-06-01,2026-06-01
+KIR034,Harpic Toilet Cleaner 500ml,Power plus disinfectant liquid,GOODS,Cleaning,Harpic,34022090,BOTTLE,92.00,110.00,115.00,18,8,15,40,8901030577079,Reckitt Benckiser,HC500ML24,2024-07-01,2026-07-01
+KIR035,Lux Soap 150g,Beauty soap rose fragrance,GOODS,Personal Care,Lux,34011110,PCS,42.00,50.00,52.00,18,25,50,200,8901030667633,Hindustan Unilever,LUX150G24,2024-08-01,2026-08-01
+KIR036,Dove Shampoo 340ml,Intense repair shampoo,GOODS,Personal Care,Dove,33051090,BOTTLE,290.00,340.00,345.00,18,5,10,25,8901030714214,Hindustan Unilever,DOV340ML24,2024-07-15,2026-01-15
+KIR037,Colgate MaxFresh 150g,Toothpaste gel blue coolmint,GOODS,Personal Care,Colgate,33061010,PCS,88.00,105.00,110.00,18,10,20,60,8901314814210,Colgate-Palmolive,CMF150G24,2024-09-01,2026-09-01
+KIR038,Dettol Handwash 200ml,Liquid handwash original,GOODS,Personal Care,Dettol,34011990,BOTTLE,65.00,78.00,80.00,18,15,30,90,8901396367239,Reckitt Benckiser,DH200ML24,2024-08-10,2026-02-10
+KIR039,Coca-Cola 2L,Carbonated soft drink,GOODS,Beverages,Coca-Cola,22021010,BOTTLE,72.00,85.00,85.00,28,10,20,60,5449000004840,Hindustan Coca-Cola,CC2L24A,2024-10-01,2025-04-01
+KIR040,Frooti Mango 1L,Mango fruit drink tetra pack,GOODS,Beverages,Frooti,20098990,PCS,78.00,90.00,90.00,12,15,30,80,8901764010108,Parle Agro Pvt Ltd,FR1L24A,2024-08-01,2025-02-01
+KIR041,Bisleri Water 1L,Mineral drinking water,GOODS,Beverages,Bisleri,22011010,BOTTLE,16.00,20.00,20.00,18,40,80,300,8901234567890,Bisleri International,BW1L24,2024-09-01,2025-09-01
+KIR042,Cashew (Loose),Whole cashew nuts - by weight,GOODS,Dry Fruits,,08013210,KG,850.00,1050.00,,5,3,5,20,,Local Dry Fruit Trader,,,
+KIR043,Almonds (Loose),California almonds - by weight,GOODS,Dry Fruits,,08021100,KG,720.00,900.00,,5,2,5,15,,Local Dry Fruit Trader,,,
+KIR044,Kishmish Raisins (Loose),Seedless golden raisins - by weight,GOODS,Dry Fruits,,08062010,KG,220.00,280.00,,5,2,5,12,,Local Dry Fruit Trader,,,
+KIR045,Jaggery (Loose),Gur organic jaggery - by weight,GOODS,Salt & Sugar,,17019920,KG,50.00,65.00,,0,10,20,100,,Local Supplier,,,
+KIR046,Poha (Flattened Rice Loose),Medium grain poha - by weight,GOODS,Flour & Grains,,11041990,KG,35.00,45.00,,0,10,20,120,,Local Mill,,,
+KIR047,Besan (Loose),Gram flour - by weight,GOODS,Flour & Grains,,11061000,KG,65.00,82.00,,0,8,15,80,,Local Mill,,,
+KIR048,Suji/Rava (Loose),Semolina - by weight,GOODS,Flour & Grains,,11031900,KG,35.00,45.00,,0,8,15,100,,Local Mill,,,
+KIR049,Maida (Loose),Refined wheat flour - by weight,GOODS,Flour & Grains,,11010020,KG,30.00,38.00,,0,8,15,90,,Local Mill,,,
+KIR050,Rajma (Loose),Kidney beans red - by weight,GOODS,Pulses & Dal,,07133100,KG,110.00,140.00,,0,5,10,60,,Local Supplier,,,
+KIR051,Delivery Charge,Home delivery service charge,SERVICE,Services,,,,,40.00,,18,,,,,,,,
+KIR052,Packing Charge,Extra packing / gift wrapping charge,SERVICE,Services,,,,,20.00,,18,,,,,,,,
+KIR053,Diwali Gift Hamper,Assorted dry fruits + sweets combo box,COMPOSITE,Gift Packs,,21069099,BOX,500.00,750.00,800.00,12,3,5,15,,Kirana Store,,,
+KIR054,Raksha Bandhan Gift Box,Chocolates + dry fruits combo,COMPOSITE,Gift Packs,,21069099,BOX,350.00,500.00,550.00,12,5,10,20,,Kirana Store,,,
+KIR055,Aashirvaad Atta 10kg,Whole wheat flour super saver pack,GOODS,Flour & Grains,Aashirvaad,11010020,PCS,410.00,495.00,505.00,5,8,15,40,8901063034617,ITC Limited,AA10K24,2024-08-10,2025-08-10
+KIR056,Patanjali Cow Ghee 500ml,Organic cow ghee,GOODS,Dairy,Patanjali,04059020,PCS,310.00,360.00,365.00,12,5,10,20,8904109460079,Patanjali Ayurved,PCG500ML24,2024-07-01,2025-07-01
+KIR057,Saffola Masala Oats 400g,Peppy tomato instant oats,GOODS,Packaged Foods,Saffola,19041090,PCS,135.00,155.00,158.00,18,8,15,35,8904004403201,Marico Limited,SMO400G24,2024-09-01,2025-06-01
+KIR058,MTR Ready Rice Bisibele 300g,Ready to eat bisibele bath,GOODS,Packaged Foods,MTR,21069099,PCS,105.00,125.00,130.00,12,5,10,25,8901042003508,MTR Foods Pvt Ltd,MTR300G24,2024-06-01,2025-03-01
+KIR059,Amul Masti Dahi 400g,Fresh curd/yogurt,GOODS,Dairy,Amul,04031000,PCS,35.00,42.00,42.00,0,40,80,250,8901262152747,Gujarat Co-op Milk,AMD400G,2024-11-01,2024-11-30
+KIR060,Paneer (Loose),Fresh cottage cheese - by weight,GOODS,Dairy,,04061000,KG,320.00,400.00,,0,3,5,15,,Local Dairy,,,
+KIR061,Expired Biscuit Test,Parle Krackjack for expiry testing,GOODS,Snacks & Biscuits,Parle,19053190,PCS,30.00,38.00,40.00,18,10,20,50,8901725181499,Parle Products Pvt Ltd,PKEXP23,2023-01-01,2024-06-30
+KIR062,Near-Expiry Chips,Kurkure masala munch clearing stock,GOODS,Snacks & Biscuits,Kurkure,21069099,PCS,18.00,20.00,20.00,12,20,40,8,8901491502825,PepsiCo India,KMM24NE,2024-03-01,2025-07-15
+KIR063,Low Stock Soap Alert,Lifebuoy total soap for low stock test,GOODS,Personal Care,Lifebuoy,34011110,PCS,35.00,42.00,44.00,18,20,40,5,8901030577611,Hindustan Unilever,LB44G24,2024-08-01,2026-08-01
+KIR064,Low Stock Oil Alert,Dhara Kachi Ghani Mustard 1L for reorder test,GOODS,Cooking Oil,Dhara,15141100,BOTTLE,160.00,185.00,190.00,5,12,25,3,8904014201035,Mother Dairy,DKG1L24,2024-09-01,2025-09-01
+KIR065,Zero Cost Promo Item,Free sample shampoo sachet promo,GOODS,Personal Care,Head & Shoulders,33051090,PCS,0,0,0,18,0,0,200,8901030697159,P&G India,HS_PROMO24,2024-10-01,2026-10-01
+KIR066,Agarbatti Premium,Cycle Pure Agarbathi 120 sticks,GOODS,Puja Items,Cycle,33074900,PCS,80.00,100.00,105.00,5,10,20,60,8901419003054,NR Group,CPA120S24,2024-06-01,2027-06-01
+KIR067,Matchbox (Dozen),Ship safety matches 12 boxes,GOODS,Puja Items,Ship,36050010,DOZEN,18.00,24.00,24.00,5,10,20,100,,Wimco Limited,,,
+KIR068,Ghee Lamp Oil 500ml,Cotton wick oil for puja,GOODS,Puja Items,,15159090,BOTTLE,50.00,65.00,68.00,5,8,15,40,,Local Supplier,,,
+KIR069,Papad (Loose),Lijjat papad plain - by weight,GOODS,Packaged Foods,,19059040,KG,180.00,220.00,,5,3,5,20,,Shri Mahila Griha Udyog,,,
+KIR070,Pickle Mango 1kg,Mother's Recipe mango pickle,GOODS,Packaged Foods,Mothers Recipe,20019090,PCS,130.00,155.00,160.00,12,5,10,25,8906002481033,Desai Brothers Ltd,MRP1K24,2024-05-01,2025-11-01

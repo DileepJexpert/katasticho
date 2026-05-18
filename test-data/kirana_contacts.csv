@@ -1,0 +1,26 @@
+display_name,type,phone,email,gstin,billing_address,city,state,payment_terms_days,opening_balance
+Adani Wilmar Ltd,VENDOR,+91 79 2656 2000,orders@adaniwilmar.com,24AADCA6823R1Z5,Fortune House Ahmedabad,Ahmedabad,Gujarat,30,0
+ITC Limited - Foods,VENDOR,+91 33 2288 9371,foods.orders@itc.in,36AABCI1285P1ZA,ITC Centre 37 JLN Road,Kolkata,West Bengal,30,0
+Hindustan Unilever,VENDOR,+91 22 2499 6000,supply@hul.co.in,27AAACH2702R1ZV,Unilever House Andheri East,Mumbai,Maharashtra,45,0
+Nestle India Ltd,VENDOR,+91 124 389 6000,orders@nestle.in,06AAACN0560D1ZM,Nestle House Gurgaon,Gurgaon,Haryana,30,0
+Parle Products Pvt Ltd,VENDOR,+91 22 2685 0303,sales@parle.biz,27AAACP1984G1Z8,Parle Biscuits Vile Parle,Mumbai,Maharashtra,30,0
+Britannia Industries,VENDOR,+91 80 2220 0505,sales@britannia.co.in,29AABCB0355R1Z1,Britannia Gardens Whitefield,Bangalore,Karnataka,30,0
+Gujarat Co-op Milk (Amul),VENDOR,+91 2692 258506,sales@amul.coop,24AAATG0395L1Z4,Amul Dairy Road Anand,Anand,Gujarat,15,0
+Marico Limited,VENDOR,+91 22 6648 0480,trade@marico.com,27AABCM7457H1ZR,Grand Central Parel,Mumbai,Maharashtra,30,0
+Reckitt Benckiser India,VENDOR,+91 124 441 5700,orders@reckitt.com,06AABCR5765B1Z4,Plot 4 Udyog Vihar Gurgaon,Gurgaon,Haryana,30,0
+Local Spice Wholesaler,VENDOR,+91 98765 11001,,,Khari Baoli Spice Market,Delhi,Delhi,7,0
+Local Dal-Rice Mandi,VENDOR,+91 98765 11002,,,,Naya Bazaar Grain Market,Delhi,Delhi,7,0
+Local Dry Fruit Trader,VENDOR,+91 98765 11003,,,,Crawford Market,Mumbai,Maharashtra,15,0
+Rajesh Kumar,CUSTOMER,+91 98765 22001,rajesh.k@email.com,,B-12 Green Park Main,New Delhi,Delhi,,0
+Sunita Devi,CUSTOMER,+91 98765 22002,,,Plot 45 Laxmi Nagar,New Delhi,Delhi,,500
+Mohan Lal Sharma,CUSTOMER,+91 98765 22003,mohan.sharma@email.com,,23 MG Road Sector 14,Gurgaon,Haryana,,0
+Priya Agarwal,CUSTOMER,+91 98765 22004,,,Flat 3A Tower B DLF Phase 2,Gurgaon,Haryana,,1200
+Amit Singh,CUSTOMER,+91 98765 22005,,,House 78 Civil Lines,Jaipur,Rajasthan,,0
+Kavita Joshi,CUSTOMER,+91 98765 22006,kavita.j@email.com,,15 Aundh Road,Pune,Maharashtra,,0
+Dinesh Patel,CUSTOMER,+91 98765 22007,,,12 Satellite Road,Ahmedabad,Gujarat,,800
+Fatima Sheikh,CUSTOMER,+91 98765 22008,,,22 Mohammed Ali Road,Mumbai,Maharashtra,,0
+Ram Prasad Yadav,CUSTOMER,+91 98765 22009,,,Village Rampur Post Office,Lucknow,Uttar Pradesh,,250
+Anjali Mehta,CUSTOMER,+91 98765 22010,anjali.m@email.com,,14 Park Street,Kolkata,West Bengal,,0
+Hotel Sunrise Restaurant,CUSTOMER,+91 98765 22011,hotel.sunrise@email.com,27AABCH1234R1Z5,45 Station Road,Pune,Maharashtra,15,3500
+Sweet Corner Mithai Shop,CUSTOMER,+91 98765 22012,,27AABCS5678P1Z2,78 Lal Chowk Main Market,Jaipur,Rajasthan,7,0
+Annapurna Tiffin Service,BOTH,+91 98765 22013,annapurna@email.com,,34 Industrial Area Phase 1,Chandigarh,Punjab,15,0
