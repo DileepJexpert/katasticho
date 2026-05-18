@@ -431,7 +431,7 @@ CREATE TABLE item (
                       sale_price              NUMERIC(15,2) NOT NULL DEFAULT 0,
                       mrp                     NUMERIC(15,2),
                       gst_rate                NUMERIC(5,2)  NOT NULL DEFAULT 0,
-                      default_tax_group_id    UUID,  -- FK added after tax_group table created
+                      default_tax_group_id    UUID,
                       track_inventory         BOOLEAN       NOT NULL DEFAULT TRUE,
                       track_batches           BOOLEAN       NOT NULL DEFAULT FALSE,
                       reorder_level           NUMERIC(12,4) NOT NULL DEFAULT 0,
@@ -927,10 +927,6 @@ CREATE TABLE tax_group_rate (
 
 CREATE INDEX idx_tax_group_rate_group ON tax_group_rate(tax_group_id);
 
--- Now add FK from item to tax_group
-ALTER TABLE item ADD CONSTRAINT fk_item_default_tax_group
-    FOREIGN KEY (default_tax_group_id) REFERENCES tax_group(id);
-
 -- ─────────────────────────────────────────────────────────────
 -- 30. INVOICE (includes sales_order_id from V26)
 -- ─────────────────────────────────────────────────────────────
@@ -939,7 +935,7 @@ CREATE TABLE invoice (
                          org_id           UUID          NOT NULL REFERENCES organisation(id),
                          branch_id        UUID          REFERENCES branch(id),
                          contact_id       UUID          NOT NULL REFERENCES contact(id),
-                         sales_order_id   UUID,  -- FK added after sales_order table created
+                         sales_order_id   UUID,
                          invoice_number   VARCHAR(30)   NOT NULL,
                          invoice_date     DATE          NOT NULL,
                          due_date         DATE          NOT NULL,
@@ -1807,9 +1803,6 @@ CREATE TABLE stock_reservation (
                                    UNIQUE(source_type, source_line_id)
 );
 
--- Add FK from invoice to sales_order
-ALTER TABLE invoice ADD CONSTRAINT fk_invoice_sales_order
-    FOREIGN KEY (sales_order_id) REFERENCES sales_order(id);
 CREATE INDEX idx_invoice_sales_order ON invoice(sales_order_id) WHERE sales_order_id IS NOT NULL;
 
 CREATE INDEX idx_sales_order_org ON sales_order(org_id) WHERE NOT is_deleted;
