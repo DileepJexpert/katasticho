@@ -6,6 +6,7 @@ import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/widgets.dart';
+import '../../data/pos_cart_state.dart';
 import '../../data/pos_repository.dart';
 
 Future<void> showCustomerHistorySheet(
@@ -87,6 +88,68 @@ class _CustomerHistorySheetState extends ConsumerState<_CustomerHistorySheet> {
     if (_selectedDays == days) return;
     setState(() => _selectedDays = days);
     _load();
+  }
+
+  Future<void> _repeatOrder(String receiptId) async {
+    try {
+      final repo = ref.read(posRepositoryProvider);
+      final result = await repo.getReceipt(receiptId);
+      final data = (result['data'] ?? result) as Map<String, dynamic>;
+      final lines = (data['lines'] as List?) ?? [];
+
+      if (lines.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No items found in this receipt')),
+          );
+        }
+        return;
+      }
+
+      final cart = ref.read(posCartProvider.notifier);
+      int addedCount = 0;
+
+      for (final line in lines) {
+        final m = line as Map<String, dynamic>;
+        final itemId = m['itemId']?.toString();
+        final name = (m['itemName'] ?? m['description'] ?? '--') as String;
+        final rate = (m['rate'] as num?)?.toDouble() ?? 0;
+        final qty = (m['quantity'] as num?)?.toDouble() ?? 1;
+
+        if (rate <= 0) continue;
+
+        cart.addItem(CartItem(
+          itemId: itemId,
+          name: name,
+          sku: m['itemSku']?.toString(),
+          rate: rate,
+          unit: m['unit'] as String?,
+          mrp: (m['mrp'] as num?)?.toDouble(),
+          hsnCode: m['hsnCode'] as String?,
+          taxGroupId: m['taxGroupId']?.toString(),
+          batchId: m['batchId']?.toString(),
+          quantity: qty,
+        ));
+        addedCount++;
+      }
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$addedCount items added to cart'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not load receipt items')),
+        );
+      }
+    }
   }
 
   @override
@@ -277,7 +340,10 @@ class _CustomerHistorySheetState extends ConsumerState<_CustomerHistorySheet> {
         else ...[
           Text('Recent Purchases', style: KTypography.labelLarge),
           KSpacing.vGapSm,
-          ...receipts.map((r) => _ReceiptCard(receipt: r as Map<String, dynamic>)),
+          ...receipts.map((r) => _ReceiptCard(
+                receipt: r as Map<String, dynamic>,
+                onRepeat: _repeatOrder,
+              )),
         ],
       ],
     );
@@ -323,8 +389,9 @@ class _SummaryCard extends StatelessWidget {
 
 class _ReceiptCard extends StatelessWidget {
   final Map<String, dynamic> receipt;
+  final Future<void> Function(String receiptId) onRepeat;
 
-  const _ReceiptCard({required this.receipt});
+  const _ReceiptCard({required this.receipt, required this.onRepeat});
 
   @override
   Widget build(BuildContext context) {
@@ -355,6 +422,22 @@ class _ReceiptCard extends StatelessWidget {
               KSpacing.hGapXs,
               Text(receiptNumber, style: KTypography.labelMedium),
               const Spacer(),
+              if (id != null)
+                SizedBox(
+                  height: 28,
+                  child: TextButton.icon(
+                    onPressed: () => onRepeat(id),
+                    icon: const Icon(Icons.replay_rounded, size: 14),
+                    label: const Text('Repeat'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: KColors.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      textStyle: KTypography.labelSmall,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+              KSpacing.hGapSm,
               Text(
                 CurrencyFormatter.formatIndian(total),
                 style: KTypography.amountSmall,
