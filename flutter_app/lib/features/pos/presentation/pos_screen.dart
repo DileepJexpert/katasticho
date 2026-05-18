@@ -195,7 +195,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     _searchFocusNode.requestFocus();
     HapticFeedback.mediumImpact();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Cart held')),
+      const SnackBar(
+        content: Text('Cart held'),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+      ),
     );
   }
 

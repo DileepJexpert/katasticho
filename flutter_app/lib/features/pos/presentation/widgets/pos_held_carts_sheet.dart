@@ -8,9 +8,12 @@ import '../../data/pos_cart_state.dart';
 import '../../data/pos_held_carts.dart';
 
 Future<PosCartState?> showHeldCartsSheet(BuildContext context) {
-  return showModalBottomSheet<PosCartState>(
+  return showDialog<PosCartState>(
     context: context,
-    builder: (_) => const _HeldCartsSheetContent(),
+    builder: (_) => const Dialog(
+      insetPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+      child: _HeldCartsSheetContent(),
+    ),
   );
 }
 
@@ -22,29 +25,26 @@ class _HeldCartsSheetContent extends ConsumerWidget {
     final held = ref.watch(heldCartsProvider);
     final cs = Theme.of(context).colorScheme;
 
-    return SafeArea(
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 420),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: cs.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            KSpacing.vGapMd,
             Row(
               children: [
                 const Icon(Icons.pause_circle_outline, size: 20),
                 KSpacing.hGapSm,
-                Text('Held Carts (${held.length}/5)', style: KTypography.h3),
+                Text('Held Carts (${held.length}/5)',
+                    style: KTypography.h3),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () => Navigator.pop(context),
+                  visualDensity: VisualDensity.compact,
+                ),
               ],
             ),
             KSpacing.vGapMd,
@@ -121,7 +121,8 @@ class _HeldCartTile extends StatelessWidget {
                 child: Center(
                   child: Text(
                     '${held.cart.itemCount}',
-                    style: KTypography.labelLarge.copyWith(color: cs.primary),
+                    style: KTypography.labelLarge
+                        .copyWith(color: cs.primary),
                   ),
                 ),
               ),
