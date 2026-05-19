@@ -88,7 +88,7 @@ public class ItemController {
     public ResponseEntity<ApiResponse<ItemImportResult>> importItems(
             @RequestParam("file") MultipartFile file) {
         ItemImportResult result = itemImportService.importItems(file);
-        String message = result.succeeded() + " items imported, " + result.failed() + " failed";
+        String message = result.created() + " items imported, " + result.skipped() + " skipped";
         return ResponseEntity.ok(ApiResponse.ok(result, message));
     }
 

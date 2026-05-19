@@ -15,8 +15,8 @@ import java.util.List;
  */
 public record ItemImportResult(
         int totalRows,
-        int succeeded,
-        int failed,
+        int created,
+        int skipped,
         List<SuccessRow> successRows,
         List<FailedRow> failedRows
 ) {

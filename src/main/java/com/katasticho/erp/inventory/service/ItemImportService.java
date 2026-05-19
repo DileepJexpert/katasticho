@@ -225,14 +225,14 @@ public class ItemImportService {
         }
 
         int totalRows = parsed.size();
-        int succeeded = successRows.size();
-        int failed = failedRows.size();
+        int created = successRows.size();
+        int skipped = failedRows.size();
 
         auditService.log("ITEM_IMPORT", null, "BULK_IMPORT", null,
-                "{\"total\":" + totalRows + ",\"succeeded\":" + succeeded + ",\"failed\":" + failed + "}");
-        log.info("Item bulk import done: {} total, {} succeeded, {} failed", totalRows, succeeded, failed);
+                "{\"total\":" + totalRows + ",\"created\":" + created + ",\"skipped\":" + skipped + "}");
+        log.info("Item bulk import done: {} total, {} created, {} skipped", totalRows, created, skipped);
 
-        return new ItemImportResult(totalRows, succeeded, failed, successRows, failedRows);
+        return new ItemImportResult(totalRows, created, skipped, successRows, failedRows);
     }
 
     private ItemImportResult.FailedRow toFailedRow(ParsedRow p, String errorMessage) {
