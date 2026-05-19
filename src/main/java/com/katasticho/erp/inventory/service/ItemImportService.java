@@ -1,5 +1,7 @@
 package com.katasticho.erp.inventory.service;
 
+import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
+import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.posting.AccountingPostingEngine;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
@@ -92,6 +94,7 @@ public class ItemImportService {
     private final AuditService auditService;
     private final UomService uomService;
     private final AccountingPostingEngine postingEngine;
+    private final DefaultAccountService defaultAccountService;
 
     public static final String TEMPLATE_HEADER =
             "sku,name,description,item_type,category,brand,hsn_code,"
@@ -133,6 +136,24 @@ public class ItemImportService {
                         "INV_NO_DEFAULT_WAREHOUSE", HttpStatus.BAD_REQUEST));
 
         List<ParsedRow> parsed = parseAndValidate(file, orgId);
+
+        boolean hasOpeningStock = parsed.stream().anyMatch(p ->
+                STATUS_OK.equals(p.preview.status())
+                        && p.trackInventory
+                        && p.openingStock != null && p.openingStock.compareTo(BigDecimal.ZERO) > 0
+                        && p.itemTemplate.getPurchasePrice() != null
+                        && p.itemTemplate.getPurchasePrice().compareTo(BigDecimal.ZERO) > 0);
+        if (hasOpeningStock) {
+            try {
+                defaultAccountService.getCode(orgId, DefaultAccountPurpose.INVENTORY_ASSET);
+                defaultAccountService.getCode(orgId, DefaultAccountPurpose.OPENING_BALANCE_EQUITY);
+            } catch (BusinessException e) {
+                throw new BusinessException(
+                        "Cannot import items with opening stock — configure Inventory Asset and "
+                                + "Opening Balance Equity in Settings → Accounting → Default Accounts first.",
+                        "IMPORT_ACCOUNTS_NOT_CONFIGURED", HttpStatus.BAD_REQUEST);
+            }
+        }
 
         List<ItemImportResult.RowError> errors = new ArrayList<>();
         int created = 0;
