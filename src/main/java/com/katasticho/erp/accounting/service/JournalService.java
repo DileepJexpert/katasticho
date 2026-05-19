@@ -4,11 +4,12 @@ import com.katasticho.erp.accounting.dto.JournalEntryResponse;
 import com.katasticho.erp.accounting.dto.JournalLineRequest;
 import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.Account;
-import com.katasticho.erp.accounting.entity.EntryNumberSequence;
 import com.katasticho.erp.accounting.entity.FiscalPeriod;
 import com.katasticho.erp.accounting.entity.JournalEntry;
 import com.katasticho.erp.accounting.entity.JournalLine;
 import com.katasticho.erp.accounting.repository.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
@@ -43,11 +44,13 @@ public class JournalService {
     private final JournalEntryRepository journalEntryRepository;
     private final JournalLineRepository journalLineRepository;
     private final AccountRepository accountRepository;
-    private final EntryNumberSequenceRepository sequenceRepository;
     private final FiscalPeriodRepository fiscalPeriodRepository;
     private final OrganisationRepository organisationRepository;
     private final CurrencyService currencyService;
     private final AuditService auditService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     /**
      * THE MOST IMPORTANT METHOD IN THE ENTIRE CODEBASE.
@@ -355,22 +358,19 @@ public class JournalService {
     }
 
     private String generateEntryNumber(UUID orgId, int year) {
-        var seqOpt = sequenceRepository.findByOrgIdAndYear(orgId, year);
-        long nextVal;
-
-        if (seqOpt.isPresent()) {
-            nextVal = seqOpt.get().getNextValue();
-            sequenceRepository.incrementAndGet(orgId, year);
-        } else {
-            var seq = EntryNumberSequence.builder()
-                    .id(new EntryNumberSequence.EntryNumberSequenceId(orgId, year))
-                    .nextValue(2L)
-                    .build();
-            sequenceRepository.save(seq);
-            nextVal = 1L;
-        }
-
-        return String.format("JE-%d-%06d", year, nextVal);
+        // Atomic upsert+increment bypasses Hibernate L1 cache entirely.
+        // First call inserts next_value=2 and returns 1; subsequent calls
+        // increment and return the pre-increment value.
+        Number nextVal = (Number) entityManager.createNativeQuery(
+                        "INSERT INTO entry_number_sequence (org_id, year, next_value) " +
+                        "VALUES (:orgId, :year, 2) " +
+                        "ON CONFLICT (org_id, year) DO UPDATE " +
+                        "    SET next_value = entry_number_sequence.next_value + 1 " +
+                        "RETURNING next_value - 1")
+                .setParameter("orgId", orgId)
+                .setParameter("year", year)
+                .getSingleResult();
+        return String.format("JE-%d-%06d", year, nextVal.longValue());
     }
 
     private int computeFiscalYear(LocalDate date, int fiscalYearStartMonth) {

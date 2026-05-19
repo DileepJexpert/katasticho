@@ -22,7 +22,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -95,6 +97,7 @@ public class ItemImportService {
     private final UomService uomService;
     private final AccountingPostingEngine postingEngine;
     private final DefaultAccountService defaultAccountService;
+    private final PlatformTransactionManager transactionManager;
 
     public static final String TEMPLATE_HEADER =
             "sku,name,description,item_type,category,brand,hsn_code,"
@@ -123,10 +126,11 @@ public class ItemImportService {
     }
 
     /**
-     * Commit a bulk import. Valid rows are persisted; invalid rows are
-     * skipped and reported in {@link ItemImportResult#errors()}.
+     * Commit a bulk import. Each row runs in its own REQUIRES_NEW transaction
+     * so a failure on one row does not roll back rows already saved.
+     * Returns separate success and failure lists so the UI can show the owner
+     * what was imported and let them edit + retry failed rows.
      */
-    @Transactional
     public ItemImportResult importItems(MultipartFile file) {
         UUID orgId = TenantContext.getCurrentOrgId();
         Warehouse defaultWarehouse = warehouseRepository
@@ -155,72 +159,89 @@ public class ItemImportService {
             }
         }
 
-        List<ItemImportResult.RowError> errors = new ArrayList<>();
-        int created = 0;
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        List<ItemImportResult.SuccessRow> successRows = new ArrayList<>();
+        List<ItemImportResult.FailedRow> failedRows = new ArrayList<>();
 
         for (ParsedRow p : parsed) {
             if (!STATUS_OK.equals(p.preview.status())) {
-                errors.add(new ItemImportResult.RowError(
-                        p.preview.rowNumber(),
-                        p.preview.sku(),
-                        p.preview.error()));
+                failedRows.add(toFailedRow(p, p.preview.error()));
                 continue;
             }
 
-            Item saved = itemRepository.save(p.itemTemplate);
-            created++;
+            try {
+                tx.executeWithoutResult(status -> {
+                    Item saved = itemRepository.save(p.itemTemplate);
 
-            if (p.batchNumber != null && !p.batchNumber.isBlank()) {
-                StockBatch batch = StockBatch.builder()
-                        .itemId(saved.getId())
-                        .batchNumber(p.batchNumber.trim())
-                        .manufacturingDate(p.mfgDate)
-                        .expiryDate(p.expiryDate)
-                        .unitCost(p.itemTemplate.getPurchasePrice())
-                        .build();
-                stockBatchRepository.save(batch);
+                    if (p.batchNumber != null && !p.batchNumber.isBlank()) {
+                        StockBatch batch = StockBatch.builder()
+                                .itemId(saved.getId())
+                                .batchNumber(p.batchNumber.trim())
+                                .manufacturingDate(p.mfgDate)
+                                .expiryDate(p.expiryDate)
+                                .unitCost(p.itemTemplate.getPurchasePrice())
+                                .build();
+                        stockBatchRepository.save(batch);
 
-                if (p.trackInventory && p.openingStock != null
-                        && p.openingStock.compareTo(BigDecimal.ZERO) > 0) {
-                    inventoryService.recordMovement(new StockMovementRequest(
-                            saved.getId(),
-                            defaultWarehouse.getId(),
-                            MovementType.OPENING,
-                            p.openingStock,
-                            p.itemTemplate.getPurchasePrice(),
-                            LocalDate.now(),
-                            ReferenceType.OPENING_BALANCE,
-                            null,
-                            null,
-                            "Opening stock from bulk import for " + p.preview.sku(),
-                            batch.getId()));
-                    postOpeningStockJournal(orgId, p);
-                }
-            } else if (p.trackInventory && p.openingStock != null
-                    && p.openingStock.compareTo(BigDecimal.ZERO) > 0) {
-                inventoryService.recordMovement(new StockMovementRequest(
-                        saved.getId(),
-                        defaultWarehouse.getId(),
-                        MovementType.OPENING,
-                        p.openingStock,
+                        if (p.trackInventory && p.openingStock != null
+                                && p.openingStock.compareTo(BigDecimal.ZERO) > 0) {
+                            inventoryService.recordMovement(new StockMovementRequest(
+                                    saved.getId(), defaultWarehouse.getId(),
+                                    MovementType.OPENING, p.openingStock,
+                                    p.itemTemplate.getPurchasePrice(), LocalDate.now(),
+                                    ReferenceType.OPENING_BALANCE, null, null,
+                                    "Opening stock from bulk import for " + p.preview.sku(),
+                                    batch.getId()));
+                            postOpeningStockJournal(orgId, p);
+                        }
+                    } else if (p.trackInventory && p.openingStock != null
+                            && p.openingStock.compareTo(BigDecimal.ZERO) > 0) {
+                        inventoryService.recordMovement(new StockMovementRequest(
+                                saved.getId(), defaultWarehouse.getId(),
+                                MovementType.OPENING, p.openingStock,
+                                p.itemTemplate.getPurchasePrice(), LocalDate.now(),
+                                ReferenceType.OPENING_BALANCE, null, null,
+                                "Opening stock from bulk import for " + p.preview.sku()));
+                        postOpeningStockJournal(orgId, p);
+                    }
+                });
+
+                successRows.add(new ItemImportResult.SuccessRow(
+                        p.preview.rowNumber(),
+                        p.preview.sku(),
+                        p.preview.name(),
+                        p.preview.itemType(),
                         p.itemTemplate.getPurchasePrice(),
-                        LocalDate.now(),
-                        ReferenceType.OPENING_BALANCE,
-                        null,
-                        null,
-                        "Opening stock from bulk import for " + p.preview.sku()));
-                postOpeningStockJournal(orgId, p);
+                        p.itemTemplate.getSalePrice(),
+                        p.openingStock));
+
+            } catch (Exception e) {
+                String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                log.warn("Row {} (SKU={}) failed during import: {}", p.preview.rowNumber(), p.preview.sku(), msg);
+                failedRows.add(toFailedRow(p, msg));
             }
         }
 
         int totalRows = parsed.size();
+        int succeeded = successRows.size();
+        int failed = failedRows.size();
+
         auditService.log("ITEM_IMPORT", null, "BULK_IMPORT", null,
-                "{\"total\":" + totalRows + ",\"created\":" + created + ",\"skipped\":" + (totalRows - created) + "}");
+                "{\"total\":" + totalRows + ",\"succeeded\":" + succeeded + ",\"failed\":" + failed + "}");
+        log.info("Item bulk import done: {} total, {} succeeded, {} failed", totalRows, succeeded, failed);
 
-        log.info("Item bulk import done: {} total, {} created, {} skipped",
-                totalRows, created, totalRows - created);
+        return new ItemImportResult(totalRows, succeeded, failed, successRows, failedRows);
+    }
 
-        return new ItemImportResult(totalRows, created, totalRows - created, errors);
+    private ItemImportResult.FailedRow toFailedRow(ParsedRow p, String errorMessage) {
+        ItemImportPreview.RowPreview pr = p.preview;
+        return new ItemImportResult.FailedRow(
+                pr.rowNumber(), pr.sku(), pr.name(), pr.itemType(),
+                pr.category(), pr.hsnCode(), pr.unitOfMeasure(),
+                pr.purchasePrice(), pr.salePrice(), pr.gstRate(),
+                pr.openingStock(), errorMessage);
     }
 
     private void postOpeningStockJournal(UUID orgId, ParsedRow p) {
