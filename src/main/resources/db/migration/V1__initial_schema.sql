@@ -387,6 +387,65 @@ CREATE INDEX        idx_uom_org_active   ON uom(org_id, is_active)    WHERE NOT 
 
 
 -- ─────────────────────────────────────────────────────────────
+-- 15b. TAX ENGINE (moved before item so FK can be inline)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE tax_configuration (
+                                   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                   org_id          UUID          NOT NULL REFERENCES organisation(id),
+                                   country_code    VARCHAR(5)    NOT NULL,
+                                   tax_system      VARCHAR(20)   NOT NULL,
+                                   name            VARCHAR(50)   NOT NULL,
+                                   is_active       BOOLEAN       NOT NULL DEFAULT TRUE,
+                                   created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+                                   updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX idx_tax_config_org_active ON tax_configuration(org_id) WHERE is_active;
+
+CREATE TABLE tax_rate (
+                          id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                          org_id                   UUID          NOT NULL REFERENCES organisation(id),
+                          tax_config_id            UUID          NOT NULL REFERENCES tax_configuration(id),
+                          name                     VARCHAR(50)   NOT NULL,
+                          rate_code                VARCHAR(20)   NOT NULL,
+                          percentage               NUMERIC(5,2)  NOT NULL,
+                          tax_type                 VARCHAR(20)   NOT NULL
+                              CHECK (tax_type IN ('OUTPUT','INPUT','BOTH')),
+                          gl_output_account_id     UUID          REFERENCES account(id),
+                          gl_input_account_id      UUID          REFERENCES account(id),
+                          is_gl_account_customized BOOLEAN       NOT NULL DEFAULT FALSE,
+                          is_recoverable           BOOLEAN       NOT NULL DEFAULT TRUE,
+                          is_active                BOOLEAN       NOT NULL DEFAULT TRUE,
+                          created_at               TIMESTAMPTZ   NOT NULL DEFAULT now(),
+                          updated_at               TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_tax_rate_org    ON tax_rate(org_id) WHERE is_active;
+CREATE INDEX idx_tax_rate_config ON tax_rate(tax_config_id);
+
+CREATE TABLE tax_group (
+                           id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                           org_id          UUID          NOT NULL REFERENCES organisation(id),
+                           name            VARCHAR(50)   NOT NULL,
+                           description     VARCHAR(200),
+                           is_active       BOOLEAN       NOT NULL DEFAULT TRUE,
+                           created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+                           updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX idx_tax_group_org_name ON tax_group(org_id, name) WHERE is_active;
+
+CREATE TABLE tax_group_rate (
+                                id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                tax_group_id    UUID NOT NULL REFERENCES tax_group(id) ON DELETE CASCADE,
+                                tax_rate_id     UUID NOT NULL REFERENCES tax_rate(id),
+                                UNIQUE(tax_group_id, tax_rate_id)
+);
+
+CREATE INDEX idx_tax_group_rate_group ON tax_group_rate(tax_group_id);
+
+
+-- ─────────────────────────────────────────────────────────────
 -- 16. ITEM GROUP
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE item_group (
@@ -431,7 +490,7 @@ CREATE TABLE item (
                       sale_price              NUMERIC(15,2) NOT NULL DEFAULT 0,
                       mrp                     NUMERIC(15,2),
                       gst_rate                NUMERIC(5,2)  NOT NULL DEFAULT 0,
-                      default_tax_group_id    UUID,
+                      default_tax_group_id    UUID REFERENCES tax_group(id),
                       track_inventory         BOOLEAN       NOT NULL DEFAULT TRUE,
                       track_batches           BOOLEAN       NOT NULL DEFAULT FALSE,
                       reorder_level           NUMERIC(12,4) NOT NULL DEFAULT 0,
@@ -868,64 +927,6 @@ CREATE INDEX        idx_contact_person_contact ON contact_person(contact_id) WHE
 CREATE UNIQUE INDEX idx_contact_person_primary ON contact_person(contact_id)
     WHERE is_primary AND NOT is_deleted;
 
-
--- ─────────────────────────────────────────────────────────────
--- 29. TAX ENGINE (from V22 — merged inline)
--- ─────────────────────────────────────────────────────────────
-CREATE TABLE tax_configuration (
-                                   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                                   org_id          UUID          NOT NULL REFERENCES organisation(id),
-                                   country_code    VARCHAR(5)    NOT NULL,
-                                   tax_system      VARCHAR(20)   NOT NULL,
-                                   name            VARCHAR(50)   NOT NULL,
-                                   is_active       BOOLEAN       NOT NULL DEFAULT TRUE,
-                                   created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
-                                   updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
-);
-
-CREATE UNIQUE INDEX idx_tax_config_org_active ON tax_configuration(org_id) WHERE is_active;
-
-CREATE TABLE tax_rate (
-                          id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                          org_id                   UUID          NOT NULL REFERENCES organisation(id),
-                          tax_config_id            UUID          NOT NULL REFERENCES tax_configuration(id),
-                          name                     VARCHAR(50)   NOT NULL,
-                          rate_code                VARCHAR(20)   NOT NULL,
-                          percentage               NUMERIC(5,2)  NOT NULL,
-                          tax_type                 VARCHAR(20)   NOT NULL
-                              CHECK (tax_type IN ('OUTPUT','INPUT','BOTH')),
-                          gl_output_account_id     UUID          REFERENCES account(id),
-                          gl_input_account_id      UUID          REFERENCES account(id),
-                          is_gl_account_customized BOOLEAN       NOT NULL DEFAULT FALSE,
-                          is_recoverable           BOOLEAN       NOT NULL DEFAULT TRUE,
-                          is_active                BOOLEAN       NOT NULL DEFAULT TRUE,
-                          created_at               TIMESTAMPTZ   NOT NULL DEFAULT now(),
-                          updated_at               TIMESTAMPTZ   NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_tax_rate_org    ON tax_rate(org_id) WHERE is_active;
-CREATE INDEX idx_tax_rate_config ON tax_rate(tax_config_id);
-
-CREATE TABLE tax_group (
-                           id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                           org_id          UUID          NOT NULL REFERENCES organisation(id),
-                           name            VARCHAR(50)   NOT NULL,
-                           description     VARCHAR(200),
-                           is_active       BOOLEAN       NOT NULL DEFAULT TRUE,
-                           created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
-                           updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
-);
-
-CREATE UNIQUE INDEX idx_tax_group_org_name ON tax_group(org_id, name) WHERE is_active;
-
-CREATE TABLE tax_group_rate (
-                                id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                                tax_group_id    UUID NOT NULL REFERENCES tax_group(id) ON DELETE CASCADE,
-                                tax_rate_id     UUID NOT NULL REFERENCES tax_rate(id),
-                                UNIQUE(tax_group_id, tax_rate_id)
-);
-
-CREATE INDEX idx_tax_group_rate_group ON tax_group_rate(tax_group_id);
 
 -- ─────────────────────────────────────────────────────────────
 -- 30. INVOICE (includes sales_order_id from V26)
