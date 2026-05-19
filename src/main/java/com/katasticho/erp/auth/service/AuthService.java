@@ -230,7 +230,6 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        // Try phone first, then email — both may match multiple orgs
         List<AppUser> loginMatches = userRepository.findAllByPhoneAndIsDeletedFalse(request.identifier());
         if (loginMatches.isEmpty()) {
             loginMatches = userRepository.findAllByEmailAndIsDeletedFalse(request.identifier());
@@ -239,39 +238,54 @@ public class AuthService {
             throw new BusinessException(
                     "Invalid credentials", "AUTH_BAD_CREDENTIALS", HttpStatus.UNAUTHORIZED);
         }
-        AppUser user = loginMatches.stream()
+
+        List<AppUser> activeUsers = loginMatches.stream()
                 .filter(AppUser::isActive)
-                .max(java.util.Comparator.comparing(
-                        u -> u.getLastLoginAt() != null ? u.getLastLoginAt() : Instant.EPOCH))
-                .orElse(loginMatches.getFirst());
+                .filter(u -> !u.isLocked())
+                .filter(u -> u.getPasswordHash() != null)
+                .toList();
 
-        if (user.isLocked()) {
-            throw new BusinessException("Account is locked. Try again later.",
-                    "AUTH_ACCOUNT_LOCKED", HttpStatus.TOO_MANY_REQUESTS);
-        }
-
-        if (!user.isActive()) {
-            throw new BusinessException("Account is deactivated", "AUTH_ACCOUNT_INACTIVE", HttpStatus.FORBIDDEN);
-        }
-
-        if (user.getPasswordHash() == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            user.incrementFailedLogins();
-            if (user.getFailedLoginCount() >= 5) {
-                user.lock(30);
-                log.warn("User {} locked after 5 failed password attempts", user.getId());
+        AppUser matched = null;
+        for (AppUser candidate : activeUsers) {
+            if (passwordEncoder.matches(request.password(), candidate.getPasswordHash())) {
+                matched = candidate;
+                break;
             }
-            userRepository.save(user);
+        }
+
+        if (matched == null) {
+            // No password matched — increment failed count on most-recently-used account only
+            AppUser fallback = loginMatches.stream()
+                    .filter(AppUser::isActive)
+                    .max(java.util.Comparator.comparing(
+                            u -> u.getLastLoginAt() != null ? u.getLastLoginAt() : Instant.EPOCH))
+                    .orElse(loginMatches.getFirst());
+
+            if (fallback.isLocked()) {
+                throw new BusinessException("Account is locked. Try again later.",
+                        "AUTH_ACCOUNT_LOCKED", HttpStatus.TOO_MANY_REQUESTS);
+            }
+            if (!fallback.isActive()) {
+                throw new BusinessException("Account is deactivated", "AUTH_ACCOUNT_INACTIVE", HttpStatus.FORBIDDEN);
+            }
+
+            fallback.incrementFailedLogins();
+            if (fallback.getFailedLoginCount() >= 5) {
+                fallback.lock(30);
+                log.warn("User {} locked after 5 failed password attempts", fallback.getId());
+            }
+            userRepository.save(fallback);
             throw new BusinessException("Invalid credentials", "AUTH_BAD_CREDENTIALS", HttpStatus.UNAUTHORIZED);
         }
 
-        user.resetFailedLogins();
-        user.setLastLoginAt(Instant.now());
-        userRepository.save(user);
+        matched.resetFailedLogins();
+        matched.setLastLoginAt(Instant.now());
+        userRepository.save(matched);
 
-        Organisation org = organisationRepository.findById(user.getOrgId())
-                .orElseThrow(() -> BusinessException.notFound("Organisation", user.getOrgId()));
+        Organisation org = organisationRepository.findById(matched.getOrgId())
+                .orElseThrow(() -> BusinessException.notFound("Organisation", matched.getOrgId()));
 
-        return buildAuthResponse(user, org);
+        return buildAuthResponse(matched, org);
     }
 
     @Transactional
