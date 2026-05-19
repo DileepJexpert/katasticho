@@ -11,12 +11,15 @@ import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.currency.SimpleCurrencyService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -34,10 +37,10 @@ class JournalServiceTest {
     @Mock private JournalEntryRepository journalEntryRepository;
     @Mock private JournalLineRepository journalLineRepository;
     @Mock private AccountRepository accountRepository;
-    @Mock private EntryNumberSequenceRepository sequenceRepository;
     @Mock private FiscalPeriodRepository fiscalPeriodRepository;
     @Mock private OrganisationRepository organisationRepository;
     @Mock private AuditService auditService;
+    @Mock private EntityManager entityManager;
 
     private JournalService journalService;
 
@@ -50,8 +53,9 @@ class JournalServiceTest {
     void setUp() {
         journalService = new JournalService(
                 journalEntryRepository, journalLineRepository, accountRepository,
-                sequenceRepository, fiscalPeriodRepository, organisationRepository,
+                fiscalPeriodRepository, organisationRepository,
                 new SimpleCurrencyService(), auditService);
+        ReflectionTestUtils.setField(journalService, "entityManager", entityManager);
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
@@ -120,8 +124,10 @@ class JournalServiceTest {
         when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
         when(accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(orgId, "1010")).thenReturn(Optional.of(cashAccount));
         when(accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(orgId, "4010")).thenReturn(Optional.of(revenueAccount));
-        when(sequenceRepository.findByOrgIdAndYear(eq(orgId), anyInt())).thenReturn(Optional.empty());
-        when(sequenceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        Query mockQuery = mock(Query.class);
+        when(entityManager.createNativeQuery(anyString())).thenReturn(mockQuery);
+        when(mockQuery.setParameter(anyString(), any())).thenReturn(mockQuery);
+        when(mockQuery.getSingleResult()).thenReturn(1L);
         when(journalEntryRepository.save(any(JournalEntry.class))).thenAnswer(inv -> {
             JournalEntry entry = inv.getArgument(0);
             if (entry.getId() == null) entry.setId(UUID.randomUUID());
@@ -190,8 +196,10 @@ class JournalServiceTest {
 
         when(journalEntryRepository.findByIdAndOrgId(original.getId(), orgId)).thenReturn(Optional.of(original));
         when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
-        when(sequenceRepository.findByOrgIdAndYear(eq(orgId), anyInt())).thenReturn(Optional.empty());
-        when(sequenceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        Query mockQuery = mock(Query.class);
+        when(entityManager.createNativeQuery(anyString())).thenReturn(mockQuery);
+        when(mockQuery.setParameter(anyString(), any())).thenReturn(mockQuery);
+        when(mockQuery.getSingleResult()).thenReturn(2L);
         when(journalEntryRepository.save(any(JournalEntry.class))).thenAnswer(inv -> {
             JournalEntry e = inv.getArgument(0);
             if (e.getId() == null) e.setId(UUID.randomUUID());
