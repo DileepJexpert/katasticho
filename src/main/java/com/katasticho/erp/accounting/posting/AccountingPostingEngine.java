@@ -395,15 +395,8 @@ public class AccountingPostingEngine {
     public JournalEntry postOpeningStock(UUID orgId, String itemSku, BigDecimal totalCost) {
         if (totalCost == null || totalCost.compareTo(BigDecimal.ZERO) <= 0) return null;
 
-        String inventoryCode;
-        String equityCode;
-        try {
-            inventoryCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.INVENTORY_ASSET);
-            equityCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.OPENING_BALANCE_EQUITY);
-        } catch (BusinessException e) {
-            log.warn("Opening stock journal skipped — accounts not configured: {}", e.getMessage());
-            return null;
-        }
+        String inventoryCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.INVENTORY_ASSET);
+        String equityCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.OPENING_BALANCE_EQUITY);
 
         List<JournalLineRequest> lines = List.of(
                 new JournalLineRequest(
