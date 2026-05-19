@@ -718,10 +718,12 @@ class _ImportResultPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final total = (result['totalRows'] as num?)?.toInt() ?? 0;
     final created = (result['created'] as num?)?.toInt() ?? 0;
     final skipped = (result['skipped'] as num?)?.toInt() ?? 0;
-    final errors = (result['errors'] as List?) ?? [];
+    final successRows = (result['successRows'] as List?) ?? [];
+    final failedRows = (result['failedRows'] as List?) ?? [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -742,7 +744,7 @@ class _ImportResultPanel extends StatelessWidget {
               child: _StatTile(
                 label: 'Created',
                 value: '$created',
-                color: KColors.success,
+                color: created > 0 ? KColors.success : KColors.textSecondary,
               ),
             ),
             KSpacing.hGapSm,
@@ -755,35 +757,143 @@ class _ImportResultPanel extends StatelessWidget {
             ),
           ],
         ),
-        if (errors.isNotEmpty) ...[
+
+        // ── Successfully created rows ───────────────────────
+        if (successRows.isNotEmpty) ...[
           KSpacing.vGapMd,
-          Text('Skipped rows', style: KTypography.labelLarge),
+          Text('Created items', style: KTypography.labelLarge),
           KSpacing.vGapSm,
-          ...errors.map((e) {
-            final err = e as Map<String, dynamic>;
-            final row = err['rowNumber'];
-            final sku = err['sku'] as String?;
-            final msg = err['message'] as String? ?? 'Unknown error';
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+              borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+              child: Column(
                 children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      size: 16, color: KColors.warning),
-                  KSpacing.hGapSm,
-                  Expanded(
-                    child: Text(
-                      'Row $row${sku != null ? " ($sku)" : ""}: $msg',
-                      style: KTypography.bodySmall,
-                    ),
-                  ),
+                  for (int i = 0; i < successRows.length; i++) ...[
+                    if (i > 0) Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.3)),
+                    _SuccessRowTile(row: successRows[i] as Map<String, dynamic>),
+                  ],
                 ],
               ),
+            ),
+          ),
+        ],
+
+        // ── Failed / skipped rows ───────────────────────────
+        if (failedRows.isNotEmpty) ...[
+          KSpacing.vGapMd,
+          Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, size: 18, color: KColors.warning),
+              KSpacing.hGapSm,
+              Text('Skipped rows — fix and re-import', style: KTypography.labelLarge),
+            ],
+          ),
+          KSpacing.vGapSm,
+          ...failedRows.map((e) {
+            final err = e as Map<String, dynamic>;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _FailedRowCard(row: err),
             );
           }),
         ],
       ],
+    );
+  }
+}
+
+class _SuccessRowTile extends StatelessWidget {
+  final Map<String, dynamic> row;
+  const _SuccessRowTile({required this.row});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final sku = row['sku'] as String? ?? '';
+    final name = row['name'] as String? ?? '';
+    final openingStock = row['openingStock'];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_outline, size: 16, color: KColors.success),
+          KSpacing.hGapSm,
+          Expanded(
+            child: Text(
+              '$sku — $name',
+              style: KTypography.bodySmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (openingStock != null && openingStock != 0)
+            Text(
+              'Stock: $openingStock',
+              style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FailedRowCard extends StatelessWidget {
+  final Map<String, dynamic> row;
+  const _FailedRowCard({required this.row});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final rowNum = row['rowNumber'];
+    final sku = row['sku'] as String? ?? '—';
+    final name = row['name'] as String? ?? '—';
+    final itemType = row['itemType'] as String?;
+    final errorMsg = row['errorMessage'] as String? ?? 'Unknown error';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: KColors.warning.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+        border: Border.all(color: KColors.warning.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, size: 16, color: KColors.warning),
+              KSpacing.hGapSm,
+              Text(
+                'Row $rowNum',
+                style: KTypography.labelSmall.copyWith(fontWeight: FontWeight.w700),
+              ),
+              KSpacing.hGapSm,
+              Expanded(
+                child: Text(
+                  '$sku — $name${itemType != null ? ' ($itemType)' : ''}',
+                  style: KTypography.bodySmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(left: 24),
+            child: Text(
+              errorMsg,
+              style: KTypography.bodySmall.copyWith(color: cs.error),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
