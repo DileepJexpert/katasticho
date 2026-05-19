@@ -17,6 +17,8 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -117,6 +119,7 @@ public class OrgBootstrapService {
         return new BootstrapAllResult(orgs.size(), ok, repaired, failed, results);
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public BootstrapResult bootstrap(Organisation org) {
         UUID orgId = org.getId();
         String industryCode = org.getIndustryCode();
