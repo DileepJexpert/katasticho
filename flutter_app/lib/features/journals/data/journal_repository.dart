@@ -76,18 +76,26 @@ class JournalListFilter {
     this.page = 0,
   });
 
+  static const _unset = Object();
+
   JournalListFilter copyWith({
-    String? sourceModule,
-    String? dateFrom,
-    String? dateTo,
-    String? search,
+    Object? sourceModule = _unset,
+    Object? dateFrom = _unset,
+    Object? dateTo = _unset,
+    Object? search = _unset,
     int? page,
   }) {
     return JournalListFilter(
-      sourceModule: sourceModule ?? this.sourceModule,
-      dateFrom: dateFrom ?? this.dateFrom,
-      dateTo: dateTo ?? this.dateTo,
-      search: search ?? this.search,
+      sourceModule: identical(sourceModule, _unset)
+          ? this.sourceModule
+          : sourceModule as String?,
+      dateFrom: identical(dateFrom, _unset)
+          ? this.dateFrom
+          : dateFrom as String?,
+      dateTo:
+          identical(dateTo, _unset) ? this.dateTo : dateTo as String?,
+      search:
+          identical(search, _unset) ? this.search : search as String?,
       page: page ?? this.page,
     );
   }
