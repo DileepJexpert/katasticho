@@ -278,14 +278,16 @@ public class AuthService {
             throw new BusinessException("Invalid credentials", "AUTH_BAD_CREDENTIALS", HttpStatus.UNAUTHORIZED);
         }
 
-        matched.resetFailedLogins();
-        matched.setLastLoginAt(Instant.now());
-        userRepository.save(matched);
+        AppUser authenticatedUser = matched;
+        authenticatedUser.resetFailedLogins();
+        authenticatedUser.setLastLoginAt(Instant.now());
+        userRepository.save(authenticatedUser);
 
-        Organisation org = organisationRepository.findById(matched.getOrgId())
-                .orElseThrow(() -> BusinessException.notFound("Organisation", matched.getOrgId()));
+        UUID authenticatedOrgId = authenticatedUser.getOrgId();
+        Organisation org = organisationRepository.findById(authenticatedOrgId)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", authenticatedOrgId));
 
-        return buildAuthResponse(matched, org);
+        return buildAuthResponse(authenticatedUser, org);
     }
 
     @Transactional
