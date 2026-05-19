@@ -230,10 +230,10 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        List<AppUser> loginMatches = userRepository.findAllByPhoneAndIsDeletedFalse(request.identifier());
-        if (loginMatches.isEmpty()) {
-            loginMatches = userRepository.findAllByEmailAndIsDeletedFalse(request.identifier());
-        }
+        List<AppUser> phoneMatches = userRepository.findAllByPhoneAndIsDeletedFalse(request.identifier());
+        List<AppUser> loginMatches = phoneMatches.isEmpty()
+                ? userRepository.findAllByEmailAndIsDeletedFalse(request.identifier())
+                : phoneMatches;
         if (loginMatches.isEmpty()) {
             throw new BusinessException(
                     "Invalid credentials", "AUTH_BAD_CREDENTIALS", HttpStatus.UNAUTHORIZED);
