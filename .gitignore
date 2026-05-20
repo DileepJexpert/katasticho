@@ -35,6 +35,11 @@ key.properties
 *.log
 logs/
 
+### Backups ###
+backups/
+*.dump
+*.dump.sha256
+
 ### Build ###
 build/
 out/
