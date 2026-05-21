@@ -5,20 +5,18 @@
 # ──────────────────────────────────────────────────────────────
 
 # ── Stage 1: Build ────────────────────────────────────────────
-FROM eclipse-temurin:21-jdk-alpine AS builder
+FROM maven:3.9.9-eclipse-temurin-21-alpine AS builder
 
 WORKDIR /build
 
-# Install Maven (the wrapper needs .mvn/ to exist)
-COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
-
 # Download dependencies first (cached layer)
-RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
+COPY .mvn/ .mvn/
+COPY pom.xml ./
+RUN mvn dependency:go-offline -B
 
 # Copy source and build
 COPY src/ src/
-RUN ./mvnw package -DskipTests -B && \
+RUN mvn package -DskipTests -B && \
     mv target/katasticho-erp-*.jar target/app.jar
 
 # ── Stage 2: Runtime ─────────────────────────────────────────
