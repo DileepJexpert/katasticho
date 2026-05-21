@@ -30,9 +30,9 @@ import java.util.UUID;
 public class DocumentShareService {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd MMM");
-    private static final String BRANDING = "\n\n\u2014 via Katasticho";
+    private static final String BRANDING = "\n\n\u2014 via Katixo";
 
-    @Value("${app.base-url:https://app.katasticho.com}")
+    @Value("${app.base-url:https://app.katixo.com}")
     private String appBaseUrl;
 
     private final InvoiceRepository invoiceRepository;

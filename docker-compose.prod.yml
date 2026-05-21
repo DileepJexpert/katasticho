@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────────────────────
-# Katasticho ERP — Production Docker Compose
+# Katixo ERP — Production Docker Compose
 # Usage: docker compose -f docker-compose.prod.yml up -d
 # ──────────────────────────────────────────────────────────────
 
@@ -8,22 +8,22 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: katasticho-app
+    container_name: katixo-app
     ports:
       - "${PORT:-8080}:8080"
     environment:
       SPRING_PROFILES_ACTIVE: prod
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${DB_NAME:-katasticho}
-      DB_USER: ${DB_USER:-katasticho}
+      DB_NAME: ${DB_NAME:-katixo}
+      DB_USER: ${DB_USER:-katixo}
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       CORS_DEV_MODE: "false"
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://app.katasticho.com,https://katasticho.com}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://app.katixo.com,https://katixo.com}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
       SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
@@ -50,15 +50,15 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: katasticho-db-prod
+    container_name: katixo-db-prod
     environment:
-      POSTGRES_DB: ${DB_NAME:-katasticho}
-      POSTGRES_USER: ${DB_USER:-katasticho}
+      POSTGRES_DB: ${DB_NAME:-katixo}
+      POSTGRES_USER: ${DB_USER:-katixo}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${DB_USER:-katasticho}"]
+      test: ["CMD", "pg_isready", "-U", "${DB_USER:-katixo}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -66,7 +66,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: katasticho-redis-prod
+    container_name: katixo-redis-prod
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     command: >

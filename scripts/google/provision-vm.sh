@@ -47,8 +47,8 @@ if [ ! -f .env ]; then
 SPRING_PROFILES_ACTIVE=prod
 DB_HOST=postgres
 DB_PORT=5432
-DB_NAME=katasticho
-DB_USER=katasticho
+DB_NAME=katixo
+DB_USER=katixo
 DB_PASSWORD=$DB_PASS
 REDIS_HOST=redis
 REDIS_PORT=6379

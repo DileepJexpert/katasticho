@@ -29,10 +29,10 @@ public class DocumentEmailService {
     private final EstimatePdfService estimatePdfService;
     private final OrganisationRepository organisationRepository;
 
-    @Value("${app.mail.from:noreply@katasticho.com}")
+    @Value("${app.mail.from:noreply@katixo.com}")
     private String fromAddress;
 
-    @Value("${app.mail.from-name:Katasticho}")
+    @Value("${app.mail.from-name:Katixo}")
     private String fromName;
 
     /**
@@ -149,7 +149,7 @@ public class DocumentEmailService {
                 + "<div class='w'>"
                 + "<div class='h'><h1>" + orgName + "</h1><p>" + docTitle + "</p></div>"
                 + "<div class='b'>" + body + "</div>"
-                + "<div class='f'>" + footer + "<br/>Powered by Katasticho</div>"
+                + "<div class='f'>" + footer + "<br/>Powered by Katixo</div>"
                 + "</div></body></html>";
     }
 

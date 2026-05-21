@@ -4,7 +4,7 @@ This is the recommended first deployment shape for the first 5-10 pilot customer
 
 ## Product Shape
 
-Katasticho remains a cloud SaaS product:
+Katixo remains a cloud SaaS product:
 
 - one backend API
 - one PostgreSQL database

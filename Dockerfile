@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────────────────────
-# Katasticho ERP — Multi-stage Docker build
+# Katixo ERP — Multi-stage Docker build
 # Stage 1: Maven build   (full JDK + Maven)
 # Stage 2: Runtime image  (slim JRE only)
 # ──────────────────────────────────────────────────────────────
