@@ -43,3 +43,4 @@ backups/
 ### Build ###
 build/
 out/
+flutter_app/*.zip
