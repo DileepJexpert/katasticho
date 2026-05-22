@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "app_user")
@@ -48,6 +49,9 @@ public class AppUser extends BaseEntity {
     @Column(name = "default_landing_page", length = 50)
     @Builder.Default
     private String defaultLandingPage = "/dashboard";
+
+    @Column(name = "ca_firm_id")
+    private UUID caFirmId;
 
     public boolean isLocked() {
         return lockedUntil != null && Instant.now().isBefore(lockedUntil);

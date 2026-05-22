@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -49,4 +50,10 @@ public interface AiSuggestionRepository extends JpaRepository<AiSuggestion, UUID
 
     List<AiSuggestion> findByOrgIdAndSuggestionTypeInAndStatusOrderByPriorityScoreDescCreatedAtDesc(
             UUID orgId, Collection<String> suggestionTypes, String status);
+
+    List<AiSuggestion> findByOrgIdInOrderByPriorityScoreDescCreatedAtDesc(Collection<UUID> orgIds);
+
+    List<AiSuggestion> findByOrgIdInAndStatusOrderByPriorityScoreDescCreatedAtDesc(Collection<UUID> orgIds, String status);
+
+    long countByOrgIdAndStatusAndPriorityAndCreatedAtBefore(UUID orgId, String status, String priority, Instant before);
 }

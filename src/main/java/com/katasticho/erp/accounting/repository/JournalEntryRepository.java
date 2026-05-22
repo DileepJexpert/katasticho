@@ -61,4 +61,6 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, UUID
 
     List<JournalEntry> findByOrgIdAndEffectiveDateBetweenOrderByEffectiveDateDescCreatedAtDesc(
             UUID orgId, LocalDate from, LocalDate to);
+
+    long countByOrgIdAndStatusAndCreatedAtBefore(UUID orgId, String status, java.time.Instant before);
 }

@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Collection;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,4 +23,6 @@ public interface BankTransactionRepository extends JpaRepository<BankTransaction
     List<BankTransaction> findByOrgIdAndIdIn(UUID orgId, Collection<UUID> ids);
 
     boolean existsByOrgIdAndUtrAndDirection(UUID orgId, String utr, String direction);
+
+    long countByOrgIdAndStatusAndTransactionDateBefore(UUID orgId, String status, LocalDate date);
 }

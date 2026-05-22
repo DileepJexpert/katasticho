@@ -101,6 +101,7 @@ import '../features/inventory/presentation/near_expiry_screen.dart';
 import '../features/inventory/presentation/reorder_screen.dart';
 import '../features/team/presentation/team_screen.dart';
 import '../features/settings/presentation/ai_model_settings_screen.dart';
+import '../features/ca_console/presentation/ca_console_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -217,6 +218,10 @@ class Routes {
   static const journalEntryCreate = '/accounting/journal-entries/create';
   static const journalEntryDetail = '/accounting/journal-entries/:id';
   static const periodClose = '/accounting/period-close';
+  static const caConsole = '/ca';
+  static const caCalendar = '/ca/calendar';
+  static const caAlerts = '/ca/alerts';
+  static const caReports = '/ca/reports';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -247,13 +252,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (isAuthenticated && isAuthRoute) {
+        final role = authState.role?.toUpperCase();
         return onboardingCompleted
-            ? Routes.dashboard
+            ? (role == 'CA_PARTNER' || role == 'CA_STAFF'
+                ? Routes.caConsole
+                : Routes.dashboard)
             : Routes.onboardingBusinessType;
       }
 
       if (isAuthenticated && !onboardingCompleted && !isOnboardingRoute) {
         return Routes.onboardingBusinessType;
+      }
+
+      final role = authState.role?.toUpperCase();
+      if (isAuthenticated &&
+          onboardingCompleted &&
+          loc == Routes.dashboard &&
+          (role == 'CA_PARTNER' || role == 'CA_STAFF')) {
+        return Routes.caConsole;
       }
 
       return null;
@@ -317,6 +333,30 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.dashboard,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: DashboardScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.caConsole,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: CaConsoleScreen(initialTab: 0),
+            ),
+          ),
+          GoRoute(
+            path: Routes.caCalendar,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: CaConsoleScreen(initialTab: 1),
+            ),
+          ),
+          GoRoute(
+            path: Routes.caAlerts,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: CaConsoleScreen(initialTab: 2),
+            ),
+          ),
+          GoRoute(
+            path: Routes.caReports,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: CaConsoleScreen(initialTab: 3),
             ),
           ),
           GoRoute(

@@ -32,7 +32,8 @@ public class SubscriptionEntitlementService {
             ModuleCode.RECURRING_BILLING,
             ModuleCode.MULTI_ENTITY,
             ModuleCode.PAYMENTS,
-            ModuleCode.BATCH_EXPIRY
+            ModuleCode.BATCH_EXPIRY,
+            ModuleCode.CA_CONSOLE
     );
 
     private static final Map<String, Set<String>> PLAN_ENTITLEMENTS = Map.of(

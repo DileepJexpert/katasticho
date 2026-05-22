@@ -30,4 +30,6 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
     List<AppUser> findAllByEmailAndIsDeletedFalse(String email);
 
     List<AppUser> findByOrgIdAndIsDeletedFalseOrderByRoleAscFullNameAsc(UUID orgId);
+
+    List<AppUser> findByCaFirmIdAndIsDeletedFalseOrderByRoleAscFullNameAsc(UUID caFirmId);
 }

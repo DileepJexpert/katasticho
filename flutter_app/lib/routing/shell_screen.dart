@@ -73,6 +73,13 @@ const _dashboardNavItem = NavItem(
   route: Routes.dashboard,
 );
 
+const _caConsoleNavItem = NavItem(
+  label: 'CA Console',
+  icon: Icons.account_balance_outlined,
+  activeIcon: Icons.account_balance_rounded,
+  route: Routes.caConsole,
+);
+
 const _aiCommandCenterNavItem = NavItem(
   label: 'AI Command Center',
   icon: Icons.auto_awesome_outlined,
@@ -754,6 +761,36 @@ List<Widget> _buildSidebarSections({
   required bool collapsed,
   required String role,
 }) {
+  final isCaUser = role == 'CA_PARTNER' || role == 'CA_STAFF';
+  if (isCaUser) {
+    return [
+      _SidebarNavItem(item: _caConsoleNavItem, collapsed: collapsed),
+      _SidebarNavItem(
+          item: const NavItem(
+              label: 'Calendar',
+              icon: Icons.calendar_month_outlined,
+              activeIcon: Icons.calendar_month_rounded,
+              route: Routes.caCalendar),
+          collapsed: collapsed),
+      _SidebarNavItem(
+          item: const NavItem(
+              label: 'Alerts',
+              icon: Icons.notifications_active_outlined,
+              activeIcon: Icons.notifications_active_rounded,
+              route: Routes.caAlerts),
+          collapsed: collapsed),
+      _SidebarNavItem(
+          item: const NavItem(
+              label: 'Reports',
+              icon: Icons.send_outlined,
+              activeIcon: Icons.send_rounded,
+              route: Routes.caReports),
+          collapsed: collapsed),
+      KSpacing.vGapSm,
+      _SidebarNavItem(item: _settingsNavItem, collapsed: collapsed),
+    ];
+  }
+
   // Role hierarchy (highest to lowest):
   // OWNER → ADMIN → ACCOUNTANT → OPERATOR → VIEWER
   final canManage = role == 'OWNER' || role == 'ADMIN';

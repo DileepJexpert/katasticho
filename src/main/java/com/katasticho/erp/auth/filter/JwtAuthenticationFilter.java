@@ -3,6 +3,7 @@ package com.katasticho.erp.auth.filter;
 import com.katasticho.erp.auth.entity.AppUser;
 import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.auth.service.JwtService;
+import com.katasticho.erp.ca.repository.CaClientLinkRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.service.OrgBootstrapService;
 import io.jsonwebtoken.Claims;
@@ -31,6 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final OrgBootstrapService orgBootstrapService;
     private final AppUserRepository userRepository;
+    private final CaClientLinkRepository caClientLinkRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -57,6 +59,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     response.setStatus(HttpStatus.UNAUTHORIZED.value());
                     response.setContentType("application/json");
                     response.getWriter().write("{\"error\":\"AUTH_ACCOUNT_INACTIVE\",\"message\":\"Account is deactivated or deleted\"}");
+                    return;
+                }
+
+                if ("CA_EXTERNAL".equals(role) && (user.getCaFirmId() == null ||
+                        !caClientLinkRepository.existsActiveDelegatedAccess(user.getCaFirmId(), orgId))) {
+                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\":\"CA_DELEGATED_ACCESS_INVALID\",\"message\":\"CA delegated access is not active for this client\"}");
                     return;
                 }
 

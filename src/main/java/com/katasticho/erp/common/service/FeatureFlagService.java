@@ -185,6 +185,7 @@ public class FeatureFlagService {
         flags.put(ModuleCode.RECURRING_BILLING, true);
         flags.put(ModuleCode.MULTI_ENTITY, true);
         flags.put(ModuleCode.BATCH_EXPIRY, true);
+        flags.put(ModuleCode.CA_CONSOLE, true);
         flags.put("BATCH_TRACKING", false);
         flags.put("EXPIRY_TRACKING", false);
         flags.put("MRP_PRICING", false);
