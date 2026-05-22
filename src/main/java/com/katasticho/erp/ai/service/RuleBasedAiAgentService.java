@@ -9,6 +9,9 @@ import com.katasticho.erp.ar.repository.InvoiceLineRepository;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.entity.GstTreatment;
+import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.StockMovement;
 import com.katasticho.erp.inventory.repository.StockMovementRepository;
@@ -36,9 +39,23 @@ public class RuleBasedAiAgentService {
     private static final BigDecimal LARGE_STOCK_COST_THRESHOLD = new BigDecimal("5000.00");
     private static final BigDecimal LARGE_STOCK_QTY_THRESHOLD = new BigDecimal("100.00");
     private static final Set<String> OPEN_STATUSES = Set.of("PENDING", "DEFERRED");
+    private static final Set<BigDecimal> VALID_GST_RATES = Set.of(
+            new BigDecimal("0.00"),
+            new BigDecimal("0.10"),
+            new BigDecimal("0.25"),
+            new BigDecimal("1.00"),
+            new BigDecimal("1.50"),
+            new BigDecimal("3.00"),
+            new BigDecimal("5.00"),
+            new BigDecimal("6.00"),
+            new BigDecimal("12.00"),
+            new BigDecimal("18.00"),
+            new BigDecimal("28.00")
+    );
 
     private final InvoiceRepository invoiceRepository;
     private final InvoiceLineRepository invoiceLineRepository;
+    private final ContactRepository contactRepository;
     private final StockMovementRepository stockMovementRepository;
     private final AiSuggestionRepository aiSuggestionRepository;
     private final AiTelemetryService aiTelemetryService;
@@ -65,6 +82,7 @@ public class RuleBasedAiAgentService {
         long started = System.nanoTime();
         try {
             scanHighValueInvoices(orgId, invoices, counter);
+            scanInvoiceHeaderIssues(orgId, invoices, counter);
             scanInvoiceLineTaxIssues(orgId, lines, counter);
             scanStockMovementIssues(orgId, movements, counter);
         } finally {
@@ -111,6 +129,7 @@ public class RuleBasedAiAgentService {
         Counter counter = new Counter();
         try {
             scanHighValueInvoices(orgId, List.of(invoice), counter);
+            scanInvoiceHeaderIssues(orgId, List.of(invoice), counter);
             scanInvoiceLineTaxIssues(orgId, lines, counter);
         } finally {
             recordRuleRun(
@@ -127,6 +146,105 @@ public class RuleBasedAiAgentService {
             );
         }
         return counter.created;
+    }
+
+    private void scanInvoiceHeaderIssues(UUID orgId, List<Invoice> invoices, Counter counter) {
+        for (Invoice invoice : invoices) {
+            Contact contact = invoice.getContactId() == null
+                    ? null
+                    : contactRepository.findByIdAndOrgIdAndIsDeletedFalse(invoice.getContactId(), orgId).orElse(null);
+            if (contact != null) {
+                scanContactGstIssues(orgId, invoice, contact, counter);
+            }
+            scanDuplicateInvoice(orgId, invoice, counter);
+        }
+    }
+
+    private void scanContactGstIssues(UUID orgId, Invoice invoice, Contact contact, Counter counter) {
+        String gstin = contact.getGstin();
+        boolean hasGstin = gstin != null && !gstin.isBlank();
+        boolean registered = contact.getGstTreatment() == GstTreatment.REGISTERED;
+
+        if (registered && !hasGstin) {
+            createIfNew(
+                    orgId,
+                    "INVOICE",
+                    invoice.getId(),
+                    null,
+                    "B2B_INVOICE_WITHOUT_GSTIN",
+                    "REVIEW_CUSTOMER_GSTIN",
+                    "Registered customer invoice is missing GSTIN. It may be excluded from B2B GST reporting.",
+                    "HIGH",
+                    new BigDecimal("84.000"),
+                    new BigDecimal("0.900"),
+                    Map.of(
+                            "title", "Registered customer missing GSTIN",
+                            "sourceNumber", invoice.getInvoiceNumber(),
+                            "invoiceNumber", invoice.getInvoiceNumber(),
+                            "contactId", contact.getId().toString(),
+                            "customerName", contact.getDisplayName()
+                    ),
+                    counter
+            );
+        }
+
+        if (hasGstin && !isValidGstin(gstin)) {
+            createIfNew(
+                    orgId,
+                    "INVOICE",
+                    invoice.getId(),
+                    null,
+                    "INVALID_GSTIN",
+                    "REVIEW_CUSTOMER_GSTIN",
+                    "Customer GSTIN does not match the expected 15-character GSTIN format.",
+                    "HIGH",
+                    new BigDecimal("83.000"),
+                    new BigDecimal("0.920"),
+                    Map.of(
+                            "title", "Invalid customer GSTIN",
+                            "sourceNumber", invoice.getInvoiceNumber(),
+                            "invoiceNumber", invoice.getInvoiceNumber(),
+                            "contactId", contact.getId().toString(),
+                            "customerName", contact.getDisplayName(),
+                            "gstin", gstin
+                    ),
+                    counter
+            );
+        }
+    }
+
+    private void scanDuplicateInvoice(UUID orgId, Invoice invoice, Counter counter) {
+        if (invoice.getContactId() == null || invoice.getInvoiceDate() == null || invoice.getTotalAmount() == null) {
+            return;
+        }
+        List<Invoice> duplicates = invoiceRepository.findPotentialDuplicates(
+                orgId, invoice.getId(), invoice.getContactId(), invoice.getInvoiceDate(), invoice.getTotalAmount());
+        if (duplicates == null || duplicates.isEmpty()) {
+            return;
+        }
+        createIfNew(
+                orgId,
+                "INVOICE",
+                invoice.getId(),
+                null,
+                "DUPLICATE_INVOICE",
+                "REVIEW_DUPLICATE_INVOICE",
+                "Another posted invoice has the same customer, date, and total amount.",
+                "MEDIUM",
+                new BigDecimal("72.000"),
+                new BigDecimal("0.820"),
+                Map.of(
+                        "title", "Possible duplicate invoice",
+                        "sourceNumber", invoice.getInvoiceNumber(),
+                        "invoiceNumber", invoice.getInvoiceNumber(),
+                        "matchingInvoiceNumbers", duplicates.stream()
+                                .map(Invoice::getInvoiceNumber)
+                                .limit(5)
+                                .toList(),
+                        "totalAmount", invoice.getTotalAmount()
+                ),
+                counter
+        );
     }
 
     private void scanHighValueInvoices(UUID orgId, List<Invoice> invoices, Counter counter) {
@@ -189,6 +307,30 @@ public class RuleBasedAiAgentService {
             }
 
             if (hasTaxableValue && line.getGstRate() != null && line.getTaxAmount() != null) {
+                BigDecimal normalizedRate = line.getGstRate().setScale(2, RoundingMode.HALF_UP);
+                if (!VALID_GST_RATES.contains(normalizedRate)) {
+                    createIfNew(
+                            orgId,
+                            "INVOICE",
+                            invoice.getId(),
+                            line.getId(),
+                            "INVALID_GST_RATE",
+                            "REVIEW_GST_RATE",
+                            "Invoice line uses a GST rate that is not in the configured India GST review set.",
+                            "MEDIUM",
+                            new BigDecimal("69.000"),
+                            new BigDecimal("0.860"),
+                            Map.of(
+                                    "title", "Unusual GST rate",
+                                    "sourceNumber", invoice.getInvoiceNumber(),
+                                    "invoiceNumber", invoice.getInvoiceNumber(),
+                                    "lineNumber", line.getLineNumber(),
+                                    "description", line.getDescription(),
+                                    "gstRate", line.getGstRate()
+                            ),
+                            counter
+                    );
+                }
                 BigDecimal expectedTax = line.getTaxableAmount()
                         .multiply(line.getGstRate())
                         .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
@@ -306,6 +448,11 @@ public class RuleBasedAiAgentService {
 
     private boolean positive(BigDecimal value) {
         return value != null && value.signum() > 0;
+    }
+
+    private boolean isValidGstin(String gstin) {
+        return gstin != null
+                && gstin.trim().toUpperCase().matches("^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$");
     }
 
     private BigDecimal abs(BigDecimal value) {

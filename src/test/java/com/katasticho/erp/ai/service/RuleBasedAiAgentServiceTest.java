@@ -6,6 +6,9 @@ import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.entity.InvoiceLine;
 import com.katasticho.erp.ar.repository.InvoiceLineRepository;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.entity.GstTreatment;
+import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.inventory.repository.StockMovementRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -21,6 +24,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -30,6 +34,7 @@ class RuleBasedAiAgentServiceTest {
 
     private final InvoiceRepository invoiceRepository = mock(InvoiceRepository.class);
     private final InvoiceLineRepository invoiceLineRepository = mock(InvoiceLineRepository.class);
+    private final ContactRepository contactRepository = mock(ContactRepository.class);
     private final StockMovementRepository stockMovementRepository = mock(StockMovementRepository.class);
     private final AiSuggestionRepository aiSuggestionRepository = mock(AiSuggestionRepository.class);
     private final AiTelemetryService aiTelemetryService = mock(AiTelemetryService.class);
@@ -38,6 +43,7 @@ class RuleBasedAiAgentServiceTest {
     private final RuleBasedAiAgentService service = new RuleBasedAiAgentService(
             invoiceRepository,
             invoiceLineRepository,
+            contactRepository,
             stockMovementRepository,
             aiSuggestionRepository,
             aiTelemetryService,
@@ -142,5 +148,46 @@ class RuleBasedAiAgentServiceTest {
         int created = service.scanPostedInvoice(orgId, invoiceId);
 
         assertThat(created).isZero();
+    }
+
+    @Test
+    void scanPostedInvoiceCreatesRegisteredCustomerGstSuggestions() {
+        UUID orgId = UUID.randomUUID();
+        UUID invoiceId = UUID.randomUUID();
+        UUID contactId = UUID.randomUUID();
+        Invoice invoice = Invoice.builder()
+                .id(invoiceId)
+                .orgId(orgId)
+                .contactId(contactId)
+                .invoiceNumber("INV-2")
+                .invoiceDate(LocalDate.of(2026, 5, 13))
+                .status("SENT")
+                .totalAmount(new BigDecimal("1180.00"))
+                .build();
+        Contact contact = Contact.builder()
+                .displayName("Registered Customer")
+                .gstTreatment(GstTreatment.REGISTERED)
+                .gstin("")
+                .build();
+        contact.setId(contactId);
+        contact.setOrgId(orgId);
+
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)).thenReturn(Optional.of(invoice));
+        when(invoiceLineRepository.findByInvoiceIdOrderByLineNumber(invoiceId)).thenReturn(List.of());
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId)).thenReturn(Optional.of(contact));
+        when(invoiceRepository.findPotentialDuplicates(eq(orgId), eq(invoiceId), eq(contactId), any(), any()))
+                .thenReturn(List.of());
+        when(aiSuggestionRepository.existsOpenSuggestion(
+                eq(orgId), eq("INVOICE"), eq(invoiceId), isNull(), eq("B2B_INVOICE_WITHOUT_GSTIN"), any(Collection.class)))
+                .thenReturn(false);
+        when(aiModelRegistryService.getActiveModel("INVOICE_REVIEW"))
+                .thenReturn(new ActiveAiModel("INVOICE_REVIEW", "deterministic_rules", "1", "internal"));
+
+        int created = service.scanPostedInvoice(orgId, invoiceId);
+
+        assertThat(created).isEqualTo(1);
+        ArgumentCaptor<AiSuggestion> captor = ArgumentCaptor.forClass(AiSuggestion.class);
+        verify(aiSuggestionRepository).save(captor.capture());
+        assertThat(captor.getValue().getSuggestionType()).isEqualTo("B2B_INVOICE_WITHOUT_GSTIN");
     }
 }

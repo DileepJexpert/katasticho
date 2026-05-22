@@ -36,31 +36,34 @@ public class GstReviewService {
     @Transactional(readOnly = true)
     public GstReviewSummaryResponse reviewCenter(String status) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        List<AiSuggestion> suggestions = (status == null || status.isBlank())
-                ? aiSuggestionRepository.findByOrgIdAndSuggestionTypeInOrderByPriorityScoreDescCreatedAtDesc(
-                        orgId, GST_SUGGESTION_TYPES)
-                : aiSuggestionRepository.findByOrgIdAndSuggestionTypeInAndStatusOrderByPriorityScoreDescCreatedAtDesc(
-                        orgId, GST_SUGGESTION_TYPES, status);
+        List<AiSuggestion> allSuggestions =
+                aiSuggestionRepository.findByOrgIdAndSuggestionTypeInOrderByPriorityScoreDescCreatedAtDesc(
+                        orgId, GST_SUGGESTION_TYPES);
+        List<AiSuggestion> issues = (status == null || status.isBlank())
+                ? allSuggestions
+                : allSuggestions.stream()
+                        .filter(s -> status.trim().equalsIgnoreCase(s.getStatus()))
+                        .toList();
 
-        Map<String, Long> byCategory = suggestions.stream()
+        Map<String, Long> byCategory = allSuggestions.stream()
                 .collect(Collectors.groupingBy(
                         AiSuggestion::getSuggestionType,
                         LinkedHashMap::new,
                         Collectors.counting()));
 
-        long pending = suggestions.stream().filter(s -> "PENDING".equals(s.getStatus())).count();
-        long critical = suggestions.stream().filter(s -> "CRITICAL".equals(s.getPriority())).count();
-        long high = suggestions.stream().filter(s -> "HIGH".equals(s.getPriority())).count();
-        long reviewed = suggestions.size() - pending;
+        long pending = allSuggestions.stream().filter(s -> "PENDING".equals(s.getStatus())).count();
+        long critical = allSuggestions.stream().filter(s -> "CRITICAL".equals(s.getPriority())).count();
+        long high = allSuggestions.stream().filter(s -> "HIGH".equals(s.getPriority())).count();
+        long reviewed = allSuggestions.size() - pending;
 
         return new GstReviewSummaryResponse(
-                suggestions.size(),
+                allSuggestions.size(),
                 pending,
                 critical,
                 high,
                 reviewed,
                 byCategory,
-                suggestions.stream().map(GstReviewIssueResponse::from).toList()
+                issues.stream().map(GstReviewIssueResponse::from).toList()
         );
     }
 }

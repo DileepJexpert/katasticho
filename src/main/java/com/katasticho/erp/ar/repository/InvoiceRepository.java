@@ -251,4 +251,17 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
         ORDER BY i.invoiceDate DESC, i.createdAt DESC
     """)
     List<Invoice> findPostedByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
+
+    @Query("""
+        SELECT i FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.isDeleted = false
+          AND i.id <> :invoiceId
+          AND i.status NOT IN ('DRAFT','CANCELLED')
+          AND i.contactId = :contactId
+          AND i.invoiceDate = :invoiceDate
+          AND i.totalAmount = :totalAmount
+    """)
+    List<Invoice> findPotentialDuplicates(UUID orgId, UUID invoiceId, UUID contactId,
+                                           LocalDate invoiceDate, BigDecimal totalAmount);
 }

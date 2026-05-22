@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
@@ -885,6 +886,11 @@ class _GstReviewTabState extends ConsumerState<_GstReviewTab> {
     try {
       await ref.read(gstRepositoryProvider).reviewSuggestion(id, action: action);
       await widget.onReviewed();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update GST issue: $e')),
+      );
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
@@ -955,6 +961,8 @@ class _GstReviewTabState extends ConsumerState<_GstReviewTab> {
             final category = issue['category']?.toString() ?? '';
             final reasoning = issue['reasoning']?.toString() ?? '';
             final source = issue['sourceNumber']?.toString();
+            final entityType = issue['entityType']?.toString();
+            final entityId = issue['entityId']?.toString();
             final isBusy = _busyId == id;
             final color = priority == 'CRITICAL'
                 ? KColors.error
@@ -965,58 +973,63 @@ class _GstReviewTabState extends ConsumerState<_GstReviewTab> {
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: KCard(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.fact_check_outlined, color: color),
-                    KSpacing.hGapMd,
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                  child: Text(title,
-                                      style: KTypography.labelLarge)),
-                              KStatusChip(status: priority, label: priority),
+                child: InkWell(
+                  onTap: entityType == 'INVOICE' && entityId != null
+                      ? () => context.push('/invoices/$entityId')
+                      : null,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.fact_check_outlined, color: color),
+                      KSpacing.hGapMd,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                    child: Text(title,
+                                        style: KTypography.labelLarge)),
+                                KStatusChip(status: priority, label: priority),
+                              ],
+                            ),
+                            KSpacing.vGapXs,
+                            Text(category.replaceAll('_', ' '),
+                                style: KTypography.labelSmall
+                                    .copyWith(color: KColors.textHint)),
+                            if (source != null && source.isNotEmpty)
+                              Text(source, style: KTypography.bodySmall),
+                            if (reasoning.isNotEmpty) ...[
+                              KSpacing.vGapXs,
+                              Text(reasoning, style: KTypography.bodySmall),
                             ],
+                          ],
+                        ),
+                      ),
+                      KSpacing.hGapMd,
+                      Column(
+                        children: [
+                          KButton(
+                            label: 'Accept',
+                            icon: Icons.check_rounded,
+                            size: KButtonSize.small,
+                            onPressed:
+                                isBusy ? null : () => _review(id, 'ACCEPT'),
                           ),
                           KSpacing.vGapXs,
-                          Text(category.replaceAll('_', ' '),
-                              style: KTypography.labelSmall
-                                  .copyWith(color: KColors.textHint)),
-                          if (source != null && source.isNotEmpty)
-                            Text(source, style: KTypography.bodySmall),
-                          if (reasoning.isNotEmpty) ...[
-                            KSpacing.vGapXs,
-                            Text(reasoning, style: KTypography.bodySmall),
-                          ],
+                          KButton(
+                            label: 'Ignore',
+                            icon: Icons.close_rounded,
+                            variant: KButtonVariant.outlined,
+                            size: KButtonSize.small,
+                            onPressed:
+                                isBusy ? null : () => _review(id, 'REJECT'),
+                          ),
                         ],
                       ),
-                    ),
-                    KSpacing.hGapMd,
-                    Column(
-                      children: [
-                        KButton(
-                          label: 'Accept',
-                          icon: Icons.check_rounded,
-                          size: KButtonSize.small,
-                          onPressed:
-                              isBusy ? null : () => _review(id, 'ACCEPTED'),
-                        ),
-                        KSpacing.vGapXs,
-                        KButton(
-                          label: 'Ignore',
-                          icon: Icons.close_rounded,
-                          variant: KButtonVariant.outlined,
-                          size: KButtonSize.small,
-                          onPressed:
-                              isBusy ? null : () => _review(id, 'REJECTED'),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );
