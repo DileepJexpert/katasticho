@@ -30,6 +30,13 @@ class ApiConfig {
   // Accounting
   static const String chartOfAccounts = '/api/v1/accounts';
   static const String journalEntries = '/api/v1/journal-entries';
+  static const String fiscalPeriods = '/api/v1/accounting/periods';
+  static String closeFiscalPeriod(int year, int month) =>
+      '/api/v1/accounting/periods/$year/$month/close';
+  static String reopenFiscalPeriod(int year, int month) =>
+      '/api/v1/accounting/periods/$year/$month/reopen';
+  static String lockFiscalPeriod(int year, int month) =>
+      '/api/v1/accounting/periods/$year/$month/lock';
 
   // Reports
   static const String trialBalance = '/api/v1/reports/trial-balance';
@@ -64,6 +71,7 @@ class ApiConfig {
   // GST Returns
   static const String gstr1 = '/api/v1/gst/gstr1';
   static const String gstr3b = '/api/v1/gst/gstr3b';
+  static const String gstReviewCenter = '/api/v1/gst/review-center';
   static const String gstr1Export = '/api/v1/gst/gstr1/export';
   static const String gstr3bExport = '/api/v1/gst/gstr3b/export';
 

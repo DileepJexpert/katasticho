@@ -3,6 +3,7 @@ package com.katasticho.erp.accounting.service;
 import com.katasticho.erp.accounting.dto.JournalLineRequest;
 import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.Account;
+import com.katasticho.erp.accounting.entity.FiscalPeriod;
 import com.katasticho.erp.accounting.entity.JournalEntry;
 import com.katasticho.erp.accounting.repository.*;
 import com.katasticho.erp.audit.AuditService;
@@ -53,7 +54,7 @@ class JournalServiceTest {
     void setUp() {
         journalService = new JournalService(
                 journalEntryRepository, journalLineRepository, accountRepository,
-                fiscalPeriodRepository, organisationRepository,
+                new FiscalPeriodService(fiscalPeriodRepository), organisationRepository,
                 new SimpleCurrencyService(), auditService);
         ReflectionTestUtils.setField(journalService, "entityManager", entityManager);
 
@@ -225,6 +226,30 @@ class JournalServiceTest {
 
         // Original should be marked as reversed
         assertTrue(original.isReversed());
+    }
+
+    @Test
+    void shouldRejectPostingDraftIntoClosedPeriod() {
+        JournalEntry draft = JournalEntry.builder()
+                .orgId(orgId).entryNumber("JE-2026-000001").effectiveDate(LocalDate.of(2026, 5, 10))
+                .sourceModule("MANUAL").status("DRAFT")
+                .periodYear(2026).periodMonth(5).createdBy(userId)
+                .build();
+        draft.setId(UUID.randomUUID());
+
+        FiscalPeriod closed = FiscalPeriod.builder()
+                .orgId(orgId)
+                .periodYear(2026)
+                .periodMonth(5)
+                .status("CLOSED")
+                .build();
+
+        when(journalEntryRepository.findByIdAndOrgId(draft.getId(), orgId)).thenReturn(Optional.of(draft));
+        when(fiscalPeriodRepository.findByOrgIdAndPeriodYearAndPeriodMonth(orgId, 2026, 5))
+                .thenReturn(Optional.of(closed));
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> journalService.postEntry(draft.getId()));
+        assertEquals("ACCT_PERIOD_CLOSED", ex.getErrorCode());
     }
 
     // Test that non-existent account code is rejected

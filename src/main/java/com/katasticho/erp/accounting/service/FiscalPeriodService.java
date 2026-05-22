@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -19,6 +20,12 @@ import java.util.UUID;
 public class FiscalPeriodService {
 
     private final FiscalPeriodRepository fiscalPeriodRepository;
+
+    @Transactional(readOnly = true)
+    public List<FiscalPeriod> listPeriods() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        return fiscalPeriodRepository.findByOrgIdOrderByPeriodYearDescPeriodMonthDesc(orgId);
+    }
 
     @Transactional
     public FiscalPeriod closePeriod(int periodYear, int periodMonth) {
@@ -97,5 +104,18 @@ public class FiscalPeriodService {
 
         log.info("Fiscal period {}-{} locked for org {}", periodYear, periodMonth, orgId);
         return period;
+    }
+
+    @Transactional(readOnly = true)
+    public void requireOpen(UUID orgId, int periodYear, int periodMonth) {
+        fiscalPeriodRepository.findByOrgIdAndPeriodYearAndPeriodMonth(orgId, periodYear, periodMonth)
+                .ifPresent(fp -> {
+                    if (fp.isClosed()) {
+                        throw new BusinessException(
+                                "Fiscal period " + periodYear + "-" + String.format("%02d", periodMonth)
+                                        + " is " + fp.getStatus().toLowerCase() + ". Reopen it before posting.",
+                                "ACCT_PERIOD_CLOSED", HttpStatus.CONFLICT);
+                    }
+                });
     }
 }

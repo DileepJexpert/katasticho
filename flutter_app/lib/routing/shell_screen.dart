@@ -304,6 +304,11 @@ const _accountingGroup = NavGroup(
         activeIcon: Icons.menu_book_rounded,
         route: Routes.creditLedger),
     NavItem(
+        label: 'Period Close',
+        icon: Icons.event_busy_outlined,
+        activeIcon: Icons.event_busy_rounded,
+        route: Routes.periodClose),
+    NavItem(
         label: 'GST',
         icon: Icons.percent_outlined,
         activeIcon: Icons.percent_rounded,

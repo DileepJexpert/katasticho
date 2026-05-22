@@ -2,6 +2,10 @@ package com.katasticho.erp.gst.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
+import com.katasticho.erp.gst.dto.GstReviewSummaryResponse;
+import com.katasticho.erp.gst.service.GstReviewService;
 import com.katasticho.erp.gst.service.GstService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -15,10 +19,19 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/gst")
 @RequiredArgsConstructor
+@RequiresModule(ModuleCode.GST)
 public class GstController {
 
     private final GstService gstService;
+    private final GstReviewService gstReviewService;
     private final ObjectMapper objectMapper;
+
+    @GetMapping("/review-center")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
+    public ResponseEntity<ApiResponse<GstReviewSummaryResponse>> reviewCenter(
+            @RequestParam(required = false) String status) {
+        return ResponseEntity.ok(ApiResponse.ok(gstReviewService.reviewCenter(status)));
+    }
 
     @GetMapping("/gstr1")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")

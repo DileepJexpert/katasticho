@@ -23,6 +23,7 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
   late int _month;
   Map<String, dynamic>? _gstr1;
   Map<String, dynamic>? _gstr3b;
+  Map<String, dynamic>? _review;
   bool _isLoading = false;
   String? _error;
   late TabController _tabController;
@@ -30,7 +31,7 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     final now = DateTime.now();
     _year = now.month == 1 ? now.year - 1 : now.year;
     _month = now.month == 1 ? 12 : now.month - 1;
@@ -53,10 +54,12 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
       final results = await Future.wait([
         repo.getGstr1(year: _year, month: _month),
         repo.getGstr3b(year: _year, month: _month),
+        repo.getReviewCenter(status: 'PENDING'),
       ]);
       setState(() {
         _gstr1 = (results[0]['data'] ?? results[0]) as Map<String, dynamic>;
         _gstr3b = (results[1]['data'] ?? results[1]) as Map<String, dynamic>;
+        _review = (results[2]['data'] ?? results[2]) as Map<String, dynamic>;
       });
     } catch (e) {
       setState(() => _error = 'Failed to load GST data');
@@ -100,7 +103,6 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
     final data = type == 'GSTR-1' ? _gstr1 : _gstr3b;
     if (data == null) return;
     final pretty = const JsonEncoder.withIndent('  ').convert(data);
-    final filename = '${type.replaceAll('-', '')}_${_year}_${_month.toString().padLeft(2, '0')}.json';
     await Share.share(
       pretty,
       subject: '$type Export — ${_months[_month - 1]} $_year',
@@ -117,6 +119,7 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
           tabs: const [
             Tab(text: 'GSTR-3B'),
             Tab(text: 'GSTR-1'),
+            Tab(text: 'Review'),
           ],
         ),
       ),
@@ -146,6 +149,10 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
                       month: _month,
                       year: _year,
                       onExport: () => _exportJson('GSTR-1'),
+                    ),
+                    _GstReviewTab(
+                      data: _review,
+                      onReviewed: _loadData,
                     ),
                   ],
                 ),
@@ -856,6 +863,165 @@ class _GstStatCard extends StatelessWidget {
                           .copyWith(color: KColors.textHint)),
               ],
             ),
+    );
+  }
+}
+
+class _GstReviewTab extends ConsumerStatefulWidget {
+  final Map<String, dynamic>? data;
+  final Future<void> Function() onReviewed;
+
+  const _GstReviewTab({required this.data, required this.onReviewed});
+
+  @override
+  ConsumerState<_GstReviewTab> createState() => _GstReviewTabState();
+}
+
+class _GstReviewTabState extends ConsumerState<_GstReviewTab> {
+  String? _busyId;
+
+  Future<void> _review(String id, String action) async {
+    setState(() => _busyId = id);
+    try {
+      await ref.read(gstRepositoryProvider).reviewSuggestion(id, action: action);
+      await widget.onReviewed();
+    } finally {
+      if (mounted) setState(() => _busyId = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = widget.data;
+    if (data == null) return const SizedBox.shrink();
+
+    final issues = (data['issues'] as List?) ?? const [];
+    final pending = (data['pendingIssues'] as num?)?.toInt() ?? 0;
+    final critical = (data['criticalIssues'] as num?)?.toInt() ?? 0;
+    final high = (data['highIssues'] as num?)?.toInt() ?? 0;
+    final reviewed = (data['reviewedIssues'] as num?)?.toInt() ?? 0;
+
+    return ListView(
+      padding: KSpacing.pagePadding,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth > 900 ? 4 : 2;
+            return GridView.count(
+              crossAxisCount: columns,
+              childAspectRatio: 3.1,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              children: [
+                _GstStatCard(
+                    label: 'Pending',
+                    value: '$pending',
+                    icon: Icons.pending_actions_outlined,
+                    color: KColors.warning),
+                _GstStatCard(
+                    label: 'Critical',
+                    value: '$critical',
+                    icon: Icons.priority_high_rounded,
+                    color: KColors.error),
+                _GstStatCard(
+                    label: 'High',
+                    value: '$high',
+                    icon: Icons.report_problem_outlined,
+                    color: KColors.warning),
+                _GstStatCard(
+                    label: 'Reviewed',
+                    value: '$reviewed',
+                    icon: Icons.verified_outlined,
+                    color: KColors.success),
+              ],
+            );
+          },
+        ),
+        KSpacing.vGapMd,
+        if (issues.isEmpty)
+          const KEmptyState(
+            icon: Icons.verified_outlined,
+            title: 'No GST review issues',
+            subtitle: 'AI and rule checks have not found pending GST issues.',
+          )
+        else
+          ...issues.map((raw) {
+            final issue = raw as Map<String, dynamic>;
+            final id = issue['id']?.toString() ?? '';
+            final priority = issue['priority']?.toString() ?? 'MEDIUM';
+            final title = issue['title']?.toString() ?? 'GST review issue';
+            final category = issue['category']?.toString() ?? '';
+            final reasoning = issue['reasoning']?.toString() ?? '';
+            final source = issue['sourceNumber']?.toString();
+            final isBusy = _busyId == id;
+            final color = priority == 'CRITICAL'
+                ? KColors.error
+                : priority == 'HIGH'
+                    ? KColors.warning
+                    : KColors.primary;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: KCard(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.fact_check_outlined, color: color),
+                    KSpacing.hGapMd,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                  child: Text(title,
+                                      style: KTypography.labelLarge)),
+                              KStatusChip(status: priority, label: priority),
+                            ],
+                          ),
+                          KSpacing.vGapXs,
+                          Text(category.replaceAll('_', ' '),
+                              style: KTypography.labelSmall
+                                  .copyWith(color: KColors.textHint)),
+                          if (source != null && source.isNotEmpty)
+                            Text(source, style: KTypography.bodySmall),
+                          if (reasoning.isNotEmpty) ...[
+                            KSpacing.vGapXs,
+                            Text(reasoning, style: KTypography.bodySmall),
+                          ],
+                        ],
+                      ),
+                    ),
+                    KSpacing.hGapMd,
+                    Column(
+                      children: [
+                        KButton(
+                          label: 'Accept',
+                          icon: Icons.check_rounded,
+                          size: KButtonSize.small,
+                          onPressed:
+                              isBusy ? null : () => _review(id, 'ACCEPTED'),
+                        ),
+                        KSpacing.vGapXs,
+                        KButton(
+                          label: 'Ignore',
+                          icon: Icons.close_rounded,
+                          variant: KButtonVariant.outlined,
+                          size: KButtonSize.small,
+                          onPressed:
+                              isBusy ? null : () => _review(id, 'REJECTED'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+      ],
     );
   }
 }

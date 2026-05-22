@@ -4,7 +4,6 @@ import com.katasticho.erp.accounting.dto.JournalEntryResponse;
 import com.katasticho.erp.accounting.dto.JournalLineRequest;
 import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.Account;
-import com.katasticho.erp.accounting.entity.FiscalPeriod;
 import com.katasticho.erp.accounting.entity.JournalEntry;
 import com.katasticho.erp.accounting.entity.JournalLine;
 import com.katasticho.erp.accounting.repository.*;
@@ -44,7 +43,7 @@ public class JournalService {
     private final JournalEntryRepository journalEntryRepository;
     private final JournalLineRepository journalLineRepository;
     private final AccountRepository accountRepository;
-    private final FiscalPeriodRepository fiscalPeriodRepository;
+    private final FiscalPeriodService fiscalPeriodService;
     private final OrganisationRepository organisationRepository;
     private final CurrencyService currencyService;
     private final AuditService auditService;
@@ -103,15 +102,7 @@ public class JournalService {
         int periodMonth = request.effectiveDate().getMonthValue();
 
         // Step 6b: Reject posting to closed/locked periods
-        fiscalPeriodRepository.findByOrgIdAndPeriodYearAndPeriodMonth(orgId, periodYear, periodMonth)
-                .ifPresent(fp -> {
-                    if (fp.isClosed()) {
-                        throw new BusinessException(
-                                "Fiscal period " + periodYear + "-" + String.format("%02d", periodMonth)
-                                        + " is " + fp.getStatus().toLowerCase() + ". Reopen it before posting.",
-                                "ACCT_PERIOD_CLOSED", HttpStatus.CONFLICT);
-                    }
-                });
+        fiscalPeriodService.requireOpen(orgId, periodYear, periodMonth);
 
         // Step 7: Generate entry number
         String entryNumber = generateEntryNumber(orgId, periodYear);
@@ -185,6 +176,8 @@ public class JournalService {
             throw new BusinessException("Only DRAFT entries can be posted", "ACCT_ENTRY_NOT_DRAFT", HttpStatus.BAD_REQUEST);
         }
 
+        fiscalPeriodService.requireOpen(orgId, entry.getPeriodYear(), entry.getPeriodMonth());
+
         entry.setStatus("POSTED");
         entry = journalEntryRepository.save(entry);
 
@@ -217,6 +210,8 @@ public class JournalService {
 
         LocalDate today = LocalDate.now();
         int periodYear = computeFiscalYear(today, org.getFiscalYearStart());
+        int periodMonth = today.getMonthValue();
+        fiscalPeriodService.requireOpen(orgId, periodYear, periodMonth);
         String entryNumber = generateEntryNumber(orgId, periodYear);
 
         // Create reversal entry with swapped debits/credits
@@ -231,7 +226,7 @@ public class JournalService {
                 .reversalOfId(original.getId())
                 .reversal(true)
                 .periodYear(periodYear)
-                .periodMonth(today.getMonthValue())
+                .periodMonth(periodMonth)
                 .createdBy(userId)
                 .build();
 

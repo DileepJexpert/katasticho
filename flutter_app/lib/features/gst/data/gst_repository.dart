@@ -32,4 +32,25 @@ class GstRepository {
     });
     return response.data as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> getReviewCenter({String? status}) async {
+    final response = await _api.get(ApiConfig.gstReviewCenter,
+        queryParameters: {if (status != null) 'status': status});
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> reviewSuggestion(
+    String id, {
+    required String action,
+    String? correctionReason,
+  }) async {
+    final response = await _api.post(
+      ApiConfig.aiSuggestionReview(id),
+      data: {
+        'action': action,
+        if (correctionReason != null) 'correctionReason': correctionReason,
+      },
+    );
+    return response.data as Map<String, dynamic>;
+  }
 }

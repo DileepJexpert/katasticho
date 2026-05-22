@@ -95,6 +95,7 @@ import '../features/journals/presentation/journal_list_screen.dart';
 import '../features/journals/presentation/journal_detail_screen.dart';
 import '../features/journals/presentation/journal_create_screen.dart';
 import '../features/journals/presentation/guided_transaction_screen.dart';
+import '../features/accounting_periods/presentation/period_close_screen.dart';
 import '../features/contacts/presentation/contact_statement_screen.dart';
 import '../features/inventory/presentation/near_expiry_screen.dart';
 import '../features/inventory/presentation/reorder_screen.dart';
@@ -215,6 +216,7 @@ class Routes {
   static const journalEntries = '/accounting/journal-entries';
   static const journalEntryCreate = '/accounting/journal-entries/create';
   static const journalEntryDetail = '/accounting/journal-entries/:id';
+  static const periodClose = '/accounting/period-close';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -418,6 +420,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/accounting/journal-entries/:id',
             builder: (context, state) => JournalDetailScreen(
               journalId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: Routes.periodClose,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PeriodCloseScreen(),
             ),
           ),
           // Chart of Accounts
