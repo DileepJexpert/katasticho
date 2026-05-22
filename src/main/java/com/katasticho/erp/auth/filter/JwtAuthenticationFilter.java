@@ -3,6 +3,7 @@ package com.katasticho.erp.auth.filter;
 import com.katasticho.erp.auth.entity.AppUser;
 import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.auth.service.JwtService;
+import com.katasticho.erp.ca.repository.DelegatedAccessTokenRepository;
 import com.katasticho.erp.ca.repository.CaClientLinkRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.service.OrgBootstrapService;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,6 +35,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final OrgBootstrapService orgBootstrapService;
     private final AppUserRepository userRepository;
     private final CaClientLinkRepository caClientLinkRepository;
+    private final DelegatedAccessTokenRepository delegatedAccessTokenRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -62,19 +65,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;
                 }
 
-                if ("CA_EXTERNAL".equals(role) && (user.getCaFirmId() == null ||
-                        !caClientLinkRepository.existsActiveDelegatedAccess(user.getCaFirmId(), orgId))) {
-                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                    response.setContentType("application/json");
-                    response.getWriter().write("{\"error\":\"CA_DELEGATED_ACCESS_INVALID\",\"message\":\"CA delegated access is not active for this client\"}");
-                    return;
+                String effectiveRole = role;
+                if ("CA_EXTERNAL".equals(role)) {
+                    boolean validDelegatedToken = user.getCaFirmId() != null
+                            && caClientLinkRepository.existsActiveDelegatedAccess(user.getCaFirmId(), orgId)
+                            && delegatedAccessTokenRepository
+                                    .findByTokenHashAndCaUserIdAndClientOrgIdAndUsedFalseAndExpiresAtAfter(
+                                            jwtService.hashToken(token), userId, orgId, Instant.now())
+                                    .isPresent();
+                    if (!validDelegatedToken) {
+                        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"error\":\"CA_DELEGATED_ACCESS_INVALID\",\"message\":\"CA delegated access is expired or inactive for this client\"}");
+                        return;
+                    }
+                    effectiveRole = "ACCOUNTANT";
                 }
 
                 TenantContext.setCurrentOrgId(orgId);
                 TenantContext.setCurrentUserId(userId);
-                TenantContext.setCurrentRole(role);
+                TenantContext.setCurrentRole(effectiveRole);
 
-                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + effectiveRole));
                 var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 

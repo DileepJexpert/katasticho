@@ -36,8 +36,12 @@ public class JwtService {
     }
 
     public String generateAccessToken(UUID userId, UUID orgId, String role) {
+        return generateAccessToken(userId, orgId, role, accessTokenExpiryMinutes);
+    }
+
+    public String generateAccessToken(UUID userId, UUID orgId, String role, long expiryMinutes) {
         Instant now = Instant.now();
-        Instant expiry = now.plusSeconds(accessTokenExpiryMinutes * 60);
+        Instant expiry = now.plusSeconds(expiryMinutes * 60);
 
         return Jwts.builder()
                 .subject(userId.toString())

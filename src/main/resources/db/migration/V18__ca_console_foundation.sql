@@ -134,9 +134,7 @@ CREATE INDEX IF NOT EXISTS idx_ca_alert_dismissal_firm
     ON ca_alert_dismissal(ca_firm_id, suggestion_id);
 
 INSERT INTO org_feature_flag (org_id, feature, is_enabled, created_at, updated_at)
-SELECT id, 'CA_CONSOLE', true, NOW(), NOW()
+SELECT id, 'CA_CONSOLE', false, NOW(), NOW()
 FROM organisation
 WHERE is_deleted = false
-ON CONFLICT (org_id, feature) DO UPDATE
-SET is_enabled = true,
-    updated_at = NOW();
+ON CONFLICT (org_id, feature) DO NOTHING;

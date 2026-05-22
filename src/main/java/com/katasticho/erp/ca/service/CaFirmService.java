@@ -43,7 +43,6 @@ public class CaFirmService {
                 .active(true)
                 .build());
         AppUser user = appUserRepository.findById(TenantContext.getCurrentUserId()).orElseThrow();
-        user.setRole("CA_PARTNER");
         user.setCaFirmId(firm.getId());
         user.setDefaultLandingPage("/ca");
         appUserRepository.save(user);

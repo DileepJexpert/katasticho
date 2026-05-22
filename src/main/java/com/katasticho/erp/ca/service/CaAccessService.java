@@ -49,7 +49,8 @@ public class CaAccessService {
     }
 
     public boolean isPartner() {
-        return "CA_PARTNER".equals(currentRole());
+        String role = currentRole();
+        return "CA_PARTNER".equals(role) || "OWNER".equals(role) || "ADMIN".equals(role);
     }
 
     public void requirePartner() {
@@ -64,8 +65,8 @@ public class CaAccessService {
 
     private void requireCaRole() {
         String role = currentRole();
-        if (!"CA_PARTNER".equals(role) && !"CA_STAFF".equals(role)) {
-            throw new BusinessException("CA Console requires CA_PARTNER or CA_STAFF role", "CA_ROLE_REQUIRED", HttpStatus.FORBIDDEN);
+        if (!"CA_PARTNER".equals(role) && !"CA_STAFF".equals(role) && !"OWNER".equals(role) && !"ADMIN".equals(role)) {
+            throw new BusinessException("CA Console requires a CA role or CA firm owner/admin", "CA_ROLE_REQUIRED", HttpStatus.FORBIDDEN);
         }
     }
 }

@@ -102,8 +102,8 @@ public class CaClientLinkService {
                     "CA_CLIENT_NOT_ASSIGNED", HttpStatus.FORBIDDEN);
         }
         UUID caUserId = TenantContext.getCurrentUserId();
-        String token = jwtService.generateAccessToken(caUserId, link.getClientOrgId(), "CA_EXTERNAL");
         Instant expiresAt = Instant.now().plusSeconds(15 * 60L);
+        String token = jwtService.generateAccessToken(caUserId, link.getClientOrgId(), "CA_EXTERNAL", 15);
         delegatedTokenRepository.save(DelegatedAccessToken.builder()
                 .caUserId(caUserId)
                 .clientOrgId(link.getClientOrgId())
