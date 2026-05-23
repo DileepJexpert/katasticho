@@ -1746,7 +1746,7 @@ CREATE TABLE sales_order (
                              order_date              DATE NOT NULL,
                              expected_shipment_date  DATE,
                              status                  VARCHAR(20) NOT NULL DEFAULT 'DRAFT'
-                                 CHECK (status IN ('DRAFT','CONFIRMED','PARTIALLY_SHIPPED','SHIPPED',
+                                 CHECK (status IN ('DRAFT','CONFIRMED','BACKORDER','PARTIALLY_SHIPPED','SHIPPED',
                                                    'PARTIALLY_INVOICED','INVOICED','COMPLETED','CANCELLED','VOID')),
                              shipped_status          VARCHAR(20) NOT NULL DEFAULT 'NOT_SHIPPED'
                                  CHECK (shipped_status IN ('NOT_SHIPPED','PARTIALLY_SHIPPED','FULLY_SHIPPED')),
@@ -1769,6 +1769,7 @@ CREATE TABLE sales_order (
                              place_of_supply         VARCHAR(50),
                              notes                   VARCHAR(2000),
                              terms                   VARCHAR(2000),
+                             allow_backorder         BOOLEAN NOT NULL DEFAULT FALSE,
                              is_deleted              BOOLEAN NOT NULL DEFAULT FALSE,
                              created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                              updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1785,6 +1786,7 @@ CREATE TABLE sales_order_line (
                                   quantity                NUMERIC(12,4) NOT NULL,
                                   quantity_shipped        NUMERIC(12,4) NOT NULL DEFAULT 0,
                                   quantity_invoiced       NUMERIC(12,4) NOT NULL DEFAULT 0,
+                                  quantity_backordered    NUMERIC(12,4) NOT NULL DEFAULT 0,
                                   unit                    VARCHAR(20),
                                   rate                    NUMERIC(15,2) NOT NULL,
                                   discount_pct            NUMERIC(5,2) DEFAULT 0,
@@ -1819,6 +1821,7 @@ CREATE INDEX idx_sales_order_status ON sales_order(org_id, status) WHERE NOT is_
 CREATE INDEX idx_sales_order_branch ON sales_order(org_id, branch_id) WHERE NOT is_deleted;
 CREATE INDEX idx_stock_reservation_item ON stock_reservation(org_id, item_id, status);
 CREATE INDEX idx_stock_reservation_source ON stock_reservation(source_type, source_id);
+CREATE INDEX idx_so_line_backorder ON sales_order_line(item_id) WHERE quantity_backordered > 0;
 
 
 -- ─────────────────────────────────────────────────────────────
