@@ -349,7 +349,8 @@ public class SalesOrderService {
 
         String status = so.getStatus();
         if (!"CONFIRMED".equals(status) && !"PARTIALLY_SHIPPED".equals(status)
-                && !"SHIPPED".equals(status) && !"PARTIALLY_INVOICED".equals(status)) {
+                && !"SHIPPED".equals(status) && !"PARTIALLY_INVOICED".equals(status)
+                && !"BACKORDER".equals(status)) {
             throw new BusinessException("Sales order is not in a state that allows invoicing",
                     "SO_CANNOT_INVOICE", HttpStatus.BAD_REQUEST);
         }
@@ -430,7 +431,12 @@ public class SalesOrderService {
         String shipped = so.getShippedStatus();
         String invoiced = so.getInvoicedStatus();
 
-        if ("NOT_SHIPPED".equals(shipped) && "NOT_INVOICED".equals(invoiced)) {
+        boolean hasBackorder = so.getLines().stream()
+                .anyMatch(l -> l.getQuantityBackordered().compareTo(BigDecimal.ZERO) > 0);
+
+        if (hasBackorder) {
+            so.setStatus("BACKORDER");
+        } else if ("NOT_SHIPPED".equals(shipped) && "NOT_INVOICED".equals(invoiced)) {
             so.setStatus("CONFIRMED");
         } else if ("PARTIALLY_SHIPPED".equals(shipped)) {
             so.setStatus("PARTIALLY_SHIPPED");

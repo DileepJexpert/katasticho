@@ -63,8 +63,9 @@ public class DeliveryChallanService {
                 .orElseThrow(() -> BusinessException.notFound("Sales Order", request.salesOrderId()));
 
         String status = so.getStatus();
-        if (!"CONFIRMED".equals(status) && !"PARTIALLY_SHIPPED".equals(status)) {
-            throw new BusinessException("Sales order must be CONFIRMED or PARTIALLY_SHIPPED to create a challan",
+        if (!"CONFIRMED".equals(status) && !"PARTIALLY_SHIPPED".equals(status)
+                && !"BACKORDER".equals(status)) {
+            throw new BusinessException("Sales order must be CONFIRMED, PARTIALLY_SHIPPED, or BACKORDER to create a challan",
                     "DC_INVALID_SO_STATUS", HttpStatus.BAD_REQUEST);
         }
 
@@ -102,13 +103,16 @@ public class DeliveryChallanService {
                             "SO line not found: " + lr.soLineId(),
                             "DC_SO_LINE_NOT_FOUND", HttpStatus.BAD_REQUEST));
 
-            BigDecimal remainingShippable = soLine.getQuantity().subtract(soLine.getQuantityShipped());
-            if (lr.quantity().compareTo(remainingShippable) > 0) {
+            BigDecimal shippableQty = soLine.getQuantity()
+                    .subtract(soLine.getQuantityShipped())
+                    .subtract(soLine.getQuantityBackordered());
+            if (lr.quantity().compareTo(shippableQty) > 0) {
                 throw new BusinessException(
-                        String.format("Cannot ship more than ordered for %s: Ordered=%.2f, Already Shipped=%.2f, Requesting=%.2f",
+                        String.format("Cannot ship more than available for %s: Ordered=%.2f, Shipped=%.2f, Backordered=%.2f, Shippable=%.2f, Requesting=%.2f",
                                 soLine.getDescription() != null ? soLine.getDescription() : soLine.getItemId().toString(),
-                                soLine.getQuantity(), soLine.getQuantityShipped(), lr.quantity()),
-                        "DC_EXCEEDS_ORDERED", HttpStatus.BAD_REQUEST);
+                                soLine.getQuantity(), soLine.getQuantityShipped(), soLine.getQuantityBackordered(),
+                                shippableQty, lr.quantity()),
+                        "DC_EXCEEDS_AVAILABLE", HttpStatus.BAD_REQUEST);
             }
 
             DeliveryChallanLine line = DeliveryChallanLine.builder()
