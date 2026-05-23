@@ -442,6 +442,9 @@ public class UomService {
     }
 
     private void seedUom(UUID orgId, String name, String abbr, UomCategory cat, boolean isBase) {
+        if (uomRepository.existsByOrgIdAndAbbreviationIgnoreCaseAndIsDeletedFalse(orgId, abbr)) {
+            return;
+        }
         Uom uom = Uom.builder()
                 .name(name)
                 .abbreviation(abbr)
