@@ -16,7 +16,9 @@ class JwtServiceTest {
     void setUp() {
         jwtService = new JwtService(
                 "test-secret-key-for-testing-only-must-be-at-least-256-bits-long-for-hmac",
-                15, 7);
+                15, 7,
+                "platform-admin-test-secret-key-for-testing-only-must-be-at-least-256-bits",
+                4);
     }
 
     @Test
@@ -88,7 +90,9 @@ class JwtServiceTest {
         // Create a service with 0-minute expiry
         JwtService shortLived = new JwtService(
                 "test-secret-key-for-testing-only-must-be-at-least-256-bits-long-for-hmac",
-                0, 7);
+                0, 7,
+                "platform-admin-test-secret-key-for-testing-only-must-be-at-least-256-bits",
+                4);
 
         UUID userId = UUID.randomUUID();
         UUID orgId = UUID.randomUUID();
