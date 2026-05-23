@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
@@ -10,11 +9,9 @@ import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
-import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../contacts/data/contact_repository.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
-import '../../tax_groups/data/tax_group_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/sales_order_providers.dart';
 import '../data/sales_order_repository.dart';
@@ -27,8 +24,7 @@ class SalesOrderCreateScreen extends ConsumerStatefulWidget {
       _SalesOrderCreateScreenState();
 }
 
-class _SalesOrderCreateScreenState
-    extends ConsumerState<SalesOrderCreateScreen>
+class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
     with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
   int _currentStep = 0;
@@ -40,7 +36,6 @@ class _SalesOrderCreateScreenState
   List<Map<String, dynamic>> _customers = [];
   List<Map<String, dynamic>> _filteredCustomers = [];
   bool _loadingCustomers = true;
-  String _customerSearch = '';
   bool _allowBackorder = false;
 
   @override
@@ -57,16 +52,13 @@ class _SalesOrderCreateScreenState
       final list = content is List
           ? content.cast<Map<String, dynamic>>()
           : (content is Map
-              ? ((content['content'] as List?)
-                      ?.cast<Map<String, dynamic>>() ??
+              ? ((content['content'] as List?)?.cast<Map<String, dynamic>>() ??
                   [])
               : <Map<String, dynamic>>[]);
-      final customers = list
-          .where((c) {
-            final type = (c['contactType'] as String? ?? '').toUpperCase();
-            return type == 'CUSTOMER' || type == 'BOTH';
-          })
-          .toList();
+      final customers = list.where((c) {
+        final type = (c['contactType'] as String? ?? '').toUpperCase();
+        return type == 'CUSTOMER' || type == 'BOTH';
+      }).toList();
       if (mounted) {
         setState(() {
           _customers = customers;
@@ -81,15 +73,18 @@ class _SalesOrderCreateScreenState
 
   void _filterCustomers(String query) {
     setState(() {
-      _customerSearch = query;
       if (query.isEmpty) {
         _filteredCustomers = _customers;
       } else {
         final lower = query.toLowerCase();
         _filteredCustomers = _customers
             .where((c) =>
-                (c['displayName'] as String? ?? '').toLowerCase().contains(lower) ||
-                (c['companyName'] as String? ?? '').toLowerCase().contains(lower) ||
+                (c['displayName'] as String? ?? '')
+                    .toLowerCase()
+                    .contains(lower) ||
+                (c['companyName'] as String? ?? '')
+                    .toLowerCase()
+                    .contains(lower) ||
                 (c['phone'] as String? ?? '').contains(lower) ||
                 (c['mobile'] as String? ?? '').contains(lower) ||
                 (c['gstin'] as String? ?? '').toLowerCase().contains(lower))
@@ -172,7 +167,8 @@ class _SalesOrderCreateScreenState
         }
         setState(() => _errorMessage = ApiErrorParser.message(e));
       } else {
-        setState(() => _errorMessage = 'Failed to create sales order. Please try again.');
+        setState(() =>
+            _errorMessage = 'Failed to create sales order. Please try again.');
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -185,7 +181,8 @@ class _SalesOrderCreateScreenState
       appBar: AppBar(
         title: const Text('Create Sales Order'),
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          tooltip: 'Back to sales orders',
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go(Routes.salesOrders),
         ),
       ),
@@ -193,37 +190,12 @@ class _SalesOrderCreateScreenState
         key: _formKey,
         child: Column(
           children: [
-            Container(
-              color: KColors.surface,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _StepTab(
-                    label: 'Customer',
-                    index: 0,
-                    current: _currentStep,
-                    onTap: () => setState(() => _currentStep = 0),
-                  ),
-                  _stepConnector(),
-                  _StepTab(
-                    label: 'Items',
-                    index: 1,
-                    current: _currentStep,
-                    onTap: () => setState(() => _currentStep = 1),
-                  ),
-                  _stepConnector(),
-                  _StepTab(
-                    label: 'Review',
-                    index: 2,
-                    current: _currentStep,
-                    onTap: () => setState(() => _currentStep = 2),
-                  ),
-                ],
-              ),
+            _StepRail(
+              currentStep: _currentStep,
+              steps: const ['Customer', 'Items', 'Review'],
+              onStepTap: (step) => setState(() => _currentStep = step),
             ),
             const Divider(height: 1),
-
             if (_errorMessage != null)
               Padding(
                 padding: const EdgeInsets.all(KSpacing.md),
@@ -232,19 +204,22 @@ class _SalesOrderCreateScreenState
                   onDismiss: () => setState(() => _errorMessage = null),
                 ),
               ),
-
             Expanded(
-              child: SingleChildScrollView(
-                padding: KSpacing.pagePadding,
-                child: switch (_currentStep) {
-                  0 => _buildCustomerStep(),
-                  1 => _buildItemsStep(),
-                  2 => _buildReviewStep(),
-                  _ => const SizedBox(),
-                },
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1040),
+                  child: SingleChildScrollView(
+                    padding: KSpacing.pagePadding,
+                    child: switch (_currentStep) {
+                      0 => _buildCustomerStep(),
+                      1 => _buildItemsStep(),
+                      2 => _buildReviewStep(),
+                      _ => const SizedBox(),
+                    },
+                  ),
+                ),
               ),
             ),
-
             Container(
               padding: const EdgeInsets.all(KSpacing.md),
               decoration: BoxDecoration(
@@ -278,16 +253,14 @@ class _SalesOrderCreateScreenState
                         child: KButton(
                           label: 'Back',
                           variant: KButtonVariant.outlined,
-                          onPressed: () =>
-                              setState(() => _currentStep--),
+                          onPressed: () => setState(() => _currentStep--),
                         ),
                       ),
                     if (_currentStep < 2)
                       KButton(
                         label: 'Next',
                         onPressed: () {
-                          if (_currentStep == 0 &&
-                              _selectedContactId == null) {
+                          if (_currentStep == 0 && _selectedContactId == null) {
                             setState(() =>
                                 _errorMessage = 'Please select a customer');
                             return;
@@ -312,15 +285,6 @@ class _SalesOrderCreateScreenState
     );
   }
 
-  Widget _stepConnector() {
-    return Container(
-      width: 32,
-      height: 2,
-      color: KColors.divider,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-    );
-  }
-
   Future<void> _openAddCustomerSheet() async {
     final created = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
@@ -335,7 +299,8 @@ class _SalesOrderCreateScreenState
     await _loadCustomers();
     final id = created['id']?.toString() ?? '';
     final name = created['displayName'] as String? ??
-        created['companyName'] as String? ?? '';
+        created['companyName'] as String? ??
+        '';
     if (mounted && id.isNotEmpty) {
       setState(() {
         _selectedContactId = id;
@@ -345,6 +310,7 @@ class _SalesOrderCreateScreenState
   }
 
   Widget _buildCustomerStep() {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -359,73 +325,89 @@ class _SalesOrderCreateScreenState
             ),
           ],
         ),
-        KSpacing.vGapMd,
-
-        KTextField(
-          label: 'Search customers',
-          hint: 'Type customer name, phone or GSTIN...',
-          prefixIcon: Icons.search,
-          onChanged: _filterCustomers,
-        ),
-        KSpacing.vGapMd,
-
-        Text(
-          'Your Customers',
-          style: KTypography.labelLarge.copyWith(color: KColors.textSecondary),
-        ),
         KSpacing.vGapSm,
-
-        if (_loadingCustomers)
-          const Center(child: Padding(
-            padding: EdgeInsets.all(24),
-            child: CircularProgressIndicator(),
-          ))
-        else if (_filteredCustomers.isEmpty)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Text(
-                    _customers.isEmpty ? 'No customers yet' : 'No matching customers',
-                    style: KTypography.bodyMedium,
-                  ),
-                  KSpacing.vGapSm,
-                  KButton(
-                    label: 'Add New Customer',
-                    icon: Icons.person_add_outlined,
-                    variant: KButtonVariant.outlined,
-                    onPressed: _openAddCustomerSheet,
-                  ),
-                ],
+        Container(
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: KSpacing.borderRadiusMd,
+            border: Border.all(color: cs.outlineVariant),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(KSpacing.md),
+                child: KTextField(
+                  label: 'Search customers',
+                  hint: 'Type customer name, phone or GSTIN...',
+                  prefixIcon: Icons.search,
+                  onChanged: _filterCustomers,
+                ),
               ),
-            ),
-          )
-        else
-          ..._filteredCustomers.map((customer) {
-            final id = customer['id']?.toString() ?? '';
-            final name = customer['displayName'] as String? ??
-                customer['companyName'] as String? ?? 'Unknown';
-            final gstin = customer['gstin'] as String? ?? '';
-            final phone = customer['phone'] as String? ??
-                customer['mobile'] as String? ?? '';
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _CustomerSelectTile(
-                name: name,
-                gstin: gstin.isNotEmpty
-                    ? 'GSTIN: $gstin'
-                    : (phone.isNotEmpty ? phone : 'No details'),
-                isSelected: _selectedContactId == id,
-                onTap: () {
-                  setState(() {
-                    _selectedContactId = id;
-                    _contactName = name;
-                  });
-                },
-              ),
-            );
-          }),
+              const Divider(height: 1),
+              if (_loadingCustomers)
+                const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_filteredCustomers.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      Text(
+                        _customers.isEmpty
+                            ? 'No customers yet'
+                            : 'No matching customers',
+                        style: KTypography.bodyMedium
+                            .copyWith(color: cs.onSurface),
+                      ),
+                      KSpacing.vGapSm,
+                      KButton(
+                        label: 'Add New Customer',
+                        icon: Icons.person_add_outlined,
+                        variant: KButtonVariant.outlined,
+                        onPressed: _openAddCustomerSheet,
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 430),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.all(KSpacing.sm),
+                    itemCount: _filteredCustomers.length,
+                    separatorBuilder: (_, __) => KSpacing.vGapXs,
+                    itemBuilder: (context, index) {
+                      final customer = _filteredCustomers[index];
+                      final id = customer['id']?.toString() ?? '';
+                      final name = customer['displayName'] as String? ??
+                          customer['companyName'] as String? ??
+                          'Unknown';
+                      final gstin = customer['gstin'] as String? ?? '';
+                      final phone = customer['phone'] as String? ??
+                          customer['mobile'] as String? ??
+                          '';
+                      return _CustomerSelectTile(
+                        name: name,
+                        gstin: gstin.isNotEmpty
+                            ? 'GSTIN: $gstin'
+                            : (phone.isNotEmpty ? phone : 'No details'),
+                        isSelected: _selectedContactId == id,
+                        onTap: () {
+                          setState(() {
+                            _selectedContactId = id;
+                            _contactName = name;
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -436,7 +418,6 @@ class _SalesOrderCreateScreenState
       children: [
         Text('Line Items', style: KTypography.h2),
         KSpacing.vGapMd,
-
         ...List.generate(_lineItems.length, (index) {
           return _LineItemCard(
             item: _lineItems[index],
@@ -447,18 +428,14 @@ class _SalesOrderCreateScreenState
             onChanged: () => setState(() {}),
           );
         }),
-
         KSpacing.vGapMd,
         KButton(
           label: 'Add Line Item',
           icon: Icons.add,
           variant: KButtonVariant.outlined,
-          onPressed: () =>
-              setState(() => _lineItems.add(_LineItem())),
+          onPressed: () => setState(() => _lineItems.add(_LineItem())),
         ),
-
         KSpacing.vGapLg,
-
         KCard(
           child: Column(
             children: [
@@ -487,7 +464,6 @@ class _SalesOrderCreateScreenState
       children: [
         Text('Review Sales Order', style: KTypography.h2),
         KSpacing.vGapMd,
-
         KCard(
           title: 'Customer',
           child: Column(
@@ -501,7 +477,6 @@ class _SalesOrderCreateScreenState
           ),
         ),
         KSpacing.vGapMd,
-
         KCard(
           title: 'Dates & Delivery',
           padding: const EdgeInsets.all(KSpacing.sm),
@@ -516,8 +491,7 @@ class _SalesOrderCreateScreenState
                 KDatePicker(
                   label: 'Expected Shipment',
                   value: _expectedShipmentDate,
-                  onChanged: (d) =>
-                      setState(() => _expectedShipmentDate = d),
+                  onChanged: (d) => setState(() => _expectedShipmentDate = d),
                   firstDate: _orderDate,
                 ),
               ]),
@@ -540,7 +514,6 @@ class _SalesOrderCreateScreenState
           ),
         ),
         KSpacing.vGapMd,
-
         KCard(
           title: 'Items (${_lineItems.length})',
           child: Column(
@@ -578,7 +551,6 @@ class _SalesOrderCreateScreenState
           ),
         ),
         KSpacing.vGapMd,
-
         KCard(
           child: Column(
             children: [
@@ -597,22 +569,20 @@ class _SalesOrderCreateScreenState
             ],
           ),
         ),
-
         KSpacing.vGapMd,
-
         KCard(
           child: SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text('Allow Backorder', style: KTypography.bodyMedium),
             subtitle: Text(
               'Confirm even if stock is insufficient — backordered qty is auto-fulfilled when GRN arrives',
-              style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+              style:
+                  KTypography.bodySmall.copyWith(color: KColors.textSecondary),
             ),
             value: _allowBackorder,
             onChanged: (v) => setState(() => _allowBackorder = v),
           ),
         ),
-
         KSpacing.vGapSm,
         KCompactRow(children: [
           KTextField(
@@ -680,7 +650,17 @@ class _LineItemCardState extends State<_LineItemCard> {
   late final TextEditingController _rateCtl;
   late final TextEditingController _discountCtl;
 
-  static const _defaultUnits = ['PCS', 'BOX', 'PACK', 'KG', 'GM', 'LTR', 'ML', 'STRIP', 'DOZEN'];
+  static const _defaultUnits = [
+    'PCS',
+    'BOX',
+    'PACK',
+    'KG',
+    'GM',
+    'LTR',
+    'ML',
+    'STRIP',
+    'DOZEN'
+  ];
 
   @override
   void initState() {
@@ -763,7 +743,8 @@ class _LineItemCardState extends State<_LineItemCard> {
               if (isLinked) ...[
                 KSpacing.hGapSm,
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: KColors.success.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
@@ -901,42 +882,56 @@ class _CustomerSelectTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: KSpacing.borderRadiusMd,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
-              ? KColors.primary.withValues(alpha: 0.06)
-              : KColors.surface,
+              ? cs.primaryContainer.withValues(alpha: 0.55)
+              : cs.surface,
           borderRadius: KSpacing.borderRadiusMd,
           border: Border.all(
-            color: isSelected ? KColors.primary : KColors.divider,
+            color: isSelected ? cs.primary : cs.outlineVariant,
           ),
         ),
         child: Row(
           children: [
             CircleAvatar(
-              radius: 20,
-              backgroundColor: KColors.primaryLight.withValues(alpha: 0.15),
+              radius: 18,
+              backgroundColor: cs.primary.withValues(alpha: 0.12),
               child: Icon(
                 Icons.person,
-                color: KColors.primary,
+                color: cs.primary,
+                size: 19,
               ),
             ),
-            KSpacing.hGapMd,
+            KSpacing.hGapSm,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: KTypography.bodyMedium),
-                  Text(gstin, style: KTypography.bodySmall),
+                  Text(
+                    name,
+                    style: KTypography.bodyMedium.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  KSpacing.vGapXxs,
+                  Text(
+                    gstin,
+                    style: KTypography.bodySmall
+                        .copyWith(color: cs.onSurfaceVariant),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
-            if (isSelected)
-              const Icon(Icons.check_circle, color: KColors.primary),
+            if (isSelected) Icon(Icons.check_circle, color: cs.primary),
           ],
         ),
       ),
@@ -976,6 +971,45 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
+class _StepRail extends StatelessWidget {
+  final int currentStep;
+  final List<String> steps;
+  final ValueChanged<int> onStepTap;
+
+  const _StepRail({
+    required this.currentStep,
+    required this.steps,
+    required this.onStepTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      color: cs.surface,
+      padding: const EdgeInsets.symmetric(
+        horizontal: KSpacing.md,
+        vertical: KSpacing.sm,
+      ),
+      child: Center(
+        child: Wrap(
+          spacing: KSpacing.sm,
+          runSpacing: KSpacing.xs,
+          children: [
+            for (var i = 0; i < steps.length; i++)
+              _StepTab(
+                label: steps[i],
+                index: i,
+                current: currentStep,
+                onTap: () => onStepTap(i),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _StepTab extends StatelessWidget {
   final String label;
   final int index;
@@ -991,44 +1025,59 @@ class _StepTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final isActive = index == current;
     final isCompleted = index < current;
 
-    return GestureDetector(
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
       onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: isActive || isCompleted
-                  ? KColors.primary
-                  : KColors.divider,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: isCompleted
-                  ? const Icon(Icons.check, color: Colors.white, size: 16)
-                  : Text(
-                      '${index + 1}',
-                      style: TextStyle(
-                        color: isActive ? Colors.white : KColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: isActive
+              ? cs.primaryContainer
+              : cs.surfaceContainerHighest.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: isActive ? cs.primary : cs.outlineVariant,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: isActive || isCompleted
+                    ? cs.primary
+                    : cs.surfaceContainerHighest,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: isCompleted
+                    ? Icon(Icons.check, color: cs.onPrimary, size: 14)
+                    : Text(
+                        '${index + 1}',
+                        style: TextStyle(
+                          color: isActive ? cs.onPrimary : cs.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
+              ),
             ),
-          ),
-          KSpacing.hGapXs,
-          Text(
-            label,
-            style: KTypography.labelMedium.copyWith(
-              color: isActive ? KColors.primary : KColors.textSecondary,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+            KSpacing.hGapXs,
+            Text(
+              label,
+              style: KTypography.labelMedium.copyWith(
+                color: isActive ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1089,7 +1138,9 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        24, 24, 24,
+        24,
+        24,
+        24,
         24 + MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Form(
@@ -1172,9 +1223,8 @@ class _UnitDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final units = itemUnits.isNotEmpty
-        ? itemUnits
-        : _LineItemCardState._defaultUnits;
+    final units =
+        itemUnits.isNotEmpty ? itemUnits : _LineItemCardState._defaultUnits;
 
     final allUnits = units.contains(value) ? units : [value, ...units];
 
