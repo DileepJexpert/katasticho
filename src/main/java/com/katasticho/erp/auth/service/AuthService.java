@@ -110,7 +110,7 @@ public class AuthService {
                 .businessType(request.businessType() != null ? request.businessType() : "RETAILER")
                 .industryCode(request.industryCode() != null ? request.industryCode() : "OTHER_RETAIL")
                 .subCategories(request.subCategories() != null ? request.subCategories() : List.of())
-                .approvalStatus("PENDING")
+                .approvalStatus("APPROVED")
                 .build();
         org = organisationRepository.saveAndFlush(org);
 
@@ -181,7 +181,7 @@ public class AuthService {
                 .businessType(request.businessType() != null ? request.businessType() : "RETAILER")
                 .industryCode(request.industryCode() != null ? request.industryCode() : "OTHER_RETAIL")
                 .subCategories(request.subCategories() != null ? request.subCategories() : List.of())
-                .approvalStatus("PENDING")
+                .approvalStatus("APPROVED")
                 .build();
         org = organisationRepository.saveAndFlush(org);
 
@@ -498,7 +498,7 @@ public class AuthService {
                 .businessType(request.businessType() != null ? request.businessType() : "RETAILER")
                 .industryCode(request.industryCode() != null ? request.industryCode() : "OTHER_RETAIL")
                 .subCategories(List.of())
-                .approvalStatus("PENDING")
+                .approvalStatus("APPROVED")
                 .build();
         org = organisationRepository.saveAndFlush(org);
 
