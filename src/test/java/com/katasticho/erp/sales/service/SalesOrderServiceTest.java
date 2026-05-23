@@ -23,6 +23,7 @@ import com.katasticho.erp.sales.entity.SalesOrder;
 import com.katasticho.erp.sales.entity.SalesOrderLine;
 import com.katasticho.erp.sales.entity.StockReservation;
 import com.katasticho.erp.sales.repository.DeliveryChallanRepository;
+import com.katasticho.erp.sales.repository.SalesOrderLineRepository;
 import com.katasticho.erp.sales.repository.SalesOrderRepository;
 import com.katasticho.erp.sales.repository.StockReservationRepository;
 import com.katasticho.erp.tax.GenericTaxEngine;
@@ -48,6 +49,7 @@ import static org.mockito.Mockito.*;
 class SalesOrderServiceTest {
 
     @Mock private SalesOrderRepository salesOrderRepository;
+    @Mock private SalesOrderLineRepository soLineRepository;
     @Mock private StockReservationRepository reservationRepository;
     @Mock private ContactRepository contactRepository;
     @Mock private ItemRepository itemRepository;
@@ -76,11 +78,11 @@ class SalesOrderServiceTest {
     @BeforeEach
     void setUp() {
         salesOrderService = new SalesOrderService(
-                salesOrderRepository, reservationRepository, contactRepository,
-                itemRepository, warehouseRepository, stockBalanceRepository,
-                branchRepository, estimateRepository, invoiceService,
-                invoiceRepository, sequenceRepository, defaultAccountService,
-                taxEngine, commentService, challanRepository);
+                salesOrderRepository, soLineRepository, reservationRepository,
+                contactRepository, itemRepository, warehouseRepository,
+                stockBalanceRepository, branchRepository, estimateRepository,
+                invoiceService, invoiceRepository, sequenceRepository,
+                defaultAccountService, taxEngine, commentService, challanRepository);
 
         orgId = UUID.randomUUID();
         contactId = UUID.randomUUID();

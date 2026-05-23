@@ -31,6 +31,7 @@ import com.katasticho.erp.sales.entity.SalesOrder;
 import com.katasticho.erp.sales.entity.SalesOrderLine;
 import com.katasticho.erp.sales.entity.StockReservation;
 import com.katasticho.erp.sales.repository.DeliveryChallanRepository;
+import com.katasticho.erp.sales.repository.SalesOrderLineRepository;
 import com.katasticho.erp.sales.repository.SalesOrderRepository;
 import com.katasticho.erp.sales.repository.StockReservationRepository;
 import com.katasticho.erp.tax.GenericTaxEngine;
@@ -49,7 +50,10 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -58,6 +62,7 @@ import java.util.UUID;
 public class SalesOrderService {
 
     private final SalesOrderRepository salesOrderRepository;
+    private final SalesOrderLineRepository soLineRepository;
     private final StockReservationRepository reservationRepository;
     private final ContactRepository contactRepository;
     private final ItemRepository itemRepository;
@@ -105,6 +110,7 @@ public class SalesOrderService {
                 .terms(request.terms())
                 .billingAddress(request.billingAddress())
                 .shippingAddress(request.shippingAddress())
+                .allowBackorder(request.allowBackorder() != null && request.allowBackorder())
                 .build();
 
         BigDecimal subtotal = BigDecimal.ZERO;
@@ -194,7 +200,7 @@ public class SalesOrderService {
                 LocalDate.now(), null, estimate.getReferenceNumber(),
                 null, null, null, null, null,
                 null, null, estimate.getNotes(), estimate.getTerms(),
-                null, null);
+                null, null, null);
 
         SalesOrderResponse response = create(soRequest);
 
@@ -208,7 +214,7 @@ public class SalesOrderService {
         return toResponse(so, response.contactName());
     }
 
-    // ── CONFIRM (reserves stock) ────────────────────────────────
+    // ── CONFIRM (reserves stock, supports backorder) ────────────
 
     @Transactional
     public SalesOrderResponse confirm(UUID soId) {
@@ -224,7 +230,9 @@ public class SalesOrderService {
                 .orElseThrow(() -> new BusinessException("No default warehouse configured",
                         "SO_NO_WAREHOUSE", HttpStatus.BAD_REQUEST));
 
+        boolean hasBackorder = false;
         int reservedCount = 0;
+
         for (SalesOrderLine line : so.getLines()) {
             if (line.getItemId() == null) continue;
 
@@ -239,33 +247,50 @@ public class SalesOrderService {
             BigDecimal reservedQty = reservationRepository.sumActiveReservations(line.getItemId(), warehouse.getId());
             BigDecimal availableQty = currentQty.subtract(reservedQty);
 
-            if (line.getQuantity().compareTo(availableQty) > 0) {
+            if (!so.isAllowBackorder() && line.getQuantity().compareTo(availableQty) > 0) {
                 throw new BusinessException(
                         String.format("Insufficient stock for %s: Available %.2f, Requested %.2f",
                                 item.getName(), availableQty, line.getQuantity()),
                         "SO_INSUFFICIENT_STOCK", HttpStatus.BAD_REQUEST);
             }
 
-            StockReservation reservation = StockReservation.builder()
-                    .orgId(orgId)
-                    .itemId(line.getItemId())
-                    .warehouseId(warehouse.getId())
-                    .sourceType("SALES_ORDER")
-                    .sourceId(so.getId())
-                    .sourceLineId(line.getId())
-                    .quantityReserved(line.getQuantity())
-                    .build();
-            reservationRepository.save(reservation);
-            reservedCount++;
+            // Reserve as much as is available (capped to requested qty)
+            BigDecimal toReserve = so.isAllowBackorder()
+                    ? availableQty.max(BigDecimal.ZERO).min(line.getQuantity())
+                    : line.getQuantity();
+            BigDecimal backordered = line.getQuantity().subtract(toReserve);
+
+            line.setQuantityBackordered(backordered);
+
+            if (backordered.compareTo(BigDecimal.ZERO) > 0) {
+                hasBackorder = true;
+            }
+
+            if (toReserve.compareTo(BigDecimal.ZERO) > 0) {
+                StockReservation reservation = StockReservation.builder()
+                        .orgId(orgId)
+                        .itemId(line.getItemId())
+                        .warehouseId(warehouse.getId())
+                        .sourceType("SALES_ORDER")
+                        .sourceId(so.getId())
+                        .sourceLineId(line.getId())
+                        .quantityReserved(toReserve)
+                        .build();
+                reservationRepository.save(reservation);
+                reservedCount++;
+            }
         }
 
-        so.setStatus("CONFIRMED");
+        so.setStatus(hasBackorder ? "BACKORDER" : "CONFIRMED");
         so = salesOrderRepository.save(so);
 
-        commentService.addSystemComment("SALES_ORDER", so.getId(),
-                "Confirmed. Stock reserved for " + reservedCount + " items.");
+        String comment = hasBackorder
+                ? "Confirmed with backorder — " + reservedCount + " item(s) partially/fully reserved; remaining quantity awaiting stock."
+                : "Confirmed. Stock reserved for " + reservedCount + " items.";
+        commentService.addSystemComment("SALES_ORDER", so.getId(), comment);
 
-        log.info("Sales order {} confirmed with {} stock reservations", so.getSalesorderNumber(), reservedCount);
+        log.info("Sales order {} confirmed — status={}, backorder={}",
+                so.getSalesorderNumber(), so.getStatus(), hasBackorder);
         return toResponseWithContactLookup(so);
     }
 
@@ -276,12 +301,13 @@ public class SalesOrderService {
         UUID orgId = TenantContext.getCurrentOrgId();
         SalesOrder so = findOrThrow(soId, orgId);
 
-        if (!"DRAFT".equals(so.getStatus()) && !"CONFIRMED".equals(so.getStatus())) {
-            throw new BusinessException("Only DRAFT or CONFIRMED orders can be cancelled",
+        if (!"DRAFT".equals(so.getStatus()) && !"CONFIRMED".equals(so.getStatus())
+                && !"BACKORDER".equals(so.getStatus())) {
+            throw new BusinessException("Only DRAFT, CONFIRMED, or BACKORDER orders can be cancelled",
                     "SO_CANNOT_CANCEL", HttpStatus.BAD_REQUEST);
         }
 
-        if ("CONFIRMED".equals(so.getStatus())) {
+        if ("CONFIRMED".equals(so.getStatus()) || "BACKORDER".equals(so.getStatus())) {
             List<StockReservation> reservations = reservationRepository
                     .findBySourceTypeAndSourceId("SALES_ORDER", so.getId());
             for (StockReservation r : reservations) {
@@ -290,6 +316,10 @@ public class SalesOrderService {
                     r.setCancelledAt(Instant.now());
                     reservationRepository.save(r);
                 }
+            }
+            // Clear any pending backorder quantities on lines
+            for (SalesOrderLine line : so.getLines()) {
+                line.setQuantityBackordered(BigDecimal.ZERO);
             }
         }
 
@@ -508,6 +538,79 @@ public class SalesOrderService {
         return invoices.stream().map(invoiceService::toResponse).toList();
     }
 
+    // ── BACKORDER AUTO-FULFILLMENT ──────────────────────────────
+
+    /**
+     * Called by StockReceiptService.receive() after each GRN line is posted.
+     * Finds BACKORDER SOs waiting for this item (FIFO) and creates or top-ups
+     * their stock reservations using newly available stock.
+     * When all lines on a SO reach quantityBackordered = 0, the SO is
+     * promoted from BACKORDER → CONFIRMED automatically.
+     */
+    @Transactional
+    public void onStockReceived(UUID orgId, UUID itemId, UUID warehouseId) {
+        List<SalesOrderLine> backorderLines = soLineRepository.findBackorderedLinesForItem(orgId, itemId);
+        if (backorderLines.isEmpty()) return;
+
+        Set<UUID> updatedSoIds = new HashSet<>();
+
+        for (SalesOrderLine line : backorderLines) {
+            BigDecimal onHand = stockBalanceRepository
+                    .findByOrgIdAndItemIdAndWarehouseId(orgId, itemId, warehouseId)
+                    .map(StockBalance::getQuantityOnHand)
+                    .orElse(BigDecimal.ZERO);
+            BigDecimal alreadyReserved = reservationRepository.sumActiveReservations(itemId, warehouseId);
+            BigDecimal available = onHand.subtract(alreadyReserved);
+
+            if (available.compareTo(BigDecimal.ZERO) <= 0) break; // no free stock left
+
+            BigDecimal toFulfill = available.min(line.getQuantityBackordered());
+            if (toFulfill.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            // Update existing reservation if one exists, otherwise create it
+            Optional<StockReservation> existing = reservationRepository
+                    .findBySourceTypeAndSourceLineIdAndStatus("SALES_ORDER", line.getId(), "ACTIVE");
+
+            if (existing.isPresent()) {
+                StockReservation r = existing.get();
+                r.setQuantityReserved(r.getQuantityReserved().add(toFulfill));
+                reservationRepository.save(r);
+            } else {
+                reservationRepository.save(StockReservation.builder()
+                        .orgId(orgId)
+                        .itemId(itemId)
+                        .warehouseId(warehouseId)
+                        .sourceType("SALES_ORDER")
+                        .sourceId(line.getSalesOrder().getId())
+                        .sourceLineId(line.getId())
+                        .quantityReserved(toFulfill)
+                        .build());
+            }
+
+            line.setQuantityBackordered(line.getQuantityBackordered().subtract(toFulfill));
+            soLineRepository.save(line);
+
+            updatedSoIds.add(line.getSalesOrder().getId());
+        }
+
+        // Promote any fully-fulfilled BACKORDER SOs to CONFIRMED
+        for (UUID affectedSoId : updatedSoIds) {
+            SalesOrder so = salesOrderRepository.findById(affectedSoId).orElse(null);
+            if (so == null || !"BACKORDER".equals(so.getStatus())) continue;
+
+            boolean allFulfilled = so.getLines().stream()
+                    .allMatch(l -> l.getQuantityBackordered().compareTo(BigDecimal.ZERO) == 0);
+
+            if (allFulfilled) {
+                so.setStatus("CONFIRMED");
+                salesOrderRepository.save(so);
+                commentService.addSystemComment("SALES_ORDER", so.getId(),
+                        "All backordered items are now in stock — order confirmed");
+                log.info("SO {} backorder fully fulfilled → CONFIRMED", so.getSalesorderNumber());
+            }
+        }
+    }
+
     // ── HELPERS ─────────────────────────────────────────────────
 
     private SalesOrder findOrThrow(UUID soId, UUID orgId) {
@@ -553,7 +656,8 @@ public class SalesOrderService {
                     return new SalesOrderLineResponse(
                             l.getId(), l.getLineNumber(), l.getItemId(), itemName,
                             l.getDescription(), l.getQuantity(), l.getQuantityShipped(),
-                            l.getQuantityInvoiced(), l.getUnit(), l.getRate(),
+                            l.getQuantityInvoiced(), l.getQuantityBackordered(),
+                            l.getUnit(), l.getRate(),
                             l.getDiscountPct(), l.getTaxGroupId(), l.getTaxRate(),
                             l.getHsnCode(), l.getAmount());
                 }).toList();
@@ -575,6 +679,7 @@ public class SalesOrderService {
                 so.getBillingAddress(), so.getShippingAddress(),
                 lineResponses,
                 invoiceCount, challanRepository.countBySalesOrderIdAndIsDeletedFalse(so.getId()),
+                so.isAllowBackorder(),
                 so.getCreatedAt());
     }
 }

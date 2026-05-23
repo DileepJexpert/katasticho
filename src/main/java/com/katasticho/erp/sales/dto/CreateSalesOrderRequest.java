@@ -41,5 +41,11 @@ public record CreateSalesOrderRequest(
         String billingAddress,
 
         /** JSON string representing the shipping address. */
-        String shippingAddress
+        String shippingAddress,
+
+        /**
+         * When true, the order can be confirmed even if some items are out of stock.
+         * Backordered quantities are fulfilled automatically when a matching GRN is received.
+         */
+        Boolean allowBackorder
 ) {}

@@ -102,8 +102,6 @@ app:
   mail:
     from: ${MAIL_FROM:noreply@katixo.com}
     from-name: ${MAIL_FROM_NAME:Katixo}
-
-app:
   base-url: ${APP_BASE_URL:https://app.katixo.com}
   platform-admin-url: ${PLATFORM_ADMIN_URL:https://app.katixo.com/platform-admin}
 

@@ -107,6 +107,10 @@ public class SalesOrder extends BaseEntity {
 
     private String terms;
 
+    @Column(name = "allow_backorder", nullable = false)
+    @Builder.Default
+    private boolean allowBackorder = false;
+
     @OneToMany(mappedBy = "salesOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<SalesOrderLine> lines = new ArrayList<>();
