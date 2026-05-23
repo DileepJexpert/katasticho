@@ -1,5 +1,6 @@
 package com.katasticho.erp.auth.controller;
 
+import com.katasticho.erp.auth.dto.AccountSubmissionResponse;
 import com.katasticho.erp.auth.dto.AuthResponse;
 import com.katasticho.erp.auth.dto.CreateAdditionalOrgRequest;
 import com.katasticho.erp.auth.dto.OrgSummary;
@@ -39,9 +40,9 @@ public class UserController {
 
     @PostMapping("/me/create-org")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<AuthResponse>> createAdditionalOrg(
+    public ResponseEntity<ApiResponse<AccountSubmissionResponse>> createAdditionalOrg(
             @Valid @RequestBody CreateAdditionalOrgRequest request) {
-        AuthResponse response = authService.createAdditionalOrg(request, TenantContext.getCurrentUserId());
+        AccountSubmissionResponse response = authService.createAdditionalOrg(request, TenantContext.getCurrentUserId());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(response));
     }
 }

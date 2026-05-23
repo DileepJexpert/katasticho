@@ -1391,30 +1391,16 @@ class _OrgSwitcherSheetState extends ConsumerState<_OrgSwitcherSheet> {
       final authRepo = ref.read(authRepositoryProvider);
       final result = await authRepo.createAdditionalOrg(name: orgName.trim());
       final data = result['data'] as Map<String, dynamic>;
-      final user = data['user'] as Map<String, dynamic>;
-
-      await ref.read(authProvider.notifier).onLoginSuccess(
-            accessToken: data['accessToken'] as String,
-            refreshToken: data['refreshToken'] as String,
-            userId: user['id'].toString(),
-            userName: user['fullName'] as String,
-            role: user['role'] as String,
-            orgId: user['orgId'].toString(),
-            orgName: user['orgName'] as String,
-            industry: user['industry'] as String?,
-            industryCode: user['industryCode'] as String?,
-            onboardingCompleted: user['onboardingCompleted'] as bool? ?? true,
-            defaultLandingPage: user['defaultLandingPage'] as String?,
-          );
 
       if (!mounted) return;
-      ref.invalidate(myOrgsProvider);
-      ref.invalidate(unreadCountProvider);
-      ref.invalidate(dashboardFilterProvider);
       Navigator.pop(context);
-      context.go(Routes.dashboard);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Switched to "$orgName"')),
+        SnackBar(
+          content: Text(
+            '"$orgName" created. Awaiting Katixo admin approval before you can log in.',
+          ),
+          duration: const Duration(seconds: 6),
+        ),
       );
     } catch (e) {
       if (!mounted) return;

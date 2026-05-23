@@ -15,6 +15,7 @@ import java.time.Duration;
 public class OtpService {
 
     private static final String OTP_PREFIX = "otp:";
+    private static final String OTP_RESET_PREFIX = "otp:reset:";
     private static final String OTP_ATTEMPTS_PREFIX = "otp_attempts:";
     private static final String OTP_LOCK_PREFIX = "otp_lock:";
 
@@ -91,6 +92,45 @@ public class OtpService {
 
         // OTP matches — clean up
         redisTemplate.delete(otpKey);
+        redisTemplate.delete(OTP_ATTEMPTS_PREFIX + phone);
+        return true;
+    }
+
+    public String generateAndStoreForReset(String phone) {
+        String lockKey = OTP_LOCK_PREFIX + phone;
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(lockKey))) {
+            throw new BusinessException(
+                    "Too many failed attempts. Account locked for " + lockoutMinutes + " minutes.",
+                    "AUTH_ACCOUNT_LOCKED",
+                    HttpStatus.TOO_MANY_REQUESTS
+            );
+        }
+        String otp = String.format("%06d", secureRandom.nextInt(1_000_000));
+        redisTemplate.opsForValue().set(OTP_RESET_PREFIX + phone, otp, Duration.ofMinutes(expiryMinutes));
+        redisTemplate.delete(OTP_ATTEMPTS_PREFIX + phone);
+        log.debug("DEV RESET OTP for {}: {}", phone, otp);
+        return otp;
+    }
+
+    public boolean verifyForReset(String phone, String otp) {
+        String lockKey = OTP_LOCK_PREFIX + phone;
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(lockKey))) {
+            throw new BusinessException(
+                    "Too many failed attempts. Account locked for " + lockoutMinutes + " minutes.",
+                    "AUTH_ACCOUNT_LOCKED",
+                    HttpStatus.TOO_MANY_REQUESTS
+            );
+        }
+        String storedOtp = redisTemplate.opsForValue().get(OTP_RESET_PREFIX + phone);
+        if (storedOtp == null) {
+            incrementFailedAttempts(phone);
+            return false;
+        }
+        if (!storedOtp.equals(otp)) {
+            incrementFailedAttempts(phone);
+            return false;
+        }
+        redisTemplate.delete(OTP_RESET_PREFIX + phone);
         redisTemplate.delete(OTP_ATTEMPTS_PREFIX + phone);
         return true;
     }

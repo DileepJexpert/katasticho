@@ -324,16 +324,15 @@ public class AuthService {
     }
 
     public void requestPasswordReset(ForgotPasswordRequest request) {
-        if (!userRepository.existsByPhoneAndIsDeletedFalse(request.phone())) {
-            throw new BusinessException("No account found for this phone number",
-                    "AUTH_USER_NOT_FOUND", HttpStatus.NOT_FOUND);
+        // Always return 200 — never reveal whether a phone number is registered
+        if (userRepository.existsByPhoneAndIsDeletedFalse(request.phone())) {
+            otpService.generateAndStoreForReset(request.phone());
         }
-        otpService.generateAndStore(request.phone());
     }
 
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
-        boolean valid = otpService.verify(request.phone(), request.otp());
+        boolean valid = otpService.verifyForReset(request.phone(), request.otp());
         if (!valid) {
             throw new BusinessException("Invalid or expired OTP", "AUTH_INVALID_OTP", HttpStatus.UNAUTHORIZED);
         }
@@ -490,7 +489,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse createAdditionalOrg(CreateAdditionalOrgRequest request, UUID currentUserId) {
+    public AccountSubmissionResponse createAdditionalOrg(CreateAdditionalOrgRequest request, UUID currentUserId) {
         AppUser currentUser = userRepository.findById(currentUserId)
                 .orElseThrow(() -> BusinessException.notFound("User", currentUserId));
 
@@ -499,6 +498,7 @@ public class AuthService {
                 .businessType(request.businessType() != null ? request.businessType() : "RETAILER")
                 .industryCode(request.industryCode() != null ? request.industryCode() : "OTHER_RETAIL")
                 .subCategories(List.of())
+                .approvalStatus("PENDING")
                 .build();
         org = organisationRepository.saveAndFlush(org);
 
@@ -545,7 +545,7 @@ public class AuthService {
             }
         });
 
-        return buildAuthResponse(newUser, org);
+        return pendingSubmission(newUser, org);
     }
 
     private AuthResponse buildAuthResponse(AppUser user, Organisation org) {

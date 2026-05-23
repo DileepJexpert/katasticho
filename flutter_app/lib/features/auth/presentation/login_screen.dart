@@ -278,7 +278,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     KSpacing.vGapLg,
 
                     Text(
-                      'Welcome to Katasticho',
+                      'Welcome to Katixo',
                       style: KTypography.h1,
                       textAlign: TextAlign.center,
                     ),
