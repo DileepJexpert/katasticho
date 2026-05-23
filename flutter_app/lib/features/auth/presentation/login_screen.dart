@@ -160,9 +160,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   );
                 }
               } catch (_) {
-                setDialogState(() => error = 'Reset failed. Check OTP and try again.');
+                if (dialogContext.mounted) {
+                  setDialogState(() => error = 'Reset failed. Check OTP and try again.');
+                }
               } finally {
-                setDialogState(() => loading = false);
+                if (dialogContext.mounted) {
+                  setDialogState(() => loading = false);
+                }
               }
             }
 
