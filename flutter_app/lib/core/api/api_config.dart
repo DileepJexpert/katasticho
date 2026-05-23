@@ -20,6 +20,11 @@ class ApiConfig {
   static const String refreshToken = '/api/v1/auth/refresh';
   static const String forgotPassword = '/api/v1/auth/password/forgot';
   static const String resetPassword = '/api/v1/auth/password/reset';
+  static const String forgotPasswordEmail = '/api/v1/auth/forgot-password';
+  static const String resetPasswordToken = '/api/v1/auth/reset-password';
+  static const String verifyEmail = '/api/v1/auth/verify-email';
+  static const String resendVerification = '/api/v1/auth/verify-email/resend';
+  static const String changePassword = '/api/v1/auth/change-password';
   static const String me = '/api/v1/auth/me';
   static const String myOrgs = '/api/v1/users/me/organisations';
   static const String switchOrg = '/api/v1/users/me/switch-org';
@@ -265,7 +270,7 @@ class ApiConfig {
   static String orgInviteCancel(String inviteId) =>
       '/api/v1/org/users/invites/$inviteId';
 
-  // Platform admin
+  // Platform admin (v1 — legacy)
   static const String platformOrganisations =
       '/api/v1/platform-admin/organisations';
   static String platformOrgUsers(String orgId) =>
@@ -276,6 +281,33 @@ class ApiConfig {
       '/api/v1/platform-admin/organisations/$orgId/reject';
   static String platformResetPassword(String userId) =>
       '/api/v1/platform-admin/users/$userId/reset-password';
+
+  // Platform admin v2 (new base path)
+  static const String platformAdminLogin = '/api/platform-admin/v1/auth/login';
+  static const String platformAdminStats =
+      '/api/platform-admin/v1/dashboard/stats';
+  static const String platformAdminOrgsV2 = '/api/platform-admin/v1/orgs';
+  static String platformAdminOrgDetailV2(String orgId) =>
+      '/api/platform-admin/v1/orgs/$orgId';
+  static String platformAdminApproveOrgV2(String orgId) =>
+      '/api/platform-admin/v1/orgs/$orgId/approve';
+  static String platformAdminRejectOrgV2(String orgId) =>
+      '/api/platform-admin/v1/orgs/$orgId/reject';
+  static String platformAdminSuspendOrg(String orgId) =>
+      '/api/platform-admin/v1/orgs/$orgId/suspend';
+  static String platformAdminReactivateOrg(String orgId) =>
+      '/api/platform-admin/v1/orgs/$orgId/reactivate';
+  static const String platformAdminUsersV2 = '/api/platform-admin/v1/users';
+  static String platformAdminUserDetailV2(String userId) =>
+      '/api/platform-admin/v1/users/$userId';
+  static String platformAdminResetUserPasswordV2(String userId) =>
+      '/api/platform-admin/v1/users/$userId/reset-password';
+  static String platformAdminDeactivateUser(String userId) =>
+      '/api/platform-admin/v1/users/$userId/deactivate';
+  static String platformAdminReactivateUser(String userId) =>
+      '/api/platform-admin/v1/users/$userId/reactivate';
+  static const String platformAdminAuditLog =
+      '/api/platform-admin/v1/audit-log';
 
   // Demo seeding (owner-only, idempotent)
   static const String demoSeedSharmaMedical =

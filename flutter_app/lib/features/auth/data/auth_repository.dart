@@ -142,6 +142,54 @@ class AuthRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  /// Request password reset via email token.
+  Future<Map<String, dynamic>> forgotPasswordEmail({
+    String? email,
+    String? phone,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConfig.forgotPasswordEmail,
+      data: {
+        if (email != null) 'email': email,
+        if (phone != null) 'phone': phone,
+      },
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Reset password with email token.
+  Future<Map<String, dynamic>> resetPasswordWithToken({
+    required String token,
+    required String newPassword,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConfig.resetPasswordToken,
+      data: {'token': token, 'newPassword': newPassword},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Resend verification email.
+  Future<Map<String, dynamic>> resendVerificationEmail(String email) async {
+    final response = await _apiClient.post(
+      ApiConfig.resendVerification,
+      data: {'email': email},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Change password (authenticated user).
+  Future<Map<String, dynamic>> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    final response = await _apiClient.put(
+      ApiConfig.changePassword,
+      data: {'oldPassword': oldPassword, 'newPassword': newPassword},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   /// Get current user profile.
   Future<Map<String, dynamic>> getMe() async {
     debugPrint('[AuthRepo] getMe called');

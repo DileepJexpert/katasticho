@@ -102,7 +102,18 @@ import '../features/inventory/presentation/reorder_screen.dart';
 import '../features/team/presentation/team_screen.dart';
 import '../features/settings/presentation/ai_model_settings_screen.dart';
 import '../features/ca_console/presentation/ca_console_screen.dart';
+import '../features/auth/presentation/forgot_password_screen.dart';
+import '../features/auth/presentation/reset_password_screen.dart';
+import '../features/auth/presentation/verify_email_pending_screen.dart';
+import '../features/auth/presentation/account_pending_approval_screen.dart';
 import '../features/platform_admin/presentation/platform_admin_screen.dart';
+import '../features/platform_admin/presentation/platform_admin_login_screen.dart';
+import '../features/platform_admin/presentation/platform_admin_dashboard_screen.dart';
+import '../features/platform_admin/presentation/platform_admin_pending_screen.dart';
+import '../features/platform_admin/presentation/platform_admin_orgs_screen.dart';
+import '../features/platform_admin/presentation/platform_admin_users_screen.dart';
+import '../features/platform_admin/presentation/platform_admin_audit_screen.dart';
+import '../features/platform_admin/data/platform_admin_auth_state.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -223,7 +234,17 @@ class Routes {
   static const caCalendar = '/ca/calendar';
   static const caAlerts = '/ca/alerts';
   static const caReports = '/ca/reports';
+  static const forgotPassword = '/forgot-password';
+  static const resetPassword = '/reset-password';
+  static const verifyEmailPending = '/verify-email-pending';
+  static const accountPendingApproval = '/account-pending-approval';
   static const platformAdmin = '/platform-admin';
+  static const platformAdminLogin = '/platform-admin/login';
+  static const platformAdminDashboard = '/platform-admin/dashboard';
+  static const platformAdminPending = '/platform-admin/pending';
+  static const platformAdminOrgs = '/platform-admin/orgs';
+  static const platformAdminUsers = '/platform-admin/users';
+  static const platformAdminAudit = '/platform-admin/audit';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -238,7 +259,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
 
       final isAuthRoute =
-          loc == Routes.login || loc == Routes.otp || loc == Routes.signup;
+          loc == Routes.login ||
+          loc == Routes.otp ||
+          loc == Routes.signup ||
+          loc == Routes.forgotPassword ||
+          loc.startsWith('/reset-password') ||
+          loc == Routes.verifyEmailPending ||
+          loc == Routes.accountPendingApproval;
+      final isPlatformAdminRoute = loc.startsWith('/platform-admin');
       final isOnboardingRoute = loc.startsWith('/onboarding');
 
       debugPrint(
@@ -246,6 +274,11 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (authState.status == AuthStatus.initial ||
           authState.status == AuthStatus.loading) {
+        return null;
+      }
+
+      // Platform admin routes handle their own auth — skip main auth redirect
+      if (isPlatformAdminRoute) {
         return null;
       }
 
@@ -309,6 +342,79 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.signup,
         builder: (context, state) => const SignupScreen(),
+      ),
+      GoRoute(
+        path: Routes.forgotPassword,
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: Routes.resetPassword,
+        builder: (context, state) {
+          final token = state.uri.queryParameters['token'] ?? '';
+          return ResetPasswordScreen(token: token);
+        },
+      ),
+      GoRoute(
+        path: Routes.verifyEmailPending,
+        builder: (context, state) {
+          final email = state.extra as String? ?? '';
+          return VerifyEmailPendingScreen(email: email);
+        },
+      ),
+      GoRoute(
+        path: Routes.accountPendingApproval,
+        builder: (context, state) => const AccountPendingApprovalScreen(),
+      ),
+
+      // ── Platform Admin (separate auth — no shell) ──
+      GoRoute(
+        path: Routes.platformAdminLogin,
+        builder: (context, state) => const PlatformAdminLoginScreen(),
+      ),
+      GoRoute(
+        path: Routes.platformAdminDashboard,
+        redirect: (context, state) {
+          final token = ref.read(platformAdminTokenProvider);
+          if (token == null) return Routes.platformAdminLogin;
+          return null;
+        },
+        builder: (context, state) => const PlatformAdminDashboardScreen(),
+      ),
+      GoRoute(
+        path: Routes.platformAdminPending,
+        redirect: (context, state) {
+          final token = ref.read(platformAdminTokenProvider);
+          if (token == null) return Routes.platformAdminLogin;
+          return null;
+        },
+        builder: (context, state) => const PlatformAdminPendingScreen(),
+      ),
+      GoRoute(
+        path: Routes.platformAdminOrgs,
+        redirect: (context, state) {
+          final token = ref.read(platformAdminTokenProvider);
+          if (token == null) return Routes.platformAdminLogin;
+          return null;
+        },
+        builder: (context, state) => const PlatformAdminOrgsScreen(),
+      ),
+      GoRoute(
+        path: Routes.platformAdminUsers,
+        redirect: (context, state) {
+          final token = ref.read(platformAdminTokenProvider);
+          if (token == null) return Routes.platformAdminLogin;
+          return null;
+        },
+        builder: (context, state) => const PlatformAdminUsersScreen(),
+      ),
+      GoRoute(
+        path: Routes.platformAdminAudit,
+        redirect: (context, state) {
+          final token = ref.read(platformAdminTokenProvider);
+          if (token == null) return Routes.platformAdminLogin;
+          return null;
+        },
+        builder: (context, state) => const PlatformAdminAuditScreen(),
       ),
 
       // ── Onboarding wizard (no shell, no nav bar) ──
