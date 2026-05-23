@@ -6,24 +6,28 @@
 DO $$
 DECLARE v_name text;
 BEGIN
-    SELECT conname INTO v_name
-    FROM pg_constraint
-    WHERE conrelid = 'public.sales_order'::regclass
-      AND contype = 'c'
-      AND conname LIKE '%status%';
-    IF v_name IS NOT NULL THEN
+    -- Drop any existing status check constraint (auto-named or explicit)
+    FOR v_name IN
+        SELECT conname
+        FROM pg_constraint
+        WHERE conrelid = 'public.sales_order'::regclass
+          AND contype = 'c'
+          AND (conname LIKE '%status%'
+               OR pg_get_constraintdef(oid) LIKE '%status%')
+    LOOP
         EXECUTE format('ALTER TABLE sales_order DROP CONSTRAINT %I', v_name);
-    END IF;
-END $$;
+    END LOOP;
 
-ALTER TABLE sales_order
-    ADD CONSTRAINT sales_order_status_check
-        CHECK (status IN (
-            'DRAFT', 'CONFIRMED', 'BACKORDER',
-            'PARTIALLY_SHIPPED', 'SHIPPED',
-            'PARTIALLY_INVOICED', 'INVOICED',
-            'COMPLETED', 'CANCELLED', 'VOID'
-        ));
+    -- Re-add with BACKORDER included
+    EXECUTE 'ALTER TABLE sales_order
+        ADD CONSTRAINT sales_order_status_check
+            CHECK (status IN (
+                ''DRAFT'', ''CONFIRMED'', ''BACKORDER'',
+                ''PARTIALLY_SHIPPED'', ''SHIPPED'',
+                ''PARTIALLY_INVOICED'', ''INVOICED'',
+                ''COMPLETED'', ''CANCELLED'', ''VOID''
+            ))';
+END $$;
 
 -- 2. Flag on the order header — opt-in, default false so existing behaviour
 --    is completely unchanged.
