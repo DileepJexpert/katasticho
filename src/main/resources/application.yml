@@ -103,11 +103,6 @@ app:
     from: ${MAIL_FROM:noreply@katixo.com}
     from-name: ${MAIL_FROM_NAME:Katixo}
 
-resend:
-  api-key: ${RESEND_API_KEY:dummy}
-  from-email: noreply@katixo.com
-  from-name: Katixo
-
 app:
   base-url: ${APP_BASE_URL:https://app.katixo.com}
   platform-admin-url: ${PLATFORM_ADMIN_URL:https://app.katixo.com/platform-admin}

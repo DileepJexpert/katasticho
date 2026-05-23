@@ -1,28 +1,30 @@
 package com.katasticho.erp.notification;
 
-import com.resend.Resend;
-import com.resend.services.emails.model.CreateEmailOptions;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 @Service
 @Slf4j
 public class EmailService {
 
-    private final Resend resend;
+    private final JavaMailSender mailSender;
     private final String fromEmail;
     private final String fromName;
     private final String baseUrl;
     private final String platformAdminUrl;
 
     public EmailService(
-            @Value("${resend.api-key}") String apiKey,
-            @Value("${resend.from-email}") String fromEmail,
-            @Value("${resend.from-name}") String fromName,
+            JavaMailSender mailSender,
+            @Value("${app.mail.from}") String fromEmail,
+            @Value("${app.mail.from-name}") String fromName,
             @Value("${app.base-url}") String baseUrl,
             @Value("${app.platform-admin-url}") String platformAdminUrl) {
-        this.resend = new Resend(apiKey);
+        this.mailSender = mailSender;
         this.fromEmail = fromEmail;
         this.fromName = fromName;
         this.baseUrl = baseUrl;
@@ -103,14 +105,14 @@ public class EmailService {
 
     private void send(String to, String subject, String html) {
         try {
-            CreateEmailOptions params = CreateEmailOptions.builder()
-                    .from(fromName + " <" + fromEmail + ">")
-                    .to(to)
-                    .subject(subject)
-                    .html(html)
-                    .build();
-            resend.emails().send(params);
-        } catch (Exception e) {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromName + " <" + fromEmail + ">");
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(html, true);
+            mailSender.send(message);
+        } catch (MessagingException e) {
             log.error("Failed to send email to {}: {}", to, e.getMessage());
         }
     }
