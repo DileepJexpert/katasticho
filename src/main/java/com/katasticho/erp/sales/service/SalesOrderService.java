@@ -301,6 +301,65 @@ public class SalesOrderService {
         return toResponseWithContactLookup(so);
     }
 
+    // ── CLOSE BACKORDER LINES ────────────────────────────────────
+
+    /**
+     * Permanently closes specific backorder lines — sets quantityBackordered = 0,
+     * releases any partial reservation, and promotes the SO to CONFIRMED if all
+     * remaining backorder lines are now closed.
+     * Use case: medicine cannot be sourced from any vendor; customer will buy elsewhere.
+     */
+    @Transactional
+    public SalesOrderResponse closeBackorderLines(UUID soId, CloseBackorderLinesRequest request) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        SalesOrder so = findOrThrow(soId, orgId);
+
+        if (!"BACKORDER".equals(so.getStatus())) {
+            throw new BusinessException("Only BACKORDER sales orders can have lines closed",
+                    "SO_NOT_BACKORDER", HttpStatus.BAD_REQUEST);
+        }
+
+        StringBuilder closedNames = new StringBuilder();
+        for (UUID lineId : request.lineIds()) {
+            SalesOrderLine line = so.getLines().stream()
+                    .filter(l -> l.getId().equals(lineId))
+                    .findFirst()
+                    .orElseThrow(() -> new BusinessException(
+                            "SO line not found: " + lineId, "SO_LINE_NOT_FOUND", HttpStatus.BAD_REQUEST));
+
+            if (line.getQuantityBackordered().compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            // Release any existing reservation for this line
+            reservationRepository.findBySourceTypeAndSourceLineIdAndStatus("SALES_ORDER", lineId, "ACTIVE")
+                    .ifPresent(r -> {
+                        r.setStatus("CANCELLED");
+                        r.setCancelledAt(Instant.now());
+                        reservationRepository.save(r);
+                    });
+
+            line.setQuantityBackordered(BigDecimal.ZERO);
+            soLineRepository.save(line);
+
+            if (!closedNames.isEmpty()) closedNames.append(", ");
+            closedNames.append(line.getDescription() != null ? line.getDescription() : lineId.toString());
+        }
+
+        boolean allFulfilled = so.getLines().stream()
+                .allMatch(l -> l.getQuantityBackordered().compareTo(BigDecimal.ZERO) == 0);
+
+        if (allFulfilled) {
+            so.setStatus("CONFIRMED");
+            salesOrderRepository.save(so);
+        }
+
+        String reason = request.reason() != null ? " — Reason: " + request.reason() : "";
+        commentService.addSystemComment("SALES_ORDER", so.getId(),
+                "Backorder lines closed for: " + closedNames + reason);
+
+        log.info("SO {} backorder lines closed: {}", so.getSalesorderNumber(), closedNames);
+        return toResponseWithContactLookup(so);
+    }
+
     // ── CANCEL ──────────────────────────────────────────────────
 
     @Transactional

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -43,10 +44,10 @@ class SalesOrderDetailScreen extends ConsumerWidget {
                           style: TextStyle(color: KColors.error)),
                     ),
                   ],
-                  if (status == 'CONFIRMED')
+                  if (status == 'CONFIRMED' || status == 'BACKORDER')
                     const PopupMenuItem(
                       value: 'cancel',
-                      child: Text('Cancel',
+                      child: Text('Cancel Full Order',
                           style: TextStyle(color: KColors.error)),
                     ),
                 ],
@@ -230,6 +231,68 @@ class _SalesOrderDetailBody extends ConsumerWidget {
   });
 
   @override
+  Future<void> _closeBackorderLines(
+      BuildContext context, WidgetRef ref, List<String> lineIds) async {
+    final reasonCtl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Close Backorder Line?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This medicine cannot be sourced. The backordered qty will be closed — customer should get it elsewhere.',
+              style: KTypography.bodyMedium,
+            ),
+            KSpacing.vGapMd,
+            KTextField(
+              label: 'Reason (optional)',
+              controller: reasonCtl,
+              hint: 'e.g. Not available with any vendor',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: KColors.warning),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Close Line'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final repo = ref.read(salesOrderRepositoryProvider);
+      await repo.closeBackorderLines(salesOrderId, lineIds, reasonCtl.text.trim());
+      ref.invalidate(salesOrderDetailProvider(salesOrderId));
+      ref.invalidate(salesOrderListProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backorder line closed')),
+        );
+      }
+    } catch (e) {
+      String msg = 'Failed to close line';
+      if (e is DioException) {
+        final body = e.response?.data;
+        if (body is Map) msg = body['message'] as String? ?? msg;
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: KColors.error),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context, WidgetRef ref) {
     final status = order['status'] as String? ?? 'DRAFT';
     final orderNumber = order['salesOrderNumber'] as String? ?? '--';
@@ -391,6 +454,11 @@ class _SalesOrderDetailBody extends ConsumerWidget {
                               (line['quantityInvoiced'] as num?)
                                       ?.toDouble() ??
                                   0;
+                          final backorderedQty =
+                              (line['quantityBackordered'] as num?)
+                                      ?.toDouble() ??
+                                  0;
+                          final lineId = line['id'] as String? ?? '';
                           final unit =
                               line['unit'] as String? ?? '';
                           final rate =
@@ -465,6 +533,43 @@ class _SalesOrderDetailBody extends ConsumerWidget {
                                                 color: KColors
                                                     .textSecondary),
                                       ),
+                                    ],
+                                  ),
+                                ],
+                                if (backorderedQty > 0) ...[
+                                  KSpacing.vGapXs,
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: KColors.warning
+                                              .withValues(alpha: 0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(999),
+                                        ),
+                                        child: Text(
+                                          'Backordered: ${backorderedQty.toStringAsFixed(backorderedQty.truncateToDouble() == backorderedQty ? 0 : 2)} — awaiting stock',
+                                          style:
+                                              KTypography.labelSmall.copyWith(
+                                            color: KColors.warning,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      if (status == 'BACKORDER')
+                                        TextButton(
+                                          style: TextButton.styleFrom(
+                                              foregroundColor: KColors.error,
+                                              padding: EdgeInsets.zero),
+                                          onPressed: () =>
+                                              _closeBackorderLines(
+                                                  context, ref, [lineId]),
+                                          child: const Text('Close Line',
+                                              style: TextStyle(fontSize: 12)),
+                                        ),
                                     ],
                                   ),
                                 ],

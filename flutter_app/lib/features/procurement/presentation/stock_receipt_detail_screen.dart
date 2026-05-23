@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -155,11 +156,26 @@ class StockReceiptDetailScreen extends ConsumerWidget {
       }
     } catch (e) {
       debugPrint('[GrnDetail] receive failed: $e');
+      String errorMsg = 'Failed to receive stock';
+      if (e is DioException) {
+        final body = e.response?.data;
+        if (body is Map) {
+          errorMsg = body['message'] as String? ??
+              body['error'] as String? ?? errorMsg;
+        }
+      }
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to receive stock'),
-            backgroundColor: KColors.error,
+        showDialog<void>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Receive Failed'),
+            content: Text(errorMsg),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
           ),
         );
       }

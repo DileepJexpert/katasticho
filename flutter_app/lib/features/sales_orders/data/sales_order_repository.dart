@@ -60,6 +60,18 @@ class SalesOrderRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> closeBackorderLines(
+      String id, List<String> lineIds, String? reason) async {
+    final response = await _api.post(
+      '${ApiConfig.salesOrderById(id)}/close-backorder-lines',
+      data: {
+        'lineIds': lineIds,
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+      },
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> getReservations(String id) async {
     final response = await _api.get(ApiConfig.salesOrderReservations(id));
     return response.data as Map<String, dynamic>;
