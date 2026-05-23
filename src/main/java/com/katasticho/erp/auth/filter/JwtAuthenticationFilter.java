@@ -65,6 +65,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;
                 }
 
+                // Check tokenVersion to invalidate sessions after password change
+                int jwtTokenVersion = claims.containsKey("tokenVersion")
+                    ? ((Number) claims.get("tokenVersion")).intValue() : 0;
+                if (jwtTokenVersion != user.getTokenVersion()) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Session invalidated");
+                    return;
+                }
+
                 String effectiveRole = role;
                 if ("CA_EXTERNAL".equals(role)) {
                     boolean validDelegatedToken = user.getCaFirmId() != null
@@ -107,6 +115,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
         return path.startsWith("/api/v1/auth/")
+                || path.startsWith("/api/platform-admin/")
                 || path.startsWith("/actuator/")
                 || path.startsWith("/v3/api-docs")
                 || path.startsWith("/swagger-ui");

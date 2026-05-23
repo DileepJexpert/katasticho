@@ -21,25 +21,39 @@ import java.util.UUID;
 public class JwtService {
 
     private final SecretKey key;
+    private final SecretKey platformAdminKey;
     private final long accessTokenExpiryMinutes;
     private final long refreshTokenExpiryDays;
+    private final long platformAdminExpiryHours;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public JwtService(
             @Value("${app.jwt.secret}") String secret,
             @Value("${app.jwt.access-token-expiry-minutes}") long accessTokenExpiryMinutes,
-            @Value("${app.jwt.refresh-token-expiry-days}") long refreshTokenExpiryDays
+            @Value("${app.jwt.refresh-token-expiry-days}") long refreshTokenExpiryDays,
+            @Value("${app.jwt.platform-admin-secret}") String platformAdminSecret,
+            @Value("${app.jwt.platform-admin-expiry-hours}") long platformAdminExpiryHours
     ) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.platformAdminKey = Keys.hmacShaKeyFor(platformAdminSecret.getBytes(StandardCharsets.UTF_8));
         this.accessTokenExpiryMinutes = accessTokenExpiryMinutes;
         this.refreshTokenExpiryDays = refreshTokenExpiryDays;
+        this.platformAdminExpiryHours = platformAdminExpiryHours;
     }
 
     public String generateAccessToken(UUID userId, UUID orgId, String role) {
-        return generateAccessToken(userId, orgId, role, accessTokenExpiryMinutes);
+        return generateAccessToken(userId, orgId, role, 0, accessTokenExpiryMinutes);
     }
 
     public String generateAccessToken(UUID userId, UUID orgId, String role, long expiryMinutes) {
+        return generateAccessToken(userId, orgId, role, 0, expiryMinutes);
+    }
+
+    public String generateAccessToken(UUID userId, UUID orgId, String role, int tokenVersion) {
+        return generateAccessToken(userId, orgId, role, tokenVersion, accessTokenExpiryMinutes);
+    }
+
+    public String generateAccessToken(UUID userId, UUID orgId, String role, int tokenVersion, long expiryMinutes) {
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(expiryMinutes * 60);
 
@@ -47,10 +61,41 @@ public class JwtService {
                 .subject(userId.toString())
                 .claim("org_id", orgId.toString())
                 .claim("role", role)
+                .claim("tokenVersion", tokenVersion)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiry))
                 .signWith(key)
                 .compact();
+    }
+
+    public String generatePlatformAdminToken(UUID adminId, String role, int tokenVersion) {
+        Instant now = Instant.now();
+        Instant expiry = now.plusSeconds(platformAdminExpiryHours * 3600);
+
+        return Jwts.builder()
+                .subject(adminId.toString())
+                .claim("role", role)
+                .claim("tokenVersion", tokenVersion)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(expiry))
+                .signWith(platformAdminKey)
+                .compact();
+    }
+
+    public Claims parsePlatformAdminToken(String token) {
+        try {
+            return Jwts.parser()
+                    .verifyWith(platformAdminKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        } catch (JwtException e) {
+            return null;
+        }
+    }
+
+    public Claims parseCustomerToken(String token) {
+        return validateAndExtract(token);
     }
 
     public String generateRefreshToken() {

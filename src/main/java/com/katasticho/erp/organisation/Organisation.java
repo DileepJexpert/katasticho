@@ -112,6 +112,12 @@ public class Organisation {
     @Column(name = "approval_note")
     private String approvalNote;
 
+    @Column(name = "suspended_reason")
+    private String suspendedReason;
+
+    @Column(name = "rejection_reason")
+    private String rejectionReason;
+
     @Column(name = "address_line1")
     private String addressLine1;
 

@@ -53,6 +53,21 @@ public class AppUser extends BaseEntity {
     @Column(name = "ca_firm_id")
     private UUID caFirmId;
 
+    @Column(name = "token_version", nullable = false)
+    @Builder.Default
+    private int tokenVersion = 0;
+
+    @Column(name = "email_verified", nullable = false)
+    @Builder.Default
+    private boolean emailVerified = false;
+
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
+
+    @Column(name = "login_method", length = 10, nullable = false)
+    @Builder.Default
+    private String loginMethod = "PHONE";
+
     public boolean isLocked() {
         return lockedUntil != null && Instant.now().isBefore(lockedUntil);
     }
@@ -68,5 +83,9 @@ public class AppUser extends BaseEntity {
 
     public void lock(int lockoutMinutes) {
         this.lockedUntil = Instant.now().plusSeconds(lockoutMinutes * 60L);
+    }
+
+    public void incrementTokenVersion() {
+        this.tokenVersion++;
     }
 }

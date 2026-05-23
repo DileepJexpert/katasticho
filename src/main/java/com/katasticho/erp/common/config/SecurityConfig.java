@@ -1,6 +1,7 @@
 package com.katasticho.erp.common.config;
 
 import com.katasticho.erp.auth.filter.JwtAuthenticationFilter;
+import com.katasticho.erp.platform.filter.PlatformAdminJwtFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -27,6 +28,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final PlatformAdminJwtFilter platformAdminJwtFilter;
 
     @Value("${app.cors.allowed-origins:*}")
     private List<String> allowedOrigins;
@@ -49,6 +51,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/health",
+                                "/api/platform-admin/v1/auth/login",
                                 "/actuator/health",
                                 "/actuator/info",
                                 "/v3/api-docs/**",
@@ -64,6 +67,7 @@ public class SecurityConfig {
                             response.getWriter().write("{\"error\":\"UNAUTHORIZED\",\"message\":\"Authentication required\"}");
                         })
                 )
+                .addFilterBefore(platformAdminJwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
