@@ -118,6 +118,13 @@ public class SalesOrderService {
 
         int lineNum = 1;
         for (SalesOrderLineRequest lr : request.lines()) {
+            UUID itemId = lr.itemId();
+
+            // Auto-create inventory item when none is linked
+            if (itemId == null && lr.description() != null && !lr.description().isBlank()) {
+                itemId = autoCreateItem(orgId, lr);
+            }
+
             BigDecimal lineAmount = lr.quantity().multiply(lr.rate());
             BigDecimal discountPct = lr.discountPct() != null ? lr.discountPct() : BigDecimal.ZERO;
             if (discountPct.compareTo(BigDecimal.ZERO) > 0) {
@@ -137,7 +144,7 @@ public class SalesOrderService {
 
             SalesOrderLine line = SalesOrderLine.builder()
                     .lineNumber(lineNum++)
-                    .itemId(lr.itemId())
+                    .itemId(itemId)
                     .description(lr.description())
                     .quantity(lr.quantity())
                     .unit(lr.unit())
@@ -609,6 +616,32 @@ public class SalesOrderService {
                 log.info("SO {} backorder fully fulfilled → CONFIRMED", so.getSalesorderNumber());
             }
         }
+    }
+
+    // ── AUTO-CREATE ITEM ──────────────────────────────────────────
+
+    private UUID autoCreateItem(UUID orgId, SalesOrderLineRequest lr) {
+        String name = lr.description().trim();
+        String sku = "AUTO-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 9000 + 1000);
+        String unit = lr.unit() != null ? lr.unit() : "PCS";
+
+        Item item = Item.builder()
+                .sku(sku)
+                .name(name)
+                .hsnCode(lr.hsnCode())
+                .unitOfMeasure(unit)
+                .salePrice(lr.rate() != null ? lr.rate() : BigDecimal.ZERO)
+                .trackInventory(true)
+                .build();
+        item.setOrgId(orgId);
+
+        if (lr.taxGroupId() != null) {
+            item.setDefaultTaxGroupId(lr.taxGroupId());
+        }
+
+        item = itemRepository.save(item);
+        log.info("Auto-created item '{}' (SKU={}) from sales order line", name, sku);
+        return item.getId();
     }
 
     // ── HELPERS ─────────────────────────────────────────────────
