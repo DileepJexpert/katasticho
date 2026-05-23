@@ -448,6 +448,7 @@ public class SalesOrderService {
 
     // ── GET ─────────────────────────────────────────────────────
 
+    @Transactional(readOnly = true)
     public SalesOrderResponse get(UUID soId) {
         UUID orgId = TenantContext.getCurrentOrgId();
         SalesOrder so = findOrThrow(soId, orgId);
@@ -456,6 +457,7 @@ public class SalesOrderService {
 
     // ── LIST ────────────────────────────────────────────────────
 
+    @Transactional(readOnly = true)
     public Page<SalesOrderResponse> list(String status, UUID contactId, UUID branchId, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
