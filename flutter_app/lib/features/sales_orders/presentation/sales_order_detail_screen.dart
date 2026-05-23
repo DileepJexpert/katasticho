@@ -25,42 +25,42 @@ class SalesOrderDetailScreen extends ConsumerWidget {
         title: const Text('Sales Order'),
         actions: [
           orderAsync.whenOrNull(
-            data: (data) {
-              final order = (data['data'] ?? data) as Map<String, dynamic>;
-              final status = order['status'] as String? ?? '';
-              return PopupMenuButton<String>(
-                onSelected: (value) =>
-                    _handleAction(context, ref, value, status),
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                      value: 'pdf', child: Text('Download PDF')),
-                  if (status == 'DRAFT') ...[
-                    const PopupMenuItem(
-                        value: 'confirm', child: Text('Confirm')),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Text('Delete',
-                          style: TextStyle(color: KColors.error)),
-                    ),
-                  ],
-                  if (status == 'CONFIRMED')
-                    const PopupMenuItem(
-                      value: 'cancel',
-                      child: Text('Cancel',
-                          style: TextStyle(color: KColors.error)),
-                    ),
-                ],
-              );
-            },
-          ) ?? const SizedBox.shrink(),
+                data: (data) {
+                  final order = (data['data'] ?? data) as Map<String, dynamic>;
+                  final status = order['status'] as String? ?? '';
+                  return PopupMenuButton<String>(
+                    onSelected: (value) =>
+                        _handleAction(context, ref, value, status),
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                          value: 'pdf', child: Text('Download PDF')),
+                      if (status == 'DRAFT') ...[
+                        const PopupMenuItem(
+                            value: 'confirm', child: Text('Confirm')),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Delete',
+                              style: TextStyle(color: KColors.error)),
+                        ),
+                      ],
+                      if (status == 'CONFIRMED')
+                        const PopupMenuItem(
+                          value: 'cancel',
+                          child: Text('Cancel',
+                              style: TextStyle(color: KColors.error)),
+                        ),
+                    ],
+                  );
+                },
+              ) ??
+              const SizedBox.shrink(),
         ],
       ),
       body: orderAsync.when(
         loading: () => const KLoading(message: 'Loading sales order...'),
         error: (err, _) => KErrorView(
           message: 'Failed to load sales order',
-          onRetry: () =>
-              ref.invalidate(salesOrderDetailProvider(salesOrderId)),
+          onRetry: () => ref.invalidate(salesOrderDetailProvider(salesOrderId)),
         ),
         data: (data) {
           final order = (data['data'] ?? data) as Map<String, dynamic>;
@@ -117,7 +117,8 @@ class SalesOrderDetailScreen extends ConsumerWidget {
           final orderAsync = ref.read(salesOrderDetailProvider(salesOrderId));
           orderAsync.whenData((data) {
             final order = (data['data'] ?? data) as Map<String, dynamic>;
-            final number = order['salesOrderNumber'] as String? ?? 'sales-order';
+            final number =
+                order['salesOrderNumber'] as String? ?? 'sales-order';
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -163,7 +164,8 @@ class SalesOrderDetailScreen extends ConsumerWidget {
     final confirmed = await KDialog.confirm(
       context: context,
       title: 'Cancel Sales Order?',
-      message: 'This will cancel the sales order. This action cannot be undone.',
+      message:
+          'This will cancel the sales order. This action cannot be undone.',
       confirmLabel: 'Cancel Order',
       cancelLabel: 'Keep',
       destructive: true,
@@ -231,6 +233,7 @@ class _SalesOrderDetailBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     final status = order['status'] as String? ?? 'DRAFT';
     final orderNumber = order['salesOrderNumber'] as String? ?? '--';
     final customerName = order['contactName'] as String? ?? 'Customer';
@@ -238,244 +241,387 @@ class _SalesOrderDetailBody extends ConsumerWidget {
     final subtotal = (order['subtotal'] as num?)?.toDouble() ?? total;
     final tax = (order['taxAmount'] as num?)?.toDouble() ?? 0;
     final discount = (order['discountAmount'] as num?)?.toDouble() ?? 0;
-    final shippingCharge =
-        (order['shippingCharge'] as num?)?.toDouble() ?? 0;
+    final shippingCharge = (order['shippingCharge'] as num?)?.toDouble() ?? 0;
     final adjustment = (order['adjustment'] as num?)?.toDouble() ?? 0;
     final lines = (order['lines'] as List?) ?? [];
 
-    return DefaultTabController(
-      length: 2,
-      child: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(KSpacing.md),
-            color: KColors.surface,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(orderNumber, style: KTypography.h2),
-                    ),
-                    KStatusChip(status: status),
-                  ],
-                ),
-                KSpacing.vGapSm,
-                Text(customerName, style: KTypography.bodyLarge),
-                KSpacing.vGapMd,
-                Text(
-                  CurrencyFormatter.formatIndian(total),
-                  style: KTypography.amountLarge,
-                ),
-              ],
-            ),
-          ),
+    final facts = [
+      _InfoFact('Order date', order['orderDate'] as String? ?? '--'),
+      _InfoFact('Ship by', order['expectedShipmentDate'] as String? ?? '--'),
+      _InfoFact('Reference', order['referenceNumber'] as String? ?? '--'),
+      _InfoFact('Delivery', order['deliveryMethod'] as String? ?? '--'),
+      _InfoFact('Place of supply', order['placeOfSupply'] as String? ?? '--'),
+    ];
 
-          const TabBar(
-            tabs: [
-              Tab(text: 'Details'),
-              Tab(text: 'Items'),
-            ],
-          ),
-
-          Expanded(
-            child: TabBarView(
-              children: [
-                SingleChildScrollView(
-                  padding: KSpacing.pagePadding,
-                  child: KCard(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 980;
+        return ListView(
+          padding: KSpacing.pagePadding,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(KSpacing.radiusLg),
+                border: Border.all(color: cs.outlineVariant),
+              ),
+              child: Wrap(
+                spacing: 20,
+                runSpacing: 16,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  SizedBox(
+                    width: wide ? 420 : double.infinity,
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        KDetailRow(
-                          label: 'Order Number',
-                          value: orderNumber,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(orderNumber, style: KTypography.h2),
+                            ),
+                            KStatusChip(status: status),
+                          ],
                         ),
-                        KDetailRow(
-                          label: 'Customer',
-                          value: customerName,
-                        ),
-                        KDetailRow(
-                          label: 'Order Date',
-                          value: order['orderDate'] as String? ?? '--',
-                        ),
-                        KDetailRow(
-                          label: 'Expected Shipment',
-                          value: order['expectedShipmentDate'] as String? ??
-                              '--',
-                        ),
-                        KDetailRow(
-                          label: 'Reference Number',
-                          value:
-                              order['referenceNumber'] as String? ?? '--',
-                        ),
-                        KDetailRow(
-                          label: 'Delivery Method',
-                          value:
-                              order['deliveryMethod'] as String? ?? '--',
-                        ),
-                        KDetailRow(
-                          label: 'Place of Supply',
-                          value:
-                              order['placeOfSupply'] as String? ?? '--',
-                        ),
-                        const Divider(),
-                        KDetailRow(
-                          label: 'Discount',
-                          value: CurrencyFormatter.formatIndian(discount),
-                        ),
-                        KDetailRow(
-                          label: 'Subtotal',
-                          value: CurrencyFormatter.formatIndian(subtotal),
-                        ),
-                        KDetailRow(
-                          label: 'Tax',
-                          value: CurrencyFormatter.formatIndian(tax),
-                        ),
-                        KDetailRow(
-                          label: 'Shipping Charge',
-                          value: CurrencyFormatter.formatIndian(
-                              shippingCharge),
-                        ),
-                        KDetailRow(
-                          label: 'Adjustment',
-                          value:
-                              CurrencyFormatter.formatIndian(adjustment),
-                        ),
-                        const Divider(),
-                        KDetailRow(
-                          label: 'Total',
-                          value: CurrencyFormatter.formatIndian(total),
-                          valueStyle: KTypography.amountMedium,
-                        ),
-                        if ((order['notes'] as String? ?? '').isNotEmpty)
-                          KDetailRow(
-                            label: 'Notes',
-                            value: order['notes'] as String? ?? '',
-                          ),
-                        if ((order['terms'] as String? ?? '').isNotEmpty)
-                          KDetailRow(
-                            label: 'Terms',
-                            value: order['terms'] as String? ?? '',
-                          ),
+                        KSpacing.vGapXs,
+                        Text(customerName, style: KTypography.bodyLarge),
                       ],
                     ),
                   ),
-                ),
+                  _HeaderMetric(
+                    label: 'Order total',
+                    value: CurrencyFormatter.formatIndian(total),
+                    icon: Icons.receipt_long_rounded,
+                  ),
+                  _HeaderMetric(
+                    label: 'Items',
+                    value: '${lines.length}',
+                    icon: Icons.inventory_2_rounded,
+                  ),
+                  _HeaderMetric(
+                    label: 'Tax',
+                    value: CurrencyFormatter.formatIndian(tax),
+                    icon: Icons.percent_rounded,
+                  ),
+                ],
+              ),
+            ),
+            KSpacing.vGapMd,
+            if (wide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 7,
+                    child: Column(
+                      children: [
+                        _FactsPanel(facts: facts),
+                        KSpacing.vGapMd,
+                        _SalesOrderItemsPanel(lines: lines, dense: true),
+                      ],
+                    ),
+                  ),
+                  KSpacing.hGapMd,
+                  SizedBox(
+                    width: 340,
+                    child: _TotalsPanel(
+                      subtotal: subtotal,
+                      discount: discount,
+                      tax: tax,
+                      shippingCharge: shippingCharge,
+                      adjustment: adjustment,
+                      total: total,
+                      notes: order['notes'] as String?,
+                      terms: order['terms'] as String?,
+                    ),
+                  ),
+                ],
+              )
+            else ...[
+              _FactsPanel(facts: facts),
+              KSpacing.vGapMd,
+              _SalesOrderItemsPanel(lines: lines),
+              KSpacing.vGapMd,
+              _TotalsPanel(
+                subtotal: subtotal,
+                discount: discount,
+                tax: tax,
+                shippingCharge: shippingCharge,
+                adjustment: adjustment,
+                total: total,
+                notes: order['notes'] as String?,
+                terms: order['terms'] as String?,
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
 
-                lines.isEmpty
-                    ? const KEmptyState(
-                        icon: Icons.list_alt,
-                        title: 'No line items',
-                      )
-                    : ListView.builder(
-                        padding: KSpacing.pagePadding,
-                        itemCount: lines.length,
-                        itemBuilder: (context, index) {
-                          final line =
-                              lines[index] as Map<String, dynamic>;
-                          final itemName =
-                              line['itemName'] as String? ??
-                                  line['description'] as String? ??
-                                  'Item';
-                          final desc =
-                              line['description'] as String? ?? '';
-                          final qty =
-                              (line['quantity'] as num?)?.toDouble() ?? 0;
-                          final shippedQty =
-                              (line['quantityShipped'] as num?)
-                                      ?.toDouble() ??
-                                  0;
-                          final invoicedQty =
-                              (line['quantityInvoiced'] as num?)
-                                      ?.toDouble() ??
-                                  0;
-                          final unit =
-                              line['unit'] as String? ?? '';
-                          final rate =
-                              (line['rate'] as num?)?.toDouble() ?? 0;
-                          final discountPct =
-                              (line['discountPct'] as num?)?.toDouble() ??
-                                  0;
-                          final taxRate =
-                              (line['taxRate'] as num?)?.toDouble() ?? 0;
-                          final amount =
-                              (line['amount'] as num?)?.toDouble() ??
-                                  (line['lineTotal'] as num?)
-                                      ?.toDouble() ??
-                                  0;
+class _InfoFact {
+  final String label;
+  final String value;
+  _InfoFact(this.label, this.value);
+}
 
-                          return KCard(
-                            margin: const EdgeInsets.only(
-                                bottom: KSpacing.sm),
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(itemName,
-                                          style:
-                                              KTypography.bodyMedium),
-                                    ),
-                                    Text(
-                                      CurrencyFormatter.formatIndian(
-                                          amount),
-                                      style: KTypography.amountSmall,
-                                    ),
-                                  ],
-                                ),
-                                if (desc.isNotEmpty &&
-                                    desc != itemName) ...[
-                                  KSpacing.vGapXs,
-                                  Text(desc,
-                                      style: KTypography.bodySmall
-                                          .copyWith(
-                                              color: KColors
-                                                  .textSecondary)),
-                                ],
-                                KSpacing.vGapXs,
-                                Text(
-                                  '${qty.toStringAsFixed(qty.truncateToDouble() == qty ? 0 : 2)}'
-                                  '${unit.isNotEmpty ? ' $unit' : ''}'
-                                  ' x ${CurrencyFormatter.formatIndian(rate)}'
-                                  '${discountPct > 0 ? ' (-${discountPct.toStringAsFixed(1)}%)' : ''}'
-                                  '${taxRate > 0 ? ' +${taxRate.toStringAsFixed(1)}% tax' : ''}',
-                                  style: KTypography.bodySmall,
-                                ),
-                                if (shippedQty > 0 ||
-                                    invoicedQty > 0) ...[
-                                  KSpacing.vGapXs,
-                                  Row(
-                                    children: [
-                                      Text(
-                                        'Shipped: ${shippedQty.toStringAsFixed(shippedQty.truncateToDouble() == shippedQty ? 0 : 2)}',
-                                        style: KTypography.labelSmall
-                                            .copyWith(
-                                                color: KColors
-                                                    .textSecondary),
-                                      ),
-                                      KSpacing.hGapMd,
-                                      Text(
-                                        'Invoiced: ${invoicedQty.toStringAsFixed(invoicedQty.truncateToDouble() == invoicedQty ? 0 : 2)}',
-                                        style: KTypography.labelSmall
-                                            .copyWith(
-                                                color: KColors
-                                                    .textSecondary),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ],
-                            ),
-                          );
-                        },
-                      ),
+class _HeaderMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  const _HeaderMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      width: 180,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: cs.primary),
+          KSpacing.hGapSm,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: KTypography.labelSmall),
+                Text(value, style: KTypography.amountSmall),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FactsPanel extends StatelessWidget {
+  final List<_InfoFact> facts;
+  const _FactsPanel({required this.facts});
+
+  @override
+  Widget build(BuildContext context) {
+    return KCard(
+      title: 'Order Information',
+      padding: const EdgeInsets.all(16),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: facts
+            .map((f) => SizedBox(
+                  width: 190,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(f.label, style: KTypography.labelSmall),
+                      const SizedBox(height: 2),
+                      Text(f.value, style: KTypography.bodyMedium),
+                    ],
+                  ),
+                ))
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _SalesOrderItemsPanel extends StatelessWidget {
+  final List<dynamic> lines;
+  final bool dense;
+  const _SalesOrderItemsPanel({required this.lines, this.dense = false});
+
+  @override
+  Widget build(BuildContext context) {
+    if (lines.isEmpty) {
+      return const KEmptyState(icon: Icons.list_alt, title: 'No line items');
+    }
+    return KCard(
+      title: 'Items (${lines.length})',
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(KSpacing.radiusLg),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            headingRowHeight: 40,
+            dataRowMinHeight: dense ? 48 : 56,
+            dataRowMaxHeight: dense ? 58 : 68,
+            columnSpacing: 22,
+            horizontalMargin: 16,
+            columns: const [
+              DataColumn(label: Text('Item')),
+              DataColumn(label: Text('Qty'), numeric: true),
+              DataColumn(label: Text('Rate'), numeric: true),
+              DataColumn(label: Text('Shipped'), numeric: true),
+              DataColumn(label: Text('Invoiced'), numeric: true),
+              DataColumn(label: Text('Amount'), numeric: true),
+            ],
+            rows: lines.map((raw) {
+              final line = raw as Map<String, dynamic>;
+              final itemName = line['itemName'] as String? ??
+                  line['description'] as String? ??
+                  'Item';
+              final desc = line['description'] as String? ?? '';
+              final qty = (line['quantity'] as num?)?.toDouble() ?? 0;
+              final shippedQty =
+                  (line['quantityShipped'] as num?)?.toDouble() ?? 0;
+              final invoicedQty =
+                  (line['quantityInvoiced'] as num?)?.toDouble() ?? 0;
+              final unit = line['unit'] as String? ?? '';
+              final rate = (line['rate'] as num?)?.toDouble() ?? 0;
+              final amount = (line['amount'] as num?)?.toDouble() ??
+                  (line['lineTotal'] as num?)?.toDouble() ??
+                  0;
+              return DataRow(cells: [
+                DataCell(SizedBox(
+                  width: 260,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(itemName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: KTypography.labelMedium),
+                      if (desc.isNotEmpty && desc != itemName)
+                        Text(desc,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: KTypography.bodySmall
+                                .copyWith(color: KColors.textSecondary)),
+                    ],
+                  ),
+                )),
+                DataCell(Text(_qty(qty, unit))),
+                DataCell(Text(CurrencyFormatter.formatIndian(rate))),
+                DataCell(Text(_qty(shippedQty, ''))),
+                DataCell(Text(_qty(invoicedQty, ''))),
+                DataCell(Text(CurrencyFormatter.formatIndian(amount),
+                    style: KTypography.amountSmall)),
+              ]);
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _qty(double value, String unit) {
+    final text =
+        value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 2);
+    return unit.isEmpty ? text : '$text $unit';
+  }
+}
+
+class _TotalsPanel extends StatelessWidget {
+  final double subtotal;
+  final double discount;
+  final double tax;
+  final double shippingCharge;
+  final double adjustment;
+  final double total;
+  final String? notes;
+  final String? terms;
+
+  const _TotalsPanel({
+    required this.subtotal,
+    required this.discount,
+    required this.tax,
+    required this.shippingCharge,
+    required this.adjustment,
+    required this.total,
+    this.notes,
+    this.terms,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return KCard(
+      title: 'Summary',
+      child: Column(
+        children: [
+          _AmountRow(label: 'Subtotal', value: subtotal),
+          _AmountRow(label: 'Discount', value: discount),
+          _AmountRow(label: 'GST', value: tax),
+          _AmountRow(label: 'Shipping', value: shippingCharge),
+          _AmountRow(label: 'Adjustment', value: adjustment),
+          const Divider(height: 24),
+          _AmountRow(label: 'Total', value: total, emphasized: true),
+          if ((notes ?? '').isNotEmpty || (terms ?? '').isNotEmpty) ...[
+            const Divider(height: 24),
+            if ((notes ?? '').isNotEmpty)
+              _TextBlock(label: 'Notes', value: notes!),
+            if ((terms ?? '').isNotEmpty) ...[
+              KSpacing.vGapSm,
+              _TextBlock(label: 'Terms', value: terms!),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AmountRow extends StatelessWidget {
+  final String label;
+  final double value;
+  final bool emphasized;
+  const _AmountRow({
+    required this.label,
+    required this.value,
+    this.emphasized = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label,
+                style: emphasized
+                    ? KTypography.labelLarge
+                    : KTypography.bodyMedium),
+          ),
+          Text(
+            CurrencyFormatter.formatIndian(value),
+            style:
+                emphasized ? KTypography.amountMedium : KTypography.amountSmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TextBlock extends StatelessWidget {
+  final String label;
+  final String value;
+  const _TextBlock({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: KTypography.labelSmall),
+          const SizedBox(height: 3),
+          Text(value, style: KTypography.bodySmall),
         ],
       ),
     );

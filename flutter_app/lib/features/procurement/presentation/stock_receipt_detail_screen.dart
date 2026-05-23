@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -34,8 +33,7 @@ class StockReceiptDetailScreen extends ConsumerWidget {
               final status = receipt['status'] as String? ?? '';
               if (status == 'CANCELLED') return const SizedBox();
               return PopupMenuButton<String>(
-                onSelected: (v) =>
-                    _handleAction(context, ref, receipt, v),
+                onSelected: (v) => _handleAction(context, ref, receipt, v),
                 itemBuilder: (_) => const [
                   PopupMenuItem(
                     value: 'cancel',
@@ -118,8 +116,8 @@ class StockReceiptDetailScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _confirmReceive(BuildContext context, WidgetRef ref,
-      Map<String, dynamic> receipt) async {
+  Future<void> _confirmReceive(
+      BuildContext context, WidgetRef ref, Map<String, dynamic> receipt) async {
     final lineCount = (receipt['lines'] as List?)?.length ?? 0;
     final ok = await showDialog<bool>(
       context: context,
@@ -166,8 +164,8 @@ class StockReceiptDetailScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _confirmCancel(BuildContext context, WidgetRef ref,
-      Map<String, dynamic> receipt) async {
+  Future<void> _confirmCancel(
+      BuildContext context, WidgetRef ref, Map<String, dynamic> receipt) async {
     final reasonCtl = TextEditingController();
     final status = receipt['status'] as String? ?? '';
     final isReceived = status == 'RECEIVED';
@@ -246,6 +244,7 @@ class _ReceiptBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final number = receipt['receiptNumber'] as String? ?? '--';
     final status = receipt['status'] as String? ?? 'DRAFT';
     final supplierName =
@@ -258,112 +257,366 @@ class _ReceiptBody extends StatelessWidget {
     final subtotal = (receipt['subtotal'] as num?)?.toDouble() ?? 0;
     final tax = (receipt['taxAmount'] as num?)?.toDouble() ?? 0;
     final total = (receipt['totalAmount'] as num?)?.toDouble() ?? 0;
-    final lines = (receipt['lines'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final lines =
+        (receipt['lines'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
-    return ListView(
-      padding: KSpacing.pagePadding,
-      children: [
-        KCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 980;
+        final leftColumn = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ReceiptInfoPanel(
+              receiptDate: dateRaw,
+              supplierInvoiceNo: supInvNo,
+              supplierInvoiceDate: supInvDate,
+              notes: notes,
+              cancelReason: cancelReason,
+            ),
+            KSpacing.vGapMd,
+            _ReceiptItemsPanel(lines: lines),
+          ],
+        );
+
+        return ListView(
+          padding: KSpacing.pagePadding,
+          children: [
+            KCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(number, style: KTypography.h2),
+                  Wrap(
+                    spacing: KSpacing.md,
+                    runSpacing: KSpacing.sm,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer,
+                          borderRadius:
+                              BorderRadius.circular(KSpacing.radiusMd),
+                        ),
+                        child: Icon(Icons.inventory_2_outlined,
+                            color: cs.onPrimaryContainer),
+                      ),
+                      SizedBox(
+                        width: isWide ? 560 : constraints.maxWidth - 48,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(number,
+                                style: KTypography.h2,
+                                overflow: TextOverflow.ellipsis),
+                            KSpacing.vGapXxs,
+                            Text(supplierName,
+                                style: KTypography.bodyLarge,
+                                overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      ),
+                      KStatusChip(status: status),
+                    ],
                   ),
-                  KStatusChip(status: status),
+                  KSpacing.vGapLg,
+                  Wrap(
+                    spacing: KSpacing.md,
+                    runSpacing: KSpacing.md,
+                    children: [
+                      _ReceiptMetric(
+                        label: 'Receipt total',
+                        value: CurrencyFormatter.formatIndian(total),
+                        icon: Icons.payments_outlined,
+                      ),
+                      _ReceiptMetric(
+                        label: 'Lines',
+                        value: lines.length.toString(),
+                        icon: Icons.format_list_numbered,
+                      ),
+                      _ReceiptMetric(
+                        label: 'Input GST',
+                        value: CurrencyFormatter.formatIndian(tax),
+                        icon: Icons.receipt_long_outlined,
+                      ),
+                    ],
+                  ),
                 ],
               ),
-              KSpacing.vGapXs,
-              Text(supplierName, style: KTypography.bodyLarge),
+            ),
+            KSpacing.vGapMd,
+            if (isWide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 3, child: leftColumn),
+                  KSpacing.hGapMd,
+                  SizedBox(
+                    width: 340,
+                    child: _ReceiptSummaryPanel(
+                      subtotal: subtotal,
+                      tax: tax,
+                      total: total,
+                    ),
+                  ),
+                ],
+              )
+            else ...[
+              leftColumn,
               KSpacing.vGapMd,
-              if (dateRaw != null)
-                KDetailRow(
-                    label: 'Receipt Date',
-                    value: DateFormatter.display(DateTime.parse(dateRaw))),
-              if (supInvNo != null && supInvNo.isNotEmpty)
-                KDetailRow(label: 'Supplier Invoice', value: supInvNo),
-              if (supInvDate != null && supInvDate.isNotEmpty)
-                KDetailRow(
-                    label: 'Supplier Inv. Date',
-                    value: DateFormatter.display(DateTime.parse(supInvDate))),
+              _ReceiptSummaryPanel(
+                subtotal: subtotal,
+                tax: tax,
+                total: total,
+              ),
             ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ReceiptMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _ReceiptMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      width: 210,
+      padding: const EdgeInsets.all(KSpacing.md),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: cs.primary),
+          KSpacing.hGapSm,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: KTypography.labelSmall,
+                    overflow: TextOverflow.ellipsis),
+                KSpacing.vGapXxs,
+                Text(value,
+                    style: KTypography.amountSmall,
+                    overflow: TextOverflow.ellipsis),
+              ],
+            ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReceiptInfoPanel extends StatelessWidget {
+  final String? receiptDate;
+  final String? supplierInvoiceNo;
+  final String? supplierInvoiceDate;
+  final String? notes;
+  final String? cancelReason;
+
+  const _ReceiptInfoPanel({
+    required this.receiptDate,
+    required this.supplierInvoiceNo,
+    required this.supplierInvoiceDate,
+    required this.notes,
+    required this.cancelReason,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return KCard(
+      title: 'Receipt Information',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (receiptDate != null)
+            KDetailRow(
+              label: 'Receipt Date',
+              value: DateFormatter.display(DateTime.parse(receiptDate!)),
+            ),
+          if (supplierInvoiceNo != null && supplierInvoiceNo!.isNotEmpty)
+            KDetailRow(label: 'Supplier Invoice', value: supplierInvoiceNo!),
+          if (supplierInvoiceDate != null && supplierInvoiceDate!.isNotEmpty)
+            KDetailRow(
+              label: 'Supplier Inv. Date',
+              value:
+                  DateFormatter.display(DateTime.parse(supplierInvoiceDate!)),
+            ),
+          if (notes != null && notes!.isNotEmpty) ...[
+            KSpacing.vGapMd,
+            _TextBlock(title: 'Notes', value: notes!),
+          ],
+          if (cancelReason != null && cancelReason!.isNotEmpty) ...[
+            KSpacing.vGapMd,
+            _TextBlock(title: 'Cancellation', value: cancelReason!),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReceiptItemsPanel extends StatelessWidget {
+  final List<Map<String, dynamic>> lines;
+
+  const _ReceiptItemsPanel({required this.lines});
+
+  @override
+  Widget build(BuildContext context) {
+    if (lines.isEmpty) {
+      return const KCard(
+        title: 'Received Items',
+        child: KEmptyState(
+          icon: Icons.inventory_2_outlined,
+          title: 'No items on this receipt',
+          subtitle: 'Received items will appear here once added.',
         ),
-        KSpacing.vGapMd,
-        KCard(
-          title: 'Items (${lines.length})',
-          child: Column(
-            children: lines.map((l) {
-              final desc = l['description'] as String? ?? '';
-              final sku = l['itemSku'] as String? ?? '';
-              final qty = (l['quantity'] as num?)?.toDouble() ?? 0;
-              final uom = l['unitOfMeasure'] as String? ?? '';
-              final unitPrice = (l['unitPrice'] as num?)?.toDouble() ?? 0;
-              final lineTotal = (l['lineTotal'] as num?)?.toDouble() ?? 0;
-              final batch = l['batchNumber'] as String? ?? '';
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(desc, style: KTypography.bodyMedium),
-                          Text(
-                            '${sku.isNotEmpty ? "SKU: $sku • " : ""}'
-                            '${qty.toStringAsFixed(qty.truncateToDouble() == qty ? 0 : 2)} $uom × '
-                            '${CurrencyFormatter.formatIndian(unitPrice)}'
-                            '${batch.isNotEmpty ? " • Batch: $batch" : ""}',
-                            style: KTypography.bodySmall,
-                          ),
+      );
+    }
+
+    return KCard(
+      title: 'Received Items',
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          columnSpacing: KSpacing.lg,
+          headingRowHeight: 44,
+          dataRowMinHeight: 58,
+          dataRowMaxHeight: 72,
+          columns: const [
+            DataColumn(label: Text('Item')),
+            DataColumn(label: Text('Qty'), numeric: true),
+            DataColumn(label: Text('Rate'), numeric: true),
+            DataColumn(label: Text('GST'), numeric: true),
+            DataColumn(label: Text('Amount'), numeric: true),
+          ],
+          rows: lines.map((line) {
+            final desc = line['description'] as String? ?? 'Item';
+            final sku = line['itemSku'] as String? ?? '';
+            final qty = (line['quantity'] as num?)?.toDouble() ?? 0;
+            final uom = line['unitOfMeasure'] as String? ?? '';
+            final unitPrice = (line['unitPrice'] as num?)?.toDouble() ?? 0;
+            final taxAmount = (line['taxAmount'] as num?)?.toDouble() ?? 0;
+            final lineTotal = (line['lineTotal'] as num?)?.toDouble() ?? 0;
+            final batch = line['batchNumber'] as String? ?? '';
+            final qtyText =
+                qty.toStringAsFixed(qty.truncateToDouble() == qty ? 0 : 2);
+            final meta = [
+              if (sku.isNotEmpty) 'SKU: $sku',
+              if (batch.isNotEmpty) 'Batch: $batch',
+            ].join(' / ');
+
+            return DataRow(
+              cells: [
+                DataCell(
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 280),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(desc,
+                            style: KTypography.bodyMedium,
+                            overflow: TextOverflow.ellipsis),
+                        if (meta.isNotEmpty) ...[
+                          KSpacing.vGapXxs,
+                          Text(meta,
+                              style: KTypography.bodySmall,
+                              overflow: TextOverflow.ellipsis),
                         ],
-                      ),
+                      ],
                     ),
-                    Text(
-                      CurrencyFormatter.formatIndian(lineTotal),
-                      style: KTypography.amountSmall,
-                    ),
-                  ],
+                  ),
                 ),
-              );
-            }).toList(),
-          ),
+                DataCell(Text('$qtyText $uom')),
+                DataCell(Text(CurrencyFormatter.formatIndian(unitPrice))),
+                DataCell(Text(CurrencyFormatter.formatIndian(taxAmount))),
+                DataCell(Text(
+                  CurrencyFormatter.formatIndian(lineTotal),
+                  style: KTypography.amountSmall,
+                )),
+              ],
+            );
+          }).toList(),
         ),
-        KSpacing.vGapMd,
-        KCard(
-          child: Column(
-            children: [
-              _SummaryRow(
-                  label: 'Taxable',
-                  value: CurrencyFormatter.formatIndian(subtotal)),
-              _SummaryRow(
-                  label: 'GST', value: CurrencyFormatter.formatIndian(tax)),
-              const Divider(),
-              _SummaryRow(
-                  label: 'Total',
-                  value: CurrencyFormatter.formatIndian(total),
-                  bold: true),
-            ],
-          ),
-        ),
-        if (notes != null && notes.isNotEmpty) ...[
-          KSpacing.vGapMd,
-          KCard(
-            title: 'Notes',
-            child: Text(notes, style: KTypography.bodyMedium),
-          ),
+      ),
+    );
+  }
+}
+
+class _ReceiptSummaryPanel extends StatelessWidget {
+  final double subtotal;
+  final double tax;
+  final double total;
+
+  const _ReceiptSummaryPanel({
+    required this.subtotal,
+    required this.tax,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return KCard(
+      title: 'Summary',
+      child: Column(
+        children: [
+          _SummaryRow(
+              label: 'Taxable',
+              value: CurrencyFormatter.formatIndian(subtotal)),
+          _SummaryRow(label: 'GST', value: CurrencyFormatter.formatIndian(tax)),
+          const Divider(height: 28),
+          _SummaryRow(
+              label: 'Total',
+              value: CurrencyFormatter.formatIndian(total),
+              bold: true),
         ],
-        if (cancelReason != null && cancelReason.isNotEmpty) ...[
-          KSpacing.vGapMd,
-          KCard(
-            title: 'Cancellation',
-            child: Text(cancelReason, style: KTypography.bodyMedium),
-          ),
+      ),
+    );
+  }
+}
+
+class _TextBlock extends StatelessWidget {
+  final String title;
+  final String value;
+
+  const _TextBlock({required this.title, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(KSpacing.md),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: KTypography.labelMedium),
+          KSpacing.vGapXs,
+          Text(value, style: KTypography.bodyMedium),
         ],
-      ],
+      ),
     );
   }
 }

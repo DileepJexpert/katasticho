@@ -10,17 +10,42 @@ import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/stock_receipt_repository.dart';
 
-class StockReceiptListScreen extends ConsumerWidget {
+const _receiptTabs = [
+  KListTab(label: 'All'),
+  KListTab(label: 'Draft', value: 'DRAFT'),
+  KListTab(label: 'Received', value: 'RECEIVED'),
+  KListTab(label: 'Cancelled', value: 'CANCELLED'),
+];
+
+class StockReceiptListScreen extends ConsumerStatefulWidget {
   const StockReceiptListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StockReceiptListScreen> createState() =>
+      _StockReceiptListScreenState();
+}
+
+class _StockReceiptListScreenState
+    extends ConsumerState<StockReceiptListScreen> {
+  String? _status;
+  String _search = '';
+
+  @override
+  Widget build(BuildContext context) {
     final receiptsAsync = ref.watch(stockReceiptListProvider(null));
 
     return Scaffold(
       body: Column(
         children: [
-          const KListPageHeader(title: 'Goods Receipts'),
+          KListPageHeader(
+            title: 'Goods Receipts',
+            searchHint: 'Search receipt, supplier, invoice...',
+            tabs: _receiptTabs,
+            selectedTab: _status,
+            onTabChanged: (value) => setState(() => _status = value),
+            onSearchChanged: (value) =>
+                setState(() => _search = value.trim().toLowerCase()),
+          ),
           Expanded(
             child: receiptsAsync.when(
               loading: () => const KShimmerList(),
@@ -32,7 +57,9 @@ class StockReceiptListScreen extends ConsumerWidget {
                 final content = data['data'];
                 final receipts = content is List
                     ? content
-                    : (content is Map ? (content['content'] as List?) ?? [] : []);
+                    : (content is Map
+                        ? (content['content'] as List?) ?? []
+                        : []);
 
                 if (receipts.isEmpty) {
                   return KEmptyState(
@@ -48,7 +75,31 @@ class StockReceiptListScreen extends ConsumerWidget {
                 final receiptMaps = receipts
                     .whereType<Map>()
                     .map((receipt) => receipt.cast<String, dynamic>())
-                    .toList();
+                    .where((receipt) {
+                  final status = receipt['status']?.toString();
+                  if (_status != null && status != _status) return false;
+                  if (_search.isEmpty) return true;
+                  final haystack = [
+                    receipt['receiptNumber'],
+                    receipt['supplierName'],
+                    receipt['supplierInvoiceNo'],
+                    receipt['status'],
+                  ].whereType<Object>().join(' ').toLowerCase();
+                  return haystack.contains(_search);
+                }).toList();
+
+                if (receiptMaps.isEmpty) {
+                  return KEmptyState(
+                    icon: Icons.local_shipping_outlined,
+                    title: 'No matching receipts',
+                    subtitle: 'Try another status or search term.',
+                    actionLabel: 'Clear Filters',
+                    onAction: () => setState(() {
+                      _status = null;
+                      _search = '';
+                    }),
+                  );
+                }
 
                 return KResponsiveEntityList<Map<String, dynamic>>(
                   items: receiptMaps,
@@ -136,7 +187,8 @@ class _ReceiptCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final number = receipt['receiptNumber'] as String? ?? '--';
-    final supplierName = receipt['supplierName'] as String? ?? 'Unknown supplier';
+    final supplierName =
+        receipt['supplierName'] as String? ?? 'Unknown supplier';
     final status = receipt['status'] as String? ?? 'DRAFT';
     final total = (receipt['totalAmount'] as num?)?.toDouble() ?? 0;
     final dateRaw = receipt['receiptDate'] as String?;
