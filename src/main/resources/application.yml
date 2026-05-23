@@ -74,6 +74,10 @@ app:
     expiry-minutes: 5
     max-attempts: 5
     lockout-minutes: 30
+  platform-admin:
+    phone: ${PLATFORM_ADMIN_PHONE:}
+    email: ${PLATFORM_ADMIN_EMAIL:}
+    password: ${PLATFORM_ADMIN_PASSWORD:}
   rate-limit:
     requests-per-minute: ${RATE_LIMIT_REQUESTS_PER_MINUTE:1000}
     auth-requests-per-minute: ${RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE:20}

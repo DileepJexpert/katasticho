@@ -113,6 +113,32 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       final data = response['data'] as Map<String, dynamic>;
       debugPrint('[OtpScreen] Parsed data: $data');
 
+      if (widget.isSignup && data['approvalStatus'] == 'PENDING') {
+        if (mounted) {
+          await showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => AlertDialog(
+              title: const Text('Account submitted'),
+              content: Text(
+                data['message'] as String? ??
+                    'Katixo admin approval is required before you can login.',
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    context.go(Routes.login);
+                  },
+                  child: const Text('Back to Login'),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+
       final user = data['user'] as Map<String, dynamic>;
       debugPrint('[OtpScreen] Parsed user: $user');
 

@@ -36,15 +36,15 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<ApiResponse<AuthResponse>> signup(@Valid @RequestBody SignupRequest request) {
-        AuthResponse response = authService.signup(request);
+    public ResponseEntity<ApiResponse<AccountSubmissionResponse>> signup(@Valid @RequestBody SignupRequest request) {
+        AccountSubmissionResponse response = authService.signup(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created(response));
     }
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
-        AuthResponse response = authService.register(request);
+    public ResponseEntity<ApiResponse<AccountSubmissionResponse>> register(@Valid @RequestBody RegisterRequest request) {
+        AccountSubmissionResponse response = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created(response));
     }
@@ -65,6 +65,24 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> logout(@Valid @RequestBody RefreshRequest request) {
         authService.logout(request);
         return ResponseEntity.ok(ApiResponse.ok(null, "Logged out"));
+    }
+
+    @PostMapping("/password/forgot")
+    public ResponseEntity<ApiResponse<Map<String, String>>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+        authService.requestPasswordReset(request);
+        return ResponseEntity.ok(ApiResponse.ok(
+                Map.of("message", "Password reset OTP sent"),
+                "Password reset OTP sent"));
+    }
+
+    @PostMapping("/password/reset")
+    public ResponseEntity<ApiResponse<Map<String, String>>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.ok(
+                Map.of("message", "Password reset successfully"),
+                "Password reset successfully"));
     }
 
     @PostMapping("/invite")

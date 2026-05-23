@@ -102,6 +102,7 @@ import '../features/inventory/presentation/reorder_screen.dart';
 import '../features/team/presentation/team_screen.dart';
 import '../features/settings/presentation/ai_model_settings_screen.dart';
 import '../features/ca_console/presentation/ca_console_screen.dart';
+import '../features/platform_admin/presentation/platform_admin_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -222,6 +223,7 @@ class Routes {
   static const caCalendar = '/ca/calendar';
   static const caAlerts = '/ca/alerts';
   static const caReports = '/ca/reports';
+  static const platformAdmin = '/platform-admin';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -254,22 +256,28 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (isAuthenticated && isAuthRoute) {
         final role = authState.role?.toUpperCase();
         return onboardingCompleted
-            ? (role == 'CA_PARTNER' || role == 'CA_STAFF'
+            ? (role == 'PLATFORM_ADMIN'
+                ? Routes.platformAdmin
+                : role == 'CA_PARTNER' || role == 'CA_STAFF'
                 ? Routes.caConsole
                 : Routes.dashboard)
             : Routes.onboardingBusinessType;
+      }
+
+      final role = authState.role?.toUpperCase();
+      if (isAuthenticated && role == 'PLATFORM_ADMIN' && loc != Routes.platformAdmin) {
+        return Routes.platformAdmin;
       }
 
       if (isAuthenticated && !onboardingCompleted && !isOnboardingRoute) {
         return Routes.onboardingBusinessType;
       }
 
-      final role = authState.role?.toUpperCase();
       if (isAuthenticated &&
           onboardingCompleted &&
           loc == Routes.dashboard &&
-          (role == 'CA_PARTNER' || role == 'CA_STAFF')) {
-        return Routes.caConsole;
+          (role == 'CA_PARTNER' || role == 'CA_STAFF' || role == 'PLATFORM_ADMIN')) {
+        return role == 'PLATFORM_ADMIN' ? Routes.platformAdmin : Routes.caConsole;
       }
 
       return null;
@@ -357,6 +365,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.caReports,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: CaConsoleScreen(initialTab: 3),
+            ),
+          ),
+          GoRoute(
+            path: Routes.platformAdmin,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PlatformAdminScreen(),
             ),
           ),
           GoRoute(

@@ -18,6 +18,8 @@ class ApiConfig {
   static const String verifyOtp = '/api/v1/auth/otp/verify';
   static const String signup = '/api/v1/auth/signup';
   static const String refreshToken = '/api/v1/auth/refresh';
+  static const String forgotPassword = '/api/v1/auth/password/forgot';
+  static const String resetPassword = '/api/v1/auth/password/reset';
   static const String me = '/api/v1/auth/me';
   static const String myOrgs = '/api/v1/users/me/organisations';
   static const String switchOrg = '/api/v1/users/me/switch-org';
@@ -262,6 +264,18 @@ class ApiConfig {
       '/api/v1/org/users/invites/$inviteId/resend';
   static String orgInviteCancel(String inviteId) =>
       '/api/v1/org/users/invites/$inviteId';
+
+  // Platform admin
+  static const String platformOrganisations =
+      '/api/v1/platform-admin/organisations';
+  static String platformOrgUsers(String orgId) =>
+      '/api/v1/platform-admin/organisations/$orgId/users';
+  static String platformApproveOrg(String orgId) =>
+      '/api/v1/platform-admin/organisations/$orgId/approve';
+  static String platformRejectOrg(String orgId) =>
+      '/api/v1/platform-admin/organisations/$orgId/reject';
+  static String platformResetPassword(String userId) =>
+      '/api/v1/platform-admin/users/$userId/reset-password';
 
   // Demo seeding (owner-only, idempotent)
   static const String demoSeedSharmaMedical =

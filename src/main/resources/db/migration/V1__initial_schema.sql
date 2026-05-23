@@ -33,6 +33,11 @@ CREATE TABLE organisation (
                               phone               VARCHAR(20),
                               email               VARCHAR(255),
                               logo_url            VARCHAR(500),
+                              approval_status     VARCHAR(20)  NOT NULL DEFAULT 'APPROVED'
+                                  CHECK (approval_status IN ('PENDING','APPROVED','REJECTED')),
+                              approved_at         TIMESTAMPTZ,
+                              approved_by         UUID,
+                              approval_note       VARCHAR(255),
                               is_active           BOOLEAN      NOT NULL DEFAULT TRUE,
                               is_deleted          BOOLEAN      NOT NULL DEFAULT FALSE,
                               created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -101,7 +106,8 @@ CREATE TABLE app_user (
                           password_hash       VARCHAR(255),
                           full_name           VARCHAR(255) NOT NULL,
                           role                VARCHAR(20)  NOT NULL DEFAULT 'VIEWER'
-                              CHECK (role IN ('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')),
+                              CHECK (role IN ('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER',
+                                              'CA_EXTERNAL','CA_PARTNER','CA_STAFF','PLATFORM_ADMIN')),
                           is_active           BOOLEAN      NOT NULL DEFAULT TRUE,
                           failed_login_count  INTEGER      NOT NULL DEFAULT 0,
                           locked_until        TIMESTAMPTZ,
@@ -148,7 +154,8 @@ CREATE TABLE user_invitation (
                                  email       VARCHAR(255),
                                  phone       VARCHAR(20),
                                  role        VARCHAR(20)  NOT NULL DEFAULT 'VIEWER'
-                                     CHECK (role IN ('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')),
+                                     CHECK (role IN ('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER',
+                                                     'CA_EXTERNAL','CA_PARTNER','CA_STAFF','PLATFORM_ADMIN')),
                                  token       VARCHAR(255) NOT NULL UNIQUE,
                                  invited_by  UUID        NOT NULL REFERENCES app_user(id),
                                  expires_at  TIMESTAMPTZ  NOT NULL,

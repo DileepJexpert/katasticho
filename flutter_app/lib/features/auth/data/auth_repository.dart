@@ -95,6 +95,30 @@ class AuthRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> forgotPassword({required String phone}) async {
+    final response = await _apiClient.post(
+      ApiConfig.forgotPassword,
+      data: {'phone': phone},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> resetPassword({
+    required String phone,
+    required String otp,
+    required String newPassword,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConfig.resetPassword,
+      data: {
+        'phone': phone,
+        'otp': otp,
+        'newPassword': newPassword,
+      },
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   /// Register new account with password (no OTP required).
   Future<Map<String, dynamic>> register({
     required String phone,

@@ -99,6 +99,19 @@ public class Organisation {
     @Builder.Default
     private String planTier = "FREE_BETA";
 
+    @Column(name = "approval_status", nullable = false, length = 20)
+    @Builder.Default
+    private String approvalStatus = "APPROVED";
+
+    @Column(name = "approved_at")
+    private Instant approvedAt;
+
+    @Column(name = "approved_by")
+    private UUID approvedBy;
+
+    @Column(name = "approval_note")
+    private String approvalNote;
+
     @Column(name = "address_line1")
     private String addressLine1;
 

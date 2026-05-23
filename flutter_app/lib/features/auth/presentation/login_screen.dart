@@ -103,12 +103,135 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  Future<void> _showForgotPasswordDialog() async {
+    final phoneController = TextEditingController(text: _identifierController.text.trim());
+    final otpController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    bool otpSent = false;
+    bool loading = false;
+    String? error;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> sendOtp() async {
+              final phone = phoneController.text.trim();
+              if (phone.isEmpty) {
+                setDialogState(() => error = 'Phone number is required');
+                return;
+              }
+              setDialogState(() {
+                loading = true;
+                error = null;
+              });
+              try {
+                await ref.read(authRepositoryProvider).forgotPassword(phone: phone);
+                setDialogState(() => otpSent = true);
+              } catch (_) {
+                setDialogState(() => error = 'Could not send reset OTP.');
+              } finally {
+                setDialogState(() => loading = false);
+              }
+            }
+
+            Future<void> reset() async {
+              if (otpController.text.trim().length < 4 ||
+                  newPasswordController.text.length < 8) {
+                setDialogState(() => error =
+                    'Enter the OTP and a new password with at least 8 characters.');
+                return;
+              }
+              setDialogState(() {
+                loading = true;
+                error = null;
+              });
+              try {
+                await ref.read(authRepositoryProvider).resetPassword(
+                      phone: phoneController.text.trim(),
+                      otp: otpController.text.trim(),
+                      newPassword: newPasswordController.text,
+                    );
+                if (mounted && dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    const SnackBar(content: Text('Password reset successfully.')),
+                  );
+                }
+              } catch (_) {
+                setDialogState(() => error = 'Reset failed. Check OTP and try again.');
+              } finally {
+                setDialogState(() => loading = false);
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Reset password'),
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    KTextField(
+                      label: 'Phone Number',
+                      controller: phoneController,
+                      prefixIcon: Icons.phone_outlined,
+                      keyboardType: TextInputType.phone,
+                    ),
+                    if (otpSent) ...[
+                      KSpacing.vGapMd,
+                      KTextField(
+                        label: 'OTP',
+                        controller: otpController,
+                        prefixIcon: Icons.password_outlined,
+                        keyboardType: TextInputType.number,
+                      ),
+                      KSpacing.vGapMd,
+                      KTextField(
+                        label: 'New Password',
+                        controller: newPasswordController,
+                        prefixIcon: Icons.lock_outline,
+                        obscureText: true,
+                      ),
+                    ],
+                    if (error != null) ...[
+                      KSpacing.vGapMd,
+                      Text(error!, style: const TextStyle(color: KColors.error)),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: loading ? null : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: loading ? null : (otpSent ? reset : sendOtp),
+                  child: Text(otpSent ? 'Reset Password' : 'Send OTP'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    phoneController.dispose();
+    otpController.dispose();
+    newPasswordController.dispose();
+  }
+
   String _friendlyError(String raw) {
     if (raw.contains('AUTH_BAD_CREDENTIALS') || raw.contains('401')) {
       return 'Incorrect phone number or password.';
     }
     if (raw.contains('AUTH_ACCOUNT_LOCKED') || raw.contains('429')) {
       return 'Account locked after too many attempts. Try again in 30 minutes.';
+    }
+    if (raw.contains('AUTH_ORG_PENDING_APPROVAL')) {
+      return 'Your account is waiting for Katixo admin approval.';
     }
     if (raw.contains('AUTH_ACCOUNT_INACTIVE') || raw.contains('403')) {
       return 'Your account has been deactivated. Contact your administrator.';
@@ -261,6 +384,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         isLoading: _isLoading,
                         fullWidth: true,
                         size: KButtonSize.large,
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _isLoading ? null : _showForgotPasswordDialog,
+                          child: const Text('Forgot password?'),
+                        ),
                       ),
                     ],
 

@@ -87,7 +87,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse signup(SignupRequest request) {
+    public AccountSubmissionResponse signup(SignupRequest request) {
         // Verify OTP first
         boolean valid = otpService.verify(request.phone(), request.otp());
         if (!valid) {
@@ -110,6 +110,7 @@ public class AuthService {
                 .businessType(request.businessType() != null ? request.businessType() : "RETAILER")
                 .industryCode(request.industryCode() != null ? request.industryCode() : "OTHER_RETAIL")
                 .subCategories(request.subCategories() != null ? request.subCategories() : List.of())
+                .approvalStatus("PENDING")
                 .build();
         org = organisationRepository.saveAndFlush(org);
 
@@ -166,11 +167,11 @@ public class AuthService {
             }
         });
 
-        return buildAuthResponse(user, org);
+        return pendingSubmission(user, org);
     }
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public AccountSubmissionResponse register(RegisterRequest request) {
         if (userRepository.existsByPhoneAndIsDeletedFalse(request.phone())) {
             throw new BusinessException("Phone number already registered", "AUTH_PHONE_EXISTS", HttpStatus.CONFLICT);
         }
@@ -180,6 +181,7 @@ public class AuthService {
                 .businessType(request.businessType() != null ? request.businessType() : "RETAILER")
                 .industryCode(request.industryCode() != null ? request.industryCode() : "OTHER_RETAIL")
                 .subCategories(request.subCategories() != null ? request.subCategories() : List.of())
+                .approvalStatus("PENDING")
                 .build();
         org = organisationRepository.saveAndFlush(org);
 
@@ -225,7 +227,7 @@ public class AuthService {
             }
         });
 
-        return buildAuthResponse(user, org);
+        return pendingSubmission(user, org);
     }
 
     @Transactional
@@ -287,6 +289,8 @@ public class AuthService {
         Organisation org = organisationRepository.findById(authenticatedOrgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", authenticatedOrgId));
 
+        requireApprovedForLogin(authenticatedUser, org);
+
         return buildAuthResponse(authenticatedUser, org);
     }
 
@@ -314,7 +318,41 @@ public class AuthService {
         Organisation org = organisationRepository.findById(user.getOrgId())
                 .orElseThrow(() -> BusinessException.notFound("Organisation", user.getOrgId()));
 
+        requireApprovedForLogin(user, org);
+
         return buildAuthResponse(user, org);
+    }
+
+    public void requestPasswordReset(ForgotPasswordRequest request) {
+        if (!userRepository.existsByPhoneAndIsDeletedFalse(request.phone())) {
+            throw new BusinessException("No account found for this phone number",
+                    "AUTH_USER_NOT_FOUND", HttpStatus.NOT_FOUND);
+        }
+        otpService.generateAndStore(request.phone());
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        boolean valid = otpService.verify(request.phone(), request.otp());
+        if (!valid) {
+            throw new BusinessException("Invalid or expired OTP", "AUTH_INVALID_OTP", HttpStatus.UNAUTHORIZED);
+        }
+
+        List<AppUser> matches = userRepository.findAllByPhoneAndIsDeletedFalse(request.phone());
+        if (matches.isEmpty()) {
+            throw new BusinessException("No account found for this phone number",
+                    "AUTH_USER_NOT_FOUND", HttpStatus.NOT_FOUND);
+        }
+
+        String hash = passwordEncoder.encode(request.newPassword());
+        Instant now = Instant.now();
+        for (AppUser user : matches) {
+            user.setPasswordHash(hash);
+            user.resetFailedLogins();
+            userRepository.save(user);
+            auditService.logSync(user.getOrgId(), user.getId(), "APP_USER", user.getId(),
+                    "PASSWORD_RESET", null, "{\"method\":\"self_service_otp\",\"at\":\"" + now + "\"}");
+        }
     }
 
     @Transactional
@@ -511,6 +549,7 @@ public class AuthService {
     }
 
     private AuthResponse buildAuthResponse(AppUser user, Organisation org) {
+        requireApprovedForLogin(user, org);
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getOrgId(), user.getRole());
         String refreshToken = jwtService.generateRefreshToken();
 
@@ -532,5 +571,27 @@ public class AuthService {
                 user.getDefaultLandingPage());
 
         return new AuthResponse(accessToken, refreshToken, userInfo);
+    }
+
+    private AccountSubmissionResponse pendingSubmission(AppUser user, Organisation org) {
+        return new AccountSubmissionResponse(
+                org.getId(),
+                user.getId(),
+                org.getName(),
+                org.getApprovalStatus(),
+                "Account created. Katixo admin approval is required before login."
+        );
+    }
+
+    private void requireApprovedForLogin(AppUser user, Organisation org) {
+        if ("PLATFORM_ADMIN".equals(user.getRole())) {
+            return;
+        }
+        if (!"APPROVED".equals(org.getApprovalStatus())) {
+            throw new BusinessException(
+                    "Your account is waiting for Katixo admin approval.",
+                    "AUTH_ORG_PENDING_APPROVAL",
+                    HttpStatus.FORBIDDEN);
+        }
     }
 }
