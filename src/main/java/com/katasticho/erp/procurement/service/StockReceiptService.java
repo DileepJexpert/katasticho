@@ -19,6 +19,7 @@ import com.katasticho.erp.inventory.service.BatchService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
+import com.katasticho.erp.sales.service.SalesOrderService;
 import com.katasticho.erp.procurement.dto.CreateStockReceiptRequest;
 import com.katasticho.erp.procurement.dto.StockReceiptLineRequest;
 import com.katasticho.erp.procurement.dto.StockReceiptResponse;
@@ -40,8 +41,10 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -71,6 +74,7 @@ public class StockReceiptService {
     private final InventoryService inventoryService;
     private final BatchService batchService;
     private final AuditService auditService;
+    private final SalesOrderService salesOrderService;
 
     @Transactional
     public StockReceiptResponse createDraft(CreateStockReceiptRequest request) {
@@ -272,6 +276,15 @@ public class StockReceiptService {
         auditService.log("STOCK_RECEIPT", receipt.getId(), "RECEIVE",
                 "{\"status\":\"DRAFT\"}",
                 "{\"status\":\"RECEIVED\",\"lines\":" + receipt.getLines().size() + "}");
+
+        // Auto-fulfill any BACKORDER sales orders waiting for items in this GRN.
+        // Runs once per unique itemId to avoid duplicate processing.
+        Set<UUID> processedItems = new HashSet<>();
+        for (StockReceiptLine line : receipt.getLines()) {
+            if (processedItems.add(line.getItemId())) {
+                salesOrderService.onStockReceived(orgId, line.getItemId(), receipt.getWarehouseId());
+            }
+        }
 
         log.info("StockReceipt {} received: {} stock movements posted",
                 receipt.getReceiptNumber(), receipt.getLines().size());

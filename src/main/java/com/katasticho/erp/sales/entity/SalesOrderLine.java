@@ -44,6 +44,10 @@ public class SalesOrderLine {
     @Builder.Default
     private BigDecimal quantityInvoiced = BigDecimal.ZERO;
 
+    @Column(name = "quantity_backordered", nullable = false)
+    @Builder.Default
+    private BigDecimal quantityBackordered = BigDecimal.ZERO;
+
     @Column(length = 20)
     private String unit;
 

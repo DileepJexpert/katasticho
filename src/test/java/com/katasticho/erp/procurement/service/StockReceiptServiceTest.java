@@ -17,6 +17,7 @@ import com.katasticho.erp.inventory.service.BatchService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
+import com.katasticho.erp.sales.service.SalesOrderService;
 import com.katasticho.erp.procurement.dto.CreateStockReceiptRequest;
 import com.katasticho.erp.procurement.dto.StockReceiptLineRequest;
 import com.katasticho.erp.procurement.dto.StockReceiptResponse;
@@ -54,6 +55,7 @@ class StockReceiptServiceTest {
     @Mock private InventoryService inventoryService;
     @Mock private BatchService batchService;
     @Mock private AuditService auditService;
+    @Mock private SalesOrderService salesOrderService;
 
     private StockReceiptService stockReceiptService;
     private UUID orgId;
@@ -69,7 +71,7 @@ class StockReceiptServiceTest {
         stockReceiptService = new StockReceiptService(
                 receiptRepository, supplierRepository, itemRepository,
                 warehouseRepository, organisationRepository, sequenceRepository,
-                inventoryService, batchService, auditService);
+                inventoryService, batchService, auditService, salesOrderService);
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();

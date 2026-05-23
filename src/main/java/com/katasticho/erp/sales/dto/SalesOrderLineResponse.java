@@ -12,6 +12,7 @@ public record SalesOrderLineResponse(
         BigDecimal quantity,
         BigDecimal quantityShipped,
         BigDecimal quantityInvoiced,
+        BigDecimal quantityBackordered,
         String unit,
         BigDecimal rate,
         BigDecimal discountPct,

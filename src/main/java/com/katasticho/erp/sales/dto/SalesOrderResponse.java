@@ -37,5 +37,6 @@ public record SalesOrderResponse(
         List<SalesOrderLineResponse> lines,
         int linkedInvoiceCount,
         int linkedChallanCount,
+        boolean allowBackorder,
         Instant createdAt
 ) {}

@@ -56,6 +56,7 @@ class SalesCycleTest {
 
     // ── SalesOrderService mocks ───────────────────────────────────
     @Mock private SalesOrderRepository salesOrderRepository;
+    @Mock private SalesOrderLineRepository soLineRepository;
     @Mock private StockReservationRepository reservationRepository;
     @Mock private ContactRepository contactRepository;
     @Mock private ItemRepository itemRepository;
@@ -111,11 +112,11 @@ class SalesCycleTest {
         customer.setCompanyName("ACME Corp");
 
         salesOrderService = new SalesOrderService(
-                salesOrderRepository, reservationRepository, contactRepository,
-                itemRepository, warehouseRepository, stockBalanceRepository,
-                branchRepository, estimateRepository, invoiceService,
-                invoiceRepository, sequenceRepository, defaultAccountService,
-                taxEngine, commentService, challanRepository);
+                salesOrderRepository, soLineRepository, reservationRepository,
+                contactRepository, itemRepository, warehouseRepository,
+                stockBalanceRepository, branchRepository, estimateRepository,
+                invoiceService, invoiceRepository, sequenceRepository,
+                defaultAccountService, taxEngine, commentService, challanRepository);
 
         deliveryChallanService = new DeliveryChallanService(
                 challanRepository, salesOrderRepository, reservationRepository,
