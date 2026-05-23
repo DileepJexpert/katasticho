@@ -111,6 +111,16 @@ public class SalesOrderController {
                 .body(ApiResponse.created(salesOrderService.convertToInvoice(id, request)));
     }
 
+    @PostMapping("/{id}/close-backorder-lines")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<SalesOrderResponse>> closeBackorderLines(
+            @PathVariable UUID id,
+            @Valid @RequestBody CloseBackorderLinesRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                salesOrderService.closeBackorderLines(id, request),
+                "Backorder lines closed"));
+    }
+
     @GetMapping("/{id}/reservations")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<StockReservationResponse>>> getReservations(

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -25,35 +26,34 @@ class SalesOrderDetailScreen extends ConsumerWidget {
         title: const Text('Sales Order'),
         actions: [
           orderAsync.whenOrNull(
-                data: (data) {
-                  final order = (data['data'] ?? data) as Map<String, dynamic>;
-                  final status = order['status'] as String? ?? '';
-                  return PopupMenuButton<String>(
-                    onSelected: (value) =>
-                        _handleAction(context, ref, value, status),
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                          value: 'pdf', child: Text('Download PDF')),
-                      if (status == 'DRAFT') ...[
-                        const PopupMenuItem(
-                            value: 'confirm', child: Text('Confirm')),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Text('Delete',
-                              style: TextStyle(color: KColors.error)),
-                        ),
-                      ],
-                      if (status == 'CONFIRMED')
-                        const PopupMenuItem(
-                          value: 'cancel',
-                          child: Text('Cancel',
-                              style: TextStyle(color: KColors.error)),
-                        ),
-                    ],
-                  );
-                },
-              ) ??
-              const SizedBox.shrink(),
+            data: (data) {
+              final order = (data['data'] ?? data) as Map<String, dynamic>;
+              final status = order['status'] as String? ?? '';
+              return PopupMenuButton<String>(
+                onSelected: (value) =>
+                    _handleAction(context, ref, value, status),
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                      value: 'pdf', child: Text('Download PDF')),
+                  if (status == 'DRAFT') ...[
+                    const PopupMenuItem(
+                        value: 'confirm', child: Text('Confirm')),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Text('Delete',
+                          style: TextStyle(color: KColors.error)),
+                    ),
+                  ],
+                  if (status == 'CONFIRMED' || status == 'BACKORDER')
+                    const PopupMenuItem(
+                      value: 'cancel',
+                      child: Text('Cancel Full Order',
+                          style: TextStyle(color: KColors.error)),
+                    ),
+                ],
+              );
+            },
+          ) ?? const SizedBox.shrink(),
         ],
       ),
       body: orderAsync.when(
@@ -232,6 +232,68 @@ class _SalesOrderDetailBody extends ConsumerWidget {
   });
 
   @override
+  Future<void> _closeBackorderLines(
+      BuildContext context, WidgetRef ref, List<String> lineIds) async {
+    final reasonCtl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Close Backorder Line?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This medicine cannot be sourced. The backordered qty will be closed — customer should get it elsewhere.',
+              style: KTypography.bodyMedium,
+            ),
+            KSpacing.vGapMd,
+            KTextField(
+              label: 'Reason (optional)',
+              controller: reasonCtl,
+              hint: 'e.g. Not available with any vendor',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: KColors.warning),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Close Line'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final repo = ref.read(salesOrderRepositoryProvider);
+      await repo.closeBackorderLines(salesOrderId, lineIds, reasonCtl.text.trim());
+      ref.invalidate(salesOrderDetailProvider(salesOrderId));
+      ref.invalidate(salesOrderListProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backorder line closed')),
+        );
+      }
+    } catch (e) {
+      String msg = 'Failed to close line';
+      if (e is DioException) {
+        final body = e.response?.data;
+        if (body is Map) msg = body['message'] as String? ?? msg;
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: KColors.error),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final status = order['status'] as String? ?? 'DRAFT';
@@ -318,7 +380,13 @@ class _SalesOrderDetailBody extends ConsumerWidget {
                       children: [
                         _FactsPanel(facts: facts),
                         KSpacing.vGapMd,
-                        _SalesOrderItemsPanel(lines: lines, dense: true),
+                        _SalesOrderItemsPanel(
+                          lines: lines,
+                          dense: true,
+                          status: status,
+                          onCloseLines: (ids) =>
+                              _closeBackorderLines(context, ref, ids),
+                        ),
                       ],
                     ),
                   ),
@@ -341,7 +409,12 @@ class _SalesOrderDetailBody extends ConsumerWidget {
             else ...[
               _FactsPanel(facts: facts),
               KSpacing.vGapMd,
-              _SalesOrderItemsPanel(lines: lines),
+              _SalesOrderItemsPanel(
+                lines: lines,
+                status: status,
+                onCloseLines: (ids) =>
+                    _closeBackorderLines(context, ref, ids),
+              ),
               KSpacing.vGapMd,
               _TotalsPanel(
                 subtotal: subtotal,
@@ -440,7 +513,14 @@ class _FactsPanel extends StatelessWidget {
 class _SalesOrderItemsPanel extends StatelessWidget {
   final List<dynamic> lines;
   final bool dense;
-  const _SalesOrderItemsPanel({required this.lines, this.dense = false});
+  final String status;
+  final void Function(List<String> lineIds)? onCloseLines;
+  const _SalesOrderItemsPanel({
+    required this.lines,
+    this.dense = false,
+    this.status = '',
+    this.onCloseLines,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -460,13 +540,16 @@ class _SalesOrderItemsPanel extends StatelessWidget {
             dataRowMaxHeight: dense ? 58 : 68,
             columnSpacing: 22,
             horizontalMargin: 16,
-            columns: const [
-              DataColumn(label: Text('Item')),
-              DataColumn(label: Text('Qty'), numeric: true),
-              DataColumn(label: Text('Rate'), numeric: true),
-              DataColumn(label: Text('Shipped'), numeric: true),
-              DataColumn(label: Text('Invoiced'), numeric: true),
-              DataColumn(label: Text('Amount'), numeric: true),
+            columns: [
+              const DataColumn(label: Text('Item')),
+              const DataColumn(label: Text('Qty'), numeric: true),
+              const DataColumn(label: Text('Rate'), numeric: true),
+              const DataColumn(label: Text('Shipped'), numeric: true),
+              const DataColumn(label: Text('Invoiced'), numeric: true),
+              const DataColumn(label: Text('Backordered'), numeric: true),
+              const DataColumn(label: Text('Amount'), numeric: true),
+              if (status == 'BACKORDER' && onCloseLines != null)
+                const DataColumn(label: Text('')),
             ],
             rows: lines.map((raw) {
               final line = raw as Map<String, dynamic>;
@@ -479,6 +562,9 @@ class _SalesOrderItemsPanel extends StatelessWidget {
                   (line['quantityShipped'] as num?)?.toDouble() ?? 0;
               final invoicedQty =
                   (line['quantityInvoiced'] as num?)?.toDouble() ?? 0;
+              final backorderedQty =
+                  (line['quantityBackordered'] as num?)?.toDouble() ?? 0;
+              final lineId = line['id'] as String? ?? '';
               final unit = line['unit'] as String? ?? '';
               final rate = (line['rate'] as num?)?.toDouble() ?? 0;
               final amount = (line['amount'] as num?)?.toDouble() ??
@@ -508,8 +594,25 @@ class _SalesOrderItemsPanel extends StatelessWidget {
                 DataCell(Text(CurrencyFormatter.formatIndian(rate))),
                 DataCell(Text(_qty(shippedQty, ''))),
                 DataCell(Text(_qty(invoicedQty, ''))),
+                DataCell(backorderedQty > 0
+                    ? Text(_qty(backorderedQty, ''),
+                        style: TextStyle(
+                            color: KColors.warning,
+                            fontWeight: FontWeight.w600))
+                    : const Text('0')),
                 DataCell(Text(CurrencyFormatter.formatIndian(amount),
                     style: KTypography.amountSmall)),
+                if (status == 'BACKORDER' && onCloseLines != null)
+                  DataCell(backorderedQty > 0
+                      ? TextButton(
+                          style: TextButton.styleFrom(
+                              foregroundColor: KColors.error,
+                              padding: EdgeInsets.zero),
+                          onPressed: () => onCloseLines!([lineId]),
+                          child: const Text('Close',
+                              style: TextStyle(fontSize: 12)),
+                        )
+                      : const SizedBox()),
               ]);
             }).toList(),
           ),
