@@ -41,6 +41,7 @@ class _SalesOrderCreateScreenState
   List<Map<String, dynamic>> _filteredCustomers = [];
   bool _loadingCustomers = true;
   String _customerSearch = '';
+  bool _allowBackorder = false;
 
   @override
   void initState() {
@@ -131,6 +132,7 @@ class _SalesOrderCreateScreenState
         'placeOfSupply': _placeOfSupply,
         'notes': _notes,
         'terms': _terms,
+        'allowBackorder': _allowBackorder,
         'lines': _lineItems
             .where((l) => l.description.isNotEmpty)
             .map((l) => {
@@ -319,11 +321,44 @@ class _SalesOrderCreateScreenState
     );
   }
 
+  Future<void> _openAddCustomerSheet() async {
+    final created = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _AddCustomerSheet(ref: ref),
+    );
+    if (created == null) return;
+    // Reload list then auto-select the new customer
+    await _loadCustomers();
+    final id = created['id']?.toString() ?? '';
+    final name = created['displayName'] as String? ??
+        created['companyName'] as String? ?? '';
+    if (mounted && id.isNotEmpty) {
+      setState(() {
+        _selectedContactId = id;
+        _contactName = name;
+      });
+    }
+  }
+
   Widget _buildCustomerStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Select Customer', style: KTypography.h2),
+        Row(
+          children: [
+            Text('Select Customer', style: KTypography.h2),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: _openAddCustomerSheet,
+              icon: const Icon(Icons.person_add_outlined, size: 18),
+              label: const Text('New Customer'),
+            ),
+          ],
+        ),
         KSpacing.vGapMd,
 
         KTextField(
@@ -346,15 +381,25 @@ class _SalesOrderCreateScreenState
             child: CircularProgressIndicator(),
           ))
         else if (_filteredCustomers.isEmpty)
-          _CustomerSelectTile(
-            name: _customers.isEmpty
-                ? 'No customers yet'
-                : 'No matching customers',
-            gstin: _customers.isEmpty
-                ? 'Add customers from the Customers tab first'
-                : 'Try a different search term',
-            isSelected: false,
-            onTap: () {},
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Text(
+                    _customers.isEmpty ? 'No customers yet' : 'No matching customers',
+                    style: KTypography.bodyMedium,
+                  ),
+                  KSpacing.vGapSm,
+                  KButton(
+                    label: 'Add New Customer',
+                    icon: Icons.person_add_outlined,
+                    variant: KButtonVariant.outlined,
+                    onPressed: _openAddCustomerSheet,
+                  ),
+                ],
+              ),
+            ),
           )
         else
           ..._filteredCustomers.map((customer) {
@@ -550,6 +595,21 @@ class _SalesOrderCreateScreenState
                 bold: true,
               ),
             ],
+          ),
+        ),
+
+        KSpacing.vGapMd,
+
+        KCard(
+          child: SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text('Allow Backorder', style: KTypography.bodyMedium),
+            subtitle: Text(
+              'Confirm even if stock is insufficient — backordered qty is auto-fulfilled when GRN arrives',
+              style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+            ),
+            value: _allowBackorder,
+            onChanged: (v) => setState(() => _allowBackorder = v),
           ),
         ),
 
@@ -969,6 +1029,131 @@ class _StepTab extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AddCustomerSheet extends StatefulWidget {
+  final WidgetRef ref;
+  const _AddCustomerSheet({required this.ref});
+
+  @override
+  State<_AddCustomerSheet> createState() => _AddCustomerSheetState();
+}
+
+class _AddCustomerSheetState extends State<_AddCustomerSheet> {
+  final _formKey = GlobalKey<FormState>();
+  bool _isSaving = false;
+  String? _error;
+
+  final _nameCtl = TextEditingController();
+  final _phoneCtl = TextEditingController();
+  final _emailCtl = TextEditingController();
+  final _gstinCtl = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameCtl.dispose();
+    _phoneCtl.dispose();
+    _emailCtl.dispose();
+    _gstinCtl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
+    try {
+      final repo = widget.ref.read(contactRepositoryProvider);
+      final result = await repo.createContact({
+        'displayName': _nameCtl.text.trim(),
+        'phone': _phoneCtl.text.trim().isEmpty ? null : _phoneCtl.text.trim(),
+        'email': _emailCtl.text.trim().isEmpty ? null : _emailCtl.text.trim(),
+        'gstin': _gstinCtl.text.trim().isEmpty ? null : _gstinCtl.text.trim(),
+        'contactType': 'CUSTOMER',
+      });
+      final data = (result['data'] ?? result) as Map<String, dynamic>;
+      if (mounted) Navigator.of(context).pop(data);
+    } catch (e) {
+      setState(() => _error = 'Failed to create customer. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        24, 24, 24,
+        24 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text('Add New Customer', style: KTypography.h2),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            KSpacing.vGapMd,
+            if (_error != null) ...[
+              KErrorBanner(
+                message: _error!,
+                onDismiss: () => setState(() => _error = null),
+              ),
+              KSpacing.vGapMd,
+            ],
+            KTextField(
+              label: 'Customer Name *',
+              hint: 'Full name or company name',
+              controller: _nameCtl,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+            ),
+            KSpacing.vGapSm,
+            KCompactRow(children: [
+              KTextField(
+                label: 'Phone',
+                hint: '10-digit mobile',
+                controller: _phoneCtl,
+                keyboardType: TextInputType.phone,
+              ),
+              KTextField(
+                label: 'Email',
+                hint: 'optional',
+                controller: _emailCtl,
+                keyboardType: TextInputType.emailAddress,
+              ),
+            ]),
+            KSpacing.vGapSm,
+            KTextField(
+              label: 'GSTIN (optional)',
+              hint: 'e.g. 27AABCU9603R1ZX',
+              controller: _gstinCtl,
+            ),
+            KSpacing.vGapLg,
+            KButton(
+              label: 'Save Customer',
+              onPressed: _save,
+              isLoading: _isSaving,
+              fullWidth: true,
+              icon: Icons.check,
+            ),
+          ],
+        ),
       ),
     );
   }
