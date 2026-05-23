@@ -1,3 +1,7 @@
+### Tool internals ###
+.claude/
+.claire/
+
 ### Java / Maven ###
 target/
 !.mvn/wrapper/maven-wrapper.jar
