@@ -327,47 +327,24 @@ class _SalesOrderDetailBody extends ConsumerWidget {
         return ListView(
           padding: KSpacing.pagePadding,
           children: [
-            Container(
-              padding: const EdgeInsets.all(20),
+            DecoratedBox(
               decoration: BoxDecoration(
-                color: cs.surface,
-                borderRadius: BorderRadius.circular(KSpacing.radiusLg),
+                borderRadius: KSpacing.borderRadiusLg,
                 border: Border.all(color: cs.outlineVariant),
               ),
-              child: Wrap(
-                spacing: 20,
-                runSpacing: 16,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  SizedBox(
-                    width: wide ? 420 : double.infinity,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(orderNumber, style: KTypography.h2),
-                            ),
-                            KStatusChip(status: status),
-                          ],
-                        ),
-                        KSpacing.vGapXs,
-                        Text(customerName, style: KTypography.bodyLarge),
-                      ],
-                    ),
-                  ),
-                  _HeaderMetric(
-                    label: 'Order total',
-                    value: CurrencyFormatter.formatIndian(total),
-                    icon: Icons.receipt_long_rounded,
-                  ),
-                  _HeaderMetric(
+              child: KDocumentHeader(
+                title: orderNumber,
+                subtitle: customerName,
+                status: KStatusChip(status: status),
+                amount: CurrencyFormatter.formatIndian(total),
+                icon: Icons.assignment_outlined,
+                metrics: [
+                  KDocumentHeaderMetric(
                     label: 'Items',
                     value: '${lines.length}',
                     icon: Icons.inventory_2_rounded,
                   ),
-                  _HeaderMetric(
+                  KDocumentHeaderMetric(
                     label: 'Tax',
                     value: CurrencyFormatter.formatIndian(tax),
                     icon: Icons.percent_rounded,
@@ -443,46 +420,6 @@ class _InfoFact {
   final String label;
   final String value;
   _InfoFact(this.label, this.value);
-}
-
-class _HeaderMetric extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  const _HeaderMetric({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      width: 180,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cs.primary.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(KSpacing.radiusMd),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.14)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: cs.primary),
-          KSpacing.hGapSm,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: KTypography.labelSmall),
-                Text(value, style: KTypography.amountSmall),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _FactsPanel extends StatelessWidget {

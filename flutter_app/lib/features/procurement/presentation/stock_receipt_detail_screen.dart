@@ -159,7 +159,8 @@ class StockReceiptDetailScreen extends ConsumerWidget {
         final body = e.response?.data;
         if (body is Map) {
           errorMsg = body['message'] as String? ??
-              body['error'] as String? ?? errorMsg;
+              body['error'] as String? ??
+              errorMsg;
         }
       }
       if (context.mounted) {
@@ -260,7 +261,6 @@ class _ReceiptBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final number = receipt['receiptNumber'] as String? ?? '--';
     final status = receipt['status'] as String? ?? 'DRAFT';
     final supplierName =
@@ -297,65 +297,29 @@ class _ReceiptBody extends StatelessWidget {
         return ListView(
           padding: KSpacing.pagePadding,
           children: [
-            KCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: KSpacing.md,
-                    runSpacing: KSpacing.sm,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: cs.primaryContainer,
-                          borderRadius:
-                              BorderRadius.circular(KSpacing.radiusMd),
-                        ),
-                        child: Icon(Icons.inventory_2_outlined,
-                            color: cs.onPrimaryContainer),
-                      ),
-                      SizedBox(
-                        width: isWide ? 560 : constraints.maxWidth - 48,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(number,
-                                style: KTypography.h2,
-                                overflow: TextOverflow.ellipsis),
-                            KSpacing.vGapXxs,
-                            Text(supplierName,
-                                style: KTypography.bodyLarge,
-                                overflow: TextOverflow.ellipsis),
-                          ],
-                        ),
-                      ),
-                      KStatusChip(status: status),
-                    ],
+            DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: KSpacing.borderRadiusLg,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
+              child: KDocumentHeader(
+                title: number,
+                subtitle: supplierName,
+                status: KStatusChip(status: status),
+                amount: CurrencyFormatter.formatIndian(total),
+                icon: Icons.inventory_2_outlined,
+                metrics: [
+                  KDocumentHeaderMetric(
+                    label: 'Lines',
+                    value: lines.length.toString(),
+                    icon: Icons.format_list_numbered,
                   ),
-                  KSpacing.vGapLg,
-                  Wrap(
-                    spacing: KSpacing.md,
-                    runSpacing: KSpacing.md,
-                    children: [
-                      _ReceiptMetric(
-                        label: 'Receipt total',
-                        value: CurrencyFormatter.formatIndian(total),
-                        icon: Icons.payments_outlined,
-                      ),
-                      _ReceiptMetric(
-                        label: 'Lines',
-                        value: lines.length.toString(),
-                        icon: Icons.format_list_numbered,
-                      ),
-                      _ReceiptMetric(
-                        label: 'Input GST',
-                        value: CurrencyFormatter.formatIndian(tax),
-                        icon: Icons.receipt_long_outlined,
-                      ),
-                    ],
+                  KDocumentHeaderMetric(
+                    label: 'Input GST',
+                    value: CurrencyFormatter.formatIndian(tax),
+                    icon: Icons.receipt_long_outlined,
                   ),
                 ],
               ),
@@ -389,52 +353,6 @@ class _ReceiptBody extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _ReceiptMetric extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-
-  const _ReceiptMetric({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      width: 210,
-      padding: const EdgeInsets.all(KSpacing.md),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(KSpacing.radiusMd),
-        border: Border.all(color: cs.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: cs.primary),
-          KSpacing.hGapSm,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: KTypography.labelSmall,
-                    overflow: TextOverflow.ellipsis),
-                KSpacing.vGapXxs,
-                Text(value,
-                    style: KTypography.amountSmall,
-                    overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

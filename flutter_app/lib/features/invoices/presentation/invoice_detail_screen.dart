@@ -239,55 +239,12 @@ class _InvoiceDetailBody extends ConsumerWidget {
       child: Column(
         children: [
           // Header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: KSpacing.md,
-              vertical: KSpacing.sm,
-            ),
-            color: KColors.surface,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              invoiceNumber,
-                              style: KTypography.h3,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          KSpacing.hGapSm,
-                          KStatusChip(status: status),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        customerName,
-                        style: KTypography.bodySmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                KSpacing.hGapMd,
-                Flexible(
-                  child: Text(
-                    CurrencyFormatter.formatIndian(total),
-                    style: KTypography.amountMedium,
-                    textAlign: TextAlign.end,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
+          KDocumentHeader(
+            title: invoiceNumber,
+            subtitle: customerName,
+            status: KStatusChip(status: status),
+            amount: CurrencyFormatter.formatIndian(total),
+            icon: Icons.receipt_long_rounded,
           ),
 
           // Tabs

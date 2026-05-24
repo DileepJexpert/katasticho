@@ -313,55 +313,12 @@ class _BillDetailBody extends ConsumerWidget {
       child: Column(
         children: [
           // Header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: KSpacing.md,
-              vertical: KSpacing.sm,
-            ),
-            color: KColors.surface,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              b.billNumber,
-                              style: KTypography.h3,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          KSpacing.hGapSm,
-                          BillStatusChip(status: b.status),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        b.vendorName,
-                        style: KTypography.bodySmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                KSpacing.hGapMd,
-                Flexible(
-                  child: Text(
-                    CurrencyFormatter.formatIndian(b.totalAmount),
-                    style: KTypography.amountMedium,
-                    textAlign: TextAlign.end,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
+          KDocumentHeader(
+            title: b.billNumber,
+            subtitle: b.vendorName,
+            status: BillStatusChip(status: b.status),
+            amount: CurrencyFormatter.formatIndian(b.totalAmount),
+            icon: Icons.request_quote_rounded,
           ),
 
           // Tabs
