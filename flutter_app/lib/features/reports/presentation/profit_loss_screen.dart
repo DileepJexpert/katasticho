@@ -55,7 +55,10 @@ class _ProfitLossScreenState extends ConsumerState<ProfitLossScreen> {
         children: [
           Container(
             color: KColors.surface,
-            padding: const EdgeInsets.all(KSpacing.md),
+            padding: const EdgeInsets.symmetric(
+              horizontal: KSpacing.md,
+              vertical: KSpacing.sm,
+            ),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final narrow = constraints.maxWidth < KSpacing.mobileBreakpoint;
@@ -143,10 +146,10 @@ class _ProfitLossScreenState extends ConsumerState<ProfitLossScreen> {
               ),
             ],
           ),
-          KSpacing.vGapLg,
+          KSpacing.vGapMd,
 
           // Revenue breakdown
-          Text('Revenue', style: KTypography.h3),
+          Text('Revenue', style: KTypography.h4),
           KSpacing.vGapSm,
           if (revenueAccounts.isEmpty)
             _EmptyReportLine(label: 'No revenue posted in this period')
@@ -160,10 +163,10 @@ class _ProfitLossScreenState extends ConsumerState<ProfitLossScreen> {
                 color: KColors.success,
               );
             }),
-          KSpacing.vGapLg,
+          KSpacing.vGapMd,
 
           // Expense breakdown
-          Text('Expenses', style: KTypography.h3),
+          Text('Expenses', style: KTypography.h4),
           KSpacing.vGapSm,
           if (expenseAccounts.isEmpty)
             _EmptyReportLine(label: 'No expenses posted in this period')
@@ -199,7 +202,7 @@ class _AccountLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           SizedBox(
@@ -209,7 +212,7 @@ class _AccountLine extends StatelessWidget {
           Expanded(
             child: Text(
               name,
-              style: KTypography.bodyMedium,
+              style: KTypography.bodySmall,
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -262,7 +265,7 @@ class _MetricStrip extends StatelessWidget {
                 .colorScheme
                 .surfaceContainerHighest
                 .withValues(alpha: 0.28),
-            borderRadius: KSpacing.borderRadiusLg,
+            borderRadius: KSpacing.borderRadiusMd,
             border: Border.all(
               color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
             ),

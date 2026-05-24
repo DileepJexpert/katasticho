@@ -53,7 +53,10 @@ class _BalanceSheetScreenState extends ConsumerState<BalanceSheetScreen> {
         children: [
           Container(
             color: KColors.surface,
-            padding: const EdgeInsets.all(KSpacing.md),
+            padding: const EdgeInsets.symmetric(
+              horizontal: KSpacing.md,
+              vertical: KSpacing.sm,
+            ),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final narrow = constraints.maxWidth < KSpacing.mobileBreakpoint;
@@ -121,7 +124,7 @@ class _BalanceSheetScreenState extends ConsumerState<BalanceSheetScreen> {
         children: [
           // Balance indicator
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: isBalanced ? KColors.successLight : KColors.errorLight,
               borderRadius: KSpacing.borderRadiusMd,
@@ -147,7 +150,7 @@ class _BalanceSheetScreenState extends ConsumerState<BalanceSheetScreen> {
               ],
             ),
           ),
-          KSpacing.vGapMd,
+          KSpacing.vGapSm,
 
           // Assets
           _SectionCard(
@@ -156,7 +159,7 @@ class _BalanceSheetScreenState extends ConsumerState<BalanceSheetScreen> {
             color: KColors.primary,
             accounts: assetAccounts,
           ),
-          KSpacing.vGapMd,
+          KSpacing.vGapSm,
 
           // Liabilities
           _SectionCard(
@@ -165,7 +168,7 @@ class _BalanceSheetScreenState extends ConsumerState<BalanceSheetScreen> {
             color: KColors.warning,
             accounts: liabilityAccounts,
           ),
-          KSpacing.vGapMd,
+          KSpacing.vGapSm,
 
           // Equity
           _SectionCard(
@@ -239,7 +242,7 @@ class _SectionCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         title,
-                        style: KTypography.h3,
+                        style: KTypography.h4,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -254,7 +257,7 @@ class _SectionCard extends StatelessWidget {
               ),
             ],
           ),
-          KSpacing.vGapMd,
+          KSpacing.vGapSm,
           if (accounts.isEmpty)
             Text(
               'No accounts with balance',
@@ -266,7 +269,7 @@ class _SectionCard extends StatelessWidget {
             ...accounts.map((acct) {
               final a = acct as Map<String, dynamic>;
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.symmetric(vertical: 3),
                 child: Row(
                   children: [
                     SizedBox(
@@ -279,7 +282,7 @@ class _SectionCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         a['accountName'] as String? ?? '',
-                        style: KTypography.bodyMedium,
+                        style: KTypography.bodySmall,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
