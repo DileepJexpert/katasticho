@@ -30,6 +30,7 @@ import 'widgets/pos_barcode_scanner.dart';
 import 'widgets/pos_recent_transactions.dart';
 import 'widgets/pos_recent_bills.dart';
 import 'widgets/pos_weight_popup.dart';
+import '../../inventory/data/batch_repository.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../pricing/data/scheme_repository.dart';
 import '../../../core/auth/auth_state.dart';
@@ -104,15 +105,36 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       }
     }
 
-    // For batch-tracked items, let user pick the specific FEFO batch
+    // For batch-tracked items, auto-select if single batch, else show picker
     final trackBatches = item['trackBatches'] == true;
     if (trackBatches) {
       final itemId = item['id']?.toString();
       final itemName = item['name']?.toString() ?? 'Item';
       if (itemId == null) return;
-      final batch = await showBatchPicker(context, itemId: itemId, itemName: itemName);
-      if (batch == null || !mounted) return;
-      // Override batch fields from picker selection
+      final batchRepo = ref.read(batchRepositoryProvider);
+      final batches = await batchRepo.availableForItem(itemId);
+      if (!mounted) return;
+      // Filter out expired batches
+      final validBatches = batches.where((b) {
+        final exp = b['expiryDate']?.toString();
+        if (exp == null || exp.isEmpty) return true;
+        final d = DateTime.tryParse(exp);
+        return d == null || !d.isBefore(DateTime.now());
+      }).toList();
+      if (validBatches.isEmpty) {
+        _showErrorSnackBar('No valid batches available for $itemName');
+        return;
+      }
+      Map<String, dynamic>? batch;
+      if (validBatches.length == 1) {
+        // Single valid batch — auto-select silently (FEFO)
+        batch = validBatches.first;
+      } else {
+        // Multiple batches — show picker
+        batch = await showBatchPicker(context, itemId: itemId, itemName: itemName);
+        if (batch == null || !mounted) return;
+      }
+      // Override batch fields from selection
       item = Map<String, dynamic>.from(item);
       item['batchId'] = batch['id']?.toString();
       item['batchNumber'] = batch['batchNumber']?.toString();
@@ -257,69 +279,20 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     try {
       final schemes = await ref.read(schemeRepositoryProvider).getApplicable(itemId, qty);
       if (schemes.isEmpty || !mounted) return;
-      // Show scheme suggestion for the first applicable scheme
-      _showSchemeSheet(schemes, addedItem);
+      // Auto-apply the best (first) scheme silently
+      final best = schemes.first;
+      _applyScheme(best, addedItem);
+      final schemeName = best['name']?.toString() ?? 'Scheme';
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$schemeName applied'),
+          backgroundColor: KColors.success,
+          duration: const Duration(seconds: 2),
+        ));
+      }
     } catch (_) {
       // Silently ignore scheme fetch errors — don't interrupt POS flow
     }
-  }
-
-  void _showSchemeSheet(List<Map<String, dynamic>> schemes, CartItem addedItem) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              const Icon(Icons.local_offer_outlined, color: KColors.primary),
-              const SizedBox(width: 8),
-              Text('Scheme Available!', style: KTypography.h3),
-            ]),
-            const SizedBox(height: 12),
-            ...schemes.map((s) {
-              final type = s['schemeType']?.toString() ?? '';
-              final name = s['name']?.toString() ?? '';
-              final isBxGy = type == 'BUY_X_GET_Y';
-              final freeQty = (s['freeQuantity'] as num?)?.toDouble() ?? 0;
-              final discPct = (s['discountPercent'] as num?)?.toDouble() ?? 0;
-              final summary = isBxGy
-                  ? 'Get $freeQty unit(s) FREE'
-                  : '$discPct% off on this item';
-
-              return ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: KColors.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(isBxGy ? 'FREE' : '${discPct.toInt()}%',
-                      style: KTypography.labelMedium.copyWith(
-                          color: KColors.primary, fontWeight: FontWeight.w800)),
-                ),
-                title: Text(name, style: KTypography.labelMedium),
-                subtitle: Text(summary, style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
-                trailing: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _applyScheme(s, addedItem);
-                  },
-                  child: const Text('Apply'),
-                ),
-              );
-            }),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Skip'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   void _applyScheme(Map<String, dynamic> scheme, CartItem addedItem) {

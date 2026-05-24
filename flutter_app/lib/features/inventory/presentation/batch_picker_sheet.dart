@@ -126,7 +126,14 @@ class _BatchPickerSheetState extends ConsumerState<_BatchPickerSheet> {
                     onRetry: _retry,
                   );
                 }
-                final batches = snap.data ?? const [];
+                final allBatches = snap.data ?? const [];
+                // Filter out expired batches — they must not be selectable
+                final batches = allBatches.where((b) {
+                  final exp = b['expiryDate']?.toString();
+                  if (exp == null || exp.isEmpty) return true;
+                  final d = DateTime.tryParse(exp);
+                  return d == null || !d.isBefore(DateTime.now());
+                }).toList();
                 if (batches.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.all(KSpacing.xl),

@@ -366,11 +366,16 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
     state = state.copyWith(items: updated);
   }
 
-  /// Remove item at index.
+  /// Remove item at index. If it's a paid item with linked free items, remove those too.
   void removeItem(int index) {
     if (index < 0 || index >= state.items.length) return;
+    final removed = state.items[index];
     final updated = List<CartItem>.from(state.items);
     updated.removeAt(index);
+    // If removing a paid item, also remove any linked free items for the same itemId
+    if (!removed.isFreeItem && removed.itemId != null) {
+      updated.removeWhere((i) => i.isFreeItem && i.itemId == removed.itemId);
+    }
     state = state.copyWith(items: updated);
   }
 

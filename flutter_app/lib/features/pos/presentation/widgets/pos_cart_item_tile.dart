@@ -11,7 +11,7 @@ import '../../data/pos_cart_state.dart';
 class PosCartItemTile extends StatelessWidget {
   final CartItem item;
   final int index;
-  final ValueChanged<double> onQuantityChanged;
+  final ValueChanged<double>? onQuantityChanged;
   final VoidCallback onRemove;
   final void Function(String unit, String? uomId, double? conversionFactor, double? customPrice)? onUnitChanged;
   final ValueChanged<double>? onDiscountChanged;
@@ -20,7 +20,7 @@ class PosCartItemTile extends StatelessWidget {
     super.key,
     required this.item,
     required this.index,
-    required this.onQuantityChanged,
+    this.onQuantityChanged,
     required this.onRemove,
     this.onUnitChanged,
     this.onDiscountChanged,
@@ -176,23 +176,37 @@ class PosCartItemTile extends StatelessWidget {
             if (item.availableUnits.isNotEmpty && onUnitChanged != null)
               const SizedBox(width: 6),
 
-            // Quantity stepper or weight display
-            if (item.isWeightBased)
+            // Quantity stepper or weight display (disabled for free items)
+            if (item.isFreeItem)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF16A34A).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text('FREE ×${_fmtQty(item.quantity)}',
+                    style: KTypography.labelSmall.copyWith(
+                      color: const Color(0xFF16A34A),
+                      fontWeight: FontWeight.w800,
+                    )),
+              )
+            else if (item.isWeightBased && onQuantityChanged != null)
               _WeightDisplay(
                 weightKg: item.quantity,
                 maxWeightKg: item.maxSellQuantity,
-                onChanged: onQuantityChanged,
+                onChanged: onQuantityChanged!,
               )
-            else
+            else if (onQuantityChanged != null)
               _QuantityStepper(
                 quantity: item.quantity,
                 maxQuantity: item.maxSellQuantity,
                 unit: item.stockUnitLabel,
-                onChanged: onQuantityChanged,
+                onChanged: onQuantityChanged!,
               ),
             KSpacing.hGapMd,
 
-            // Discount input
+            // Discount input (hidden for free items)
+            if (!item.isFreeItem)
             SizedBox(
               width: 52,
               child: _DiscountField(

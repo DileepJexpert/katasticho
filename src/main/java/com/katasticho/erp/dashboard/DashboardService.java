@@ -742,7 +742,7 @@ public class DashboardService {
                 .map(SalesOrder::getContactId)
                 .collect(Collectors.toSet());
         Map<UUID, String> contactNames = contactIds.isEmpty() ? Map.of()
-                : contactRepository.findAllById(contactIds).stream()
+                : contactRepository.findByOrgIdAndIsDeletedFalseAndIdIn(orgId, contactIds).stream()
                         .collect(Collectors.toMap(Contact::getId, c -> c.getDisplayName() != null ? c.getDisplayName() : "Unknown"));
 
         List<SoAlertResponse.SoAlertItem> items = recent.stream().map(so -> {

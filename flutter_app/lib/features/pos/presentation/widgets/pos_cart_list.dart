@@ -97,7 +97,7 @@ class _PosCartListState extends ConsumerState<PosCartList> {
               return PosCartItemTile(
                 item: item,
                 index: index,
-                onQuantityChanged: (qty) {
+                onQuantityChanged: item.isFreeItem ? null : (qty) {
                   final maxQty = item.maxSellQuantity;
                   if (item.currentStock > 0 && qty > maxQty) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -116,7 +116,7 @@ class _PosCartListState extends ConsumerState<PosCartList> {
                 onRemove: () {
                   ref.read(posCartProvider.notifier).removeItem(index);
                 },
-                onUnitChanged: item.availableUnits.isNotEmpty
+                onUnitChanged: item.availableUnits.isNotEmpty && !item.isFreeItem
                     ? (unit, uomId, conversionFactor, customPrice) {
                         ref.read(posCartProvider.notifier).changeUnit(
                               index,
@@ -127,7 +127,7 @@ class _PosCartListState extends ConsumerState<PosCartList> {
                             );
                       }
                     : null,
-                onDiscountChanged: (pct) {
+                onDiscountChanged: item.isFreeItem ? null : (pct) {
                   ref.read(posCartProvider.notifier).setDiscount(index, pct);
                 },
               );
