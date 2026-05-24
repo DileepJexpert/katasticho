@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
@@ -14,8 +13,12 @@ Future<Map<String, dynamic>?> showItemPicker(BuildContext context) {
   return showModalBottomSheet<Map<String, dynamic>>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+    ),
     builder: (_) => DraggableScrollableSheet(
-      initialChildSize: 0.8,
+      initialChildSize: 0.76,
       minChildSize: 0.5,
       maxChildSize: 0.95,
       expand: false,
@@ -56,17 +59,18 @@ class _ItemPickerSheetState extends ConsumerState<_ItemPickerSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(KSpacing.md, KSpacing.md, KSpacing.md, KSpacing.sm),
+            padding: const EdgeInsets.fromLTRB(
+                KSpacing.md, KSpacing.sm, KSpacing.md, KSpacing.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Select Item', style: KTypography.h3),
+                Text('Select Item', style: KTypography.h4),
                 KSpacing.vGapSm,
                 KTextField.search(
                   controller: _searchController,
                   hint: 'Search by SKU or name',
-                  onChanged: (v) =>
-                      setState(() => _query = v.trim().isEmpty ? null : v.trim()),
+                  onChanged: (v) => setState(
+                      () => _query = v.trim().isEmpty ? null : v.trim()),
                   onClear: () {
                     _searchController.clear();
                     setState(() => _query = null);
@@ -87,7 +91,9 @@ class _ItemPickerSheetState extends ConsumerState<_ItemPickerSheet> {
                 final content = data['data'];
                 final items = content is List
                     ? content
-                    : (content is Map ? (content['content'] as List?) ?? [] : []);
+                    : (content is Map
+                        ? (content['content'] as List?) ?? []
+                        : []);
 
                 if (items.isEmpty) {
                   return Center(
@@ -125,10 +131,13 @@ class _ItemPickerSheetState extends ConsumerState<_ItemPickerSheet> {
                       if (attrText.isNotEmpty) attrText,
                     ];
                     return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       leading: Container(
-                        width: 40,
-                        height: 40,
+                        width: 34,
+                        height: 34,
                         decoration: BoxDecoration(
                           color: KColors.primaryLight.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
@@ -138,14 +147,14 @@ class _ItemPickerSheetState extends ConsumerState<_ItemPickerSheet> {
                               ? Icons.build_outlined
                               : Icons.inventory_2_outlined,
                           color: KColors.primary,
-                          size: 20,
+                          size: 18,
                         ),
                       ),
                       title: Row(
                         children: [
                           Expanded(
                             child: Text(item['name']?.toString() ?? '',
-                                style: KTypography.labelLarge,
+                                style: KTypography.labelMedium,
                                 overflow: TextOverflow.ellipsis),
                           ),
                           if (groupName != null && groupName.isNotEmpty) ...[

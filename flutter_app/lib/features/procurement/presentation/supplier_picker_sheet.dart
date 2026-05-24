@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
@@ -15,8 +14,12 @@ Future<Map<String, dynamic>?> showSupplierPicker(BuildContext context) {
   return showModalBottomSheet<Map<String, dynamic>>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+    ),
     builder: (_) => DraggableScrollableSheet(
-      initialChildSize: 0.8,
+      initialChildSize: 0.76,
       minChildSize: 0.5,
       maxChildSize: 0.95,
       expand: false,
@@ -72,14 +75,14 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(
-                KSpacing.md, KSpacing.md, KSpacing.md, KSpacing.sm),
+                KSpacing.md, KSpacing.sm, KSpacing.md, KSpacing.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Expanded(
-                      child: Text('Select Supplier', style: KTypography.h3),
+                      child: Text('Select Supplier', style: KTypography.h4),
                     ),
                     TextButton.icon(
                       onPressed: _addNew,
@@ -126,13 +129,10 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.local_shipping_outlined,
-                              size: 48,
-                              color: KColors.textHint),
+                              size: 48, color: KColors.textHint),
                           KSpacing.vGapSm,
                           Text(
-                            _query == null
-                                ? 'No suppliers yet'
-                                : 'No matches',
+                            _query == null ? 'No suppliers yet' : 'No matches',
                             style: KTypography.bodyMedium,
                           ),
                           KSpacing.vGapMd,
@@ -156,11 +156,13 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
                     final gstin = supplier['gstin'] as String? ?? '';
                     final phone = supplier['phone'] as String? ?? '';
                     return ListTile(
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                          horizontal: 8, vertical: 2),
                       leading: Container(
-                        width: 40,
-                        height: 40,
+                        width: 34,
+                        height: 34,
                         decoration: BoxDecoration(
                           color: KColors.primaryLight.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
@@ -168,11 +170,11 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
                         child: const Icon(
                           Icons.local_shipping_outlined,
                           color: KColors.primary,
-                          size: 20,
+                          size: 18,
                         ),
                       ),
                       title: Text(supplier['name']?.toString() ?? '',
-                          style: KTypography.labelLarge),
+                          style: KTypography.labelMedium),
                       subtitle: Text(
                         gstin.isNotEmpty
                             ? 'GSTIN: $gstin'

@@ -51,15 +51,15 @@ class KDataTable extends StatelessWidget {
             cs.surfaceContainerHighest.withValues(alpha: 0.5),
           ),
           headingRowHeight: 38,
-          dataRowMinHeight: 42,
-          dataRowMaxHeight: 50,
+          dataRowMinHeight: 38,
+          dataRowMaxHeight: 46,
           headingTextStyle: KTypography.labelMedium.copyWith(
             color: cs.onSurfaceVariant,
             fontWeight: FontWeight.w700,
           ),
-          dataTextStyle: KTypography.bodyMedium.copyWith(color: cs.onSurface),
-          columnSpacing: 12,
-          horizontalMargin: 10,
+          dataTextStyle: KTypography.bodySmall.copyWith(color: cs.onSurface),
+          columnSpacing: 10,
+          horizontalMargin: 8,
           dividerThickness: 0.5,
           columns: columns
               .map((col) => DataColumn(
@@ -96,31 +96,66 @@ class KDetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 124,
-            child: Text(
-              label,
-              style: KTypography.bodySmall.copyWith(
-                color: cs.onSurfaceVariant,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final labelStyle = KTypography.labelSmall.copyWith(
+          color: cs.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+        );
+        final effectiveValueStyle = valueStyle ??
+            KTypography.bodySmall.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w600,
+            );
+
+        if (constraints.maxWidth < 360) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: labelStyle),
+                const SizedBox(height: 2),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: Text(value, style: effectiveValueStyle)),
+                    if (trailing != null) ...[
+                      KSpacing.hGapSm,
+                      trailing!,
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 116,
+                child: Text(label, style: labelStyle),
               ),
-            ),
+              KSpacing.hGapSm,
+              Expanded(
+                child: Text(
+                  value,
+                  style: effectiveValueStyle,
+                  textAlign: TextAlign.end,
+                ),
+              ),
+              if (trailing != null) ...[
+                KSpacing.hGapSm,
+                trailing!,
+              ],
+            ],
           ),
-          KSpacing.hGapMd,
-          Expanded(
-            child: Text(
-              value,
-              style: valueStyle ??
-                  KTypography.bodyMedium.copyWith(color: cs.onSurface),
-            ),
-          ),
-          if (trailing != null) trailing!,
-        ],
-      ),
+        );
+      },
     );
   }
 }
