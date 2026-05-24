@@ -280,6 +280,7 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
   void addItem(CartItem item) {
     final existing = state.items.indexWhere((i) {
       if (i.itemId == null || i.itemId != item.itemId) return false;
+      if (i.isFreeItem != item.isFreeItem) return false;
       // For batch-tracked items, each batch is a separate cart line
       if (i.batchId != null || item.batchId != null) {
         return i.batchId == item.batchId;

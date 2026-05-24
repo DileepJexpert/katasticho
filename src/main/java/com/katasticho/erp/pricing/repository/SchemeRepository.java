@@ -11,13 +11,13 @@ import java.util.UUID;
 
 @Repository
 public interface SchemeRepository extends JpaRepository<Scheme, UUID> {
-    List<Scheme> findByOrgIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID orgId);
-    Optional<Scheme> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
+    List<Scheme> findByOrgIdAndDeletedFalseOrderByCreatedAtDesc(UUID orgId);
+    Optional<Scheme> findByIdAndOrgIdAndDeletedFalse(UUID id, UUID orgId);
 
     @Query("""
         SELECT s FROM Scheme s
         WHERE s.orgId = :orgId
-          AND s.isDeleted = false
+          AND s.deleted = false
           AND s.active = true
           AND (s.itemId = :itemId OR s.itemId IS NULL)
           AND (s.validFrom IS NULL OR s.validFrom <= :today)

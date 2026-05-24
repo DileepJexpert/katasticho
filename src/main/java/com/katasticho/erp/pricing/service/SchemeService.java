@@ -51,7 +51,7 @@ public class SchemeService {
     @Transactional
     public SchemeResponse update(UUID id, SchemeRequest request) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        Scheme scheme = schemeRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
+        Scheme scheme = schemeRepository.findByIdAndOrgIdAndDeletedFalse(id, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Scheme", id));
         scheme.setName(request.name());
         scheme.setSchemeType(request.schemeType());
@@ -71,7 +71,7 @@ public class SchemeService {
     @Transactional
     public void delete(UUID id) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        Scheme scheme = schemeRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
+        Scheme scheme = schemeRepository.findByIdAndOrgIdAndDeletedFalse(id, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Scheme", id));
         scheme.setDeleted(true);
         schemeRepository.save(scheme);
@@ -80,7 +80,7 @@ public class SchemeService {
     @Transactional(readOnly = true)
     public List<SchemeResponse> list() {
         UUID orgId = TenantContext.getCurrentOrgId();
-        return schemeRepository.findByOrgIdAndIsDeletedFalseOrderByCreatedAtDesc(orgId)
+        return schemeRepository.findByOrgIdAndDeletedFalseOrderByCreatedAtDesc(orgId)
                 .stream().map(this::toResponse).toList();
     }
 
