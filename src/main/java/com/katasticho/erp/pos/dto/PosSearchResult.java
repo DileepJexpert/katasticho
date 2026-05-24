@@ -23,5 +23,7 @@ public record PosSearchResult(
         boolean weightBasedBilling,
         UUID batchId,
         LocalDate batchExpiryDate,
+        boolean trackBatches,
+        String batchNumber,
         DiscountThresholds discountThresholds
 ) {}

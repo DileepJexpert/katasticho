@@ -139,12 +139,14 @@ public class PosSearchService {
             // FEFO batch for batch-tracked items
             UUID batchId = null;
             java.time.LocalDate batchExpiry = null;
+            String batchNumber = null;
             if (item.isTrackBatches() && whId != null) {
                 List<StockBatch> batches = batchRepository.findFefoBatches(orgId, item.getId(), whId);
                 if (!batches.isEmpty()) {
                     StockBatch nearest = batches.get(0);
                     batchId = nearest.getId();
                     batchExpiry = nearest.getExpiryDate();
+                    batchNumber = nearest.getBatchNumber();
                 }
             }
 
@@ -171,6 +173,8 @@ public class PosSearchService {
                     item.isWeightBasedBilling(),
                     batchId,
                     batchExpiry,
+                    item.isTrackBatches(),
+                    batchNumber,
                     thresholds);
         }).toList();
     }

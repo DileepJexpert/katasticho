@@ -3,6 +3,7 @@ package com.katasticho.erp.sales.repository;
 import com.katasticho.erp.sales.entity.SalesOrderLine;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -27,4 +28,21 @@ public interface SalesOrderLineRepository extends JpaRepository<SalesOrderLine, 
         ORDER BY so.orderDate ASC, so.createdAt ASC
     """)
     List<SalesOrderLine> findBackorderedLinesForItem(UUID orgId, UUID itemId);
+
+    /**
+     * Aggregates total quantityBackordered per item across all BACKORDER SOs for the org.
+     * Returns Object[] rows: [itemId (UUID), totalBackordered (BigDecimal)]
+     */
+    @Query("""
+        SELECT l.itemId, SUM(l.quantityBackordered)
+        FROM SalesOrderLine l
+        JOIN l.salesOrder so
+        WHERE so.orgId = :orgId
+          AND so.status = 'BACKORDER'
+          AND so.isDeleted = false
+          AND l.itemId IS NOT NULL
+          AND l.quantityBackordered > 0
+        GROUP BY l.itemId
+    """)
+    List<Object[]> findAllBackorderedItems(@Param("orgId") UUID orgId);
 }
