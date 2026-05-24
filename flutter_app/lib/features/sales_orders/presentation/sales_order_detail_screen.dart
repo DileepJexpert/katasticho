@@ -537,90 +537,109 @@ class _SalesOrderItemsPanel extends StatelessWidget {
       padding: EdgeInsets.zero,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(KSpacing.radiusLg),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            headingRowHeight: 40,
-            dataRowMinHeight: dense ? 48 : 56,
-            dataRowMaxHeight: dense ? 58 : 68,
-            columnSpacing: 22,
-            horizontalMargin: 16,
-            columns: [
-              const DataColumn(label: Text('Item')),
-              const DataColumn(label: Text('Qty'), numeric: true),
-              const DataColumn(label: Text('Rate'), numeric: true),
-              const DataColumn(label: Text('Shipped'), numeric: true),
-              const DataColumn(label: Text('Invoiced'), numeric: true),
-              const DataColumn(label: Text('Backordered'), numeric: true),
-              const DataColumn(label: Text('Amount'), numeric: true),
-              if (status == 'BACKORDER' && onCloseLines != null)
-                const DataColumn(label: Text('')),
-            ],
-            rows: lines.map((raw) {
-              final line = raw as Map<String, dynamic>;
-              final itemName = line['itemName'] as String? ??
-                  line['description'] as String? ??
-                  'Item';
-              final desc = line['description'] as String? ?? '';
-              final qty = (line['quantity'] as num?)?.toDouble() ?? 0;
-              final shippedQty =
-                  (line['quantityShipped'] as num?)?.toDouble() ?? 0;
-              final invoicedQty =
-                  (line['quantityInvoiced'] as num?)?.toDouble() ?? 0;
-              final backorderedQty =
-                  (line['quantityBackordered'] as num?)?.toDouble() ?? 0;
-              final lineId = line['id'] as String? ?? '';
-              final unit = line['unit'] as String? ?? '';
-              final rate = (line['rate'] as num?)?.toDouble() ?? 0;
-              final amount = (line['amount'] as num?)?.toDouble() ??
-                  (line['lineTotal'] as num?)?.toDouble() ??
-                  0;
-              return DataRow(cells: [
-                DataCell(SizedBox(
-                  width: 260,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(itemName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: KTypography.labelMedium),
-                      if (desc.isNotEmpty && desc != itemName)
-                        Text(desc,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: KTypography.bodySmall
-                                .copyWith(color: KColors.textSecondary)),
-                    ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 980;
+            final itemWidth = compact ? 210.0 : 260.0;
+            final minWidth = compact ? 860.0 : constraints.maxWidth;
+
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: minWidth),
+                child: DataTable(
+                  headingRowHeight: 36,
+                  dataRowMinHeight: dense ? 44 : 50,
+                  dataRowMaxHeight: dense ? 54 : 62,
+                  columnSpacing: compact ? 12 : 16,
+                  horizontalMargin: compact ? 10 : 12,
+                  headingTextStyle: KTypography.labelMedium.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
-                )),
-                DataCell(Text(_qty(qty, unit))),
-                DataCell(Text(CurrencyFormatter.formatIndian(rate))),
-                DataCell(Text(_qty(shippedQty, ''))),
-                DataCell(Text(_qty(invoicedQty, ''))),
-                DataCell(backorderedQty > 0
-                    ? Text(_qty(backorderedQty, ''),
-                        style: TextStyle(
-                            color: KColors.warning,
-                            fontWeight: FontWeight.w600))
-                    : const Text('0')),
-                DataCell(Text(CurrencyFormatter.formatIndian(amount),
-                    style: KTypography.amountSmall)),
-                if (status == 'BACKORDER' && onCloseLines != null)
-                  DataCell(backorderedQty > 0
-                      ? TextButton(
-                          style: TextButton.styleFrom(
-                              foregroundColor: KColors.error,
-                              padding: EdgeInsets.zero),
-                          onPressed: () => onCloseLines!([lineId]),
-                          child: const Text('Close',
-                              style: TextStyle(fontSize: 12)),
-                        )
-                      : const SizedBox()),
-              ]);
-            }).toList(),
-          ),
+                  dataTextStyle: KTypography.bodySmall,
+                  columns: [
+                    const DataColumn(label: Text('Item')),
+                    const DataColumn(label: Text('Qty'), numeric: true),
+                    const DataColumn(label: Text('Rate'), numeric: true),
+                    const DataColumn(label: Text('Shipped'), numeric: true),
+                    const DataColumn(label: Text('Invoiced'), numeric: true),
+                    const DataColumn(label: Text('Backorder'), numeric: true),
+                    const DataColumn(label: Text('Amount'), numeric: true),
+                    if (status == 'BACKORDER' && onCloseLines != null)
+                      const DataColumn(label: Text('')),
+                  ],
+                  rows: lines.map((raw) {
+                    final line = raw as Map<String, dynamic>;
+                    final itemName = line['itemName'] as String? ??
+                        line['description'] as String? ??
+                        'Item';
+                    final desc = line['description'] as String? ?? '';
+                    final qty = (line['quantity'] as num?)?.toDouble() ?? 0;
+                    final shippedQty =
+                        (line['quantityShipped'] as num?)?.toDouble() ?? 0;
+                    final invoicedQty =
+                        (line['quantityInvoiced'] as num?)?.toDouble() ?? 0;
+                    final backorderedQty =
+                        (line['quantityBackordered'] as num?)?.toDouble() ?? 0;
+                    final lineId = line['id'] as String? ?? '';
+                    final unit = line['unit'] as String? ?? '';
+                    final rate = (line['rate'] as num?)?.toDouble() ?? 0;
+                    final amount = (line['amount'] as num?)?.toDouble() ??
+                        (line['lineTotal'] as num?)?.toDouble() ??
+                        0;
+                    return DataRow(cells: [
+                      DataCell(SizedBox(
+                        width: itemWidth,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(itemName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: KTypography.labelMedium),
+                            if (desc.isNotEmpty && desc != itemName)
+                              Text(desc,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: KTypography.bodySmall
+                                      .copyWith(color: KColors.textSecondary)),
+                          ],
+                        ),
+                      )),
+                      DataCell(Text(_qty(qty, unit))),
+                      DataCell(Text(CurrencyFormatter.formatIndian(rate))),
+                      DataCell(Text(_qty(shippedQty, ''))),
+                      DataCell(Text(_qty(invoicedQty, ''))),
+                      DataCell(backorderedQty > 0
+                          ? Text(_qty(backorderedQty, ''),
+                              style: TextStyle(
+                                  color: KColors.warning,
+                                  fontWeight: FontWeight.w600))
+                          : const Text('0')),
+                      DataCell(Text(
+                        CurrencyFormatter.formatIndian(amount),
+                        style: KTypography.amountSmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      )),
+                      if (status == 'BACKORDER' && onCloseLines != null)
+                        DataCell(backorderedQty > 0
+                            ? TextButton(
+                                style: TextButton.styleFrom(
+                                    foregroundColor: KColors.error,
+                                    padding: EdgeInsets.zero),
+                                onPressed: () => onCloseLines!([lineId]),
+                                child: const Text('Close',
+                                    style: TextStyle(fontSize: 12)),
+                              )
+                            : const SizedBox()),
+                    ]);
+                  }).toList(),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
