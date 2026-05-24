@@ -44,6 +44,31 @@ class PosTotalBar extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (!cart.isEmpty) ...[
+              if (cart.schemeSavings > 0)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.local_offer_outlined, size: 14, color: Colors.green.shade700),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Scheme savings: ${CurrencyFormatter.formatIndian(cart.schemeSavings)}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.green.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Row(
                 children: [
                   Expanded(

@@ -25,5 +25,7 @@ public record PosSearchResult(
         LocalDate batchExpiryDate,
         boolean trackBatches,
         String batchNumber,
-        DiscountThresholds discountThresholds
+        DiscountThresholds discountThresholds,
+        boolean prescriptionRequired,
+        String drugSchedule
 ) {}

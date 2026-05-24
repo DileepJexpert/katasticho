@@ -31,6 +31,8 @@ import 'widgets/pos_recent_transactions.dart';
 import 'widgets/pos_recent_bills.dart';
 import 'widgets/pos_weight_popup.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
+import '../../pricing/data/scheme_repository.dart';
+import '../../../core/auth/auth_state.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -149,6 +151,17 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final effectiveStock = (item['currentStock'] as num?)?.toDouble() ?? stock;
     final effectiveBatchExpiry = item['batchExpiryDate'] as String?;
 
+    // Prescription check — pharmacy vertical only
+    String? prescriptionNumber;
+    final authState = ref.read(authProvider);
+    final isPharmacy = (authState.industryCode ?? '').toUpperCase().contains('PHARMA') ||
+        (authState.businessType ?? '').toUpperCase().contains('PHARMA');
+    if (isPharmacy && item['prescriptionRequired'] == true) {
+      prescriptionNumber = await _askPrescriptionNumber(itemName);
+      if (!mounted) return;
+      if (prescriptionNumber == null) return; // user cancelled
+    }
+
     final cartItem = CartItem(
           itemId: item['id'] as String?,
           name: itemName,
@@ -170,6 +183,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           quantity: quantity,
           availableUnits: secUnits,
           discountThresholds: item['discountThresholds'] as Map<String, dynamic>?,
+          prescriptionNumber: prescriptionNumber,
         );
 
     CartItem? existing;
@@ -188,8 +202,167 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     ref.read(posCartProvider.notifier).addItem(cartItem);
 
+    // Scheme auto-apply — check applicable schemes for this item + quantity
+    final itemIdForScheme = cartItem.itemId;
+    if (itemIdForScheme != null) {
+      _checkAndApplyScheme(itemIdForScheme, cartItem.quantity, cartItem);
+    }
+
     _clearSearch();
     HapticFeedback.lightImpact();
+  }
+
+  Future<String?> _askPrescriptionNumber(String itemName) async {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          const Icon(Icons.local_pharmacy_outlined, color: Color(0xFFB71C1C), size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Text('Prescription Required', style: KTypography.h3)),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$itemName requires a valid prescription.',
+                style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              decoration: const InputDecoration(
+                labelText: 'Prescription No.',
+                hintText: 'Enter Rx number',
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim().isEmpty ? '—' : ctrl.text.trim()),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _checkAndApplyScheme(String itemId, double qty, CartItem addedItem) async {
+    try {
+      final schemes = await ref.read(schemeRepositoryProvider).getApplicable(itemId, qty);
+      if (schemes.isEmpty || !mounted) return;
+      // Show scheme suggestion for the first applicable scheme
+      _showSchemeSheet(schemes, addedItem);
+    } catch (_) {
+      // Silently ignore scheme fetch errors — don't interrupt POS flow
+    }
+  }
+
+  void _showSchemeSheet(List<Map<String, dynamic>> schemes, CartItem addedItem) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              const Icon(Icons.local_offer_outlined, color: KColors.primary),
+              const SizedBox(width: 8),
+              Text('Scheme Available!', style: KTypography.h3),
+            ]),
+            const SizedBox(height: 12),
+            ...schemes.map((s) {
+              final type = s['schemeType']?.toString() ?? '';
+              final name = s['name']?.toString() ?? '';
+              final isBxGy = type == 'BUY_X_GET_Y';
+              final freeQty = (s['freeQuantity'] as num?)?.toDouble() ?? 0;
+              final discPct = (s['discountPercent'] as num?)?.toDouble() ?? 0;
+              final summary = isBxGy
+                  ? 'Get $freeQty unit(s) FREE'
+                  : '$discPct% off on this item';
+
+              return ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: KColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(isBxGy ? 'FREE' : '${discPct.toInt()}%',
+                      style: KTypography.labelMedium.copyWith(
+                          color: KColors.primary, fontWeight: FontWeight.w800)),
+                ),
+                title: Text(name, style: KTypography.labelMedium),
+                subtitle: Text(summary, style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                trailing: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _applyScheme(s, addedItem);
+                  },
+                  child: const Text('Apply'),
+                ),
+              );
+            }),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Skip'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _applyScheme(Map<String, dynamic> scheme, CartItem addedItem) {
+    final type = scheme['schemeType']?.toString() ?? '';
+    final schemeId = scheme['id']?.toString();
+    final schemeName = scheme['name']?.toString() ?? '';
+    final cart = ref.read(posCartProvider);
+    final notifier = ref.read(posCartProvider.notifier);
+
+    if (type == 'BUY_X_GET_Y') {
+      final freeQty = (scheme['freeQuantity'] as num?)?.toDouble() ?? 1;
+      // Add a free line for the same item
+      final freeItem = CartItem(
+        itemId: addedItem.itemId,
+        name: '${addedItem.name} [FREE - $schemeName]',
+        sku: addedItem.sku,
+        rate: addedItem.rate,
+        unit: addedItem.unit,
+        taxGroupId: addedItem.taxGroupId,
+        taxGroupName: addedItem.taxGroupName,
+        taxRate: addedItem.taxRate,
+        hsnCode: addedItem.hsnCode,
+        quantity: freeQty,
+        currentStock: addedItem.currentStock,
+        isFreeItem: true,
+        appliedSchemeId: schemeId,
+        appliedSchemeName: schemeName,
+      );
+      notifier.addItem(freeItem);
+    } else if (type == 'PERCENT_DISCOUNT') {
+      // Apply discount to the matching cart line
+      final discPct = (scheme['discountPercent'] as num?)?.toDouble() ?? 0;
+      final idx = cart.items.indexWhere((i) => i.itemId == addedItem.itemId && !i.isFreeItem);
+      if (idx >= 0) {
+        final updated = List<CartItem>.from(cart.items);
+        updated[idx] = updated[idx].copyWith(
+          discountPct: discPct,
+          appliedSchemeId: schemeId,
+          appliedSchemeName: schemeName,
+        );
+        notifier.restore(cart.copyWith(items: updated));
+      }
+    }
   }
 
   double _parseTaxRate(String? taxGroupName) {
@@ -513,6 +686,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 if (item.unitUomId != null) 'unitUomId': item.unitUomId,
                 if (item.unitConversionFactor != null)
                   'unitConversionFactor': item.unitConversionFactor,
+                if (item.isFreeItem) 'freeItem': true,
+                if (item.appliedSchemeId != null) 'appliedSchemeId': item.appliedSchemeId,
+                if (item.prescriptionNumber != null) 'prescriptionNumber': item.prescriptionNumber,
               })
           .toList(),
     };

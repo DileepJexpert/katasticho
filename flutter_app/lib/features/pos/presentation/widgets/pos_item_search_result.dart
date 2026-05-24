@@ -32,6 +32,8 @@ class PosItemSearchResult extends StatelessWidget {
     final isOutOfStock = stock <= 0;
     final isWeightBased = item['weightBasedBilling'] == true;
     final expiryStatus = _expiryStatus(expiryStr);
+    final prescriptionRequired = item['prescriptionRequired'] == true;
+    final drugSchedule = item['drugSchedule'] as String?;
 
     return Opacity(
       opacity: isOutOfStock ? 0.5 : 1.0,
@@ -105,6 +107,20 @@ class PosItemSearchResult extends StatelessWidget {
                             label: expiryStatus.label,
                             color: expiryStatus.color,
                             bgColor: expiryStatus.bgColor,
+                          ),
+                        if (prescriptionRequired)
+                          _Badge(
+                            label: 'Rx',
+                            color: const Color(0xFFB71C1C),
+                            bgColor: const Color(0xFFFFEBEE),
+                          ),
+                        if (drugSchedule != null &&
+                            drugSchedule.isNotEmpty &&
+                            drugSchedule != 'GENERAL')
+                          _Badge(
+                            label: 'Sch $drugSchedule',
+                            color: const Color(0xFF6A1B9A),
+                            bgColor: const Color(0xFFF3E5F5),
                           ),
                       ],
                     ),

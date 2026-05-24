@@ -25,6 +25,12 @@ class CartItem {
   final List<Map<String, dynamic>> availableUnits;
   final double discountPct;
   final Map<String, dynamic>? discountThresholds;
+  // Scheme application
+  final String? appliedSchemeId;
+  final String? appliedSchemeName;
+  final bool isFreeItem;
+  // Pharmacy
+  final String? prescriptionNumber;
 
   CartItem({
     this.itemId,
@@ -50,9 +56,13 @@ class CartItem {
     this.availableUnits = const [],
     this.discountPct = 0,
     this.discountThresholds,
+    this.appliedSchemeId,
+    this.appliedSchemeName,
+    this.isFreeItem = false,
+    this.prescriptionNumber,
   });
 
-  double get effectiveRate => rate * (1 - discountPct / 100);
+  double get effectiveRate => isFreeItem ? 0 : rate * (1 - discountPct / 100);
 
   double get stockConversionFactor =>
       unitConversionFactor != null && unitConversionFactor! > 0
@@ -103,6 +113,10 @@ class CartItem {
     List<Map<String, dynamic>>? availableUnits,
     double? discountPct,
     Map<String, dynamic>? discountThresholds,
+    String? appliedSchemeId,
+    String? appliedSchemeName,
+    bool? isFreeItem,
+    String? prescriptionNumber,
   }) {
     return CartItem(
       itemId: itemId ?? this.itemId,
@@ -128,6 +142,10 @@ class CartItem {
       availableUnits: availableUnits ?? this.availableUnits,
       discountPct: discountPct ?? this.discountPct,
       discountThresholds: discountThresholds ?? this.discountThresholds,
+      appliedSchemeId: appliedSchemeId ?? this.appliedSchemeId,
+      appliedSchemeName: appliedSchemeName ?? this.appliedSchemeName,
+      isFreeItem: isFreeItem ?? this.isFreeItem,
+      prescriptionNumber: prescriptionNumber ?? this.prescriptionNumber,
     );
   }
 }
@@ -204,6 +222,18 @@ class PosCartState {
   });
 
   bool get hasStockExceededItems => items.any((item) => item.exceedsStock);
+
+  double get schemeSavings {
+    double savings = 0;
+    for (final item in items) {
+      if (item.isFreeItem) {
+        savings += item.rate * item.quantity;
+      } else if (item.appliedSchemeId != null && item.discountPct > 0) {
+        savings += item.rate * item.quantity * item.discountPct / 100;
+      }
+    }
+    return savings;
+  }
 
   CartItem? get firstStockExceededItem {
     for (final item in items) {
