@@ -57,7 +57,10 @@ class _GeneralLedgerScreenState extends ConsumerState<GeneralLedgerScreen> {
         children: [
           Container(
             color: KColors.surface,
-            padding: const EdgeInsets.all(KSpacing.md),
+            padding: const EdgeInsets.symmetric(
+              horizontal: KSpacing.md,
+              vertical: KSpacing.sm,
+            ),
             child: Column(
               children: [
                 KTextField(
@@ -67,28 +70,27 @@ class _GeneralLedgerScreenState extends ConsumerState<GeneralLedgerScreen> {
                   onChanged: (v) => _accountId = v,
                 ),
                 KSpacing.vGapSm,
-                Row(
+                KCompactRow(
+                  flex: const [2, 2, 1],
+                  stackBelow: 520,
                   children: [
-                    Expanded(
-                      child: KDatePicker(
-                        label: 'From',
-                        value: _startDate,
-                        onChanged: (d) => _startDate = d,
-                      ),
+                    KDatePicker(
+                      label: 'From',
+                      value: _startDate,
+                      onChanged: (d) => _startDate = d,
                     ),
-                    KSpacing.hGapSm,
-                    Expanded(
-                      child: KDatePicker(
-                        label: 'To',
-                        value: _endDate,
-                        onChanged: (d) => _endDate = d,
-                      ),
+                    KDatePicker(
+                      label: 'To',
+                      value: _endDate,
+                      onChanged: (d) => _endDate = d,
                     ),
-                    KSpacing.hGapSm,
-                    KButton(
-                      label: 'Go',
-                      size: KButtonSize.small,
-                      onPressed: _loadReport,
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: KButton(
+                        label: 'Go',
+                        size: KButtonSize.small,
+                        onPressed: _loadReport,
+                      ),
                     ),
                   ],
                 ),
@@ -139,8 +141,7 @@ class _GeneralLedgerScreenState extends ConsumerState<GeneralLedgerScreen> {
               children: [
                 Row(
                   children: [
-                    Text('$accountCode — $accountName',
-                        style: KTypography.h3),
+                    Text('$accountCode — $accountName', style: KTypography.h3),
                     KSpacing.hGapSm,
                     KStatusChip(status: accountType, label: accountType),
                   ],
@@ -162,10 +163,10 @@ class _GeneralLedgerScreenState extends ConsumerState<GeneralLedgerScreen> {
               ],
             ),
           ),
-          KSpacing.vGapMd,
+          KSpacing.vGapSm,
 
           // Transactions
-          Text('Transactions (${entries.length})', style: KTypography.h3),
+          Text('Transactions (${entries.length})', style: KTypography.h4),
           KSpacing.vGapSm,
 
           if (entries.isEmpty)
@@ -215,7 +216,7 @@ class _GeneralLedgerScreenState extends ConsumerState<GeneralLedgerScreen> {
               }).toList(),
             ),
 
-          KSpacing.vGapMd,
+          KSpacing.vGapSm,
 
           // Totals
           KCard(

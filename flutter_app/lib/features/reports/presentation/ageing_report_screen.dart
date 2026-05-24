@@ -96,8 +96,8 @@ class _AgeingReportScreenState extends ConsumerState<AgeingReportScreen> {
               ),
             ],
           ),
-          KSpacing.vGapLg,
-          Text('Ageing Buckets', style: KTypography.h3),
+          KSpacing.vGapMd,
+          Text('Ageing Buckets', style: KTypography.h4),
           KSpacing.vGapSm,
           LayoutBuilder(
             builder: (context, constraints) {
@@ -144,11 +144,11 @@ class _AgeingReportScreenState extends ConsumerState<AgeingReportScreen> {
               );
             },
           ),
-          KSpacing.vGapLg,
+          KSpacing.vGapMd,
           Row(
             children: [
               Expanded(
-                  child: Text('Customer Breakdown', style: KTypography.h3)),
+                  child: Text('Customer Breakdown', style: KTypography.h4)),
               Text(
                 '${customers.length} customer${customers.length == 1 ? '' : 's'}',
                 style: KTypography.bodySmall.copyWith(
@@ -167,7 +167,7 @@ class _AgeingReportScreenState extends ConsumerState<AgeingReportScreen> {
             ...customers.map((c) {
               final customer = c as Map<String, dynamic>;
               return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.only(bottom: 8),
                 child: _CustomerAgeingTile(customer: customer),
               );
             }),
@@ -261,19 +261,19 @@ class _CustomerAgeingTile extends StatelessWidget {
     return KCard(
       padding: EdgeInsets.zero,
       child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
         leading: CircleAvatar(
-          radius: 20,
+          radius: 16,
           backgroundColor: KColors.primaryLight.withValues(alpha: 0.15),
           child: Text(
             name.isEmpty ? '?' : name[0].toUpperCase(),
-            style: KTypography.labelLarge.copyWith(color: KColors.primary),
+            style: KTypography.labelMedium.copyWith(color: KColors.primary),
           ),
         ),
         title: Text(
           name,
-          style: KTypography.labelLarge,
+          style: KTypography.labelMedium,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -382,9 +382,12 @@ class _InvoiceDetailTable extends StatelessWidget {
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: DataTable(
-            headingTextStyle: KTypography.labelLarge,
-            dataTextStyle: KTypography.bodyMedium,
-            columnSpacing: 18,
+            headingRowHeight: 36,
+            dataRowMinHeight: 38,
+            dataRowMaxHeight: 46,
+            headingTextStyle: KTypography.labelMedium,
+            dataTextStyle: KTypography.bodySmall,
+            columnSpacing: 12,
             horizontalMargin: 8,
             columns: const [
               DataColumn(label: Text('Invoice')),
@@ -449,7 +452,7 @@ class _AgeingBucket extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 2),
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
         borderRadius: KSpacing.borderRadiusSm,

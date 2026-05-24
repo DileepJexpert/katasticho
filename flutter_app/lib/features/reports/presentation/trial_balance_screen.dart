@@ -54,7 +54,10 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
           // Date picker bar
           Container(
             color: KColors.surface,
-            padding: const EdgeInsets.all(KSpacing.md),
+            padding: const EdgeInsets.symmetric(
+              horizontal: KSpacing.md,
+              vertical: KSpacing.sm,
+            ),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final narrow = constraints.maxWidth < KSpacing.mobileBreakpoint;
@@ -116,7 +119,12 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(KSpacing.md),
+          padding: const EdgeInsets.fromLTRB(
+            KSpacing.md,
+            KSpacing.sm,
+            KSpacing.md,
+            KSpacing.sm,
+          ),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final narrow = constraints.maxWidth < KSpacing.tabletBreakpoint;
@@ -124,9 +132,12 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
-                      color: isBalanced ? KColors.successLight : KColors.errorLight,
+                      color: isBalanced
+                          ? KColors.successLight
+                          : KColors.errorLight,
                       borderRadius: KSpacing.borderRadiusMd,
                     ),
                     child: Row(
@@ -143,7 +154,8 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
                                 ? 'Balanced as of ${DateFormatter.display(_asOfDate)}'
                                 : 'Out of balance by ${CurrencyFormatter.formatIndian(difference)}',
                             style: KTypography.labelLarge.copyWith(
-                              color: isBalanced ? KColors.success : KColors.error,
+                              color:
+                                  isBalanced ? KColors.success : KColors.error,
                             ),
                           ),
                         ),
@@ -164,11 +176,17 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
                   else
                     Row(
                       children: [
-                        Expanded(child: _SummaryTile(label: 'Debit', amount: totalDebit)),
+                        Expanded(
+                            child: _SummaryTile(
+                                label: 'Debit', amount: totalDebit)),
                         KSpacing.hGapSm,
-                        Expanded(child: _SummaryTile(label: 'Credit', amount: totalCredit)),
+                        Expanded(
+                            child: _SummaryTile(
+                                label: 'Credit', amount: totalCredit)),
                         KSpacing.hGapSm,
-                        Expanded(child: _SummaryTile(label: 'Difference', amount: difference)),
+                        Expanded(
+                            child: _SummaryTile(
+                                label: 'Difference', amount: difference)),
                       ],
                     ),
                 ],
@@ -176,7 +194,6 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
             },
           ),
         ),
-
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: KSpacing.md),
@@ -194,10 +211,11 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
                     Text(l['accountCode'] as String? ?? '',
                         style: KTypography.bodySmall),
                     ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 220, maxWidth: 360),
+                      constraints:
+                          const BoxConstraints(minWidth: 220, maxWidth: 360),
                       child: Text(
                         l['accountName'] as String? ?? '',
-                        style: KTypography.bodyMedium,
+                        style: KTypography.bodySmall,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -249,7 +267,9 @@ class _SummaryTile extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
             .withValues(alpha: 0.45),
         borderRadius: KSpacing.borderRadiusMd,
       ),
