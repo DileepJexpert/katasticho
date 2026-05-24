@@ -30,6 +30,7 @@ import 'widgets/pos_barcode_scanner.dart';
 import 'widgets/pos_recent_transactions.dart';
 import 'widgets/pos_recent_bills.dart';
 import 'widgets/pos_weight_popup.dart';
+import '../../inventory/presentation/batch_picker_sheet.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -84,7 +85,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   // ── Cart operations ──────────────────────────────────────────
 
-  void _addToCart(Map<String, dynamic> item) async {
+  void _addToCart(Map<String, dynamic> itemData) async {
+    var item = itemData; // mutable local — may be overridden by batch picker
     final stock = (item['currentStock'] as num?)?.toDouble() ?? 0;
     if (stock <= 0) {
       _showErrorSnackBar('${item['name'] ?? 'Item'} is out of stock');
@@ -98,6 +100,23 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         _showErrorSnackBar('Batch expired ($batchExpiry) — sale blocked');
         return;
       }
+    }
+
+    // For batch-tracked items, let user pick the specific FEFO batch
+    final trackBatches = item['trackBatches'] == true;
+    if (trackBatches) {
+      final itemId = item['id']?.toString();
+      final itemName = item['name']?.toString() ?? 'Item';
+      if (itemId == null) return;
+      final batch = await showBatchPicker(context, itemId: itemId, itemName: itemName);
+      if (batch == null || !mounted) return;
+      // Override batch fields from picker selection
+      item = Map<String, dynamic>.from(item);
+      item['batchId'] = batch['id']?.toString();
+      item['batchNumber'] = batch['batchNumber']?.toString();
+      item['batchExpiryDate'] = batch['expiryDate']?.toString();
+      final batchStock = (batch['quantityAvailable'] as num?)?.toDouble();
+      if (batchStock != null) item['currentStock'] = batchStock;
     }
 
     final taxRate = _parseTaxRate(item['taxGroupName'] as String?);
@@ -126,6 +145,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             .toList() ??
         const <Map<String, dynamic>>[];
 
+    // Re-read stock and expiry — may have been overridden by batch picker above
+    final effectiveStock = (item['currentStock'] as num?)?.toDouble() ?? stock;
+    final effectiveBatchExpiry = item['batchExpiryDate'] as String?;
+
     final cartItem = CartItem(
           itemId: item['id'] as String?,
           name: itemName,
@@ -139,8 +162,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           batchId: item['batchId'] as String?,
           batchNumber: item['batchNumber'] as String?,
           taxRate: taxRate,
-          batchExpiry: batchExpiry,
-          currentStock: stock,
+          batchExpiry: effectiveBatchExpiry,
+          currentStock: effectiveStock,
           isWeightBased: isWeightBased,
           mrp: mrp,
           purchasePrice: (item['purchasePrice'] as num?)?.toDouble(),

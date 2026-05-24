@@ -248,9 +248,14 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
 
   /// Add an item to cart. If same itemId exists, increment quantity.
   void addItem(CartItem item) {
-    final existing = state.items.indexWhere(
-      (i) => i.itemId != null && i.itemId == item.itemId,
-    );
+    final existing = state.items.indexWhere((i) {
+      if (i.itemId == null || i.itemId != item.itemId) return false;
+      // For batch-tracked items, each batch is a separate cart line
+      if (i.batchId != null || item.batchId != null) {
+        return i.batchId == item.batchId;
+      }
+      return true;
+    });
     if (existing >= 0) {
       final updated = List<CartItem>.from(state.items);
       final nextQty = _clampToStock(
