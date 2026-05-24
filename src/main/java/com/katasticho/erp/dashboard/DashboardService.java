@@ -29,6 +29,8 @@ import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.pos.entity.SalesReceipt;
 import com.katasticho.erp.pos.repository.SalesReceiptLineRepository;
 import com.katasticho.erp.pos.repository.SalesReceiptRepository;
+import com.katasticho.erp.sales.entity.SalesOrder;
+import com.katasticho.erp.sales.repository.SalesOrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -63,6 +65,7 @@ public class DashboardService {
     private final VendorPaymentRepository vendorPaymentRepository;
     private final JournalEntryRepository journalEntryRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final SalesOrderRepository salesOrderRepository;
 
     @Transactional(readOnly = true)
     public TodaySalesResponse getTodaySales(LocalDate from, LocalDate to, UUID branchId) {
@@ -714,5 +717,52 @@ public class DashboardService {
         String getDescription() { return description; }
         BigDecimal getTotalQty() { return totalQty; }
         BigDecimal getTotalRevenue() { return totalRevenue; }
+    }
+
+    // ── SO Alerts ─────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public SoAlertResponse getSoAlerts() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        LocalDate today = LocalDate.now();
+        LocalDate overdueCutoff = today.minusDays(2);
+
+        long confirmed = salesOrderRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "CONFIRMED");
+        long backorder = salesOrderRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "BACKORDER");
+        long partial   = salesOrderRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "PARTIALLY_SHIPPED");
+        long overdue   = salesOrderRepository.countOverdue(orgId, overdueCutoff);
+
+        List<String> actionable = List.of("CONFIRMED", "BACKORDER", "PARTIALLY_SHIPPED");
+        List<SalesOrder> recent = salesOrderRepository.findActionableOrders(
+                orgId, actionable, PageRequest.of(0, 8));
+
+        // Pre-load contacts
+        Set<UUID> contactIds = recent.stream()
+                .filter(so -> so.getContactId() != null)
+                .map(SalesOrder::getContactId)
+                .collect(Collectors.toSet());
+        Map<UUID, String> contactNames = contactIds.isEmpty() ? Map.of()
+                : contactRepository.findAllById(contactIds).stream()
+                        .collect(Collectors.toMap(Contact::getId, c -> c.getDisplayName() != null ? c.getDisplayName() : "Unknown"));
+
+        List<SoAlertResponse.SoAlertItem> items = recent.stream().map(so -> {
+            String contactName = so.getContactId() != null
+                    ? contactNames.getOrDefault(so.getContactId(), "Walk-in")
+                    : "Walk-in";
+            int days = so.getOrderDate() != null
+                    ? (int) ChronoUnit.DAYS.between(so.getOrderDate(), today)
+                    : 0;
+            return new SoAlertResponse.SoAlertItem(
+                    so.getId().toString(),
+                    so.getSalesorderNumber() != null ? so.getSalesorderNumber() : "—",
+                    contactName,
+                    so.getStatus(),
+                    so.getTotal() != null ? so.getTotal() : BigDecimal.ZERO,
+                    so.getOrderDate() != null ? so.getOrderDate().toString() : null,
+                    days
+            );
+        }).toList();
+
+        return new SoAlertResponse(confirmed, backorder, partial, overdue, items);
     }
 }

@@ -236,7 +236,18 @@ class DashboardRepository {
     final response = await _api.post(ApiConfig.demoSeedSharmaMedical);
     return _unwrap(response.data);
   }
+
+  Future<Map<String, dynamic>> getSoAlerts() async {
+    final response = await _api.get(ApiConfig.dashboardSoAlerts);
+    return _unwrap(response.data);
+  }
 }
+
+// ─── SO Alerts provider ───────────────────────────────────────────────
+final soAlertsProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  return ref.watch(dashboardRepositoryProvider).getSoAlerts();
+});
 
 // ─── Providers ──────────────────────────────────────────────────────
 

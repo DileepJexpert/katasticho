@@ -27,6 +27,7 @@ import '../widgets/recent_bills_widget.dart';
 import '../widgets/branch_selector_widget.dart';
 import '../widgets/date_range_picker_widget.dart';
 import '../widgets/finance_command_center.dart';
+import '../widgets/so_alerts_card.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -289,6 +290,8 @@ class _RetailDashboard extends StatelessWidget {
         const SizedBox(height: 12),
         const TodaySummaryCard(),
         const SizedBox(height: 12),
+        const SoAlertsCard(),
+        const SizedBox(height: 12),
         const WeekTrendCard(),
         const SizedBox(height: 12),
         const OutstandingReceivableCard(),
@@ -324,6 +327,8 @@ class _RetailDashboard extends StatelessWidget {
               child: Column(
                 children: [
                   TodaySummaryCard(),
+                  SizedBox(height: 12),
+                  SoAlertsCard(),
                   SizedBox(height: 12),
                   WeekTrendCard(),
                   SizedBox(height: 12),

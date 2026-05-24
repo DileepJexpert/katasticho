@@ -128,4 +128,10 @@ public class DashboardController {
             @RequestParam(required = false, defaultValue = "10") int limit) {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.getRecentJournals(limit)));
     }
+
+    @GetMapping("/so-alerts")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<SoAlertResponse>> soAlerts() {
+        return ResponseEntity.ok(ApiResponse.ok(dashboardService.getSoAlerts()));
+    }
 }

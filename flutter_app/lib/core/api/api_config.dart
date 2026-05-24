@@ -252,6 +252,7 @@ class ApiConfig {
   static const String dashboardCashFlow = '/api/v1/dashboard/cash-flow';
   static const String dashboardRecentJournals =
       '/api/v1/dashboard/recent-journals';
+  static const String dashboardSoAlerts = '/api/v1/dashboard/so-alerts';
   static const String profitLossReport = '/api/v1/reports/profit-loss';
   static const String arAgeing = '/api/v1/ar/reports/ageing';
   static const String apAgeing = '/api/v1/ap/reports/ageing';
