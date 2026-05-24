@@ -229,12 +229,12 @@ class _KTextFieldState extends State<KTextField> {
         counterText: '',
         isDense: true,
         contentPadding: EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: isMultiline ? 10 : 11,
+          horizontal: 10,
+          vertical: isMultiline ? 9 : 9,
         ),
         prefixIconConstraints: const BoxConstraints(
-          minWidth: 36,
-          minHeight: 36,
+          minWidth: 32,
+          minHeight: 32,
         ),
       ),
     );
@@ -263,7 +263,7 @@ class _KTextFieldState extends State<KTextField> {
             widget.label,
             style: KTypography.labelLarge.copyWith(color: cs.onSurface),
           ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         field,
       ],
     );

@@ -73,10 +73,10 @@ class KEntityDataTable extends StatelessWidget {
     super.key,
     required this.columns,
     required this.rows,
-    this.columnSpacing = 14,
+    this.columnSpacing = 12,
     this.horizontalMargin = 10,
-    this.dataRowMinHeight = 48,
-    this.dataRowMaxHeight = 58,
+    this.dataRowMinHeight = 42,
+    this.dataRowMaxHeight = 50,
   });
 
   @override
@@ -98,7 +98,7 @@ class KEntityDataTable extends StatelessWidget {
                     constraints: BoxConstraints(minWidth: constraints.maxWidth),
                     child: DataTable(
                       showCheckboxColumn: false,
-                      headingRowHeight: 42,
+                      headingRowHeight: 38,
                       dataRowMinHeight: dataRowMinHeight,
                       dataRowMaxHeight: dataRowMaxHeight,
                       columnSpacing: columnSpacing,
@@ -290,6 +290,7 @@ class KTableOpenActionCell extends StatelessWidget {
     return IconButton(
       tooltip: tooltip,
       icon: const Icon(Icons.chevron_right, size: 18),
+      visualDensity: VisualDensity.compact,
       onPressed: onPressed,
     );
   }

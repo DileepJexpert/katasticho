@@ -16,9 +16,9 @@ class KSpacing {
   static const double xxxl = 64;
 
   // ── Padding Presets ──
-  static const EdgeInsets pagePadding = EdgeInsets.all(md);
+  static const EdgeInsets pagePadding = EdgeInsets.all(12);
   static const EdgeInsets pagePaddingLg = EdgeInsets.all(lg);
-  static const EdgeInsets cardPadding = EdgeInsets.all(md);
+  static const EdgeInsets cardPadding = EdgeInsets.all(12);
   static const EdgeInsets cardPaddingLg = EdgeInsets.all(lg);
   static const EdgeInsets inputPadding = EdgeInsets.symmetric(
     horizontal: md,
@@ -29,8 +29,8 @@ class KSpacing {
     vertical: 4,
   );
   static const EdgeInsets listItemPadding = EdgeInsets.symmetric(
-    horizontal: md,
-    vertical: 12,
+    horizontal: 12,
+    vertical: 8,
   );
 
   // ── Gaps (for Row/Column spacing) ──
