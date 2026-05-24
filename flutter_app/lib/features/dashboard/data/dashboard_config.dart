@@ -176,9 +176,9 @@ const _kirana = DashboardConfig(
   ],
   quickActions: [
     QuickAction(
-      label: 'New Invoice',
-      icon: Icons.receipt_long,
-      route: '/invoices/create',
+      label: 'POS Sale',
+      icon: Icons.point_of_sale_rounded,
+      route: '/pos',
       color: KColors.primary,
     ),
     QuickAction(
@@ -246,9 +246,9 @@ const _pharmacy = DashboardConfig(
   ],
   quickActions: [
     QuickAction(
-        label: 'New Invoice',
-        icon: Icons.receipt_long,
-        route: '/invoices/create',
+        label: 'POS Sale',
+        icon: Icons.point_of_sale_rounded,
+        route: '/pos',
         color: KColors.primary),
     QuickAction(
         label: 'Record Payment',
@@ -256,10 +256,10 @@ const _pharmacy = DashboardConfig(
         route: '/invoices',
         color: KColors.success),
     QuickAction(
-        label: 'Add Customer',
-        icon: Icons.person_add,
-        route: '/contacts',
-        color: KColors.secondary),
+        label: 'Near Expiry',
+        icon: Icons.event_busy_rounded,
+        route: '/inventory/near-expiry',
+        color: KColors.warning),
     QuickAction(
         label: 'View Reports',
         icon: Icons.bar_chart,
@@ -307,9 +307,9 @@ const _clothManufacturing = DashboardConfig(
   ],
   quickActions: [
     QuickAction(
-        label: 'New Invoice',
-        icon: Icons.receipt_long,
-        route: '/invoices/create',
+        label: 'Sales Order',
+        icon: Icons.assignment_rounded,
+        route: '/sales-orders/create',
         color: KColors.primary),
     QuickAction(
         label: 'Record Payment',
@@ -369,9 +369,9 @@ const _trading = DashboardConfig(
   ],
   quickActions: [
     QuickAction(
-        label: 'New Invoice',
-        icon: Icons.receipt_long,
-        route: '/invoices/create',
+        label: 'Sales Order',
+        icon: Icons.assignment_rounded,
+        route: '/sales-orders/create',
         color: KColors.primary),
     QuickAction(
         label: 'Record Payment',
@@ -430,9 +430,9 @@ const _foodBeverage = DashboardConfig(
   ],
   quickActions: [
     QuickAction(
-        label: 'New Invoice',
-        icon: Icons.receipt_long,
-        route: '/invoices/create',
+        label: 'POS Sale',
+        icon: Icons.point_of_sale_rounded,
+        route: '/pos',
         color: KColors.primary),
     QuickAction(
         label: 'Record Payment',

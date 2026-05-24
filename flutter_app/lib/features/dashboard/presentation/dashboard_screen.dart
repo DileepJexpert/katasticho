@@ -47,8 +47,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     });
   }
 
-  static const _retailIndustries = {'KIRANA', 'PHARMACY'};
-
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
@@ -61,8 +59,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final isDesktop = width >= KSpacing.desktopBreakpoint;
     final isRetail = config.vertical == DashboardVertical.retail ||
         config.vertical == DashboardVertical.pharmacy ||
-        config.vertical == DashboardVertical.foodBeverage ||
-        _retailIndustries.contains(authState.industry);
+        config.vertical == DashboardVertical.foodBeverage;
     final role = authState.role?.toUpperCase() ?? 'OWNER';
 
     // Accountant role redirects to accounting dashboard
@@ -387,6 +384,7 @@ class _AccountingDashboard extends StatelessWidget {
         _FinanceDashboardHero(
           actions: config.quickActions,
           isDesktop: isDesktop,
+          vertical: config.vertical,
         ),
         KSpacing.vGapMd,
         _KpiGrid(
@@ -459,11 +457,24 @@ class _AccountingDashboard extends StatelessWidget {
 class _FinanceDashboardHero extends StatelessWidget {
   final List<QuickAction> actions;
   final bool isDesktop;
+  final DashboardVertical vertical;
 
   const _FinanceDashboardHero({
     required this.actions,
     required this.isDesktop,
+    required this.vertical,
   });
+
+  bool get _useBusinessCommandCenter =>
+      vertical == DashboardVertical.distributor ||
+      vertical == DashboardVertical.manufacturer;
+
+  Widget _buildCommandCenter() {
+    if (_useBusinessCommandCenter) {
+      return BusinessCommandCenter(isDesktop: isDesktop, vertical: vertical);
+    }
+    return AccountingControlCenter(isDesktop: isDesktop);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -471,7 +482,7 @@ class _FinanceDashboardHero extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AccountingControlCenter(isDesktop: isDesktop),
+          _buildCommandCenter(),
           KSpacing.vGapSm,
           _FinanceActionPanel(actions: actions),
         ],
@@ -483,7 +494,7 @@ class _FinanceDashboardHero extends StatelessWidget {
       children: [
         Expanded(
           flex: 7,
-          child: AccountingControlCenter(isDesktop: isDesktop),
+          child: _buildCommandCenter(),
         ),
         KSpacing.hGapMd,
         Expanded(
