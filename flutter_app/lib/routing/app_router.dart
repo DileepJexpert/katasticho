@@ -99,6 +99,7 @@ import '../features/accounting_periods/presentation/period_close_screen.dart';
 import '../features/contacts/presentation/contact_statement_screen.dart';
 import '../features/inventory/presentation/near_expiry_screen.dart';
 import '../features/inventory/presentation/reorder_screen.dart';
+import '../features/inventory/presentation/shortbook_screen.dart';
 import '../features/team/presentation/team_screen.dart';
 import '../features/settings/presentation/ai_model_settings_screen.dart';
 import '../features/ca_console/presentation/ca_console_screen.dart';
@@ -199,6 +200,7 @@ class Routes {
   static const bankReconciliation = '/banking/reconciliation';
   static const gst = '/gst';
   static const reorder = '/reorder';
+  static const shortbook = '/shortbook';
   static const nearExpiry = '/inventory/near-expiry';
   static const contactStatement = '/contacts/:id/statement';
   static const settings = '/settings';
@@ -753,6 +755,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.reorder,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: ReorderScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.shortbook,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ShortbookScreen(),
             ),
           ),
           GoRoute(

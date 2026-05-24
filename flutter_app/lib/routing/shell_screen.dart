@@ -244,6 +244,11 @@ const _inventoryGroup = NavGroup(
         activeIcon: Icons.shopping_cart_rounded,
         route: Routes.reorder),
     NavItem(
+        label: 'Shortbook',
+        icon: Icons.playlist_add_check_outlined,
+        activeIcon: Icons.playlist_add_check_rounded,
+        route: Routes.shortbook),
+    NavItem(
         label: 'Expiry Alerts',
         icon: Icons.timer_outlined,
         activeIcon: Icons.timer_rounded,
