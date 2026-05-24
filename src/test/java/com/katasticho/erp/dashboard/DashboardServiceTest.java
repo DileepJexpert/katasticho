@@ -63,6 +63,7 @@ class DashboardServiceTest {
     @Mock private VendorPaymentRepository vendorPaymentRepository;
     @Mock private JournalEntryRepository journalEntryRepository;
     @Mock private StockMovementRepository stockMovementRepository;
+    @Mock private com.katasticho.erp.sales.repository.SalesOrderRepository salesOrderRepository;
 
     private DashboardService dashboardService;
     private UUID orgId;
@@ -77,7 +78,7 @@ class DashboardServiceTest {
                 salesReceiptRepository, salesReceiptLineRepository,
                 stockBatchRepository, stockBatchBalanceRepository,
                 vendorPaymentRepository, journalEntryRepository,
-                stockMovementRepository);
+                stockMovementRepository, salesOrderRepository);
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);
