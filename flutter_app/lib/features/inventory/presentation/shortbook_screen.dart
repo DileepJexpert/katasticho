@@ -133,7 +133,13 @@ class _ShortbookScreenState extends ConsumerState<ShortbookScreen> {
       ),
       floatingActionButton: _selected.isNotEmpty
           ? FloatingActionButton.extended(
-              onPressed: () => context.push(Routes.stockReceiptCreate),
+              onPressed: () {
+                final shortbookItems = ref.read(shortbookProvider).valueOrNull ?? [];
+                final selectedItems = shortbookItems
+                    .where((item) => _selected.contains(item['itemId']?.toString()))
+                    .toList();
+                context.push(Routes.stockReceiptCreate, extra: selectedItems);
+              },
               icon: const Icon(Icons.add_shopping_cart_outlined),
               label: Text('Generate GRN (${_selected.length})'),
               backgroundColor: KColors.primary,

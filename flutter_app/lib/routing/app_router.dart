@@ -806,7 +806,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.stockReceiptCreate,
-            builder: (context, state) => const StockReceiptCreateScreen(),
+            builder: (context, state) => StockReceiptCreateScreen(
+              prefillItems: state.extra as List<Map<String, dynamic>>?,
+            ),
           ),
           GoRoute(
             path: '/stock-receipts/:id',

@@ -20,7 +20,8 @@ import 'supplier_picker_sheet.dart';
 /// the inventory ledger) happens from the detail screen so the user has
 /// one last chance to bail out.
 class StockReceiptCreateScreen extends ConsumerStatefulWidget {
-  const StockReceiptCreateScreen({super.key});
+  final List<Map<String, dynamic>>? prefillItems;
+  const StockReceiptCreateScreen({super.key, this.prefillItems});
 
   @override
   ConsumerState<StockReceiptCreateScreen> createState() =>
@@ -39,7 +40,31 @@ class _StockReceiptCreateScreenState
   final _supplierInvoiceNoCtl = TextEditingController();
   final _notesCtl = TextEditingController();
 
-  final List<_GrnLine> _lines = [_GrnLine()];
+  List<_GrnLine> _lines = [_GrnLine()];
+
+  @override
+  void initState() {
+    super.initState();
+    _prefillFromShortbook();
+  }
+
+  void _prefillFromShortbook() {
+    final items = widget.prefillItems;
+    if (items == null || items.isEmpty) return;
+
+    final prefilled = items.map((item) {
+      final line = _GrnLine();
+      line.itemId = item['itemId']?.toString();
+      line.description = item['itemName']?.toString() ?? '';
+      line.quantity = (item['suggestOrderQty'] as num?)?.toDouble() ?? 1;
+      return line;
+    }).toList();
+
+    if (prefilled.isNotEmpty) {
+      _lines.clear();
+      _lines.addAll(prefilled);
+    }
+  }
 
   @override
   void dispose() {
