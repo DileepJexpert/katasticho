@@ -179,7 +179,8 @@ public class SalesOrderService {
         commentService.addSystemComment("SALES_ORDER", so.getId(), "Sales order created");
 
         log.info("Sales order created: {} for contact {}", soNumber, contact.getId());
-        return toResponse(so, contact.getCompanyName());
+        String name = contact.getCompanyName() != null ? contact.getCompanyName() : contact.getDisplayName();
+        return toResponse(so, name);
     }
 
     // ── CREATE FROM ESTIMATE ────────────────────────────────────
@@ -576,7 +577,8 @@ public class SalesOrderService {
 
         return page.map(so -> {
             String contactName = contactRepository.findById(so.getContactId())
-                    .map(Contact::getCompanyName).orElse(null);
+                    .map(c -> c.getCompanyName() != null ? c.getCompanyName() : c.getDisplayName())
+                    .orElse(null);
             return toResponse(so, contactName);
         });
     }
@@ -741,7 +743,8 @@ public class SalesOrderService {
 
     private SalesOrderResponse toResponseWithContactLookup(SalesOrder so) {
         String contactName = contactRepository.findById(so.getContactId())
-                .map(Contact::getCompanyName).orElse(null);
+                .map(c -> c.getCompanyName() != null ? c.getCompanyName() : c.getDisplayName())
+                .orElse(null);
         return toResponse(so, contactName);
     }
 
