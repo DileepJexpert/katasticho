@@ -48,8 +48,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
       _selectedContactId = picked['id']?.toString();
       _contactName = _contactDisplayName(picked);
       _contactGstin = picked['gstin'] as String?;
-      _contactPhone = picked['phone'] as String? ??
-          picked['mobile'] as String?;
+      _contactPhone = picked['phone'] as String? ?? picked['mobile'] as String?;
       _errorMessage = null;
     });
   }
@@ -158,7 +157,8 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
         }
         setState(() => _errorMessage = ApiErrorParser.message(e));
       } else {
-        setState(() => _errorMessage = 'Failed to create invoice. Please try again.');
+        setState(() =>
+            _errorMessage = 'Failed to create invoice. Please try again.');
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -171,7 +171,8 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
       appBar: AppBar(
         title: const Text('Create Invoice'),
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to invoices',
           onPressed: () => context.go(Routes.invoices),
         ),
       ),
@@ -182,7 +183,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
             // Step indicator
             Container(
               color: KColors.surface,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -224,18 +225,26 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
             Expanded(
               child: SingleChildScrollView(
                 padding: KSpacing.pagePadding,
-                child: switch (_currentStep) {
-                  0 => _buildCustomerStep(),
-                  1 => _buildItemsStep(),
-                  2 => _buildReviewStep(),
-                  _ => const SizedBox(),
-                },
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1120),
+                    child: switch (_currentStep) {
+                      0 => _buildCustomerStep(),
+                      1 => _buildItemsStep(),
+                      2 => _buildReviewStep(),
+                      _ => const SizedBox(),
+                    },
+                  ),
+                ),
               ),
             ),
 
             // Bottom bar
             Container(
-              padding: const EdgeInsets.all(KSpacing.md),
+              padding: const EdgeInsets.symmetric(
+                horizontal: KSpacing.md,
+                vertical: KSpacing.sm,
+              ),
               decoration: BoxDecoration(
                 color: KColors.surface,
                 boxShadow: [
@@ -257,7 +266,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
                         Text('Total', style: KTypography.bodySmall),
                         Text(
                           CurrencyFormatter.formatIndian(_grandTotal),
-                          style: KTypography.amountLarge,
+                          style: KTypography.amountMedium,
                         ),
                       ],
                     ),
@@ -268,16 +277,14 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
                         child: KButton(
                           label: 'Back',
                           variant: KButtonVariant.outlined,
-                          onPressed: () =>
-                              setState(() => _currentStep--),
+                          onPressed: () => setState(() => _currentStep--),
                         ),
                       ),
                     if (_currentStep < 2)
                       KButton(
                         label: 'Next',
                         onPressed: () {
-                          if (_currentStep == 0 &&
-                              _selectedContactId == null) {
+                          if (_currentStep == 0 && _selectedContactId == null) {
                             setState(() =>
                                 _errorMessage = 'Please select a customer');
                             return;
@@ -341,8 +348,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
               children: [
                 CircleAvatar(
                   radius: 22,
-                  backgroundColor:
-                      KColors.primary.withValues(alpha: 0.12),
+                  backgroundColor: KColors.primary.withValues(alpha: 0.12),
                   child: Icon(
                     hasCustomer ? Icons.person : Icons.person_add_alt_1,
                     color: KColors.primary,
@@ -372,8 +378,8 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
                 ),
                 Text(
                   hasCustomer ? 'Change' : 'Pick',
-                  style: KTypography.labelMedium
-                      .copyWith(color: KColors.primary),
+                  style:
+                      KTypography.labelMedium.copyWith(color: KColors.primary),
                 ),
                 KSpacing.hGapXs,
                 const Icon(Icons.chevron_right,
@@ -417,8 +423,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
   /// applies. Walks the F3 fall-through chain on the client side so the
   /// banner matches what [`PriceListService.resolvePrice`] will do at
   /// invoice-submit time.
-  Map<String, dynamic>? _effectivePriceList(
-      List<Map<String, dynamic>> lists) {
+  Map<String, dynamic>? _effectivePriceList(List<Map<String, dynamic>> lists) {
     if (_selectedContactId == null) return null;
     final customer = _selectedCustomer ?? const <String, dynamic>{};
     final pinned = customer['defaultPriceListId']?.toString();
@@ -452,8 +457,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
             decoration: BoxDecoration(
               color: KColors.primary.withValues(alpha: 0.06),
               borderRadius: KSpacing.borderRadiusMd,
-              border:
-                  Border.all(color: KColors.primary.withValues(alpha: 0.3)),
+              border: Border.all(color: KColors.primary.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
@@ -466,8 +470,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
                       style: KTypography.bodySmall
                           .copyWith(color: KColors.primary),
                       children: [
-                        const TextSpan(
-                            text: 'Prices will follow price list '),
+                        const TextSpan(text: 'Prices will follow price list '),
                         TextSpan(
                           text: name,
                           style: KTypography.bodySmall.copyWith(
@@ -519,8 +522,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
           label: 'Add Line Item',
           icon: Icons.add,
           variant: KButtonVariant.outlined,
-          onPressed: () =>
-              setState(() => _lineItems.add(_LineItem())),
+          onPressed: () => setState(() => _lineItems.add(_LineItem())),
         ),
 
         KSpacing.vGapLg,
@@ -555,7 +557,6 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
       children: [
         Text('Review Invoice', style: KTypography.h2),
         KSpacing.vGapMd,
-
         KCard(
           title: 'Customer',
           child: Column(
@@ -578,7 +579,6 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
           ),
         ),
         KSpacing.vGapMd,
-
         KCard(
           title: 'Items (${_lineItems.length})',
           child: Column(
@@ -616,7 +616,6 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
           ),
         ),
         KSpacing.vGapMd,
-
         KCard(
           child: Column(
             children: [
@@ -635,7 +634,6 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
             ],
           ),
         ),
-
         KSpacing.vGapMd,
         KTextField(
           label: 'Notes (optional)',
@@ -849,12 +847,10 @@ class _LineItemCardState extends State<_LineItemCard> {
               Expanded(
                 child: Text(
                   'Pick batch — or leave blank to auto-pick earliest expiry (FEFO)',
-                  style: KTypography.bodySmall
-                      .copyWith(color: KColors.warning),
+                  style: KTypography.bodySmall.copyWith(color: KColors.warning),
                 ),
               ),
-              const Icon(Icons.chevron_right,
-                  size: 18, color: KColors.warning),
+              const Icon(Icons.chevron_right, size: 18, color: KColors.warning),
             ],
           ),
         ),
@@ -874,8 +870,7 @@ class _LineItemCardState extends State<_LineItemCard> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.inventory_2,
-              size: 16, color: KColors.primary),
+          const Icon(Icons.inventory_2, size: 16, color: KColors.primary),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -884,8 +879,8 @@ class _LineItemCardState extends State<_LineItemCard> {
               children: [
                 Text(
                   'Batch: ${widget.item.batchNumber ?? "—"}',
-                  style: KTypography.labelMedium
-                      .copyWith(color: KColors.primary),
+                  style:
+                      KTypography.labelMedium.copyWith(color: KColors.primary),
                 ),
                 if (expiry != null)
                   Text(
@@ -945,7 +940,8 @@ class _LineItemCardState extends State<_LineItemCard> {
               if (isLinked) ...[
                 KSpacing.hGapSm,
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: KColors.success.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
@@ -1028,9 +1024,8 @@ class _LineItemCardState extends State<_LineItemCard> {
                         child: KTextField(
                           label: 'Weight',
                           controller: _qtyCtl,
-                          keyboardType:
-                              const TextInputType.numberWithOptions(
-                                  decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
                           validator: (v) {
                             final weight = double.tryParse(v ?? '') ?? 0;
                             if (weight <= 0) return 'Weight must be positive';
@@ -1058,15 +1053,12 @@ class _LineItemCardState extends State<_LineItemCard> {
                         value: widget.item.weightUnit,
                         underline: const SizedBox.shrink(),
                         items: const [
-                          DropdownMenuItem(
-                              value: 'KG', child: Text('KG')),
-                          DropdownMenuItem(
-                              value: 'GM', child: Text('GM')),
+                          DropdownMenuItem(value: 'KG', child: Text('KG')),
+                          DropdownMenuItem(value: 'GM', child: Text('GM')),
                         ],
                         onChanged: (unit) {
                           if (unit == null) return;
-                          final currentRaw =
-                              double.tryParse(_qtyCtl.text) ?? 0;
+                          final currentRaw = double.tryParse(_qtyCtl.text) ?? 0;
                           setState(() {
                             widget.item.weightUnit = unit;
                             if (currentRaw > 0) {
@@ -1076,9 +1068,8 @@ class _LineItemCardState extends State<_LineItemCard> {
                               _qtyCtl.text = unit == 'GM'
                                   ? converted.toStringAsFixed(0)
                                   : converted.toStringAsFixed(3);
-                              widget.item.quantity = unit == 'GM'
-                                  ? converted / 1000
-                                  : converted;
+                              widget.item.quantity =
+                                  unit == 'GM' ? converted / 1000 : converted;
                             }
                           });
                           widget.onChanged();
@@ -1090,8 +1081,7 @@ class _LineItemCardState extends State<_LineItemCard> {
                     label: 'Qty',
                     controller: _qtyCtl,
                     keyboardType:
-                        const TextInputType.numberWithOptions(
-                            decimal: true),
+                        const TextInputType.numberWithOptions(decimal: true),
                     validator: (v) {
                       final qty = double.tryParse(v ?? '') ?? 0;
                       if (qty <= 0) return 'Quantity must be positive';
@@ -1107,9 +1097,7 @@ class _LineItemCardState extends State<_LineItemCard> {
                     },
                   ),
             KTextField.amount(
-              label: widget.item.weightBasedBilling
-                  ? 'Rate/kg'
-                  : 'Price',
+              label: widget.item.weightBasedBilling ? 'Rate/kg' : 'Price',
               controller: _priceCtl,
               validator: (v) {
                 final price = double.tryParse(v ?? '') ?? 0;
@@ -1209,9 +1197,8 @@ class _StepTab extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: isActive || isCompleted
-                  ? KColors.primary
-                  : KColors.divider,
+              color:
+                  isActive || isCompleted ? KColors.primary : KColors.divider,
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -1240,4 +1227,3 @@ class _StepTab extends StatelessWidget {
     );
   }
 }
-
