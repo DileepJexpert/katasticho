@@ -208,7 +208,8 @@ class _CashierDashboard extends ConsumerWidget {
                     Expanded(
                         child: _CashierStat(
                       label: 'Cash / UPI',
-                      value: CurrencyFormatter.formatCompact(data.posSalesTotal),
+                      value:
+                          CurrencyFormatter.formatCompact(data.posSalesTotal),
                       color: KColors.success,
                     )),
                     const SizedBox(width: 8),
@@ -382,13 +383,9 @@ class _AccountingDashboard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        QuickActionGrid(actions: config.quickActions),
-        KSpacing.vGapMd,
-        const _FilterBar(),
-        KSpacing.vGapMd,
-        BusinessCommandCenter(
+        _FinanceDashboardHero(
+          actions: config.quickActions,
           isDesktop: isDesktop,
-          vertical: config.vertical,
         ),
         KSpacing.vGapMd,
         _KpiGrid(
@@ -457,6 +454,88 @@ class _AccountingDashboard extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════
 //  SHARED COMPONENTS
 // ═══════════════════════════════════════════════════════════════════
+
+class _FinanceDashboardHero extends StatelessWidget {
+  final List<QuickAction> actions;
+  final bool isDesktop;
+
+  const _FinanceDashboardHero({
+    required this.actions,
+    required this.isDesktop,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isDesktop) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AccountingControlCenter(isDesktop: isDesktop),
+          KSpacing.vGapSm,
+          _FinanceActionPanel(actions: actions),
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 7,
+          child: AccountingControlCenter(isDesktop: isDesktop),
+        ),
+        KSpacing.hGapMd,
+        Expanded(
+          flex: 4,
+          child: _FinanceActionPanel(actions: actions),
+        ),
+      ],
+    );
+  }
+}
+
+class _FinanceActionPanel extends StatelessWidget {
+  final List<QuickAction> actions;
+
+  const _FinanceActionPanel({required this.actions});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: KSpacing.borderRadiusLg,
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.bolt_rounded, size: 18, color: cs.primary),
+              KSpacing.hGapSm,
+              Expanded(
+                child: Text(
+                  'Finance shortcuts',
+                  style: KTypography.labelLarge.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const _FilterBar(compact: true),
+          const SizedBox(height: 10),
+          QuickActionGrid(actions: actions),
+        ],
+      ),
+    );
+  }
+}
 
 class _GreetingStrip extends StatelessWidget {
   final String greeting;
@@ -534,12 +613,14 @@ class _GreetingStrip extends StatelessWidget {
 }
 
 class _FilterBar extends ConsumerWidget {
-  const _FilterBar();
+  final bool compact;
+
+  const _FilterBar({this.compact = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final width = MediaQuery.of(context).size.width;
-    final stacked = width < 600;
+    final stacked = compact || width < 600;
 
     if (stacked) {
       return Column(
