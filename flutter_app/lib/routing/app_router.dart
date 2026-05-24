@@ -69,6 +69,7 @@ import '../features/procurement/presentation/stock_receipt_detail_screen.dart';
 import '../features/pricing/presentation/price_list_list_screen.dart';
 import '../features/pricing/presentation/price_list_create_screen.dart';
 import '../features/pricing/presentation/price_list_detail_screen.dart';
+import '../features/pricing/presentation/scheme_list_screen.dart';
 import '../features/bills/presentation/bill_list_screen.dart';
 import '../features/bills/presentation/bill_detail_screen.dart';
 import '../features/bills/presentation/bill_create_screen.dart';
@@ -170,6 +171,7 @@ class Routes {
   static const priceLists = '/price-lists';
   static const priceListCreate = '/price-lists/create';
   static const priceListDetail = '/price-lists/:id';
+  static const schemes = '/schemes';
   static const recordPayment = '/invoices/:id/pay';
   // AP — Bills
   static const bills = '/bills';
@@ -884,6 +886,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/price-lists/:id',
             builder: (context, state) => PriceListDetailScreen(
               listId: state.pathParameters['id']!,
+            ),
+          ),
+          // Schemes — promotional offers (Buy X Get Y, % discount)
+          GoRoute(
+            path: Routes.schemes,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SchemeListScreen(),
             ),
           ),
           // AP — Bills

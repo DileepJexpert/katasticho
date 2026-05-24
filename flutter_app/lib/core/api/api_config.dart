@@ -421,4 +421,10 @@ class ApiConfig {
       '/api/v1/price-lists/$listId/items';
   static String priceListItemById(String itemRowId) =>
       '/api/v1/price-lists/items/$itemRowId';
+
+  // Schemes (promotional offers — Buy X Get Y, % discount)
+  static const String schemes = '/api/v1/schemes';
+  static String schemeById(String id) => '/api/v1/schemes/$id';
+  static String schemesApplicable(String itemId, double qty) =>
+      '/api/v1/schemes/applicable?itemId=$itemId&quantity=$qty';
 }

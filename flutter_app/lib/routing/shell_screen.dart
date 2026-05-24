@@ -264,6 +264,11 @@ const _inventoryGroup = NavGroup(
         activeIcon: Icons.sell_rounded,
         route: Routes.priceLists),
     NavItem(
+        label: 'Schemes',
+        icon: Icons.local_offer_outlined,
+        activeIcon: Icons.local_offer_rounded,
+        route: Routes.schemes),
+    NavItem(
         label: 'Import Items',
         icon: Icons.upload_file_outlined,
         activeIcon: Icons.upload_file_rounded,
