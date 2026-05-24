@@ -26,7 +26,7 @@ class KDetailDrawer extends StatelessWidget {
     this.subtitle,
     this.actions,
     this.footerActions,
-    this.width = 480,
+    this.width = 460,
   });
 
   /// Slides the drawer in from the right. On screens narrower than the tablet
@@ -38,7 +38,7 @@ class KDetailDrawer extends StatelessWidget {
     String? subtitle,
     List<Widget>? actions,
     List<Widget>? footerActions,
-    double width = 480,
+    double width = 460,
   }) {
     final isCompact =
         MediaQuery.sizeOf(context).width < KSpacing.tabletBreakpoint;
@@ -51,7 +51,7 @@ class KDetailDrawer extends StatelessWidget {
         backgroundColor: Theme.of(context).colorScheme.surface,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(KSpacing.radiusXl),
+            top: Radius.circular(KSpacing.radiusLg),
           ),
         ),
         builder: (ctx) => FractionallySizedBox(
@@ -123,10 +123,10 @@ class KDetailDrawer extends StatelessWidget {
           // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(
-              KSpacing.md + 4,
               KSpacing.md,
+              10,
               KSpacing.sm,
-              KSpacing.md,
+              10,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -138,7 +138,7 @@ class KDetailDrawer extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: KTypography.h2.copyWith(color: cs.onSurface),
+                        style: KTypography.h3.copyWith(color: cs.onSurface),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -178,10 +178,10 @@ class KDetailDrawer extends StatelessWidget {
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(
-                KSpacing.md + 4,
                 KSpacing.md,
-                KSpacing.md + 4,
+                12,
                 KSpacing.md,
+                12,
               ),
               child: child,
             ),
@@ -193,9 +193,9 @@ class KDetailDrawer extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 KSpacing.md,
-                KSpacing.sm + 2,
+                KSpacing.sm,
                 KSpacing.md,
-                KSpacing.sm + 2,
+                KSpacing.sm,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,

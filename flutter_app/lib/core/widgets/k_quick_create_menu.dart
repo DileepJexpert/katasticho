@@ -10,26 +10,50 @@ class KQuickCreateMenu extends StatelessWidget {
   const KQuickCreateMenu({super.key, this.expanded = true});
 
   static const _items = [
-    _CreateItem(label: 'New Invoice', icon: Icons.receipt_long_rounded, route: Routes.invoiceCreate),
-    _CreateItem(label: 'New POS Sale', icon: Icons.point_of_sale_rounded, route: Routes.pos),
-    _CreateItem(label: 'New Bill', icon: Icons.receipt_rounded, route: Routes.billCreate),
-    _CreateItem(label: 'New Customer', icon: Icons.person_add_rounded, route: Routes.contactCreate),
-    _CreateItem(label: 'New Item', icon: Icons.add_box_rounded, route: Routes.itemCreate),
-    _CreateItem(label: 'New Expense', icon: Icons.payments_rounded, route: Routes.expenseCreate),
-    _CreateItem(label: 'New Estimate', icon: Icons.request_quote_rounded, route: Routes.estimateCreate),
-    _CreateItem(label: 'New Sales Order', icon: Icons.assignment_rounded, route: Routes.salesOrderCreate),
-    _CreateItem(label: 'New Credit Note', icon: Icons.note_add_rounded, route: Routes.creditNoteCreate),
+    _CreateItem(
+        label: 'New Invoice',
+        icon: Icons.receipt_long_rounded,
+        route: Routes.invoiceCreate),
+    _CreateItem(
+        label: 'New POS Sale',
+        icon: Icons.point_of_sale_rounded,
+        route: Routes.pos),
+    _CreateItem(
+        label: 'New Bill',
+        icon: Icons.receipt_rounded,
+        route: Routes.billCreate),
+    _CreateItem(
+        label: 'New Customer',
+        icon: Icons.person_add_rounded,
+        route: Routes.contactCreate),
+    _CreateItem(
+        label: 'New Item',
+        icon: Icons.add_box_rounded,
+        route: Routes.itemCreate),
+    _CreateItem(
+        label: 'New Expense',
+        icon: Icons.payments_rounded,
+        route: Routes.expenseCreate),
+    _CreateItem(
+        label: 'New Estimate',
+        icon: Icons.request_quote_rounded,
+        route: Routes.estimateCreate),
+    _CreateItem(
+        label: 'New Sales Order',
+        icon: Icons.assignment_rounded,
+        route: Routes.salesOrderCreate),
+    _CreateItem(
+        label: 'New Credit Note',
+        icon: Icons.note_add_rounded,
+        route: Routes.creditNoteCreate),
   ];
 
   void _show(BuildContext context) {
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    final overlayBox = Navigator.of(context)
-        .overlay!
-        .context
-        .findRenderObject()! as RenderBox;
-    final pos =
-        renderBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+    final overlayBox =
+        Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
+    final pos = renderBox.localToGlobal(Offset.zero, ancestor: overlayBox);
     final size = renderBox.size;
     final overlaySize = overlayBox.size;
 
@@ -54,16 +78,15 @@ class KQuickCreateMenu extends StatelessWidget {
           .map(
             (item) => PopupMenuItem<String>(
               value: item.route,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: KSpacing.md, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
               child: Row(
                 children: [
                   Icon(
                     item.icon,
-                    size: 16,
+                    size: 15,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Text(
                     item.label,
                     style: KTypography.bodyMedium.copyWith(
@@ -94,8 +117,8 @@ class KQuickCreateMenu extends StatelessWidget {
           borderRadius: BorderRadius.circular(KSpacing.radiusMd),
           onTap: () => _show(context),
           child: const Padding(
-            padding: EdgeInsets.all(8),
-            child: Icon(Icons.add_rounded, size: 18, color: Colors.white),
+            padding: EdgeInsets.all(7),
+            child: Icon(Icons.add_rounded, size: 17, color: Colors.white),
           ),
         ),
       );
@@ -106,7 +129,7 @@ class KQuickCreateMenu extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(
-            horizontal: KSpacing.sm + 4, vertical: 10),
+            horizontal: KSpacing.sm + 2, vertical: 8),
         decoration: BoxDecoration(
           color: cs.primary,
           borderRadius: BorderRadius.circular(KSpacing.radiusMd),

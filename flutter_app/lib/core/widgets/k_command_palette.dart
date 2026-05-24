@@ -28,8 +28,8 @@ class KCommand {
   });
 
   /// Lower-cased haystack for fuzzy matching.
-  String get _haystack => '$label ${keywords.join(" ")} ${subtitle ?? ""}'
-      .toLowerCase();
+  String get _haystack =>
+      '$label ${keywords.join(" ")} ${subtitle ?? ""}'.toLowerCase();
 
   /// Subsequence + prefix-bonus score. Higher = better. 0 = no match.
   int score(String query) {
@@ -137,8 +137,7 @@ class _KCommandPaletteState extends State<KCommandPalette> {
   void _move(int delta) {
     if (_filtered.isEmpty) return;
     setState(() {
-      _selectedIndex =
-          (_selectedIndex + delta).clamp(0, _filtered.length - 1);
+      _selectedIndex = (_selectedIndex + delta).clamp(0, _filtered.length - 1);
     });
     // Best-effort: scroll the selected row into view.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -190,19 +189,19 @@ class _KCommandPaletteState extends State<KCommandPalette> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final radius = BorderRadius.circular(KSpacing.radiusXl);
+    final radius = BorderRadius.circular(KSpacing.radiusLg);
 
     return Focus(
       autofocus: true,
       onKeyEvent: _onKey,
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 480),
+        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 430),
         margin: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           color: cs.surface,
           borderRadius: radius,
           border: Border.all(color: cs.outlineVariant, width: 1),
-          boxShadow: KSpacing.shadowLg,
+          boxShadow: KSpacing.shadowMd,
         ),
         child: ClipRRect(
           borderRadius: radius,
@@ -211,12 +210,12 @@ class _KCommandPaletteState extends State<KCommandPalette> {
             children: [
               // Search row
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
                 child: Row(
                   children: [
                     Icon(Icons.search_rounded,
-                        size: 18, color: cs.onSurfaceVariant),
-                    const SizedBox(width: 10),
+                        size: 17, color: cs.onSurfaceVariant),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
                         controller: _controller,
@@ -224,14 +223,13 @@ class _KCommandPaletteState extends State<KCommandPalette> {
                         autofocus: true,
                         style: KTypography.bodyMedium.copyWith(
                           color: cs.onSurface,
-                          fontSize: 15,
+                          fontSize: 14,
                         ),
                         decoration: InputDecoration(
-                          hintText: 'Search commands, pages…',
+                          hintText: 'Search commands, pages...',
                           hintStyle: KTypography.bodyMedium.copyWith(
-                            color: cs.onSurfaceVariant
-                                .withValues(alpha: 0.7),
-                            fontSize: 15,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                            fontSize: 14,
                           ),
                           border: InputBorder.none,
                           isDense: true,
@@ -246,8 +244,7 @@ class _KCommandPaletteState extends State<KCommandPalette> {
                       decoration: BoxDecoration(
                         color: cs.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(4),
-                        border:
-                            Border.all(color: cs.outlineVariant, width: 1),
+                        border: Border.all(color: cs.outlineVariant, width: 1),
                       ),
                       child: Text(
                         'esc',
@@ -268,7 +265,7 @@ class _KCommandPaletteState extends State<KCommandPalette> {
                 child: _filtered.isEmpty
                     ? Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 32),
+                            horizontal: 12, vertical: 24),
                         child: Center(
                           child: Text(
                             'No matches.',
@@ -280,20 +277,20 @@ class _KCommandPaletteState extends State<KCommandPalette> {
                       )
                     : ListView.builder(
                         controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
                         itemCount: _filtered.length,
                         itemBuilder: (ctx, i) {
                           final cmd = _filtered[i];
                           final selected = i == _selectedIndex;
-                          final showSection = i == 0 ||
-                              _filtered[i - 1].section != cmd.section;
+                          final showSection =
+                              i == 0 || _filtered[i - 1].section != cmd.section;
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               if (showSection)
                                 Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                      14, 8, 14, 4),
+                                  padding:
+                                      const EdgeInsets.fromLTRB(12, 6, 12, 3),
                                   child: Text(
                                     cmd.section.toUpperCase(),
                                     style: TextStyle(
@@ -324,23 +321,22 @@ class _KCommandPaletteState extends State<KCommandPalette> {
               // Footer hints
               Container(
                 decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest
-                      .withValues(alpha: 0.4),
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
                   border: Border(
                     top: BorderSide(color: cs.outlineVariant, width: 1),
                   ),
                 ),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: Row(
                   children: [
-                    _Kbd(label: '↑↓'),
+                    _Kbd(label: 'Up/Down'),
                     const SizedBox(width: 6),
                     Text('Navigate',
                         style: TextStyle(
                             fontSize: 11, color: cs.onSurfaceVariant)),
                     const SizedBox(width: 14),
-                    _Kbd(label: '↵'),
+                    _Kbd(label: 'Enter'),
                     const SizedBox(width: 6),
                     Text('Open',
                         style: TextStyle(
@@ -381,21 +377,21 @@ class _CommandRow extends StatelessWidget {
     return MouseRegion(
       onEnter: (_) => onHover(),
       child: Material(
-        color: selected ? cs.primaryContainer.withValues(alpha: 0.6)
-                       : Colors.transparent,
+        color: selected
+            ? cs.primaryContainer.withValues(alpha: 0.6)
+            : Colors.transparent,
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
                 Icon(
                   command.icon,
-                  size: 18,
+                  size: 17,
                   color: selected ? cs.primary : cs.onSurfaceVariant,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
