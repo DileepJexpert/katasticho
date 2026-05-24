@@ -33,6 +33,23 @@ class ExpiryRepository {
       rethrow;
     }
   }
+
+  Future<void> returnExpired({
+    required List<Map<String, dynamic>> batches,
+    required String reason,
+  }) async {
+    final lines = batches.map((b) => {
+      'itemId': b['itemId'],
+      'quantity': b['quantityOnHand'],
+      if (b['batchId'] != null) 'batchId': b['batchId'],
+    }).toList();
+
+    await _api.post('/stock/expiry-return', data: {
+      'returnDate': DateTime.now().toIso8601String().split('T').first,
+      'reason': reason,
+      'lines': lines,
+    });
+  }
 }
 
 /// Provider for expiry summary data.

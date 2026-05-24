@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -7,8 +8,6 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/expiry_repository.dart';
 
-/// Near-Expiry Alert Dashboard — shows batches approaching or past their
-/// expiry date, with urgency-based color coding and summary cards.
 class NearExpiryScreen extends ConsumerStatefulWidget {
   const NearExpiryScreen({super.key});
 
@@ -17,14 +16,105 @@ class NearExpiryScreen extends ConsumerStatefulWidget {
 }
 
 class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
-  String? _activeFilter; // null = all, or 'EXPIRED', 'CRITICAL', 'WARNING', 'OK'
+  String? _activeFilter;
   String _searchQuery = '';
   final _searchController = TextEditingController();
+  final Set<String> _selected = {}; // keys: batchId or "itemId:batchNumber"
+  bool _isReturning = false;
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  String _batchKey(Map<String, dynamic> b) =>
+      b['batchId']?.toString() ?? '${b['itemId']}:${b['batchNumber']}';
+
+  Future<void> _confirmReturn(List<Map<String, dynamic>> batches) async {
+    final reasonCtl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Return to Supplier'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Return ${batches.length} batch${batches.length == 1 ? '' : 'es'} to supplier?\n'
+              'This will deduct them from inventory.',
+              style: KTypography.bodyMedium,
+            ),
+            KSpacing.vGapMd,
+            TextField(
+              controller: reasonCtl,
+              decoration: const InputDecoration(
+                labelText: 'Reason (optional)',
+                hintText: 'e.g. Expired, near-expiry return',
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: KColors.error),
+            child: const Text('Return Stock'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isReturning = true);
+    try {
+      await ref.read(expiryRepositoryProvider).returnExpired(
+            batches: batches,
+            reason: reasonCtl.text.trim().isEmpty
+                ? 'Expiry return'
+                : reasonCtl.text.trim(),
+          );
+      if (!mounted) return;
+      setState(() => _selected.clear());
+      ref.invalidate(expirySummaryProvider);
+      ref.invalidate(nearExpiryBatchesProvider(90));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              '${batches.length} batch${batches.length == 1 ? '' : 'es'} returned to supplier'),
+          backgroundColor: KColors.success,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      String msg = 'Failed to process return';
+      if (e is DioException) {
+        final body = e.response?.data;
+        if (body is Map) msg = body['message'] as String? ?? msg;
+      }
+      showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Return Failed'),
+          content: Text(msg),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isReturning = false);
+    }
   }
 
   @override
@@ -35,6 +125,14 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Near-Expiry Alerts'),
+        actions: [
+          if (_selected.isNotEmpty)
+            TextButton.icon(
+              onPressed: () => setState(() => _selected.clear()),
+              icon: const Icon(Icons.deselect, size: 18),
+              label: Text('Clear (${_selected.length})'),
+            ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -43,7 +141,6 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
         },
         child: CustomScrollView(
           slivers: [
-            // Summary cards
             SliverToBoxAdapter(
               child: summaryAsync.when(
                 loading: () => const Padding(
@@ -65,18 +162,14 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
                     within30Days: (data['within30Days'] as num?)?.toInt() ?? 0,
                     within90Days: (data['within90Days'] as num?)?.toInt() ?? 0,
                     activeFilter: _activeFilter,
-                    onFilterTap: (filter) {
-                      setState(() {
-                        _activeFilter =
-                            _activeFilter == filter ? null : filter;
-                      });
-                    },
+                    onFilterTap: (filter) => setState(
+                        () => _activeFilter =
+                            _activeFilter == filter ? null : filter),
                   );
                 },
               ),
             ),
 
-            // Search bar
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -85,8 +178,8 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
                   controller: _searchController,
                   decoration: InputDecoration(
                     hintText: 'Search by item name or batch number...',
-                    prefixIcon:
-                        const Icon(Icons.search, size: 20, color: KColors.textHint),
+                    prefixIcon: const Icon(Icons.search,
+                        size: 20, color: KColors.textHint),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear, size: 18),
@@ -113,11 +206,9 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
               ),
             ),
 
-            // Batch list
             batchesAsync.when(
-              loading: () => const SliverFillRemaining(
-                child: KLoading(),
-              ),
+              loading: () =>
+                  const SliverFillRemaining(child: KLoading()),
               error: (err, _) => SliverFillRemaining(
                 child: KErrorView(
                   message: 'Failed to load expiry batches: $err',
@@ -153,46 +244,82 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
                   sliver: SliverList.separated(
                     itemCount: filtered.length,
                     separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) =>
-                        _ExpiryBatchCard(batch: filtered[index]),
+                    itemBuilder: (context, index) {
+                      final batch = filtered[index];
+                      final key = _batchKey(batch);
+                      return _ExpiryBatchCard(
+                        batch: batch,
+                        isSelected: _selected.contains(key),
+                        onToggle: () => setState(() {
+                          if (_selected.contains(key)) {
+                            _selected.remove(key);
+                          } else {
+                            _selected.add(key);
+                          }
+                        }),
+                      );
+                    },
                   ),
                 );
               },
             ),
 
-            // Bottom padding
             const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
         ),
       ),
+      floatingActionButton: _selected.isNotEmpty
+          ? FloatingActionButton.extended(
+              onPressed: _isReturning
+                  ? null
+                  : () {
+                      final batchesAsync2 =
+                          ref.read(nearExpiryBatchesProvider(90));
+                      final raw = batchesAsync2.valueOrNull;
+                      if (raw == null) return;
+                      final data = raw['data'] ?? raw;
+                      final allBatches = (data is List
+                              ? data
+                              : (data is Map
+                                  ? (data['content'] as List?) ?? []
+                                  : []))
+                          .cast<Map<String, dynamic>>();
+                      final selected = allBatches
+                          .where((b) => _selected.contains(_batchKey(b)))
+                          .toList();
+                      _confirmReturn(selected);
+                    },
+              icon: _isReturning
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.assignment_return_outlined),
+              label: Text('Return to Supplier (${_selected.length})'),
+              backgroundColor: KColors.error,
+              foregroundColor: Colors.white,
+            )
+          : null,
     );
   }
 
   List<Map<String, dynamic>> _applyFilters(
       List<Map<String, dynamic>> batches) {
     var result = batches;
-
-    // Urgency filter
     if (_activeFilter != null) {
       result = result
-          .where((b) =>
-              (b['urgency']?.toString() ?? '') == _activeFilter)
+          .where((b) => (b['urgency']?.toString() ?? '') == _activeFilter)
           .toList();
     }
-
-    // Search filter
     if (_searchQuery.isNotEmpty) {
-      final query = _searchQuery.toLowerCase();
+      final q = _searchQuery.toLowerCase();
       result = result.where((b) {
-        final itemName =
-            (b['itemName']?.toString() ?? '').toLowerCase();
-        final batchNumber =
-            (b['batchNumber']?.toString() ?? '').toLowerCase();
-        return itemName.contains(query) ||
-            batchNumber.contains(query);
+        return (b['itemName']?.toString() ?? '').toLowerCase().contains(q) ||
+            (b['batchNumber']?.toString() ?? '').toLowerCase().contains(q);
       }).toList();
     }
-
     return result;
   }
 }
@@ -236,8 +363,8 @@ class _SummaryCards extends StatelessWidget {
           _SummaryCard(
             label: '< 7 Days',
             count: within7Days,
-            color: const Color(0xFFEA580C), // orange-600
-            bgColor: const Color(0xFFFFF7ED), // orange-50
+            color: const Color(0xFFEA580C),
+            bgColor: const Color(0xFFFFF7ED),
             icon: Icons.warning_amber_rounded,
             isActive: activeFilter == 'CRITICAL',
             onTap: () => onFilterTap('CRITICAL'),
@@ -287,8 +414,9 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = (MediaQuery.of(context).size.width - KSpacing.md * 2 - KSpacing.sm) / 2;
-
+    final width =
+        (MediaQuery.of(context).size.width - KSpacing.md * 2 - KSpacing.sm) /
+            2;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -316,14 +444,10 @@ class _SummaryCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '$count',
-                    style: KTypography.h2.copyWith(color: color),
-                  ),
-                  Text(
-                    label,
-                    style: KTypography.labelSmall.copyWith(color: color),
-                  ),
+                  Text('$count', style: KTypography.h2.copyWith(color: color)),
+                  Text(label,
+                      style:
+                          KTypography.labelSmall.copyWith(color: color)),
                 ],
               ),
             ),
@@ -338,8 +462,14 @@ class _SummaryCard extends StatelessWidget {
 
 class _ExpiryBatchCard extends StatelessWidget {
   final Map<String, dynamic> batch;
+  final bool isSelected;
+  final VoidCallback onToggle;
 
-  const _ExpiryBatchCard({required this.batch});
+  const _ExpiryBatchCard({
+    required this.batch,
+    required this.isSelected,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -347,7 +477,8 @@ class _ExpiryBatchCard extends StatelessWidget {
     final batchNumber = batch['batchNumber']?.toString() ?? '';
     final expiryDateStr = batch['expiryDate']?.toString() ?? '';
     final quantity = (batch['quantityOnHand'] as num?)?.toDouble() ?? 0;
-    final daysUntilExpiry = (batch['daysUntilExpiry'] as num?)?.toInt() ?? 0;
+    final daysUntilExpiry =
+        (batch['daysUntilExpiry'] as num?)?.toInt() ?? 0;
     final urgency = batch['urgency']?.toString() ?? 'OK';
 
     final color = _urgencyColor(urgency);
@@ -355,120 +486,133 @@ class _ExpiryBatchCard extends StatelessWidget {
 
     String expiryLabel;
     if (daysUntilExpiry < 0) {
-      expiryLabel = 'Expired ${-daysUntilExpiry} day${-daysUntilExpiry == 1 ? '' : 's'} ago';
+      expiryLabel =
+          'Expired ${-daysUntilExpiry} day${-daysUntilExpiry == 1 ? '' : 's'} ago';
     } else if (daysUntilExpiry == 0) {
       expiryLabel = 'Expires today';
     } else {
-      expiryLabel = 'Expires in $daysUntilExpiry day${daysUntilExpiry == 1 ? '' : 's'}';
+      expiryLabel =
+          'Expires in $daysUntilExpiry day${daysUntilExpiry == 1 ? '' : 's'}';
     }
 
     String formattedDate = '';
     if (expiryDateStr.isNotEmpty) {
       try {
-        final date = DateTime.parse(expiryDateStr);
-        formattedDate = DateFormat('dd MMM yyyy').format(date);
+        formattedDate =
+            DateFormat('dd MMM yyyy').format(DateTime.parse(expiryDateStr));
       } catch (_) {
         formattedDate = expiryDateStr;
       }
     }
 
-    return KCard(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: bgColor,
-            child: Icon(
-              _urgencyIcon(urgency),
-              size: 20,
-              color: color,
-            ),
+    return GestureDetector(
+      onTap: onToggle,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? KColors.primarySoft.withValues(alpha: 0.15)
+              : Colors.white,
+          borderRadius: KSpacing.borderRadiusMd,
+          border: Border.all(
+            color: isSelected ? KColors.primary : KColors.divider,
+            width: isSelected ? 1.5 : 1,
           ),
-          KSpacing.hGapSm,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(itemName, style: KTypography.labelLarge),
-                KSpacing.vGapXxs,
-                Row(
-                  children: [
-                    Text(
-                      'Batch: $batchNumber',
-                      style: KTypography.bodySmall
-                          .copyWith(color: KColors.textSecondary),
-                    ),
-                    const Spacer(),
-                    Text(
-                      'Qty: ${_fmtQty(quantity)}',
-                      style: KTypography.labelSmall
-                          .copyWith(color: KColors.textSecondary),
-                    ),
-                  ],
-                ),
-                KSpacing.vGapSm,
-                Row(
-                  children: [
-                    Icon(Icons.event, size: 14, color: color),
-                    const SizedBox(width: 4),
-                    Text(
-                      formattedDate,
-                      style: KTypography.bodySmall.copyWith(color: color),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: bgColor,
-                        borderRadius: KSpacing.borderRadiusSm,
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Checkbox(
+              value: isSelected,
+              onChanged: (_) => onToggle(),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+              activeColor: KColors.primary,
+            ),
+            KSpacing.hGapXs,
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: bgColor,
+              child: Icon(_urgencyIcon(urgency), size: 18, color: color),
+            ),
+            KSpacing.hGapSm,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(itemName, style: KTypography.labelLarge),
+                  KSpacing.vGapXxs,
+                  Row(
+                    children: [
+                      Text(
+                        'Batch: $batchNumber',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary),
                       ),
-                      child: Text(
-                        expiryLabel,
-                        style: KTypography.labelSmall.copyWith(
-                          color: color,
-                          fontWeight: FontWeight.w600,
+                      const Spacer(),
+                      Text(
+                        'Qty: ${_fmtQty(quantity)}',
+                        style: KTypography.labelSmall
+                            .copyWith(color: KColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                  KSpacing.vGapSm,
+                  Row(
+                    children: [
+                      Icon(Icons.event, size: 14, color: color),
+                      const SizedBox(width: 4),
+                      Text(formattedDate,
+                          style:
+                              KTypography.bodySmall.copyWith(color: color)),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: bgColor,
+                          borderRadius: KSpacing.borderRadiusSm,
+                        ),
+                        child: Text(
+                          expiryLabel,
+                          style: KTypography.labelSmall.copyWith(
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  static Color _urgencyColor(String urgency) {
-    return switch (urgency) {
-      'EXPIRED' => KColors.error,
-      'CRITICAL' => const Color(0xFFEA580C),
-      'WARNING' => KColors.warning,
-      _ => KColors.success,
-    };
-  }
+  static Color _urgencyColor(String urgency) => switch (urgency) {
+        'EXPIRED' => KColors.error,
+        'CRITICAL' => const Color(0xFFEA580C),
+        'WARNING' => KColors.warning,
+        _ => KColors.success,
+      };
 
-  static Color _urgencyBgColor(String urgency) {
-    return switch (urgency) {
-      'EXPIRED' => KColors.errorLight,
-      'CRITICAL' => const Color(0xFFFFF7ED),
-      'WARNING' => KColors.warningLight,
-      _ => KColors.successLight,
-    };
-  }
+  static Color _urgencyBgColor(String urgency) => switch (urgency) {
+        'EXPIRED' => KColors.errorLight,
+        'CRITICAL' => const Color(0xFFFFF7ED),
+        'WARNING' => KColors.warningLight,
+        _ => KColors.successLight,
+      };
 
-  static IconData _urgencyIcon(String urgency) {
-    return switch (urgency) {
-      'EXPIRED' => Icons.error_outline,
-      'CRITICAL' => Icons.warning_amber_rounded,
-      'WARNING' => Icons.schedule,
-      _ => Icons.event_available,
-    };
-  }
+  static IconData _urgencyIcon(String urgency) => switch (urgency) {
+        'EXPIRED' => Icons.error_outline,
+        'CRITICAL' => Icons.warning_amber_rounded,
+        'WARNING' => Icons.schedule,
+        _ => Icons.event_available,
+      };
 
   static String _fmtQty(double q) =>
       q == q.truncateToDouble() ? q.toStringAsFixed(0) : q.toStringAsFixed(1);

@@ -5,8 +5,10 @@ import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
+import com.katasticho.erp.inventory.dto.ExpiryReturnRequest;
 import com.katasticho.erp.inventory.dto.StockAdjustmentRequest;
 import com.katasticho.erp.inventory.dto.StockBalanceResponse;
+import com.katasticho.erp.inventory.dto.StockMovementRequest;
 import com.katasticho.erp.inventory.dto.StockMovementResponse;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.entity.StockBalance;
@@ -17,6 +19,8 @@ import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.StockMovementRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.InventoryService;
+import com.katasticho.erp.inventory.entity.MovementType;
+import com.katasticho.erp.inventory.entity.ReferenceType;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -152,6 +156,47 @@ public class StockController {
                 .toList();
 
         return ResponseEntity.ok(ApiResponse.ok(result));
+    }
+
+    /**
+     * Return expired/near-expiry stock to supplier.
+     * Posts a RETURN_OUT movement for each line, deducting from warehouse stock.
+     */
+    @PostMapping("/expiry-return")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<String>> expiryReturn(
+            @Valid @RequestBody ExpiryReturnRequest request) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        UUID warehouseId = request.warehouseId();
+        if (warehouseId == null) {
+            warehouseId = warehouseRepository
+                    .findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
+                    .map(Warehouse::getId)
+                    .orElseThrow(() -> new BusinessException("No default warehouse configured",
+                            "INV_NO_DEFAULT_WAREHOUSE", org.springframework.http.HttpStatus.BAD_REQUEST));
+        }
+
+        int count = 0;
+        for (ExpiryReturnRequest.ReturnLine line : request.lines()) {
+            StockMovementRequest moveReq = new StockMovementRequest(
+                    line.itemId(),
+                    warehouseId,
+                    MovementType.RETURN_OUT,
+                    line.quantity().negate(),
+                    null,
+                    request.returnDate(),
+                    ReferenceType.STOCK_RECEIPT,
+                    null,
+                    null,
+                    "Expiry return: " + (request.reason() != null ? request.reason() : "expired stock"),
+                    line.batchId());
+            inventoryService.recordMovement(moveReq);
+            count++;
+        }
+
+        return ResponseEntity.ok(ApiResponse.ok(
+                "Expiry return processed — " + count + " item(s) returned to supplier"));
     }
 
     private StockMovementResponse toMovementResponse(StockMovement m) {
