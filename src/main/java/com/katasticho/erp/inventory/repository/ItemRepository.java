@@ -37,6 +37,8 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
             """)
     Page<Item> search(@Param("orgId") UUID orgId, @Param("q") String q, Pageable pageable);
 
+    Optional<Item> findFirstByOrgIdAndNameIgnoreCaseAndIsDeletedFalse(UUID orgId, String name);
+
     List<Item> findByOrgIdAndIsDeletedFalseAndTrackInventoryTrue(UUID orgId);
 
     /** Bulk id lookup used by services that need to enrich DTOs with item

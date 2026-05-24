@@ -689,6 +689,15 @@ public class SalesOrderService {
 
     private UUID autoCreateItem(UUID orgId, SalesOrderLineRequest lr) {
         String name = lr.description().trim();
+
+        // Reuse an existing item with the same name to avoid UUID mismatches
+        // between the SO line and the item a user later picks in a GRN.
+        var existing = itemRepository.findFirstByOrgIdAndNameIgnoreCaseAndIsDeletedFalse(orgId, name);
+        if (existing.isPresent()) {
+            log.info("Reusing existing item '{}' (id={}) from catalog for SO line", name, existing.get().getId());
+            return existing.get().getId();
+        }
+
         String sku = "AUTO-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 9000 + 1000);
         String unit = lr.unit() != null ? lr.unit() : "PCS";
 

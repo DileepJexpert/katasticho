@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -69,6 +70,14 @@ class _StockReceiptCreateScreenState
           _errorMessage = 'Add at least one line item with a picked item');
       return;
     }
+    final missingBatch = validLines
+        .where((l) => l.trackBatches && l.batchNumber.trim().isEmpty)
+        .toList();
+    if (missingBatch.isNotEmpty) {
+      setState(() =>
+          _errorMessage = 'Batch number is required for: ${missingBatch.map((l) => l.description).join(', ')}');
+      return;
+    }
 
     setState(() {
       _isSubmitting = true;
@@ -118,7 +127,14 @@ class _StockReceiptCreateScreenState
       }
     } catch (e, st) {
       debugPrint('[GrnCreate] save FAILED: $e\n$st');
-      setState(() => _errorMessage = 'Failed to create goods receipt');
+      String msg = 'Failed to create goods receipt';
+      if (e is DioException) {
+        final body = e.response?.data;
+        if (body is Map) {
+          msg = body['message'] as String? ?? body['error'] as String? ?? msg;
+        }
+      }
+      setState(() => _errorMessage = msg);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -524,6 +540,7 @@ class _GrnLine {
   String? taxGroupId;
   String batchNumber = '';
   DateTime? expiryDate;
+  bool trackBatches = false;
 
   double get taxableAmount => quantity * unitPrice;
   double get taxAmount => taxableAmount * gstRate / 100;
@@ -575,6 +592,7 @@ class _GrnLineCardState extends State<_GrnLineCard> {
       widget.line.itemId = picked['id']?.toString();
       widget.line.description = picked['name']?.toString() ?? '';
       widget.line.uom = picked['unitOfMeasure']?.toString() ?? 'PCS';
+      widget.line.trackBatches = picked['trackBatches'] == true;
       // For GRNs the relevant unit cost is the supplier's purchase price.
       widget.line.unitPrice =
           (picked['purchasePrice'] as num?)?.toDouble() ?? 0;
@@ -679,7 +697,9 @@ class _GrnLineCardState extends State<_GrnLineCard> {
               children: [
                 Expanded(
                   child: KTextField(
-                    label: 'Batch No (optional)',
+                    label: widget.line.trackBatches
+                        ? 'Batch No (required)'
+                        : 'Batch No (optional)',
                     controller: _batchCtl,
                     onChanged: (v) {
                       widget.line.batchNumber = v;
