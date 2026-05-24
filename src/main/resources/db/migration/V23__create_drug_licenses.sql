@@ -9,6 +9,7 @@ CREATE TABLE drug_licenses (
     expiry_date DATE NOT NULL,
     notes       TEXT,
     is_deleted  BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by  UUID,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

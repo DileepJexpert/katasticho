@@ -7,6 +7,7 @@ CREATE TABLE customer_wallet (
     total_earned    DECIMAL(14,2) NOT NULL DEFAULT 0,
     total_redeemed  DECIMAL(14,2) NOT NULL DEFAULT 0,
     is_deleted      BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by      UUID,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(org_id, contact_id)

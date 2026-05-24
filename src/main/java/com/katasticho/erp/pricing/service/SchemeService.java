@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -92,6 +93,11 @@ public class SchemeService {
                 .filter(s -> s.getMinOrderQuantity() == null
                         || quantity == null
                         || quantity.compareTo(s.getMinOrderQuantity()) >= 0)
+                .sorted(Comparator
+                        .comparing((Scheme s) -> s.getMinOrderQuantity() == null
+                                ? BigDecimal.ZERO : s.getMinOrderQuantity())
+                        .reversed()
+                        .thenComparing(Scheme::getCreatedAt, Comparator.reverseOrder()))
                 .map(this::toResponse)
                 .toList();
     }

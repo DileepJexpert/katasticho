@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
@@ -6,6 +5,16 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/batch_repository.dart';
+
+bool _isBeforeToday(DateTime date) {
+  final today = DateUtils.dateOnly(DateTime.now());
+  return DateUtils.dateOnly(date).isBefore(today);
+}
+
+int _daysUntil(DateTime date) {
+  final today = DateUtils.dateOnly(DateTime.now());
+  return DateUtils.dateOnly(date).difference(today).inDays;
+}
 
 /// Modal batch picker for invoice / credit-note line editors on items
 /// where `trackBatches = true`. Loads the FEFO-ordered list of batches
@@ -64,9 +73,7 @@ class _BatchPickerSheetState extends ConsumerState<_BatchPickerSheet> {
   }
 
   Future<List<Map<String, dynamic>>> _load() {
-    return ref
-        .read(batchRepositoryProvider)
-        .availableForItem(widget.itemId);
+    return ref.read(batchRepositoryProvider).availableForItem(widget.itemId);
   }
 
   void _retry() {
@@ -132,7 +139,7 @@ class _BatchPickerSheetState extends ConsumerState<_BatchPickerSheet> {
                   final exp = b['expiryDate']?.toString();
                   if (exp == null || exp.isEmpty) return true;
                   final d = DateTime.tryParse(exp);
-                  return d == null || !d.isBefore(DateTime.now());
+                  return d == null || !_isBeforeToday(d);
                 }).toList();
                 if (batches.isEmpty) {
                   return Padding(
@@ -211,8 +218,7 @@ class _BatchTile extends StatelessWidget {
           ),
           if (isEarliest)
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: KColors.primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(999),
@@ -238,9 +244,8 @@ class _BatchTile extends StatelessWidget {
               expiry != null ? 'Expires $expiry' : 'No expiry',
               style: KTypography.bodySmall.copyWith(
                 color: expiryStatus.color,
-                fontWeight: expiryStatus.isUrgent
-                    ? FontWeight.w700
-                    : FontWeight.w400,
+                fontWeight:
+                    expiryStatus.isUrgent ? FontWeight.w700 : FontWeight.w400,
               ),
             ),
             const SizedBox(width: 12),
@@ -248,8 +253,8 @@ class _BatchTile extends StatelessWidget {
                 size: 12, color: KColors.textSecondary),
             Text(
               unitCost.toStringAsFixed(2),
-              style: KTypography.bodySmall
-                  .copyWith(color: KColors.textSecondary),
+              style:
+                  KTypography.bodySmall.copyWith(color: KColors.textSecondary),
             ),
           ],
         ),
@@ -259,7 +264,8 @@ class _BatchTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
-            available.toStringAsFixed(available == available.roundToDouble() ? 0 : 2),
+            available.toStringAsFixed(
+                available == available.roundToDouble() ? 0 : 2),
             style: KTypography.amountSmall,
           ),
           Text('available',
@@ -278,7 +284,7 @@ class _BatchTile extends StatelessWidget {
     if (parsed == null) {
       return const _ExpiryStatus(KColors.textSecondary, false);
     }
-    final days = parsed.difference(DateTime.now()).inDays;
+    final days = _daysUntil(parsed);
     if (days < 0) return const _ExpiryStatus(KColors.error, true);
     if (days <= 30) return const _ExpiryStatus(KColors.warning, true);
     return const _ExpiryStatus(KColors.textSecondary, false);

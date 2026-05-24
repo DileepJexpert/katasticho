@@ -36,8 +36,12 @@ import '../../pricing/data/scheme_repository.dart';
 import '../../../core/auth/auth_state.dart';
 import '../../loyalty/data/wallet_repository.dart';
 import '../../loyalty/presentation/wallet_balance_chip.dart';
-import '../../loyalty/presentation/wallet_history_screen.dart';
 import '../../pharma/data/prescription_repository.dart';
+
+bool _isBeforeToday(DateTime date) {
+  final today = DateUtils.dateOnly(DateTime.now());
+  return DateUtils.dateOnly(date).isBefore(today);
+}
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -107,7 +111,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final batchExpiry = item['batchExpiryDate'] as String?;
     if (batchExpiry != null && batchExpiry.isNotEmpty) {
       final expiry = DateTime.tryParse(batchExpiry);
-      if (expiry != null && expiry.isBefore(DateTime.now())) {
+      if (expiry != null && _isBeforeToday(expiry)) {
         _showErrorSnackBar('Batch expired ($batchExpiry) — sale blocked');
         return;
       }
@@ -127,7 +131,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         final exp = b['expiryDate']?.toString();
         if (exp == null || exp.isEmpty) return true;
         final d = DateTime.tryParse(exp);
-        return d == null || !d.isBefore(DateTime.now());
+        return d == null || !_isBeforeToday(d);
       }).toList();
       if (validBatches.isEmpty) {
         _showErrorSnackBar('No valid batches available for $itemName');
@@ -139,7 +143,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         batch = validBatches.first;
       } else {
         // Multiple batches — show picker
-        batch = await showBatchPicker(context, itemId: itemId, itemName: itemName);
+        batch =
+            await showBatchPicker(context, itemId: itemId, itemName: itemName);
         if (batch == null || !mounted) return;
       }
       // Override batch fields from selection
@@ -184,8 +189,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     // Prescription check — pharmacy vertical only
     String? prescriptionNumber;
     final authState = ref.read(authProvider);
-    final isPharmacy = (authState.industryCode ?? '').toUpperCase().contains('PHARMA') ||
-        (authState.businessType ?? '').toUpperCase().contains('PHARMA');
+    final isPharmacy =
+        (authState.industryCode ?? '').toUpperCase().contains('PHARMA') ||
+            (authState.businessType ?? '').toUpperCase().contains('PHARMA');
     if (isPharmacy && item['prescriptionRequired'] == true) {
       prescriptionNumber = await _askPrescriptionNumber(itemName);
       if (!mounted) return;
@@ -193,28 +199,28 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     }
 
     final cartItem = CartItem(
-          itemId: item['id'] as String?,
-          name: itemName,
-          sku: item['sku'] as String?,
-          barcode: item['barcode'] as String?,
-          rate: rate,
-          unit: unit,
-          taxGroupId: item['taxGroupId'] as String?,
-          taxGroupName: item['taxGroupName'] as String?,
-          hsnCode: item['hsnCode'] as String?,
-          batchId: item['batchId'] as String?,
-          batchNumber: item['batchNumber'] as String?,
-          taxRate: taxRate,
-          batchExpiry: effectiveBatchExpiry,
-          currentStock: effectiveStock,
-          isWeightBased: isWeightBased,
-          mrp: mrp,
-          purchasePrice: (item['purchasePrice'] as num?)?.toDouble(),
-          quantity: quantity,
-          availableUnits: secUnits,
-          discountThresholds: item['discountThresholds'] as Map<String, dynamic>?,
-          prescriptionNumber: prescriptionNumber,
-        );
+      itemId: item['id'] as String?,
+      name: itemName,
+      sku: item['sku'] as String?,
+      barcode: item['barcode'] as String?,
+      rate: rate,
+      unit: unit,
+      taxGroupId: item['taxGroupId'] as String?,
+      taxGroupName: item['taxGroupName'] as String?,
+      hsnCode: item['hsnCode'] as String?,
+      batchId: item['batchId'] as String?,
+      batchNumber: item['batchNumber'] as String?,
+      taxRate: taxRate,
+      batchExpiry: effectiveBatchExpiry,
+      currentStock: effectiveStock,
+      isWeightBased: isWeightBased,
+      mrp: mrp,
+      purchasePrice: (item['purchasePrice'] as num?)?.toDouble(),
+      quantity: quantity,
+      availableUnits: secUnits,
+      discountThresholds: item['discountThresholds'] as Map<String, dynamic>?,
+      prescriptionNumber: prescriptionNumber,
+    );
 
     CartItem? existing;
     for (final current in ref.read(posCartProvider).items) {
@@ -248,7 +254,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Row(children: [
-          const Icon(Icons.local_pharmacy_outlined, color: Color(0xFFB71C1C), size: 20),
+          const Icon(Icons.local_pharmacy_outlined,
+              color: Color(0xFFB71C1C), size: 20),
           const SizedBox(width: 8),
           Expanded(child: Text('Prescription Required', style: KTypography.h3)),
         ]),
@@ -257,7 +264,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('$itemName requires a valid prescription.',
-                style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                style: KTypography.bodySmall
+                    .copyWith(color: KColors.textSecondary)),
             const SizedBox(height: 12),
             TextField(
               controller: ctrl,
@@ -275,7 +283,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim().isEmpty ? '—' : ctrl.text.trim()),
+            onPressed: () => Navigator.pop(
+                ctx, ctrl.text.trim().isEmpty ? '—' : ctrl.text.trim()),
             child: const Text('Confirm'),
           ),
         ],
@@ -283,9 +292,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     );
   }
 
-  void _checkAndApplyScheme(String itemId, double qty, CartItem addedItem) async {
+  void _checkAndApplyScheme(
+      String itemId, double qty, CartItem addedItem) async {
     try {
-      final schemes = await ref.read(schemeRepositoryProvider).getApplicable(itemId, qty);
+      final schemes =
+          await ref.read(schemeRepositoryProvider).getApplicable(itemId, qty);
       if (schemes.isEmpty || !mounted) return;
       // Auto-apply the best (first) scheme silently
       final best = schemes.first;
@@ -333,7 +344,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     } else if (type == 'PERCENT_DISCOUNT') {
       // Apply discount to the matching cart line
       final discPct = (scheme['discountPercent'] as num?)?.toDouble() ?? 0;
-      final idx = cart.items.indexWhere((i) => i.itemId == addedItem.itemId && !i.isFreeItem);
+      final idx = cart.items
+          .indexWhere((i) => i.itemId == addedItem.itemId && !i.isFreeItem);
       if (idx >= 0) {
         final updated = List<CartItem>.from(cart.items);
         updated[idx] = updated[idx].copyWith(
@@ -385,7 +397,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     if (recalled == null || !mounted) return;
     final currentCart = ref.read(posCartProvider);
     if (!currentCart.isEmpty) {
-      ref.read(heldCartsProvider.notifier).hold(currentCart, label: 'Auto-held');
+      ref
+          .read(heldCartsProvider.notifier)
+          .hold(currentCart, label: 'Auto-held');
     }
     ref.read(posCartProvider.notifier).restore(recalled);
     HapticFeedback.lightImpact();
@@ -402,7 +416,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   }
 
   Future<void> _showRecentTransactions() async {
-    final isWide = MediaQuery.of(context).size.width >= KSpacing.desktopBreakpoint;
+    final isWide =
+        MediaQuery.of(context).size.width >= KSpacing.desktopBreakpoint;
     if (isWide) {
       setState(() => _showRecentPanel = !_showRecentPanel);
       return;
@@ -415,7 +430,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final cart = ref.read(posCartProvider);
     if (cart.items.isEmpty) return;
 
-    final currentPct = cart.items.isNotEmpty ? cart.items.first.discountPct : 0.0;
+    final currentPct =
+        cart.items.isNotEmpty ? cart.items.first.discountPct : 0.0;
     final controller = TextEditingController(
       text: currentPct > 0 ? currentPct.toStringAsFixed(1) : '',
     );
@@ -436,7 +452,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             TextField(
               controller: controller,
               autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
                 labelText: 'Discount %',
                 suffixText: '%',
@@ -538,7 +555,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     if (cart.isEmpty) return;
 
     if (cart.hasBlockedItems) {
-      _showErrorSnackBar('Cannot complete sale — one or more items are below cost. Adjust discount or remove the item.');
+      _showErrorSnackBar(
+          'Cannot complete sale — one or more items are below cost. Adjust discount or remove the item.');
       return;
     }
 
@@ -607,12 +625,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         ref.read(recentTransactionsProvider.notifier).add(
               RecentTransaction(
                 receiptId: receiptId,
-                receiptNumber:
-                    receiptData['receiptNumber']?.toString() ?? '',
-                total:
-                    (receiptData['total'] as num?)?.toDouble() ?? 0,
-                paymentMode:
-                    receiptData['paymentMode']?.toString() ?? 'CASH',
+                receiptNumber: receiptData['receiptNumber']?.toString() ?? '',
+                total: (receiptData['total'] as num?)?.toDouble() ?? 0,
+                paymentMode: receiptData['paymentMode']?.toString() ?? 'CASH',
                 customerName: cart.contactName,
                 completedAt: DateTime.now(),
               ),
@@ -654,9 +669,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       _searchFocusNode.requestFocus();
     } catch (e) {
       if (!mounted) return;
-      final message = e is DioException
-          ? ApiErrorParser.message(e)
-          : e.toString();
+      final message =
+          e is DioException ? ApiErrorParser.message(e) : e.toString();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
@@ -679,7 +693,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final now = DateTime.now();
     return {
       if (cart.contactId != null) 'contactId': cart.contactId,
-      'receiptDate': '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
+      'receiptDate':
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
       'paymentMode': paymentResult['paymentMode'],
       'amountReceived': paymentResult['amountReceived'],
       if (paymentResult['upiReference'] != null)
@@ -703,8 +718,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 if (item.unitConversionFactor != null)
                   'unitConversionFactor': item.unitConversionFactor,
                 if (item.isFreeItem) 'freeItem': true,
-                if (item.appliedSchemeId != null) 'appliedSchemeId': item.appliedSchemeId,
-                if (item.prescriptionNumber != null) 'prescriptionNumber': item.prescriptionNumber,
+                if (item.appliedSchemeId != null)
+                  'appliedSchemeId': item.appliedSchemeId,
+                if (item.prescriptionNumber != null)
+                  'prescriptionNumber': item.prescriptionNumber,
               })
           .toList(),
     };
@@ -864,7 +881,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       };
 
       repo.create(payload).catchError((e) {
-        debugPrint('[POS] _savePrescriptionRecords failed for Rx $rxNumber: $e');
+        debugPrint(
+            '[POS] _savePrescriptionRecords failed for Rx $rxNumber: $e');
+        return <String, dynamic>{};
       });
     }
   }
@@ -894,11 +913,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           : linkResponse;
       final shareUrl = linkData['shareUrl']?.toString() ?? '';
 
-      final receiptNumber =
-          receiptData['receiptNumber']?.toString() ?? '';
+      final receiptNumber = receiptData['receiptNumber']?.toString() ?? '';
       final total = (receiptData['total'] as num?)?.toDouble() ?? 0;
-      final paymentMode =
-          receiptData['paymentMode']?.toString() ?? 'CASH';
+      final paymentMode = receiptData['paymentMode']?.toString() ?? 'CASH';
 
       final message = 'Receipt from your store\n\n'
           'Receipt: $receiptNumber\n'
@@ -1049,11 +1066,13 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   // ── AppBar actions ───────────────────────────────────────────
 
-  List<Widget> _buildAppBarActions(BuildContext context, PosCartState posCartState) {
+  List<Widget> _buildAppBarActions(
+      BuildContext context, PosCartState posCartState) {
     final narrow = MediaQuery.of(context).size.width < 430;
     final hasItems = posCartState.items.isNotEmpty;
 
-    final hasNote = posCartState.notes != null && posCartState.notes!.isNotEmpty;
+    final hasNote =
+        posCartState.notes != null && posCartState.notes!.isNotEmpty;
 
     final primary = <Widget>[
       const PosCustomerButton(),
@@ -1089,7 +1108,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           size: 20,
           color: hasNote ? KColors.primary : null,
         ),
-        tooltip: hasNote ? 'Edit note (${posCartState.notes})' : 'Add note to receipt',
+        tooltip: hasNote
+            ? 'Edit note (${posCartState.notes})'
+            : 'Add note to receipt',
       ),
       if (hasItems)
         IconButton(
@@ -1274,8 +1295,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         return ListView.separated(
           padding: const EdgeInsets.only(bottom: 8),
           itemCount: results.length,
-          separatorBuilder: (_, __) =>
-              const Divider(height: 1, indent: 72),
+          separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
           itemBuilder: (context, index) {
             return PosItemSearchResult(
               item: results[index],
@@ -1306,9 +1326,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   KSpacing.vGapSm,
                   Text('Ready to sell',
                       style: KTypography.labelLarge.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurfaceVariant)),
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant)),
                   KSpacing.vGapSm,
                   Wrap(
                     spacing: 16,
@@ -1422,7 +1441,8 @@ class _RecentTransactionsPanel extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.receipt_long, size: 40, color: cs.outlineVariant),
+                    Icon(Icons.receipt_long,
+                        size: 40, color: cs.outlineVariant),
                     KSpacing.vGapSm,
                     Text('No recent sales',
                         style: KTypography.bodySmall
@@ -1449,7 +1469,8 @@ class _RecentTransactionsPanel extends ConsumerWidget {
                   return ListTile(
                     dense: true,
                     visualDensity: VisualDensity.compact,
-                    onTap: () => context.push('/sales-receipts/${tx.receiptId}'),
+                    onTap: () =>
+                        context.push('/sales-receipts/${tx.receiptId}'),
                     title: Row(
                       children: [
                         Flexible(
@@ -1462,8 +1483,8 @@ class _RecentTransactionsPanel extends ConsumerWidget {
                         ),
                         const SizedBox(width: 6),
                         Text(agoText,
-                            style: KTypography.bodySmall
-                                .copyWith(color: KColors.textSecondary, fontSize: 10)),
+                            style: KTypography.bodySmall.copyWith(
+                                color: KColors.textSecondary, fontSize: 10)),
                       ],
                     ),
                     subtitle: Text(
@@ -1481,7 +1502,8 @@ class _RecentTransactionsPanel extends ConsumerWidget {
                         const SizedBox(width: 4),
                         IconButton(
                           icon: const Icon(Icons.print, size: 16),
-                          onPressed: () => onAction({'action': 'print', 'receiptId': tx.receiptId}),
+                          onPressed: () => onAction(
+                              {'action': 'print', 'receiptId': tx.receiptId}),
                           visualDensity: VisualDensity.compact,
                           constraints: const BoxConstraints(),
                           padding: const EdgeInsets.all(4),
@@ -1489,7 +1511,10 @@ class _RecentTransactionsPanel extends ConsumerWidget {
                         ),
                         IconButton(
                           icon: const Icon(Icons.send, size: 16),
-                          onPressed: () => onAction({'action': 'whatsapp', 'receiptId': tx.receiptId}),
+                          onPressed: () => onAction({
+                            'action': 'whatsapp',
+                            'receiptId': tx.receiptId
+                          }),
                           visualDensity: VisualDensity.compact,
                           constraints: const BoxConstraints(),
                           padding: const EdgeInsets.all(4),

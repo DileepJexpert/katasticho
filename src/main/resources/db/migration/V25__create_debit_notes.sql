@@ -14,6 +14,7 @@ CREATE TABLE debit_note (
     tax_amount      DECIMAL(19,4) NOT NULL DEFAULT 0,
     total_amount    DECIMAL(19,4) NOT NULL DEFAULT 0,
     is_deleted      BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by      UUID,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

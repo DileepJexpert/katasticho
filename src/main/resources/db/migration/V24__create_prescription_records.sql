@@ -11,6 +11,7 @@ CREATE TABLE prescription_record (
     valid_until         DATE,
     notes               TEXT,
     is_deleted          BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by          UUID,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

@@ -28,7 +28,6 @@ import '../widgets/branch_selector_widget.dart';
 import '../widgets/date_range_picker_widget.dart';
 import '../widgets/finance_command_center.dart';
 import '../widgets/so_alerts_card.dart';
-import '../../pharma/presentation/drug_license_alert_card.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -60,7 +59,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final isRetail = config.vertical == DashboardVertical.retail ||
         config.vertical == DashboardVertical.pharmacy ||
         config.vertical == DashboardVertical.foodBeverage;
+    final isOrderDriven = config.vertical == DashboardVertical.distributor ||
+        config.vertical == DashboardVertical.manufacturer;
     final role = authState.role?.toUpperCase() ?? 'OWNER';
+    final isCashier = role == 'OPERATOR' || role == 'CASHIER';
+    final primaryRoute = isCashier || isRetail
+        ? '/pos'
+        : isOrderDriven
+            ? '/sales-orders/create'
+            : '/invoices/create';
+    final primaryIcon = isCashier || isRetail
+        ? Icons.point_of_sale_rounded
+        : isOrderDriven
+            ? Icons.assignment_rounded
+            : Icons.add;
+    final primaryLabel = isCashier || isRetail
+        ? 'New Sale'
+        : isOrderDriven
+            ? 'Sales Order'
+            : 'New Invoice';
 
     // Accountant role redirects to accounting dashboard
     if (role == 'ACCOUNTANT' && !_redirected) {
@@ -74,8 +91,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     // Cashier/Operator sees simplified POS-only view
-    final isCashier = role == 'OPERATOR' || role == 'CASHIER';
-
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () async {
@@ -123,15 +138,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go(
-          isCashier || isRetail ? '/pos' : '/invoices/create',
-        ),
-        icon: Icon(
-          isCashier || isRetail ? Icons.point_of_sale_rounded : Icons.add,
-        ),
-        label: Text(
-          isCashier || isRetail ? 'New Sale' : 'New Invoice',
-        ),
+        onPressed: () => context.go(primaryRoute),
+        icon: Icon(primaryIcon),
+        label: Text(primaryLabel),
       ),
     );
   }
