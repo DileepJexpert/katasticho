@@ -210,6 +210,11 @@ const _purchasesGroup = NavGroup(
         icon: Icons.local_shipping_outlined,
         activeIcon: Icons.local_shipping_rounded,
         route: Routes.stockReceipts),
+    NavItem(
+        label: 'Purchase Orders',
+        icon: Icons.shopping_cart_outlined,
+        activeIcon: Icons.shopping_cart_rounded,
+        route: Routes.purchaseOrders),
   ],
 );
 

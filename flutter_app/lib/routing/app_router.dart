@@ -66,6 +66,9 @@ import '../features/inventory/presentation/generate_variants_screen.dart';
 import '../features/procurement/presentation/stock_receipt_list_screen.dart';
 import '../features/procurement/presentation/stock_receipt_create_screen.dart';
 import '../features/procurement/presentation/stock_receipt_detail_screen.dart';
+import '../features/procurement/presentation/purchase_order_list_screen.dart';
+import '../features/procurement/presentation/purchase_order_create_screen.dart';
+import '../features/procurement/presentation/purchase_order_detail_screen.dart';
 import '../features/pricing/presentation/price_list_list_screen.dart';
 import '../features/pricing/presentation/price_list_create_screen.dart';
 import '../features/pricing/presentation/price_list_detail_screen.dart';
@@ -157,6 +160,9 @@ class Routes {
   static const stockReceipts = '/stock-receipts';
   static const stockReceiptCreate = '/stock-receipts/create';
   static const stockReceiptDetail = '/stock-receipts/:id';
+  static const purchaseOrders = '/purchase-orders';
+  static const purchaseOrderCreate = '/purchase-orders/create';
+  static const purchaseOrderDetail = '/purchase-orders/:id';
   static const reports = '/reports';
   static const trialBalance = '/reports/trial-balance';
   static const profitLoss = '/reports/profit-loss';
@@ -816,6 +822,23 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/stock-receipts/:id',
             builder: (context, state) => StockReceiptDetailScreen(
               receiptId: state.pathParameters['id']!,
+            ),
+          ),
+          // Purchase Orders
+          GoRoute(
+            path: Routes.purchaseOrders,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PurchaseOrderListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.purchaseOrderCreate,
+            builder: (context, state) => const PurchaseOrderCreateScreen(),
+          ),
+          GoRoute(
+            path: '/purchase-orders/:id',
+            builder: (context, state) => PurchaseOrderDetailScreen(
+              poId: state.pathParameters['id']!,
             ),
           ),
           GoRoute(

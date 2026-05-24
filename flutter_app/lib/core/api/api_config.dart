@@ -427,4 +427,12 @@ class ApiConfig {
   static String schemeById(String id) => '/api/v1/schemes/$id';
   static String schemesApplicable(String itemId, double qty) =>
       '/api/v1/schemes/applicable?itemId=$itemId&quantity=$qty';
+
+  // Purchase Orders
+  static const String purchaseOrders = '/api/v1/purchase-orders';
+  static String purchaseOrderById(String id) => '/api/v1/purchase-orders/$id';
+  static String sendPurchaseOrder(String id) =>
+      '/api/v1/purchase-orders/$id/send';
+  static String cancelPurchaseOrder(String id) =>
+      '/api/v1/purchase-orders/$id/cancel';
 }
