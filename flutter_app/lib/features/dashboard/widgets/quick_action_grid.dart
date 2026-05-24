@@ -12,22 +12,29 @@ class QuickActionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final isDesktop = width >= KSpacing.desktopBreakpoint;
-    final crossAxisCount = isDesktop ? 4 : 2;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final crossAxisCount = width >= 720
+            ? 4
+            : width >= 460
+                ? 2
+                : 1;
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        crossAxisSpacing: KSpacing.sm,
-        mainAxisSpacing: KSpacing.sm,
-        mainAxisExtent: isDesktop ? 72 : 78,
-      ),
-      itemCount: actions.length,
-      itemBuilder: (context, index) =>
-          _QuickActionBlock(action: actions[index]),
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: KSpacing.sm,
+            mainAxisSpacing: KSpacing.sm,
+            mainAxisExtent: crossAxisCount == 1 ? 54 : 72,
+          ),
+          itemCount: actions.length,
+          itemBuilder: (context, index) =>
+              _QuickActionBlock(action: actions[index]),
+        );
+      },
     );
   }
 }
