@@ -69,6 +69,9 @@ import '../features/procurement/presentation/stock_receipt_detail_screen.dart';
 import '../features/procurement/presentation/purchase_order_list_screen.dart';
 import '../features/procurement/presentation/purchase_order_create_screen.dart';
 import '../features/procurement/presentation/purchase_order_detail_screen.dart';
+import '../features/procurement/presentation/debit_notes_screen.dart';
+import '../features/procurement/presentation/create_debit_note_screen.dart';
+import '../features/procurement/presentation/debit_note_detail_screen.dart';
 import '../features/pricing/presentation/price_list_list_screen.dart';
 import '../features/pricing/presentation/price_list_create_screen.dart';
 import '../features/pricing/presentation/price_list_detail_screen.dart';
@@ -119,6 +122,10 @@ import '../features/platform_admin/presentation/platform_admin_orgs_screen.dart'
 import '../features/platform_admin/presentation/platform_admin_users_screen.dart';
 import '../features/platform_admin/presentation/platform_admin_audit_screen.dart';
 import '../features/platform_admin/data/platform_admin_auth_state.dart';
+import '../features/pharma/presentation/drug_licenses_screen.dart';
+import '../features/pharma/presentation/add_prescription_screen.dart';
+import '../features/pharma/presentation/prescription_history_screen.dart';
+import '../features/loyalty/presentation/wallet_history_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -163,6 +170,10 @@ class Routes {
   static const purchaseOrders = '/purchase-orders';
   static const purchaseOrderCreate = '/purchase-orders/create';
   static const purchaseOrderDetail = '/purchase-orders/:id';
+  // Debit Notes (Purchase Returns)
+  static const debitNotes = '/debit-notes';
+  static const debitNoteCreate = '/debit-notes/create';
+  static const debitNoteDetail = '/debit-notes/:id';
   static const reports = '/reports';
   static const trialBalance = '/reports/trial-balance';
   static const profitLoss = '/reports/profit-loss';
@@ -248,6 +259,15 @@ class Routes {
   static const resetPassword = '/reset-password';
   static const verifyEmailPending = '/verify-email-pending';
   static const accountPendingApproval = '/account-pending-approval';
+  // Pharma features
+  static const drugLicenses = '/pharma/drug-licenses';
+  static const prescriptionHistory = '/pharma/prescriptions/:contactId';
+  static String prescriptionHistoryPath(String contactId) => '/pharma/prescriptions/$contactId';
+
+  // Loyalty Wallet
+  static const walletHistory = '/loyalty/wallet/:contactId';
+  static String walletHistoryPath(String contactId) => '/loyalty/wallet/$contactId';
+
   static const platformAdmin = '/platform-admin';
   static const platformAdminLogin = '/platform-admin/login';
   static const platformAdminDashboard = '/platform-admin/dashboard';
@@ -777,6 +797,49 @@ final routerProvider = Provider<GoRouter>((ref) {
               child: NearExpiryScreen(),
             ),
           ),
+          // Pharma — Drug Licenses & Compliance
+          GoRoute(
+            path: Routes.drugLicenses,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DrugLicensesScreen(),
+            ),
+          ),
+          // Pharma — Prescription History (per patient)
+          GoRoute(
+            path: Routes.prescriptionHistory,
+            builder: (context, state) {
+              final contactId = state.pathParameters['contactId']!;
+              final extra = state.extra;
+              String? contactName;
+              if (extra is Map<String, dynamic>) {
+                contactName = extra['contactName'] as String?;
+              } else if (extra is String) {
+                contactName = extra;
+              }
+              return PrescriptionHistoryScreen(
+                contactId: contactId,
+                contactName: contactName,
+              );
+            },
+          ),
+          // Loyalty — Wallet History (per contact)
+          GoRoute(
+            path: Routes.walletHistory,
+            builder: (context, state) {
+              final contactId = state.pathParameters['contactId']!;
+              final extra = state.extra;
+              String? contactName;
+              if (extra is Map<String, dynamic>) {
+                contactName = extra['contactName'] as String?;
+              } else if (extra is String) {
+                contactName = extra;
+              }
+              return WalletHistoryScreen(
+                contactId: contactId,
+                contactName: contactName,
+              );
+            },
+          ),
           // F5 — item groups (variant templates).
           GoRoute(
             path: Routes.itemGroups,
@@ -839,6 +902,27 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/purchase-orders/:id',
             builder: (context, state) => PurchaseOrderDetailScreen(
               poId: state.pathParameters['id']!,
+            ),
+          ),
+          // Debit Notes (Purchase Returns)
+          GoRoute(
+            path: Routes.debitNotes,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DebitNotesScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.debitNoteCreate,
+            builder: (context, state) => CreateDebitNoteScreen(
+              prefillExpiryDate: state.extra is DateTime
+                  ? state.extra as DateTime
+                  : null,
+            ),
+          ),
+          GoRoute(
+            path: '/debit-notes/:id',
+            builder: (context, state) => DebitNoteDetailScreen(
+              debitNoteId: state.pathParameters['id']!,
             ),
           ),
           GoRoute(

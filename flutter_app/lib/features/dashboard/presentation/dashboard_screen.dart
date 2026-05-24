@@ -28,6 +28,7 @@ import '../widgets/branch_selector_widget.dart';
 import '../widgets/date_range_picker_widget.dart';
 import '../widgets/finance_command_center.dart';
 import '../widgets/so_alerts_card.dart';
+import '../../pharma/presentation/drug_license_alert_card.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});

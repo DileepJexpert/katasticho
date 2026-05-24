@@ -34,6 +34,10 @@ import '../../inventory/data/batch_repository.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../pricing/data/scheme_repository.dart';
 import '../../../core/auth/auth_state.dart';
+import '../../loyalty/data/wallet_repository.dart';
+import '../../loyalty/presentation/wallet_balance_chip.dart';
+import '../../loyalty/presentation/wallet_history_screen.dart';
+import '../../pharma/data/prescription_repository.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -49,6 +53,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   Timer? _debounce;
   bool _isSubmitting = false;
   bool _showRecentPanel = false;
+
+  // Wallet redemption — amount chosen by cashier for the current sale.
+  double _walletRedeemAmount = 0;
+  String? _walletRedeemContactId; // matches the cart's contactId
 
   @override
   void dispose() {
@@ -534,6 +542,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       return;
     }
 
+    if (cart.hasMrpViolation) {
+      final names = cart.mrpViolatedItems.map((i) => i.name).join(', ');
+      _showErrorSnackBar('Sale blocked — rate exceeds MRP for: $names');
+      return;
+    }
+
     if (cart.hasStockExceededItems) {
       final item = cart.firstStockExceededItem!;
       _showErrorSnackBar(
@@ -603,6 +617,35 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 completedAt: DateTime.now(),
               ),
             );
+      }
+
+      // Earn loyalty points — fire and forget, never block POS flow
+      if (cart.contactId != null && receiptId != null) {
+        _earnLoyaltyPoints(
+          contactId: cart.contactId!,
+          saleTotal: cart.total,
+          receiptId: receiptId,
+        );
+      }
+
+      // Redeem queued wallet points — fire and forget
+      if (_walletRedeemAmount > 0 &&
+          _walletRedeemContactId != null &&
+          _walletRedeemContactId == cart.contactId &&
+          receiptId != null) {
+        _redeemLoyaltyPoints(
+          contactId: _walletRedeemContactId!,
+          redeemAmount: _walletRedeemAmount,
+          receiptId: receiptId,
+        );
+        // Reset redemption state
+        _walletRedeemAmount = 0;
+        _walletRedeemContactId = null;
+      }
+
+      // Save prescription records — fire and forget, never block POS flow
+      if (receiptId != null) {
+        _savePrescriptionRecords(receiptId, cart);
       }
 
       // Refresh recent bills and clear cart for next sale
@@ -689,6 +732,140 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         break;
       case SuccessAction.skip:
         break;
+    }
+  }
+
+  /// Fire-and-forget: earn loyalty points after a successful sale.
+  /// Never throws — errors are swallowed so the POS flow is never interrupted.
+  void _earnLoyaltyPoints({
+    required String contactId,
+    required double saleTotal,
+    required String receiptId,
+  }) {
+    final earnedAmount = (saleTotal / 100).floor();
+    ref
+        .read(walletRepositoryProvider)
+        .earnPoints(
+          contactId: contactId,
+          saleTotal: saleTotal,
+          receiptId: receiptId,
+        )
+        .then((_) {
+      if (mounted && earnedAmount > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '₹$earnedAmount loyalty point${earnedAmount == 1 ? '' : 's'} added to wallet'),
+            backgroundColor: KColors.success,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        // Invalidate wallet cache so next open shows fresh balance
+        ref.invalidate(contactWalletProvider(contactId));
+      }
+    }).catchError((e) {
+      debugPrint('[POS] earnLoyaltyPoints failed (non-blocking): $e');
+    });
+  }
+
+  /// Called when the cashier confirms a wallet redemption amount from the chip dialog.
+  void _onWalletRedeem(double amount, PosCartState cart) {
+    if (amount <= 0 || cart.contactId == null) return;
+    setState(() {
+      _walletRedeemAmount = amount;
+      _walletRedeemContactId = cart.contactId;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+            '₹${amount.toStringAsFixed(0)} wallet redemption queued — will be applied at checkout'),
+        backgroundColor: KColors.success,
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'Clear',
+          textColor: Colors.white,
+          onPressed: () {
+            setState(() {
+              _walletRedeemAmount = 0;
+              _walletRedeemContactId = null;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Fire-and-forget: redeem loyalty points after a successful sale.
+  void _redeemLoyaltyPoints({
+    required String contactId,
+    required double redeemAmount,
+    required String receiptId,
+  }) {
+    ref
+        .read(walletRepositoryProvider)
+        .redeemPoints(
+          contactId: contactId,
+          redeemAmount: redeemAmount,
+          receiptId: receiptId,
+        )
+        .then((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '₹${redeemAmount.toStringAsFixed(0)} redeemed from wallet'),
+            backgroundColor: KColors.success,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        ref.invalidate(contactWalletProvider(contactId));
+      }
+    }).catchError((e) {
+      debugPrint('[POS] redeemLoyaltyPoints failed (non-blocking): $e');
+    });
+  }
+
+  /// Groups cart items by prescriptionNumber and posts a prescription record
+  /// for each unique Rx number. Fire-and-forget — never blocks the POS flow.
+  void _savePrescriptionRecords(String receiptId, PosCartState cart) {
+    // Collect items that have a prescriptionNumber
+    final prescribedItems =
+        cart.items.where((i) => i.prescriptionNumber != null).toList();
+    if (prescribedItems.isEmpty) return;
+
+    // Group by prescriptionNumber
+    final Map<String, List<CartItem>> grouped = {};
+    for (final item in prescribedItems) {
+      final rxNum = item.prescriptionNumber!;
+      grouped.putIfAbsent(rxNum, () => []).add(item);
+    }
+
+    final repo = ref.read(prescriptionRepositoryProvider);
+    final now = DateTime.now();
+    final todayStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    for (final entry in grouped.entries) {
+      final rxNumber = entry.key;
+      final items = entry.value;
+
+      final payload = {
+        if (cart.contactId != null) 'contactId': cart.contactId,
+        'receiptId': receiptId,
+        'prescriptionNumber': rxNumber,
+        'prescribedDate': todayStr,
+        'items': items
+            .map((i) => {
+                  'itemName': i.name,
+                  'quantity': i.quantity,
+                  if (i.itemId != null) 'itemId': i.itemId,
+                })
+            .toList(),
+      };
+
+      repo.create(payload).catchError((e) {
+        debugPrint('[POS] _savePrescriptionRecords failed for Rx $rxNumber: $e');
+      });
     }
   }
 
@@ -880,6 +1057,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     final primary = <Widget>[
       const PosCustomerButton(),
+      if (posCartState.hasCustomer) ...[
+        const SizedBox(width: 4),
+        WalletBalanceChip(
+          contactId: posCartState.contactId!,
+          cartTotal: posCartState.total,
+          onRedeem: (amount) => _onWalletRedeem(amount, posCartState),
+        ),
+      ],
       const SizedBox(width: 4),
       IconButton(
         onPressed: _scanBarcode,

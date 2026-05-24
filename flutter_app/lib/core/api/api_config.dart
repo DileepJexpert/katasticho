@@ -372,6 +372,17 @@ class ApiConfig {
   static String creditReminderMarkSent(String contactId) =>
       '/api/v1/ar/credit-reminders/$contactId/mark-sent';
 
+  // Loyalty / Customer Wallet
+  static const String wallet = '/api/v1/wallet';
+  static String walletByContact(String contactId) =>
+      '/api/v1/wallet/contact/$contactId';
+  static String walletTransactions(String contactId) =>
+      '/api/v1/wallet/contact/$contactId/transactions';
+  static String walletRedeemable(String contactId) =>
+      '/api/v1/wallet/contact/$contactId/redeemable';
+  static const String walletEarn = '/api/v1/wallet/earn';
+  static const String walletRedeem = '/api/v1/wallet/redeem';
+
   // POS — Sales Receipts
   static const String salesReceipts = '/api/v1/sales-receipts';
   static String salesReceiptById(String id) => '/api/v1/sales-receipts/$id';
@@ -429,6 +440,19 @@ class ApiConfig {
   static String schemesApplicable(String itemId, double qty) =>
       '/api/v1/schemes/applicable?itemId=$itemId&quantity=$qty';
 
+  // Drug Licenses & Compliance (pharma)
+  static const String drugLicenses = '/api/v1/drug-licenses';
+  static String drugLicenseById(String id) => '/api/v1/drug-licenses/$id';
+  static const String drugLicensesExpiring = '/api/v1/drug-licenses/expiring';
+
+  // Pharma — Prescriptions
+  static const String prescriptions = '/api/v1/prescriptions';
+  static String prescriptionById(String id) => '/api/v1/prescriptions/$id';
+  static String prescriptionsByContact(String contactId) =>
+      '/api/v1/prescriptions/by-contact/$contactId';
+  static String prescriptionsByReceipt(String receiptId) =>
+      '/api/v1/prescriptions/by-receipt/$receiptId';
+
   // Purchase Orders
   static const String purchaseOrders = '/api/v1/purchase-orders';
   static String purchaseOrderById(String id) => '/api/v1/purchase-orders/$id';
@@ -436,4 +460,9 @@ class ApiConfig {
       '/api/v1/purchase-orders/$id/send';
   static String cancelPurchaseOrder(String id) =>
       '/api/v1/purchase-orders/$id/cancel';
+
+  // Debit Notes (Supplier / Purchase Returns)
+  static const String debitNotes = '/api/v1/debit-notes';
+  static String debitNoteById(String id) => '/api/v1/debit-notes/$id';
+  static String submitDebitNote(String id) => '/api/v1/debit-notes/$id/submit';
 }

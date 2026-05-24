@@ -223,6 +223,13 @@ class PosCartState {
 
   bool get hasStockExceededItems => items.any((item) => item.exceedsStock);
 
+  /// Items where the selling rate exceeds MRP (illegal in India for regulated medicines).
+  List<CartItem> get mrpViolatedItems => items
+      .where((i) => !i.isFreeItem && i.mrp != null && i.mrp! > 0 && i.effectiveRate > i.mrp!)
+      .toList();
+
+  bool get hasMrpViolation => mrpViolatedItems.isNotEmpty;
+
   double get schemeSavings {
     double savings = 0;
     for (final item in items) {

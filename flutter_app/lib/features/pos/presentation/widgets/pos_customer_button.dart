@@ -4,6 +4,7 @@ import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_typography.dart';
 import '../../../contacts/data/contact_repository.dart';
 import '../../../contacts/presentation/contact_picker_sheet.dart';
+import '../../../loyalty/presentation/wallet_history_screen.dart';
 import '../../data/pos_cart_state.dart';
 import 'pos_customer_history_sheet.dart';
 
@@ -56,7 +57,7 @@ class PosCustomerButton extends ConsumerWidget {
             visualDensity: VisualDensity.compact,
           ),
         ),
-        if (hasCustomer)
+        if (hasCustomer) ...[
           IconButton(
             icon: const Icon(Icons.history, size: 18),
             color: cs.primary,
@@ -68,6 +69,22 @@ class PosCustomerButton extends ConsumerWidget {
               contactName: cart.contactName ?? '',
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.account_balance_wallet_outlined,
+                size: 18),
+            color: cs.primary,
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Wallet & loyalty points',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => WalletHistoryScreen(
+                  contactId: cart.contactId!,
+                  contactName: cart.contactName,
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

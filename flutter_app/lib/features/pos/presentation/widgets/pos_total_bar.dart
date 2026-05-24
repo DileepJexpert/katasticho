@@ -43,6 +43,33 @@ class PosTotalBar extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (cart.hasMrpViolation)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: KColors.error.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: KColors.error.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.gpp_bad_outlined, size: 14, color: KColors.error),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Above MRP: ${cart.mrpViolatedItems.map((i) => i.name).join(', ')}',
+                        style: const TextStyle(
+                          fontSize: 11, color: KColors.error, fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             if (!cart.isEmpty) ...[
               if (cart.schemeSavings > 0)
                 Container(
