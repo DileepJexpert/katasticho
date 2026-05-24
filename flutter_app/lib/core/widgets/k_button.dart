@@ -107,18 +107,18 @@ class KButton extends StatelessWidget {
 
   /// Visible button height (not tap target — M3 still expands hit area to 48dp).
   double get _minHeight => switch (size) {
-        KButtonSize.small => 32,
-        KButtonSize.medium => 38,
-        KButtonSize.large => 44,
+        KButtonSize.small => 30,
+        KButtonSize.medium => 36,
+        KButtonSize.large => 42,
       };
 
   EdgeInsets get _padding => switch (size) {
         KButtonSize.small =>
-          const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+          const EdgeInsets.symmetric(horizontal: 9, vertical: 0),
         KButtonSize.medium =>
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
         KButtonSize.large =>
-          const EdgeInsets.symmetric(horizontal: 18, vertical: 0),
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       };
 
   TextStyle get _textStyle => switch (size) {

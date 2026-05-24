@@ -50,12 +50,16 @@ class KDataTable extends StatelessWidget {
           headingRowColor: WidgetStateProperty.all(
             cs.surfaceContainerHighest.withValues(alpha: 0.5),
           ),
-          headingTextStyle: KTypography.labelLarge.copyWith(
+          headingRowHeight: 38,
+          dataRowMinHeight: 42,
+          dataRowMaxHeight: 50,
+          headingTextStyle: KTypography.labelMedium.copyWith(
             color: cs.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
           ),
           dataTextStyle: KTypography.bodyMedium.copyWith(color: cs.onSurface),
-          columnSpacing: KSpacing.md,
-          horizontalMargin: KSpacing.md,
+          columnSpacing: 12,
+          horizontalMargin: 10,
           dividerThickness: 0.5,
           columns: columns
               .map((col) => DataColumn(
@@ -65,9 +69,7 @@ class KDataTable extends StatelessWidget {
               .toList(),
           rows: rows
               .map((row) => DataRow(
-                    cells: row
-                        .map((cell) => DataCell(cell))
-                        .toList(),
+                    cells: row.map((cell) => DataCell(cell)).toList(),
                   ))
               .toList(),
         ),
@@ -95,12 +97,12 @@ class KDetailRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 140,
+            width: 124,
             child: Text(
               label,
               style: KTypography.bodySmall.copyWith(

@@ -24,36 +24,42 @@ class SalesOrderDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sales Order'),
+        leading: IconButton(
+          tooltip: 'Back to sales orders',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go(Routes.salesOrders),
+        ),
         actions: [
           orderAsync.whenOrNull(
-            data: (data) {
-              final order = (data['data'] ?? data) as Map<String, dynamic>;
-              final status = order['status'] as String? ?? '';
-              return PopupMenuButton<String>(
-                onSelected: (value) =>
-                    _handleAction(context, ref, value, status),
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                      value: 'pdf', child: Text('Download PDF')),
-                  if (status == 'DRAFT') ...[
-                    const PopupMenuItem(
-                        value: 'confirm', child: Text('Confirm')),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Text('Delete',
-                          style: TextStyle(color: KColors.error)),
-                    ),
-                  ],
-                  if (status == 'CONFIRMED' || status == 'BACKORDER')
-                    const PopupMenuItem(
-                      value: 'cancel',
-                      child: Text('Cancel Full Order',
-                          style: TextStyle(color: KColors.error)),
-                    ),
-                ],
-              );
-            },
-          ) ?? const SizedBox.shrink(),
+                data: (data) {
+                  final order = (data['data'] ?? data) as Map<String, dynamic>;
+                  final status = order['status'] as String? ?? '';
+                  return PopupMenuButton<String>(
+                    onSelected: (value) =>
+                        _handleAction(context, ref, value, status),
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                          value: 'pdf', child: Text('Download PDF')),
+                      if (status == 'DRAFT') ...[
+                        const PopupMenuItem(
+                            value: 'confirm', child: Text('Confirm')),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Delete',
+                              style: TextStyle(color: KColors.error)),
+                        ),
+                      ],
+                      if (status == 'CONFIRMED' || status == 'BACKORDER')
+                        const PopupMenuItem(
+                          value: 'cancel',
+                          child: Text('Cancel Full Order',
+                              style: TextStyle(color: KColors.error)),
+                        ),
+                    ],
+                  );
+                },
+              ) ??
+              const SizedBox.shrink(),
         ],
       ),
       body: orderAsync.when(
@@ -231,7 +237,6 @@ class _SalesOrderDetailBody extends ConsumerWidget {
     required this.salesOrderId,
   });
 
-  @override
   Future<void> _closeBackorderLines(
       BuildContext context, WidgetRef ref, List<String> lineIds) async {
     final reasonCtl = TextEditingController();
@@ -271,7 +276,8 @@ class _SalesOrderDetailBody extends ConsumerWidget {
     if (ok != true) return;
     try {
       final repo = ref.read(salesOrderRepositoryProvider);
-      await repo.closeBackorderLines(salesOrderId, lineIds, reasonCtl.text.trim());
+      await repo.closeBackorderLines(
+          salesOrderId, lineIds, reasonCtl.text.trim());
       ref.invalidate(salesOrderDetailProvider(salesOrderId));
       ref.invalidate(salesOrderListProvider);
       if (context.mounted) {
@@ -412,8 +418,7 @@ class _SalesOrderDetailBody extends ConsumerWidget {
               _SalesOrderItemsPanel(
                 lines: lines,
                 status: status,
-                onCloseLines: (ids) =>
-                    _closeBackorderLines(context, ref, ids),
+                onCloseLines: (ids) => _closeBackorderLines(context, ref, ids),
               ),
               KSpacing.vGapMd,
               _TotalsPanel(

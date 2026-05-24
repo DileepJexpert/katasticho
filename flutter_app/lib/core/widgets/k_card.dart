@@ -43,7 +43,7 @@ class KCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final r = radius ?? KSpacing.radiusLg;
+    final r = radius ?? KSpacing.radiusMd;
     final br = BorderRadius.circular(r);
 
     // Katasticho 2026: borders over shadows. Shadows reserved for floating
@@ -51,12 +51,15 @@ class KCard extends StatelessWidget {
     const defaultShadow = <BoxShadow>[];
 
     final content = Padding(
-      padding: padding ?? const EdgeInsets.all(KSpacing.md),
+      padding: padding ?? KSpacing.cardPadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (title != null || subtitle != null || action != null || leading != null) ...[
+          if (title != null ||
+              subtitle != null ||
+              action != null ||
+              leading != null) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -73,9 +76,8 @@ class KCard extends StatelessWidget {
                         Text(
                           title!,
                           style: KTypography.h4.copyWith(
-                            color: gradient != null
-                                ? Colors.white
-                                : cs.onSurface,
+                            color:
+                                gradient != null ? Colors.white : cs.onSurface,
                           ),
                         ),
                       if (subtitle != null) ...[
@@ -95,7 +97,7 @@ class KCard extends StatelessWidget {
                 if (action != null) action!,
               ],
             ),
-            KSpacing.vGapMd,
+            KSpacing.vGapSm,
           ],
           child,
         ],
@@ -106,9 +108,7 @@ class KCard extends StatelessWidget {
       duration: const Duration(milliseconds: 150),
       margin: margin ?? EdgeInsets.zero,
       decoration: BoxDecoration(
-        color: gradient == null
-            ? (backgroundColor ?? cs.surface)
-            : null,
+        color: gradient == null ? (backgroundColor ?? cs.surface) : null,
         gradient: gradient,
         borderRadius: br,
         border: gradient == null
@@ -185,7 +185,7 @@ class KKpiCard extends StatelessWidget {
     return KCard(
       onTap: onTap,
       backgroundColor: accent.withValues(alpha: 0.03),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

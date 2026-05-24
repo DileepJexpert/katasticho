@@ -22,16 +22,20 @@ class KStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final displayLabel = label ?? _formatStatus(status);
     final color = KColors.statusColor(status);
-    final bgColor = KColors.statusBgColor(status);
+    final brightness = Theme.of(context).brightness;
+    final bgColor = brightness == Brightness.dark
+        ? color.withValues(alpha: 0.16)
+        : KColors.statusBgColor(status);
 
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: dense ? 7 : 9,
-        vertical: dense ? 2 : 3,
+        horizontal: dense ? 6 : 8,
+        vertical: dense ? 2 : 2,
       ),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(KSpacing.radiusRound),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -44,7 +48,7 @@ class KStatusChip extends StatelessWidget {
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 4),
           Text(
             displayLabel,
             overflow: TextOverflow.ellipsis,

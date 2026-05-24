@@ -76,12 +76,6 @@ class KDialog extends StatelessWidget {
       barrierDismissible: true,
       builder: (dialogCtx) => KDialog(
         title: title,
-        child: Text(
-          message,
-          style: KTypography.bodyMedium.copyWith(
-            color: Theme.of(dialogCtx).colorScheme.onSurfaceVariant,
-          ),
-        ),
         actions: [
           KButton(
             label: cancelLabel,
@@ -90,12 +84,17 @@ class KDialog extends StatelessWidget {
           ),
           KButton(
             label: confirmLabel,
-            variant: destructive
-                ? KButtonVariant.danger
-                : KButtonVariant.primary,
+            variant:
+                destructive ? KButtonVariant.danger : KButtonVariant.primary,
             onPressed: () => Navigator.of(dialogCtx).pop(true),
           ),
         ],
+        child: Text(
+          message,
+          style: KTypography.bodyMedium.copyWith(
+            color: Theme.of(dialogCtx).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ),
     );
     return result == true;
@@ -104,12 +103,12 @@ class KDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final radius = BorderRadius.circular(KSpacing.radiusXl);
+    final radius = BorderRadius.circular(KSpacing.radiusLg);
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(
         horizontal: KSpacing.md,
-        vertical: KSpacing.lg,
+        vertical: KSpacing.md,
       ),
       backgroundColor: cs.surface,
       surfaceTintColor: Colors.transparent,
@@ -124,10 +123,10 @@ class KDialog extends StatelessWidget {
             // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(
-                KSpacing.md + 4,
                 KSpacing.md,
+                10,
                 KSpacing.sm,
-                KSpacing.md,
+                10,
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -156,10 +155,10 @@ class KDialog extends StatelessWidget {
               child: SingleChildScrollView(
                 padding: bodyPadding ??
                     const EdgeInsets.fromLTRB(
-                      KSpacing.md + 4,
                       KSpacing.md,
-                      KSpacing.md + 4,
+                      12,
                       KSpacing.md,
+                      12,
                     ),
                 child: child,
               ),
@@ -171,9 +170,9 @@ class KDialog extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   KSpacing.md,
-                  KSpacing.sm + 2,
+                  KSpacing.sm,
                   KSpacing.md,
-                  KSpacing.sm + 2,
+                  KSpacing.sm,
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,

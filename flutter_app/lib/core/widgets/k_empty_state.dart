@@ -25,31 +25,31 @@ class KEmptyState extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 64,
-              height: 64,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 color: cs.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(KSpacing.radiusMd),
               ),
               child: Icon(
                 icon,
-                size: 28,
+                size: 22,
                 color: cs.primary,
               ),
             ),
-            KSpacing.vGapMd,
+            KSpacing.vGapSm,
             Text(
               title,
-              style: KTypography.h3.copyWith(color: cs.onSurface),
+              style: KTypography.h4.copyWith(color: cs.onSurface),
               textAlign: TextAlign.center,
             ),
             if (subtitle != null) ...[
-              KSpacing.vGapXs,
+              KSpacing.vGapXxs,
               Text(
                 subtitle!,
                 style: KTypography.bodySmall.copyWith(
@@ -59,10 +59,11 @@ class KEmptyState extends StatelessWidget {
               ),
             ],
             if (actionLabel != null && onAction != null) ...[
-              KSpacing.vGapMd,
+              KSpacing.vGapSm,
               KButton(
                 label: actionLabel!,
                 onPressed: onAction,
+                size: KButtonSize.small,
                 icon: Icons.add,
               ),
             ],

@@ -30,7 +30,7 @@ class KTopBar extends ConsumerWidget implements PreferredSizeWidget {
   });
 
   @override
-  Size get preferredSize => const Size.fromHeight(48);
+  Size get preferredSize => const Size.fromHeight(44);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,19 +39,18 @@ class KTopBar extends ConsumerWidget implements PreferredSizeWidget {
     final collapsed = ref.watch(sidebarCollapsedProvider);
 
     return Container(
-      height: 48,
+      height: 44,
       decoration: BoxDecoration(
         color: cs.surface,
         border: Border(
           bottom: BorderSide(
-            color: cs.outlineVariant.withValues(
-                alpha: isDark ? 0.4 : 0.6),
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.4 : 0.6),
             width: 1,
           ),
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         child: Row(
           children: [
             // Sidebar collapse toggle
@@ -59,19 +58,16 @@ class KTopBar extends ConsumerWidget implements PreferredSizeWidget {
               icon: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
                 child: Icon(
-                  collapsed
-                      ? Icons.menu_open_rounded
-                      : Icons.menu_rounded,
+                  collapsed ? Icons.menu_open_rounded : Icons.menu_rounded,
                   key: ValueKey(collapsed),
-                  size: 20,
+                  size: 19,
                 ),
               ),
               color: cs.onSurfaceVariant,
               tooltip: collapsed ? 'Expand sidebar' : 'Collapse sidebar',
               visualDensity: VisualDensity.compact,
-              onPressed: () => ref
-                  .read(sidebarCollapsedProvider.notifier)
-                  .toggle(),
+              onPressed: () =>
+                  ref.read(sidebarCollapsedProvider.notifier).toggle(),
             ),
 
             // Brand name (only when sidebar collapsed)
@@ -85,7 +81,7 @@ class KTopBar extends ConsumerWidget implements PreferredSizeWidget {
                         'Katasticho',
                         style: TextStyle(
                           color: cs.onSurface,
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.3,
                         ),
@@ -98,20 +94,19 @@ class KTopBar extends ConsumerWidget implements PreferredSizeWidget {
             Expanded(
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 400),
+                  constraints: const BoxConstraints(maxWidth: 420),
                   child: GestureDetector(
                     onTap: () => KCommandPalette.show(
                       context,
                       commands: buildAppCommands(),
                     ),
                     child: Container(
-                      height: 32,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      height: 30,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
                       decoration: BoxDecoration(
-                        color: cs.surfaceContainerHighest
-                            .withValues(alpha: 0.5),
-                        borderRadius:
-                            BorderRadius.circular(KSpacing.radiusMd),
+                        color:
+                            cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(KSpacing.radiusMd),
                         border: Border.all(
                           color: cs.outlineVariant.withValues(alpha: 0.6),
                           width: 1,
@@ -124,10 +119,10 @@ class KTopBar extends ConsumerWidget implements PreferredSizeWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Search or jump to…',
+                              'Search or jump to...',
                               style: KTypography.bodySmall.copyWith(
-                                color: cs.onSurfaceVariant
-                                    .withValues(alpha: 0.8),
+                                color:
+                                    cs.onSurfaceVariant.withValues(alpha: 0.8),
                               ),
                             ),
                           ),
@@ -141,7 +136,7 @@ class KTopBar extends ConsumerWidget implements PreferredSizeWidget {
                                   color: cs.outlineVariant, width: 1),
                             ),
                             child: Text(
-                              '⌘K',
+                              'Ctrl K',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
@@ -167,8 +162,7 @@ class KTopBar extends ConsumerWidget implements PreferredSizeWidget {
                 clipBehavior: Clip.none,
                 children: [
                   IconButton(
-                    icon:
-                        const Icon(Icons.notifications_outlined, size: 20),
+                    icon: const Icon(Icons.notifications_outlined, size: 19),
                     tooltip: 'Notifications',
                     color: cs.onSurfaceVariant,
                     visualDensity: VisualDensity.compact,

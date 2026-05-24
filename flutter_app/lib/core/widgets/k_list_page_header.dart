@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/k_colors.dart';
 import '../theme/k_spacing.dart';
 import '../theme/k_typography.dart';
 
@@ -59,7 +58,7 @@ class KListPageHeader extends StatefulWidget {
     this.tabs,
     this.selectedTab,
     this.onTabChanged,
-    this.searchHint = 'Search…',
+    this.searchHint = 'Search...',
     this.onSearchChanged,
     this.searchController,
     this.actions,
@@ -116,9 +115,7 @@ class _KListPageHeaderState extends State<KListPageHeader> {
 
     return Container(
       decoration: BoxDecoration(
-        color: inSelection
-            ? cs.primary.withValues(alpha: 0.08)
-            : cs.surface,
+        color: inSelection ? cs.primary.withValues(alpha: 0.08) : cs.surface,
         border: Border(
           bottom: BorderSide(
             color: cs.outlineVariant.withValues(alpha: isDark ? 0.4 : 0.7),
@@ -131,9 +128,9 @@ class _KListPageHeaderState extends State<KListPageHeader> {
         children: [
           // ── Title row ────────────────────────────────────────────
           SizedBox(
-            height: 52,
+            height: 46,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 180),
                 child: inSelection
@@ -168,7 +165,7 @@ class _KListPageHeaderState extends State<KListPageHeader> {
           if (hasTabs && !inSelection)
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               child: Row(
                 children: widget.tabs!.map((tab) {
                   final isActive = widget.selectedTab == tab.value;
@@ -209,7 +206,7 @@ class _TitleRow extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: KTypography.h2.copyWith(color: cs.onSurface),
+            style: KTypography.h3.copyWith(color: cs.onSurface),
             overflow: TextOverflow.ellipsis,
           ),
         ),
@@ -221,8 +218,7 @@ class _TitleRow extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             onPressed: onSearchTap,
           ),
-        if (actions != null)
-          ...actions!.map((a) => a),
+        if (actions != null) ...actions!.map((a) => a),
       ],
     );
   }
@@ -349,14 +345,15 @@ class _TabChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: active
               ? cs.primary.withValues(alpha: 0.1)
               : cs.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(KSpacing.radiusRound),
           border: Border.all(
-            color: active ? cs.primary.withValues(alpha: 0.4) : Colors.transparent,
+            color:
+                active ? cs.primary.withValues(alpha: 0.4) : Colors.transparent,
             width: 1,
           ),
         ),

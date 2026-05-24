@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,7 +10,6 @@ import '../../../core/utils/form_error_handler.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
-import '../../tax_groups/data/tax_group_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/stock_receipt_repository.dart';
 import 'supplier_picker_sheet.dart';
@@ -29,8 +27,7 @@ class StockReceiptCreateScreen extends ConsumerStatefulWidget {
 }
 
 class _StockReceiptCreateScreenState
-    extends ConsumerState<StockReceiptCreateScreen>
-    with FormErrorHandler {
+    extends ConsumerState<StockReceiptCreateScreen> with FormErrorHandler {
   int _currentStep = 0;
   bool _isSubmitting = false;
   String? _errorMessage;
@@ -133,7 +130,8 @@ class _StockReceiptCreateScreenState
       appBar: AppBar(
         title: const Text('New Goods Receipt'),
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          tooltip: 'Back to goods receipts',
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go(Routes.stockReceipts),
         ),
       ),
@@ -226,8 +224,8 @@ class _StockReceiptCreateScreenState
                       label: 'Next',
                       onPressed: () {
                         if (_currentStep == 0 && _supplier == null) {
-                          setState(() =>
-                              _errorMessage = 'Please select a supplier');
+                          setState(
+                              () => _errorMessage = 'Please select a supplier');
                           return;
                         }
                         setState(() => _currentStep++);
@@ -264,22 +262,26 @@ class _StockReceiptCreateScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Select Supplier', style: KTypography.h2),
-        KSpacing.vGapMd,
+        KSpacing.vGapSm,
         KCard(
           onTap: _pickSupplier,
+          padding: const EdgeInsets.symmetric(
+            horizontal: KSpacing.md,
+            vertical: KSpacing.sm,
+          ),
           child: Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: KColors.primaryLight.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.local_shipping_outlined,
-                    color: KColors.primary),
+                    color: KColors.primary, size: 20),
               ),
-              KSpacing.hGapMd,
+              KSpacing.hGapSm,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,26 +301,47 @@ class _StockReceiptCreateScreenState
             ],
           ),
         ),
-        KSpacing.vGapLg,
-        const Divider(),
         KSpacing.vGapMd,
         Text('Receipt Details', style: KTypography.labelLarge),
         KSpacing.vGapSm,
-        KDatePicker(
-          label: 'Receipt Date',
-          value: _receiptDate,
-          onChanged: (d) => setState(() => _receiptDate = d),
-        ),
-        KSpacing.vGapSm,
-        KTextField(
-          label: "Supplier Invoice No (optional)",
-          controller: _supplierInvoiceNoCtl,
-        ),
-        KSpacing.vGapSm,
-        KDatePicker(
-          label: 'Supplier Invoice Date (optional)',
-          value: _supplierInvoiceDate ?? _receiptDate,
-          onChanged: (d) => setState(() => _supplierInvoiceDate = d),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final fields = [
+              KDatePicker(
+                label: 'Receipt Date',
+                value: _receiptDate,
+                onChanged: (d) => setState(() => _receiptDate = d),
+              ),
+              KTextField(
+                label: 'Supplier Invoice No (optional)',
+                controller: _supplierInvoiceNoCtl,
+              ),
+              KDatePicker(
+                label: 'Supplier Invoice Date (optional)',
+                value: _supplierInvoiceDate ?? _receiptDate,
+                onChanged: (d) => setState(() => _supplierInvoiceDate = d),
+              ),
+            ];
+            if (constraints.maxWidth < 720) {
+              return Column(
+                children: [
+                  for (var i = 0; i < fields.length; i++) ...[
+                    fields[i],
+                    if (i != fields.length - 1) KSpacing.vGapSm,
+                  ],
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < fields.length; i++) ...[
+                  Expanded(child: fields[i]),
+                  if (i != fields.length - 1) KSpacing.hGapSm,
+                ],
+              ],
+            );
+          },
         ),
       ],
     );
@@ -417,9 +440,7 @@ class _StockReceiptCreateScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            l.description.isEmpty
-                                ? '(unnamed)'
-                                : l.description,
+                            l.description.isEmpty ? '(unnamed)' : l.description,
                             style: KTypography.bodyMedium,
                           ),
                           Text(
@@ -475,8 +496,7 @@ class _StockReceiptCreateScreenState
           ),
           child: Row(
             children: [
-              const Icon(Icons.info_outline,
-                  size: 18, color: KColors.warning),
+              const Icon(Icons.info_outline, size: 18, color: KColors.warning),
               KSpacing.hGapSm,
               Expanded(
                 child: Text(
@@ -672,8 +692,7 @@ class _GrnLineCardState extends State<_GrnLineCard> {
                   child: InkWell(
                     onTap: _pickExpiry,
                     child: InputDecorator(
-                      decoration:
-                          const InputDecoration(labelText: 'Expiry'),
+                      decoration: const InputDecoration(labelText: 'Expiry'),
                       child: Text(
                         widget.line.expiryDate == null
                             ? 'Tap to set'
@@ -757,9 +776,8 @@ class _StepTab extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: isActive || isCompleted
-                  ? KColors.primary
-                  : KColors.divider,
+              color:
+                  isActive || isCompleted ? KColors.primary : KColors.divider,
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -768,8 +786,7 @@ class _StepTab extends StatelessWidget {
                   : Text(
                       '${index + 1}',
                       style: TextStyle(
-                        color:
-                            isActive ? Colors.white : KColors.textSecondary,
+                        color: isActive ? Colors.white : KColors.textSecondary,
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                       ),

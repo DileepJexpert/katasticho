@@ -537,15 +537,15 @@ class _DesktopShell extends ConsumerWidget {
                                 // independent of sidebar palette.
                                 Padding(
                                   padding: EdgeInsets.fromLTRB(
-                                      collapsed ? 12 : 16,
-                                      14,
-                                      collapsed ? 12 : 16,
-                                      10),
+                                      collapsed ? 10 : 12,
+                                      10,
+                                      collapsed ? 10 : 12,
+                                      8),
                                   child: Row(
                                     children: [
                                       Container(
-                                        width: 36,
-                                        height: 36,
+                                        width: 32,
+                                        height: 32,
                                         decoration: BoxDecoration(
                                           gradient: const LinearGradient(
                                             begin: Alignment.topLeft,
@@ -561,8 +561,8 @@ class _DesktopShell extends ConsumerWidget {
                                             BoxShadow(
                                               color: KColors.brandSeed
                                                   .withValues(alpha: 0.22),
-                                              blurRadius: 10,
-                                              offset: const Offset(0, 3),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
                                             ),
                                           ],
                                         ),
@@ -572,13 +572,13 @@ class _DesktopShell extends ConsumerWidget {
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.w800,
-                                              fontSize: 17,
+                                              fontSize: 16,
                                             ),
                                           ),
                                         ),
                                       ),
                                       if (!collapsed) ...[
-                                        const SizedBox(width: 10),
+                                        const SizedBox(width: 8),
                                         Expanded(
                                           child: Text(
                                             'Katasticho',
@@ -586,7 +586,7 @@ class _DesktopShell extends ConsumerWidget {
                                             softWrap: false,
                                             style: TextStyle(
                                               color: scs.onSurface,
-                                              fontSize: 17,
+                                              fontSize: 16,
                                               fontWeight: FontWeight.w800,
                                               letterSpacing: -0.3,
                                             ),
@@ -603,13 +603,13 @@ class _DesktopShell extends ConsumerWidget {
                                       horizontal: collapsed ? 8 : 12),
                                   child: KQuickCreateMenu(expanded: !collapsed),
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 6),
 
                                 // Nav items
                                 Expanded(
                                   child: ListView(
                                     padding: EdgeInsets.symmetric(
-                                        horizontal: collapsed ? 8 : 12),
+                                        horizontal: collapsed ? 8 : 10),
                                     children: _buildSidebarSections(
                                       collapsed: collapsed,
                                       role: authState.role?.toUpperCase() ??
@@ -802,11 +802,9 @@ List<Widget> _buildSidebarSections({
     _SidebarNavItem(item: _dashboardNavItem, collapsed: collapsed),
     if (!isViewer)
       _SidebarNavItem(item: _aiCommandCenterNavItem, collapsed: collapsed),
-    if (!isViewer)
-      _SidebarNavItem(item: _posNavItem, collapsed: collapsed),
+    if (!isViewer) _SidebarNavItem(item: _posNavItem, collapsed: collapsed),
     KSpacing.vGapSm,
-    if (!isViewer)
-      _SidebarNavGroup(group: _salesGroup, collapsed: collapsed),
+    if (!isViewer) _SidebarNavGroup(group: _salesGroup, collapsed: collapsed),
     if (canAccounting) ...[
       _SidebarNavGroup(group: _purchasesGroup, collapsed: collapsed),
       _SidebarNavGroup(group: _inventoryGroup, collapsed: collapsed),
@@ -861,19 +859,19 @@ class _SidebarNavItem extends StatelessWidget {
 
     final tile = Material(
       color: isActive ? cs.primaryContainer : Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(KSpacing.radiusMd),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(KSpacing.radiusMd),
         onTap: () => context.go(item.route),
         child: Padding(
-          padding: EdgeInsets.symmetric(
-              horizontal: collapsed ? 0 : 12, vertical: 11),
+          padding:
+              EdgeInsets.symmetric(horizontal: collapsed ? 0 : 10, vertical: 8),
           child: collapsed
               ? Center(
                   child: Icon(
                     isActive ? item.activeIcon : item.icon,
                     color: isActive ? cs.primary : cs.onSurfaceVariant,
-                    size: 22,
+                    size: 20,
                   ),
                 )
               : Row(
@@ -881,9 +879,9 @@ class _SidebarNavItem extends StatelessWidget {
                     Icon(
                       isActive ? item.activeIcon : item.icon,
                       color: isActive ? cs.primary : cs.onSurfaceVariant,
-                      size: 20,
+                      size: 18,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         item.label,
@@ -894,14 +892,14 @@ class _SidebarNavItem extends StatelessWidget {
                               isActive ? cs.onPrimaryContainer : cs.onSurface,
                           fontWeight:
                               isActive ? FontWeight.w700 : FontWeight.w500,
-                          fontSize: 14,
+                          fontSize: 13,
                         ),
                       ),
                     ),
                     if (isActive)
                       Container(
                         width: 4,
-                        height: 18,
+                        height: 16,
                         decoration: BoxDecoration(
                           color: cs.primary,
                           borderRadius: BorderRadius.circular(2),
@@ -914,7 +912,7 @@ class _SidebarNavItem extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 1),
       child: collapsed
           ? Tooltip(
               message: item.label,
@@ -962,21 +960,21 @@ class _SidebarNavGroup extends StatelessWidget {
         final isActive = _isNavActive(currentRoute, item.route);
         return PopupMenuItem<String>(
           value: item.route,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
           child: Row(
             children: [
               Icon(
                 isActive ? item.activeIcon : item.icon,
-                size: 16,
+                size: 15,
                 color: isActive ? cs.primary : cs.onSurfaceVariant,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Text(
                 item.label,
                 style: TextStyle(
                   color: isActive ? cs.primary : cs.onSurface,
                   fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
               ),
             ],
@@ -998,19 +996,19 @@ class _SidebarNavGroup extends StatelessWidget {
 
     final tile = Material(
       color: isActive ? cs.primaryContainer : Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(KSpacing.radiusMd),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(KSpacing.radiusMd),
         onTap: () => _showPopup(context),
         child: Padding(
-          padding: EdgeInsets.symmetric(
-              horizontal: collapsed ? 0 : 12, vertical: 11),
+          padding:
+              EdgeInsets.symmetric(horizontal: collapsed ? 0 : 10, vertical: 8),
           child: collapsed
               ? Center(
                   child: Icon(
                     isActive ? group.activeIcon : group.icon,
                     color: isActive ? cs.primary : cs.onSurfaceVariant,
-                    size: 22,
+                    size: 20,
                   ),
                 )
               : Row(
@@ -1018,9 +1016,9 @@ class _SidebarNavGroup extends StatelessWidget {
                     Icon(
                       isActive ? group.activeIcon : group.icon,
                       color: isActive ? cs.primary : cs.onSurfaceVariant,
-                      size: 20,
+                      size: 18,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         group.label,
@@ -1031,7 +1029,7 @@ class _SidebarNavGroup extends StatelessWidget {
                               isActive ? cs.onPrimaryContainer : cs.onSurface,
                           fontWeight:
                               isActive ? FontWeight.w700 : FontWeight.w500,
-                          fontSize: 14,
+                          fontSize: 13,
                         ),
                       ),
                     ),
@@ -1049,7 +1047,7 @@ class _SidebarNavGroup extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 1),
       child: collapsed
           ? Tooltip(
               message: group.label,
@@ -1389,8 +1387,7 @@ class _OrgSwitcherSheetState extends ConsumerState<_OrgSwitcherSheet> {
     setState(() => _switching = true);
     try {
       final authRepo = ref.read(authRepositoryProvider);
-      final result = await authRepo.createAdditionalOrg(name: orgName.trim());
-      final data = result['data'] as Map<String, dynamic>;
+      await authRepo.createAdditionalOrg(name: orgName.trim());
 
       if (!mounted) return;
       Navigator.pop(context);

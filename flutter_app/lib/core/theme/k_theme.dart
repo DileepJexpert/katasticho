@@ -80,8 +80,7 @@ class KTheme {
     navigationBarBackgroundSchemeColor: SchemeColor.surface,
     navigationBarElevation: 0.0,
     navigationBarHeight: 72,
-    navigationBarLabelBehavior:
-        NavigationDestinationLabelBehavior.alwaysShow,
+    navigationBarLabelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
 
     navigationRailSelectedLabelSchemeColor: SchemeColor.primary,
     navigationRailSelectedIconSchemeColor: SchemeColor.primary,
@@ -160,6 +159,24 @@ class KTheme {
           letterSpacing: -0.2,
         ),
       ),
+      dataTableTheme: DataTableThemeData(
+        headingRowHeight: 38,
+        dataRowMinHeight: 42,
+        dataRowMaxHeight: 50,
+        columnSpacing: 12,
+        horizontalMargin: 10,
+        dividerThickness: 0.5,
+        headingTextStyle: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF475569),
+        ),
+        dataTextStyle: GoogleFonts.inter(
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+          color: const Color(0xFF0F172A),
+        ),
+      ),
     );
   }
 
@@ -218,6 +235,24 @@ class KTheme {
           fontWeight: FontWeight.w600,
           color: Colors.white,
           letterSpacing: -0.2,
+        ),
+      ),
+      dataTableTheme: DataTableThemeData(
+        headingRowHeight: 38,
+        dataRowMinHeight: 42,
+        dataRowMaxHeight: 50,
+        columnSpacing: 12,
+        horizontalMargin: 10,
+        dividerThickness: 0.5,
+        headingTextStyle: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFFCBD5E1),
+        ),
+        dataTextStyle: GoogleFonts.inter(
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+          color: const Color(0xFFF8FAFC),
         ),
       ),
     );
