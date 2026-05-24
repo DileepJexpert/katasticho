@@ -75,8 +75,8 @@ class KEntityDataTable extends StatelessWidget {
     required this.rows,
     this.columnSpacing = 12,
     this.horizontalMargin = 10,
-    this.dataRowMinHeight = 42,
-    this.dataRowMaxHeight = 50,
+    this.dataRowMinHeight = 38,
+    this.dataRowMaxHeight = 46,
   });
 
   @override
@@ -98,7 +98,7 @@ class KEntityDataTable extends StatelessWidget {
                     constraints: BoxConstraints(minWidth: constraints.maxWidth),
                     child: DataTable(
                       showCheckboxColumn: false,
-                      headingRowHeight: 38,
+                      headingRowHeight: 36,
                       dataRowMinHeight: dataRowMinHeight,
                       dataRowMaxHeight: dataRowMaxHeight,
                       columnSpacing: columnSpacing,
@@ -110,7 +110,7 @@ class KEntityDataTable extends StatelessWidget {
                         color: cs.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
                       ),
-                      dataTextStyle: KTypography.bodyMedium.copyWith(
+                      dataTextStyle: KTypography.bodySmall.copyWith(
                         color: cs.onSurface,
                       ),
                       columns: columns,

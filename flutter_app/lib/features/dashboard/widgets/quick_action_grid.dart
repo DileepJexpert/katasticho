@@ -4,10 +4,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../data/dashboard_config.dart';
 
-/// Large card-style quick action blocks (replaces the previous small chips).
-///
-/// Renders a responsive grid: 2 columns on phones, 4 on desktop. Each tile is
-/// a tap target ~110px tall with a tinted icon square, label, and chevron.
+/// Dense command tiles for frequent accounting actions.
 class QuickActionGrid extends StatelessWidget {
   final List<QuickAction> actions;
 
@@ -24,9 +21,9 @@ class QuickActionGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
-        crossAxisSpacing: KSpacing.md,
-        mainAxisSpacing: KSpacing.md,
-        mainAxisExtent: 96,
+        crossAxisSpacing: KSpacing.sm,
+        mainAxisSpacing: KSpacing.sm,
+        mainAxisExtent: isDesktop ? 72 : 78,
       ),
       itemCount: actions.length,
       itemBuilder: (context, index) =>
@@ -43,7 +40,7 @@ class _QuickActionBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final br = BorderRadius.circular(KSpacing.radiusLg);
+    final br = BorderRadius.circular(KSpacing.radiusMd);
 
     return Material(
       color: cs.surface,
@@ -61,23 +58,23 @@ class _QuickActionBlock extends StatelessWidget {
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(10),
             child: Row(
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 34,
+                  height: 34,
                   decoration: BoxDecoration(
                     color: action.color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(action.icon, color: action.color, size: 22),
+                  child: Icon(action.icon, color: action.color, size: 18),
                 ),
-                KSpacing.hGapMd,
+                KSpacing.hGapSm,
                 Expanded(
                   child: Text(
                     action.label,
-                    style: KTypography.labelLarge.copyWith(
+                    style: KTypography.labelMedium.copyWith(
                       color: cs.onSurface,
                       fontWeight: FontWeight.w700,
                     ),

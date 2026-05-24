@@ -71,7 +71,10 @@ class InvoiceDetailScreen extends ConsumerWidget {
               status == 'PARTIALLY_PAID' ||
               status == 'OVERDUE') {
             return Container(
-              padding: const EdgeInsets.all(KSpacing.md),
+              padding: const EdgeInsets.symmetric(
+                horizontal: KSpacing.md,
+                vertical: KSpacing.sm,
+              ),
               decoration: BoxDecoration(
                 color: KColors.surface,
                 boxShadow: [
@@ -92,7 +95,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
                         Text('Balance Due', style: KTypography.bodySmall),
                         Text(
                           CurrencyFormatter.formatIndian(balanceDue),
-                          style: KTypography.amountLarge.copyWith(
+                          style: KTypography.amountMedium.copyWith(
                             color: KColors.error,
                           ),
                         ),
@@ -238,25 +241,50 @@ class _InvoiceDetailBody extends ConsumerWidget {
           // Header
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(KSpacing.md),
+            padding: const EdgeInsets.symmetric(
+              horizontal: KSpacing.md,
+              vertical: KSpacing.sm,
+            ),
             color: KColors.surface,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(invoiceNumber, style: KTypography.h2),
-                    ),
-                    KStatusChip(status: status),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              invoiceNumber,
+                              style: KTypography.h3,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          KSpacing.hGapSm,
+                          KStatusChip(status: status),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        customerName,
+                        style: KTypography.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-                KSpacing.vGapSm,
-                Text(customerName, style: KTypography.bodyLarge),
-                KSpacing.vGapMd,
-                Text(
-                  CurrencyFormatter.formatIndian(total),
-                  style: KTypography.amountLarge,
+                KSpacing.hGapMd,
+                Flexible(
+                  child: Text(
+                    CurrencyFormatter.formatIndian(total),
+                    style: KTypography.amountMedium,
+                    textAlign: TextAlign.end,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),

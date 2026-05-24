@@ -14,7 +14,6 @@ import '../../../routing/app_router.dart';
 import '../../contacts/data/contact_repository.dart';
 import '../../inventory/data/item_repository.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
-import '../../tax_groups/data/tax_group_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/bill_repository.dart';
 import 'bill_scan_sheet.dart';
@@ -66,17 +65,14 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
       final list = content is List
           ? content.cast<Map<String, dynamic>>()
           : (content is Map
-              ? ((content['content'] as List?)
-                      ?.cast<Map<String, dynamic>>() ??
+              ? ((content['content'] as List?)?.cast<Map<String, dynamic>>() ??
                   [])
               : <Map<String, dynamic>>[]);
       // Filter to vendor-type contacts
-      final vendors = list
-          .where((c) {
-            final type = (c['contactType'] as String? ?? '').toUpperCase();
-            return type == 'VENDOR' || type == 'BOTH';
-          })
-          .toList();
+      final vendors = list.where((c) {
+        final type = (c['contactType'] as String? ?? '').toUpperCase();
+        return type == 'VENDOR' || type == 'BOTH';
+      }).toList();
       if (mounted) {
         setState(() {
           _contacts = vendors;
@@ -107,11 +103,11 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
       final gstin = result['vendorGstin'] as String? ?? '';
       if (gstin.isNotEmpty) {
         final match = _contacts.cast<Map<String, dynamic>?>().firstWhere(
-          (c) =>
-              (c?['gstin'] as String? ?? '').toUpperCase() ==
-              gstin.toUpperCase(),
-          orElse: () => null,
-        );
+              (c) =>
+                  (c?['gstin'] as String? ?? '').toUpperCase() ==
+                  gstin.toUpperCase(),
+              orElse: () => null,
+            );
         if (match != null) {
           _selectedContactId = match['id']?.toString();
           _vendorName = match['displayName'] as String? ??
@@ -168,9 +164,8 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
       final hsn = l['hsnCode'] as String?;
       final mrp = (l['mrp'] as num?)?.toDouble() ?? 0;
       final batch = (l['batchNumber'] as String? ?? '').trim();
-      final expiry = l['expiryDate'] is DateTime
-          ? l['expiryDate'] as DateTime
-          : null;
+      final expiry =
+          l['expiryDate'] is DateTime ? l['expiryDate'] as DateTime : null;
 
       final bill = _BillLineItem()
         ..lineType = 'GOODS'
@@ -300,14 +295,27 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
         .replaceAll(RegExp(r'[^A-Z0-9]+'), '')
         .padRight(4, 'X');
     final base = slug.length > 10 ? slug.substring(0, 10) : slug;
-    final suffix =
-        DateTime.now().millisecondsSinceEpoch.toString();
+    final suffix = DateTime.now().millisecondsSinceEpoch.toString();
     return 'AUTO-$base-${suffix.substring(suffix.length - 5)}';
   }
 
   static final _stopWords = {
-    'tab', 'tabs', 'cap', 'caps', 'syp', 'syrup', 'inj', 'cream',
-    'gel', 'mg', 'ml', 'gm', 'mcg', 'the', 'of', 's',
+    'tab',
+    'tabs',
+    'cap',
+    'caps',
+    'syp',
+    'syrup',
+    'inj',
+    'cream',
+    'gel',
+    'mg',
+    'ml',
+    'gm',
+    'mcg',
+    'the',
+    'of',
+    's',
   };
 
   List<String> _significantTokens(String name) {
@@ -344,7 +352,9 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
         final lower = query.toLowerCase();
         _filteredContacts = _contacts
             .where((c) =>
-                (c['displayName'] as String? ?? '').toLowerCase().contains(lower) ||
+                (c['displayName'] as String? ?? '')
+                    .toLowerCase()
+                    .contains(lower) ||
                 (c['companyName'] as String? ?? '')
                     .toLowerCase()
                     .contains(lower) ||
@@ -369,14 +379,15 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
         .where((l) => l.description.isNotEmpty || l.unitPrice > 0)
         .toList();
     if (validLines.isEmpty) {
-      setState(() => _errorMessage = 'Please add at least one line item with a description or price');
+      setState(() => _errorMessage =
+          'Please add at least one line item with a description or price');
       return;
     }
     final unlinked = validLines.where((l) => l.needsItem).toList();
     if (unlinked.isNotEmpty) {
       setState(() => _errorMessage =
           'Goods lines must be linked to an item for stock tracking. '
-          'Pick an item or switch line type to Service.');
+              'Pick an item or switch line type to Service.');
       return;
     }
 
@@ -399,7 +410,8 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
             .where((l) => l.description.isNotEmpty || l.unitPrice > 0)
             .map((l) => {
                   'lineType': l.lineType,
-                  'description': l.description.isNotEmpty ? l.description : 'Line item',
+                  'description':
+                      l.description.isNotEmpty ? l.description : 'Line item',
                   'quantity': l.quantity,
                   'unitPrice': l.unitPrice,
                   'accountCode': l.accountCode,
@@ -412,12 +424,10 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
                   if (l.trackBatches && l.batchNumber.isNotEmpty)
                     'batchNumber': l.batchNumber,
                   if (l.manufacturingDate != null)
-                    'manufacturingDate': l.manufacturingDate!
-                        .toIso8601String()
-                        .split('T')[0],
+                    'manufacturingDate':
+                        l.manufacturingDate!.toIso8601String().split('T')[0],
                   if (l.expiryDate != null)
-                    'expiryDate':
-                        l.expiryDate!.toIso8601String().split('T')[0],
+                    'expiryDate': l.expiryDate!.toIso8601String().split('T')[0],
                 })
             .toList(),
       };
@@ -439,7 +449,8 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
         }
         setState(() => _errorMessage = ApiErrorParser.message(e));
       } else {
-        setState(() => _errorMessage = 'Failed to create bill. Please try again.');
+        setState(
+            () => _errorMessage = 'Failed to create bill. Please try again.');
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -452,7 +463,8 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
       appBar: AppBar(
         title: const Text('Create Bill'),
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to bills',
           onPressed: () => context.go(Routes.bills),
         ),
         actions: [
@@ -470,7 +482,7 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
             // Step indicator
             Container(
               color: KColors.surface,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -512,18 +524,26 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
             Expanded(
               child: SingleChildScrollView(
                 padding: KSpacing.pagePadding,
-                child: switch (_currentStep) {
-                  0 => _buildVendorStep(),
-                  1 => _buildItemsStep(),
-                  2 => _buildReviewStep(),
-                  _ => const SizedBox(),
-                },
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1120),
+                    child: switch (_currentStep) {
+                      0 => _buildVendorStep(),
+                      1 => _buildItemsStep(),
+                      2 => _buildReviewStep(),
+                      _ => const SizedBox(),
+                    },
+                  ),
+                ),
               ),
             ),
 
             // Bottom bar
             Container(
-              padding: const EdgeInsets.all(KSpacing.md),
+              padding: const EdgeInsets.symmetric(
+                horizontal: KSpacing.md,
+                vertical: KSpacing.sm,
+              ),
               decoration: BoxDecoration(
                 color: KColors.surface,
                 boxShadow: [
@@ -544,7 +564,7 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
                         Text('Total', style: KTypography.bodySmall),
                         Text(
                           CurrencyFormatter.formatIndian(_grandTotal),
-                          style: KTypography.amountLarge,
+                          style: KTypography.amountMedium,
                         ),
                       ],
                     ),
@@ -555,18 +575,16 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
                         child: KButton(
                           label: 'Back',
                           variant: KButtonVariant.outlined,
-                          onPressed: () =>
-                              setState(() => _currentStep--),
+                          onPressed: () => setState(() => _currentStep--),
                         ),
                       ),
                     if (_currentStep < 2)
                       KButton(
                         label: 'Next',
                         onPressed: () {
-                          if (_currentStep == 0 &&
-                              _selectedContactId == null) {
-                            setState(() =>
-                                _errorMessage = 'Please select a vendor');
+                          if (_currentStep == 0 && _selectedContactId == null) {
+                            setState(
+                                () => _errorMessage = 'Please select a vendor');
                             return;
                           }
                           setState(() => _currentStep++);
@@ -628,9 +646,7 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
           ))
         else if (_filteredContacts.isEmpty)
           _VendorSelectTile(
-            name: _contacts.isEmpty
-                ? 'No vendors yet'
-                : 'No matching vendors',
+            name: _contacts.isEmpty ? 'No vendors yet' : 'No matching vendors',
             subtitle: _contacts.isEmpty
                 ? 'Add vendor contacts first'
                 : 'Try a different search term',
@@ -743,8 +759,7 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
           label: 'Add Line Item',
           icon: Icons.add,
           variant: KButtonVariant.outlined,
-          onPressed: () =>
-              setState(() => _lineItems.add(_BillLineItem())),
+          onPressed: () => setState(() => _lineItems.add(_BillLineItem())),
         ),
 
         KSpacing.vGapLg,
@@ -779,7 +794,6 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
       children: [
         Text('Review Bill', style: KTypography.h2),
         KSpacing.vGapMd,
-
         KCard(
           title: 'Vendor',
           child: Column(
@@ -817,7 +831,6 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
           ),
         ),
         KSpacing.vGapMd,
-
         KCard(
           title: 'Items (${_lineItems.length})',
           child: Column(
@@ -855,7 +868,6 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
           ),
         ),
         KSpacing.vGapMd,
-
         KCard(
           child: Column(
             children: [
@@ -874,7 +886,6 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
             ],
           ),
         ),
-
         KSpacing.vGapMd,
         KTextField(
           label: 'Notes (optional)',
@@ -947,12 +958,22 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
     final units = <Map<String, dynamic>>[];
     final base = widget.item.baseUom;
     if (base != null && base.isNotEmpty) {
-      units.add({'abbreviation': base, 'uomId': null, 'conversionFactor': 1.0, 'customPrice': null});
+      units.add({
+        'abbreviation': base,
+        'uomId': null,
+        'conversionFactor': 1.0,
+        'customPrice': null
+      });
     }
     final pUom = widget.item.purchaseUom;
     final pConv = widget.item.purchaseUomConversion;
     if (pUom != null && pConv != null && pConv > 0) {
-      units.add({'abbreviation': pUom, 'uomId': null, 'conversionFactor': pConv, 'customPrice': null});
+      units.add({
+        'abbreviation': pUom,
+        'uomId': null,
+        'conversionFactor': pConv,
+        'customPrice': null
+      });
     }
     for (final u in widget.item.availableUnits) {
       final abbr = u['uomAbbreviation'] ?? u['abbreviation'];
@@ -1057,8 +1078,7 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
                   widget.onChanged();
                 },
                 borderRadius: BorderRadius.circular(6),
-                constraints: const BoxConstraints(
-                    minWidth: 60, minHeight: 28),
+                constraints: const BoxConstraints(minWidth: 60, minHeight: 28),
                 textStyle: KTypography.labelSmall,
                 children: const [
                   Text('Goods'),
@@ -1080,8 +1100,8 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
               onTap: _pickItem,
               borderRadius: BorderRadius.circular(8),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   border: Border.all(
                     color: widget.item.needsItem
@@ -1089,9 +1109,8 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
                         : KColors.primary.withValues(alpha: 0.4),
                   ),
                   borderRadius: BorderRadius.circular(8),
-                  color: widget.item.itemId != null
-                      ? KColors.primarySoft
-                      : null,
+                  color:
+                      widget.item.itemId != null ? KColors.primarySoft : null,
                 ),
                 child: Row(
                   children: [
@@ -1145,7 +1164,8 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
               decoration: const InputDecoration(
                 labelText: 'Unit',
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
               items: _unitOptions.map((u) {
                 final abbr = u['abbreviation'] as String;
@@ -1180,9 +1200,8 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
                         child: KTextField(
                           label: 'Weight',
                           controller: _qtyCtl,
-                          keyboardType:
-                              const TextInputType.numberWithOptions(
-                                  decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
                           onChanged: (v) {
                             final raw = double.tryParse(v) ?? 0;
                             widget.item.quantity =
@@ -1198,15 +1217,12 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
                         value: widget.item.weightUnit,
                         underline: const SizedBox.shrink(),
                         items: const [
-                          DropdownMenuItem(
-                              value: 'KG', child: Text('KG')),
-                          DropdownMenuItem(
-                              value: 'GM', child: Text('GM')),
+                          DropdownMenuItem(value: 'KG', child: Text('KG')),
+                          DropdownMenuItem(value: 'GM', child: Text('GM')),
                         ],
                         onChanged: (unit) {
                           if (unit == null) return;
-                          final currentRaw =
-                              double.tryParse(_qtyCtl.text) ?? 0;
+                          final currentRaw = double.tryParse(_qtyCtl.text) ?? 0;
                           setState(() {
                             widget.item.weightUnit = unit;
                             if (currentRaw > 0) {
@@ -1216,9 +1232,8 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
                               _qtyCtl.text = unit == 'GM'
                                   ? converted.toStringAsFixed(0)
                                   : converted.toStringAsFixed(3);
-                              widget.item.quantity = unit == 'GM'
-                                  ? converted / 1000
-                                  : converted;
+                              widget.item.quantity =
+                                  unit == 'GM' ? converted / 1000 : converted;
                             }
                           });
                           widget.onChanged();
@@ -1230,17 +1245,14 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
                     label: 'Qty',
                     controller: _qtyCtl,
                     keyboardType:
-                        const TextInputType.numberWithOptions(
-                            decimal: true),
+                        const TextInputType.numberWithOptions(decimal: true),
                     onChanged: (v) {
                       widget.item.quantity = double.tryParse(v) ?? 1;
                       widget.onChanged();
                     },
                   ),
             KTextField.amount(
-              label: widget.item.weightBasedBilling
-                  ? 'Rate/kg'
-                  : 'Price',
+              label: widget.item.weightBasedBilling ? 'Rate/kg' : 'Price',
               controller: _priceCtl,
               onChanged: (v) {
                 widget.item.unitPrice = double.tryParse(v) ?? 0;
@@ -1302,8 +1314,7 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
                       value: widget.item.manufacturingDate,
                       lastDate: DateTime.now(),
                       onChanged: (d) {
-                        setState(() =>
-                            widget.item.manufacturingDate = d);
+                        setState(() => widget.item.manufacturingDate = d);
                         widget.onChanged();
                       },
                     ),
@@ -1443,9 +1454,8 @@ class _StepTab extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: isActive || isCompleted
-                  ? KColors.primary
-                  : KColors.divider,
+              color:
+                  isActive || isCompleted ? KColors.primary : KColors.divider,
               shape: BoxShape.circle,
             ),
             child: Center(

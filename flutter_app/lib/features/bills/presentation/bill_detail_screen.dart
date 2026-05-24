@@ -85,7 +85,10 @@ class BillDetailScreen extends ConsumerWidget {
 
           if (b.isPayable) {
             return Container(
-              padding: const EdgeInsets.all(KSpacing.md),
+              padding: const EdgeInsets.symmetric(
+                horizontal: KSpacing.md,
+                vertical: KSpacing.sm,
+              ),
               decoration: BoxDecoration(
                 color: KColors.surface,
                 boxShadow: [
@@ -106,7 +109,7 @@ class BillDetailScreen extends ConsumerWidget {
                         Text('Balance Due', style: KTypography.bodySmall),
                         Text(
                           CurrencyFormatter.formatIndian(b.balanceDue),
-                          style: KTypography.amountLarge.copyWith(
+                          style: KTypography.amountMedium.copyWith(
                             color: KColors.error,
                           ),
                         ),
@@ -312,25 +315,50 @@ class _BillDetailBody extends ConsumerWidget {
           // Header
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(KSpacing.md),
+            padding: const EdgeInsets.symmetric(
+              horizontal: KSpacing.md,
+              vertical: KSpacing.sm,
+            ),
             color: KColors.surface,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(b.billNumber, style: KTypography.h2),
-                    ),
-                    BillStatusChip(status: b.status),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              b.billNumber,
+                              style: KTypography.h3,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          KSpacing.hGapSm,
+                          BillStatusChip(status: b.status),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        b.vendorName,
+                        style: KTypography.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-                KSpacing.vGapSm,
-                Text(b.vendorName, style: KTypography.bodyLarge),
-                KSpacing.vGapMd,
-                Text(
-                  CurrencyFormatter.formatIndian(b.totalAmount),
-                  style: KTypography.amountLarge,
+                KSpacing.hGapMd,
+                Flexible(
+                  child: Text(
+                    CurrencyFormatter.formatIndian(b.totalAmount),
+                    style: KTypography.amountMedium,
+                    textAlign: TextAlign.end,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),

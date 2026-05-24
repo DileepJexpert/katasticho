@@ -15,8 +15,12 @@ Future<Map<String, dynamic>?> showContactPicker(
   return showModalBottomSheet<Map<String, dynamic>>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+    ),
     builder: (_) => DraggableScrollableSheet(
-      initialChildSize: 0.7,
+      initialChildSize: 0.72,
       minChildSize: 0.4,
       maxChildSize: 0.95,
       expand: false,
@@ -64,8 +68,8 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final contactsAsync = ref.watch(contactSearchProvider(
-        (type: 'CUSTOMER', search: _query)));
+    final contactsAsync =
+        ref.watch(contactSearchProvider((type: 'CUSTOMER', search: _query)));
 
     return Padding(
       padding: EdgeInsets.only(
@@ -76,7 +80,7 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(
-                KSpacing.md, KSpacing.md, KSpacing.md, KSpacing.sm),
+                KSpacing.md, KSpacing.sm, KSpacing.md, KSpacing.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -87,7 +91,7 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
                         widget.showQuickCreate
                             ? 'Customer (optional — leave empty for walk-in)'
                             : 'Select Customer',
-                        style: KTypography.h3,
+                        style: KTypography.h4,
                       ),
                     ),
                     if (widget.showQuickCreate)
@@ -163,45 +167,35 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
                   controller: widget.scrollController,
                   padding: KSpacing.pagePadding,
                   itemCount: contacts.length,
-                  separatorBuilder: (_, __) =>
-                      const Divider(height: 1),
+                  separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
-                    final contact =
-                        contacts[index] as Map<String, dynamic>;
+                    final contact = contacts[index] as Map<String, dynamic>;
                     final name = _contactName(contact);
-                    final phone =
-                        contact['phone']?.toString() ??
-                            contact['mobile']?.toString() ??
-                            '';
-                    final email =
-                        contact['email']?.toString() ?? '';
+                    final phone = contact['phone']?.toString() ??
+                        contact['mobile']?.toString() ??
+                        '';
+                    final email = contact['email']?.toString() ?? '';
 
                     return ListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       leading: CircleAvatar(
-                        backgroundColor:
-                            KColors.primarySoft,
-                        radius: 20,
+                        backgroundColor: KColors.primarySoft,
+                        radius: 16,
                         child: Text(
-                          name.isNotEmpty
-                              ? name[0].toUpperCase()
-                              : '?',
-                          style: KTypography.labelLarge
+                          name.isNotEmpty ? name[0].toUpperCase() : '?',
+                          style: KTypography.labelMedium
                               .copyWith(color: KColors.primary),
                         ),
                       ),
-                      title: Text(name,
-                          style: KTypography.labelLarge),
+                      title: Text(name, style: KTypography.labelMedium),
                       subtitle: Text(
-                        [phone, email]
-                            .where((s) => s.isNotEmpty)
-                            .join(' · '),
+                        [phone, email].where((s) => s.isNotEmpty).join(' · '),
                         style: KTypography.bodySmall,
                       ),
-                      onTap: () =>
-                          Navigator.pop(context, contact),
+                      onTap: () => Navigator.pop(context, contact),
                     );
                   },
                 );
