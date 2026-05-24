@@ -41,16 +41,26 @@ class KDatePicker extends StatelessWidget {
                     ? [
                         TextSpan(
                           text: ' *',
-                          style: KTypography.labelLarge.copyWith(color: cs.error),
+                          style:
+                              KTypography.labelLarge.copyWith(color: cs.error),
                         ),
                       ]
                     : [],
               ),
             ),
-          if (label.isNotEmpty) const SizedBox(height: 6),
+          if (label.isNotEmpty) const SizedBox(height: 4),
           InputDecorator(
             decoration: InputDecoration(
-              suffixIcon: const Icon(Icons.calendar_today, size: 20),
+              suffixIcon: const Icon(Icons.calendar_today, size: 18),
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: 32,
+                minHeight: 32,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 9,
+              ),
+              isDense: true,
               enabled: enabled,
             ),
             child: Text(
@@ -99,7 +109,16 @@ class KDateRangePicker extends StatelessWidget {
       child: InputDecorator(
         decoration: InputDecoration(
           labelText: label,
-          suffixIcon: const Icon(Icons.date_range, size: 20),
+          suffixIcon: const Icon(Icons.date_range, size: 18),
+          suffixIconConstraints: const BoxConstraints(
+            minWidth: 32,
+            minHeight: 32,
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 9,
+          ),
+          isDense: true,
         ),
         child: Text(
           value != null

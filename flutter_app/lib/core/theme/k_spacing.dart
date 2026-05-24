@@ -77,7 +77,7 @@ class KSpacing {
   static const double desktopBreakpoint = 1200;
 
   // ── Sidebar ──
-  static const double sidebarWidth = 220;
+  static const double sidebarWidth = 208;
   static const double sidebarCollapsedWidth = 64;
 
   // ── Modern Shadow Tokens ─────────────────────────────────────────
