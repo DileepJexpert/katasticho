@@ -34,6 +34,8 @@ class PosItemSearchResult extends StatelessWidget {
     final expiryStatus = _expiryStatus(expiryStr);
     final prescriptionRequired = item['prescriptionRequired'] == true;
     final drugSchedule = item['drugSchedule'] as String?;
+    final composition = item['composition'] as String?;
+    final manufacturer = item['manufacturer'] as String?;
 
     return Opacity(
       opacity: isOutOfStock ? 0.5 : 1.0,
@@ -83,6 +85,48 @@ class PosItemSearchResult extends StatelessWidget {
                         ],
                       ],
                     ),
+                    if (composition != null && composition.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: Row(
+                          children: [
+                            Icon(Icons.science_outlined,
+                                size: 10, color: KColors.textHint),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                composition,
+                                style: KTypography.labelSmall.copyWith(
+                                  fontSize: 10,
+                                  color: KColors.textSecondary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (manufacturer != null && manufacturer.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: Row(
+                          children: [
+                            Icon(Icons.factory_outlined,
+                                size: 10, color: KColors.textHint),
+                            const SizedBox(width: 3),
+                            Text(
+                              manufacturer,
+                              style: KTypography.labelSmall.copyWith(
+                                fontSize: 10,
+                                color: KColors.textHint,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
                     const SizedBox(height: 3),
                     // Badges row
                     Wrap(

@@ -27,5 +27,7 @@ public record PosSearchResult(
         String batchNumber,
         DiscountThresholds discountThresholds,
         boolean prescriptionRequired,
-        String drugSchedule
+        String drugSchedule,
+        String composition,
+        String manufacturer
 ) {}

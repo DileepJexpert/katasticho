@@ -31,6 +31,8 @@ class CartItem {
   final bool isFreeItem;
   // Pharmacy
   final String? prescriptionNumber;
+  final String? composition;
+  final String? manufacturer;
 
   CartItem({
     this.itemId,
@@ -60,6 +62,8 @@ class CartItem {
     this.appliedSchemeName,
     this.isFreeItem = false,
     this.prescriptionNumber,
+    this.composition,
+    this.manufacturer,
   });
 
   double get effectiveRate => isFreeItem ? 0 : rate * (1 - discountPct / 100);
@@ -117,6 +121,8 @@ class CartItem {
     String? appliedSchemeName,
     bool? isFreeItem,
     String? prescriptionNumber,
+    String? composition,
+    String? manufacturer,
   }) {
     return CartItem(
       itemId: itemId ?? this.itemId,
@@ -146,6 +152,8 @@ class CartItem {
       appliedSchemeName: appliedSchemeName ?? this.appliedSchemeName,
       isFreeItem: isFreeItem ?? this.isFreeItem,
       prescriptionNumber: prescriptionNumber ?? this.prescriptionNumber,
+      composition: composition ?? this.composition,
+      manufacturer: manufacturer ?? this.manufacturer,
     );
   }
 }

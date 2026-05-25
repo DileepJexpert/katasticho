@@ -177,7 +177,9 @@ public class PosSearchService {
                     batchNumber,
                     thresholds,
                     item.isPrescriptionRequired(),
-                    item.getDrugSchedule());
+                    item.getDrugSchedule(),
+                    item.getComposition(),
+                    item.getManufacturer());
         }).toList();
     }
 

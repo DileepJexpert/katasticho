@@ -85,6 +85,52 @@ class PosCartItemTile extends StatelessWidget {
                       ],
                     ],
                   ),
+                  if (item.composition != null &&
+                      item.composition!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Row(
+                        children: [
+                          Icon(Icons.science_outlined,
+                              size: 10, color: KColors.textHint),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(
+                              item.composition!,
+                              style: KTypography.labelSmall.copyWith(
+                                fontSize: 10,
+                                color: KColors.textSecondary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (item.manufacturer != null &&
+                      item.manufacturer!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Row(
+                        children: [
+                          Icon(Icons.factory_outlined,
+                              size: 10, color: KColors.textHint),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(
+                              item.manufacturer!,
+                              style: KTypography.labelSmall.copyWith(
+                                fontSize: 10,
+                                color: KColors.textHint,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   if (item.mrp != null && item.mrp! > 0 && item.mrp != item.rate)
                     Padding(
                       padding: const EdgeInsets.only(top: 1),

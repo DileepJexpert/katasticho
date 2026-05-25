@@ -220,6 +220,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       availableUnits: secUnits,
       discountThresholds: item['discountThresholds'] as Map<String, dynamic>?,
       prescriptionNumber: prescriptionNumber,
+      composition: item['composition'] as String?,
+      manufacturer: item['manufacturer'] as String?,
     );
 
     CartItem? existing;
