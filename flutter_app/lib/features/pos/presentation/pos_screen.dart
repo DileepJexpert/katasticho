@@ -104,7 +104,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     var item = itemData; // mutable local — may be overridden by batch picker
     final stock = (item['currentStock'] as num?)?.toDouble() ?? 0;
     if (stock <= 0) {
-      _showErrorSnackBar('${item['name'] ?? 'Item'} is out of stock');
+      _showOutOfStockDialog(item);
       return;
     }
 
@@ -990,6 +990,54 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   void _showInfoSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
+    );
+  }
+
+  void _showOutOfStockDialog(Map<String, dynamic> item) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 32, height: 4,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Icon(Icons.inventory_2_outlined, size: 40,
+                color: KColors.warning),
+            const SizedBox(height: 8),
+            Text(item['name'] ?? 'Item',
+                style: KTypography.titleSmall,
+                textAlign: TextAlign.center),
+            const SizedBox(height: 4),
+            Text('This item is currently out of stock',
+                style: KTypography.bodySmall
+                    .copyWith(color: KColors.textSecondary)),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: Icon(Icons.assignment_add, color: KColors.primary),
+              title: const Text('Order for Customer'),
+              subtitle: const Text('Create an indent — notify when it arrives'),
+              onTap: () {
+                Navigator.pop(ctx);
+                context.push('/indents/create', extra: item);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.close, color: KColors.textHint),
+              title: const Text('Dismiss'),
+              onTap: () => Navigator.pop(ctx),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
     );
   }
 

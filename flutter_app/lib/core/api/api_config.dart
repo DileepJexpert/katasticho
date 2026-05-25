@@ -465,4 +465,9 @@ class ApiConfig {
   static const String debitNotes = '/api/v1/debit-notes';
   static String debitNoteById(String id) => '/api/v1/debit-notes/$id';
   static String submitDebitNote(String id) => '/api/v1/debit-notes/$id/submit';
+
+  // Customer Indents
+  static const String indents = '/api/v1/indents';
+  static String indentById(String id) => '/api/v1/indents/$id';
+  static const String indentSummary = '/api/v1/indents/summary';
 }

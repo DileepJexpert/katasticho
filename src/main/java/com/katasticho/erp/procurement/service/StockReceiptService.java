@@ -19,6 +19,7 @@ import com.katasticho.erp.inventory.service.BatchService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
+import com.katasticho.erp.indent.service.CustomerIndentService;
 import com.katasticho.erp.sales.service.SalesOrderService;
 import com.katasticho.erp.procurement.dto.CreateStockReceiptRequest;
 import com.katasticho.erp.procurement.dto.StockReceiptLineRequest;
@@ -75,6 +76,7 @@ public class StockReceiptService {
     private final BatchService batchService;
     private final AuditService auditService;
     private final SalesOrderService salesOrderService;
+    private final CustomerIndentService customerIndentService;
 
     @Transactional
     public StockReceiptResponse createDraft(CreateStockReceiptRequest request) {
@@ -283,6 +285,7 @@ public class StockReceiptService {
         for (StockReceiptLine line : receipt.getLines()) {
             if (processedItems.add(line.getItemId())) {
                 salesOrderService.onStockReceived(orgId, line.getItemId(), receipt.getWarehouseId());
+                customerIndentService.onStockReceived(orgId, line.getItemId());
             }
         }
 

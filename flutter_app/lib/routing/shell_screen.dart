@@ -154,6 +154,11 @@ const _salesGroup = NavGroup(
         activeIcon: Icons.receipt_long_rounded,
         route: Routes.salesReceipts),
     NavItem(
+        label: 'Customer Indents',
+        icon: Icons.assignment_add,
+        activeIcon: Icons.assignment_add,
+        route: Routes.indents),
+    NavItem(
         label: 'Credit Notes',
         icon: Icons.note_alt_outlined,
         activeIcon: Icons.note_alt_rounded,

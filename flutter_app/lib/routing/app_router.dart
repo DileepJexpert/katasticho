@@ -126,6 +126,8 @@ import '../features/pharma/presentation/drug_licenses_screen.dart';
 import '../features/pharma/presentation/add_prescription_screen.dart';
 import '../features/pharma/presentation/prescription_history_screen.dart';
 import '../features/loyalty/presentation/wallet_history_screen.dart';
+import '../features/indent/presentation/indent_list_screen.dart';
+import '../features/indent/presentation/create_indent_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -263,6 +265,10 @@ class Routes {
   static const drugLicenses = '/pharma/drug-licenses';
   static const prescriptionHistory = '/pharma/prescriptions/:contactId';
   static String prescriptionHistoryPath(String contactId) => '/pharma/prescriptions/$contactId';
+
+  // Customer Indents
+  static const indents = '/indents';
+  static const indentCreate = '/indents/create';
 
   // Loyalty Wallet
   static const walletHistory = '/loyalty/wallet/:contactId';
@@ -838,6 +844,24 @@ final routerProvider = Provider<GoRouter>((ref) {
                 contactId: contactId,
                 contactName: contactName,
               );
+            },
+          ),
+          // Customer Indents
+          GoRoute(
+            path: Routes.indents,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: IndentListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.indentCreate,
+            builder: (context, state) {
+              final extra = state.extra;
+              Map<String, dynamic>? prefilledItem;
+              if (extra is Map<String, dynamic>) {
+                prefilledItem = extra;
+              }
+              return CreateIndentScreen(prefilledItem: prefilledItem);
             },
           ),
           // F5 — item groups (variant templates).

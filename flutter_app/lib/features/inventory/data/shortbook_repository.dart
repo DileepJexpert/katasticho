@@ -6,7 +6,7 @@ class ShortbookRepository {
   ShortbookRepository(this._client);
 
   Future<List<Map<String, dynamic>>> getShortbook() async {
-    final res = await _client.get('/stock/shortbook');
+    final res = await _client.get('/api/v1/stock/shortbook');
     final data = res.data;
     if (data is List) return data.cast<Map<String, dynamic>>();
     if (data is Map && data['data'] is List) {
