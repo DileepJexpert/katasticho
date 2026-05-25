@@ -1,7 +1,9 @@
 package com.katasticho.erp.inventory.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -12,8 +14,6 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class DrugMaster {
 
     @Id
@@ -26,27 +26,23 @@ public class DrugMaster {
     @Column(name = "generic_name")
     private String genericName;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "salt_id")
-    private SaltMaster salt;
+    @Column(name = "salt_id")
+    private UUID saltId;
 
     @Column(name = "salt_composition", columnDefinition = "TEXT")
     private String saltComposition;
 
-    @Column(length = 255)
+    @Column(name = "manufacturer")
     private String manufacturer;
 
     @Column(name = "hsn_code", length = 10)
-    @Builder.Default
-    private String hsnCode = "3004";
+    private String hsnCode;
 
     @Column(name = "gst_rate", precision = 5, scale = 2)
-    @Builder.Default
-    private BigDecimal gstRate = BigDecimal.valueOf(12);
+    private BigDecimal gstRate;
 
-    @Column(name = "drug_schedule", length = 20)
-    @Builder.Default
-    private String drugSchedule = "GENERAL";
+    @Column(name = "drug_schedule", length = 10)
+    private String drugSchedule;
 
     @Column(name = "dosage_form", length = 50)
     private String dosageForm;
@@ -54,18 +50,16 @@ public class DrugMaster {
     @Column(name = "pack_size", length = 50)
     private String packSize;
 
-    @Column(precision = 15, scale = 2)
+    @Column(name = "mrp", precision = 15, scale = 2)
     private BigDecimal mrp;
 
     @Column(name = "prescription_required", nullable = false)
-    @Builder.Default
-    private boolean prescriptionRequired = false;
+    private boolean prescriptionRequired;
 
     @Column(name = "is_active", nullable = false)
-    @Builder.Default
-    private boolean isActive = true;
+    private boolean active = true;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    @Builder.Default
-    private Instant createdAt = Instant.now();
+    @Column(name = "created_at", nullable = false, updatable = false,
+            insertable = false, columnDefinition = "TIMESTAMP DEFAULT NOW()")
+    private Instant createdAt;
 }

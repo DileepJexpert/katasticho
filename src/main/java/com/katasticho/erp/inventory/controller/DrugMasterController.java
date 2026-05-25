@@ -1,13 +1,14 @@
 package com.katasticho.erp.inventory.controller;
 
+import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.inventory.dto.DrugMasterResponse;
 import com.katasticho.erp.inventory.dto.SaltMasterResponse;
 import com.katasticho.erp.inventory.service.DrugMasterService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -17,34 +18,24 @@ public class DrugMasterController {
 
     private final DrugMasterService drugMasterService;
 
-    /** Search drugs by brand name, generic name, or salt composition */
-    @GetMapping
-    public ResponseEntity<Page<DrugMasterResponse>> search(
-            @RequestParam(defaultValue = "") String q,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(drugMasterService.searchDrugs(q, page, size));
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<DrugMasterResponse>>> searchDrugs(
+            @RequestParam(name = "q", defaultValue = "") String q,
+            @RequestParam(name = "limit", defaultValue = "20") int limit) {
+        List<DrugMasterResponse> results = drugMasterService.searchDrugs(q, Math.min(limit, 100));
+        return ResponseEntity.ok(ApiResponse.ok(results));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<DrugMasterResponse> getById(@PathVariable UUID id) {
-        return ResponseEntity.ok(drugMasterService.getDrug(id));
+    public ResponseEntity<ApiResponse<DrugMasterResponse>> getById(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(drugMasterService.getById(id)));
     }
 
-    @GetMapping("/by-salt/{saltId}")
-    public ResponseEntity<Page<DrugMasterResponse>> getBySalt(
-            @PathVariable UUID saltId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(drugMasterService.getDrugsBySalt(saltId, page, size));
-    }
-
-    /** Search salt/composition master */
-    @GetMapping("/salts")
-    public ResponseEntity<Page<SaltMasterResponse>> searchSalts(
-            @RequestParam(defaultValue = "") String q,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(drugMasterService.searchSalts(q, page, size));
+    @GetMapping("/salts/search")
+    public ResponseEntity<ApiResponse<List<SaltMasterResponse>>> searchSalts(
+            @RequestParam(name = "q", defaultValue = "") String q,
+            @RequestParam(name = "limit", defaultValue = "20") int limit) {
+        List<SaltMasterResponse> results = drugMasterService.searchSalts(q, Math.min(limit, 100));
+        return ResponseEntity.ok(ApiResponse.ok(results));
     }
 }

@@ -1,498 +1,452 @@
--- Salt master: platform-level reference table (no org scoping)
-CREATE TABLE salt_master (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name       VARCHAR(255) NOT NULL UNIQUE,
-    category   VARCHAR(100),
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
--- Drug master: platform-level reference table (no org scoping)
-CREATE TABLE drug_master (
-    id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    brand_name            VARCHAR(255) NOT NULL,
-    generic_name          VARCHAR(255),
-    salt_id               UUID REFERENCES salt_master(id),
-    salt_composition      TEXT,
-    manufacturer          VARCHAR(255),
-    hsn_code              VARCHAR(10)    NOT NULL DEFAULT '3004',
-    gst_rate              NUMERIC(5,2)   NOT NULL DEFAULT 12,
-    drug_schedule         VARCHAR(20)    NOT NULL DEFAULT 'GENERAL',
-    dosage_form           VARCHAR(50),
-    pack_size             VARCHAR(50),
-    mrp                   NUMERIC(15,2),
-    prescription_required BOOLEAN        NOT NULL DEFAULT FALSE,
-    is_active             BOOLEAN        NOT NULL DEFAULT TRUE,
-    created_at            TIMESTAMP      NOT NULL DEFAULT NOW()
-);
-
+-- Enable trigram extension for fuzzy search
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE TABLE salt_master (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        VARCHAR(255) NOT NULL UNIQUE,
+    category    VARCHAR(100),
+    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE drug_master (
+    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    brand_name           VARCHAR(255) NOT NULL,
+    generic_name         VARCHAR(255),
+    salt_id              UUID REFERENCES salt_master(id),
+    salt_composition     TEXT,
+    manufacturer         VARCHAR(255),
+    hsn_code             VARCHAR(10) DEFAULT '3004',
+    gst_rate             NUMERIC(5,2) DEFAULT 12,
+    drug_schedule        VARCHAR(10) DEFAULT 'GENERAL',
+    dosage_form          VARCHAR(50),
+    pack_size            VARCHAR(50),
+    mrp                  NUMERIC(15,2),
+    prescription_required BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active            BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at           TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX idx_drug_master_brand_trgm ON drug_master USING gin(brand_name gin_trgm_ops);
-CREATE INDEX idx_drug_master_salt       ON drug_master(salt_id);
-CREATE INDEX idx_salt_master_name_trgm  ON salt_master USING gin(name gin_trgm_ops);
-CREATE INDEX idx_drug_master_active     ON drug_master(is_active) WHERE is_active = TRUE;
+CREATE INDEX idx_drug_master_salt ON drug_master(salt_id);
+CREATE INDEX idx_salt_master_name_trgm ON salt_master USING gin(name gin_trgm_ops);
 
 -- ============================================================
--- SALT MASTER SEED DATA
+-- SEED: salt_master
 -- ============================================================
-INSERT INTO salt_master (name, category) VALUES
-('Paracetamol','Analgesic/Antipyretic'),
-('Ibuprofen','NSAID'),
-('Diclofenac','NSAID'),
-('Aceclofenac','NSAID'),
-('Nimesulide','NSAID'),
-('Mefenamic Acid','NSAID'),
-('Aspirin','Antiplatelet/NSAID'),
-('Tramadol','Opioid Analgesic'),
-('Ketorolac','NSAID'),
-('Amoxicillin','Antibiotic - Penicillin'),
-('Amoxicillin + Clavulanic Acid','Antibiotic - Beta-Lactam'),
-('Ampicillin','Antibiotic - Penicillin'),
-('Azithromycin','Antibiotic - Macrolide'),
-('Erythromycin','Antibiotic - Macrolide'),
-('Clarithromycin','Antibiotic - Macrolide'),
-('Clindamycin','Antibiotic - Lincosamide'),
-('Ciprofloxacin','Antibiotic - Fluoroquinolone'),
-('Ofloxacin','Antibiotic - Fluoroquinolone'),
-('Norfloxacin','Antibiotic - Fluoroquinolone'),
-('Levofloxacin','Antibiotic - Fluoroquinolone'),
-('Moxifloxacin','Antibiotic - Fluoroquinolone'),
-('Doxycycline','Antibiotic - Tetracycline'),
-('Cefixime','Antibiotic - Cephalosporin'),
-('Cefpodoxime','Antibiotic - Cephalosporin'),
-('Metronidazole','Antibiotic - Nitroimidazole'),
-('Tinidazole','Antibiotic - Nitroimidazole'),
-('Fluconazole','Antifungal'),
-('Terbinafine','Antifungal'),
-('Itraconazole','Antifungal'),
-('Albendazole','Anthelmintic'),
-('Mebendazole','Anthelmintic'),
-('Cetirizine','Antihistamine'),
-('Levocetirizine','Antihistamine'),
-('Loratadine','Antihistamine'),
-('Chlorpheniramine','Antihistamine'),
-('Fexofenadine','Antihistamine'),
-('Montelukast','Leukotriene Antagonist'),
-('Salbutamol','Bronchodilator'),
-('Theophylline','Bronchodilator'),
-('Ambroxol','Mucolytic'),
-('Bromhexine','Mucolytic'),
-('Dextromethorphan','Antitussive'),
-('N-Acetylcysteine','Mucolytic'),
-('Budesonide','Corticosteroid - Inhaled'),
-('Pantoprazole','Proton Pump Inhibitor'),
-('Omeprazole','Proton Pump Inhibitor'),
-('Rabeprazole','Proton Pump Inhibitor'),
-('Esomeprazole','Proton Pump Inhibitor'),
-('Ranitidine','H2 Blocker'),
-('Domperidone','Prokinetic'),
-('Ondansetron','Antiemetic'),
-('Metoclopramide','Antiemetic/Prokinetic'),
-('Metformin','Antidiabetic - Biguanide'),
-('Glibenclamide','Antidiabetic - Sulfonylurea'),
-('Glipizide','Antidiabetic - Sulfonylurea'),
-('Glimepiride','Antidiabetic - Sulfonylurea'),
-('Pioglitazone','Antidiabetic - Thiazolidinedione'),
-('Voglibose','Antidiabetic - Alpha-glucosidase inhibitor'),
-('Sitagliptin','Antidiabetic - DPP-4 inhibitor'),
-('Amlodipine','Antihypertensive - CCB'),
-('Nifedipine','Antihypertensive - CCB'),
-('Atenolol','Antihypertensive - Beta Blocker'),
-('Metoprolol','Antihypertensive - Beta Blocker'),
-('Bisoprolol','Antihypertensive - Beta Blocker'),
-('Propranolol','Antihypertensive - Beta Blocker'),
-('Losartan','Antihypertensive - ARB'),
-('Telmisartan','Antihypertensive - ARB'),
-('Olmesartan','Antihypertensive - ARB'),
-('Ramipril','Antihypertensive - ACE Inhibitor'),
-('Lisinopril','Antihypertensive - ACE Inhibitor'),
-('Enalapril','Antihypertensive - ACE Inhibitor'),
-('Furosemide','Diuretic'),
-('Hydrochlorothiazide','Diuretic'),
-('Spironolactone','Diuretic - Potassium Sparing'),
-('Atorvastatin','Statin'),
-('Rosuvastatin','Statin'),
-('Simvastatin','Statin'),
-('Clopidogrel','Antiplatelet'),
-('Levothyroxine','Thyroid Hormone'),
-('Prednisolone','Corticosteroid'),
-('Dexamethasone','Corticosteroid'),
-('Methylprednisolone','Corticosteroid'),
-('Sertraline','Antidepressant - SSRI'),
-('Escitalopram','Antidepressant - SSRI'),
-('Fluoxetine','Antidepressant - SSRI'),
-('Amitriptyline','Antidepressant - TCA'),
-('Alprazolam','Anxiolytic - Benzodiazepine'),
-('Clonazepam','Anticonvulsant/Anxiolytic'),
-('Diazepam','Anxiolytic - Benzodiazepine'),
-('Gabapentin','Anticonvulsant/Neuropathic'),
-('Pregabalin','Anticonvulsant/Neuropathic'),
-('Levetiracetam','Anticonvulsant'),
-('Phenytoin','Anticonvulsant'),
-('Carbamazepine','Anticonvulsant/Mood Stabilizer'),
-('Vitamin D3 (Cholecalciferol)','Vitamin'),
-('Methylcobalamin','Vitamin B12'),
-('Pyridoxine (Vitamin B6)','Vitamin'),
-('Folic Acid','Vitamin'),
-('Ferrous Sulphate + Folic Acid','Iron Supplement'),
-('Calcium Carbonate + Vitamin D3','Calcium Supplement'),
-('Zinc Sulphate','Mineral'),
-('Ascorbic Acid','Vitamin C'),
-('Multivitamin + Multimineral','Nutritional Supplement'),
-('Isoniazid','Anti-TB'),
-('Rifampicin','Anti-TB'),
-('Pyrazinamide','Anti-TB'),
-('Ethambutol','Anti-TB'),
-('Doxylamine + Pyridoxine','Antiemetic - Pregnancy'),
-('Betahistine','Vestibular disorders'),
-('Acyclovir','Antiviral'),
-('Oseltamivir','Antiviral');
+INSERT INTO salt_master(name, category) VALUES
+('Paracetamol', 'Analgesic/NSAID'),
+('Ibuprofen', 'Analgesic/NSAID'),
+('Diclofenac Sodium', 'Analgesic/NSAID'),
+('Nimesulide', 'Analgesic/NSAID'),
+('Aceclofenac', 'Analgesic/NSAID'),
+('Aspirin', 'Analgesic/NSAID'),
+('Tramadol HCl', 'Analgesic/NSAID'),
+('Ketorolac Tromethamine', 'Analgesic/NSAID'),
+('Naproxen', 'Analgesic/NSAID'),
+('Mefenamic Acid', 'Analgesic/NSAID'),
+('Amoxicillin', 'Antibiotic'),
+('Amoxicillin+Clavulanic Acid', 'Antibiotic'),
+('Azithromycin', 'Antibiotic'),
+('Ciprofloxacin HCl', 'Antibiotic'),
+('Doxycycline HCl', 'Antibiotic'),
+('Metronidazole', 'Antibiotic'),
+('Cefixime', 'Antibiotic'),
+('Cephalexin', 'Antibiotic'),
+('Clindamycin', 'Antibiotic'),
+('Levofloxacin', 'Antibiotic'),
+('Ofloxacin', 'Antibiotic'),
+('Erythromycin', 'Antibiotic'),
+('Cefpodoxime', 'Antibiotic'),
+('Cefuroxime', 'Antibiotic'),
+('Ampicillin', 'Antibiotic'),
+('Tetracycline', 'Antibiotic'),
+('Co-trimoxazole', 'Antibiotic'),
+('Omeprazole', 'Antacid/PPI'),
+('Pantoprazole Sodium', 'Antacid/PPI'),
+('Rabeprazole Sodium', 'Antacid/PPI'),
+('Esomeprazole Magnesium', 'Antacid/PPI'),
+('Lansoprazole', 'Antacid/PPI'),
+('Ranitidine HCl', 'Antacid/PPI'),
+('Famotidine', 'Antacid/PPI'),
+('Domperidone', 'Antacid/PPI'),
+('Ondansetron HCl', 'Antacid/PPI'),
+('Metoclopramide HCl', 'Antacid/PPI'),
+('Sucralfate', 'Antacid/PPI'),
+('Cetirizine HCl', 'Antihistamine'),
+('Levocetirizine HCl', 'Antihistamine'),
+('Fexofenadine HCl', 'Antihistamine'),
+('Loratadine', 'Antihistamine'),
+('Desloratadine', 'Antihistamine'),
+('Chlorpheniramine Maleate', 'Antihistamine'),
+('Hydroxyzine HCl', 'Antihistamine'),
+('Montelukast Sodium', 'Antihistamine'),
+('Bilastine', 'Antihistamine'),
+('Metformin HCl', 'Antidiabetic'),
+('Glibenclamide', 'Antidiabetic'),
+('Gliclazide', 'Antidiabetic'),
+('Glimepiride', 'Antidiabetic'),
+('Glipizide', 'Antidiabetic'),
+('Sitagliptin Phosphate', 'Antidiabetic'),
+('Vildagliptin', 'Antidiabetic'),
+('Dapagliflozin', 'Antidiabetic'),
+('Empagliflozin', 'Antidiabetic'),
+('Teneligliptin', 'Antidiabetic'),
+('Insulin Regular', 'Antidiabetic'),
+('Insulin NPH', 'Antidiabetic'),
+('Amlodipine Besylate', 'Antihypertensive'),
+('Atenolol', 'Antihypertensive'),
+('Losartan Potassium', 'Antihypertensive'),
+('Telmisartan', 'Antihypertensive'),
+('Enalapril Maleate', 'Antihypertensive'),
+('Ramipril', 'Antihypertensive'),
+('Lisinopril', 'Antihypertensive'),
+('Metoprolol Succinate', 'Antihypertensive'),
+('Carvedilol', 'Antihypertensive'),
+('Nebivolol HCl', 'Antihypertensive'),
+('Hydrochlorothiazide', 'Antihypertensive'),
+('Furosemide', 'Antihypertensive'),
+('Spironolactone', 'Antihypertensive'),
+('Olmesartan Medoxomil', 'Antihypertensive'),
+('Valsartan', 'Antihypertensive'),
+('Atorvastatin Calcium', 'Lipid-lowering'),
+('Rosuvastatin Calcium', 'Lipid-lowering'),
+('Simvastatin', 'Lipid-lowering'),
+('Fenofibrate', 'Lipid-lowering'),
+('Ezetimibe', 'Lipid-lowering'),
+('Salbutamol Sulphate', 'Respiratory'),
+('Theophylline', 'Respiratory'),
+('Budesonide', 'Respiratory'),
+('Formoterol Fumarate', 'Respiratory'),
+('Tiotropium Bromide', 'Respiratory'),
+('Bromhexine HCl', 'Respiratory'),
+('Ambroxol HCl', 'Respiratory'),
+('Dextromethorphan HBr', 'Respiratory'),
+('Levosalbutamol Sulphate', 'Respiratory'),
+('Ipratropium Bromide', 'Respiratory'),
+('Vitamin D3', 'Vitamin/Supplement'),
+('Vitamin B12', 'Vitamin/Supplement'),
+('Folic Acid', 'Vitamin/Supplement'),
+('Ferrous Sulphate', 'Vitamin/Supplement'),
+('Calcium Carbonate', 'Vitamin/Supplement'),
+('Zinc Sulphate', 'Vitamin/Supplement'),
+('Vitamin C', 'Vitamin/Supplement'),
+('Multivitamin', 'Vitamin/Supplement'),
+('Thiamine HCl', 'Vitamin/Supplement'),
+('Pyridoxine HCl', 'Vitamin/Supplement'),
+('Riboflavin', 'Vitamin/Supplement'),
+('Pregabalin', 'Neuro/Antiepileptic'),
+('Gabapentin', 'Neuro/Antiepileptic'),
+('Levetiracetam', 'Neuro/Antiepileptic'),
+('Phenytoin Sodium', 'Neuro/Antiepileptic'),
+('Carbamazepine', 'Neuro/Antiepileptic'),
+('Valproate Sodium', 'Neuro/Antiepileptic'),
+('Lamotrigine', 'Neuro/Antiepileptic'),
+('Clonazepam', 'Neuro/Antiepileptic'),
+('Alprazolam', 'Neuro/Antiepileptic'),
+('Diazepam', 'Neuro/Antiepileptic'),
+('Zolpidem Tartrate', 'Neuro/Antiepileptic'),
+('Sertraline HCl', 'Antidepressant'),
+('Escitalopram Oxalate', 'Antidepressant'),
+('Fluoxetine HCl', 'Antidepressant'),
+('Amitriptyline HCl', 'Antidepressant'),
+('Venlafaxine HCl', 'Antidepressant'),
+('Duloxetine HCl', 'Antidepressant'),
+('Mirtazapine', 'Antidepressant'),
+('Levothyroxine Sodium', 'Thyroid'),
+('Carbimazole', 'Thyroid'),
+('Propylthiouracil', 'Thyroid'),
+('Fluconazole', 'Antifungal'),
+('Itraconazole', 'Antifungal'),
+('Clotrimazole', 'Antifungal'),
+('Terbinafine HCl', 'Antifungal'),
+('Ketoconazole', 'Antifungal'),
+('Acyclovir', 'Antiviral'),
+('Oseltamivir Phosphate', 'Antiviral'),
+('Tenofovir', 'Antiviral'),
+('Lamivudine', 'Antiviral'),
+('Betamethasone Valerate', 'Dermatological'),
+('Mupirocin', 'Dermatological'),
+('Calamine', 'Dermatological'),
+('Permethrin', 'Dermatological'),
+('Hydrocortisone', 'Dermatological'),
+('Clobetasol Propionate', 'Dermatological'),
+('Mometasone Furoate', 'Dermatological'),
+('Loperamide HCl', 'GI/Other'),
+('Albendazole', 'GI/Other'),
+('Mebendazole', 'GI/Other'),
+('Ivermectin', 'GI/Other'),
+('Lactulose', 'GI/Other'),
+('Bisacodyl', 'GI/Other'),
+('Tamsulosin HCl', 'GI/Other'),
+('Sildenafil Citrate', 'GI/Other'),
+('Tadalafil', 'GI/Other'),
+('Progesterone', 'GI/Other'),
+('Mifepristone', 'GI/Other'),
+('Methylprednisolone', 'GI/Other'),
+('Prednisolone', 'GI/Other'),
+('Dexamethasone', 'GI/Other'),
+('Colchicine', 'GI/Other'),
+('Allopurinol', 'GI/Other'),
+('Hydroxychloroquine Sulphate', 'GI/Other');
 
 -- ============================================================
--- DRUG MASTER SEED DATA (200+ brands)
+-- SEED: drug_master (200+ drugs via INSERT...SELECT)
 -- ============================================================
-
--- PARACETAMOL group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Crocin 500','Paracetamol 500mg',(SELECT id FROM salt_master WHERE name='Paracetamol'),'Paracetamol 500mg','GSK',                    '3004',12,'GENERAL',       'Tablet',    '20 Tab',    28.00, false),
-('Dolo 650',  'Paracetamol 650mg',(SELECT id FROM salt_master WHERE name='Paracetamol'),'Paracetamol 650mg','Micro Labs',             '3004',12,'GENERAL',       'Tablet',    '15 Tab',    30.00, false),
-('Calpol 500','Paracetamol 500mg',(SELECT id FROM salt_master WHERE name='Paracetamol'),'Paracetamol 500mg','GSK',                    '3004',12,'GENERAL',       'Tablet',    '15 Tab',    19.00, false),
-('Pyrigesic','Paracetamol 500mg', (SELECT id FROM salt_master WHERE name='Paracetamol'),'Paracetamol 500mg','East India',             '3004',12,'GENERAL',       'Tablet',    '10 Tab',    14.00, false),
-('Pacimol 500','Paracetamol 500mg',(SELECT id FROM salt_master WHERE name='Paracetamol'),'Paracetamol 500mg','Ipca Labs',             '3004',12,'GENERAL',       'Tablet',    '10 Tab',    12.00, false),
-('Crocin 250 Syrup','Paracetamol 250mg/5ml',(SELECT id FROM salt_master WHERE name='Paracetamol'),'Paracetamol 250mg/5ml','GSK',     '3004',12,'GENERAL',       'Syrup',     '60ml',      50.00, false),
-('Febrex Plus','Paracetamol+Chlorpheniramine+Phenylephrine',(SELECT id FROM salt_master WHERE name='Paracetamol'),'Paracetamol 325mg + Chlorpheniramine 2mg + Phenylephrine 5mg','Ipca','3004',12,'GENERAL','Tablet','10 Tab',30.00, false);
-
--- IBUPROFEN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Brufen 400','Ibuprofen 400mg',   (SELECT id FROM salt_master WHERE name='Ibuprofen'),'Ibuprofen 400mg','Abbott',                    '3004',12,'SCHEDULE_H',    'Tablet',    '15 Tab',    35.00, true),
-('Combiflam','Ibuprofen+Paracetamol',(SELECT id FROM salt_master WHERE name='Ibuprofen'),'Ibuprofen 400mg + Paracetamol 325mg','Sanofi','3004',12,'GENERAL',     'Tablet',    '20 Tab',    42.00, false),
-('Ibugesic 400','Ibuprofen 400mg', (SELECT id FROM salt_master WHERE name='Ibuprofen'),'Ibuprofen 400mg','Cipla',                     '3004',12,'SCHEDULE_H',    'Tablet',    '15 Tab',    30.00, true),
-('Advil 200','Ibuprofen 200mg',    (SELECT id FROM salt_master WHERE name='Ibuprofen'),'Ibuprofen 200mg','Pfizer',                    '3004',12,'GENERAL',       'Tablet',    '10 Tab',    25.00, false);
-
--- DICLOFENAC group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Voveran 50','Diclofenac 50mg',   (SELECT id FROM salt_master WHERE name='Diclofenac'),'Diclofenac Sodium 50mg','Novartis',          '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    25.00, true),
-('Voveran SR 100','Diclofenac 100mg SR',(SELECT id FROM salt_master WHERE name='Diclofenac'),'Diclofenac Sodium 100mg SR','Novartis', '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    45.00, true),
-('Voltaren Gel','Diclofenac 1% Gel',(SELECT id FROM salt_master WHERE name='Diclofenac'),'Diclofenac Diethylamine 1.16%','Novartis', '3004',12,'GENERAL',       'Gel',       '30g',       90.00, false),
-('Diclogesic','Diclofenac 50mg',   (SELECT id FROM salt_master WHERE name='Diclofenac'),'Diclofenac Sodium 50mg','Cipla',             '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    20.00, true);
-
--- ACECLOFENAC group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Zerodol-P','Aceclofenac+Paracetamol',(SELECT id FROM salt_master WHERE name='Aceclofenac'),'Aceclofenac 100mg + Paracetamol 500mg','Ipca', '3004',12,'SCHEDULE_H','Tablet','10 Tab', 55.00, true),
-('Hifenac P','Aceclofenac+Paracetamol',(SELECT id FROM salt_master WHERE name='Aceclofenac'),'Aceclofenac 100mg + Paracetamol 500mg','Intas','3004',12,'SCHEDULE_H','Tablet','10 Tab', 52.00, true),
-('Aceclo Plus','Aceclofenac+Paracetamol',(SELECT id FROM salt_master WHERE name='Aceclofenac'),'Aceclofenac 100mg + Paracetamol 325mg','FDC','3004',12,'SCHEDULE_H','Tablet','10 Tab', 42.00, true),
-('Zerodol SP','Aceclofenac+Serratiopeptidase',(SELECT id FROM salt_master WHERE name='Aceclofenac'),'Aceclofenac 100mg + Serratiopeptidase 15mg','Ipca','3004',12,'SCHEDULE_H','Tablet','10 Tab',80.00, true);
-
--- NIMESULIDE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Nimulid 100','Nimesulide 100mg', (SELECT id FROM salt_master WHERE name='Nimesulide'),'Nimesulide 100mg','Panacea Biotec',         '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    22.00, true),
-('Nice 100',   'Nimesulide 100mg', (SELECT id FROM salt_master WHERE name='Nimesulide'),'Nimesulide 100mg','Abbott',                 '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    20.00, true);
-
--- ASPIRIN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Disprin 325','Aspirin 325mg',    (SELECT id FROM salt_master WHERE name='Aspirin'),'Aspirin 325mg','Reckitt',                      '3004',12,'GENERAL',       'Tablet',    '10 Tab',    14.00, false),
-('Ecosprin 75','Aspirin 75mg',     (SELECT id FROM salt_master WHERE name='Aspirin'),'Aspirin 75mg (Enteric Coated)','USV',          '3004',12,'SCHEDULE_H',    'Tablet',    '14 Tab',    16.00, true),
-('Ecosprin 150','Aspirin 150mg',   (SELECT id FROM salt_master WHERE name='Aspirin'),'Aspirin 150mg (Enteric Coated)','USV',         '3004',12,'SCHEDULE_H',    'Tablet',    '14 Tab',    20.00, true);
-
--- AMOXICILLIN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Mox 500',    'Amoxicillin 500mg',(SELECT id FROM salt_master WHERE name='Amoxicillin'),'Amoxicillin 500mg','Cipla',               '3004',12,'SCHEDULE_H',    'Capsule',   '10 Cap',    50.00, true),
-('Novamox 500','Amoxicillin 500mg',(SELECT id FROM salt_master WHERE name='Amoxicillin'),'Amoxicillin 500mg','Cipla',               '3004',12,'SCHEDULE_H',    'Capsule',   '10 Cap',    48.00, true),
-('Amoxil 250', 'Amoxicillin 250mg',(SELECT id FROM salt_master WHERE name='Amoxicillin'),'Amoxicillin 250mg','GSK',                 '3004',12,'SCHEDULE_H',    'Capsule',   '10 Cap',    35.00, true);
-
--- AMOXICILLIN + CLAVULANIC ACID group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Augmentin 625','Amoxicillin+Clavulanate 625mg',(SELECT id FROM salt_master WHERE name='Amoxicillin + Clavulanic Acid'),'Amoxicillin 500mg + Clavulanic Acid 125mg','GSK','3004',12,'SCHEDULE_H','Tablet','6 Tab',180.00, true),
-('Clavam 625',   'Amoxicillin+Clavulanate 625mg',(SELECT id FROM salt_master WHERE name='Amoxicillin + Clavulanic Acid'),'Amoxicillin 500mg + Clavulanic Acid 125mg','Alkem','3004',12,'SCHEDULE_H','Tablet','6 Tab',165.00, true),
-('Moxclav 625',  'Amoxicillin+Clavulanate 625mg',(SELECT id FROM salt_master WHERE name='Amoxicillin + Clavulanic Acid'),'Amoxicillin 500mg + Clavulanic Acid 125mg','FDC','3004',12,'SCHEDULE_H','Tablet','6 Tab',155.00, true);
-
--- AZITHROMYCIN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Azee 500',     'Azithromycin 500mg',(SELECT id FROM salt_master WHERE name='Azithromycin'),'Azithromycin 500mg','Cipla',           '3004',12,'SCHEDULE_H',    'Tablet',    '3 Tab',     75.00, true),
-('Azithral 500', 'Azithromycin 500mg',(SELECT id FROM salt_master WHERE name='Azithromycin'),'Azithromycin 500mg','Alembic',        '3004',12,'SCHEDULE_H',    'Tablet',    '3 Tab',     70.00, true),
-('Zithromax 250','Azithromycin 250mg',(SELECT id FROM salt_master WHERE name='Azithromycin'),'Azithromycin 250mg','Pfizer',         '3004',12,'SCHEDULE_H',    'Tablet',    '5 Tab',     110.00, true),
-('Zady 500',     'Azithromycin 500mg',(SELECT id FROM salt_master WHERE name='Azithromycin'),'Azithromycin 500mg','Cadila',         '3004',12,'SCHEDULE_H',    'Tablet',    '3 Tab',     68.00, true);
-
--- CIPROFLOXACIN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Ciplox 500',  'Ciprofloxacin 500mg',(SELECT id FROM salt_master WHERE name='Ciprofloxacin'),'Ciprofloxacin 500mg','Cipla',        '3004',12,'SCHEDULE_H1',   'Tablet',    '10 Tab',    45.00, true),
-('Cifran 500',  'Ciprofloxacin 500mg',(SELECT id FROM salt_master WHERE name='Ciprofloxacin'),'Ciprofloxacin 500mg','Ranbaxy',      '3004',12,'SCHEDULE_H1',   'Tablet',    '10 Tab',    42.00, true),
-('Ciprobid 500','Ciprofloxacin 500mg',(SELECT id FROM salt_master WHERE name='Ciprofloxacin'),'Ciprofloxacin 500mg','Cadila',       '3004',12,'SCHEDULE_H1',   'Tablet',    '10 Tab',    40.00, true),
-('Quinflox 500','Ciprofloxacin 500mg',(SELECT id FROM salt_master WHERE name='Ciprofloxacin'),'Ciprofloxacin 500mg','Mankind',      '3004',12,'SCHEDULE_H1',   'Tablet',    '10 Tab',    38.00, true);
-
--- LEVOFLOXACIN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Levoflox 500','Levofloxacin 500mg',(SELECT id FROM salt_master WHERE name='Levofloxacin'),'Levofloxacin 500mg','Cipla',           '3004',12,'SCHEDULE_H1',   'Tablet',    '5 Tab',     85.00, true),
-('Levaquin 500','Levofloxacin 500mg',(SELECT id FROM salt_master WHERE name='Levofloxacin'),'Levofloxacin 500mg','Janssen',         '3004',12,'SCHEDULE_H1',   'Tablet',    '5 Tab',     90.00, true),
-('Tavanic 500', 'Levofloxacin 500mg',(SELECT id FROM salt_master WHERE name='Levofloxacin'),'Levofloxacin 500mg','Sanofi',          '3004',12,'SCHEDULE_H1',   'Tablet',    '5 Tab',     95.00, true);
-
--- DOXYCYCLINE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Doxin 100',   'Doxycycline 100mg',(SELECT id FROM salt_master WHERE name='Doxycycline'),'Doxycycline 100mg','Cipla',              '3004',12,'SCHEDULE_H',    'Capsule',   '10 Cap',    30.00, true),
-('Biodoxi 100', 'Doxycycline 100mg',(SELECT id FROM salt_master WHERE name='Doxycycline'),'Doxycycline 100mg','Elder',              '3004',12,'SCHEDULE_H',    'Capsule',   '10 Cap',    28.00, true);
-
--- CEFIXIME group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Taxim-O 200', 'Cefixime 200mg',  (SELECT id FROM salt_master WHERE name='Cefixime'),'Cefixime 200mg','Alkem',                    '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    115.00, true),
-('Suprax 200',  'Cefixime 200mg',  (SELECT id FROM salt_master WHERE name='Cefixime'),'Cefixime 200mg','Pfizer',                   '3004',12,'SCHEDULE_H',    'Tablet',    '6 Tab',     95.00, true),
-('Zifi 200',    'Cefixime 200mg',  (SELECT id FROM salt_master WHERE name='Cefixime'),'Cefixime 200mg','FDC',                      '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    108.00, true);
-
--- METRONIDAZOLE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Flagyl 400',  'Metronidazole 400mg',(SELECT id FROM salt_master WHERE name='Metronidazole'),'Metronidazole 400mg','Pfizer',       '3004',12,'SCHEDULE_H',    'Tablet',    '15 Tab',    30.00, true),
-('Metrogyl 400','Metronidazole 400mg',(SELECT id FROM salt_master WHERE name='Metronidazole'),'Metronidazole 400mg','JB Chemicals', '3004',12,'SCHEDULE_H',    'Tablet',    '15 Tab',    28.00, true);
-
--- FLUCONAZOLE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Flucos 150',  'Fluconazole 150mg',(SELECT id FROM salt_master WHERE name='Fluconazole'),'Fluconazole 150mg','Cipla',              '3004',12,'SCHEDULE_H',    'Capsule',   '1 Cap',     30.00, true),
-('Forcan 150',  'Fluconazole 150mg',(SELECT id FROM salt_master WHERE name='Fluconazole'),'Fluconazole 150mg','Cipla',              '3004',12,'SCHEDULE_H',    'Capsule',   '1 Cap',     28.00, true);
-
--- CETIRIZINE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Zyrtec 10',   'Cetirizine 10mg', (SELECT id FROM salt_master WHERE name='Cetirizine'),'Cetirizine 10mg','UCB',                   '3004',12,'GENERAL',       'Tablet',    '7 Tab',     38.00, false),
-('Okacet 10',   'Cetirizine 10mg', (SELECT id FROM salt_master WHERE name='Cetirizine'),'Cetirizine 10mg','Cipla',                 '3004',12,'GENERAL',       'Tablet',    '10 Tab',    22.00, false),
-('Cetcip 10',   'Cetirizine 10mg', (SELECT id FROM salt_master WHERE name='Cetirizine'),'Cetirizine 10mg','Cipla',                 '3004',12,'GENERAL',       'Tablet',    '10 Tab',    20.00, false),
-('Alerid 10',   'Cetirizine 10mg', (SELECT id FROM salt_master WHERE name='Cetirizine'),'Cetirizine 10mg','Cipla',                 '3004',12,'GENERAL',       'Tablet',    '15 Tab',    30.00, false);
-
--- LEVOCETIRIZINE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Xyzal 5',     'Levocetirizine 5mg',(SELECT id FROM salt_master WHERE name='Levocetirizine'),'Levocetirizine 5mg','UCB',           '3004',12,'GENERAL',       'Tablet',    '10 Tab',    55.00, false),
-('L-Cin 5',     'Levocetirizine 5mg',(SELECT id FROM salt_master WHERE name='Levocetirizine'),'Levocetirizine 5mg','Alkem',         '3004',12,'GENERAL',       'Tablet',    '10 Tab',    32.00, false),
-('Levocet 5',   'Levocetirizine 5mg',(SELECT id FROM salt_master WHERE name='Levocetirizine'),'Levocetirizine 5mg','Cipla',         '3004',12,'GENERAL',       'Tablet',    '10 Tab',    30.00, false);
-
--- MONTELUKAST group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Montair 10',  'Montelukast 10mg',(SELECT id FROM salt_master WHERE name='Montelukast'),'Montelukast 10mg','Cipla',                '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    90.00, true),
-('Singulair 10','Montelukast 10mg',(SELECT id FROM salt_master WHERE name='Montelukast'),'Montelukast 10mg','MSD',                  '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    125.00, true),
-('Montair LC',  'Montelukast+Levocetirizine',(SELECT id FROM salt_master WHERE name='Montelukast'),'Montelukast 10mg + Levocetirizine 5mg','Cipla','3004',12,'SCHEDULE_H','Tablet','10 Tab',120.00, true),
-('Aimont 10',   'Montelukast 10mg',(SELECT id FROM salt_master WHERE name='Montelukast'),'Montelukast 10mg','Mankind',              '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    75.00, true);
-
--- PANTOPRAZOLE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Pan 40',      'Pantoprazole 40mg',(SELECT id FROM salt_master WHERE name='Pantoprazole'),'Pantoprazole 40mg','Alkem',             '3004',12,'SCHEDULE_H',    'Tablet',    '15 Tab',    65.00, true),
-('Pantocid 40', 'Pantoprazole 40mg',(SELECT id FROM salt_master WHERE name='Pantoprazole'),'Pantoprazole 40mg','Sun Pharma',       '3004',12,'SCHEDULE_H',    'Tablet',    '15 Tab',    70.00, true),
-('Pantocar 40', 'Pantoprazole 40mg',(SELECT id FROM salt_master WHERE name='Pantoprazole'),'Pantoprazole 40mg','JB Chemicals',     '3004',12,'SCHEDULE_H',    'Tablet',    '15 Tab',    60.00, true),
-('Pan D',       'Pantoprazole+Domperidone',(SELECT id FROM salt_master WHERE name='Pantoprazole'),'Pantoprazole 40mg + Domperidone 10mg','Alkem','3004',12,'SCHEDULE_H','Capsule','15 Cap',95.00, true),
-('Nexpro 40',   'Esomeprazole 40mg',(SELECT id FROM salt_master WHERE name='Esomeprazole'),'Esomeprazole 40mg','Torrent',          '3004',12,'SCHEDULE_H',    'Tablet',    '14 Tab',    85.00, true);
-
--- OMEPRAZOLE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Omez 20',     'Omeprazole 20mg', (SELECT id FROM salt_master WHERE name='Omeprazole'),'Omeprazole 20mg','Dr Reddy''s',            '3004',12,'SCHEDULE_H',    'Capsule',   '15 Cap',    55.00, true),
-('Ocid 20',     'Omeprazole 20mg', (SELECT id FROM salt_master WHERE name='Omeprazole'),'Omeprazole 20mg','Cipla',                  '3004',12,'SCHEDULE_H',    'Capsule',   '15 Cap',    50.00, true);
-
--- RABEPRAZOLE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Razo 20',     'Rabeprazole 20mg',(SELECT id FROM salt_master WHERE name='Rabeprazole'),'Rabeprazole 20mg','Dr Reddy''s',          '3004',12,'SCHEDULE_H',    'Tablet',    '15 Tab',    75.00, true),
-('Rabemac 20',  'Rabeprazole 20mg',(SELECT id FROM salt_master WHERE name='Rabeprazole'),'Rabeprazole 20mg','Macleods',             '3004',12,'SCHEDULE_H',    'Tablet',    '15 Tab',    70.00, true);
-
--- DOMPERIDONE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Domstal 10',  'Domperidone 10mg',(SELECT id FROM salt_master WHERE name='Domperidone'),'Domperidone 10mg','Torrent',              '3004',12,'SCHEDULE_H',    'Tablet',    '30 Tab',    42.00, true),
-('Vomistop 10', 'Domperidone 10mg',(SELECT id FROM salt_master WHERE name='Domperidone'),'Domperidone 10mg','Cipla',                '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    18.00, true);
-
--- ONDANSETRON group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Emeset 4',    'Ondansetron 4mg', (SELECT id FROM salt_master WHERE name='Ondansetron'),'Ondansetron 4mg','Cipla',                 '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    48.00, true),
-('Zofran 4',    'Ondansetron 4mg', (SELECT id FROM salt_master WHERE name='Ondansetron'),'Ondansetron 4mg','GSK',                   '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    55.00, true),
-('Ondem 4',     'Ondansetron 4mg', (SELECT id FROM salt_master WHERE name='Ondansetron'),'Ondansetron 4mg','Alkem',                 '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    45.00, true);
-
--- METFORMIN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Glycomet 500','Metformin 500mg', (SELECT id FROM salt_master WHERE name='Metformin'),'Metformin 500mg','USV',                     '3004',12,'SCHEDULE_H',    'Tablet',    '20 Tab',    25.00, true),
-('Glucophage 500','Metformin 500mg',(SELECT id FROM salt_master WHERE name='Metformin'),'Metformin 500mg','Merck',                  '3004',12,'SCHEDULE_H',    'Tablet',    '20 Tab',    30.00, true),
-('Glycomet SR 500','Metformin SR 500mg',(SELECT id FROM salt_master WHERE name='Metformin'),'Metformin 500mg SR','USV',              '3004',12,'SCHEDULE_H',    'Tablet',    '20 Tab',    35.00, true),
-('Obimet 500',  'Metformin 500mg', (SELECT id FROM salt_master WHERE name='Metformin'),'Metformin 500mg','Aristo',                  '3004',12,'SCHEDULE_H',    'Tablet',    '20 Tab',    22.00, true),
-('Walaphage 1g','Metformin 1000mg',(SELECT id FROM salt_master WHERE name='Metformin'),'Metformin 1000mg','Sun Pharma',             '3004',12,'SCHEDULE_H',    'Tablet',    '30 Tab',    65.00, true);
-
--- GLIMEPIRIDE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Amaryl 2',    'Glimepiride 2mg', (SELECT id FROM salt_master WHERE name='Glimepiride'),'Glimepiride 2mg','Sanofi',               '3004',12,'SCHEDULE_H',    'Tablet',    '15 Tab',    85.00, true),
-('Glimestar 2', 'Glimepiride 2mg', (SELECT id FROM salt_master WHERE name='Glimepiride'),'Glimepiride 2mg','Mankind',              '3004',12,'SCHEDULE_H',    'Tablet',    '15 Tab',    65.00, true),
-('Zoryl 2',     'Glimepiride 2mg', (SELECT id FROM salt_master WHERE name='Glimepiride'),'Glimepiride 2mg','Intas',                '3004',12,'SCHEDULE_H',    'Tablet',    '15 Tab',    70.00, true);
-
--- SITAGLIPTIN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Januvia 100', 'Sitagliptin 100mg',(SELECT id FROM salt_master WHERE name='Sitagliptin'),'Sitagliptin 100mg','MSD',              '3004',12,'SCHEDULE_H',    'Tablet',    '14 Tab',    430.00, true),
-('Istavel 100', 'Sitagliptin 100mg',(SELECT id FROM salt_master WHERE name='Sitagliptin'),'Sitagliptin 100mg','Sun Pharma',       '3004',12,'SCHEDULE_H',    'Tablet',    '14 Tab',    280.00, true);
-
--- AMLODIPINE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Amlovas 5',   'Amlodipine 5mg',  (SELECT id FROM salt_master WHERE name='Amlodipine'),'Amlodipine 5mg','Macleods',               '3004',12,'SCHEDULE_H',    'Tablet',    '30 Tab',    35.00, true),
-('Stamlo 5',    'Amlodipine 5mg',  (SELECT id FROM salt_master WHERE name='Amlodipine'),'Amlodipine 5mg','Dr Reddy''s',             '3004',12,'SCHEDULE_H',    'Tablet',    '30 Tab',    38.00, true),
-('Amlodac 5',   'Amlodipine 5mg',  (SELECT id FROM salt_master WHERE name='Amlodipine'),'Amlodipine 5mg','Cadila',                  '3004',12,'SCHEDULE_H',    'Tablet',    '30 Tab',    33.00, true),
-('Norvasc 5',   'Amlodipine 5mg',  (SELECT id FROM salt_master WHERE name='Amlodipine'),'Amlodipine 5mg','Pfizer',                  '3004',12,'SCHEDULE_H',    'Tablet',    '30 Tab',    55.00, true),
-('Amlovas 10',  'Amlodipine 10mg', (SELECT id FROM salt_master WHERE name='Amlodipine'),'Amlodipine 10mg','Macleods',               '3004',12,'SCHEDULE_H',    'Tablet',    '30 Tab',    55.00, true);
-
--- ATENOLOL group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Tenormin 50', 'Atenolol 50mg',   (SELECT id FROM salt_master WHERE name='Atenolol'),'Atenolol 50mg','AstraZeneca',               '3004',12,'SCHEDULE_H',    'Tablet',    '14 Tab',    45.00, true),
-('Betacard 50', 'Atenolol 50mg',   (SELECT id FROM salt_master WHERE name='Atenolol'),'Atenolol 50mg','Torrent',                   '3004',12,'SCHEDULE_H',    'Tablet',    '14 Tab',    35.00, true),
-('Aten 50',     'Atenolol 50mg',   (SELECT id FROM salt_master WHERE name='Atenolol'),'Atenolol 50mg','IPCA',                      '3004',12,'SCHEDULE_H',    'Tablet',    '14 Tab',    30.00, true);
-
--- METOPROLOL group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Lopressor 50','Metoprolol 50mg', (SELECT id FROM salt_master WHERE name='Metoprolol'),'Metoprolol 50mg','Novartis',               '3004',12,'SCHEDULE_H',    'Tablet',    '20 Tab',    55.00, true),
-('Seloken 50',  'Metoprolol 50mg', (SELECT id FROM salt_master WHERE name='Metoprolol'),'Metoprolol Tartrate 50mg','AstraZeneca',  '3004',12,'SCHEDULE_H',    'Tablet',    '20 Tab',    60.00, true),
-('Metolar 25',  'Metoprolol 25mg', (SELECT id FROM salt_master WHERE name='Metoprolol'),'Metoprolol Succinate 25mg','Cipla',        '3004',12,'SCHEDULE_H',    'Tablet',    '14 Tab',    42.00, true);
-
--- TELMISARTAN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Telmikind 40','Telmisartan 40mg',(SELECT id FROM salt_master WHERE name='Telmisartan'),'Telmisartan 40mg','Mankind',               '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    45.00, true),
-('Telma 40',    'Telmisartan 40mg',(SELECT id FROM salt_master WHERE name='Telmisartan'),'Telmisartan 40mg','Glenmark',              '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    52.00, true),
-('Telsartan 40','Telmisartan 40mg',(SELECT id FROM salt_master WHERE name='Telmisartan'),'Telmisartan 40mg','Dr Reddy''s',           '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    48.00, true),
-('Telmikind H', 'Telmisartan+HCTZ',(SELECT id FROM salt_master WHERE name='Telmisartan'),'Telmisartan 40mg + Hydrochlorothiazide 12.5mg','Mankind','3004',12,'SCHEDULE_H','Tablet','10 Tab',65.00, true);
-
--- LOSARTAN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Cozaar 50',   'Losartan 50mg',   (SELECT id FROM salt_master WHERE name='Losartan'),'Losartan Potassium 50mg','MSD',               '3004',12,'SCHEDULE_H',    'Tablet',    '14 Tab',    80.00, true),
-('Repace 50',   'Losartan 50mg',   (SELECT id FROM salt_master WHERE name='Losartan'),'Losartan Potassium 50mg','Sun Pharma',        '3004',12,'SCHEDULE_H',    'Tablet',    '14 Tab',    55.00, true);
-
--- RAMIPRIL group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Cardace 5',   'Ramipril 5mg',    (SELECT id FROM salt_master WHERE name='Ramipril'),'Ramipril 5mg','Sanofi',                      '3004',12,'SCHEDULE_H',    'Capsule',   '10 Cap',    55.00, true),
-('Ramace 2.5',  'Ramipril 2.5mg',  (SELECT id FROM salt_master WHERE name='Ramipril'),'Ramipril 2.5mg','Dr Reddy''s',               '3004',12,'SCHEDULE_H',    'Capsule',   '10 Cap',    40.00, true);
-
--- ATORVASTATIN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Lipitor 10',  'Atorvastatin 10mg',(SELECT id FROM salt_master WHERE name='Atorvastatin'),'Atorvastatin 10mg','Pfizer',            '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    50.00, true),
-('Atorva 10',   'Atorvastatin 10mg',(SELECT id FROM salt_master WHERE name='Atorvastatin'),'Atorvastatin 10mg','Cipla',             '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    38.00, true),
-('Storvas 20',  'Atorvastatin 20mg',(SELECT id FROM salt_master WHERE name='Atorvastatin'),'Atorvastatin 20mg','Sun Pharma',        '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    68.00, true),
-('Aztor 10',    'Atorvastatin 10mg',(SELECT id FROM salt_master WHERE name='Atorvastatin'),'Atorvastatin 10mg','Sun Pharma',        '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    35.00, true);
-
--- ROSUVASTATIN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Crestor 10',  'Rosuvastatin 10mg',(SELECT id FROM salt_master WHERE name='Rosuvastatin'),'Rosuvastatin 10mg','AstraZeneca',       '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    95.00, true),
-('Rosucad 10',  'Rosuvastatin 10mg',(SELECT id FROM salt_master WHERE name='Rosuvastatin'),'Rosuvastatin 10mg','Cadila',            '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    65.00, true),
-('Rosuvas 10',  'Rosuvastatin 10mg',(SELECT id FROM salt_master WHERE name='Rosuvastatin'),'Rosuvastatin 10mg','Sun Pharma',        '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    70.00, true);
-
--- CLOPIDOGREL group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Plavix 75',   'Clopidogrel 75mg',(SELECT id FROM salt_master WHERE name='Clopidogrel'),'Clopidogrel 75mg','Sanofi',               '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    95.00, true),
-('Clopivas 75', 'Clopidogrel 75mg',(SELECT id FROM salt_master WHERE name='Clopidogrel'),'Clopidogrel 75mg','Cipla',                '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    70.00, true);
-
--- FUROSEMIDE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Lasix 40',    'Furosemide 40mg', (SELECT id FROM salt_master WHERE name='Furosemide'),'Furosemide 40mg','Sanofi',                 '3004',12,'SCHEDULE_H',    'Tablet',    '15 Tab',    22.00, true),
-('Frusemide 40','Furosemide 40mg', (SELECT id FROM salt_master WHERE name='Furosemide'),'Furosemide 40mg','Ranbaxy',                '3004',12,'SCHEDULE_H',    'Tablet',    '15 Tab',    18.00, true);
-
--- LEVOTHYROXINE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Eltroxin 50', 'Levothyroxine 50mcg',(SELECT id FROM salt_master WHERE name='Levothyroxine'),'Levothyroxine 50mcg','GSK',         '3004',12,'SCHEDULE_H',    'Tablet',    '100 Tab',   68.00, true),
-('Thyronorm 50','Levothyroxine 50mcg',(SELECT id FROM salt_master WHERE name='Levothyroxine'),'Levothyroxine 50mcg','Abbott',       '3004',12,'SCHEDULE_H',    'Tablet',    '90 Tab',    85.00, true),
-('Thyronorm 100','Levothyroxine 100mcg',(SELECT id FROM salt_master WHERE name='Levothyroxine'),'Levothyroxine 100mcg','Abbott',    '3004',12,'SCHEDULE_H',    'Tablet',    '90 Tab',    92.00, true);
-
--- PREDNISOLONE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Wysolone 5',  'Prednisolone 5mg','(SELECT id FROM salt_master WHERE name=''Prednisolone'')','Prednisolone 5mg','Pfizer',          '3004',12,'SCHEDULE_H',    'Tablet',    '30 Tab',    28.00, true),
-('Omnacortil 5','Prednisolone 5mg',(SELECT id FROM salt_master WHERE name='Prednisolone'),'Prednisolone 5mg','Franco-Indian',        '3004',12,'SCHEDULE_H',    'Tablet',    '30 Tab',    30.00, true),
-('Omnacortil 10','Prednisolone 10mg',(SELECT id FROM salt_master WHERE name='Prednisolone'),'Prednisolone 10mg','Franco-Indian',    '3004',12,'SCHEDULE_H',    'Tablet',    '15 Tab',    38.00, true);
-
--- DEXAMETHASONE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Decadron 0.5','Dexamethasone 0.5mg',(SELECT id FROM salt_master WHERE name='Dexamethasone'),'Dexamethasone 0.5mg','MSD',         '3004',12,'SCHEDULE_H',    'Tablet',    '30 Tab',    25.00, true),
-('Dexona 0.5',  'Dexamethasone 0.5mg',(SELECT id FROM salt_master WHERE name='Dexamethasone'),'Dexamethasone 0.5mg','Samarth',     '3004',12,'SCHEDULE_H',    'Tablet',    '30 Tab',    20.00, true);
-
--- SERTRALINE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Zoloft 50',   'Sertraline 50mg', (SELECT id FROM salt_master WHERE name='Sertraline'),'Sertraline 50mg','Pfizer',                 '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    95.00, true),
-('Serlift 50',  'Sertraline 50mg', (SELECT id FROM salt_master WHERE name='Sertraline'),'Sertraline 50mg','Torrent',                '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    75.00, true),
-('Daxid 50',    'Sertraline 50mg', (SELECT id FROM salt_master WHERE name='Sertraline'),'Sertraline 50mg','Pfizer',                 '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    88.00, true);
-
--- ESCITALOPRAM group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Nexito 10',   'Escitalopram 10mg',(SELECT id FROM salt_master WHERE name='Escitalopram'),'Escitalopram 10mg','Sun Pharma',        '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    85.00, true),
-('Cipralex 10', 'Escitalopram 10mg',(SELECT id FROM salt_master WHERE name='Escitalopram'),'Escitalopram 10mg','Lundbeck',          '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    120.00, true),
-('Stalopam 10', 'Escitalopram 10mg',(SELECT id FROM salt_master WHERE name='Escitalopram'),'Escitalopram 10mg','Intas',             '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    78.00, true);
-
--- ALPRAZOLAM group (Schedule X)
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Alprax 0.25', 'Alprazolam 0.25mg',(SELECT id FROM salt_master WHERE name='Alprazolam'),'Alprazolam 0.25mg','Torrent',            '3004',12,'SCHEDULE_X',    'Tablet',    '10 Tab',    18.00, true),
-('Alprax 0.5',  'Alprazolam 0.5mg', (SELECT id FROM salt_master WHERE name='Alprazolam'),'Alprazolam 0.5mg','Torrent',             '3004',12,'SCHEDULE_X',    'Tablet',    '10 Tab',    22.00, true),
-('Restyl 0.5',  'Alprazolam 0.5mg', (SELECT id FROM salt_master WHERE name='Alprazolam'),'Alprazolam 0.5mg','Sun Pharma',          '3004',12,'SCHEDULE_X',    'Tablet',    '10 Tab',    25.00, true);
-
--- CLONAZEPAM group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Rivotril 0.5','Clonazepam 0.5mg',(SELECT id FROM salt_master WHERE name='Clonazepam'),'Clonazepam 0.5mg','Roche',                '3004',12,'SCHEDULE_X',    'Tablet',    '15 Tab',    42.00, true),
-('Clonafit 0.5','Clonazepam 0.5mg',(SELECT id FROM salt_master WHERE name='Clonazepam'),'Clonazepam 0.5mg','Sun Pharma',           '3004',12,'SCHEDULE_X',    'Tablet',    '15 Tab',    35.00, true);
-
--- GABAPENTIN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Gabapin 300', 'Gabapentin 300mg',(SELECT id FROM salt_master WHERE name='Gabapentin'),'Gabapentin 300mg','Intas',                 '3004',12,'SCHEDULE_H',    'Capsule',   '10 Cap',    55.00, true),
-('Neurontin 300','Gabapentin 300mg',(SELECT id FROM salt_master WHERE name='Gabapentin'),'Gabapentin 300mg','Pfizer',               '3004',12,'SCHEDULE_H',    'Capsule',   '10 Cap',    75.00, true);
-
--- PREGABALIN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Lyrica 75',   'Pregabalin 75mg', (SELECT id FROM salt_master WHERE name='Pregabalin'),'Pregabalin 75mg','Pfizer',                 '3004',12,'SCHEDULE_H',    'Capsule',   '10 Cap',    145.00, true),
-('Pregabalin 75','Pregabalin 75mg',(SELECT id FROM salt_master WHERE name='Pregabalin'),'Pregabalin 75mg','Torrent',                '3004',12,'SCHEDULE_H',    'Capsule',   '10 Cap',    95.00, true),
-('Pregaba 75',  'Pregabalin 75mg', (SELECT id FROM salt_master WHERE name='Pregabalin'),'Pregabalin 75mg','Sun Pharma',             '3004',12,'SCHEDULE_H',    'Capsule',   '10 Cap',    90.00, true);
-
--- VITAMIN D3 group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Calcirol 60K','Cholecalciferol 60000 IU',(SELECT id FROM salt_master WHERE name='Vitamin D3 (Cholecalciferol)'),'Cholecalciferol 60000 IU','Cadila','3004',12,'GENERAL','Sachet','4 Sachets',85.00, false),
-('Tayo 60K',    'Cholecalciferol 60000 IU',(SELECT id FROM salt_master WHERE name='Vitamin D3 (Cholecalciferol)'),'Cholecalciferol 60000 IU','Eris Lifesciences','3004',12,'GENERAL','Sachet','4 Sachets',72.00, false),
-('D-Rise 60K',  'Cholecalciferol 60000 IU',(SELECT id FROM salt_master WHERE name='Vitamin D3 (Cholecalciferol)'),'Cholecalciferol 60000 IU','USV','3004',12,'GENERAL','Sachet','4 Sachets',78.00, false),
-('Uprise D3',   'Cholecalciferol 60000 IU',(SELECT id FROM salt_master WHERE name='Vitamin D3 (Cholecalciferol)'),'Cholecalciferol 60000 IU','Alkem','2106',18,'GENERAL','Capsule','4 Cap',80.00, false);
-
--- METHYLCOBALAMIN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Mecobal 500', 'Methylcobalamin 500mcg',(SELECT id FROM salt_master WHERE name='Methylcobalamin'),'Methylcobalamin 500mcg','Cadila','3004',12,'GENERAL','Tablet','10 Tab',45.00, false),
-('Mecofol',     'Methylcobalamin+Folic Acid',(SELECT id FROM salt_master WHERE name='Methylcobalamin'),'Methylcobalamin 1500mcg + Folic Acid 5mg','Alkem','3004',12,'GENERAL','Tablet','10 Tab',55.00, false),
-('Nervijen',    'Methylcobalamin+B6+B1',(SELECT id FROM salt_master WHERE name='Methylcobalamin'),'Methylcobalamin 1500mcg + Pyridoxine 100mg + Thiamine 10mg','Intas','3004',12,'GENERAL','Capsule','10 Cap',65.00, false),
-('Neurobion Forte','B-Complex+B12',(SELECT id FROM salt_master WHERE name='Methylcobalamin'),'Methylcobalamin 1500mcg + B1 + B6 + B12 complex','Merck','2106',18,'GENERAL','Tablet','30 Tab',95.00, false);
-
--- IRON + FOLIC ACID group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Autrin','Ferrous Ascorbate+Folic Acid',(SELECT id FROM salt_master WHERE name='Ferrous Sulphate + Folic Acid'),'Ferrous Ascorbate 100mg + Folic Acid 1.5mg','Sun Pharma','3004',12,'GENERAL','Tablet','30 Tab',95.00, false),
-('Orofer FC','Ferrous Ascorbate+Folic Acid',(SELECT id FROM salt_master WHERE name='Ferrous Sulphate + Folic Acid'),'Ferrous Ascorbate 100mg + Folic Acid 1.5mg','Emcure','3004',12,'GENERAL','Tablet','30 Tab',88.00, false),
-('Xtraglo','Ferrous Bisglycinate+Folic Acid',(SELECT id FROM salt_master WHERE name='Ferrous Sulphate + Folic Acid'),'Ferrous Bisglycinate 30mg + Folic Acid 0.5mg','Macleods','3004',12,'GENERAL','Tablet','30 Tab',75.00, false);
-
--- CALCIUM group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Shelcal 500', 'Calcium+Vitamin D3',(SELECT id FROM salt_master WHERE name='Calcium Carbonate + Vitamin D3'),'Calcium Carbonate 500mg + Vitamin D3 250 IU','Elder','3004',12,'GENERAL','Tablet','15 Tab',88.00, false),
-('Calcimax 500','Calcium+Vitamin D3',(SELECT id FROM salt_master WHERE name='Calcium Carbonate + Vitamin D3'),'Calcium Carbonate 500mg + Vitamin D3 250 IU','Meyer','3004',12,'GENERAL','Tablet','15 Tab',82.00, false),
-('OstoCare',    'Calcium+Vitamin D3+Zinc',(SELECT id FROM salt_master WHERE name='Calcium Carbonate + Vitamin D3'),'Calcium 500mg + Vitamin D3 500 IU + Zinc','Elder','2106',18,'GENERAL','Tablet','30 Tab',148.00, false);
-
--- MULTIVITAMIN group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Supradyn',    'Multivitamin+Multimineral',(SELECT id FROM salt_master WHERE name='Multivitamin + Multimineral'),'Multivitamin + Multimineral complex','Bayer','2106',18,'GENERAL','Tablet','30 Tab',195.00, false),
-('Becosules',   'Vitamin B-Complex+C',(SELECT id FROM salt_master WHERE name='Multivitamin + Multimineral'),'Vitamin B Complex + Ascorbic Acid 150mg','Pfizer','2106',18,'GENERAL','Capsule','20 Cap',85.00, false),
-('Revital H',   'Multivitamin+Ginseng',(SELECT id FROM salt_master WHERE name='Multivitamin + Multimineral'),'Multivitamin + Ginseng extract','Ranbaxy','2106',18,'GENERAL','Capsule','30 Cap',295.00, false),
-('Zincovit',    'Multivitamin+Zinc',(SELECT id FROM salt_master WHERE name='Multivitamin + Multimineral'),'Multivitamin + Zinc 10mg','Apex','2106',18,'GENERAL','Tablet','15 Tab',85.00, false);
-
--- SALBUTAMOL group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Asthalin 2mg','Salbutamol 2mg',  (SELECT id FROM salt_master WHERE name='Salbutamol'),'Salbutamol 2mg','Cipla',                   '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    15.00, true),
-('Ventolin 2mg','Salbutamol 2mg',  (SELECT id FROM salt_master WHERE name='Salbutamol'),'Salbutamol 2mg','GSK',                     '3004',12,'SCHEDULE_H',    'Tablet',    '10 Tab',    18.00, true),
-('Asthalin Inhaler','Salbutamol 100mcg/dose',(SELECT id FROM salt_master WHERE name='Salbutamol'),'Salbutamol 100mcg per actuation','Cipla','3004',12,'SCHEDULE_H','MDI Inhaler','200 doses',175.00, true),
-('Ventolin Inhaler','Salbutamol 100mcg/dose',(SELECT id FROM salt_master WHERE name='Salbutamol'),'Salbutamol 100mcg per actuation','GSK','3004',12,'SCHEDULE_H','MDI Inhaler','200 doses',195.00, true);
-
--- AMBROXOL group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Mucolite 30', 'Ambroxol 30mg',   (SELECT id FROM salt_master WHERE name='Ambroxol'),'Ambroxol 30mg','Win Medicare',               '3004',12,'GENERAL',       'Tablet',    '10 Tab',    22.00, false),
-('Ambril 30',   'Ambroxol 30mg',   (SELECT id FROM salt_master WHERE name='Ambroxol'),'Ambroxol 30mg','Cipla',                      '3004',12,'GENERAL',       'Tablet',    '10 Tab',    18.00, false),
-('Mucosolvan',  'Ambroxol 75mg SR',(SELECT id FROM salt_master WHERE name='Ambroxol'),'Ambroxol HCl 75mg SR','Boehringer',          '3004',12,'GENERAL',       'Capsule',   '10 Cap',    55.00, false);
-
--- ALBENDAZOLE group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Zentel 400',  'Albendazole 400mg',(SELECT id FROM salt_master WHERE name='Albendazole'),'Albendazole 400mg','GSK',                '3004',12,'GENERAL',       'Tablet',    '1 Tab',     28.00, false),
-('Bandy 400',   'Albendazole 400mg',(SELECT id FROM salt_master WHERE name='Albendazole'),'Albendazole 400mg','Mankind',            '3004',12,'GENERAL',       'Tablet',    '1 Tab',     22.00, false);
-
--- ANTI-TB group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Rifampicin 450','Rifampicin 450mg',(SELECT id FROM salt_master WHERE name='Rifampicin'),'Rifampicin 450mg','Cipla',              '3004',12,'SCHEDULE_H',    'Capsule',   '100 Cap',   450.00, true),
-('INH 300',     'Isoniazid 300mg', (SELECT id FROM salt_master WHERE name='Isoniazid'),'Isoniazid 300mg','Cipla',                  '3004',12,'SCHEDULE_H',    'Tablet',    '100 Tab',   180.00, true);
-
--- ACYCLOVIR group
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Zovirax 400', 'Acyclovir 400mg', (SELECT id FROM salt_master WHERE name='Acyclovir'),'Acyclovir 400mg','GSK',                    '3004',12,'SCHEDULE_H',    'Tablet',    '25 Tab',    165.00, true),
-('Acivir 400',  'Acyclovir 400mg', (SELECT id FROM salt_master WHERE name='Acyclovir'),'Acyclovir 400mg','Cipla',                  '3004',12,'SCHEDULE_H',    'Tablet',    '25 Tab',    145.00, true),
-('Zovirax Cream','Acyclovir 5% Cream',(SELECT id FROM salt_master WHERE name='Acyclovir'),'Acyclovir 5%','GSK',                    '3004',12,'SCHEDULE_H',    'Cream',     '5g',        92.00, true);
-
--- FOLIC ACID standalone
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Folvite 5mg', 'Folic Acid 5mg',  (SELECT id FROM salt_master WHERE name='Folic Acid'),'Folic Acid 5mg','Pfizer',                 '3004',12,'GENERAL',       'Tablet',    '30 Tab',    25.00, false),
-('Fol-5',       'Folic Acid 5mg',  (SELECT id FROM salt_master WHERE name='Folic Acid'),'Folic Acid 5mg','Elder',                  '3004',12,'GENERAL',       'Tablet',    '30 Tab',    20.00, false);
-
--- FIX the Wysolone subquery (was malformed earlier — re-insert clean)
-DELETE FROM drug_master WHERE brand_name = 'Wysolone 5';
-INSERT INTO drug_master (brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required) VALUES
-('Wysolone 5',  'Prednisolone 5mg',(SELECT id FROM salt_master WHERE name='Prednisolone'),'Prednisolone 5mg','Pfizer',              '3004',12,'SCHEDULE_H',    'Tablet',    '30 Tab',    28.00, true);
+INSERT INTO drug_master(brand_name, generic_name, salt_id, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required)
+SELECT d.brand_name, d.generic_name, s.id, d.salt_composition, d.manufacturer, d.hsn_code, d.gst_rate::NUMERIC(5,2), d.drug_schedule, d.dosage_form, d.pack_size, d.mrp::NUMERIC(15,2), d.prescription_required
+FROM (VALUES
+  ('Crocin 500mg','Paracetamol','Paracetamol','Paracetamol 500mg','GSK','3004',12,'GENERAL','Tablet','15 Tablets',30,FALSE),
+  ('Calpol 500mg','Paracetamol','Paracetamol','Paracetamol 500mg','GSK','3004',12,'GENERAL','Tablet','15 Tablets',32,FALSE),
+  ('Dolo 650','Paracetamol','Paracetamol','Paracetamol 650mg','Micro Labs','3004',12,'GENERAL','Tablet','15 Tablets',32,FALSE),
+  ('Pyrigesic 500mg','Paracetamol','Paracetamol','Paracetamol 500mg','East India','3004',12,'GENERAL','Tablet','10 Tablets',20,FALSE),
+  ('Paracip 500','Paracetamol','Paracetamol','Paracetamol 500mg','Cipla','3004',12,'GENERAL','Tablet','15 Tablets',28,FALSE),
+  ('Febrinil 650','Paracetamol','Paracetamol','Paracetamol 650mg','Alkem','3004',12,'GENERAL','Tablet','15 Tablets',30,FALSE),
+  ('Brufen 400mg','Ibuprofen','Ibuprofen','Ibuprofen 400mg','Abbott','3004',12,'GENERAL','Tablet','15 Tablets',28,FALSE),
+  ('Ibugesic 400mg','Ibuprofen','Ibuprofen','Ibuprofen 400mg','Cipla','3004',12,'GENERAL','Tablet','15 Tablets',25,FALSE),
+  ('Combiflam','Ibuprofen+Paracetamol','Ibuprofen','Ibuprofen 400mg + Paracetamol 325mg','Sanofi','3004',12,'GENERAL','Tablet','20 Tablets',43,FALSE),
+  ('Advil 200','Ibuprofen','Ibuprofen','Ibuprofen 200mg','Pfizer','3004',12,'GENERAL','Tablet','10 Tablets',38,FALSE),
+  ('Voveran 50','Diclofenac Sodium','Diclofenac Sodium','Diclofenac Sodium 50mg','Novartis','3004',12,'H','Tablet','15 Tablets',38,TRUE),
+  ('Voltaren 50','Diclofenac Sodium','Diclofenac Sodium','Diclofenac Sodium 50mg','Novartis','3004',12,'H','Tablet','10 Tablets',35,TRUE),
+  ('Reactin 50','Diclofenac Sodium','Diclofenac Sodium','Diclofenac Sodium 50mg','Alkem','3004',12,'H','Tablet','15 Tablets',32,TRUE),
+  ('Zerodol 100','Aceclofenac','Aceclofenac','Aceclofenac 100mg','Ipca','3004',12,'H','Tablet','10 Tablets',42,TRUE),
+  ('Hifenac 100','Aceclofenac','Aceclofenac','Aceclofenac 100mg','Intas','3004',12,'H','Tablet','10 Tablets',45,TRUE),
+  ('Aceclo Plus','Aceclofenac+Paracetamol','Aceclofenac','Aceclofenac 100mg + Paracetamol 325mg','Alkem','3004',12,'H','Tablet','10 Tablets',55,TRUE),
+  ('Dolowin Plus','Aceclofenac+Paracetamol','Aceclofenac','Aceclofenac 100mg + Paracetamol 325mg','Win Medicare','3004',12,'H','Tablet','10 Tablets',52,TRUE),
+  ('Nise 100mg','Nimesulide','Nimesulide','Nimesulide 100mg','Dr Reddy''s','3004',12,'H','Tablet','10 Tablets',28,TRUE),
+  ('Nimulid 100mg','Nimesulide','Nimesulide','Nimesulide 100mg','Panacea','3004',12,'H','Tablet','10 Tablets',26,TRUE),
+  ('Tramazac 50','Tramadol HCl','Tramadol HCl','Tramadol HCl 50mg','Zydus','3004',12,'H','Capsule','10 Capsules',55,TRUE),
+  ('Ultracet','Tramadol+Paracetamol','Tramadol HCl','Tramadol 37.5mg + Paracetamol 325mg','Janssen','3004',12,'H','Tablet','10 Tablets',95,TRUE),
+  ('Mox 500','Amoxicillin','Amoxicillin','Amoxicillin 500mg','Ranbaxy','3004',12,'H','Capsule','10 Capsules',55,TRUE),
+  ('Novamox 500','Amoxicillin','Amoxicillin','Amoxicillin 500mg','Cipla','3004',12,'H','Capsule','10 Capsules',52,TRUE),
+  ('Augmentin 625mg','Amoxicillin+Clavulanic Acid','Amoxicillin+Clavulanic Acid','Amoxicillin 500mg + Clavulanic Acid 125mg','GSK','3004',12,'H','Tablet','6 Tablets',142,TRUE),
+  ('Clavam 625','Amoxicillin+Clavulanic Acid','Amoxicillin+Clavulanic Acid','Amoxicillin 500mg + Clavulanic Acid 125mg','Alkem','3004',12,'H','Tablet','6 Tablets',128,TRUE),
+  ('Azithral 500','Azithromycin','Azithromycin','Azithromycin 500mg','Alembic','3004',12,'H','Tablet','5 Tablets',82,TRUE),
+  ('Zithromax 500','Azithromycin','Azithromycin','Azithromycin 500mg','Pfizer','3004',12,'H','Tablet','5 Tablets',95,TRUE),
+  ('Azee 500','Azithromycin','Azithromycin','Azithromycin 500mg','Cipla','3004',12,'H','Tablet','5 Tablets',78,TRUE),
+  ('Zady 500','Azithromycin','Azithromycin','Azithromycin 500mg','Cadila','3004',12,'H','Tablet','5 Tablets',72,TRUE),
+  ('Ciplox 500','Ciprofloxacin HCl','Ciprofloxacin HCl','Ciprofloxacin 500mg','Cipla','3004',12,'H','Tablet','10 Tablets',52,TRUE),
+  ('Cifran 500','Ciprofloxacin HCl','Ciprofloxacin HCl','Ciprofloxacin 500mg','Sun Pharma','3004',12,'H','Tablet','10 Tablets',48,TRUE),
+  ('Flagyl 400','Metronidazole','Metronidazole','Metronidazole 400mg','Abbott','3004',12,'H','Tablet','15 Tablets',22,TRUE),
+  ('Metrogyl 400','Metronidazole','Metronidazole','Metronidazole 400mg','J B Chemicals','3004',12,'H','Tablet','15 Tablets',20,TRUE),
+  ('Taxim-O 200','Cefixime','Cefixime','Cefixime 200mg','Alkem','3004',12,'H','Tablet','10 Tablets',158,TRUE),
+  ('Monocef 200','Cefixime','Cefixime','Cefixime 200mg','Aristo','3004',12,'H','Tablet','10 Tablets',142,TRUE),
+  ('Cefix 200','Cefixime','Cefixime','Cefixime 200mg','Cipla','3004',12,'H','Tablet','10 Tablets',138,TRUE),
+  ('Doxt-SL','Doxycycline HCl','Doxycycline HCl','Doxycycline 100mg','Sun Pharma','3004',12,'H','Capsule','10 Capsules',65,TRUE),
+  ('Doxolin 100','Doxycycline HCl','Doxycycline HCl','Doxycycline 100mg','Aristo','3004',12,'H','Capsule','10 Capsules',58,TRUE),
+  ('Levoflox 500','Levofloxacin','Levofloxacin','Levofloxacin 500mg','Sun Pharma','3004',12,'H','Tablet','5 Tablets',95,TRUE),
+  ('Levaquin 500','Levofloxacin','Levofloxacin','Levofloxacin 500mg','Janssen','3004',12,'H','Tablet','5 Tablets',108,TRUE),
+  ('Zanocin 200','Ofloxacin','Ofloxacin','Ofloxacin 200mg','Sun Pharma','3004',12,'H','Tablet','10 Tablets',42,TRUE),
+  ('Oflox 200','Ofloxacin','Ofloxacin','Ofloxacin 200mg','Cipla','3004',12,'H','Tablet','10 Tablets',38,TRUE),
+  ('Sporidex 500','Cephalexin','Cephalexin','Cephalexin 500mg','Cipla','3004',12,'H','Capsule','10 Capsules',78,TRUE),
+  ('Phexin 500','Cephalexin','Cephalexin','Cephalexin 500mg','GSK','3004',12,'H','Capsule','10 Capsules',85,TRUE),
+  ('Omez 20','Omeprazole','Omeprazole','Omeprazole 20mg','Dr Reddy''s','3004',12,'GENERAL','Capsule','15 Capsules',72,FALSE),
+  ('Ocid 20','Omeprazole','Omeprazole','Omeprazole 20mg','Cipla','3004',12,'GENERAL','Capsule','15 Capsules',68,FALSE),
+  ('Pan 40','Pantoprazole Sodium','Pantoprazole Sodium','Pantoprazole 40mg','Alkem','3004',12,'GENERAL','Tablet','15 Tablets',65,FALSE),
+  ('Pantodac 40','Pantoprazole Sodium','Pantoprazole Sodium','Pantoprazole 40mg','Zydus','3004',12,'GENERAL','Tablet','15 Tablets',62,FALSE),
+  ('Razo 20','Rabeprazole Sodium','Rabeprazole Sodium','Rabeprazole 20mg','Dr Reddy''s','3004',12,'GENERAL','Tablet','15 Tablets',78,FALSE),
+  ('Rablet 20','Rabeprazole Sodium','Rabeprazole Sodium','Rabeprazole 20mg','Lupin','3004',12,'GENERAL','Tablet','15 Tablets',72,FALSE),
+  ('Nexium 40','Esomeprazole Magnesium','Esomeprazole Magnesium','Esomeprazole 40mg','AstraZeneca','3004',12,'GENERAL','Tablet','14 Tablets',185,FALSE),
+  ('Rantac 150','Ranitidine HCl','Ranitidine HCl','Ranitidine 150mg','J B Chemicals','3004',12,'GENERAL','Tablet','30 Tablets',38,FALSE),
+  ('Aciloc 150','Ranitidine HCl','Ranitidine HCl','Ranitidine 150mg','Cadila','3004',12,'GENERAL','Tablet','30 Tablets',35,FALSE),
+  ('Domstal 10','Domperidone','Domperidone','Domperidone 10mg','Torrent','3004',12,'GENERAL','Tablet','30 Tablets',35,FALSE),
+  ('Motilium 10','Domperidone','Domperidone','Domperidone 10mg','Janssen','3004',12,'GENERAL','Tablet','30 Tablets',42,FALSE),
+  ('Emeset 4mg','Ondansetron HCl','Ondansetron HCl','Ondansetron 4mg','Cipla','3004',12,'H','Tablet','10 Tablets',65,TRUE),
+  ('Ondem 4mg','Ondansetron HCl','Ondansetron HCl','Ondansetron 4mg','Alkem','3004',12,'H','Tablet','10 Tablets',62,TRUE),
+  ('Allegra 120mg','Fexofenadine HCl','Fexofenadine HCl','Fexofenadine 120mg','Sanofi','3004',12,'GENERAL','Tablet','10 Tablets',74,FALSE),
+  ('Allegra 180mg','Fexofenadine HCl','Fexofenadine HCl','Fexofenadine 180mg','Sanofi','3004',12,'GENERAL','Tablet','10 Tablets',98,FALSE),
+  ('Cetrizine 10mg','Cetirizine HCl','Cetirizine HCl','Cetirizine 10mg','Cipla','3004',12,'GENERAL','Tablet','10 Tablets',18,FALSE),
+  ('Okacet 10mg','Cetirizine HCl','Cetirizine HCl','Cetirizine 10mg','Cipla','3004',12,'GENERAL','Tablet','10 Tablets',16,FALSE),
+  ('Xyzal 5mg','Levocetirizine HCl','Levocetirizine HCl','Levocetirizine 5mg','UCB','3004',12,'GENERAL','Tablet','10 Tablets',55,FALSE),
+  ('Levocet 5mg','Levocetirizine HCl','Levocetirizine HCl','Levocetirizine 5mg','Cipla','3004',12,'GENERAL','Tablet','10 Tablets',32,FALSE),
+  ('Lorfast 10','Loratadine','Loratadine','Loratadine 10mg','Sun Pharma','3004',12,'GENERAL','Tablet','10 Tablets',28,FALSE),
+  ('Clarityn 10','Loratadine','Loratadine','Loratadine 10mg','Bayer','3004',12,'GENERAL','Tablet','10 Tablets',38,FALSE),
+  ('Montair 10','Montelukast Sodium','Montelukast Sodium','Montelukast 10mg','Cipla','3004',12,'GENERAL','Tablet','15 Tablets',95,FALSE),
+  ('Singulair 10','Montelukast Sodium','Montelukast Sodium','Montelukast 10mg','MSD','3004',12,'GENERAL','Tablet','14 Tablets',185,FALSE),
+  ('Glycomet 500','Metformin HCl','Metformin HCl','Metformin HCl 500mg','USV','3004',12,'H','Tablet','20 Tablets',28,TRUE),
+  ('Glucophage 500','Metformin HCl','Metformin HCl','Metformin HCl 500mg','Merck','3004',12,'H','Tablet','20 Tablets',32,TRUE),
+  ('Glycomet 850','Metformin HCl','Metformin HCl','Metformin HCl 850mg','USV','3004',12,'H','Tablet','20 Tablets',38,TRUE),
+  ('Amaryl 1mg','Glimepiride','Glimepiride','Glimepiride 1mg','Sanofi','3004',12,'H','Tablet','30 Tablets',98,TRUE),
+  ('Amaryl 2mg','Glimepiride','Glimepiride','Glimepiride 2mg','Sanofi','3004',12,'H','Tablet','30 Tablets',145,TRUE),
+  ('Glimer 1','Glimepiride','Glimepiride','Glimepiride 1mg','Sun Pharma','3004',12,'H','Tablet','30 Tablets',75,TRUE),
+  ('Gluconorm-G 1','Metformin+Glimepiride','Glimepiride','Metformin 500mg + Glimepiride 1mg','Ranbaxy','3004',12,'H','Tablet','20 Tablets',95,TRUE),
+  ('Gluconorm-G 2','Metformin+Glimepiride','Glimepiride','Metformin 500mg + Glimepiride 2mg','Ranbaxy','3004',12,'H','Tablet','20 Tablets',115,TRUE),
+  ('Januvia 100','Sitagliptin Phosphate','Sitagliptin Phosphate','Sitagliptin 100mg','MSD','3004',12,'H','Tablet','14 Tablets',485,TRUE),
+  ('Jalra 50','Vildagliptin','Vildagliptin','Vildagliptin 50mg','Novartis','3004',12,'H','Tablet','14 Tablets',395,TRUE),
+  ('Amlip 5','Amlodipine Besylate','Amlodipine Besylate','Amlodipine 5mg','Cipla','3004',12,'H','Tablet','30 Tablets',55,TRUE),
+  ('Stamlo 5','Amlodipine Besylate','Amlodipine Besylate','Amlodipine 5mg','Dr Reddy''s','3004',12,'H','Tablet','30 Tablets',52,TRUE),
+  ('Norvasc 5','Amlodipine Besylate','Amlodipine Besylate','Amlodipine 5mg','Pfizer','3004',12,'H','Tablet','30 Tablets',185,TRUE),
+  ('Aten 50','Atenolol','Atenolol','Atenolol 50mg','Cipla','3004',12,'H','Tablet','30 Tablets',35,TRUE),
+  ('Tenormin 50','Atenolol','Atenolol','Atenolol 50mg','AstraZeneca','3004',12,'H','Tablet','30 Tablets',75,TRUE),
+  ('Atenolol+Amlodipine 5','Atenolol+Amlodipine','Atenolol','Atenolol 50mg + Amlodipine 5mg','Cipla','3004',12,'H','Tablet','30 Tablets',85,TRUE),
+  ('Losarvas 50','Losartan Potassium','Losartan Potassium','Losartan 50mg','Ranbaxy','3004',12,'H','Tablet','15 Tablets',52,TRUE),
+  ('Cozaar 50','Losartan Potassium','Losartan Potassium','Losartan 50mg','MSD','3004',12,'H','Tablet','15 Tablets',145,TRUE),
+  ('Telma 40','Telmisartan','Telmisartan','Telmisartan 40mg','Glenmark','3004',12,'H','Tablet','15 Tablets',78,TRUE),
+  ('Telmikind 40','Telmisartan','Telmisartan','Telmisartan 40mg','Mankind','3004',12,'H','Tablet','15 Tablets',65,TRUE),
+  ('Envas 5','Enalapril Maleate','Enalapril Maleate','Enalapril 5mg','Cadila','3004',12,'H','Tablet','20 Tablets',35,TRUE),
+  ('Vasotec 5','Enalapril Maleate','Enalapril Maleate','Enalapril 5mg','MSD','3004',12,'H','Tablet','20 Tablets',85,TRUE),
+  ('Cardace 5','Ramipril','Ramipril','Ramipril 5mg','Sanofi','3004',12,'H','Tablet','15 Tablets',95,TRUE),
+  ('Hopace 5','Ramipril','Ramipril','Ramipril 5mg','Lupin','3004',12,'H','Tablet','15 Tablets',85,TRUE),
+  ('Cipril 5','Lisinopril','Lisinopril','Lisinopril 5mg','Cipla','3004',12,'H','Tablet','30 Tablets',65,TRUE),
+  ('Betaloc ZOK 50','Metoprolol Succinate','Metoprolol Succinate','Metoprolol Succinate 50mg','AstraZeneca','3004',12,'H','Tablet','30 Tablets',185,TRUE),
+  ('Met XL 50','Metoprolol Succinate','Metoprolol Succinate','Metoprolol Succinate 50mg','Sun Pharma','3004',12,'H','Tablet','30 Tablets',125,TRUE),
+  ('Carvidon 6.25','Carvedilol','Carvedilol','Carvedilol 6.25mg','Sun Pharma','3004',12,'H','Tablet','30 Tablets',95,TRUE),
+  ('Nebi 5','Nebivolol HCl','Nebivolol HCl','Nebivolol 5mg','Sun Pharma','3004',12,'H','Tablet','30 Tablets',145,TRUE),
+  ('Lasix 40','Furosemide','Furosemide','Furosemide 40mg','Sanofi','3004',12,'H','Tablet','30 Tablets',22,TRUE),
+  ('Aldactone 25','Spironolactone','Spironolactone','Spironolactone 25mg','Pfizer','3004',12,'H','Tablet','15 Tablets',55,TRUE),
+  ('Benicar 20','Olmesartan Medoxomil','Olmesartan Medoxomil','Olmesartan 20mg','Daiichi Sankyo','3004',12,'H','Tablet','15 Tablets',145,TRUE),
+  ('Olmy 20','Olmesartan Medoxomil','Olmesartan Medoxomil','Olmesartan 20mg','Ajanta','3004',12,'H','Tablet','15 Tablets',115,TRUE),
+  ('Lipitor 10','Atorvastatin Calcium','Atorvastatin Calcium','Atorvastatin 10mg','Pfizer','3004',12,'H','Tablet','15 Tablets',135,TRUE),
+  ('Storvas 10','Atorvastatin Calcium','Atorvastatin Calcium','Atorvastatin 10mg','Sun Pharma','3004',12,'H','Tablet','15 Tablets',95,TRUE),
+  ('Atorva 20','Atorvastatin Calcium','Atorvastatin Calcium','Atorvastatin 20mg','Cipla','3004',12,'H','Tablet','15 Tablets',115,TRUE),
+  ('Crestor 10','Rosuvastatin Calcium','Rosuvastatin Calcium','Rosuvastatin 10mg','AstraZeneca','3004',12,'H','Tablet','14 Tablets',198,TRUE),
+  ('Rosulip 10','Rosuvastatin Calcium','Rosuvastatin Calcium','Rosuvastatin 10mg','Cipla','3004',12,'H','Tablet','14 Tablets',145,TRUE),
+  ('Zocor 10','Simvastatin','Simvastatin','Simvastatin 10mg','MSD','3004',12,'H','Tablet','14 Tablets',125,TRUE),
+  ('Tricor 145','Fenofibrate','Fenofibrate','Fenofibrate 145mg','Abbott','3004',12,'H','Tablet','14 Tablets',195,TRUE),
+  ('Ezetrol 10','Ezetimibe','Ezetimibe','Ezetimibe 10mg','MSD','3004',12,'H','Tablet','14 Tablets',285,TRUE),
+  ('Asthalin 4mg','Salbutamol Sulphate','Salbutamol Sulphate','Salbutamol 4mg','Cipla','3004',12,'GENERAL','Tablet','30 Tablets',25,FALSE),
+  ('Ventolin 2mg','Salbutamol Sulphate','Salbutamol Sulphate','Salbutamol 2mg','GSK','3004',12,'GENERAL','Tablet','30 Tablets',28,FALSE),
+  ('Levolin 5mg','Levosalbutamol Sulphate','Levosalbutamol Sulphate','Levosalbutamol 1mg/5ml','Cipla','3004',12,'GENERAL','Syrup','60ml',55,FALSE),
+  ('Duolin','Ipratropium+Salbutamol','Ipratropium Bromide','Ipratropium 20mcg + Levosalbutamol 50mcg','Cipla','3004',12,'H','Inhaler','200 doses',285,TRUE),
+  ('Pulmicort','Budesonide','Budesonide','Budesonide 0.5mg/2ml','AstraZeneca','3004',12,'H','Respules','2ml x 5',285,TRUE),
+  ('Seretide 25/50','Fluticasone+Salmeterol','Formoterol Fumarate','Fluticasone 25mcg + Salmeterol 50mcg','GSK','3004',12,'H','Inhaler','120 doses',850,TRUE),
+  ('Foracort 200','Formoterol+Budesonide','Formoterol Fumarate','Formoterol 6mcg + Budesonide 200mcg','Cipla','3004',12,'H','Inhaler','120 doses',650,TRUE),
+  ('Mucinac 600','Acetylcysteine','Ambroxol HCl','Acetylcysteine 600mg','Cipla','3004',12,'GENERAL','Tablet','10 Tablets',72,FALSE),
+  ('Ambrolite 30','Ambroxol HCl','Ambroxol HCl','Ambroxol 30mg','Lupin','3004',12,'GENERAL','Tablet','20 Tablets',35,FALSE),
+  ('Benadryl Cough','Diphenhydramine+Ammonium','Dextromethorphan HBr','Diphenhydramine 14.08mg + Ammonium Chloride 138mg','Johnson','3004',12,'GENERAL','Syrup','100ml',78,FALSE),
+  ('Theobid 200','Theophylline','Theophylline','Theophylline 200mg','Sun Pharma','3004',12,'H','Tablet','30 Tablets',55,TRUE),
+  ('Shelcal 500','Calcium Carbonate','Calcium Carbonate','Calcium Carbonate 1250mg (Calcium 500mg)','Torrent','2106',18,'GENERAL','Tablet','15 Tablets',88,FALSE),
+  ('Calcimax 500','Calcium Carbonate+D3','Calcium Carbonate','Calcium Carbonate 1250mg + Vitamin D3 250IU','Meyer','2106',18,'GENERAL','Tablet','15 Tablets',95,FALSE),
+  ('Vitamin D3 60K','Vitamin D3','Vitamin D3','Cholecalciferol 60000IU','Various','2106',18,'GENERAL','Sachet','1 Sachet',35,FALSE),
+  ('Uprise D3 60K','Vitamin D3','Vitamin D3','Cholecalciferol 60000IU','Pfizer','2106',18,'GENERAL','Sachet','4 Sachets',148,FALSE),
+  ('Methylcobal 500','Vitamin B12','Vitamin B12','Methylcobalamin 500mcg','Sun Pharma','2106',18,'GENERAL','Tablet','10 Tablets',65,FALSE),
+  ('Cobadex CZS','Vitamin B12+Zinc','Vitamin B12','Methylcobalamin 750mcg + Zinc 22.5mg','Sun Pharma','2106',18,'GENERAL','Capsule','10 Capsules',95,FALSE),
+  ('Folvite 5mg','Folic Acid','Folic Acid','Folic Acid 5mg','Pfizer','2106',18,'GENERAL','Tablet','30 Tablets',25,FALSE),
+  ('Fersolate 200','Ferrous Sulphate','Ferrous Sulphate','Ferrous Sulphate 200mg','Stadmed','2106',18,'GENERAL','Tablet','30 Tablets',28,FALSE),
+  ('Zincovit','Multivitamin+Zinc','Multivitamin','Zinc 10mg + Multivitamins','Apex','2106',18,'GENERAL','Tablet','15 Tablets',95,FALSE),
+  ('Becosules','Multivitamin','Multivitamin','Vitamin B-complex + Vitamin C','Pfizer','2106',18,'GENERAL','Capsule','20 Capsules',55,FALSE),
+  ('Limcee 500','Vitamin C','Vitamin C','Ascorbic Acid 500mg','Abbott','2106',18,'GENERAL','Tablet','30 Tablets',35,FALSE),
+  ('Electral Powder','ORS','Multivitamin','ORS Powder','Franco-Indian','2106',18,'GENERAL','Sachet','21.8g',18,FALSE),
+  ('Lyrica 75','Pregabalin','Pregabalin','Pregabalin 75mg','Pfizer','3004',12,'H','Capsule','14 Capsules',285,TRUE),
+  ('Pregalin 75','Pregabalin','Pregabalin','Pregabalin 75mg','Sun Pharma','3004',12,'H','Capsule','14 Capsules',185,TRUE),
+  ('Gabapin 300','Gabapentin','Gabapentin','Gabapentin 300mg','Intas','3004',12,'H','Capsule','10 Capsules',145,TRUE),
+  ('Gabantin 300','Gabapentin','Gabapentin','Gabapentin 300mg','Sun Pharma','3004',12,'H','Capsule','10 Capsules',135,TRUE),
+  ('Keppra 500','Levetiracetam','Levetiracetam','Levetiracetam 500mg','UCB','3004',12,'H','Tablet','10 Tablets',485,TRUE),
+  ('Levipil 500','Levetiracetam','Levetiracetam','Levetiracetam 500mg','Sun Pharma','3004',12,'H','Tablet','10 Tablets',285,TRUE),
+  ('Eptoin 100','Phenytoin Sodium','Phenytoin Sodium','Phenytoin 100mg','Abbott','3004',12,'H','Tablet','30 Tablets',22,TRUE),
+  ('Mazetol 200','Carbamazepine','Carbamazepine','Carbamazepine 200mg','Sun Pharma','3004',12,'H','Tablet','30 Tablets',38,TRUE),
+  ('Valparin 200','Valproate Sodium','Valproate Sodium','Sodium Valproate 200mg','Sanofi','3004',12,'H','Tablet','30 Tablets',55,TRUE),
+  ('Lamitor 50','Lamotrigine','Lamotrigine','Lamotrigine 50mg','Torrent','3004',12,'H','Tablet','30 Tablets',185,TRUE),
+  ('Clonotril 0.5','Clonazepam','Clonazepam','Clonazepam 0.5mg','Sun Pharma','3004',12,'H1','Tablet','30 Tablets',28,TRUE),
+  ('Alprax 0.25','Alprazolam','Alprazolam','Alprazolam 0.25mg','Pfizer','3004',12,'H1','Tablet','30 Tablets',55,TRUE),
+  ('Restyl 0.5','Alprazolam','Alprazolam','Alprazolam 0.5mg','Torrent','3004',12,'H1','Tablet','30 Tablets',62,TRUE),
+  ('Valium 5','Diazepam','Diazepam','Diazepam 5mg','Roche','3004',12,'H1','Tablet','10 Tablets',38,TRUE),
+  ('Zoldem 10','Zolpidem Tartrate','Zolpidem Tartrate','Zolpidem 10mg','Sun Pharma','3004',12,'H1','Tablet','10 Tablets',85,TRUE),
+  ('Zoloft 50','Sertraline HCl','Sertraline HCl','Sertraline 50mg','Pfizer','3004',12,'H','Tablet','14 Tablets',195,TRUE),
+  ('Serta 50','Sertraline HCl','Sertraline HCl','Sertraline 50mg','Sun Pharma','3004',12,'H','Tablet','14 Tablets',125,TRUE),
+  ('Nexito 10','Escitalopram Oxalate','Escitalopram Oxalate','Escitalopram 10mg','Sun Pharma','3004',12,'H','Tablet','10 Tablets',145,TRUE),
+  ('Cipralex 10','Escitalopram Oxalate','Escitalopram Oxalate','Escitalopram 10mg','Lundbeck','3004',12,'H','Tablet','14 Tablets',285,TRUE),
+  ('Flunil 20','Fluoxetine HCl','Fluoxetine HCl','Fluoxetine 20mg','Intas','3004',12,'H','Capsule','10 Capsules',75,TRUE),
+  ('Prozac 20','Fluoxetine HCl','Fluoxetine HCl','Fluoxetine 20mg','Eli Lilly','3004',12,'H','Capsule','14 Capsules',195,TRUE),
+  ('Tryptomer 10','Amitriptyline HCl','Amitriptyline HCl','Amitriptyline 10mg','Merck','3004',12,'H','Tablet','30 Tablets',22,TRUE),
+  ('Venlor 75','Venlafaxine HCl','Venlafaxine HCl','Venlafaxine 75mg','Cipla','3004',12,'H','Capsule','14 Capsules',285,TRUE),
+  ('Cymbalta 60','Duloxetine HCl','Duloxetine HCl','Duloxetine 60mg','Eli Lilly','3004',12,'H','Capsule','14 Capsules',385,TRUE),
+  ('Duzela 30','Duloxetine HCl','Duloxetine HCl','Duloxetine 30mg','Sun Pharma','3004',12,'H','Capsule','14 Capsules',245,TRUE),
+  ('Mirtaz 15','Mirtazapine','Mirtazapine','Mirtazapine 15mg','Torrent','3004',12,'H','Tablet','10 Tablets',145,TRUE),
+  ('Thyronorm 50','Levothyroxine Sodium','Levothyroxine Sodium','Levothyroxine 50mcg','Abbott','3004',12,'H','Tablet','120 Tablets',165,TRUE),
+  ('Thyrox 50','Levothyroxine Sodium','Levothyroxine Sodium','Levothyroxine 50mcg','Cadila','3004',12,'H','Tablet','120 Tablets',135,TRUE),
+  ('Thyronorm 100','Levothyroxine Sodium','Levothyroxine Sodium','Levothyroxine 100mcg','Abbott','3004',12,'H','Tablet','120 Tablets',195,TRUE),
+  ('Neomercazole 5','Carbimazole','Carbimazole','Carbimazole 5mg','Roche','3004',12,'H','Tablet','100 Tablets',145,TRUE),
+  ('Forcan 150','Fluconazole','Fluconazole','Fluconazole 150mg','Cipla','3004',12,'H','Capsule','1 Capsule',28,TRUE),
+  ('Diflucan 150','Fluconazole','Fluconazole','Fluconazole 150mg','Pfizer','3004',12,'H','Capsule','1 Capsule',65,TRUE),
+  ('Itrazole 100','Itraconazole','Itraconazole','Itraconazole 100mg','Sun Pharma','3004',12,'H','Capsule','10 Capsules',185,TRUE),
+  ('Canesten 1%','Clotrimazole','Clotrimazole','Clotrimazole 1% w/w','Bayer','3004',12,'GENERAL','Cream','20g',85,FALSE),
+  ('Candid B','Clotrimazole+Beclomethasone','Clotrimazole','Clotrimazole 1% + Beclomethasone 0.025%','Glenmark','3004',12,'H','Cream','20g',95,TRUE),
+  ('Terbicip 250','Terbinafine HCl','Terbinafine HCl','Terbinafine 250mg','Cipla','3004',12,'H','Tablet','14 Tablets',125,TRUE),
+  ('Lamisil 250','Terbinafine HCl','Terbinafine HCl','Terbinafine 250mg','Novartis','3004',12,'H','Tablet','14 Tablets',285,TRUE),
+  ('Nizral 2%','Ketoconazole','Ketoconazole','Ketoconazole 2% w/v','J B Chemicals','3004',12,'H','Shampoo','75ml',148,TRUE),
+  ('Zovirax 400','Acyclovir','Acyclovir','Acyclovir 400mg','GSK','3004',12,'H','Tablet','25 Tablets',145,TRUE),
+  ('Acivir 400','Acyclovir','Acyclovir','Acyclovir 400mg','Cipla','3004',12,'H','Tablet','25 Tablets',98,TRUE),
+  ('Tamiflu 75','Oseltamivir Phosphate','Oseltamivir Phosphate','Oseltamivir 75mg','Roche','3004',12,'H','Capsule','10 Capsules',895,TRUE),
+  ('Antivir 150','Lamivudine','Lamivudine','Lamivudine 150mg','Cipla','3004',12,'H','Tablet','60 Tablets',285,TRUE),
+  ('Betnovate','Betamethasone Valerate','Betamethasone Valerate','Betamethasone Valerate 0.1%','GSK','3004',12,'H','Cream','20g',55,TRUE),
+  ('Bactroban','Mupirocin','Mupirocin','Mupirocin 2%','GSK','3004',12,'H','Cream','5g',85,TRUE),
+  ('Lacto Calamine','Calamine','Calamine','Calamine Lotion','Piramal','3004',12,'GENERAL','Lotion','120ml',95,FALSE),
+  ('Scabitor','Permethrin','Permethrin','Permethrin 5%','Hegde & Hegde','3004',12,'H','Cream','30g',85,TRUE),
+  ('Hydrocortisone 1%','Hydrocortisone','Hydrocortisone','Hydrocortisone 1%','GSK','3004',12,'H','Cream','15g',45,TRUE),
+  ('Tenovate','Clobetasol Propionate','Clobetasol Propionate','Clobetasol Propionate 0.05%','GSK','3004',12,'H','Cream','30g',65,TRUE),
+  ('Elocon','Mometasone Furoate','Mometasone Furoate','Mometasone Furoate 0.1%','MSD','3004',12,'H','Cream','15g',125,TRUE),
+  ('Lomotil','Loperamide HCl','Loperamide HCl','Loperamide 2mg','Pfizer','3004',12,'GENERAL','Tablet','10 Tablets',22,FALSE),
+  ('Zentel 400','Albendazole','Albendazole','Albendazole 400mg','GSK','3004',12,'GENERAL','Tablet','1 Tablet',18,FALSE),
+  ('Bendex 400','Albendazole','Albendazole','Albendazole 400mg','Cipla','3004',12,'GENERAL','Tablet','1 Tablet',15,FALSE),
+  ('Vermox 100','Mebendazole','Mebendazole','Mebendazole 100mg','Janssen','3004',12,'GENERAL','Tablet','6 Tablets',28,FALSE),
+  ('Ivecop 12','Ivermectin','Ivermectin','Ivermectin 12mg','Menarini','3004',12,'H','Tablet','1 Tablet',38,TRUE),
+  ('Purgeron','Lactulose','Lactulose','Lactulose 10g/15ml','Cipla','3004',12,'GENERAL','Syrup','200ml',95,FALSE),
+  ('Dulcolax 5','Bisacodyl','Bisacodyl','Bisacodyl 5mg','Boehringer','3004',12,'GENERAL','Tablet','10 Tablets',38,FALSE),
+  ('Urimax 0.4','Tamsulosin HCl','Tamsulosin HCl','Tamsulosin 0.4mg','Cipla','3004',12,'H','Capsule','10 Capsules',95,TRUE),
+  ('Flomax 0.4','Tamsulosin HCl','Tamsulosin HCl','Tamsulosin 0.4mg','Boehringer','3004',12,'H','Capsule','10 Capsules',145,TRUE),
+  ('Manforce 50','Sildenafil Citrate','Sildenafil Citrate','Sildenafil 50mg','Mankind','3004',12,'H','Tablet','4 Tablets',145,TRUE),
+  ('Viagra 50','Sildenafil Citrate','Sildenafil Citrate','Sildenafil 50mg','Pfizer','3004',12,'H','Tablet','4 Tablets',495,TRUE),
+  ('Tadalis 20','Tadalafil','Tadalafil','Tadalafil 20mg','Ajanta','3004',12,'H','Tablet','4 Tablets',185,TRUE),
+  ('Megalis 20','Tadalafil','Tadalafil','Tadalafil 20mg','Macleods','3004',12,'H','Tablet','4 Tablets',165,TRUE),
+  ('Susten 200','Progesterone','Progesterone','Progesterone 200mg','Sun Pharma','3004',12,'H','Capsule','10 Capsules',285,TRUE),
+  ('Mifeprin 200','Mifepristone','Mifepristone','Mifepristone 200mg','Sun Pharma','3004',12,'H','Tablet','1 Tablet',285,TRUE),
+  ('Medrol 4','Methylprednisolone','Methylprednisolone','Methylprednisolone 4mg','Pfizer','3004',12,'H','Tablet','10 Tablets',55,TRUE),
+  ('Wysolone 5','Prednisolone','Prednisolone','Prednisolone 5mg','Pfizer','3004',12,'H','Tablet','30 Tablets',35,TRUE),
+  ('Omnacortil 5','Prednisolone','Prednisolone','Prednisolone 5mg','Macleods','3004',12,'H','Tablet','30 Tablets',28,TRUE),
+  ('Dexona 0.5','Dexamethasone','Dexamethasone','Dexamethasone 0.5mg','Samarth','3004',12,'H','Tablet','30 Tablets',15,TRUE),
+  ('Decadron 0.5','Dexamethasone','Dexamethasone','Dexamethasone 0.5mg','MSD','3004',12,'H','Tablet','30 Tablets',22,TRUE),
+  ('Colchicine 0.5','Colchicine','Colchicine','Colchicine 0.5mg','Intas','3004',12,'H','Tablet','20 Tablets',55,TRUE),
+  ('Zyloric 100','Allopurinol','Allopurinol','Allopurinol 100mg','GSK','3004',12,'H','Tablet','30 Tablets',22,TRUE),
+  ('Hcqs 200','Hydroxychloroquine Sulphate','Hydroxychloroquine Sulphate','Hydroxychloroquine 200mg','Ipca','3004',12,'H','Tablet','10 Tablets',95,TRUE),
+  ('Plaquenil 200','Hydroxychloroquine Sulphate','Hydroxychloroquine Sulphate','Hydroxychloroquine 200mg','Sanofi','3004',12,'H','Tablet','10 Tablets',145,TRUE),
+  ('Aspirin 75','Aspirin','Aspirin','Aspirin 75mg','Bayer','3004',12,'GENERAL','Tablet','30 Tablets',18,FALSE),
+  ('Ecosprin 75','Aspirin','Aspirin','Aspirin 75mg','USV','3004',12,'GENERAL','Tablet','30 Tablets',15,FALSE),
+  ('Disprin 350','Aspirin','Aspirin','Aspirin 350mg','Reckitt','3004',12,'GENERAL','Tablet','10 Tablets',18,FALSE),
+  ('Toradol 10','Ketorolac Tromethamine','Ketorolac Tromethamine','Ketorolac 10mg','Roche','3004',12,'H','Tablet','10 Tablets',65,TRUE),
+  ('Naprosyn 250','Naproxen','Naproxen','Naproxen 250mg','Roche','3004',12,'H','Tablet','15 Tablets',38,TRUE),
+  ('Ponstan 500','Mefenamic Acid','Mefenamic Acid','Mefenamic Acid 500mg','Pfizer','3004',12,'H','Capsule','10 Capsules',28,TRUE),
+  ('Clindac A','Clindamycin','Clindamycin','Clindamycin Phosphate 1%','Galderma','3004',12,'H','Gel','15g',95,TRUE),
+  ('Dalacin C 150','Clindamycin','Clindamycin','Clindamycin 150mg','Pfizer','3004',12,'H','Capsule','16 Capsules',285,TRUE),
+  ('Althrocin 250','Erythromycin','Erythromycin','Erythromycin 250mg','Abbott','3004',12,'H','Tablet','20 Tablets',45,TRUE),
+  ('Vantin 200','Cefpodoxime','Cefpodoxime','Cefpodoxime 200mg','Pfizer','3004',12,'H','Tablet','10 Tablets',195,TRUE),
+  ('Cefoprox 200','Cefpodoxime','Cefpodoxime','Cefpodoxime 200mg','Cipla','3004',12,'H','Tablet','10 Tablets',145,TRUE),
+  ('Zinnat 250','Cefuroxime','Cefuroxime','Cefuroxime 250mg','GSK','3004',12,'H','Tablet','10 Tablets',295,TRUE),
+  ('Bactrim','Co-trimoxazole','Co-trimoxazole','Trimethoprim 80mg + Sulfamethoxazole 400mg','Roche','3004',12,'H','Tablet','20 Tablets',35,TRUE),
+  ('Sucralfate 1g','Sucralfate','Sucralfate','Sucralfate 1g','Chemo Drug','3004',12,'GENERAL','Tablet','10 Tablets',25,FALSE),
+  ('Deslorat 5','Desloratadine','Desloratadine','Desloratadine 5mg','MSD','3004',12,'GENERAL','Tablet','10 Tablets',85,FALSE),
+  ('Atarax 25','Hydroxyzine HCl','Hydroxyzine HCl','Hydroxyzine 25mg','UCB','3004',12,'H','Tablet','15 Tablets',45,TRUE),
+  ('Glipizide 5','Glipizide','Glipizide','Glipizide 5mg','Pfizer','3004',12,'H','Tablet','30 Tablets',42,TRUE),
+  ('Gliclazide MR 30','Gliclazide','Gliclazide','Gliclazide 30mg Modified Release','Servier','3004',12,'H','Tablet','15 Tablets',85,TRUE),
+  ('Daonil 5','Glibenclamide','Glibenclamide','Glibenclamide 5mg','Sanofi','3004',12,'H','Tablet','30 Tablets',22,TRUE),
+  ('Jardiance 10','Empagliflozin','Empagliflozin','Empagliflozin 10mg','Boehringer','3004',12,'H','Tablet','10 Tablets',485,TRUE),
+  ('Forxiga 10','Dapagliflozin','Dapagliflozin','Dapagliflozin 10mg','AstraZeneca','3004',12,'H','Tablet','14 Tablets',485,TRUE),
+  ('Hytaz 12.5','Hydrochlorothiazide','Hydrochlorothiazide','Hydrochlorothiazide 12.5mg','Sun Pharma','3004',12,'H','Tablet','30 Tablets',18,TRUE),
+  ('Valsartan 80','Valsartan','Valsartan','Valsartan 80mg','Novartis','3004',12,'H','Tablet','14 Tablets',145,TRUE),
+  ('Tiova','Tiotropium Bromide','Tiotropium Bromide','Tiotropium 18mcg','Cipla','3004',12,'H','Inhaler','30 doses',285,TRUE),
+  ('Alex Cough','Dextromethorphan HBr','Dextromethorphan HBr','Dextromethorphan 10mg/5ml','Glenmark','3004',12,'GENERAL','Syrup','100ml',68,FALSE),
+  ('Cobavit','Vitamin B12','Vitamin B12','Cyanocobalamin 1000mcg/ml','East India','2106',18,'GENERAL','Injection','1ml Amp',25,FALSE),
+  ('Thiamine 100','Thiamine HCl','Thiamine HCl','Thiamine 100mg','Samarth','2106',18,'GENERAL','Tablet','30 Tablets',18,FALSE),
+  ('Propylthiouracil 50','Propylthiouracil','Propylthiouracil','Propylthiouracil 50mg','Astellas','3004',12,'H','Tablet','30 Tablets',65,TRUE),
+  ('Tenofovir 300','Tenofovir','Tenofovir','Tenofovir Disoproxil Fumarate 300mg','Cipla','3004',12,'H','Tablet','30 Tablets',285,TRUE),
+  ('Bromhexine 8','Bromhexine HCl','Bromhexine HCl','Bromhexine 8mg','Boehringer','3004',12,'GENERAL','Tablet','20 Tablets',18,FALSE),
+  ('Riboflavin 5','Riboflavin','Riboflavin','Riboflavin 5mg','Intas','2106',18,'GENERAL','Tablet','30 Tablets',12,FALSE),
+  ('Pyridoxine 40','Pyridoxine HCl','Pyridoxine HCl','Pyridoxine 40mg','Sun Pharma','2106',18,'GENERAL','Tablet','30 Tablets',15,FALSE),
+  ('Famocid 20','Famotidine','Famotidine','Famotidine 20mg','Sun Pharma','3004',12,'GENERAL','Tablet','30 Tablets',28,FALSE),
+  ('Pepcid 20','Famotidine','Famotidine','Famotidine 20mg','J B Chemicals','3004',12,'GENERAL','Tablet','30 Tablets',32,FALSE),
+  ('Lansoprazole 30','Lansoprazole','Lansoprazole','Lansoprazole 30mg','Wyeth','3004',12,'GENERAL','Capsule','15 Capsules',95,FALSE),
+  ('Metoclopramide 10','Metoclopramide HCl','Metoclopramide HCl','Metoclopramide 10mg','Cipla','3004',12,'H','Tablet','30 Tablets',18,TRUE),
+  ('Sporanox 100','Itraconazole','Itraconazole','Itraconazole 100mg','Janssen','3004',12,'H','Capsule','10 Capsules',285,TRUE),
+  ('Ferrous Sulphate Plus','Ferrous Sulphate','Ferrous Sulphate','Ferrous Sulphate 60mg elemental iron','Piramal','2106',18,'GENERAL','Tablet','30 Tablets',22,FALSE),
+  ('Zinc Plus','Zinc Sulphate','Zinc Sulphate','Zinc Sulphate 20mg elemental zinc','Aristo','2106',18,'GENERAL','Tablet','30 Tablets',18,FALSE),
+  ('Bilaxten 20','Bilastine','Bilastine','Bilastine 20mg','Menarini','3004',12,'GENERAL','Tablet','10 Tablets',185,FALSE),
+  ('Teneligliptin 20','Teneligliptin','Teneligliptin','Teneligliptin 20mg','Glenmark','3004',12,'H','Tablet','10 Tablets',285,TRUE),
+  ('Ampicillin 500','Ampicillin','Ampicillin','Ampicillin 500mg','Alkem','3004',12,'H','Capsule','10 Capsules',35,TRUE),
+  ('Tetracycline 500','Tetracycline','Tetracycline','Tetracycline 500mg','Pfizer','3004',12,'H','Capsule','10 Capsules',22,TRUE),
+  ('Chlorphenamine 4','Chlorpheniramine Maleate','Chlorpheniramine Maleate','Chlorpheniramine 4mg','Sun Pharma','3004',12,'GENERAL','Tablet','20 Tablets',12,FALSE),
+  ('Piriton 4mg','Chlorpheniramine Maleate','Chlorpheniramine Maleate','Chlorpheniramine 4mg','GSK','3004',12,'GENERAL','Tablet','20 Tablets',15,FALSE),
+  ('Lantus','Insulin Regular','Insulin Regular','Insulin Glargine 100IU/ml','Sanofi','3004',12,'H','Injection','10ml Vial',895,TRUE),
+  ('Actrapid','Insulin Regular','Insulin Regular','Insulin Regular 100IU/ml','Novo Nordisk','3004',12,'H','Injection','10ml Vial',285,TRUE),
+  ('Insulatard','Insulin NPH','Insulin NPH','Insulin NPH 100IU/ml','Novo Nordisk','3004',12,'H','Injection','10ml Vial',285,TRUE),
+  ('Insugen N','Insulin NPH','Insulin NPH','Insulin NPH 100IU/ml','Biocon','3004',12,'H','Injection','10ml Vial',245,TRUE)
+) AS d(brand_name, generic_name, salt_name, salt_composition, manufacturer, hsn_code, gst_rate, drug_schedule, dosage_form, pack_size, mrp, prescription_required)
+JOIN salt_master s ON s.name = d.salt_name;
