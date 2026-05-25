@@ -296,10 +296,15 @@ class _CustomerHistorySheetState extends ConsumerState<_CustomerHistorySheet> {
                 KSpacing.hGapSm,
                 Expanded(
                   child: Text(
-                    '${CurrencyFormatter.formatIndian(outstanding)} outstanding',
+                    '${CurrencyFormatter.formatIndian(outstanding)} invoice outstanding',
                     style: KTypography.labelMedium
                         .copyWith(color: KColors.error),
                   ),
+                ),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'This is from unpaid invoices / opening balance,\nnot from POS cash sales',
+                  child: Icon(Icons.info_outline, size: 14, color: KColors.error.withValues(alpha: 0.6)),
                 ),
               ],
             ),
