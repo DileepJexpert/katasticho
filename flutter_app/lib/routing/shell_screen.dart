@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/api/api_client.dart';
 import '../core/auth/auth_state.dart';
 import '../core/commands/command_registry.dart';
 import '../core/shell/shell_providers.dart';
@@ -1379,9 +1380,10 @@ class _OrgSwitcherSheetState extends ConsumerState<_OrgSwitcherSheet> {
         );
     if (!mounted) return;
     if (success) {
-      // Clear org-scoped providers that survive navigation (not autoDispose or
-      // kept alive by the shell). Screen-specific autoDispose providers clear
-      // themselves when the screen unmounts via context.go().
+      // Invalidate the API client — every repository watches it, so this
+      // cascades to ALL data providers across the app, forcing a full refetch
+      // with the new org's token/context.
+      ref.invalidate(apiClientProvider);
       ref.invalidate(unreadCountProvider);
       ref.invalidate(dashboardFilterProvider);
       Navigator.pop(context);
