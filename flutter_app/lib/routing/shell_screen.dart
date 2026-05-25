@@ -144,6 +144,11 @@ const _salesGroup = NavGroup(
         activeIcon: Icons.assignment_rounded,
         route: Routes.salesOrders),
     NavItem(
+        label: 'Customer Indents',
+        icon: Icons.assignment_late_outlined,
+        activeIcon: Icons.assignment_late_rounded,
+        route: Routes.customerIndents),
+    NavItem(
         label: 'Delivery Challans',
         icon: Icons.local_shipping_outlined,
         activeIcon: Icons.local_shipping_rounded,

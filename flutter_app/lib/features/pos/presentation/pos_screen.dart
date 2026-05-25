@@ -11,6 +11,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../routing/app_router.dart';
 import '../data/pos_cart_state.dart';
 import '../data/pos_held_carts.dart';
 import '../data/pos_recent_transactions.dart';
@@ -104,7 +105,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     var item = itemData; // mutable local — may be overridden by batch picker
     final stock = (item['currentStock'] as num?)?.toDouble() ?? 0;
     if (stock <= 0) {
-      _showErrorSnackBar('${item['name'] ?? 'Item'} is out of stock');
+      await _offerCustomerIndent(item);
       return;
     }
 
@@ -248,6 +249,46 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     _clearSearch();
     HapticFeedback.lightImpact();
+  }
+
+  Future<void> _offerCustomerIndent(Map<String, dynamic> item) async {
+    final itemName = item['name']?.toString() ?? 'Item';
+    final createIndent = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Item out of stock'),
+        content: Text(
+          '$itemName is not available right now. Create a customer indent so the team can order it and notify the customer?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.assignment_late_outlined),
+            label: const Text('Create indent'),
+          ),
+        ],
+      ),
+    );
+
+    if (createIndent != true || !mounted) return;
+
+    final cart = ref.read(posCartProvider);
+    context.go(
+      Routes.customerIndentCreate,
+      extra: {
+        'source': 'POS',
+        'item': item,
+        if (cart.contactId != null) 'contactId': cart.contactId,
+        if (cart.contactName != null && cart.contactName!.isNotEmpty)
+          'customerName': cart.contactName,
+        if (cart.contactPhone != null && cart.contactPhone!.isNotEmpty)
+          'customerPhone': cart.contactPhone,
+      },
+    );
   }
 
   Future<String?> _askPrescriptionNumber(String itemName) async {
@@ -1302,6 +1343,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             return PosItemSearchResult(
               item: results[index],
               onTap: () => _addToCart(results[index]),
+              onOutOfStockTap: () => _offerCustomerIndent(results[index]),
             );
           },
         );

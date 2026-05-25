@@ -9,11 +9,13 @@ import '../../../../core/utils/currency_formatter.dart';
 class PosItemSearchResult extends StatelessWidget {
   final Map<String, dynamic> item;
   final VoidCallback onTap;
+  final VoidCallback? onOutOfStockTap;
 
   const PosItemSearchResult({
     super.key,
     required this.item,
     required this.onTap,
+    this.onOutOfStockTap,
   });
 
   @override
@@ -40,7 +42,7 @@ class PosItemSearchResult extends StatelessWidget {
     return Opacity(
       opacity: isOutOfStock ? 0.5 : 1.0,
       child: InkWell(
-        onTap: isOutOfStock ? null : onTap,
+        onTap: isOutOfStock ? onOutOfStockTap : onTap,
         borderRadius: KSpacing.borderRadiusMd,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -193,9 +195,13 @@ class PosItemSearchResult extends StatelessWidget {
                 ],
               ),
               KSpacing.hGapSm,
-              Icon(Icons.add_circle_outline,
-                  size: 20,
-                  color: isOutOfStock ? cs.outlineVariant : cs.primary),
+              Icon(
+                isOutOfStock
+                    ? Icons.assignment_late_outlined
+                    : Icons.add_circle_outline,
+                size: 20,
+                color: isOutOfStock ? KColors.warning : cs.primary,
+              ),
             ],
           ),
         ),

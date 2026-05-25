@@ -123,8 +123,9 @@ import '../features/platform_admin/presentation/platform_admin_users_screen.dart
 import '../features/platform_admin/presentation/platform_admin_audit_screen.dart';
 import '../features/platform_admin/data/platform_admin_auth_state.dart';
 import '../features/pharma/presentation/drug_licenses_screen.dart';
-import '../features/pharma/presentation/add_prescription_screen.dart';
 import '../features/pharma/presentation/prescription_history_screen.dart';
+import '../features/pharma/presentation/customer_indent_list_screen.dart';
+import '../features/pharma/presentation/customer_indent_create_screen.dart';
 import '../features/loyalty/presentation/wallet_history_screen.dart';
 import 'shell_screen.dart';
 
@@ -262,11 +263,15 @@ class Routes {
   // Pharma features
   static const drugLicenses = '/pharma/drug-licenses';
   static const prescriptionHistory = '/pharma/prescriptions/:contactId';
-  static String prescriptionHistoryPath(String contactId) => '/pharma/prescriptions/$contactId';
+  static String prescriptionHistoryPath(String contactId) =>
+      '/pharma/prescriptions/$contactId';
+  static const customerIndents = '/customer-indents';
+  static const customerIndentCreate = '/customer-indents/create';
 
   // Loyalty Wallet
   static const walletHistory = '/loyalty/wallet/:contactId';
-  static String walletHistoryPath(String contactId) => '/loyalty/wallet/$contactId';
+  static String walletHistoryPath(String contactId) =>
+      '/loyalty/wallet/$contactId';
 
   static const platformAdmin = '/platform-admin';
   static const platformAdminLogin = '/platform-admin/login';
@@ -288,8 +293,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onboardingCompleted = authState.onboardingCompleted;
       final loc = state.matchedLocation;
 
-      final isAuthRoute =
-          loc == Routes.login ||
+      final isAuthRoute = loc == Routes.login ||
           loc == Routes.otp ||
           loc == Routes.signup ||
           loc == Routes.forgotPassword ||
@@ -322,13 +326,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             ? (role == 'PLATFORM_ADMIN'
                 ? Routes.platformAdmin
                 : role == 'CA_PARTNER' || role == 'CA_STAFF'
-                ? Routes.caConsole
-                : Routes.dashboard)
+                    ? Routes.caConsole
+                    : Routes.dashboard)
             : Routes.onboardingBusinessType;
       }
 
       final role = authState.role?.toUpperCase();
-      if (isAuthenticated && role == 'PLATFORM_ADMIN' && loc != Routes.platformAdmin) {
+      if (isAuthenticated &&
+          role == 'PLATFORM_ADMIN' &&
+          loc != Routes.platformAdmin) {
         return Routes.platformAdmin;
       }
 
@@ -339,8 +345,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (isAuthenticated &&
           onboardingCompleted &&
           loc == Routes.dashboard &&
-          (role == 'CA_PARTNER' || role == 'CA_STAFF' || role == 'PLATFORM_ADMIN')) {
-        return role == 'PLATFORM_ADMIN' ? Routes.platformAdmin : Routes.caConsole;
+          (role == 'CA_PARTNER' ||
+              role == 'CA_STAFF' ||
+              role == 'PLATFORM_ADMIN')) {
+        return role == 'PLATFORM_ADMIN'
+            ? Routes.platformAdmin
+            : Routes.caConsole;
       }
 
       return null;
@@ -824,6 +834,21 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           // Loyalty — Wallet History (per contact)
           GoRoute(
+            path: Routes.customerIndents,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: CustomerIndentListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.customerIndentCreate,
+            builder: (context, state) {
+              final extra = state.extra;
+              return CustomerIndentCreateScreen(
+                prefill: extra is Map<String, dynamic> ? extra : null,
+              );
+            },
+          ),
+          GoRoute(
             path: Routes.walletHistory,
             builder: (context, state) {
               final contactId = state.pathParameters['contactId']!;
@@ -914,9 +939,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.debitNoteCreate,
             builder: (context, state) => CreateDebitNoteScreen(
-              prefillExpiryDate: state.extra is DateTime
-                  ? state.extra as DateTime
-                  : null,
+              prefillExpiryDate:
+                  state.extra is DateTime ? state.extra as DateTime : null,
             ),
           ),
           GoRoute(
