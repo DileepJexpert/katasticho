@@ -27,5 +27,8 @@ public record StockMovementResponse(
         boolean reversal,
         UUID reversalOfId,
         boolean reversed,
-        String notes
+        String notes,
+        UUID batchId,
+        String batchNumber,
+        LocalDate batchExpiryDate
 ) {}

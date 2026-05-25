@@ -12,10 +12,12 @@ import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.inventory.entity.Item;
+import com.katasticho.erp.inventory.entity.StockBatch;
 import com.katasticho.erp.inventory.entity.StockBalance;
 import com.katasticho.erp.inventory.entity.StockMovement;
 import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.StockMovementRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
@@ -46,6 +48,7 @@ public class OperationalReportService {
     private final ContactRepository contactRepository;
     private final ItemRepository itemRepository;
     private final WarehouseRepository warehouseRepository;
+    private final StockBatchRepository stockBatchRepository;
 
     public OperationalReportResponse salesRegister(LocalDate startDate, LocalDate endDate) {
         Context ctx = context();
@@ -252,16 +255,26 @@ public class OperationalReportService {
                 .findByOrgIdAndMovementDateBetweenOrderByMovementDateDescCreatedAtDesc(ctx.orgId(), startDate, endDate);
         Map<UUID, Item> items = itemMap(ctx.orgId(), movements.stream().map(StockMovement::getItemId).toList());
         Map<UUID, Warehouse> warehouses = warehouseMap(movements.stream().map(StockMovement::getWarehouseId).toList());
+        Map<UUID, StockBatch> batches = stockBatchRepository.findAllById(
+                        movements.stream()
+                                .map(StockMovement::getBatchId)
+                                .filter(Objects::nonNull)
+                                .toList())
+                .stream()
+                .collect(Collectors.toMap(StockBatch::getId, Function.identity()));
 
         List<Map<String, Object>> rows = movements.stream()
                 .map(m -> {
                     Item item = items.get(m.getItemId());
                     Warehouse wh = warehouses.get(m.getWarehouseId());
+                    StockBatch batch = batches.get(m.getBatchId());
                     return row(
                             "date", m.getMovementDate(),
                             "sku", item == null ? "--" : item.getSku(),
                             "item", item == null ? "Unknown" : item.getName(),
                             "warehouse", wh == null ? "Unknown" : wh.getName(),
+                            "batch", batch == null ? null : batch.getBatchNumber(),
+                            "expiry", batch == null ? null : batch.getExpiryDate(),
                             "type", String.valueOf(m.getMovementType()),
                             "quantity", nz(m.getQuantity()),
                             "unitCost", nz(m.getUnitCost()),
@@ -290,6 +303,7 @@ public class OperationalReportService {
                         metric("outQty", "Stock Out Qty", outQty, "number")),
                 columns(col("date", "Date", "date"), col("sku", "SKU", "text"),
                         col("item", "Item", "text"), col("warehouse", "Warehouse", "text"),
+                        col("batch", "Batch", "text"), col("expiry", "Expiry", "date"),
                         col("type", "Type", "text"), col("quantity", "Qty", "number"),
                         col("unitCost", "Unit Cost", "currency"), col("totalCost", "Total Cost", "currency"),
                         col("reference", "Reference", "text")),

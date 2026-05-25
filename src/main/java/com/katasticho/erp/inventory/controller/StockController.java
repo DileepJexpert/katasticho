@@ -11,10 +11,12 @@ import com.katasticho.erp.inventory.dto.StockBalanceResponse;
 import com.katasticho.erp.inventory.dto.StockMovementRequest;
 import com.katasticho.erp.inventory.dto.StockMovementResponse;
 import com.katasticho.erp.inventory.entity.Item;
+import com.katasticho.erp.inventory.entity.StockBatch;
 import com.katasticho.erp.inventory.entity.StockBalance;
 import com.katasticho.erp.inventory.entity.StockMovement;
 import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.StockMovementRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
@@ -45,6 +47,7 @@ public class StockController {
     private final StockBalanceRepository stockBalanceRepository;
     private final ItemRepository itemRepository;
     private final WarehouseRepository warehouseRepository;
+    private final StockBatchRepository stockBatchRepository;
 
     /**
      * Manual stock adjustment (loss, damage, found stock).
@@ -203,6 +206,9 @@ public class StockController {
         if (m == null) return null;
         Item item = itemRepository.findById(m.getItemId()).orElse(null);
         Warehouse wh = warehouseRepository.findById(m.getWarehouseId()).orElse(null);
+        StockBatch batch = m.getBatchId() == null
+                ? null
+                : stockBatchRepository.findById(m.getBatchId()).orElse(null);
         return new StockMovementResponse(
                 m.getId(),
                 m.getItemId(),
@@ -222,7 +228,10 @@ public class StockController {
                 m.isReversal(),
                 m.getReversalOfId(),
                 m.isReversed(),
-                m.getNotes());
+                m.getNotes(),
+                m.getBatchId(),
+                batch != null ? batch.getBatchNumber() : null,
+                batch != null ? batch.getExpiryDate() : null);
     }
 
     private StockBalanceResponse toBalanceResponse(StockBalance b) {

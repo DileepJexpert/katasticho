@@ -537,8 +537,16 @@ class _MovementTile extends StatelessWidget {
     final qty = (movement['quantity'] as num?)?.toDouble() ?? 0;
     final date = movement['movementDate']?.toString() ?? '';
     final note = movement['notes']?.toString() ?? '';
+    final batchNumber = movement['batchNumber']?.toString() ?? '';
+    final batchExpiryDate = movement['batchExpiryDate']?.toString() ?? '';
     final reversed = movement['reversed'] as bool? ?? false;
     final isPositive = qty > 0;
+    final details = [
+      date,
+      if (note.isNotEmpty) note,
+      if (batchNumber.isNotEmpty) 'Batch $batchNumber',
+      if (batchExpiryDate.isNotEmpty) 'Exp $batchExpiryDate',
+    ];
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -559,7 +567,7 @@ class _MovementTile extends StatelessWidget {
         ),
       ),
       subtitle: Text(
-        [date, if (note.isNotEmpty) note].join(' • '),
+        details.join(' • '),
         style: KTypography.bodySmall,
       ),
       trailing: Text(
