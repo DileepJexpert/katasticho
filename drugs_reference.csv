@@ -1,0 +1,135 @@
+brand_name,generic_name,salt_composition,manufacturer,hsn_code,gst_rate,drug_schedule,dosage_form,pack_size,mrp,prescription_required
+Crocin 500,Paracetamol 500mg,Paracetamol 500mg,GSK,3004,12,GENERAL,Tablet,20 Tab,28.00,false
+Dolo 650,Paracetamol 650mg,Paracetamol 650mg,Micro Labs,3004,12,GENERAL,Tablet,15 Tab,30.00,false
+Calpol 500,Paracetamol 500mg,Paracetamol 500mg,GSK,3004,12,GENERAL,Tablet,15 Tab,19.00,false
+Pyrigesic,Paracetamol 500mg,Paracetamol 500mg,East India,3004,12,GENERAL,Tablet,10 Tab,14.00,false
+Pacimol 500,Paracetamol 500mg,Paracetamol 500mg,Ipca Labs,3004,12,GENERAL,Tablet,10 Tab,12.00,false
+Crocin 250 Syrup,Paracetamol 250mg/5ml,Paracetamol 250mg/5ml,GSK,3004,12,GENERAL,Syrup,60ml,50.00,false
+Brufen 400,Ibuprofen 400mg,Ibuprofen 400mg,Abbott,3004,12,SCHEDULE_H,Tablet,15 Tab,35.00,true
+Combiflam,Ibuprofen+Paracetamol,Ibuprofen 400mg + Paracetamol 325mg,Sanofi,3004,12,GENERAL,Tablet,20 Tab,42.00,false
+Ibugesic 400,Ibuprofen 400mg,Ibuprofen 400mg,Cipla,3004,12,SCHEDULE_H,Tablet,15 Tab,30.00,true
+Advil 200,Ibuprofen 200mg,Ibuprofen 200mg,Pfizer,3004,12,GENERAL,Tablet,10 Tab,25.00,false
+Voveran 50,Diclofenac 50mg,Diclofenac Sodium 50mg,Novartis,3004,12,SCHEDULE_H,Tablet,10 Tab,25.00,true
+Voveran SR 100,Diclofenac 100mg SR,Diclofenac Sodium 100mg SR,Novartis,3004,12,SCHEDULE_H,Tablet,10 Tab,45.00,true
+Voltaren Gel,Diclofenac 1% Gel,Diclofenac Diethylamine 1.16%,Novartis,3004,12,GENERAL,Gel,30g,90.00,false
+Zerodol-P,Aceclofenac+Paracetamol,Aceclofenac 100mg + Paracetamol 500mg,Ipca,3004,12,SCHEDULE_H,Tablet,10 Tab,55.00,true
+Hifenac P,Aceclofenac+Paracetamol,Aceclofenac 100mg + Paracetamol 500mg,Intas,3004,12,SCHEDULE_H,Tablet,10 Tab,52.00,true
+Zerodol SP,Aceclofenac+Serratiopeptidase,Aceclofenac 100mg + Serratiopeptidase 15mg,Ipca,3004,12,SCHEDULE_H,Tablet,10 Tab,80.00,true
+Nimulid 100,Nimesulide 100mg,Nimesulide 100mg,Panacea Biotec,3004,12,SCHEDULE_H,Tablet,10 Tab,22.00,true
+Disprin 325,Aspirin 325mg,Aspirin 325mg,Reckitt,3004,12,GENERAL,Tablet,10 Tab,14.00,false
+Ecosprin 75,Aspirin 75mg,Aspirin 75mg (Enteric Coated),USV,3004,12,SCHEDULE_H,Tablet,14 Tab,16.00,true
+Ecosprin 150,Aspirin 150mg,Aspirin 150mg (Enteric Coated),USV,3004,12,SCHEDULE_H,Tablet,14 Tab,20.00,true
+Mox 500,Amoxicillin 500mg,Amoxicillin 500mg,Cipla,3004,12,SCHEDULE_H,Capsule,10 Cap,50.00,true
+Novamox 500,Amoxicillin 500mg,Amoxicillin 500mg,Cipla,3004,12,SCHEDULE_H,Capsule,10 Cap,48.00,true
+Augmentin 625,Amoxicillin+Clavulanate,Amoxicillin 500mg + Clavulanic Acid 125mg,GSK,3004,12,SCHEDULE_H,Tablet,6 Tab,180.00,true
+Clavam 625,Amoxicillin+Clavulanate,Amoxicillin 500mg + Clavulanic Acid 125mg,Alkem,3004,12,SCHEDULE_H,Tablet,6 Tab,165.00,true
+Azee 500,Azithromycin 500mg,Azithromycin 500mg,Cipla,3004,12,SCHEDULE_H,Tablet,3 Tab,75.00,true
+Azithral 500,Azithromycin 500mg,Azithromycin 500mg,Alembic,3004,12,SCHEDULE_H,Tablet,3 Tab,70.00,true
+Zithromax 250,Azithromycin 250mg,Azithromycin 250mg,Pfizer,3004,12,SCHEDULE_H,Tablet,5 Tab,110.00,true
+Ciplox 500,Ciprofloxacin 500mg,Ciprofloxacin 500mg,Cipla,3004,12,SCHEDULE_H1,Tablet,10 Tab,45.00,true
+Cifran 500,Ciprofloxacin 500mg,Ciprofloxacin 500mg,Ranbaxy,3004,12,SCHEDULE_H1,Tablet,10 Tab,42.00,true
+Ciprobid 500,Ciprofloxacin 500mg,Ciprofloxacin 500mg,Cadila,3004,12,SCHEDULE_H1,Tablet,10 Tab,40.00,true
+Levoflox 500,Levofloxacin 500mg,Levofloxacin 500mg,Cipla,3004,12,SCHEDULE_H1,Tablet,5 Tab,85.00,true
+Tavanic 500,Levofloxacin 500mg,Levofloxacin 500mg,Sanofi,3004,12,SCHEDULE_H1,Tablet,5 Tab,95.00,true
+Doxin 100,Doxycycline 100mg,Doxycycline 100mg,Cipla,3004,12,SCHEDULE_H,Capsule,10 Cap,30.00,true
+Taxim-O 200,Cefixime 200mg,Cefixime 200mg,Alkem,3004,12,SCHEDULE_H,Tablet,10 Tab,115.00,true
+Zifi 200,Cefixime 200mg,Cefixime 200mg,FDC,3004,12,SCHEDULE_H,Tablet,10 Tab,108.00,true
+Flagyl 400,Metronidazole 400mg,Metronidazole 400mg,Pfizer,3004,12,SCHEDULE_H,Tablet,15 Tab,30.00,true
+Metrogyl 400,Metronidazole 400mg,Metronidazole 400mg,JB Chemicals,3004,12,SCHEDULE_H,Tablet,15 Tab,28.00,true
+Flucos 150,Fluconazole 150mg,Fluconazole 150mg,Cipla,3004,12,SCHEDULE_H,Capsule,1 Cap,30.00,true
+Zyrtec 10,Cetirizine 10mg,Cetirizine 10mg,UCB,3004,12,GENERAL,Tablet,7 Tab,38.00,false
+Okacet 10,Cetirizine 10mg,Cetirizine 10mg,Cipla,3004,12,GENERAL,Tablet,10 Tab,22.00,false
+Alerid 10,Cetirizine 10mg,Cetirizine 10mg,Cipla,3004,12,GENERAL,Tablet,15 Tab,30.00,false
+Xyzal 5,Levocetirizine 5mg,Levocetirizine 5mg,UCB,3004,12,GENERAL,Tablet,10 Tab,55.00,false
+L-Cin 5,Levocetirizine 5mg,Levocetirizine 5mg,Alkem,3004,12,GENERAL,Tablet,10 Tab,32.00,false
+Montair 10,Montelukast 10mg,Montelukast 10mg,Cipla,3004,12,SCHEDULE_H,Tablet,10 Tab,90.00,true
+Singulair 10,Montelukast 10mg,Montelukast 10mg,MSD,3004,12,SCHEDULE_H,Tablet,10 Tab,125.00,true
+Montair LC,Montelukast+Levocetirizine,Montelukast 10mg + Levocetirizine 5mg,Cipla,3004,12,SCHEDULE_H,Tablet,10 Tab,120.00,true
+Pan 40,Pantoprazole 40mg,Pantoprazole 40mg,Alkem,3004,12,SCHEDULE_H,Tablet,15 Tab,65.00,true
+Pantocid 40,Pantoprazole 40mg,Pantoprazole 40mg,Sun Pharma,3004,12,SCHEDULE_H,Tablet,15 Tab,70.00,true
+Pan D,Pantoprazole+Domperidone,Pantoprazole 40mg + Domperidone 10mg,Alkem,3004,12,SCHEDULE_H,Capsule,15 Cap,95.00,true
+Omez 20,Omeprazole 20mg,Omeprazole 20mg,Dr Reddy's,3004,12,SCHEDULE_H,Capsule,15 Cap,55.00,true
+Razo 20,Rabeprazole 20mg,Rabeprazole 20mg,Dr Reddy's,3004,12,SCHEDULE_H,Tablet,15 Tab,75.00,true
+Nexpro 40,Esomeprazole 40mg,Esomeprazole 40mg,Torrent,3004,12,SCHEDULE_H,Tablet,14 Tab,85.00,true
+Domstal 10,Domperidone 10mg,Domperidone 10mg,Torrent,3004,12,SCHEDULE_H,Tablet,30 Tab,42.00,true
+Emeset 4,Ondansetron 4mg,Ondansetron 4mg,Cipla,3004,12,SCHEDULE_H,Tablet,10 Tab,48.00,true
+Ondem 4,Ondansetron 4mg,Ondansetron 4mg,Alkem,3004,12,SCHEDULE_H,Tablet,10 Tab,45.00,true
+Glycomet 500,Metformin 500mg,Metformin 500mg,USV,3004,12,SCHEDULE_H,Tablet,20 Tab,25.00,true
+Glycomet SR 500,Metformin SR 500mg,Metformin 500mg SR,USV,3004,12,SCHEDULE_H,Tablet,20 Tab,35.00,true
+Obimet 500,Metformin 500mg,Metformin 500mg,Aristo,3004,12,SCHEDULE_H,Tablet,20 Tab,22.00,true
+Walaphage 1g,Metformin 1000mg,Metformin 1000mg,Sun Pharma,3004,12,SCHEDULE_H,Tablet,30 Tab,65.00,true
+Amaryl 2,Glimepiride 2mg,Glimepiride 2mg,Sanofi,3004,12,SCHEDULE_H,Tablet,15 Tab,85.00,true
+Glimestar 2,Glimepiride 2mg,Glimepiride 2mg,Mankind,3004,12,SCHEDULE_H,Tablet,15 Tab,65.00,true
+Januvia 100,Sitagliptin 100mg,Sitagliptin 100mg,MSD,3004,12,SCHEDULE_H,Tablet,14 Tab,430.00,true
+Istavel 100,Sitagliptin 100mg,Sitagliptin 100mg,Sun Pharma,3004,12,SCHEDULE_H,Tablet,14 Tab,280.00,true
+Amlovas 5,Amlodipine 5mg,Amlodipine 5mg,Macleods,3004,12,SCHEDULE_H,Tablet,30 Tab,35.00,true
+Stamlo 5,Amlodipine 5mg,Amlodipine 5mg,Dr Reddy's,3004,12,SCHEDULE_H,Tablet,30 Tab,38.00,true
+Norvasc 5,Amlodipine 5mg,Amlodipine 5mg,Pfizer,3004,12,SCHEDULE_H,Tablet,30 Tab,55.00,true
+Amlovas 10,Amlodipine 10mg,Amlodipine 10mg,Macleods,3004,12,SCHEDULE_H,Tablet,30 Tab,55.00,true
+Tenormin 50,Atenolol 50mg,Atenolol 50mg,AstraZeneca,3004,12,SCHEDULE_H,Tablet,14 Tab,45.00,true
+Betacard 50,Atenolol 50mg,Atenolol 50mg,Torrent,3004,12,SCHEDULE_H,Tablet,14 Tab,35.00,true
+Lopressor 50,Metoprolol 50mg,Metoprolol 50mg,Novartis,3004,12,SCHEDULE_H,Tablet,20 Tab,55.00,true
+Seloken 50,Metoprolol 50mg,Metoprolol Tartrate 50mg,AstraZeneca,3004,12,SCHEDULE_H,Tablet,20 Tab,60.00,true
+Telmikind 40,Telmisartan 40mg,Telmisartan 40mg,Mankind,3004,12,SCHEDULE_H,Tablet,10 Tab,45.00,true
+Telma 40,Telmisartan 40mg,Telmisartan 40mg,Glenmark,3004,12,SCHEDULE_H,Tablet,10 Tab,52.00,true
+Telmikind H,Telmisartan+HCTZ,Telmisartan 40mg + Hydrochlorothiazide 12.5mg,Mankind,3004,12,SCHEDULE_H,Tablet,10 Tab,65.00,true
+Cozaar 50,Losartan 50mg,Losartan Potassium 50mg,MSD,3004,12,SCHEDULE_H,Tablet,14 Tab,80.00,true
+Repace 50,Losartan 50mg,Losartan Potassium 50mg,Sun Pharma,3004,12,SCHEDULE_H,Tablet,14 Tab,55.00,true
+Cardace 5,Ramipril 5mg,Ramipril 5mg,Sanofi,3004,12,SCHEDULE_H,Capsule,10 Cap,55.00,true
+Lipitor 10,Atorvastatin 10mg,Atorvastatin 10mg,Pfizer,3004,12,SCHEDULE_H,Tablet,10 Tab,50.00,true
+Atorva 10,Atorvastatin 10mg,Atorvastatin 10mg,Cipla,3004,12,SCHEDULE_H,Tablet,10 Tab,38.00,true
+Storvas 20,Atorvastatin 20mg,Atorvastatin 20mg,Sun Pharma,3004,12,SCHEDULE_H,Tablet,10 Tab,68.00,true
+Crestor 10,Rosuvastatin 10mg,Rosuvastatin 10mg,AstraZeneca,3004,12,SCHEDULE_H,Tablet,10 Tab,95.00,true
+Rosucad 10,Rosuvastatin 10mg,Rosuvastatin 10mg,Cadila,3004,12,SCHEDULE_H,Tablet,10 Tab,65.00,true
+Rosuvas 10,Rosuvastatin 10mg,Rosuvastatin 10mg,Sun Pharma,3004,12,SCHEDULE_H,Tablet,10 Tab,70.00,true
+Plavix 75,Clopidogrel 75mg,Clopidogrel 75mg,Sanofi,3004,12,SCHEDULE_H,Tablet,10 Tab,95.00,true
+Clopivas 75,Clopidogrel 75mg,Clopidogrel 75mg,Cipla,3004,12,SCHEDULE_H,Tablet,10 Tab,70.00,true
+Lasix 40,Furosemide 40mg,Furosemide 40mg,Sanofi,3004,12,SCHEDULE_H,Tablet,15 Tab,22.00,true
+Eltroxin 50,Levothyroxine 50mcg,Levothyroxine 50mcg,GSK,3004,12,SCHEDULE_H,Tablet,100 Tab,68.00,true
+Thyronorm 50,Levothyroxine 50mcg,Levothyroxine 50mcg,Abbott,3004,12,SCHEDULE_H,Tablet,90 Tab,85.00,true
+Thyronorm 100,Levothyroxine 100mcg,Levothyroxine 100mcg,Abbott,3004,12,SCHEDULE_H,Tablet,90 Tab,92.00,true
+Omnacortil 5,Prednisolone 5mg,Prednisolone 5mg,Franco-Indian,3004,12,SCHEDULE_H,Tablet,30 Tab,30.00,true
+Wysolone 5,Prednisolone 5mg,Prednisolone 5mg,Pfizer,3004,12,SCHEDULE_H,Tablet,30 Tab,28.00,true
+Dexona 0.5,Dexamethasone 0.5mg,Dexamethasone 0.5mg,Samarth,3004,12,SCHEDULE_H,Tablet,30 Tab,20.00,true
+Zoloft 50,Sertraline 50mg,Sertraline 50mg,Pfizer,3004,12,SCHEDULE_H,Tablet,10 Tab,95.00,true
+Serlift 50,Sertraline 50mg,Sertraline 50mg,Torrent,3004,12,SCHEDULE_H,Tablet,10 Tab,75.00,true
+Nexito 10,Escitalopram 10mg,Escitalopram 10mg,Sun Pharma,3004,12,SCHEDULE_H,Tablet,10 Tab,85.00,true
+Cipralex 10,Escitalopram 10mg,Escitalopram 10mg,Lundbeck,3004,12,SCHEDULE_H,Tablet,10 Tab,120.00,true
+Stalopam 10,Escitalopram 10mg,Escitalopram 10mg,Intas,3004,12,SCHEDULE_H,Tablet,10 Tab,78.00,true
+Alprax 0.25,Alprazolam 0.25mg,Alprazolam 0.25mg,Torrent,3004,12,SCHEDULE_X,Tablet,10 Tab,18.00,true
+Alprax 0.5,Alprazolam 0.5mg,Alprazolam 0.5mg,Torrent,3004,12,SCHEDULE_X,Tablet,10 Tab,22.00,true
+Restyl 0.5,Alprazolam 0.5mg,Alprazolam 0.5mg,Sun Pharma,3004,12,SCHEDULE_X,Tablet,10 Tab,25.00,true
+Rivotril 0.5,Clonazepam 0.5mg,Clonazepam 0.5mg,Roche,3004,12,SCHEDULE_X,Tablet,15 Tab,42.00,true
+Clonafit 0.5,Clonazepam 0.5mg,Clonazepam 0.5mg,Sun Pharma,3004,12,SCHEDULE_X,Tablet,15 Tab,35.00,true
+Gabapin 300,Gabapentin 300mg,Gabapentin 300mg,Intas,3004,12,SCHEDULE_H,Capsule,10 Cap,55.00,true
+Neurontin 300,Gabapentin 300mg,Gabapentin 300mg,Pfizer,3004,12,SCHEDULE_H,Capsule,10 Cap,75.00,true
+Lyrica 75,Pregabalin 75mg,Pregabalin 75mg,Pfizer,3004,12,SCHEDULE_H,Capsule,10 Cap,145.00,true
+Pregabalin 75,Pregabalin 75mg,Pregabalin 75mg,Torrent,3004,12,SCHEDULE_H,Capsule,10 Cap,95.00,true
+Calcirol 60K,Cholecalciferol 60000 IU,Cholecalciferol 60000 IU,Cadila,3004,12,GENERAL,Sachet,4 Sachets,85.00,false
+Tayo 60K,Cholecalciferol 60000 IU,Cholecalciferol 60000 IU,Eris,3004,12,GENERAL,Sachet,4 Sachets,72.00,false
+D-Rise 60K,Cholecalciferol 60000 IU,Cholecalciferol 60000 IU,USV,3004,12,GENERAL,Sachet,4 Sachets,78.00,false
+Mecobal 500,Methylcobalamin 500mcg,Methylcobalamin 500mcg,Cadila,3004,12,GENERAL,Tablet,10 Tab,45.00,false
+Neurobion Forte,B-Complex+B12,Methylcobalamin + B1 + B6 + B12 complex,Merck,2106,18,GENERAL,Tablet,30 Tab,95.00,false
+Nervijen,Methylcobalamin+B6+B1,Methylcobalamin 1500mcg + Pyridoxine 100mg + Thiamine 10mg,Intas,3004,12,GENERAL,Capsule,10 Cap,65.00,false
+Autrin,Ferrous Ascorbate+Folic Acid,Ferrous Ascorbate 100mg + Folic Acid 1.5mg,Sun Pharma,3004,12,GENERAL,Tablet,30 Tab,95.00,false
+Orofer FC,Ferrous Ascorbate+Folic Acid,Ferrous Ascorbate 100mg + Folic Acid 1.5mg,Emcure,3004,12,GENERAL,Tablet,30 Tab,88.00,false
+Shelcal 500,Calcium+Vitamin D3,Calcium Carbonate 500mg + Vitamin D3 250 IU,Elder,3004,12,GENERAL,Tablet,15 Tab,88.00,false
+Calcimax 500,Calcium+Vitamin D3,Calcium Carbonate 500mg + Vitamin D3 250 IU,Meyer,3004,12,GENERAL,Tablet,15 Tab,82.00,false
+OstoCare,Calcium+Vitamin D3+Zinc,Calcium 500mg + Vitamin D3 500 IU + Zinc,Elder,2106,18,GENERAL,Tablet,30 Tab,148.00,false
+Supradyn,Multivitamin+Multimineral,Multivitamin + Multimineral complex,Bayer,2106,18,GENERAL,Tablet,30 Tab,195.00,false
+Becosules,Vitamin B-Complex+C,Vitamin B Complex + Ascorbic Acid 150mg,Pfizer,2106,18,GENERAL,Capsule,20 Cap,85.00,false
+Revital H,Multivitamin+Ginseng,Multivitamin + Ginseng extract,Ranbaxy,2106,18,GENERAL,Capsule,30 Cap,295.00,false
+Zincovit,Multivitamin+Zinc,Multivitamin + Zinc 10mg,Apex,2106,18,GENERAL,Tablet,15 Tab,85.00,false
+Asthalin 2mg,Salbutamol 2mg,Salbutamol 2mg,Cipla,3004,12,SCHEDULE_H,Tablet,10 Tab,15.00,true
+Asthalin Inhaler,Salbutamol MDI,Salbutamol 100mcg per actuation,Cipla,3004,12,SCHEDULE_H,MDI Inhaler,200 doses,175.00,true
+Ventolin Inhaler,Salbutamol MDI,Salbutamol 100mcg per actuation,GSK,3004,12,SCHEDULE_H,MDI Inhaler,200 doses,195.00,true
+Mucolite 30,Ambroxol 30mg,Ambroxol 30mg,Win Medicare,3004,12,GENERAL,Tablet,10 Tab,22.00,false
+Ambril 30,Ambroxol 30mg,Ambroxol 30mg,Cipla,3004,12,GENERAL,Tablet,10 Tab,18.00,false
+Zentel 400,Albendazole 400mg,Albendazole 400mg,GSK,3004,12,GENERAL,Tablet,1 Tab,28.00,false
+Bandy 400,Albendazole 400mg,Albendazole 400mg,Mankind,3004,12,GENERAL,Tablet,1 Tab,22.00,false
+Zovirax 400,Acyclovir 400mg,Acyclovir 400mg,GSK,3004,12,SCHEDULE_H,Tablet,25 Tab,165.00,true
+Acivir 400,Acyclovir 400mg,Acyclovir 400mg,Cipla,3004,12,SCHEDULE_H,Tablet,25 Tab,145.00,true
+Zovirax Cream,Acyclovir 5% Cream,Acyclovir 5%,GSK,3004,12,SCHEDULE_H,Cream,5g,92.00,true
+Folvite 5mg,Folic Acid 5mg,Folic Acid 5mg,Pfizer,3004,12,GENERAL,Tablet,30 Tab,25.00,false
+Rifampicin 450,Rifampicin 450mg,Rifampicin 450mg,Cipla,3004,12,SCHEDULE_H,Capsule,100 Cap,450.00,true
+INH 300,Isoniazid 300mg,Isoniazid 300mg,Cipla,3004,12,SCHEDULE_H,Tablet,100 Tab,180.00,true

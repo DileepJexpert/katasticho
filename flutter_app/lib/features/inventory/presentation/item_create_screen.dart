@@ -1,5 +1,3 @@
-import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,11 +7,11 @@ import '../../../core/utils/form_error_handler.dart';
 import '../../settings/data/feature_flag_repository.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/item_group_repository.dart';
 import '../data/item_repository.dart';
 import '../data/uom_repository.dart';
+import 'drug_master_search_widget.dart';
 import 'item_scan_sheet.dart';
 
 /// Form for creating a new inventory item or editing an existing one.
@@ -75,7 +73,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
   bool _prescriptionRequired = false;
   bool _saving = false;
   bool _loading = false;
-
+  bool _autoFilledFromDrug = false;
 
   // Purchase & Sales Units
   bool _hasDifferentPurchaseUnit = false;
@@ -117,7 +115,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
 
   void _syncPurchasePrice() {
     final conv = double.tryParse(_purchaseConversionController.text) ?? 0;
-    final pricePerUom = double.tryParse(_purchasePricePerUomController.text) ?? 0;
+    final pricePerUom =
+        double.tryParse(_purchasePricePerUomController.text) ?? 0;
     if (conv > 0 && pricePerUom > 0) {
       final perBase = (pricePerUom / conv).toStringAsFixed(2);
       _purchasePriceController.text = perBase;
@@ -139,6 +138,31 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     }
   }
 
+  void _fillFromDrug(Map<String, dynamic> drug) {
+    setState(() {
+      _nameController.text = drug['brandName'] ?? '';
+      _manufacturerController.text = drug['manufacturer'] ?? '';
+      _compositionController.text = drug['saltComposition'] ?? '';
+      _drugScheduleController.text = drug['drugSchedule'] ?? '';
+      _dosageFormController.text = drug['dosageForm'] ?? '';
+      _packSizeController.text = drug['packSize'] ?? '';
+      _hsnController.text = drug['hsnCode'] ?? '3004';
+      _gstRateController.text = (drug['gstRate'] ?? 12).toString();
+      final mrp = drug['mrp'];
+      if (mrp != null) _mrpController.text = mrp.toString();
+      _prescriptionRequired = drug['prescriptionRequired'] as bool? ?? false;
+      _autoFilledFromDrug = true;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content:
+            Text('Auto-filled from drug database: ${drug['brandName'] ?? ''}'),
+        backgroundColor: KColors.success,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   void _populateFromMap(Map<String, dynamic> data) {
     _skuController.text = data['sku']?.toString() ?? '';
     _nameController.text = data['name']?.toString() ?? '';
@@ -155,20 +179,27 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     _barcodeController.text = data['barcode']?.toString() ?? '';
     _brandController.text = data['brand']?.toString() ?? '';
     _manufacturerController.text = data['manufacturer']?.toString() ?? '';
-    _weightController.text = data['weight'] != null ? data['weight'].toString() : '';
+    _weightController.text =
+        data['weight'] != null ? data['weight'].toString() : '';
     _weightUnitController.text = data['weightUnit']?.toString() ?? 'kg';
-    _lengthController.text = data['length'] != null ? data['length'].toString() : '';
-    _widthController.text = data['width'] != null ? data['width'].toString() : '';
-    _heightController.text = data['height'] != null ? data['height'].toString() : '';
+    _lengthController.text =
+        data['length'] != null ? data['length'].toString() : '';
+    _widthController.text =
+        data['width'] != null ? data['width'].toString() : '';
+    _heightController.text =
+        data['height'] != null ? data['height'].toString() : '';
     _dimensionUnitController.text = data['dimensionUnit']?.toString() ?? 'cm';
-    _revenueAccountController.text = data['revenueAccountCode']?.toString() ?? '';
+    _revenueAccountController.text =
+        data['revenueAccountCode']?.toString() ?? '';
     _cogsAccountController.text = data['cogsAccountCode']?.toString() ?? '';
-    _inventoryAccountController.text = data['inventoryAccountCode']?.toString() ?? '';
+    _inventoryAccountController.text =
+        data['inventoryAccountCode']?.toString() ?? '';
     _drugScheduleController.text = data['drugSchedule']?.toString() ?? '';
     _compositionController.text = data['composition']?.toString() ?? '';
     _dosageFormController.text = data['dosageForm']?.toString() ?? '';
     _packSizeController.text = data['packSize']?.toString() ?? '';
-    _storageConditionController.text = data['storageCondition']?.toString() ?? '';
+    _storageConditionController.text =
+        data['storageCondition']?.toString() ?? '';
     _trackBatches = data['trackBatches'] as bool? ?? false;
     _prescriptionRequired = data['prescriptionRequired'] as bool? ?? false;
     _itemType = data['itemType']?.toString() ?? 'GOODS';
@@ -184,8 +215,10 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     if (pUom != null && pUom.isNotEmpty) {
       _hasDifferentPurchaseUnit = true;
       _purchaseUomAbbr = pUom;
-      _purchaseConversionController.text = (data['purchaseUomConversion'] ?? '').toString();
-      _purchasePricePerUomController.text = (data['purchasePricePerUom'] ?? '').toString();
+      _purchaseConversionController.text =
+          (data['purchaseUomConversion'] ?? '').toString();
+      _purchasePricePerUomController.text =
+          (data['purchasePricePerUom'] ?? '').toString();
     }
     // Secondary units
     final secUnits = data['secondaryUnits'] as List?;
@@ -266,8 +299,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     setState(() => _saving = true);
     final repo = ref.read(itemRepositoryProvider);
 
-    String? _nullIfEmpty(String s) => s.trim().isEmpty ? null : s.trim();
-    double? _doubleOrNull(TextEditingController c) {
+    String? nullIfEmpty(String s) => s.trim().isEmpty ? null : s.trim();
+    double? doubleOrNull(TextEditingController c) {
       final v = double.tryParse(c.text);
       return v != null && v != 0 ? v : null;
     }
@@ -275,51 +308,56 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     final payload = <String, dynamic>{
       'sku': _skuController.text.trim(),
       'name': _nameController.text.trim(),
-      'description': _nullIfEmpty(_descriptionController.text),
-      'category': _nullIfEmpty(_categoryController.text),
-      'brand': _nullIfEmpty(_brandController.text),
-      'hsnCode': _nullIfEmpty(_hsnController.text),
+      'description': nullIfEmpty(_descriptionController.text),
+      'category': nullIfEmpty(_categoryController.text),
+      'brand': nullIfEmpty(_brandController.text),
+      'hsnCode': nullIfEmpty(_hsnController.text),
       'unitOfMeasure': _itemType == 'SERVICE'
           ? null
-          : (_uomController.text.trim().isEmpty ? 'PCS' : _uomController.text.trim()),
+          : (_uomController.text.trim().isEmpty
+              ? 'PCS'
+              : _uomController.text.trim()),
       'itemType': _itemType,
       'purchasePrice': double.tryParse(_purchasePriceController.text) ?? 0,
       'salePrice': double.tryParse(_salePriceController.text) ?? 0,
-      'mrp': _doubleOrNull(_mrpController),
+      'mrp': doubleOrNull(_mrpController),
       'gstRate': double.tryParse(_gstRateController.text) ?? 0,
       'trackInventory': _trackInventory && _itemType == 'GOODS',
       'trackBatches': _trackBatches && _itemType == 'GOODS',
       'reorderLevel': double.tryParse(_reorderLevelController.text) ?? 0,
       'reorderQuantity': double.tryParse(_reorderQtyController.text) ?? 0,
-      'barcode': _nullIfEmpty(_barcodeController.text),
-      'manufacturer': _nullIfEmpty(_manufacturerController.text),
-      'weight': _doubleOrNull(_weightController),
-      'weightUnit': _nullIfEmpty(_weightUnitController.text),
-      'length': _doubleOrNull(_lengthController),
-      'width': _doubleOrNull(_widthController),
-      'height': _doubleOrNull(_heightController),
-      'dimensionUnit': _nullIfEmpty(_dimensionUnitController.text),
-      'drugSchedule': _nullIfEmpty(_drugScheduleController.text),
-      'composition': _nullIfEmpty(_compositionController.text),
-      'dosageForm': _nullIfEmpty(_dosageFormController.text),
-      'packSize': _nullIfEmpty(_packSizeController.text),
-      'storageCondition': _nullIfEmpty(_storageConditionController.text),
+      'barcode': nullIfEmpty(_barcodeController.text),
+      'manufacturer': nullIfEmpty(_manufacturerController.text),
+      'weight': doubleOrNull(_weightController),
+      'weightUnit': nullIfEmpty(_weightUnitController.text),
+      'length': doubleOrNull(_lengthController),
+      'width': doubleOrNull(_widthController),
+      'height': doubleOrNull(_heightController),
+      'dimensionUnit': nullIfEmpty(_dimensionUnitController.text),
+      'drugSchedule': nullIfEmpty(_drugScheduleController.text),
+      'composition': nullIfEmpty(_compositionController.text),
+      'dosageForm': nullIfEmpty(_dosageFormController.text),
+      'packSize': nullIfEmpty(_packSizeController.text),
+      'storageCondition': nullIfEmpty(_storageConditionController.text),
       'prescriptionRequired': _prescriptionRequired,
-      'revenueAccountCode': _nullIfEmpty(_revenueAccountController.text),
-      'cogsAccountCode': _nullIfEmpty(_cogsAccountController.text),
-      'inventoryAccountCode': _nullIfEmpty(_inventoryAccountController.text),
+      'revenueAccountCode': nullIfEmpty(_revenueAccountController.text),
+      'cogsAccountCode': nullIfEmpty(_cogsAccountController.text),
+      'inventoryAccountCode': nullIfEmpty(_inventoryAccountController.text),
     };
 
     if (!_isEdit && _itemType == 'GOODS' && _trackInventory) {
       final openingStock = double.tryParse(_openingStockController.text) ?? 0;
       payload['openingStock'] = openingStock;
       if (_trackBatches && openingStock > 0) {
-        payload['openingBatchNumber'] = _openingBatchNumberController.text.trim();
+        payload['openingBatchNumber'] =
+            _openingBatchNumberController.text.trim();
         if (_openingMfgDate != null) {
-          payload['openingMfgDate'] = _openingMfgDate!.toIso8601String().substring(0, 10);
+          payload['openingMfgDate'] =
+              _openingMfgDate!.toIso8601String().substring(0, 10);
         }
         if (_openingExpiryDate != null) {
-          payload['openingExpiryDate'] = _openingExpiryDate!.toIso8601String().substring(0, 10);
+          payload['openingExpiryDate'] =
+              _openingExpiryDate!.toIso8601String().substring(0, 10);
         }
       }
     }
@@ -327,8 +365,10 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     // Purchase UoM
     if (_hasDifferentPurchaseUnit && _purchaseUomAbbr != null) {
       payload['purchaseUom'] = _purchaseUomAbbr;
-      payload['purchaseUomConversion'] = double.tryParse(_purchaseConversionController.text);
-      payload['purchasePricePerUom'] = double.tryParse(_purchasePricePerUomController.text);
+      payload['purchaseUomConversion'] =
+          double.tryParse(_purchaseConversionController.text);
+      payload['purchasePricePerUom'] =
+          double.tryParse(_purchasePricePerUomController.text);
     }
 
     // Secondary units
@@ -336,22 +376,23 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
       payload['secondaryUnits'] = _secondaryUnits
           .where((su) => su.uomAbbr != null && su.uomAbbr!.isNotEmpty)
           .map((su) {
-            final m = <String, dynamic>{
-              'uomAbbreviation': su.uomAbbr,
-              'conversionFactor': double.tryParse(su.conversionController.text) ?? 1,
-            };
-            final p = double.tryParse(su.priceController.text);
-            if (p != null && p > 0) m['customPrice'] = p;
-            return m;
-          })
-          .toList();
+        final m = <String, dynamic>{
+          'uomAbbreviation': su.uomAbbr,
+          'conversionFactor':
+              double.tryParse(su.conversionController.text) ?? 1,
+        };
+        final p = double.tryParse(su.priceController.text);
+        if (p != null && p > 0) m['customPrice'] = p;
+        return m;
+      }).toList();
     }
 
     // F5: variant linkage. The backend rejects variant_attributes
     // without a group_id and vice-versa; we mirror that here so the
     // operator gets a snackbar instead of a 400.
     if (_groupId != null) {
-      final defs = (_selectedGroup?['attributeDefinitions'] as List?) ?? const [];
+      final defs =
+          (_selectedGroup?['attributeDefinitions'] as List?) ?? const [];
       for (final d in defs) {
         final def = d as Map<String, dynamic>;
         final key = def['key']?.toString() ?? '';
@@ -389,7 +430,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
   }
 
   Widget _buildPurchaseSalesUnitsSection() {
-    final baseUnit = _uomController.text.trim().isEmpty ? 'PCS' : _uomController.text.trim();
+    final baseUnit =
+        _uomController.text.trim().isEmpty ? 'PCS' : _uomController.text.trim();
     final uomItems = _availableUoms
         .map((u) => u['abbreviation']?.toString() ?? '')
         .where((a) => a.isNotEmpty)
@@ -398,7 +440,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     // Auto-calculate cost per base unit
     String costPerBase = '';
     final conv = double.tryParse(_purchaseConversionController.text) ?? 0;
-    final pricePerUom = double.tryParse(_purchasePricePerUomController.text) ?? 0;
+    final pricePerUom =
+        double.tryParse(_purchasePricePerUomController.text) ?? 0;
     if (conv > 0 && pricePerUom > 0) {
       costPerBase = CurrencyFormatter.formatIndian(pricePerUom / conv);
     }
@@ -416,7 +459,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
           children: [
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: uomItems.contains(baseUnit.toUpperCase()) ? baseUnit.toUpperCase()
+                value: uomItems.contains(baseUnit.toUpperCase())
+                    ? baseUnit.toUpperCase()
                     : (uomItems.contains(baseUnit) ? baseUnit : null),
                 decoration: const InputDecoration(
                   labelText: 'Selling Unit (base)',
@@ -424,9 +468,11 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                   isDense: true,
                 ),
                 items: [
-                  if (!uomItems.contains(baseUnit) && !uomItems.contains(baseUnit.toUpperCase()))
+                  if (!uomItems.contains(baseUnit) &&
+                      !uomItems.contains(baseUnit.toUpperCase()))
                     DropdownMenuItem(value: baseUnit, child: Text(baseUnit)),
-                  ...uomItems.map((a) => DropdownMenuItem(value: a, child: Text(a))),
+                  ...uomItems
+                      .map((a) => DropdownMenuItem(value: a, child: Text(a))),
                 ],
                 onChanged: (v) {
                   if (v != null) {
@@ -483,7 +529,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                     isDense: true,
                   ),
                   items: uomItems
-                      .where((a) => a != baseUnit && a != baseUnit.toUpperCase())
+                      .where(
+                          (a) => a != baseUnit && a != baseUnit.toUpperCase())
                       .map((a) => DropdownMenuItem(value: a, child: Text(a)))
                       .toList(),
                   onChanged: (v) => setState(() => _purchaseUomAbbr = v),
@@ -492,12 +539,14 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text('1 ${_purchaseUomAbbr ?? '?'} = ', style: KTypography.labelLarge),
+                    Text('1 ${_purchaseUomAbbr ?? '?'} = ',
+                        style: KTypography.labelLarge),
                     Expanded(
                       child: KTextField(
                         label: baseUnit,
                         controller: _purchaseConversionController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
                         onChanged: (_) => _syncPurchasePrice(),
                       ),
                     ),
@@ -513,7 +562,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                   KSpacing.vGapSm,
                   Row(
                     children: [
-                      Icon(Icons.calculate_outlined, size: 14, color: KColors.success),
+                      Icon(Icons.calculate_outlined,
+                          size: 14, color: KColors.success),
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
@@ -557,7 +607,9 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                           icon: const Icon(Icons.close, size: 18),
                           onPressed: () {
                             setState(() {
-                              _secondaryUnits[idx].conversionController.dispose();
+                              _secondaryUnits[idx]
+                                  .conversionController
+                                  .dispose();
                               _secondaryUnits[idx].priceController.dispose();
                               _secondaryUnits.removeAt(idx);
                             });
@@ -574,8 +626,10 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                         isDense: true,
                       ),
                       items: uomItems
-                          .where((a) => a != baseUnit && a != baseUnit.toUpperCase())
-                          .map((a) => DropdownMenuItem(value: a, child: Text(a)))
+                          .where((a) =>
+                              a != baseUnit && a != baseUnit.toUpperCase())
+                          .map(
+                              (a) => DropdownMenuItem(value: a, child: Text(a)))
                           .toList(),
                       onChanged: (v) => setState(() => su.uomAbbr = v),
                     ),
@@ -587,14 +641,16 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                           child: KTextField(
                             label: su.uomAbbr ?? 'units',
                             controller: su.conversionController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
                           ),
                         ),
                       ],
                     ),
                     KSpacing.vGapSm,
                     KTextField.amount(
-                      label: 'Custom price per ${su.uomAbbr ?? 'unit'} (optional)',
+                      label:
+                          'Custom price per ${su.uomAbbr ?? 'unit'} (optional)',
                       controller: su.priceController,
                     ),
                   ],
@@ -701,7 +757,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
           child: Container(
             padding: const EdgeInsets.all(KSpacing.md),
             decoration: BoxDecoration(
-              border: Border.all(color: KColors.textHint.withValues(alpha: 0.3)),
+              border:
+                  Border.all(color: KColors.textHint.withValues(alpha: 0.3)),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -819,6 +876,34 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
               child: ListView(
                 padding: KSpacing.pagePadding,
                 children: [
+                  // ── Drug Master Quick-fill (pharmacy items only) ──
+                  if (!_isEdit) ...[
+                    DrugMasterSearchWidget(onSelected: _fillFromDrug),
+                    if (_autoFilledFromDrug)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, bottom: 2),
+                        child: Row(
+                          children: [
+                            Icon(Icons.auto_fix_high,
+                                size: 14, color: KColors.success),
+                            const SizedBox(width: 5),
+                            Text('Fields auto-filled from drug database',
+                                style: KTypography.labelSmall
+                                    .copyWith(color: KColors.success)),
+                            const Spacer(),
+                            GestureDetector(
+                              onTap: () =>
+                                  setState(() => _autoFilledFromDrug = false),
+                              child: Text('Clear',
+                                  style: KTypography.labelSmall.copyWith(
+                                      color: KColors.textHint,
+                                      decoration: TextDecoration.underline)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    KSpacing.vGapMd,
+                  ],
                   // ── Basic Info (always open) ──
                   KCollapsibleSection(
                     title: 'Basic Info',
@@ -832,8 +917,11 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                           prefixIcon: Icons.qr_code,
                           isRequired: true,
                           serverError: serverErrors['sku'],
-                          validator: (v) => fieldError('sku',
-                            v == null || v.trim().isEmpty ? 'SKU is required' : null,
+                          validator: (v) => fieldError(
+                            'sku',
+                            v == null || v.trim().isEmpty
+                                ? 'SKU is required'
+                                : null,
                           ),
                         ),
                         KTextField(
@@ -849,8 +937,11 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                         prefixIcon: Icons.label_outline,
                         isRequired: true,
                         serverError: serverErrors['name'],
-                        validator: (v) => fieldError('name',
-                          v == null || v.trim().isEmpty ? 'Name is required' : null,
+                        validator: (v) => fieldError(
+                          'name',
+                          v == null || v.trim().isEmpty
+                              ? 'Name is required'
+                              : null,
                         ),
                       ),
                       KSpacing.vGapSm,
@@ -876,10 +967,13 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                           value: _itemType,
                           decoration: const InputDecoration(labelText: 'Type'),
                           items: const [
-                            DropdownMenuItem(value: 'GOODS', child: Text('Goods')),
-                            DropdownMenuItem(value: 'SERVICE', child: Text('Service')),
                             DropdownMenuItem(
-                                value: 'COMPOSITE', child: Text('Composite (kit)')),
+                                value: 'GOODS', child: Text('Goods')),
+                            DropdownMenuItem(
+                                value: 'SERVICE', child: Text('Service')),
+                            DropdownMenuItem(
+                                value: 'COMPOSITE',
+                                child: Text('Composite (kit)')),
                           ],
                           onChanged: (v) {
                             setState(() {
@@ -911,7 +1005,12 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                     icon: Icons.currency_rupee,
                     initiallyExpanded: true,
                     children: [
-                      KCompactRow(flex: const [2, 2, 1, 1], children: [
+                      KCompactRow(flex: const [
+                        2,
+                        2,
+                        1,
+                        1
+                      ], children: [
                         KTextField.amount(
                           label: 'Purchase Price',
                           controller: _purchasePriceController,
@@ -928,7 +1027,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                               return serverErrors['salePrice'];
                             }
                             final salePrice = double.tryParse(v ?? '') ?? 0;
-                            final mrp = double.tryParse(_mrpController.text) ?? 0;
+                            final mrp =
+                                double.tryParse(_mrpController.text) ?? 0;
                             if (mrp > 0 && salePrice > mrp) {
                               return 'Cannot exceed MRP';
                             }
@@ -942,20 +1042,30 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                         KTextField(
                           label: 'GST %',
                           controller: _gstRateController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
                           selectAllOnFocus: true,
                         ),
                       ]),
-                      if (ref.watch(featureFlagsProvider).valueOrNull?.contains('MRP_PRICING') == true) ...[
+                      if (ref
+                              .watch(featureFlagsProvider)
+                              .valueOrNull
+                              ?.contains('MRP_PRICING') ==
+                          true) ...[
                         KSpacing.vGapSm,
-                        KCompactRow(flex: const [2, 3], children: [
+                        KCompactRow(flex: const [
+                          2,
+                          3
+                        ], children: [
                           KTextField.amount(
                             label: 'MRP',
                             controller: _mrpController,
                             onChanged: (_) => setState(() {}),
                             validator: (v) {
                               final mrp = double.tryParse(v ?? '') ?? 0;
-                              final salePrice = double.tryParse(_salePriceController.text) ?? 0;
+                              final salePrice =
+                                  double.tryParse(_salePriceController.text) ??
+                                      0;
                               if (mrp > 0 && salePrice > mrp) {
                                 return 'Sale price cannot exceed MRP';
                               }
@@ -1025,12 +1135,16 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                             KTextField(
                               label: 'Reorder Level',
                               controller: _reorderLevelController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
                             ),
                             KTextField(
                               label: 'Reorder Qty',
                               controller: _reorderQtyController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
                             ),
                           ]),
                           if (!_isEdit) ...[
@@ -1038,7 +1152,9 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                             KTextField(
                               label: 'Opening Stock',
                               controller: _openingStockController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
                               prefixIcon: Icons.inventory_outlined,
                               onChanged: (_) => setState(() {}),
                             ),
@@ -1049,16 +1165,25 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Opening Batch', style: KTypography.labelLarge),
+                                    Text('Opening Batch',
+                                        style: KTypography.labelLarge),
                                     KSpacing.vGapSm,
                                     KTextField(
                                       label: 'Batch Number *',
                                       controller: _openingBatchNumberController,
-                                      prefixIcon: Icons.confirmation_number_outlined,
+                                      prefixIcon:
+                                          Icons.confirmation_number_outlined,
                                       hint: 'From product packaging',
                                       validator: (v) {
-                                        if (_trackBatches && (double.tryParse(_openingStockController.text) ?? 0) > 0) {
-                                          if (v == null || v.trim().isEmpty) return 'Batch number is required';
+                                        if (_trackBatches &&
+                                            (double.tryParse(
+                                                        _openingStockController
+                                                            .text) ??
+                                                    0) >
+                                                0) {
+                                          if (v == null || v.trim().isEmpty) {
+                                            return 'Batch number is required';
+                                          }
                                         }
                                         return null;
                                       },
@@ -1068,12 +1193,14 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                                       _DatePickerField(
                                         label: 'Mfg Date',
                                         value: _openingMfgDate,
-                                        onPicked: (d) => setState(() => _openingMfgDate = d),
+                                        onPicked: (d) =>
+                                            setState(() => _openingMfgDate = d),
                                       ),
                                       _DatePickerField(
                                         label: 'Expiry Date',
                                         value: _openingExpiryDate,
-                                        onPicked: (d) => setState(() => _openingExpiryDate = d),
+                                        onPicked: (d) => setState(
+                                            () => _openingExpiryDate = d),
                                       ),
                                     ]),
                                   ],
@@ -1091,11 +1218,15 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                       title: 'Physical Properties',
                       icon: Icons.straighten_outlined,
                       children: [
-                        KCompactRow(flex: const [2, 1], children: [
+                        KCompactRow(flex: const [
+                          2,
+                          1
+                        ], children: [
                           KTextField(
                             label: 'Weight',
                             controller: _weightController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
                           ),
                           KTextField(
                             label: 'Unit',
@@ -1103,21 +1234,29 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                           ),
                         ]),
                         KSpacing.vGapSm,
-                        KCompactRow(flex: const [1, 1, 1, 1], children: [
+                        KCompactRow(flex: const [
+                          1,
+                          1,
+                          1,
+                          1
+                        ], children: [
                           KTextField(
                             label: 'L',
                             controller: _lengthController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
                           ),
                           KTextField(
                             label: 'W',
                             controller: _widthController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
                           ),
                           KTextField(
                             label: 'H',
                             controller: _heightController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
                           ),
                           KTextField(
                             label: 'Unit',
@@ -1152,11 +1291,17 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                     ],
                   ),
 
-                  // ── Pharmacy (collapsed, conditional) ──
-                  if (ref.watch(featureFlagsProvider).valueOrNull?.contains('DRUG_SCHEDULE_FIELDS') == true)
+                  // ── Pharmacy (shown when drug-filled or feature flag enabled) ──
+                  if (_autoFilledFromDrug ||
+                      ref
+                              .watch(featureFlagsProvider)
+                              .valueOrNull
+                              ?.contains('DRUG_SCHEDULE_FIELDS') ==
+                          true)
                     KCollapsibleSection(
                       title: 'Pharmacy',
                       icon: Icons.local_pharmacy_outlined,
+                      initiallyExpanded: _autoFilledFromDrug,
                       children: [
                         KCompactRow(children: [
                           KTextField(
@@ -1191,7 +1336,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                           dense: true,
                           title: const Text('Prescription Required'),
                           value: _prescriptionRequired,
-                          onChanged: (v) => setState(() => _prescriptionRequired = v),
+                          onChanged: (v) =>
+                              setState(() => _prescriptionRequired = v),
                         ),
                       ],
                     ),
@@ -1291,7 +1437,9 @@ class _GroupPickerSheet extends ConsumerWidget {
                 final content = data['data'];
                 final groups = content is List
                     ? content
-                    : (content is Map ? (content['content'] as List?) ?? [] : []);
+                    : (content is Map
+                        ? (content['content'] as List?) ?? []
+                        : []);
                 if (groups.isEmpty) {
                   return Center(
                     child: Padding(
@@ -1320,7 +1468,9 @@ class _GroupPickerSheet extends ConsumerWidget {
                       subtitle: Text(
                         defs
                             .map<String>((d) =>
-                                (d as Map<String, dynamic>)['key']?.toString() ?? '')
+                                (d as Map<String, dynamic>)['key']
+                                    ?.toString() ??
+                                '')
                             .where((k) => k.isNotEmpty)
                             .join(', '),
                         style: KTypography.bodySmall,

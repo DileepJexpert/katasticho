@@ -417,3 +417,5 @@ public class StockReceiptService {
         return v != null ? v : BigDecimal.ZERO;
     }
 }
+
+

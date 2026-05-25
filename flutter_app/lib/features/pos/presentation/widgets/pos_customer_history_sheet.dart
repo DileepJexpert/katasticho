@@ -182,7 +182,8 @@ class _CustomerHistorySheetState extends ConsumerState<_CustomerHistorySheet> {
                     children: [
                       CircleAvatar(
                         radius: 18,
-                        backgroundColor: KColors.primary.withValues(alpha: 0.12),
+                        backgroundColor:
+                            KColors.primary.withValues(alpha: 0.12),
                         child: Text(
                           widget.contactName.isNotEmpty
                               ? widget.contactName[0].toUpperCase()
@@ -221,8 +222,7 @@ class _CustomerHistorySheetState extends ConsumerState<_CustomerHistorySheet> {
             // Period filter
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(
                 children: _periods.map((p) {
                   final selected = _selectedDays == p.days;
@@ -267,8 +267,7 @@ class _CustomerHistorySheetState extends ConsumerState<_CustomerHistorySheet> {
   }
 
   Widget _buildBody(ScrollController scrollController) {
-    final outstanding =
-        (_data!['outstandingAmount'] as num?)?.toDouble() ?? 0;
+    final outstanding = (_data!['outstandingAmount'] as num?)?.toDouble() ?? 0;
     final totalSpent = (_data!['totalSpent'] as num?)?.toDouble() ?? 0;
     final visitCount = (_data!['visitCount'] as int?) ?? 0;
     final receipts = (_data!['recentReceipts'] as List?) ?? [];
@@ -281,13 +280,11 @@ class _CustomerHistorySheetState extends ConsumerState<_CustomerHistorySheet> {
         if (outstanding > 0.01)
           Container(
             margin: const EdgeInsets.only(bottom: 12),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: KColors.error.withValues(alpha: 0.08),
               borderRadius: KSpacing.borderRadiusMd,
-              border: Border.all(
-                  color: KColors.error.withValues(alpha: 0.25)),
+              border: Border.all(color: KColors.error.withValues(alpha: 0.25)),
             ),
             child: Row(
               children: [
@@ -296,10 +293,17 @@ class _CustomerHistorySheetState extends ConsumerState<_CustomerHistorySheet> {
                 KSpacing.hGapSm,
                 Expanded(
                   child: Text(
-                    '${CurrencyFormatter.formatIndian(outstanding)} outstanding',
-                    style: KTypography.labelMedium
-                        .copyWith(color: KColors.error),
+                    '${CurrencyFormatter.formatIndian(outstanding)} invoice outstanding',
+                    style:
+                        KTypography.labelMedium.copyWith(color: KColors.error),
                   ),
+                ),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message:
+                      'This is from unpaid invoices / opening balance,\nnot from POS cash sales',
+                  child: Icon(Icons.info_outline,
+                      size: 14, color: KColors.error.withValues(alpha: 0.6)),
                 ),
               ],
             ),
@@ -312,8 +316,8 @@ class _CustomerHistorySheetState extends ConsumerState<_CustomerHistorySheet> {
                 size: 14, color: KColors.textSecondary),
             const SizedBox(width: 2),
             Text(CurrencyFormatter.formatIndian(totalSpent),
-                style: KTypography.labelMedium
-                    .copyWith(color: KColors.success)),
+                style:
+                    KTypography.labelMedium.copyWith(color: KColors.success)),
             const SizedBox(width: 4),
             Text('spent',
                 style: KTypography.bodySmall
@@ -323,8 +327,8 @@ class _CustomerHistorySheetState extends ConsumerState<_CustomerHistorySheet> {
                 size: 14, color: KColors.textSecondary),
             const SizedBox(width: 4),
             Text('$visitCount bill${visitCount == 1 ? '' : 's'}',
-                style: KTypography.labelMedium
-                    .copyWith(color: KColors.primary)),
+                style:
+                    KTypography.labelMedium.copyWith(color: KColors.primary)),
           ],
         ),
         KSpacing.vGapMd,
@@ -413,8 +417,7 @@ class _ReceiptCard extends StatelessWidget {
               Text(dateDisplay,
                   style: KTypography.bodySmall
                       .copyWith(color: KColors.textSecondary)),
-              const Text(' · ',
-                  style: TextStyle(color: KColors.textHint)),
+              const Text(' · ', style: TextStyle(color: KColors.textHint)),
               _PaymentBadge(mode: paymentMode),
             ],
           ),
@@ -431,13 +434,13 @@ class _ReceiptCard extends StatelessWidget {
                 child: Row(
                   children: [
                     const Text('  · ',
-                        style: TextStyle(
-                            color: KColors.textHint, fontSize: 11)),
+                        style:
+                            TextStyle(color: KColors.textHint, fontSize: 11)),
                     Expanded(
                       child: Text(
                         '$name × ${_fmtQty(qty)} $unit'.trim(),
-                        style: KTypography.bodySmall.copyWith(
-                            color: KColors.textSecondary),
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -455,8 +458,8 @@ class _ReceiptCard extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 2, left: 14),
                 child: Text(
                   '+${items.length - 3} more items',
-                  style: KTypography.labelSmall
-                      .copyWith(color: KColors.textHint),
+                  style:
+                      KTypography.labelSmall.copyWith(color: KColors.textHint),
                 ),
               ),
           ],
@@ -469,8 +472,19 @@ class _ReceiptCard extends StatelessWidget {
     try {
       final d = DateTime.parse(iso);
       const months = [
-        '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        '',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       return '${d.day} ${months[d.month]}';
     } catch (_) {
@@ -478,8 +492,9 @@ class _ReceiptCard extends StatelessWidget {
     }
   }
 
-  String _fmtQty(double qty) =>
-      qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toStringAsFixed(3);
+  String _fmtQty(double qty) => qty == qty.roundToDouble()
+      ? qty.toInt().toString()
+      : qty.toStringAsFixed(3);
 }
 
 class _PaymentBadge extends StatelessWidget {

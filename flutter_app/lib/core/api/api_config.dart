@@ -471,4 +471,22 @@ class ApiConfig {
   static const String debitNotes = '/api/v1/debit-notes';
   static String debitNoteById(String id) => '/api/v1/debit-notes/$id';
   static String submitDebitNote(String id) => '/api/v1/debit-notes/$id/submit';
+
+  // Drug Master (platform reference — all pharma clients)
+  static const String drugMasterSearch = '/api/v1/drug-master/search';
+  static String drugMasterById(String id) => '/api/v1/drug-master/$id';
+  static const String saltMasterSearch = '/api/v1/drug-master/salts/search';
+
+  // Pharmacy reference masters
+  static const String manufacturerMasterSearch =
+      '/api/v1/pharmacy-masters/manufacturers/search';
+  static const String hsnGstMasterSearch =
+      '/api/v1/pharmacy-masters/hsn/search';
+  static String hsnGstByCode(String code) =>
+      '/api/v1/pharmacy-masters/hsn/$code';
+  static const String rackLocations = '/api/v1/pharmacy-masters/rack-locations';
+  static const String genericSubstitutions =
+      '/api/v1/pharmacy-masters/substitutions';
+  static const String drugInteractionCheck =
+      '/api/v1/pharmacy-masters/interactions/check';
 }
