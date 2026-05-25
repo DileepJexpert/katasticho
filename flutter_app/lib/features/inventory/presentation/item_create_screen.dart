@@ -140,13 +140,24 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
 
   void _fillFromDrug(Map<String, dynamic> drug) {
     setState(() {
-      _nameController.text = drug['brandName'] ?? '';
-      _manufacturerController.text = drug['manufacturer'] ?? '';
+      final brandName = drug['brandName']?.toString() ?? '';
+      final manufacturer = drug['manufacturer']?.toString() ?? '';
+      final hsnCode = drug['hsnCode']?.toString() ?? '3004';
+
+      _nameController.text = brandName;
+      if (_skuController.text.trim().isEmpty) {
+        _skuController.text = _buildSkuFromDrug(
+          brandName: brandName,
+          manufacturer: manufacturer,
+          hsnCode: hsnCode,
+        );
+      }
+      _manufacturerController.text = manufacturer;
       _compositionController.text = drug['saltComposition'] ?? '';
       _drugScheduleController.text = drug['drugSchedule'] ?? '';
       _dosageFormController.text = drug['dosageForm'] ?? '';
       _packSizeController.text = drug['packSize'] ?? '';
-      _hsnController.text = drug['hsnCode'] ?? '3004';
+      _hsnController.text = hsnCode;
       _gstRateController.text = (drug['gstRate'] ?? 12).toString();
       final mrp = drug['mrp'];
       if (mrp != null) _mrpController.text = mrp.toString();
@@ -161,6 +172,33 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  String _buildSkuFromDrug({
+    required String brandName,
+    required String manufacturer,
+    required String hsnCode,
+  }) {
+    String token(String value, int maxLength) {
+      final cleaned =
+          value.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]+'), '').trim();
+      if (cleaned.isEmpty) return '';
+      return cleaned.length <= maxLength
+          ? cleaned
+          : cleaned.substring(0, maxLength);
+    }
+
+    final brand = token(brandName, 12);
+    final maker = token(manufacturer, 4);
+    final hsn = token(hsnCode, 6);
+    final parts = [
+      if (brand.isNotEmpty) brand,
+      if (maker.isNotEmpty) maker,
+      if (hsn.isNotEmpty) hsn,
+    ];
+    return parts.isEmpty
+        ? 'MED-${DateTime.now().millisecondsSinceEpoch}'
+        : parts.join('-');
   }
 
   void _populateFromMap(Map<String, dynamic> data) {
