@@ -466,6 +466,11 @@ class ApiConfig {
   static String debitNoteById(String id) => '/api/v1/debit-notes/$id';
   static String submitDebitNote(String id) => '/api/v1/debit-notes/$id/submit';
 
+  // Drug Master (platform reference — all pharma clients)
+  static const String drugMasterSearch = '/api/v1/drug-master/search';
+  static String drugMasterById(String id) => '/api/v1/drug-master/$id';
+  static const String saltMasterSearch = '/api/v1/drug-master/salts/search';
+
   // Customer Indents
   static const String indents = '/api/v1/indents';
   static String indentById(String id) => '/api/v1/indents/$id';

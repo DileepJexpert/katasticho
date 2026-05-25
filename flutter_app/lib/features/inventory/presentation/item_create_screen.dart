@@ -14,6 +14,7 @@ import '../../../core/widgets/widgets.dart';
 import '../data/item_group_repository.dart';
 import '../data/item_repository.dart';
 import '../data/uom_repository.dart';
+import 'drug_master_search_widget.dart';
 import 'item_scan_sheet.dart';
 
 /// Form for creating a new inventory item or editing an existing one.
@@ -75,6 +76,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
   bool _prescriptionRequired = false;
   bool _saving = false;
   bool _loading = false;
+  bool _autoFilledFromDrug = false;
 
 
   // Purchase & Sales Units
@@ -137,6 +139,31 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _fillFromDrug(Map<String, dynamic> drug) {
+    setState(() {
+      _nameController.text = drug['brandName'] ?? '';
+      _manufacturerController.text = drug['manufacturer'] ?? '';
+      _compositionController.text = drug['saltComposition'] ?? '';
+      _drugScheduleController.text = drug['drugSchedule'] ?? '';
+      _dosageFormController.text = drug['dosageForm'] ?? '';
+      _packSizeController.text = drug['packSize'] ?? '';
+      _hsnController.text = drug['hsnCode'] ?? '3004';
+      _gstRateController.text = (drug['gstRate'] ?? 12).toString();
+      final mrp = drug['mrp'];
+      if (mrp != null) _mrpController.text = mrp.toString();
+      _prescriptionRequired = drug['prescriptionRequired'] as bool? ?? false;
+      _autoFilledFromDrug = true;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+            'Auto-filled from drug database: ${drug['brandName'] ?? ''}'),
+        backgroundColor: KColors.success,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _populateFromMap(Map<String, dynamic> data) {
@@ -819,6 +846,34 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
               child: ListView(
                 padding: KSpacing.pagePadding,
                 children: [
+                  // ── Drug Master Quick-fill (pharmacy items only) ──
+                  if (!_isEdit) ...[
+                    DrugMasterSearchWidget(onSelected: _fillFromDrug),
+                    if (_autoFilledFromDrug)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, bottom: 2),
+                        child: Row(
+                          children: [
+                            Icon(Icons.auto_fix_high,
+                                size: 14, color: KColors.success),
+                            const SizedBox(width: 5),
+                            Text('Fields auto-filled from drug database',
+                                style: KTypography.labelSmall.copyWith(
+                                    color: KColors.success)),
+                            const Spacer(),
+                            GestureDetector(
+                              onTap: () =>
+                                  setState(() => _autoFilledFromDrug = false),
+                              child: Text('Clear',
+                                  style: KTypography.labelSmall.copyWith(
+                                      color: KColors.textHint,
+                                      decoration: TextDecoration.underline)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    KSpacing.vGapMd,
+                  ],
                   // ── Basic Info (always open) ──
                   KCollapsibleSection(
                     title: 'Basic Info',
@@ -1152,11 +1207,13 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                     ],
                   ),
 
-                  // ── Pharmacy (collapsed, conditional) ──
-                  if (ref.watch(featureFlagsProvider).valueOrNull?.contains('DRUG_SCHEDULE_FIELDS') == true)
+                  // ── Pharmacy (shown when drug-filled or feature flag enabled) ──
+                  if (_autoFilledFromDrug ||
+                      ref.watch(featureFlagsProvider).valueOrNull?.contains('DRUG_SCHEDULE_FIELDS') == true)
                     KCollapsibleSection(
                       title: 'Pharmacy',
                       icon: Icons.local_pharmacy_outlined,
+                      initiallyExpanded: _autoFilledFromDrug,
                       children: [
                         KCompactRow(children: [
                           KTextField(
