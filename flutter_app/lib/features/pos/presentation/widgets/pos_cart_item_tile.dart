@@ -13,7 +13,8 @@ class PosCartItemTile extends StatelessWidget {
   final int index;
   final ValueChanged<double>? onQuantityChanged;
   final VoidCallback onRemove;
-  final void Function(String unit, String? uomId, double? conversionFactor, double? customPrice)? onUnitChanged;
+  final void Function(String unit, String? uomId, double? conversionFactor,
+      double? customPrice)? onUnitChanged;
   final ValueChanged<double>? onDiscountChanged;
 
   const PosCartItemTile({
@@ -56,154 +57,53 @@ class PosCartItemTile extends StatelessWidget {
             ),
             const SizedBox(width: 8),
 
-            // Item info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.name,
-                      style: KTypography.labelMedium,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 2),
                   Row(
                     children: [
-                      if (item.sku != null)
-                        Text(item.sku!,
-                            style: KTypography.bodySmall
-                                .copyWith(color: KColors.textSecondary)),
-                      if (item.taxGroupName != null &&
-                          item.taxGroupName!.isNotEmpty) ...[
-                        if (item.sku != null) const SizedBox(width: 6),
-                        Text(
-                          item.taxGroupName!,
-                          style: KTypography.labelSmall.copyWith(
-                            color: KColors.info,
-                            fontSize: 10,
+                      Expanded(
+                        child: Text(
+                          item.name,
+                          style: KTypography.labelMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (item.isFreeItem)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 6),
+                          child: _InfoPill(
+                            label: 'FREE',
+                            icon: Icons.redeem_outlined,
+                            color: Color(0xFF16A34A),
                           ),
                         ),
-                      ],
                     ],
                   ),
-                  if (item.composition != null &&
-                      item.composition!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 1),
-                      child: Row(
-                        children: [
-                          Icon(Icons.science_outlined,
-                              size: 10, color: KColors.textHint),
-                          const SizedBox(width: 3),
-                          Expanded(
-                            child: Text(
-                              item.composition!,
-                              style: KTypography.labelSmall.copyWith(
-                                fontSize: 10,
-                                color: KColors.textSecondary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (item.manufacturer != null &&
-                      item.manufacturer!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 1),
-                      child: Row(
-                        children: [
-                          Icon(Icons.factory_outlined,
-                              size: 10, color: KColors.textHint),
-                          const SizedBox(width: 3),
-                          Expanded(
-                            child: Text(
-                              item.manufacturer!,
-                              style: KTypography.labelSmall.copyWith(
-                                fontSize: 10,
-                                color: KColors.textHint,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (item.mrp != null && item.mrp! > 0 && item.mrp != item.rate)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 1),
-                      child: Row(
-                        children: [
-                          Text(
-                            'MRP ${CurrencyFormatter.formatIndian(item.mrp!)}',
-                            style: KTypography.labelSmall.copyWith(
-                              fontSize: 10,
-                              color: KColors.textHint,
-                              decoration: TextDecoration.lineThrough,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (item.batchNumber != null || item.batchExpiry != null)
-                    _BatchInfoRow(
-                      batchNumber: item.batchNumber,
-                      batchExpiry: item.batchExpiry,
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      '${_fmtQty(item.maxSellQuantity)} ${item.stockUnitLabel} available',
-                      style: KTypography.labelSmall.copyWith(
-                        color: item.exceedsStock
-                            ? KColors.error
-                            : KColors.textHint,
-                        fontSize: 10,
-                        fontWeight:
-                            item.exceedsStock ? FontWeight.w700 : null,
-                      ),
-                    ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 5,
+                    runSpacing: 3,
+                    children: _metaPills(),
                   ),
-                  if (item.isWeightBased)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Row(
-                        children: [
-                          Icon(Icons.scale, size: 11, color: KColors.info),
-                          const SizedBox(width: 3),
-                          Text(
-                            '${item.quantity.toStringAsFixed(3)} kg × ${CurrencyFormatter.formatIndian(item.rate)}/kg',
-                            style: KTypography.labelSmall.copyWith(
-                              fontSize: 10,
-                              color: KColors.info,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (item.taxAmount > 0)
-                    Text(
-                      item.isWeightBased
-                          ? '${CurrencyFormatter.formatIndian(item.lineTotal)} (incl. tax ${CurrencyFormatter.formatIndian(item.taxAmount)})'
-                          : '${CurrencyFormatter.formatIndian(item.rate)} × ${_fmtQty(item.quantity)} (incl. tax ${CurrencyFormatter.formatIndian(item.taxAmount)})',
-                      style: KTypography.labelSmall.copyWith(
-                        color: KColors.textHint,
-                        fontSize: 10,
-                      ),
-                    ),
                   if (_isBlocked(item))
                     Padding(
-                      padding: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.only(top: 4),
                       child: Row(
                         children: [
-                          Icon(Icons.warning_amber_rounded, size: 12, color: KColors.error),
+                          Icon(Icons.warning_amber_rounded,
+                              size: 12, color: KColors.error),
                           const SizedBox(width: 3),
-                          Text('Cannot sell below cost',
+                          Text(
+                            'Cannot sell below cost',
                             style: KTypography.labelSmall.copyWith(
-                              fontSize: 10, color: KColors.error, fontWeight: FontWeight.w600,
-                            )),
+                              fontSize: 10,
+                              color: KColors.error,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -225,7 +125,8 @@ class PosCartItemTile extends StatelessWidget {
             // Quantity stepper or weight display (disabled for free items)
             if (item.isFreeItem)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: const Color(0xFF16A34A).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
@@ -253,14 +154,14 @@ class PosCartItemTile extends StatelessWidget {
 
             // Discount input (hidden for free items)
             if (!item.isFreeItem)
-            SizedBox(
-              width: 52,
-              child: _DiscountField(
-                discountPct: item.discountPct,
-                onChanged: onDiscountChanged,
-                isBlocked: _isBlocked(item),
+              SizedBox(
+                width: 52,
+                child: _DiscountField(
+                  discountPct: item.discountPct,
+                  onChanged: onDiscountChanged,
+                  isBlocked: _isBlocked(item),
+                ),
               ),
-            ),
             KSpacing.hGapSm,
 
             // Line total (with tax)
@@ -279,7 +180,144 @@ class PosCartItemTile extends StatelessWidget {
   }
 
   String _fmtQty(double qty) {
-    return qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toStringAsFixed(1);
+    return qty == qty.roundToDouble()
+        ? qty.toInt().toString()
+        : qty.toStringAsFixed(1);
+  }
+
+  List<Widget> _metaPills() {
+    final pills = <Widget>[];
+
+    if (item.sku != null && item.sku!.isNotEmpty) {
+      pills.add(_InfoPill(label: item.sku!));
+    }
+    if (item.taxGroupName != null && item.taxGroupName!.isNotEmpty) {
+      pills.add(_InfoPill(label: item.taxGroupName!, color: KColors.info));
+    }
+    if (item.manufacturer != null && item.manufacturer!.isNotEmpty) {
+      pills.add(_InfoPill(
+        label: item.manufacturer!,
+        icon: Icons.business_outlined,
+        maxWidth: 150,
+      ));
+    }
+    if (item.composition != null && item.composition!.isNotEmpty) {
+      pills.add(_InfoPill(
+        label: item.composition!,
+        icon: Icons.science_outlined,
+        maxWidth: 180,
+      ));
+    }
+    if (item.mrp != null && item.mrp! > 0 && item.mrp != item.rate) {
+      pills.add(_InfoPill(
+        label: 'MRP ${CurrencyFormatter.formatIndian(item.mrp!)}',
+        color: KColors.textHint,
+        strikeThrough: true,
+      ));
+    }
+    if (item.batchNumber != null && item.batchNumber!.isNotEmpty) {
+      pills.add(_InfoPill(
+        label: item.batchNumber!,
+        icon: Icons.biotech_outlined,
+        color: _batchExpiryColor(),
+      ));
+    }
+    if (item.batchExpiry != null && item.batchExpiry!.isNotEmpty) {
+      pills.add(_InfoPill(
+        label: _batchExpiryLabel(),
+        color: _batchExpiryColor(),
+      ));
+    }
+    pills.add(_InfoPill(
+      label:
+          '${_fmtQty(item.maxSellQuantity)} ${item.stockUnitLabel} available',
+      color: item.exceedsStock ? KColors.error : KColors.textHint,
+      icon: Icons.inventory_2_outlined,
+      emphasis: item.exceedsStock,
+    ));
+    if (item.isWeightBased) {
+      pills.add(_InfoPill(
+        label:
+            '${item.quantity.toStringAsFixed(3)} kg x ${CurrencyFormatter.formatIndian(item.rate)}/kg',
+        icon: Icons.scale,
+        color: KColors.info,
+      ));
+    }
+    if (item.taxAmount > 0) {
+      pills.add(_InfoPill(
+        label: item.isWeightBased
+            ? '${CurrencyFormatter.formatIndian(item.lineTotal)} incl. tax ${CurrencyFormatter.formatIndian(item.taxAmount)}'
+            : '${CurrencyFormatter.formatIndian(item.rate)} x ${_fmtQty(item.quantity)} incl. tax ${CurrencyFormatter.formatIndian(item.taxAmount)}',
+        color: KColors.textHint,
+        maxWidth: 220,
+      ));
+    }
+
+    return pills;
+  }
+
+  Color _batchExpiryColor() {
+    final expiry = DateTime.tryParse(item.batchExpiry ?? '');
+    if (expiry == null) return KColors.textHint;
+    final daysUntil = expiry.difference(DateTime.now()).inDays;
+    if (daysUntil < 0) return KColors.error;
+    if (daysUntil <= 30) return KColors.warning;
+    return KColors.textHint;
+  }
+
+  String _batchExpiryLabel() {
+    final expiry = DateTime.tryParse(item.batchExpiry ?? '');
+    if (expiry == null) return 'Exp ${item.batchExpiry}';
+    if (expiry.difference(DateTime.now()).inDays < 0) return 'EXPIRED';
+    return 'Exp ${item.batchExpiry}';
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final Color? color;
+  final bool emphasis;
+  final bool strikeThrough;
+  final double? maxWidth;
+
+  const _InfoPill({
+    required this.label,
+    this.icon,
+    this.color,
+    this.emphasis = false,
+    this.strikeThrough = false,
+    this.maxWidth,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedColor = color ?? KColors.textSecondary;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth ?? 220),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 10, color: resolvedColor),
+            const SizedBox(width: 3),
+          ],
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: KTypography.labelSmall.copyWith(
+                color: resolvedColor,
+                fontSize: 10,
+                fontWeight: emphasis ? FontWeight.w700 : FontWeight.w600,
+                decoration: strikeThrough ? TextDecoration.lineThrough : null,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -337,8 +375,8 @@ class _QuantityStepper extends StatelessWidget {
                   return;
                 }
                 if (maxQuantity > 0 && qty > maxQuantity) {
-                  setDialogState(() =>
-                      errorText = 'Only ${_fmtQty(maxQuantity)} $unit available');
+                  setDialogState(() => errorText =
+                      'Only ${_fmtQty(maxQuantity)} $unit available');
                   return;
                 }
                 onChanged(qty);
@@ -491,14 +529,12 @@ class _WeightDisplay extends StatelessWidget {
                 const SizedBox(width: 8),
                 OutlinedButton(
                   onPressed: () {
-                    final currentValue =
-                        double.tryParse(controller.text) ?? 0;
+                    final currentValue = double.tryParse(controller.text) ?? 0;
                     setDialogState(() {
                       isGrams = !isGrams;
                       if (currentValue > 0) {
-                        final converted = isGrams
-                            ? currentValue * 1000
-                            : currentValue / 1000;
+                        final converted =
+                            isGrams ? currentValue * 1000 : currentValue / 1000;
                         controller.text = isGrams
                             ? converted.toStringAsFixed(0)
                             : converted.toStringAsFixed(3);
@@ -519,9 +555,8 @@ class _WeightDisplay extends StatelessWidget {
                   final parsed = double.tryParse(controller.text);
                   if (parsed != null && parsed > 0) {
                     final kg = isGrams ? parsed / 1000 : parsed;
-                    onChanged(maxWeightKg > 0 && kg > maxWeightKg
-                        ? maxWeightKg
-                        : kg);
+                    onChanged(
+                        maxWeightKg > 0 && kg > maxWeightKg ? maxWeightKg : kg);
                   }
                   Navigator.pop(ctx);
                 },
@@ -567,7 +602,8 @@ class _WeightDisplay extends StatelessWidget {
 class _UnitSelector extends StatelessWidget {
   final String currentUnit;
   final List<Map<String, dynamic>> availableUnits;
-  final void Function(String unit, String? uomId, double? conversionFactor, double? customPrice) onUnitChanged;
+  final void Function(String unit, String? uomId, double? conversionFactor,
+      double? customPrice) onUnitChanged;
 
   const _UnitSelector({
     required this.currentUnit,
@@ -579,7 +615,12 @@ class _UnitSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final allUnits = [
-      {'abbreviation': currentUnit, 'uomId': null, 'conversionFactor': null, 'customPrice': null},
+      {
+        'abbreviation': currentUnit,
+        'uomId': null,
+        'conversionFactor': null,
+        'customPrice': null
+      },
       ...availableUnits,
     ];
     final seen = <String>{};
@@ -638,65 +679,6 @@ class _UnitSelector extends StatelessWidget {
   }
 }
 
-class _BatchInfoRow extends StatelessWidget {
-  final String? batchNumber;
-  final String? batchExpiry;
-
-  const _BatchInfoRow({this.batchNumber, this.batchExpiry});
-
-  @override
-  Widget build(BuildContext context) {
-    Color expiryColor = KColors.textHint;
-    String? expiryLabel;
-
-    if (batchExpiry != null && batchExpiry!.isNotEmpty) {
-      final expiry = DateTime.tryParse(batchExpiry!);
-      if (expiry != null) {
-        final daysUntil = expiry.difference(DateTime.now()).inDays;
-        if (daysUntil < 0) {
-          expiryColor = KColors.error;
-          expiryLabel = 'EXPIRED';
-        } else if (daysUntil <= 30) {
-          expiryColor = KColors.warning;
-          expiryLabel = 'Exp $batchExpiry';
-        } else {
-          expiryLabel = 'Exp $batchExpiry';
-        }
-      }
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: Row(
-        children: [
-          Icon(Icons.science_outlined, size: 11, color: expiryColor),
-          const SizedBox(width: 3),
-          if (batchNumber != null)
-            Text(
-              batchNumber!,
-              style: KTypography.labelSmall
-                  .copyWith(fontSize: 10, color: expiryColor),
-            ),
-          if (batchNumber != null && expiryLabel != null)
-            Text(' · ',
-                style: KTypography.labelSmall
-                    .copyWith(fontSize: 10, color: expiryColor)),
-          if (expiryLabel != null)
-            Text(
-              expiryLabel,
-              style: KTypography.labelSmall.copyWith(
-                fontSize: 10,
-                color: expiryColor,
-                fontWeight:
-                    expiryColor == KColors.error ? FontWeight.w700 : null,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 class _MarginDot extends StatelessWidget {
   final double discountPct;
   final Map<String, dynamic>? thresholds;
@@ -724,11 +706,11 @@ class _MarginDot extends StatelessWidget {
     final yellowMax = (thresholds!['yellowMax'] as num?)?.toDouble() ?? 100;
     final blueMax = (thresholds!['blueMax'] as num?)?.toDouble() ?? 100;
 
-    if (discountPct > blockAt) return const Color(0xFF1F2937);  // Black - LOSS
-    if (discountPct > redMax) return const Color(0xFFEF4444);   // Red
+    if (discountPct > blockAt) return const Color(0xFF1F2937); // Black - LOSS
+    if (discountPct > redMax) return const Color(0xFFEF4444); // Red
     if (discountPct > yellowMax) return const Color(0xFFEAB308); // Yellow
-    if (discountPct > blueMax) return const Color(0xFF3B82F6);  // Blue
-    return const Color(0xFF22C55E);                              // Green
+    if (discountPct > blueMax) return const Color(0xFF3B82F6); // Blue
+    return const Color(0xFF22C55E); // Green
   }
 }
 
@@ -763,7 +745,8 @@ class _DiscountFieldState extends State<_DiscountField> {
   void didUpdateWidget(_DiscountField old) {
     super.didUpdateWidget(old);
     if (!_hasFocus && old.discountPct != widget.discountPct) {
-      _ctrl.text = widget.discountPct > 0 ? widget.discountPct.toStringAsFixed(0) : '';
+      _ctrl.text =
+          widget.discountPct > 0 ? widget.discountPct.toStringAsFixed(0) : '';
     }
   }
 
@@ -788,18 +771,22 @@ class _DiscountFieldState extends State<_DiscountField> {
         ),
         decoration: InputDecoration(
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
           suffixText: '%',
           suffixStyle: KTypography.labelSmall.copyWith(fontSize: 10),
           hintText: '0',
-          hintStyle: KTypography.labelSmall.copyWith(color: KColors.textHint, fontSize: 11),
+          hintStyle: KTypography.labelSmall
+              .copyWith(color: KColors.textHint, fontSize: 11),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(6),
-            borderSide: BorderSide(color: widget.isBlocked ? KColors.error : cs.outlineVariant),
+            borderSide: BorderSide(
+                color: widget.isBlocked ? KColors.error : cs.outlineVariant),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(6),
-            borderSide: BorderSide(color: widget.isBlocked ? KColors.error : cs.outlineVariant),
+            borderSide: BorderSide(
+                color: widget.isBlocked ? KColors.error : cs.outlineVariant),
           ),
         ),
         inputFormatters: [
