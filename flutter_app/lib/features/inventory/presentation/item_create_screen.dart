@@ -160,7 +160,14 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
       _hsnController.text = hsnCode;
       _gstRateController.text = (drug['gstRate'] ?? 12).toString();
       final mrp = drug['mrp'];
-      if (mrp != null) _mrpController.text = mrp.toString();
+      if (mrp != null) {
+        final mrpText = mrp.toString();
+        _mrpController.text = mrpText;
+        final salePrice = double.tryParse(_salePriceController.text) ?? 0;
+        if (salePrice <= 0) {
+          _salePriceController.text = mrpText;
+        }
+      }
       _prescriptionRequired = drug['prescriptionRequired'] as bool? ?? false;
       _autoFilledFromDrug = true;
     });

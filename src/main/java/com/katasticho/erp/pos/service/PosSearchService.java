@@ -150,8 +150,14 @@ public class PosSearchService {
                 }
             }
 
+            BigDecimal effectiveRate = item.getSalePrice();
+            if ((effectiveRate == null || effectiveRate.compareTo(BigDecimal.ZERO) <= 0)
+                    && item.getMrp() != null && item.getMrp().compareTo(BigDecimal.ZERO) > 0) {
+                effectiveRate = item.getMrp();
+            }
+
             DiscountThresholds thresholds = DiscountThresholds.compute(
-                    item.getSalePrice() != null ? item.getSalePrice().doubleValue() : 0,
+                    effectiveRate != null ? effectiveRate.doubleValue() : 0,
                     item.getPurchasePrice() != null ? item.getPurchasePrice().doubleValue() : 0);
 
             UUID effectiveTaxGroupId = resolvedTaxGroupIds.get(item.getId());
@@ -161,7 +167,7 @@ public class PosSearchService {
                     item.getName(),
                     item.getSku(),
                     item.getBarcode(),
-                    item.getSalePrice(),
+                    effectiveRate,
                     item.getMrp(),
                     item.getPurchasePrice(),
                     effectiveTaxGroupId,
