@@ -46,6 +46,7 @@ class SalesReceiptDetailScreen extends ConsumerWidget {
                       title: number,
                       pdfEndpoint: ApiConfig.salesReceiptPrint(receiptId),
                       fileName: '$number.pdf',
+                      highlights: _pdfHighlights(data),
                     ),
                   ),
                 );
@@ -94,6 +95,27 @@ class SalesReceiptDetailScreen extends ConsumerWidget {
       );
     }
   }
+}
+
+List<String> _pdfHighlights(Map<String, dynamic> data) {
+  final lines = (data['lines'] as List?)?.whereType<Map>().toList() ?? const [];
+  if (lines.isEmpty) return const [];
+  final total = lines.length;
+  int hsnCount = 0;
+  int batchCount = 0;
+  int expiryCount = 0;
+  for (final raw in lines) {
+    final line = Map<String, dynamic>.from(raw);
+    if ((line['hsnCode']?.toString() ?? '').isNotEmpty) hsnCount++;
+    if ((line['batchNumber']?.toString() ?? '').isNotEmpty) batchCount++;
+    if ((line['batchExpiry']?.toString() ?? '').isNotEmpty) expiryCount++;
+  }
+  final highlights = <String>[];
+  if (hsnCount > 0) highlights.add('HSN on $hsnCount/$total lines');
+  if (batchCount > 0) highlights.add('Batch on $batchCount/$total lines');
+  if (expiryCount > 0) highlights.add('Expiry on $expiryCount/$total lines');
+  if (data['gstInvoice'] == true) highlights.add('GST invoice layout');
+  return highlights;
 }
 
 class _ReceiptBody extends StatelessWidget {
@@ -269,6 +291,8 @@ class _LineItem extends StatelessWidget {
     final discountAmount = (line['discountAmount'] as num?)?.toDouble() ?? 0;
     final amount = (line['amount'] as num?)?.toDouble() ?? 0;
     final hsn = line['hsnCode']?.toString();
+    final batchNumber = line['batchNumber']?.toString();
+    final batchExpiry = line['batchExpiry']?.toString();
     final qtyText = qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2);
 
     if (!detailed) {
@@ -280,6 +304,8 @@ class _LineItem extends StatelessWidget {
         mrp: mrp,
         discountPerUnit: discountPerUnit,
         discountAmount: discountAmount,
+        batchNumber: batchNumber,
+        batchExpiry: batchExpiry,
       );
     }
 
@@ -310,6 +336,15 @@ class _LineItem extends StatelessWidget {
                 Text('SKU: $sku',
                     style: KTypography.labelSmall
                         .copyWith(color: KColors.textSecondary, fontSize: 10)),
+              if ((batchNumber ?? '').isNotEmpty || (batchExpiry ?? '').isNotEmpty)
+                Text(
+                  [
+                    if ((batchNumber ?? '').isNotEmpty) 'Batch: $batchNumber',
+                    if ((batchExpiry ?? '').isNotEmpty) 'Exp: $batchExpiry',
+                  ].join('  •  '),
+                  style: KTypography.labelSmall
+                      .copyWith(color: KColors.textSecondary, fontSize: 10),
+                ),
             ],
           ),
         ),
@@ -330,6 +365,8 @@ class _RetailLineLayout extends StatelessWidget {
   final double mrp;
   final double discountPerUnit;
   final double discountAmount;
+  final String? batchNumber;
+  final String? batchExpiry;
 
   const _RetailLineLayout({
     required this.name,
@@ -339,6 +376,8 @@ class _RetailLineLayout extends StatelessWidget {
     required this.mrp,
     required this.discountPerUnit,
     required this.discountAmount,
+    this.batchNumber,
+    this.batchExpiry,
   });
 
   @override
@@ -372,6 +411,18 @@ class _RetailLineLayout extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
                     'SKU: $sku',
+                    style: KTypography.labelSmall
+                        .copyWith(color: KColors.textSecondary, fontSize: 10),
+                  ),
+                ),
+              if ((batchNumber ?? '').isNotEmpty || (batchExpiry ?? '').isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    [
+                      if ((batchNumber ?? '').isNotEmpty) 'Batch: $batchNumber',
+                      if ((batchExpiry ?? '').isNotEmpty) 'Exp: $batchExpiry',
+                    ].join('  •  '),
                     style: KTypography.labelSmall
                         .copyWith(color: KColors.textSecondary, fontSize: 10),
                   ),

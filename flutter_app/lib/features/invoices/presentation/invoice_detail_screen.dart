@@ -159,6 +159,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
                   title: number,
                   pdfEndpoint: ApiConfig.invoicePdf(invoiceId),
                   fileName: '$number.pdf',
+                  highlights: _invoicePdfHighlights(invoice),
                 ),
               ),
             );
@@ -212,6 +213,27 @@ class InvoiceDetailScreen extends ConsumerWidget {
       ref.invalidate(invoiceDetailProvider(invoiceId));
     } catch (_) {}
   }
+}
+
+List<String> _invoicePdfHighlights(Map<String, dynamic> invoice) {
+  final lines =
+      (invoice['lines'] as List?)?.whereType<Map>().toList() ?? const [];
+  if (lines.isEmpty) return const [];
+  final total = lines.length;
+  int hsnCount = 0;
+  int batchCount = 0;
+  int expiryCount = 0;
+  for (final raw in lines) {
+    final line = Map<String, dynamic>.from(raw);
+    if ((line['hsnCode']?.toString() ?? '').isNotEmpty) hsnCount++;
+    if ((line['batchNumber']?.toString() ?? '').isNotEmpty) batchCount++;
+    if ((line['batchExpiry']?.toString() ?? '').isNotEmpty) expiryCount++;
+  }
+  final highlights = <String>[];
+  if (hsnCount > 0) highlights.add('HSN on $hsnCount/$total lines');
+  if (batchCount > 0) highlights.add('Batch on $batchCount/$total lines');
+  if (expiryCount > 0) highlights.add('Expiry on $expiryCount/$total lines');
+  return highlights;
 }
 
 class _InvoiceDetailBody extends ConsumerWidget {
@@ -328,6 +350,7 @@ class _InvoiceDetailBody extends ConsumerWidget {
                           final lineTotal =
                               (line['lineTotal'] as num?)?.toDouble() ?? 0;
 
+                          final hsn = line['hsnCode'] as String?;
                           final batchNum = line['batchNumber'] as String?;
                           final batchExp = line['batchExpiry'] as String?;
                           final itemMrp = (line['itemMrp'] as num?)?.toDouble();
@@ -346,6 +369,15 @@ class _InvoiceDetailBody extends ConsumerWidget {
                                         '${qty.toStringAsFixed(0)} x ${CurrencyFormatter.formatIndian(price)}',
                                         style: KTypography.bodySmall,
                                       ),
+                                      if (hsn != null && hsn.isNotEmpty)
+                                        Text(
+                                          'HSN $hsn',
+                                          style:
+                                              KTypography.labelSmall.copyWith(
+                                            fontSize: 10,
+                                            color: KColors.textHint,
+                                          ),
+                                        ),
                                       if (itemMrp != null && itemMrp > 0)
                                         Text(
                                           'MRP ${CurrencyFormatter.formatIndian(itemMrp)}',

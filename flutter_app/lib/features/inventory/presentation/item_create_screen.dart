@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/form_error_handler.dart';
@@ -74,6 +75,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
   bool _saving = false;
   bool _loading = false;
   bool _autoFilledFromDrug = false;
+  bool _showPackagingSection = false;
 
   // Purchase & Sales Units
   bool _hasDifferentPurchaseUnit = false;
@@ -95,6 +97,17 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
   final Map<String, String> _variantAttrs = {};
 
   bool get _isEdit => widget.itemId != null;
+  bool get _isPharmacyOrg =>
+      ((ref.read(authProvider).industryCode ??
+                  ref.read(authProvider).industry ??
+                  '')
+              .toUpperCase())
+          .contains('PHARM');
+  bool get _hasPhysicalValues =>
+      _weightController.text.trim().isNotEmpty ||
+      _lengthController.text.trim().isNotEmpty ||
+      _widthController.text.trim().isNotEmpty ||
+      _heightController.text.trim().isNotEmpty;
 
   @override
   void initState() {
@@ -258,6 +271,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     _packSizeController.text = data['packSize']?.toString() ?? '';
     _storageConditionController.text =
         data['storageCondition']?.toString() ?? '';
+    _showPackagingSection = _hasPhysicalValues;
     _trackBatches = data['trackBatches'] as bool? ?? false;
     _prescriptionRequired = data['prescriptionRequired'] as bool? ?? false;
     _itemType = data['itemType']?.toString() ?? 'GOODS';
@@ -914,6 +928,52 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     _populateFromMap(items.first);
   }
 
+  Widget _buildPhysicalSection(String title) {
+    return KCollapsibleSection(
+      title: title,
+      icon: Icons.straighten_outlined,
+      children: [
+        KCompactRow(flex: const [2, 1], children: [
+          KTextField(
+            label: 'Weight',
+            controller: _weightController,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+          ),
+          KTextField(
+            label: 'Unit',
+            controller: _weightUnitController,
+          ),
+        ]),
+        KSpacing.vGapSm,
+        KCompactRow(flex: const [1, 1, 1, 1], children: [
+          KTextField(
+            label: 'L',
+            controller: _lengthController,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+          ),
+          KTextField(
+            label: 'W',
+            controller: _widthController,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+          ),
+          KTextField(
+            label: 'H',
+            controller: _heightController,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+          ),
+          KTextField(
+            label: 'Unit',
+            controller: _dimensionUnitController,
+          ),
+        ]),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1303,58 +1363,44 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                     ),
 
                   // ── Physical Properties (collapsed) ──
-                  if (_itemType == 'GOODS')
-                    KCollapsibleSection(
-                      title: 'Physical Properties',
-                      icon: Icons.straighten_outlined,
-                      children: [
-                        KCompactRow(flex: const [
-                          2,
-                          1
-                        ], children: [
-                          KTextField(
-                            label: 'Weight',
-                            controller: _weightController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                          ),
-                          KTextField(
-                            label: 'Unit',
-                            controller: _weightUnitController,
-                          ),
-                        ]),
-                        KSpacing.vGapSm,
-                        KCompactRow(flex: const [
-                          1,
-                          1,
-                          1,
-                          1
-                        ], children: [
-                          KTextField(
-                            label: 'L',
-                            controller: _lengthController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                          ),
-                          KTextField(
-                            label: 'W',
-                            controller: _widthController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                          ),
-                          KTextField(
-                            label: 'H',
-                            controller: _heightController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                          ),
-                          KTextField(
-                            label: 'Unit',
-                            controller: _dimensionUnitController,
-                          ),
-                        ]),
-                      ],
-                    ),
+                  if (_itemType == 'GOODS' && !_isPharmacyOrg)
+                    _buildPhysicalSection('Physical Properties'),
+                  if (_itemType == 'GOODS' && _isPharmacyOrg) ...[
+                    if (!_showPackagingSection)
+                      KCard(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.inventory_2_outlined,
+                                size: 18, color: KColors.textSecondary),
+                            KSpacing.hGapSm,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Packaging details are optional',
+                                      style: KTypography.labelLarge),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Medicines usually do not need weight or carton dimensions unless you use shipping or packing workflows.',
+                                    style: KTypography.bodySmall.copyWith(
+                                      color: KColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => setState(
+                                  () => _showPackagingSection = true),
+                              child: const Text('Add'),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      _buildPhysicalSection('Packaging & Shipping'),
+                  ],
 
                   // ── Accounting (collapsed) ──
                   KCollapsibleSection(
