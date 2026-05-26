@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
@@ -32,6 +33,14 @@ class _OperationalReportScreenState
   late DateTime _startDate;
   late DateTime _endDate;
   late Future<Map<String, dynamic>> _future;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  String _stockTypeFilter = 'ALL';
+  bool _onlyBatchRows = false;
+  List<Map<String, dynamic>> _exportColumns = const [];
+  List<Map<String, dynamic>> _exportRows = const [];
+
+  bool get _isStockMovement => widget.reportKey == 'stock-movement';
 
   @override
   void initState() {
@@ -43,7 +52,7 @@ class _OperationalReportScreenState
   }
 
   Future<Map<String, dynamic>> _load() {
-    return ref.read(reportRepositoryProvider).getOperationalReport(
+        return ref.read(reportRepositoryProvider).getOperationalReport(
           key: widget.reportKey,
           startDate: widget.dateRange ? DateFormatter.api(_startDate) : null,
           endDate: widget.dateRange ? DateFormatter.api(_endDate) : null,
@@ -52,6 +61,70 @@ class _OperationalReportScreenState
 
   void _refresh() {
     setState(() => _future = _load());
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<Map<String, dynamic>> _applyStockFilters(List<Map<String, dynamic>> rows) {
+    var result = rows;
+    if (_stockTypeFilter != 'ALL') {
+      result = result
+          .where((row) => (row['type']?.toString() ?? '') == _stockTypeFilter)
+          .toList();
+    }
+    if (_onlyBatchRows) {
+      result = result
+          .where((row) => (row['batch']?.toString() ?? '').trim().isNotEmpty)
+          .toList();
+    }
+    if (_searchQuery.trim().isNotEmpty) {
+      final q = _searchQuery.trim().toLowerCase();
+      result = result.where((row) {
+        return [
+          row['sku'],
+          row['item'],
+          row['warehouse'],
+          row['batch'],
+          row['reference'],
+          row['expiry'],
+        ].any((value) => (value?.toString() ?? '').toLowerCase().contains(q));
+      }).toList();
+    }
+    return result;
+  }
+
+  Future<void> _exportCsv() async {
+    if (_exportColumns.isEmpty || _exportRows.isEmpty) return;
+    final csv = _toCsv(_exportColumns, _exportRows);
+    await Clipboard.setData(ClipboardData(text: csv));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+            'Copied ${_exportRows.length} row${_exportRows.length == 1 ? '' : 's'} as CSV'),
+      ),
+    );
+  }
+
+  String _toCsv(List<Map<String, dynamic>> columns, List<Map<String, dynamic>> rows) {
+    final header = columns
+        .map((c) => _escapeCsv(c['label']?.toString() ?? c['key']?.toString() ?? ''))
+        .join(',');
+    final lines = rows.map((row) {
+      return columns
+          .map((c) => _escapeCsv(_formatValue(row[c['key']], c['type']?.toString())))
+          .join(',');
+    });
+    return ([header, ...lines]).join('\n');
+  }
+
+  String _escapeCsv(String value) {
+    final escaped = value.replaceAll('"', '""');
+    return '"$escaped"';
   }
 
   @override
@@ -70,6 +143,13 @@ class _OperationalReportScreenState
           },
         ),
         title: Text(widget.fallbackTitle),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.file_download_outlined),
+            tooltip: 'Copy filtered CSV',
+            onPressed: _exportRows.isEmpty ? null : _exportCsv,
+          ),
+        ],
       ),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _future,
@@ -85,6 +165,17 @@ class _OperationalReportScreenState
           }
 
           final payload = snapshot.data?['data'] as Map<String, dynamic>? ?? {};
+          final columns = ((payload['columns'] as List?) ?? const [])
+              .map((c) => (c as Map).cast<String, dynamic>())
+              .toList();
+          final rawRows = ((payload['rows'] as List?) ?? const [])
+              .map((r) => (r as Map).cast<String, dynamic>())
+              .toList();
+          final visibleRows = _isStockMovement
+              ? _applyStockFilters(rawRows)
+              : rawRows;
+          _exportColumns = columns;
+          _exportRows = visibleRows;
           return RefreshIndicator(
             onRefresh: () async => _refresh(),
             child: ListView(
@@ -108,10 +199,35 @@ class _OperationalReportScreenState
                 KSpacing.vGapLg,
                 _Metrics(metrics: (payload['metrics'] as List?) ?? const []),
                 KSpacing.vGapLg,
+                if (_isStockMovement)
+                  _StockMovementToolbar(
+                    searchController: _searchController,
+                    searchQuery: _searchQuery,
+                    stockTypeFilter: _stockTypeFilter,
+                    onlyBatchRows: _onlyBatchRows,
+                    totalRows: rawRows.length,
+                    visibleRows: visibleRows.length,
+                    onSearchChanged: (value) =>
+                        setState(() => _searchQuery = value),
+                    onTypeChanged: (value) =>
+                        setState(() => _stockTypeFilter = value),
+                    onToggleBatchOnly: (value) =>
+                        setState(() => _onlyBatchRows = value),
+                    onClear: () {
+                      _searchController.clear();
+                      setState(() {
+                        _searchQuery = '';
+                        _stockTypeFilter = 'ALL';
+                        _onlyBatchRows = false;
+                      });
+                    },
+                  ),
+                if (_isStockMovement) KSpacing.vGapLg,
                 _ReportTable(
                   title: 'Detailed Rows',
-                  columns: (payload['columns'] as List?) ?? const [],
-                  rows: (payload['rows'] as List?) ?? const [],
+                  columns: columns,
+                  rows: visibleRows,
+                  dense: _isStockMovement,
                 ),
               ],
             ),
@@ -350,11 +466,13 @@ class _ReportTable extends StatefulWidget {
   final String title;
   final List columns;
   final List rows;
+  final bool dense;
 
   const _ReportTable({
     required this.title,
     required this.columns,
     required this.rows,
+    this.dense = false,
   });
 
   @override
@@ -435,9 +553,9 @@ class _ReportTableState extends State<_ReportTable> {
                             BoxConstraints(minWidth: constraints.maxWidth),
                         child: DataTable(
                           headingRowHeight: 42,
-                          dataRowMinHeight: 48,
-                          dataRowMaxHeight: 64,
-                          columnSpacing: 10,
+                          dataRowMinHeight: widget.dense ? 42 : 48,
+                          dataRowMaxHeight: widget.dense ? 56 : 64,
+                          columnSpacing: widget.dense ? 8 : 10,
                           horizontalMargin: 8,
                           headingRowColor: WidgetStatePropertyAll(
                             cs.surfaceContainerHighest.withValues(alpha: 0.55),
@@ -466,6 +584,7 @@ class _ReportTableState extends State<_ReportTable> {
                                   value: row[key],
                                   type: type,
                                   columnKey: key,
+                                  dense: widget.dense,
                                 ));
                               }).toList(),
                             );
@@ -488,11 +607,13 @@ class _Cell extends StatelessWidget {
   final Object? value;
   final String type;
   final String columnKey;
+  final bool dense;
 
   const _Cell({
     required this.value,
     required this.type,
     required this.columnKey,
+    this.dense = false,
   });
 
   @override
@@ -510,11 +631,11 @@ class _Cell extends StatelessWidget {
       child: Text(
         text,
         textAlign: alignRight ? TextAlign.end : TextAlign.start,
-        maxLines: 2,
+        maxLines: dense ? 1 : 2,
         overflow: TextOverflow.ellipsis,
         style: type == 'currency'
             ? KTypography.amountSmall
-            : KTypography.bodyMedium,
+            : (dense ? KTypography.bodySmall : KTypography.bodyMedium),
       ),
     );
   }
@@ -524,10 +645,12 @@ class _Cell extends StatelessWidget {
     if (key == 'number') return 106;
     if (key == 'vendorBill') return 92;
     if (key == 'sku') return 90;
+    if (key == 'batch') return 92;
+    if (key == 'expiry') return 86;
     if (key == 'status' || key == 'type' || key == 'mode' || key == 'source') {
       return 88;
     }
-    if (key == 'reference' || key == 'description') return 126;
+    if (key == 'reference' || key == 'description') return 118;
     if (key == 'item' || key == 'customer' || key == 'vendor') return 132;
     if (key == 'warehouse') return 116;
     if (type == 'currency') return 84;
@@ -648,4 +771,106 @@ Color _metricColor(String label) {
     return KColors.secondary;
   }
   return KColors.textPrimary;
+}
+
+class _StockMovementToolbar extends StatelessWidget {
+  final TextEditingController searchController;
+  final String searchQuery;
+  final String stockTypeFilter;
+  final bool onlyBatchRows;
+  final int totalRows;
+  final int visibleRows;
+  final ValueChanged<String> onSearchChanged;
+  final ValueChanged<String> onTypeChanged;
+  final ValueChanged<bool> onToggleBatchOnly;
+  final VoidCallback onClear;
+
+  const _StockMovementToolbar({
+    required this.searchController,
+    required this.searchQuery,
+    required this.stockTypeFilter,
+    required this.onlyBatchRows,
+    required this.totalRows,
+    required this.visibleRows,
+    required this.onSearchChanged,
+    required this.onTypeChanged,
+    required this.onToggleBatchOnly,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const stockTypes = [
+      'ALL',
+      'PURCHASE',
+      'SALE',
+      'OPENING',
+      'RETURN_IN',
+      'RETURN_OUT',
+      'ADJUSTMENT',
+      'TRANSFER_IN',
+      'TRANSFER_OUT',
+    ];
+    return KCard(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text('Filter rows', style: KTypography.labelLarge),
+              ),
+              Text(
+                '$visibleRows of $totalRows',
+                style: KTypography.bodySmall
+                    .copyWith(color: KColors.textSecondary),
+              ),
+            ],
+          ),
+          KSpacing.vGapSm,
+          TextField(
+            controller: searchController,
+            decoration: InputDecoration(
+              hintText: 'Search item, SKU, batch, expiry, warehouse or ref',
+              prefixIcon: const Icon(Icons.search, size: 18),
+              suffixIcon: searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: onClear,
+                    )
+                  : null,
+              isDense: true,
+            ),
+            onChanged: onSearchChanged,
+          ),
+          KSpacing.vGapSm,
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              DropdownButton<String>(
+                value: stockTypeFilter,
+                items: stockTypes
+                    .map(
+                      (type) => DropdownMenuItem<String>(
+                        value: type,
+                        child: Text(type == 'ALL' ? 'All types' : type),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => onTypeChanged(value ?? 'ALL'),
+              ),
+              FilterChip(
+                label: const Text('Batch only'),
+                selected: onlyBatchRows,
+                onSelected: onToggleBatchOnly,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
