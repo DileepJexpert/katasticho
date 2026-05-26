@@ -8,11 +8,22 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class ModuleAccessService {
+
+    private static final Set<String> STRICT_MODULES = Set.of(
+            ModuleCode.POS,
+            ModuleCode.INVENTORY,
+            ModuleCode.DISTRIBUTION,
+            ModuleCode.PHARMA,
+            ModuleCode.MANUFACTURING,
+            ModuleCode.BATCH_EXPIRY,
+            ModuleCode.CA_CONSOLE
+    );
 
     private final FeatureFlagService featureFlagService;
     private final SubscriptionEntitlementService subscriptionEntitlementService;
@@ -32,7 +43,8 @@ public class ModuleAccessService {
         }
         subscriptionEntitlementService.requireEntitled(orgId, moduleCode);
         String role = TenantContext.getCurrentRole();
-        if ("OWNER".equals(role) || "ADMIN".equals(role)) {
+        if (("OWNER".equals(role) || "ADMIN".equals(role))
+                && !STRICT_MODULES.contains(moduleCode)) {
             return;
         }
         requireEnabled(orgId, moduleCode);

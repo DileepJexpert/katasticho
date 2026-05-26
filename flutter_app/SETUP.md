@@ -45,6 +45,27 @@ flutter run --dart-define=ENV=dev
 flutter run -d chrome --dart-define=ENV=dev
 ```
 
+### Developer module preview
+
+For local testing, the app now includes a **debug-only** toggle:
+
+- `Settings -> Developer Tools -> Show All Modules`
+
+This makes the navigation and dashboard show all major vertical modules
+without changing production behavior.
+
+Notes:
+- This toggle is available only in **debug builds**.
+- The toggle is stored locally on your machine.
+- You can still start with it enabled by default using:
+
+```bash
+flutter run -d chrome --dart-define=ENV=dev --dart-define=PREVIEW_ALL_MODULES=true
+```
+
+If you want normal capability-based behavior again, turn the toggle off in
+Settings or use the `Reset` action in the same Developer Tools section.
+
 **Physical Android device** (replace with your machine's LAN IP):
 ```bash
 flutter run --dart-define=ENV=dev --dart-define=API_BASE_URL=http://192.168.1.100:8080

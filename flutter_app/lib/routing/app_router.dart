@@ -40,6 +40,7 @@ import '../features/reports/presentation/ap_ageing_screen.dart';
 import '../features/reports/presentation/operational_report_screen.dart';
 import '../features/ai_chat/presentation/ai_chat_screen.dart';
 import '../features/banking/presentation/bank_reconciliation_screen.dart';
+import '../features/settings/presentation/business_configuration_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/settings/presentation/inventory_features_screen.dart';
 import '../features/settings/presentation/org_details_screen.dart';
@@ -225,6 +226,7 @@ class Routes {
   static const nearExpiry = '/inventory/near-expiry';
   static const contactStatement = '/contacts/:id/statement';
   static const settings = '/settings';
+  static const businessConfiguration = '/settings/business-configuration';
   static const orgDetails = '/settings/org-details';
   static const branches = '/settings/branches';
   static const defaultAccounts = '/settings/default-accounts';
@@ -1121,6 +1123,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => const NoTransitionPage(
               child: SettingsScreen(),
             ),
+          ),
+          GoRoute(
+            path: Routes.businessConfiguration,
+            builder: (context, state) =>
+                const BusinessConfigurationScreen(),
           ),
           GoRoute(
             path: Routes.orgDetails,

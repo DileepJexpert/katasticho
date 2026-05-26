@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/settings/data/feature_flag_repository.dart';
 import 'auth_state.dart';
@@ -97,9 +98,43 @@ class BusinessCapabilities {
 const bool _previewAllModules =
     bool.fromEnvironment('PREVIEW_ALL_MODULES', defaultValue: false);
 
-final previewAllModulesProvider = Provider<bool>((ref) {
-  if (!kDebugMode) return false;
-  return _previewAllModules;
+const _previewAllModulesStorageKey = 'dev_preview_all_modules';
+
+class PreviewAllModulesNotifier extends StateNotifier<bool> {
+  PreviewAllModulesNotifier() : super(kDebugMode && _previewAllModules) {
+    _restore();
+  }
+
+  Future<void> _restore() async {
+    if (!kDebugMode) {
+      state = false;
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getBool(_previewAllModulesStorageKey);
+    if (stored != null) {
+      state = stored;
+    }
+  }
+
+  Future<void> setEnabled(bool enabled) async {
+    if (!kDebugMode) return;
+    state = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_previewAllModulesStorageKey, enabled);
+  }
+
+  Future<void> resetToDefault() async {
+    if (!kDebugMode) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_previewAllModulesStorageKey);
+    state = _previewAllModules;
+  }
+}
+
+final previewAllModulesProvider =
+    StateNotifierProvider<PreviewAllModulesNotifier, bool>((ref) {
+  return PreviewAllModulesNotifier();
 });
 
 final businessCapabilitiesProvider = Provider<BusinessCapabilities>((ref) {

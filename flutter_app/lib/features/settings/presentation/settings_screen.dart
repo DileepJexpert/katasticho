@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/auth/business_capabilities.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
@@ -7,6 +9,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
+import '../data/feature_flag_repository.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -14,6 +17,11 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final capabilities = ref.watch(businessCapabilitiesProvider);
+    final previewAllModules = ref.watch(previewAllModulesProvider);
+    final featureFlagsAsync = ref.watch(featureFlagsProvider);
+    final role = authState.role?.toUpperCase() ?? 'OWNER';
+    final canManageBusiness = role == 'OWNER' || role == 'ADMIN';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -63,6 +71,25 @@ class SettingsScreen extends ConsumerWidget {
             ),
             KSpacing.vGapLg,
 
+            Text('Business Model & Modules', style: KTypography.h3),
+            KSpacing.vGapSm,
+            _BusinessProfileCard(
+              authState: authState,
+              capabilities: capabilities,
+              featureFlagsAsync: featureFlagsAsync,
+              previewAllModules: previewAllModules,
+              canManageBusiness: canManageBusiness,
+            ),
+            _SettingsTile(
+              icon: Icons.domain_verification_outlined,
+              title: 'Business Configuration',
+              subtitle: canManageBusiness
+                  ? 'Primary business, industry template, and subcategories'
+                  : 'Review business profile and enabled modules',
+              onTap: () => context.push(Routes.businessConfiguration),
+            ),
+            KSpacing.vGapLg,
+
             // Organisation
             Text('Organisation', style: KTypography.h3),
             KSpacing.vGapSm,
@@ -101,12 +128,21 @@ class SettingsScreen extends ConsumerWidget {
             // Inventory
             Text('Inventory', style: KTypography.h3),
             KSpacing.vGapSm,
-            _SettingsTile(
-              icon: Icons.tune,
-              title: 'Inventory Features',
-              subtitle: 'Enable batch tracking, MRP, variants & more',
-              onTap: () => context.push(Routes.inventoryFeatures),
-            ),
+            if (capabilities.canUseInventory)
+              _SettingsTile(
+                icon: Icons.tune,
+                title: 'Inventory Features',
+                subtitle: 'Enable batch tracking, MRP, variants & more',
+                onTap: () => context.push(Routes.inventoryFeatures),
+              )
+            else
+              _SettingsTile(
+                icon: Icons.tune,
+                title: 'Inventory Features',
+                subtitle: 'Enable inventory in your business configuration',
+                onTap: () => _showComingSoon(
+                    context, 'Inventory module is not enabled for this business'),
+              ),
             KSpacing.vGapLg,
 
             // Tax & Compliance
@@ -141,12 +177,13 @@ class SettingsScreen extends ConsumerWidget {
             // POS
             Text('Point of Sale', style: KTypography.h3),
             KSpacing.vGapSm,
-            _SettingsTile(
-              icon: Icons.receipt_outlined,
-              title: 'Receipt Template',
-              subtitle: 'Paper size, logo, footer, HSN codes',
-              onTap: () => context.push(Routes.receiptSettings),
-            ),
+            if (capabilities.canUsePos)
+              _SettingsTile(
+                icon: Icons.receipt_outlined,
+                title: 'Receipt Template',
+                subtitle: 'Paper size, logo, footer, HSN codes',
+                onTap: () => context.push(Routes.receiptSettings),
+              ),
             KSpacing.vGapLg,
 
             // Preferences
@@ -176,6 +213,20 @@ class SettingsScreen extends ConsumerWidget {
               subtitle: 'INR - Indian Rupee',
               onTap: () => _showComingSoon(context, 'Currency'),
             ),
+            if (kDebugMode) ...[
+              KSpacing.vGapLg,
+              Text('Developer Tools', style: KTypography.h3),
+              KSpacing.vGapSm,
+              _PreviewModulesCard(
+                enabled: previewAllModules,
+                onChanged: (value) => ref
+                    .read(previewAllModulesProvider.notifier)
+                    .setEnabled(value),
+                onReset: () => ref
+                    .read(previewAllModulesProvider.notifier)
+                    .resetToDefault(),
+              ),
+            ],
             KSpacing.vGapLg,
 
             // Support
@@ -243,6 +294,249 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PreviewModulesCard extends StatelessWidget {
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+  final VoidCallback onReset;
+
+  const _PreviewModulesCard({
+    required this.enabled,
+    required this.onChanged,
+    required this.onReset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return KCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SwitchListTile.adaptive(
+            value: enabled,
+            onChanged: onChanged,
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Show All Modules',
+              style: KTypography.bodyMedium.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            subtitle: Text(
+              'Developer-only preview. Shows all vertical modules in navigation and dashboard for local testing.',
+              style: KTypography.bodySmall.copyWith(
+                color: cs.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Turn this off before production validation. Release builds ignore this toggle.',
+                  style: KTypography.bodySmall.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: onReset,
+                child: const Text('Reset'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BusinessProfileCard extends StatelessWidget {
+  final AuthState authState;
+  final BusinessCapabilities capabilities;
+  final AsyncValue<Set<String>> featureFlagsAsync;
+  final bool previewAllModules;
+  final bool canManageBusiness;
+
+  const _BusinessProfileCard({
+    required this.authState,
+    required this.capabilities,
+    required this.featureFlagsAsync,
+    required this.previewAllModules,
+    required this.canManageBusiness,
+  });
+
+  static const _moduleLabels = <String, String>{
+    'ACCOUNTING': 'Accounting',
+    'AI_INBOX': 'AI',
+    'POS': 'POS',
+    'INVENTORY': 'Inventory',
+    'DISTRIBUTION': 'Distribution',
+    'PHARMA': 'Pharma',
+    'MANUFACTURING': 'Manufacturing',
+    'BATCH_EXPIRY': 'Batch & Expiry',
+    'BANK_RECON': 'Banking',
+    'REPORTS': 'Reports',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final businessType = authState.businessType ?? 'Not set';
+    final industry = authState.industryCode ?? authState.industry ?? 'Not set';
+
+    return KCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Primary business',
+                        style: KTypography.labelSmall
+                            .copyWith(color: KColors.textSecondary)),
+                    const SizedBox(height: 4),
+                    Text(
+                      _prettyLabel(businessType),
+                      style: KTypography.h4,
+                    ),
+                    const SizedBox(height: 10),
+                    Text('Industry template',
+                        style: KTypography.labelSmall
+                            .copyWith(color: KColors.textSecondary)),
+                    const SizedBox(height: 4),
+                    Text(
+                      _prettyLabel(industry),
+                      style: KTypography.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              if (previewAllModules)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    'Dev Preview',
+                    style: KTypography.labelSmall.copyWith(
+                      color: cs.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          KSpacing.vGapMd,
+          Text(
+            'Enabled modules',
+            style: KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          featureFlagsAsync.when(
+            loading: () => const LinearProgressIndicator(minHeight: 2),
+            error: (_, __) => _CapabilityChipWrap(
+              labels: _labelsFromCapabilities(capabilities),
+            ),
+            data: (features) => _CapabilityChipWrap(
+              labels: _labelsFromFeatures(features),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            canManageBusiness
+                ? 'Major modules are controlled by subscription and business configuration. Inventory feature toggles remain available below.'
+                : 'Module availability is managed by your organisation owner or admin.',
+            style: KTypography.bodySmall
+                .copyWith(color: cs.onSurfaceVariant, height: 1.35),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static List<String> _labelsFromFeatures(Set<String> features) {
+    final labels = features
+        .where(_moduleLabels.containsKey)
+        .map((f) => _moduleLabels[f]!)
+        .toList(growable: false);
+    labels.sort();
+    return labels;
+  }
+
+  static List<String> _labelsFromCapabilities(BusinessCapabilities capabilities) {
+    final labels = <String>[
+      if (capabilities.canUseAccounting) 'Accounting',
+      if (capabilities.canUseAiInbox) 'AI',
+      if (capabilities.canUsePos) 'POS',
+      if (capabilities.canUseInventory) 'Inventory',
+      if (capabilities.canUseDistribution) 'Distribution',
+      if (capabilities.canUsePharma) 'Pharma',
+      if (capabilities.canUseManufacturing) 'Manufacturing',
+      if (capabilities.canUseBatchExpiry) 'Batch & Expiry',
+      if (capabilities.canUseBankRecon) 'Banking',
+      if (capabilities.canUseReports) 'Reports',
+    ];
+    labels.sort();
+    return labels;
+  }
+
+  static String _prettyLabel(String value) {
+    return value
+        .replaceAll('_', ' ')
+        .toLowerCase()
+        .split(' ')
+        .where((part) => part.isNotEmpty)
+        .map((part) => part[0].toUpperCase() + part.substring(1))
+        .join(' ');
+  }
+}
+
+class _CapabilityChipWrap extends StatelessWidget {
+  final List<String> labels;
+
+  const _CapabilityChipWrap({required this.labels});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: labels
+          .map(
+            (label) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: cs.secondaryContainer.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.6),
+                ),
+              ),
+              child: Text(
+                label,
+                style: KTypography.labelSmall.copyWith(
+                  color: cs.onSecondaryContainer,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          )
+          .toList(growable: false),
     );
   }
 }

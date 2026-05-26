@@ -164,6 +164,22 @@ server:
 
 ## Part B: Flutter Web Deployment (Vercel)
 
+### Go-live note: developer module preview
+
+The Flutter app has a **debug-only** developer toggle:
+
+- `Settings -> Developer Tools -> Show All Modules`
+
+This is intended only for local testing of all verticals from one org.
+
+Before go-live / UAT signoff:
+- keep this toggle **off**
+- do not rely on it for production validation
+- run release or production-like builds without `PREVIEW_ALL_MODULES=true`
+
+The toggle is ignored in release builds, but it should still be treated as a
+developer convenience and not part of the production workflow.
+
 ### 1. Build Command
 
 ```bash

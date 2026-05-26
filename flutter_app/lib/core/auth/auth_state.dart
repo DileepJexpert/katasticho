@@ -165,6 +165,28 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _storage.saveOnboardingCompleted(completed: true);
   }
 
+  Future<void> updateBusinessProfile({
+    required String businessType,
+    required String industryCode,
+    String? industryDisplayName,
+  }) async {
+    if (state.orgId == null || state.orgName == null) return;
+    await _storage.saveOrgInfo(
+      orgId: state.orgId!,
+      orgName: state.orgName!,
+      industry: industryDisplayName ?? state.industry,
+      businessType: businessType,
+      industryCode: industryCode,
+      onboardingCompleted: state.onboardingCompleted,
+      defaultLandingPage: state.defaultLandingPage,
+    );
+    state = state.copyWith(
+      businessType: businessType,
+      industryCode: industryCode,
+      industry: industryDisplayName ?? state.industry,
+    );
+  }
+
   /// Switch to a different org using a pre-fetched [AuthRepository].
   /// Returns true on success, false on failure.
   Future<bool> switchOrg({
