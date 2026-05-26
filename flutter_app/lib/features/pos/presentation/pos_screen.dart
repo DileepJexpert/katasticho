@@ -90,8 +90,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   }
 
   void _onSearchSubmitted(String value) {
-    if (value.trim().isEmpty) return;
-    final searchAsync = ref.read(posSearchProvider(_searchQuery));
+    final q = value.trim();
+    if (q.isEmpty) return;
+    setState(() {
+      _searchQuery = q;
+    });
+    final searchAsync = ref.read(posSearchProvider(q));
     searchAsync.whenData((results) {
       if (results.isNotEmpty) {
         _addToCart(results.first);
