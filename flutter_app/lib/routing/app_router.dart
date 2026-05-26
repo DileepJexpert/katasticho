@@ -938,10 +938,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.debitNoteCreate,
-            builder: (context, state) => CreateDebitNoteScreen(
-              prefillExpiryDate:
-                  state.extra is DateTime ? state.extra as DateTime : null,
-            ),
+            builder: (context, state) {
+              final extra = state.extra;
+              return CreateDebitNoteScreen(
+                prefillExpiryDate:
+                    extra is DateTime ? extra : null,
+                prefill:
+                    extra is Map<String, dynamic> ? extra : null,
+              );
+            },
           ),
           GoRoute(
             path: '/debit-notes/:id',

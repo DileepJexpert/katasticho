@@ -34,6 +34,33 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
   String _batchKey(Map<String, dynamic> b) =>
       b['batchId']?.toString() ?? '${b['itemId']}:${b['batchNumber']}';
 
+  List<Map<String, dynamic>> _selectedBatchesFrom(List<Map<String, dynamic>> source) {
+    return source.where((b) => _selected.contains(_batchKey(b))).toList();
+  }
+
+  void _openDebitNoteFor(List<Map<String, dynamic>> batches) {
+    if (batches.isEmpty) return;
+    final lines = batches
+        .map((batch) => {
+              'itemName': batch['itemName'],
+              'batchNumber': batch['batchNumber'],
+              'expiryDate': batch['expiryDate'],
+              'quantity': batch['quantityOnHand'],
+            })
+        .toList();
+    final note = batches.length == 1
+        ? 'Supplier return drafted from expiry alert'
+        : 'Supplier return drafted from expiry alert for ${batches.length} batches';
+    context.push(
+      Routes.debitNoteCreate,
+      extra: {
+        'returnReason': 'EXPIRED',
+        'notes': note,
+        'lines': lines,
+      },
+    );
+  }
+
   Future<void> _confirmReturn(List<Map<String, dynamic>> batches) async {
     final reasonCtl = TextEditingController();
     final confirmed = await showDialog<bool>(
@@ -50,6 +77,60 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
               style: KTypography.bodyMedium,
             ),
             KSpacing.vGapMd,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: batches
+                      .map(
+                        (batch) => Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: KColors.draftBg,
+                            borderRadius: KSpacing.borderRadiusSm,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.medication_outlined,
+                                  size: 16, color: KColors.textSecondary),
+                              KSpacing.hGapSm,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      batch['itemName']?.toString() ?? 'Item',
+                                      style: KTypography.labelMedium,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      [
+                                        if ((batch['batchNumber']?.toString() ?? '')
+                                            .isNotEmpty)
+                                          'Batch ${batch['batchNumber']}',
+                                        if ((batch['expiryDate']?.toString() ?? '')
+                                            .isNotEmpty)
+                                          'Exp ${batch['expiryDate']}',
+                                        'Qty ${_ExpiryBatchCard._fmtQty(((batch['quantityOnHand'] as num?)?.toDouble() ?? 0))}',
+                                      ].join(' • '),
+                                      style: KTypography.bodySmall.copyWith(
+                                        color: KColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            ),
+            KSpacing.vGapSm,
             TextField(
               controller: reasonCtl,
               decoration: const InputDecoration(
@@ -129,6 +210,22 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
       appBar: AppBar(
         title: const Text('Near-Expiry Alerts'),
         actions: [
+          if (_selected.isNotEmpty)
+            TextButton.icon(
+              onPressed: () {
+                final current = ref.read(nearExpiryBatchesProvider(_daysThreshold));
+                final raw = current.valueOrNull;
+                if (raw == null) return;
+                final data = raw['data'] ?? raw;
+                final allBatches = (data is List
+                        ? data
+                        : (data is Map ? (data['content'] as List?) ?? [] : []))
+                    .cast<Map<String, dynamic>>();
+                _openDebitNoteFor(_selectedBatchesFrom(allBatches));
+              },
+              icon: const Icon(Icons.note_add_outlined, size: 18),
+              label: Text('Debit Note (${_selected.length})'),
+            ),
           if (_selected.isNotEmpty)
             TextButton.icon(
               onPressed: () => setState(() => _selected.clear()),
@@ -316,6 +413,7 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
                                 if (itemId == null || itemId.isEmpty) return;
                                 context.push(Routes.itemDetail.replaceFirst(':id', itemId));
                               },
+                              onCreateDebitNote: () => _openDebitNoteFor([batch]),
                               onReturnNow: _isReturning
                                   ? null
                                   : () => _confirmReturn([batch]),
@@ -700,6 +798,7 @@ class _ExpiryBatchCard extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onToggle;
   final VoidCallback onOpenItem;
+  final VoidCallback onCreateDebitNote;
   final VoidCallback? onReturnNow;
 
   const _ExpiryBatchCard({
@@ -707,6 +806,7 @@ class _ExpiryBatchCard extends StatelessWidget {
     required this.isSelected,
     required this.onToggle,
     required this.onOpenItem,
+    required this.onCreateDebitNote,
     this.onReturnNow,
   });
 
@@ -832,6 +932,11 @@ class _ExpiryBatchCard extends StatelessWidget {
                         onPressed: onOpenItem,
                         icon: const Icon(Icons.open_in_new, size: 16),
                         label: const Text('Item'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: onCreateDebitNote,
+                        icon: const Icon(Icons.note_add_outlined, size: 16),
+                        label: const Text('Debit Note'),
                       ),
                       FilledButton.tonalIcon(
                         onPressed: onReturnNow,

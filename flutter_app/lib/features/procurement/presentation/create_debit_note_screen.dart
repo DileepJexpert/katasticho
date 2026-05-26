@@ -67,8 +67,13 @@ class _DnLine {
 class CreateDebitNoteScreen extends ConsumerStatefulWidget {
   /// Optional pre-filled expiry date (when launched from near-expiry screen).
   final DateTime? prefillExpiryDate;
+  final Map<String, dynamic>? prefill;
 
-  const CreateDebitNoteScreen({super.key, this.prefillExpiryDate});
+  const CreateDebitNoteScreen({
+    super.key,
+    this.prefillExpiryDate,
+    this.prefill,
+  });
 
   @override
   ConsumerState<CreateDebitNoteScreen> createState() =>
@@ -93,6 +98,48 @@ class _CreateDebitNoteScreenState
   void initState() {
     super.initState();
     _lines = [_DnLine(prefillExpiry: widget.prefillExpiryDate)];
+    _applyPrefill();
+  }
+
+  void _applyPrefill() {
+    final prefill = widget.prefill;
+    if (prefill == null) return;
+
+    final reason = prefill['returnReason']?.toString();
+    if (reason != null && reason.isNotEmpty) {
+      _returnReason = reason;
+    }
+
+    final notes = prefill['notes']?.toString();
+    if (notes != null && notes.isNotEmpty) {
+      _notesCtl.text = notes;
+    }
+
+    final rawLines = prefill['lines'];
+    if (rawLines is List && rawLines.isNotEmpty) {
+      for (final line in _lines) {
+        line.dispose();
+      }
+      _lines = rawLines.map((raw) {
+        final line = _DnLine();
+        if (raw is Map) {
+          final map = Map<String, dynamic>.from(raw);
+          line.itemNameCtl.text = map['itemName']?.toString() ??
+              map['description']?.toString() ??
+              '';
+          line.batchNumberCtl.text = map['batchNumber']?.toString() ?? '';
+          final qty = map['quantity'];
+          if (qty != null) {
+            line.qtyCtl.text = qty.toString();
+          }
+          final expiry = map['expiryDate']?.toString();
+          if (expiry != null && expiry.isNotEmpty) {
+            line.expiryDate = DateTime.tryParse(expiry);
+          }
+        }
+        return line;
+      }).toList();
+    }
   }
 
   @override
