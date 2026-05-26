@@ -1,11 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../routing/app_router.dart';
 import '../data/expiry_repository.dart';
 
 class NearExpiryScreen extends ConsumerStatefulWidget {
@@ -18,6 +20,7 @@ class NearExpiryScreen extends ConsumerStatefulWidget {
 class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
   String? _activeFilter;
   String _searchQuery = '';
+  int _daysThreshold = 90;
   final _searchController = TextEditingController();
   final Set<String> _selected = {}; // keys: batchId or "itemId:batchNumber"
   bool _isReturning = false;
@@ -84,7 +87,7 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
       if (!mounted) return;
       setState(() => _selected.clear());
       ref.invalidate(expirySummaryProvider);
-      ref.invalidate(nearExpiryBatchesProvider(90));
+      ref.invalidate(nearExpiryBatchesProvider(_daysThreshold));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -120,7 +123,7 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
   @override
   Widget build(BuildContext context) {
     final summaryAsync = ref.watch(expirySummaryProvider);
-    final batchesAsync = ref.watch(nearExpiryBatchesProvider(90));
+    final batchesAsync = ref.watch(nearExpiryBatchesProvider(_daysThreshold));
 
     return Scaffold(
       appBar: AppBar(
@@ -137,7 +140,7 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(expirySummaryProvider);
-          ref.invalidate(nearExpiryBatchesProvider(90));
+          ref.invalidate(nearExpiryBatchesProvider(_daysThreshold));
         },
         child: CustomScrollView(
           slivers: [
@@ -167,6 +170,23 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
                             _activeFilter == filter ? null : filter),
                   );
                 },
+              ),
+            ),
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    KSpacing.md, 0, KSpacing.md, KSpacing.sm),
+                child: _ThresholdSelector(
+                  value: _daysThreshold,
+                  onChanged: (days) {
+                    if (days == _daysThreshold) return;
+                    setState(() {
+                      _daysThreshold = days;
+                      _selected.clear();
+                    });
+                  },
+                ),
               ),
             ),
 
@@ -227,13 +247,33 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
 
                 final filtered = _applyFilters(batches);
 
+                final visibleQty = filtered.fold<double>(
+                  0,
+                  (sum, batch) =>
+                      sum + ((batch['quantityOnHand'] as num?)?.toDouble() ?? 0),
+                );
+                final selectedCount = filtered
+                    .where((batch) => _selected.contains(_batchKey(batch)))
+                    .length;
+
+                final grouped = <String, List<Map<String, dynamic>>>{
+                  'EXPIRED': [],
+                  'CRITICAL': [],
+                  'WARNING': [],
+                  'OK': [],
+                };
+                for (final batch in filtered) {
+                  final urgency = batch['urgency']?.toString() ?? 'OK';
+                  grouped.putIfAbsent(urgency, () => []).add(batch);
+                }
+
                 if (filtered.isEmpty) {
-                  return const SliverFillRemaining(
+                  return SliverFillRemaining(
                     child: KEmptyState(
                       icon: Icons.check_circle_outline,
-                      title: 'No expiring batches',
+                      title: 'No batches in $_daysThreshold days',
                       subtitle:
-                          'All batch stock is well within its shelf life',
+                          'Try a larger window or clear your filters to see more stock at risk.',
                     ),
                   );
                 }
@@ -241,24 +281,49 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
                 return SliverPadding(
                   padding: const EdgeInsets.symmetric(
                       horizontal: KSpacing.md, vertical: KSpacing.sm),
-                  sliver: SliverList.separated(
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) {
-                      final batch = filtered[index];
-                      final key = _batchKey(batch);
-                      return _ExpiryBatchCard(
-                        batch: batch,
-                        isSelected: _selected.contains(key),
-                        onToggle: () => setState(() {
-                          if (_selected.contains(key)) {
-                            _selected.remove(key);
-                          } else {
-                            _selected.add(key);
-                          }
-                        }),
-                      );
-                    },
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      _ExpiryOverviewCard(
+                        totalBatches: filtered.length,
+                        totalQuantity: visibleQty,
+                        selectedCount: selectedCount,
+                        daysThreshold: _daysThreshold,
+                        activeFilter: _activeFilter,
+                        searchQuery: _searchQuery,
+                      ),
+                      KSpacing.vGapSm,
+                      for (final entry in grouped.entries)
+                        if (entry.value.isNotEmpty) ...[
+                          _ExpirySectionHeader(
+                            urgency: entry.key,
+                            count: entry.value.length,
+                          ),
+                          KSpacing.vGapXs,
+                          for (final batch in entry.value) ...[
+                            _ExpiryBatchCard(
+                              batch: batch,
+                              isSelected: _selected.contains(_batchKey(batch)),
+                              onToggle: () => setState(() {
+                                final key = _batchKey(batch);
+                                if (_selected.contains(key)) {
+                                  _selected.remove(key);
+                                } else {
+                                  _selected.add(key);
+                                }
+                              }),
+                              onOpenItem: () {
+                                final itemId = batch['itemId']?.toString();
+                                if (itemId == null || itemId.isEmpty) return;
+                                context.push(Routes.itemDetail.replaceFirst(':id', itemId));
+                              },
+                              onReturnNow: _isReturning
+                                  ? null
+                                  : () => _confirmReturn([batch]),
+                            ),
+                            KSpacing.vGapSm,
+                          ],
+                        ],
+                    ]),
                   ),
                 );
               },
@@ -393,6 +458,176 @@ class _SummaryCards extends StatelessWidget {
   }
 }
 
+class _ThresholdSelector extends StatelessWidget {
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  const _ThresholdSelector({
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const windows = [30, 60, 90, 180];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Review window', style: KTypography.labelMedium),
+        KSpacing.vGapXs,
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: windows
+              .map(
+                (days) => ChoiceChip(
+                  label: Text('$days days'),
+                  selected: value == days,
+                  onSelected: (_) => onChanged(days),
+                ),
+              )
+              .toList(),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExpiryOverviewCard extends StatelessWidget {
+  final int totalBatches;
+  final double totalQuantity;
+  final int selectedCount;
+  final int daysThreshold;
+  final String? activeFilter;
+  final String searchQuery;
+
+  const _ExpiryOverviewCard({
+    required this.totalBatches,
+    required this.totalQuantity,
+    required this.selectedCount,
+    required this.daysThreshold,
+    required this.activeFilter,
+    required this.searchQuery,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final filters = <String>[
+      'Window: $daysThreshold days',
+      if (activeFilter != null) 'Urgency: ${_labelForUrgency(activeFilter!)}',
+      if (searchQuery.trim().isNotEmpty) 'Search: "${searchQuery.trim()}"',
+    ];
+    return KCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Batches needing attention',
+                        style: KTypography.labelLarge),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$totalBatches batch${totalBatches == 1 ? '' : 'es'} - ${_fmtQtyCompact(totalQuantity)} units at risk',
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              if (selectedCount > 0)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: KColors.primarySoft.withValues(alpha: 0.16),
+                    borderRadius: KSpacing.borderRadiusSm,
+                  ),
+                  child: Text(
+                    '$selectedCount selected',
+                    style: KTypography.labelSmall
+                        .copyWith(color: KColors.primary),
+                  ),
+                ),
+            ],
+          ),
+          KSpacing.vGapSm,
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: filters
+                .map(
+                  (filter) => Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: KColors.draftBg,
+                      borderRadius: KSpacing.borderRadiusSm,
+                    ),
+                    child: Text(filter, style: KTypography.labelSmall),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _labelForUrgency(String urgency) => switch (urgency) {
+      'EXPIRED' => 'Expired',
+      'CRITICAL' => 'Critical (7d)',
+      'WARNING' => 'Warning (30d)',
+      _ => 'Monitor',
+    };
+
+String _fmtQtyCompact(double q) =>
+    q == q.truncateToDouble() ? q.toStringAsFixed(0) : q.toStringAsFixed(1);
+
+class _ExpirySectionHeader extends StatelessWidget {
+  final String urgency;
+  final int count;
+
+  const _ExpirySectionHeader({
+    required this.urgency,
+    required this.count,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _ExpiryBatchCard._urgencyColor(urgency);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 2),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          KSpacing.hGapSm,
+          Text(
+            _labelForUrgency(urgency),
+            style: KTypography.labelLarge.copyWith(color: color),
+          ),
+          KSpacing.hGapXs,
+          Text(
+            '($count)',
+            style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SummaryCard extends StatelessWidget {
   final String label;
   final int count;
@@ -464,11 +699,15 @@ class _ExpiryBatchCard extends StatelessWidget {
   final Map<String, dynamic> batch;
   final bool isSelected;
   final VoidCallback onToggle;
+  final VoidCallback onOpenItem;
+  final VoidCallback? onReturnNow;
 
   const _ExpiryBatchCard({
     required this.batch,
     required this.isSelected,
     required this.onToggle,
+    required this.onOpenItem,
+    this.onReturnNow,
   });
 
   @override
@@ -581,6 +820,24 @@ class _ExpiryBatchCard extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
+                      ),
+                    ],
+                  ),
+                  KSpacing.vGapSm,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: onOpenItem,
+                        icon: const Icon(Icons.open_in_new, size: 16),
+                        label: const Text('Item'),
+                      ),
+                      FilledButton.tonalIcon(
+                        onPressed: onReturnNow,
+                        icon: const Icon(Icons.assignment_return_outlined,
+                            size: 16),
+                        label: const Text('Return'),
                       ),
                     ],
                   ),
