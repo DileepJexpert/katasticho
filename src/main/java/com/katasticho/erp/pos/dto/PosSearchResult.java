@@ -29,5 +29,6 @@ public record PosSearchResult(
         boolean prescriptionRequired,
         String drugSchedule,
         String composition,
-        String manufacturer
+        String manufacturer,
+        String rackLocationCode
 ) {}

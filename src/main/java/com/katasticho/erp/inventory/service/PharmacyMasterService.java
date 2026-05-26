@@ -54,7 +54,10 @@ public class PharmacyMasterService {
 
     public List<RackLocationResponse> rackLocations(UUID warehouseId) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        return rackRepository.findByOrgIdAndWarehouseIdAndIsDeletedFalseOrderByCodeAsc(orgId, warehouseId)
+        List<RackLocation> racks = warehouseId == null
+                ? rackRepository.findByOrgIdAndIsDeletedFalseOrderByCodeAsc(orgId)
+                : rackRepository.findByOrgIdAndWarehouseIdAndIsDeletedFalseOrderByCodeAsc(orgId, warehouseId);
+        return racks
                 .stream()
                 .map(this::toRack)
                 .toList();

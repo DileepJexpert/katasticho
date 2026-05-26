@@ -38,6 +38,7 @@ class PosItemSearchResult extends StatelessWidget {
     final drugSchedule = item['drugSchedule'] as String?;
     final composition = item['composition'] as String?;
     final manufacturer = item['manufacturer'] as String?;
+    final rackLocationCode = item['rackLocationCode'] as String?;
 
     return Opacity(
       opacity: isOutOfStock ? 0.5 : 1.0,
@@ -119,6 +120,26 @@ class PosItemSearchResult extends StatelessWidget {
                             const SizedBox(width: 3),
                             Text(
                               manufacturer,
+                              style: KTypography.labelSmall.copyWith(
+                                fontSize: 10,
+                                color: KColors.textHint,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (rackLocationCode != null && rackLocationCode.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: Row(
+                          children: [
+                            Icon(Icons.place_outlined,
+                                size: 10, color: KColors.textHint),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Rack $rackLocationCode',
                               style: KTypography.labelSmall.copyWith(
                                 fontSize: 10,
                                 color: KColors.textHint,

@@ -228,6 +228,7 @@ class ItemGroupServiceTest {
                 null, null,     // mrp, gstRate (gst → inherit)
                 null, null, null, null, // trackInventory, trackBatches, reorderLevel, reorderQuantity
                 null, null, null,       // barcode, manufacturer, preferredVendorId
+                null,                   // rackLocationId
                 null, null, null, null, null, null, // weight, weightUnit, length, width, height, dimensionUnit
                 null, null, null, null, null, null, // drugSchedule, composition, dosageForm, packSize, storageCondition, prescriptionRequired
                 null,                   // weightBasedBilling
@@ -350,6 +351,7 @@ class ItemGroupServiceTest {
                 true, false,
                 BigDecimal.ZERO, BigDecimal.ZERO,
                 null, null,
+                null, null, null,
                 null, null, null, null, null, null,
                 null, null, null, null, null, false,
                 false, // weightBasedBilling

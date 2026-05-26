@@ -311,6 +311,7 @@ public class ItemGroupService {
                 req.barcode(),
                 req.manufacturer(),
                 req.preferredVendorId(),
+                req.rackLocationId(),
                 req.weight(), req.weightUnit(),
                 req.length(), req.width(), req.height(), req.dimensionUnit(),
                 req.drugSchedule(), req.composition(), req.dosageForm(),
@@ -437,6 +438,7 @@ public class ItemGroupService {
                     null,                       // trackBatches
                     null, null,                 // reorder level / qty
                     null, null, null,           // barcode, manufacturer, preferredVendorId
+                    null,                       // rackLocationId
                     null, null,                 // weight, weightUnit
                     null, null, null, null,     // length, width, height, dimensionUnit
                     null, null, null,           // drugSchedule, composition, dosageForm

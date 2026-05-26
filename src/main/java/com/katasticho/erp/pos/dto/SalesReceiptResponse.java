@@ -47,6 +47,8 @@ public record SalesReceiptResponse(
             UUID taxGroupId,
             String hsnCode,
             BigDecimal amount,
-            UUID batchId
+            UUID batchId,
+            String batchNumber,
+            String batchExpiry
     ) {}
 }

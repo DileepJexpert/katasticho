@@ -16,6 +16,7 @@ import com.katasticho.erp.inventory.entity.ItemGroup;
 import com.katasticho.erp.inventory.entity.ItemType;
 import com.katasticho.erp.inventory.entity.ItemUnitPrice;
 import com.katasticho.erp.inventory.entity.MovementType;
+import com.katasticho.erp.inventory.entity.RackLocation;
 import com.katasticho.erp.inventory.entity.ReferenceType;
 import com.katasticho.erp.inventory.entity.StockBalance;
 import com.katasticho.erp.inventory.entity.StockBatch;
@@ -25,6 +26,7 @@ import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.ItemGroupRepository;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.ItemUnitPriceRepository;
+import com.katasticho.erp.inventory.repository.RackLocationRepository;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.UomConversionRepository;
 import com.katasticho.erp.inventory.repository.UomRepository;
@@ -78,6 +80,7 @@ public class ItemService {
     private final UomConversionRepository uomConversionRepository;
     private final ItemUnitPriceRepository itemUnitPriceRepository;
     private final UomRepository uomRepository;
+    private final RackLocationRepository rackLocationRepository;
     private final CacheInvalidationService cacheInvalidationService;
     private final AccountingPostingEngine postingEngine;
 
@@ -94,6 +97,7 @@ public class ItemService {
                        UomConversionRepository uomConversionRepository,
                        ItemUnitPriceRepository itemUnitPriceRepository,
                        UomRepository uomRepository,
+                       RackLocationRepository rackLocationRepository,
                        CacheInvalidationService cacheInvalidationService,
                        AccountingPostingEngine postingEngine) {
         this.itemRepository = itemRepository;
@@ -109,6 +113,7 @@ public class ItemService {
         this.uomConversionRepository = uomConversionRepository;
         this.itemUnitPriceRepository = itemUnitPriceRepository;
         this.uomRepository = uomRepository;
+        this.rackLocationRepository = rackLocationRepository;
         this.cacheInvalidationService = cacheInvalidationService;
         this.postingEngine = postingEngine;
     }
@@ -179,6 +184,11 @@ public class ItemService {
 
         String uomAbbr = request.unitOfMeasure() != null ? request.unitOfMeasure() : "PCS";
         UUID baseUomId = uomService.resolveBaseUomIdOrPcs(uomAbbr);
+        UUID rackLocationId = request.rackLocationId();
+        if (rackLocationId != null) {
+            rackLocationRepository.findByIdAndOrgIdAndIsDeletedFalse(rackLocationId, orgId)
+                    .orElseThrow(() -> BusinessException.notFound("RackLocation", rackLocationId));
+        }
 
         Item item = Item.builder()
                 .sku(sku)
@@ -201,6 +211,7 @@ public class ItemService {
                 .barcode(request.barcode())
                 .manufacturer(request.manufacturer())
                 .preferredVendorId(request.preferredVendorId())
+                .rackLocationId(rackLocationId)
                 .weight(request.weight())
                 .weightUnit(request.weightUnit())
                 .length(request.length())
@@ -351,6 +362,10 @@ public class ItemService {
             throw new BusinessException("Item with SKU " + newSku + " already exists",
                     "INV_DUPLICATE_SKU", HttpStatus.CONFLICT);
         }
+        if (request.rackLocationId() != null) {
+            rackLocationRepository.findByIdAndOrgIdAndIsDeletedFalse(request.rackLocationId(), orgId)
+                    .orElseThrow(() -> BusinessException.notFound("RackLocation", request.rackLocationId()));
+        }
 
         item.setSku(newSku);
         item.setName(request.name().trim());
@@ -399,6 +414,7 @@ public class ItemService {
         item.setBarcode(request.barcode());
         item.setManufacturer(request.manufacturer());
         item.setPreferredVendorId(request.preferredVendorId());
+        item.setRackLocationId(request.rackLocationId());
         item.setWeight(request.weight());
         item.setWeightUnit(request.weightUnit());
         item.setLength(request.length());
@@ -581,6 +597,11 @@ public class ItemService {
             vendorName = contactRepository.findById(i.getPreferredVendorId())
                     .map(Contact::getCompanyName).orElse(null);
         }
+        RackLocation rack = null;
+        if (i.getRackLocationId() != null) {
+            rack = rackLocationRepository.findByIdAndOrgIdAndIsDeletedFalse(i.getRackLocationId(), orgId)
+                    .orElse(null);
+        }
 
         // Purchase UoM abbreviation
         String purchaseUomAbbr = null;
@@ -612,6 +633,9 @@ public class ItemService {
                 i.isTrackInventory(), i.isTrackBatches(),
                 i.getReorderLevel(), i.getReorderQuantity(),
                 i.getPreferredVendorId(), vendorName,
+                i.getRackLocationId(),
+                rack != null ? rack.getCode() : null,
+                rack != null ? rack.getName() : null,
                 i.getWeight(), i.getWeightUnit(),
                 i.getLength(), i.getWidth(), i.getHeight(), i.getDimensionUnit(),
                 i.getDrugSchedule(), i.getComposition(), i.getDosageForm(),

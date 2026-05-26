@@ -9,6 +9,7 @@ import java.util.UUID;
 
 public interface RackLocationRepository extends JpaRepository<RackLocation, UUID> {
     List<RackLocation> findByOrgIdAndWarehouseIdAndIsDeletedFalseOrderByCodeAsc(UUID orgId, UUID warehouseId);
+    List<RackLocation> findByOrgIdAndIsDeletedFalseOrderByCodeAsc(UUID orgId);
     Optional<RackLocation> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
     Optional<RackLocation> findByOrgIdAndWarehouseIdAndCodeIgnoreCaseAndIsDeletedFalse(UUID orgId, UUID warehouseId, String code);
 }

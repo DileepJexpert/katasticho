@@ -82,6 +82,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
   final _purchasePricePerUomController = TextEditingController();
   List<_SecondaryUnit> _secondaryUnits = [];
   List<Map<String, dynamic>> _availableUoms = [];
+  List<Map<String, dynamic>> _rackLocations = [];
+  String? _rackLocationId;
 
   /// F5: when set, the item is created as a variant of this group.
   /// `_selectedGroup` is the cached group map (carries name + defs +
@@ -98,6 +100,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
   void initState() {
     super.initState();
     _loadUoms();
+    _loadRackLocations();
     if (widget.initial != null) {
       _populateFromMap(widget.initial!);
     } else if (_isEdit) {
@@ -110,6 +113,15 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
       final repo = ref.read(uomRepositoryProvider);
       final uoms = await repo.listUoms();
       if (mounted) setState(() => _availableUoms = uoms);
+    } catch (_) {}
+  }
+
+  Future<void> _loadRackLocations() async {
+    try {
+      final racks = await ref.read(itemRepositoryProvider).listRackLocations();
+      if (mounted) {
+        setState(() => _rackLocations = racks);
+      }
     } catch (_) {}
   }
 
@@ -224,6 +236,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     _barcodeController.text = data['barcode']?.toString() ?? '';
     _brandController.text = data['brand']?.toString() ?? '';
     _manufacturerController.text = data['manufacturer']?.toString() ?? '';
+    _rackLocationId = data['rackLocationId']?.toString();
     _weightController.text =
         data['weight'] != null ? data['weight'].toString() : '';
     _weightUnitController.text = data['weightUnit']?.toString() ?? 'kg';
@@ -373,6 +386,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
       'reorderQuantity': double.tryParse(_reorderQtyController.text) ?? 0,
       'barcode': nullIfEmpty(_barcodeController.text),
       'manufacturer': nullIfEmpty(_manufacturerController.text),
+      'rackLocationId': _rackLocationId,
       'weight': doubleOrNull(_weightController),
       'weightUnit': nullIfEmpty(_weightUnitController.text),
       'length': doubleOrNull(_lengthController),
@@ -1037,6 +1051,37 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                           controller: _manufacturerController,
                         ),
                       ]),
+                      if (_rackLocations.isNotEmpty) ...[
+                        KSpacing.vGapSm,
+                        DropdownButtonFormField<String>(
+                          value: _rackLocationId,
+                          decoration: const InputDecoration(
+                            labelText: 'Rack Location',
+                          ),
+                          isExpanded: true,
+                          items: [
+                            const DropdownMenuItem<String>(
+                              value: null,
+                              child: Text('No rack assigned'),
+                            ),
+                            ..._rackLocations.map(
+                              (rack) => DropdownMenuItem<String>(
+                                value: rack['id']?.toString(),
+                                child: Text(
+                                  [
+                                    rack['code']?.toString() ?? '',
+                                    if ((rack['name']?.toString() ?? '').isNotEmpty)
+                                      rack['name'].toString(),
+                                  ].join(' • '),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) =>
+                              setState(() => _rackLocationId = value),
+                        ),
+                      ],
                       if (_itemType == 'GOODS') ...[
                         KSpacing.vGapSm,
                         _buildGroupSection(),

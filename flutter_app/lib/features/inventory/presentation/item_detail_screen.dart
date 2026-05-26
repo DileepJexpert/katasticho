@@ -128,6 +128,8 @@ class _ItemDetailBody extends ConsumerWidget {
     final trackBatches = item['trackBatches'] as bool? ?? false;
     final onHand = (item['totalOnHand'] as num?)?.toDouble() ?? 0;
     final reorderLevel = (item['reorderLevel'] as num?)?.toDouble() ?? 0;
+    final rackCode = item['rackLocationCode']?.toString() ?? '';
+    final rackName = item['rackLocationName']?.toString() ?? '';
     final isLowStock =
         trackInventory && reorderLevel > 0 && onHand <= reorderLevel;
     final isPharmacy =
@@ -168,6 +170,13 @@ class _ItemDetailBody extends ConsumerWidget {
                       if (brand.isNotEmpty) brand,
                       if (manufacturer.isNotEmpty) manufacturer
                     ].join(' · '),
+                    style: KTypography.bodySmall,
+                  ),
+                if (rackCode.isNotEmpty)
+                  Text(
+                    rackName.isEmpty
+                        ? 'Rack: $rackCode'
+                        : 'Rack: $rackCode • $rackName',
                     style: KTypography.bodySmall,
                   ),
               ],
@@ -219,6 +228,12 @@ class _ItemDetailBody extends ConsumerWidget {
                     value: _fmtQty(
                         (item['reorderQuantity'] as num?)?.toDouble() ?? 0),
                   ),
+                  if (rackCode.isNotEmpty)
+                    KDetailRow(
+                      label: 'Rack',
+                      value:
+                          rackName.isEmpty ? rackCode : '$rackCode • $rackName',
+                    ),
                 ],
               ),
             ),

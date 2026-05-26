@@ -71,6 +71,17 @@ class ItemRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<List<Map<String, dynamic>>> listRackLocations() async {
+    final response = await _api.get(ApiConfig.rackLocations);
+    final raw = response.data as Map<String, dynamic>;
+    final data = raw['data'] ?? raw;
+    if (data is! List) return const [];
+    return data
+        .whereType<Map>()
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .toList();
+  }
+
   /// Dry-run validate the CSV. Server parses + validates every row but
   /// writes nothing. Returns an ItemImportPreview payload so the UI can
   /// render a preview table with per-row OK / ERROR status.

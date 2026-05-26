@@ -120,6 +120,9 @@ public class Item extends BaseEntity {
     @Column(name = "preferred_vendor_id")
     private UUID preferredVendorId;
 
+    @Column(name = "rack_location_id")
+    private UUID rackLocationId;
+
     @Column(precision = 12, scale = 4)
     private BigDecimal weight;
 

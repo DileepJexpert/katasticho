@@ -4,8 +4,10 @@ import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.entity.StockBalance;
 import com.katasticho.erp.inventory.entity.StockBatch;
+import com.katasticho.erp.inventory.entity.RackLocation;
 import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.RackLocationRepository;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
@@ -42,6 +44,7 @@ public class PosSearchService {
     private final ItemRepository itemRepository;
     private final StockBalanceRepository stockBalanceRepository;
     private final StockBatchRepository batchRepository;
+    private final RackLocationRepository rackLocationRepository;
     private final WarehouseRepository warehouseRepository;
     private final TaxGroupRepository taxGroupRepository;
     private final OrganisationRepository organisationRepository;
@@ -130,6 +133,13 @@ public class PosSearchService {
         Map<UUID, String> taxGroupNames = taxGroupIds.isEmpty() ? Map.of()
                 : taxGroupRepository.findAllById(taxGroupIds).stream()
                 .collect(Collectors.toMap(TaxGroup::getId, TaxGroup::getName));
+        Set<UUID> rackIds = items.stream()
+                .map(Item::getRackLocationId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<UUID, String> rackCodes = rackIds.isEmpty() ? Map.of()
+                : rackLocationRepository.findAllById(rackIds).stream()
+                .collect(Collectors.toMap(RackLocation::getId, RackLocation::getCode));
 
         // Build results
         return items.stream().map(item -> {
@@ -185,7 +195,8 @@ public class PosSearchService {
                     item.isPrescriptionRequired(),
                     item.getDrugSchedule(),
                     item.getComposition(),
-                    item.getManufacturer());
+                    item.getManufacturer(),
+                    rackCodes.get(item.getRackLocationId()));
         }).toList();
     }
 

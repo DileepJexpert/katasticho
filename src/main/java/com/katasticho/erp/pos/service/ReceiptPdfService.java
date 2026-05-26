@@ -125,6 +125,7 @@ public class ReceiptPdfService {
                 sb.append("<td class='r item-detail'>").append(fmtQty(line.quantity())).append("</td>");
                 sb.append("<td class='r'>").append(fmtAmt(line.amount())).append("</td>");
                 sb.append("</tr>");
+                appendBatchRow(sb, line, 4);
                 appendRetailRateRow(sb, line, 4);
             }
             sb.append("</table>");
@@ -157,6 +158,7 @@ public class ReceiptPdfService {
                 sb.append("<td class='item-name'>").append(esc(name)).append("</td>");
                 sb.append("<td class='item-amt'>").append(fmtAmt(line.amount())).append("</td>");
                 sb.append("</tr>");
+                appendBatchRow(sb, line, 2);
                 appendRetailRateRow(sb, line, 2);
             }
             sb.append("</table>");
@@ -237,6 +239,24 @@ public class ReceiptPdfService {
                 .append(" | MRP <span class='strike'>").append(fmtAmt(line.mrp())).append("</span>")
                 .append(" | Saved ").append(fmtAmt(line.discountAmount()))
                 .append("</td></tr>");
+    }
+
+    private void appendBatchRow(StringBuilder sb, SalesReceiptResponse.LineResponse line, int colspan) {
+        if ((line.batchNumber() == null || line.batchNumber().isBlank())
+                && (line.batchExpiry() == null || line.batchExpiry().isBlank())) {
+            return;
+        }
+        sb.append("<tr><td colspan='").append(colspan).append("' class='item-rate'>");
+        if (line.batchNumber() != null && !line.batchNumber().isBlank()) {
+            sb.append("Batch ").append(esc(line.batchNumber()));
+        }
+        if (line.batchExpiry() != null && !line.batchExpiry().isBlank()) {
+            if (line.batchNumber() != null && !line.batchNumber().isBlank()) {
+                sb.append(" | ");
+            }
+            sb.append("Exp ").append(esc(line.batchExpiry()));
+        }
+        sb.append("</td></tr>");
     }
 
     private String fmtAmt(BigDecimal amount) {

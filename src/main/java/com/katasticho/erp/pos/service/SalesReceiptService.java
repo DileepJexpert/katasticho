@@ -19,9 +19,11 @@ import com.katasticho.erp.inventory.dto.StockMovementRequest;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.ReferenceType;
+import com.katasticho.erp.inventory.entity.StockBatch;
 import com.katasticho.erp.inventory.entity.StockMovement;
 import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.BatchService;
 import com.katasticho.erp.inventory.service.InventoryService;
@@ -75,6 +77,7 @@ public class SalesReceiptService {
 
     private final SalesReceiptRepository receiptRepository;
     private final ItemRepository itemRepository;
+    private final StockBatchRepository stockBatchRepository;
     private final WarehouseRepository warehouseRepository;
     private final InvoiceNumberSequenceRepository sequenceRepository;
     private final TaxLineItemRepository taxLineItemRepository;
@@ -407,10 +410,21 @@ public class SalesReceiptService {
                 : itemRepository.findByOrgIdAndIsDeletedFalseAndIdIn(orgId, itemIds)
                 .stream()
                 .collect(Collectors.toMap(Item::getId, Function.identity()));
+        List<UUID> batchIds = receipt.getLines().stream()
+                .map(SalesReceiptLine::getBatchId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<UUID, StockBatch> batchMap = batchIds.isEmpty()
+                ? Map.of()
+                : stockBatchRepository.findAllById(batchIds)
+                .stream()
+                .collect(Collectors.toMap(StockBatch::getId, Function.identity()));
 
         List<SalesReceiptResponse.LineResponse> lineResponses = receipt.getLines().stream()
                 .map(l -> {
                     Item item = l.getItemId() != null ? itemMap.get(l.getItemId()) : null;
+                    StockBatch batch = l.getBatchId() != null ? batchMap.get(l.getBatchId()) : null;
                     BigDecimal mrp = l.getMrp() != null ? l.getMrp()
                             : (item != null ? item.getMrp() : null);
                     BigDecimal derivedDiscountPerUnit = calculateDiscountPerUnit(mrp, l.getRate());
@@ -440,7 +454,10 @@ public class SalesReceiptService {
                             l.getTaxGroupId(),
                             l.getHsnCode(),
                             l.getAmount(),
-                            l.getBatchId());
+                            l.getBatchId(),
+                            batch != null ? batch.getBatchNumber() : null,
+                            batch != null && batch.getExpiryDate() != null
+                                    ? batch.getExpiryDate().toString() : null);
                 })
                 .toList();
 

@@ -35,6 +35,7 @@ public record UpdateItemRequest(
         @Size(max = 50) String barcode,
         @Size(max = 100) String manufacturer,
         UUID preferredVendorId,
+        UUID rackLocationId,
 
         BigDecimal weight,
         @Size(max = 10) String weightUnit,
