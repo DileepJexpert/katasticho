@@ -139,6 +139,12 @@ class PlatformAdminRepository {
     return data is List ? data.cast<Map<String, dynamic>>() : [];
   }
 
+  Future<Map<String, dynamic>> organisationDetailV2(String orgId) async {
+    final response = await _adminDio.get(ApiConfig.platformAdminOrgDetailV2(orgId));
+    final data = (response.data as Map<String, dynamic>)['data'];
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
   /// Approve org (v2).
   Future<void> approveOrgV2(String orgId, {String? note}) async {
     await _adminDio.post(

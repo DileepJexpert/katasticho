@@ -3,12 +3,16 @@ package com.katasticho.erp.platform.service;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.auth.entity.AppUser;
 import com.katasticho.erp.auth.repository.AppUserRepository;
+import com.katasticho.erp.common.entity.OrgFeatureFlag;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.service.FeatureFlagService;
 import com.katasticho.erp.notification.EmailService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.platform.context.PlatformAdminContext;
 import com.katasticho.erp.platform.dto.PlatformApprovalRequest;
+import com.katasticho.erp.platform.dto.PlatformOrgDetailResponse;
 import com.katasticho.erp.platform.dto.PlatformOrgResponse;
 import com.katasticho.erp.platform.dto.PlatformPlanUpdateRequest;
 import com.katasticho.erp.platform.dto.PlatformPasswordResetRequest;
@@ -23,8 +27,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +44,28 @@ public class PlatformAdminService {
     private final AuditService auditService;
     private final PlatformAdminAuditRepository platformAdminAuditRepository;
     private final EmailService emailService;
+    private final FeatureFlagService featureFlagService;
+
+    private static final Set<String> MODULE_CODES = Arrays.stream(new String[] {
+            ModuleCode.ACCOUNTING,
+            ModuleCode.AR,
+            ModuleCode.AP,
+            ModuleCode.GST,
+            ModuleCode.BANK_RECON,
+            ModuleCode.AI_INBOX,
+            ModuleCode.REPORTS,
+            ModuleCode.COLLECTIONS,
+            ModuleCode.POS,
+            ModuleCode.INVENTORY,
+            ModuleCode.DISTRIBUTION,
+            ModuleCode.PHARMA,
+            ModuleCode.MANUFACTURING,
+            ModuleCode.RECURRING_BILLING,
+            ModuleCode.MULTI_ENTITY,
+            ModuleCode.PAYMENTS,
+            ModuleCode.BATCH_EXPIRY,
+            ModuleCode.CA_CONSOLE
+    }).collect(Collectors.toSet());
 
     public List<PlatformOrgResponse> listOrganisations(String status, String query) {
         String normalizedStatus = isBlank(status) ? null : status.trim().toUpperCase();
@@ -45,6 +74,31 @@ public class PlatformAdminService {
                 .stream()
                 .map(PlatformOrgResponse::from)
                 .toList();
+    }
+
+    public PlatformOrgDetailResponse getOrganisationDetail(UUID orgId) {
+        Organisation org = organisationRepository.findById(orgId)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
+        List<OrgFeatureFlag> flags = featureFlagService.listAll(orgId);
+        List<String> enabledFeatures = flags.stream()
+                .filter(OrgFeatureFlag::isEnabled)
+                .map(OrgFeatureFlag::getFeature)
+                .sorted()
+                .toList();
+        List<String> enabledModules = enabledFeatures.stream()
+                .filter(MODULE_CODES::contains)
+                .toList();
+        List<PlatformOrgDetailResponse.RecentAdminAction> recentAdminActions =
+                platformAdminAuditRepository
+                        .findTop10ByTargetTypeAndTargetIdOrderByPerformedAtDesc("ORGANISATION", orgId)
+                        .stream()
+                        .map(audit -> new PlatformOrgDetailResponse.RecentAdminAction(
+                                audit.getActionType(),
+                                audit.getTargetName(),
+                                audit.getReason(),
+                                audit.getPerformedAt()))
+                        .toList();
+        return PlatformOrgDetailResponse.from(org, enabledModules, enabledFeatures, recentAdminActions);
     }
 
     public List<PlatformUserResponse> listUsers(UUID orgId) {

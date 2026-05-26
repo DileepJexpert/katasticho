@@ -3,6 +3,7 @@ package com.katasticho.erp.platform.controller;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.platform.context.PlatformAdminContext;
 import com.katasticho.erp.platform.dto.PlatformApprovalRequest;
+import com.katasticho.erp.platform.dto.PlatformOrgDetailResponse;
 import com.katasticho.erp.platform.dto.PlatformOrgResponse;
 import com.katasticho.erp.platform.dto.PlatformPlanUpdateRequest;
 import com.katasticho.erp.platform.dto.PlatformPasswordResetRequest;
@@ -35,6 +36,11 @@ public class PlatformAdminController {
             @RequestParam(required = false) String query
     ) {
         return ResponseEntity.ok(ApiResponse.ok(platformAdminService.listOrganisations(status, query)));
+    }
+
+    @GetMapping("/orgs/{orgId}")
+    public ResponseEntity<ApiResponse<PlatformOrgDetailResponse>> organisationDetail(@PathVariable UUID orgId) {
+        return ResponseEntity.ok(ApiResponse.ok(platformAdminService.getOrganisationDetail(orgId)));
     }
 
     @GetMapping("/orgs/{orgId}/users")

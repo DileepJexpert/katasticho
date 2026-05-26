@@ -59,102 +59,268 @@ class _PlatformAdminOrgsScreenState
 
   void _showOrgDetail(Map<String, dynamic> org) {
     final id = org['id'].toString();
-    final status =
-        org['approvalStatus']?.toString() ?? org['status']?.toString() ?? '';
 
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
       builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        maxChildSize: 0.8,
+        initialChildSize: 0.62,
+        maxChildSize: 0.9,
         minChildSize: 0.3,
         expand: false,
         builder: (context, scrollController) => SingleChildScrollView(
           controller: scrollController,
           padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                org['name']?.toString() ?? 'Organisation',
-                style: KTypography.h2,
-              ),
-              KSpacing.vGapSm,
-              _buildDetailRow('Status', status),
-              _buildDetailRow('Owner', org['ownerName']?.toString()),
-              _buildDetailRow('Email', org['ownerEmail']?.toString()),
-              _buildDetailRow('Phone', org['ownerPhone']?.toString()),
-              _buildDetailRow('Industry', org['industry']?.toString()),
-              _buildDetailRow('Plan', org['planTier']?.toString()),
-              _buildDetailRow('Created', org['createdAt']?.toString()),
-              KSpacing.vGapLg,
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton(
-                    onPressed: () async {
-                      Navigator.of(context).pop();
-                      await _changePlan(org);
-                    },
-                    child: const Text('Change Plan'),
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: ref.read(platformAdminRepositoryProvider).organisationDetailV2(id),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 64),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(org['name']?.toString() ?? 'Organisation', style: KTypography.h2),
+                      KSpacing.vGapMd,
+                      Text(
+                        'We could not load the organisation detail right now.',
+                        style: KTypography.bodyMedium.copyWith(color: KColors.textSecondary),
+                      ),
+                    ],
                   ),
-                  if (status == 'PENDING') ...[
-                    FilledButton(
-                      onPressed: () async {
-                        Navigator.of(context).pop();
-                        await ref
-                            .read(platformAdminRepositoryProvider)
-                            .approveOrgV2(id);
-                        _refresh();
-                      },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: KColors.success,
-                      ),
-                      child: const Text('Approve'),
-                    ),
-                    OutlinedButton(
-                      onPressed: () async {
-                        Navigator.of(context).pop();
-                        await _rejectWithReason(id);
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: KColors.error,
-                      ),
-                      child: const Text('Reject'),
+                );
+              }
+
+              final detail = snapshot.data ?? org;
+              final status = detail['approvalStatus']?.toString() ??
+                  org['approvalStatus']?.toString() ??
+                  org['status']?.toString() ??
+                  '';
+              final enabledModules = _stringList(detail['enabledModules']);
+              final enabledFeatures = _stringList(detail['enabledFeatures']);
+              final subCategories = _stringList(detail['subCategories']);
+              final recentActionsRaw = detail['recentAdminActions'];
+              final recentActions = recentActionsRaw is List
+                  ? recentActionsRaw.cast<Map<String, dynamic>>()
+                  : const <Map<String, dynamic>>[];
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    detail['name']?.toString() ?? org['name']?.toString() ?? 'Organisation',
+                    style: KTypography.h2,
+                  ),
+                  KSpacing.vGapSm,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildStatusChip(status),
+                      if ((detail['planTier']?.toString() ?? '').isNotEmpty)
+                        _buildInfoChip(detail['planTier'].toString().replaceAll('_', ' ')),
+                      if ((detail['active']?.toString() ?? '').isNotEmpty)
+                        _buildInfoChip((detail['active'] == true) ? 'Active tenant' : 'Inactive tenant'),
+                    ],
+                  ),
+                  KSpacing.vGapMd,
+                  _buildDetailRow('Email', detail['email']?.toString()),
+                  _buildDetailRow('Phone', detail['phone']?.toString()),
+                  _buildDetailRow('Business', detail['businessType']?.toString()),
+                  _buildDetailRow('Industry', detail['industryCode']?.toString()),
+                  _buildDetailRow('Created', _formatInstant(detail['createdAt']?.toString())),
+                  _buildDetailRow('Approved', _formatInstant(detail['approvedAt']?.toString())),
+                  _buildDetailRow('Approval note', detail['approvalNote']?.toString()),
+                  if (subCategories.isNotEmpty) ...[
+                    KSpacing.vGapMd,
+                    _buildSectionTitle('Subcategories'),
+                    KSpacing.vGapSm,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: subCategories.map(_buildInfoChip).toList(),
                     ),
                   ],
-                  if (status == 'APPROVED' || status == 'ACTIVE')
-                    OutlinedButton(
-                      onPressed: () async {
-                        Navigator.of(context).pop();
-                        await _suspendWithReason(id);
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: KColors.error,
+                  KSpacing.vGapLg,
+                  _buildSectionTitle('Enabled Modules'),
+                  KSpacing.vGapSm,
+                  if (enabledModules.isEmpty)
+                    Text(
+                      'No module snapshot available yet.',
+                      style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                    )
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: enabledModules.map((module) => _buildInfoChip(module.replaceAll('_', ' '))).toList(),
+                    ),
+                  if (enabledFeatures.isNotEmpty) ...[
+                    KSpacing.vGapMd,
+                    Text(
+                      '${enabledFeatures.length} enabled capabilities',
+                      style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                    ),
+                  ],
+                  KSpacing.vGapLg,
+                  _buildSectionTitle('Recent Admin Actions'),
+                  KSpacing.vGapSm,
+                  if (recentActions.isEmpty)
+                    Text(
+                      'No organisation-level platform actions yet.',
+                      style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                    )
+                  else
+                    ...recentActions.map(_buildRecentActionRow),
+                  KSpacing.vGapLg,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () async {
+                          Navigator.of(context).pop();
+                          await _changePlan(detail);
+                        },
+                        child: const Text('Change Plan'),
                       ),
-                      child: const Text('Suspend'),
-                    ),
-                  if (status == 'SUSPENDED')
-                    FilledButton(
-                      onPressed: () async {
-                        Navigator.of(context).pop();
-                        await ref
-                            .read(platformAdminRepositoryProvider)
-                            .reactivateOrg(id);
-                        _refresh();
-                      },
-                      child: const Text('Reactivate'),
-                    ),
+                      if (status == 'PENDING') ...[
+                        FilledButton(
+                          onPressed: () async {
+                            Navigator.of(context).pop();
+                            await ref.read(platformAdminRepositoryProvider).approveOrgV2(id);
+                            _refresh();
+                          },
+                          style: FilledButton.styleFrom(backgroundColor: KColors.success),
+                          child: const Text('Approve'),
+                        ),
+                        OutlinedButton(
+                          onPressed: () async {
+                            Navigator.of(context).pop();
+                            await _rejectWithReason(id);
+                          },
+                          style: OutlinedButton.styleFrom(foregroundColor: KColors.error),
+                          child: const Text('Reject'),
+                        ),
+                      ],
+                      if (status == 'APPROVED' || status == 'ACTIVE')
+                        OutlinedButton(
+                          onPressed: () async {
+                            Navigator.of(context).pop();
+                            await _suspendWithReason(id);
+                          },
+                          style: OutlinedButton.styleFrom(foregroundColor: KColors.error),
+                          child: const Text('Suspend'),
+                        ),
+                      if (status == 'SUSPENDED')
+                        FilledButton(
+                          onPressed: () async {
+                            Navigator.of(context).pop();
+                            await ref.read(platformAdminRepositoryProvider).reactivateOrg(id);
+                            _refresh();
+                          },
+                          child: const Text('Reactivate'),
+                        ),
+                    ],
+                  ),
                 ],
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),
     );
+  }
+
+  List<String> _stringList(dynamic value) {
+    if (value is List) {
+      return value.map((item) => item.toString()).where((item) => item.isNotEmpty).toList();
+    }
+    return const [];
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(title, style: KTypography.h4);
+  }
+
+  Widget _buildStatusChip(String status) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: _statusChipBgColor(status),
+        borderRadius: KSpacing.borderRadiusSm,
+      ),
+      child: Text(
+        status,
+        style: KTypography.labelSmall.copyWith(color: _statusChipColor(status)),
+      ),
+    );
+  }
+
+  Widget _buildInfoChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: KColors.draftBg,
+        borderRadius: KSpacing.borderRadiusSm,
+      ),
+      child: Text(
+        label,
+        style: KTypography.labelSmall.copyWith(color: KColors.textSecondary),
+      ),
+    );
+  }
+
+  Widget _buildRecentActionRow(Map<String, dynamic> action) {
+    final actionType = action['actionType']?.toString().replaceAll('_', ' ') ?? 'Action';
+    final targetName = action['targetName']?.toString();
+    final reason = action['reason']?.toString();
+    final performedAt = _formatInstant(action['performedAt']?.toString());
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: KColors.draftBg,
+        borderRadius: KSpacing.borderRadiusSm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(actionType, style: KTypography.labelMedium),
+          if (performedAt != null) ...[
+            KSpacing.vGapXs,
+            Text(
+              performedAt,
+              style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+            ),
+          ],
+          if (targetName != null && targetName.isNotEmpty) ...[
+            KSpacing.vGapXs,
+            Text(
+              targetName,
+              style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+            ),
+          ],
+          if (reason != null && reason.isNotEmpty) ...[
+            KSpacing.vGapXs,
+            Text(reason, style: KTypography.bodySmall),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String? _formatInstant(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    return raw.replaceFirst('T', ' ').replaceFirst('Z', ' UTC');
   }
 
   Widget _buildDetailRow(String label, String? value) {

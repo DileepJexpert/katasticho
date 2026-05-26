@@ -9,4 +9,5 @@ import java.util.UUID;
 public interface PlatformAdminAuditRepository extends JpaRepository<PlatformAdminAudit, UUID> {
     Page<PlatformAdminAudit> findByPlatformAdminId(UUID adminId, Pageable pageable);
     Page<PlatformAdminAudit> findAll(Pageable pageable);
+    java.util.List<PlatformAdminAudit> findTop10ByTargetTypeAndTargetIdOrderByPerformedAtDesc(String targetType, UUID targetId);
 }
