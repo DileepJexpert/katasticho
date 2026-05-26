@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/auth/business_capabilities.dart';
 import '../core/auth/auth_state.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/otp_screen.dart';
@@ -284,6 +285,7 @@ class Routes {
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
+  final capabilities = ref.watch(businessCapabilitiesProvider);
 
   return GoRouter(
     initialLocation: Routes.login,
@@ -351,6 +353,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         return role == 'PLATFORM_ADMIN'
             ? Routes.platformAdmin
             : Routes.caConsole;
+      }
+
+      final capabilityRedirect =
+          _capabilityRedirectForLocation(loc, capabilities);
+      if (isAuthenticated &&
+          onboardingCompleted &&
+          !isAuthRoute &&
+          !isOnboardingRoute &&
+          !isPlatformAdminRoute &&
+          capabilityRedirect != null) {
+        return capabilityRedirect;
       }
 
       return null;
@@ -1142,3 +1155,60 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+String? _capabilityRedirectForLocation(
+  String location,
+  BusinessCapabilities capabilities,
+) {
+  if ((location == Routes.pos ||
+          location == Routes.salesReceipts ||
+          location == Routes.receiptSettings) &&
+      !capabilities.canUsePos) {
+    return Routes.dashboard;
+  }
+  if ((location == Routes.salesOrders ||
+          location == Routes.salesOrderCreate ||
+          location.startsWith('/sales-orders/') ||
+          location == Routes.deliveryChallans ||
+          location == Routes.deliveryChallanCreate ||
+          location.startsWith('/delivery-challans/')) &&
+      !capabilities.canUseDistribution) {
+    return Routes.dashboard;
+  }
+  if ((location == Routes.items ||
+          location == Routes.itemCreate ||
+          location == Routes.itemImport ||
+          location.startsWith('/items/') ||
+          location == Routes.itemGroups ||
+          location.startsWith('/item-groups/') ||
+          location == Routes.stockReceipts ||
+          location == Routes.stockReceiptCreate ||
+          location.startsWith('/stock-receipts/') ||
+          location == Routes.purchaseOrders ||
+          location == Routes.purchaseOrderCreate ||
+          location.startsWith('/purchase-orders/') ||
+          location == Routes.reorder ||
+          location == Routes.shortbook ||
+          location == Routes.priceLists ||
+          location == Routes.priceListCreate ||
+          location.startsWith('/price-lists/') ||
+          location == Routes.schemes) &&
+      !capabilities.canUseInventory) {
+    return Routes.dashboard;
+  }
+  if ((location == Routes.nearExpiry) && !capabilities.canUseBatchExpiry) {
+    return Routes.dashboard;
+  }
+  if ((location == Routes.drugLicenses ||
+          location == Routes.customerIndents ||
+          location == Routes.customerIndentCreate ||
+          location.startsWith('/customer-indents/') ||
+          location.startsWith('/pharma/prescriptions/')) &&
+      !capabilities.canUsePharma) {
+    return Routes.dashboard;
+  }
+  if (location == Routes.bankReconciliation && !capabilities.canUseBankRecon) {
+    return Routes.dashboard;
+  }
+  return null;
+}

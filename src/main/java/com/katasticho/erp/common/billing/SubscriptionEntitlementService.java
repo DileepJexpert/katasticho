@@ -27,6 +27,7 @@ public class SubscriptionEntitlementService {
             ModuleCode.COLLECTIONS,
             ModuleCode.POS,
             ModuleCode.INVENTORY,
+            ModuleCode.DISTRIBUTION,
             ModuleCode.PHARMA,
             ModuleCode.MANUFACTURING,
             ModuleCode.RECURRING_BILLING,
@@ -67,6 +68,18 @@ public class SubscriptionEntitlementService {
                     ModuleCode.POS,
                     ModuleCode.INVENTORY
             ),
+            "DISTRIBUTOR", Set.of(
+                    ModuleCode.ACCOUNTING,
+                    ModuleCode.AR,
+                    ModuleCode.AP,
+                    ModuleCode.GST,
+                    ModuleCode.BANK_RECON,
+                    ModuleCode.REPORTS,
+                    ModuleCode.COLLECTIONS,
+                    ModuleCode.PAYMENTS,
+                    ModuleCode.INVENTORY,
+                    ModuleCode.DISTRIBUTION
+            ),
             "PHARMA", Set.of(
                     ModuleCode.ACCOUNTING,
                     ModuleCode.AR,
@@ -79,6 +92,47 @@ public class SubscriptionEntitlementService {
                     ModuleCode.INVENTORY,
                     ModuleCode.PHARMA,
                     ModuleCode.BATCH_EXPIRY
+            ),
+            "RETAIL_DISTRIBUTOR", Set.of(
+                    ModuleCode.ACCOUNTING,
+                    ModuleCode.AR,
+                    ModuleCode.AP,
+                    ModuleCode.GST,
+                    ModuleCode.BANK_RECON,
+                    ModuleCode.REPORTS,
+                    ModuleCode.COLLECTIONS,
+                    ModuleCode.PAYMENTS,
+                    ModuleCode.POS,
+                    ModuleCode.INVENTORY,
+                    ModuleCode.DISTRIBUTION
+            ),
+            "PHARMA_DISTRIBUTOR", Set.of(
+                    ModuleCode.ACCOUNTING,
+                    ModuleCode.AR,
+                    ModuleCode.AP,
+                    ModuleCode.GST,
+                    ModuleCode.BANK_RECON,
+                    ModuleCode.AI_INBOX,
+                    ModuleCode.REPORTS,
+                    ModuleCode.COLLECTIONS,
+                    ModuleCode.PAYMENTS,
+                    ModuleCode.INVENTORY,
+                    ModuleCode.DISTRIBUTION,
+                    ModuleCode.PHARMA,
+                    ModuleCode.BATCH_EXPIRY
+            ),
+            "MANUFACTURER_DISTRIBUTOR", Set.of(
+                    ModuleCode.ACCOUNTING,
+                    ModuleCode.AR,
+                    ModuleCode.AP,
+                    ModuleCode.GST,
+                    ModuleCode.BANK_RECON,
+                    ModuleCode.REPORTS,
+                    ModuleCode.COLLECTIONS,
+                    ModuleCode.PAYMENTS,
+                    ModuleCode.INVENTORY,
+                    ModuleCode.DISTRIBUTION,
+                    ModuleCode.MANUFACTURING
             ),
             "ENTERPRISE", ALL_MODULES
     );

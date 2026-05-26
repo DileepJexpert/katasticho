@@ -149,7 +149,10 @@ public class FeatureFlagService {
                 merged.put(ModuleCode.POS, true);
                 merged.put(ModuleCode.INVENTORY, true);
             }
-            case "DISTRIBUTOR" -> merged.put(ModuleCode.INVENTORY, true);
+            case "DISTRIBUTOR" -> {
+                merged.put(ModuleCode.INVENTORY, true);
+                merged.put(ModuleCode.DISTRIBUTION, true);
+            }
             case "MANUFACTURER" -> {
                 merged.put(ModuleCode.INVENTORY, true);
                 merged.put(ModuleCode.MANUFACTURING, true);
@@ -175,16 +178,18 @@ public class FeatureFlagService {
         flags.put(ModuleCode.REPORTS, true);
         flags.put(ModuleCode.COLLECTIONS, true);
         flags.put(ModuleCode.PAYMENTS, true);
-        // All modules default to enabled. The org owner/admin always has access
-        // to every module; subscription/plan-based gating is a future concern.
-        // Industry/sub-category only seeds fine-grained UX flags below.
-        flags.put(ModuleCode.POS, true);
-        flags.put(ModuleCode.INVENTORY, true);
-        flags.put(ModuleCode.PHARMA, true);
-        flags.put(ModuleCode.MANUFACTURING, true);
+        // Strategic operational modules start disabled and are composed in
+        // from business templates / subcategory defaults. This keeps the
+        // shared finance core universal while making vertical packaging
+        // meaningful for new orgs and reset-to-default flows.
+        flags.put(ModuleCode.POS, false);
+        flags.put(ModuleCode.INVENTORY, false);
+        flags.put(ModuleCode.DISTRIBUTION, false);
+        flags.put(ModuleCode.PHARMA, false);
+        flags.put(ModuleCode.MANUFACTURING, false);
         flags.put(ModuleCode.RECURRING_BILLING, true);
         flags.put(ModuleCode.MULTI_ENTITY, true);
-        flags.put(ModuleCode.BATCH_EXPIRY, true);
+        flags.put(ModuleCode.BATCH_EXPIRY, false);
         flags.put(ModuleCode.CA_CONSOLE, false);
         flags.put("BATCH_TRACKING", false);
         flags.put("EXPIRY_TRACKING", false);
@@ -205,12 +210,24 @@ public class FeatureFlagService {
         if (code == null) return flags;
         switch (code) {
             case "ACCOUNTING_FIRM", "FINANCE_ERP", "SERVICE_BUSINESS" -> { }
-            case "TRADING", "KIRANA", "OTHER_RETAIL", "RETAIL", "RETAILER", "DISTRIBUTOR" -> {
+            case "KIRANA", "OTHER_RETAIL", "RETAIL", "RETAILER" -> {
                 flags.put(ModuleCode.POS, true); flags.put(ModuleCode.INVENTORY, true);
+            }
+            case "TRADING", "DISTRIBUTOR", "TRADING_DISTRIBUTOR", "WHOLESALE", "WHOLESALE_DISTRIBUTOR" -> {
+                flags.put(ModuleCode.INVENTORY, true);
+                flags.put(ModuleCode.DISTRIBUTION, true);
             }
             case "PHARMACY", "AYURVEDIC", "ALLOPATHIC_MEDICINE", "AYURVEDIC_HERBAL",
                  "SINGLE_MEDICAL_STORE", "MEDICAL_SHOP_CHAIN" -> {
                 flags.put(ModuleCode.INVENTORY, true); flags.put(ModuleCode.PHARMA, true);
+                flags.put(ModuleCode.BATCH_EXPIRY, true);
+                flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
+                flags.put("MRP_PRICING", true); flags.put("DRUG_SCHEDULE_FIELDS", true);
+            }
+            case "PHARMA_DISTRIBUTOR", "MEDICAL_DISTRIBUTOR", "ALLOPATHIC_DISTRIBUTOR" -> {
+                flags.put(ModuleCode.INVENTORY, true);
+                flags.put(ModuleCode.DISTRIBUTION, true);
+                flags.put(ModuleCode.PHARMA, true);
                 flags.put(ModuleCode.BATCH_EXPIRY, true);
                 flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
                 flags.put("MRP_PRICING", true); flags.put("DRUG_SCHEDULE_FIELDS", true);
@@ -243,6 +260,13 @@ public class FeatureFlagService {
             case "PHARMA_MANUFACTURER", "ALLOPATHIC_MANUFACTURER" -> {
                 flags.put(ModuleCode.INVENTORY, true); flags.put(ModuleCode.PHARMA, true);
                 flags.put(ModuleCode.MANUFACTURING, true); flags.put(ModuleCode.BATCH_EXPIRY, true);
+                flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
+                flags.put("BOM_ASSEMBLY", true); flags.put("DRUG_SCHEDULE_FIELDS", true);
+            }
+            case "PHARMA_MANUFACTURER_DISTRIBUTOR", "ALLOPATHIC_MANUFACTURER_DISTRIBUTOR" -> {
+                flags.put(ModuleCode.INVENTORY, true); flags.put(ModuleCode.PHARMA, true);
+                flags.put(ModuleCode.MANUFACTURING, true); flags.put(ModuleCode.DISTRIBUTION, true);
+                flags.put(ModuleCode.BATCH_EXPIRY, true);
                 flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
                 flags.put("BOM_ASSEMBLY", true); flags.put("DRUG_SCHEDULE_FIELDS", true);
             }

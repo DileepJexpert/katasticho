@@ -2,6 +2,8 @@ package com.katasticho.erp.common.controller;
 
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.entity.OrgFeatureFlag;
+import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.service.FeatureFlagService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 
@@ -18,6 +21,16 @@ import java.util.UUID;
 @RequestMapping("/api/v1/settings/features")
 @RequiredArgsConstructor
 public class FeatureFlagController {
+
+    private static final Set<String> ENTITLEMENT_MANAGED_FEATURES = Set.of(
+            ModuleCode.POS,
+            ModuleCode.INVENTORY,
+            ModuleCode.DISTRIBUTION,
+            ModuleCode.PHARMA,
+            ModuleCode.MANUFACTURING,
+            ModuleCode.BATCH_EXPIRY,
+            ModuleCode.CA_CONSOLE
+    );
 
     private final FeatureFlagService featureFlagService;
     private final OrganisationRepository organisationRepository;
@@ -42,6 +55,13 @@ public class FeatureFlagController {
             @PathVariable String feature,
             @RequestBody Map<String, Boolean> body) {
         UUID orgId = TenantContext.getCurrentOrgId();
+        if (ENTITLEMENT_MANAGED_FEATURES.contains(feature)) {
+            throw new BusinessException(
+                    "This feature is managed by subscription and business configuration: " + feature,
+                    "FEATURE_MANAGED_BY_ENTITLEMENT",
+                    org.springframework.http.HttpStatus.FORBIDDEN
+            );
+        }
         boolean enabled = Boolean.TRUE.equals(body.get("enabled"));
 
         if (enabled) {

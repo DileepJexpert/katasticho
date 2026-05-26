@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api/api_client.dart';
+import '../core/auth/business_capabilities.dart';
 import '../core/auth/auth_state.dart';
 import '../core/commands/command_registry.dart';
 import '../core/shell/shell_providers.dart';
@@ -34,7 +35,7 @@ class NavItem {
 }
 
 // ── Top-level nav items used by compact tablet/mobile shells ──
-const _topNavItems = [
+const _baseTopNavItems = [
   NavItem(
     label: 'Dashboard',
     icon: Icons.dashboard_outlined,
@@ -413,7 +414,7 @@ const _allGroups = [
 
 /// Flat list of every route across top-level items and groups (for active-state matching).
 List<NavItem> get _allNavItems => [
-      ..._topNavItems,
+      ..._baseTopNavItems,
       for (final g in _allGroups) ...g.children,
     ];
 
@@ -508,6 +509,7 @@ class _DesktopShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final capabilities = ref.watch(businessCapabilitiesProvider);
     final collapsed = ref.watch(sidebarCollapsedProvider);
     final notifCount = ref.watch(unreadCountProvider).valueOrNull ?? 0;
 
@@ -635,6 +637,7 @@ class _DesktopShell extends ConsumerWidget {
                                       collapsed: collapsed,
                                       role: authState.role?.toUpperCase() ??
                                           'OWNER',
+                                      capabilities: capabilities,
                                     ),
                                   ),
                                 ),
@@ -781,6 +784,7 @@ class _DesktopShell extends ConsumerWidget {
 List<Widget> _buildSidebarSections({
   required bool collapsed,
   required String role,
+  required BusinessCapabilities capabilities,
 }) {
   final isCaUser = role == 'CA_PARTNER' || role == 'CA_STAFF';
   if (isCaUser) {
@@ -818,29 +822,108 @@ List<Widget> _buildSidebarSections({
   final canAccounting = canManage || role == 'ACCOUNTANT';
   final isOperator = role == 'OPERATOR';
   final isViewer = role == 'VIEWER';
+  final salesGroup = _visibleGroup(_salesGroup, capabilities);
+  final purchasesGroup = _visibleGroup(_purchasesGroup, capabilities);
+  final inventoryGroup = _visibleGroup(_inventoryGroup, capabilities);
+  final bankingGroup = _visibleGroup(_bankingGroup, capabilities);
+  final accountingGroup = _visibleGroup(_accountingGroup, capabilities);
+  final reportsGroup = _visibleGroup(_reportsGroup, capabilities);
 
   return [
     _SidebarNavItem(item: _dashboardNavItem, collapsed: collapsed),
-    if (!isViewer)
+    if (!isViewer && capabilities.canUseAiInbox)
       _SidebarNavItem(item: _aiCommandCenterNavItem, collapsed: collapsed),
-    if (!isViewer) _SidebarNavItem(item: _posNavItem, collapsed: collapsed),
+    if (!isViewer && capabilities.canUsePos)
+      _SidebarNavItem(item: _posNavItem, collapsed: collapsed),
     KSpacing.vGapSm,
-    if (!isViewer) _SidebarNavGroup(group: _salesGroup, collapsed: collapsed),
+    if (!isViewer && salesGroup != null)
+      _SidebarNavGroup(group: salesGroup, collapsed: collapsed),
     if (canAccounting) ...[
-      _SidebarNavGroup(group: _purchasesGroup, collapsed: collapsed),
-      _SidebarNavGroup(group: _inventoryGroup, collapsed: collapsed),
-      _SidebarNavGroup(group: _bankingGroup, collapsed: collapsed),
-      _SidebarNavGroup(group: _accountingGroup, collapsed: collapsed),
+      if (purchasesGroup != null)
+        _SidebarNavGroup(group: purchasesGroup, collapsed: collapsed),
+      if (inventoryGroup != null)
+        _SidebarNavGroup(group: inventoryGroup, collapsed: collapsed),
+      if (bankingGroup != null)
+        _SidebarNavGroup(group: bankingGroup, collapsed: collapsed),
+      if (accountingGroup != null)
+        _SidebarNavGroup(group: accountingGroup, collapsed: collapsed),
     ],
-    if (!isViewer)
-      _SidebarNavGroup(group: _inventoryGroup, collapsed: collapsed),
-    if (canAccounting)
-      _SidebarNavGroup(group: _reportsGroup, collapsed: collapsed),
+    if (!isViewer && !canAccounting && inventoryGroup != null)
+      _SidebarNavGroup(group: inventoryGroup, collapsed: collapsed),
+    if (canAccounting && reportsGroup != null)
+      _SidebarNavGroup(group: reportsGroup, collapsed: collapsed),
     KSpacing.vGapSm,
     if (!isOperator && !isViewer)
       _SidebarNavItem(item: _contactsNavItem, collapsed: collapsed),
     _SidebarNavItem(item: _settingsNavItem, collapsed: collapsed),
   ];
+}
+
+NavGroup? _visibleGroup(NavGroup group, BusinessCapabilities capabilities) {
+  final visibleChildren = group.children
+      .where((item) => _isNavItemVisible(item.route, capabilities))
+      .toList(growable: false);
+  if (visibleChildren.isEmpty) return null;
+  return NavGroup(
+    label: group.label,
+    icon: group.icon,
+    activeIcon: group.activeIcon,
+    children: visibleChildren,
+  );
+}
+
+bool _isNavItemVisible(String route, BusinessCapabilities capabilities) {
+  if (route == Routes.aiChat) return capabilities.canUseAiInbox;
+  if (route == Routes.pos ||
+      route == Routes.salesReceipts ||
+      route == Routes.receiptSettings) {
+    return capabilities.canUsePos;
+  }
+  if (route == Routes.salesOrders || route == Routes.deliveryChallans) {
+    return capabilities.canUseDistribution;
+  }
+  if (route == Routes.customerIndents ||
+      route == Routes.drugLicenses ||
+      route == Routes.prescriptionHistory) {
+    return capabilities.canUsePharma;
+  }
+  if (route == Routes.nearExpiry) return capabilities.canUseBatchExpiry;
+  if (route == Routes.stockReceipts ||
+      route == Routes.purchaseOrders ||
+      route == Routes.items ||
+      route == Routes.itemGroups ||
+      route == Routes.reorder ||
+      route == Routes.shortbook ||
+      route == Routes.priceLists ||
+      route == Routes.schemes ||
+      route == Routes.itemImport ||
+      route == '/reports/operational/stock-summary' ||
+      route == '/reports/operational/stock-movement') {
+    return capabilities.canUseInventory;
+  }
+  if (route == Routes.bankReconciliation) return capabilities.canUseBankRecon;
+  if (route == '/accounting/dashboard' ||
+      route == Routes.guidedTransactionCreate ||
+      route == Routes.chartOfAccounts ||
+      route == Routes.journalEntries ||
+      route == Routes.creditLedger ||
+      route == Routes.periodClose ||
+      route == Routes.gst) {
+    return capabilities.canUseAccounting;
+  }
+  if (route == Routes.reports ||
+      route == Routes.trialBalance ||
+      route == Routes.profitLoss ||
+      route == Routes.balanceSheet ||
+      route == Routes.generalLedger ||
+      route == Routes.ageingReport ||
+      route == Routes.apAgeingReport ||
+      route == '/reports/operational/sales-register' ||
+      route == '/reports/operational/purchase-register' ||
+      route == '/reports/operational/daily-sales') {
+    return capabilities.canUseReports;
+  }
+  return true;
 }
 
 /// Longest-prefix match across all nav items. Prevents `Items` (/items)
@@ -1137,9 +1220,11 @@ class _TabletShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentRoute = GoRouterState.of(context).matchedLocation;
+    final capabilities = ref.watch(businessCapabilitiesProvider);
+    final topNavItems = _buildTopNavItems(capabilities);
     final notifCount = ref.watch(unreadCountProvider).valueOrNull ?? 0;
 
-    int selectedIndex = _topNavItems.indexWhere(
+    int selectedIndex = topNavItems.indexWhere(
       (item) =>
           currentRoute == item.route ||
           (item.route != '/' && currentRoute.startsWith(item.route)),
@@ -1170,7 +1255,7 @@ class _TabletShell extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           onDestinationSelected: (index) {
-                            context.go(_topNavItems[index].route);
+                            context.go(topNavItems[index].route);
                           },
                           labelType: NavigationRailLabelType.all,
                           leading: const Padding(
@@ -1181,7 +1266,7 @@ class _TabletShell extends ConsumerWidget {
                             padding: EdgeInsets.only(bottom: 12),
                             child: ThemeModeIconButton(),
                           ),
-                          destinations: _topNavItems
+                          destinations: topNavItems
                               .map(
                                 (item) => NavigationRailDestination(
                                   icon: Icon(item.icon),
@@ -1211,16 +1296,18 @@ class _TabletShell extends ConsumerWidget {
 
 // ── Mobile: Bottom navigation bar ────────────────────────────────────
 
-class _MobileShell extends StatelessWidget {
+class _MobileShell extends ConsumerWidget {
   final Widget child;
 
   const _MobileShell({required this.child});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final currentRoute = GoRouterState.of(context).matchedLocation;
+    final capabilities = ref.watch(businessCapabilitiesProvider);
+    final topNavItems = _buildTopNavItems(capabilities);
 
-    int selectedIndex = _topNavItems.indexWhere(
+    int selectedIndex = topNavItems.indexWhere(
       (item) =>
           currentRoute == item.route ||
           (item.route != '/' && currentRoute.startsWith(item.route)),
@@ -1232,9 +1319,9 @@ class _MobileShell extends StatelessWidget {
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: (index) {
-          context.go(_topNavItems[index].route);
+          context.go(topNavItems[index].route);
         },
-        destinations: _topNavItems
+        destinations: topNavItems
             .map((item) => NavigationDestination(
                   icon: Icon(item.icon),
                   selectedIcon: Icon(item.activeIcon),
@@ -1244,6 +1331,16 @@ class _MobileShell extends StatelessWidget {
       ),
     );
   }
+}
+
+List<NavItem> _buildTopNavItems(BusinessCapabilities capabilities) {
+  return [
+    _dashboardNavItem,
+    if (capabilities.canUseAiInbox) _aiCommandCenterNavItem,
+    if (capabilities.canUsePos) _posNavItem,
+    _contactsNavItem,
+    _settingsNavItem,
+  ];
 }
 
 // ── Org Switcher ──────────────────────────────────────────────────────

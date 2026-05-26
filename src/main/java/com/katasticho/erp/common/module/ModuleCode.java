@@ -14,6 +14,7 @@ public final class ModuleCode {
     public static final String COLLECTIONS = "COLLECTIONS";
     public static final String POS = "POS";
     public static final String INVENTORY = "INVENTORY";
+    public static final String DISTRIBUTION = "DISTRIBUTION";
     public static final String PHARMA = "PHARMA";
     public static final String MANUFACTURING = "MANUFACTURING";
     public static final String RECURRING_BILLING = "RECURRING_BILLING";
