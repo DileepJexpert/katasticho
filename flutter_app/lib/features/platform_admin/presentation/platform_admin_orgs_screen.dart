@@ -16,6 +16,18 @@ class PlatformAdminOrgsScreen extends ConsumerStatefulWidget {
 
 class _PlatformAdminOrgsScreenState
     extends ConsumerState<PlatformAdminOrgsScreen> {
+  static const _planOptions = [
+    'BASIC',
+    'FINANCE_PRO',
+    'RETAIL',
+    'DISTRIBUTOR',
+    'PHARMA',
+    'RETAIL_DISTRIBUTOR',
+    'PHARMA_DISTRIBUTOR',
+    'MANUFACTURER_DISTRIBUTOR',
+    'ENTERPRISE',
+  ];
+
   final _searchController = TextEditingController();
   String _statusFilter = 'ALL';
   late Future<List<Map<String, dynamic>>> _future;
@@ -75,12 +87,20 @@ class _PlatformAdminOrgsScreenState
               _buildDetailRow('Email', org['ownerEmail']?.toString()),
               _buildDetailRow('Phone', org['ownerPhone']?.toString()),
               _buildDetailRow('Industry', org['industry']?.toString()),
+              _buildDetailRow('Plan', org['planTier']?.toString()),
               _buildDetailRow('Created', org['createdAt']?.toString()),
               KSpacing.vGapLg,
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
+                  OutlinedButton(
+                    onPressed: () async {
+                      Navigator.of(context).pop();
+                      await _changePlan(org);
+                    },
+                    child: const Text('Change Plan'),
+                  ),
                   if (status == 'PENDING') ...[
                     FilledButton(
                       onPressed: () async {
@@ -225,6 +245,72 @@ class _PlatformAdminOrgsScreenState
     await ref
         .read(platformAdminRepositoryProvider)
         .suspendOrg(orgId, reason);
+    _refresh();
+  }
+
+  Future<void> _changePlan(Map<String, dynamic> org) async {
+    String selectedPlan = (org['planTier']?.toString().isNotEmpty ?? false)
+        ? org['planTier'].toString().toUpperCase()
+        : 'RETAIL';
+    final noteController = TextEditingController();
+    final plan = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: const Text('Change Organisation Plan'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DropdownButtonFormField<String>(
+                value: _planOptions.contains(selectedPlan) ? selectedPlan : 'RETAIL',
+                decoration: const InputDecoration(labelText: 'Plan Tier'),
+                items: _planOptions
+                    .map((plan) => DropdownMenuItem(
+                          value: plan,
+                          child: Text(plan.replaceAll('_', ' ')),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setModalState(() => selectedPlan = value);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: noteController,
+                decoration: const InputDecoration(
+                  labelText: 'Note',
+                  hintText: 'Reason or internal note',
+                ),
+                maxLines: 3,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(selectedPlan),
+              child: const Text('Update Plan'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (plan == null) {
+      noteController.dispose();
+      return;
+    }
+    await ref.read(platformAdminRepositoryProvider).updateOrgPlan(
+          org['id'].toString(),
+          plan,
+          note: noteController.text.trim(),
+        );
+    noteController.dispose();
     _refresh();
   }
 

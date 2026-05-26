@@ -44,9 +44,9 @@ class PlatformAdminRepository {
 
   // ── Token helpers ──
 
-  static final FlutterSecureStorage? _secureStorage = kIsWeb
+  static const FlutterSecureStorage? _secureStorage = kIsWeb
       ? null
-      : const FlutterSecureStorage(
+      : FlutterSecureStorage(
           aOptions: AndroidOptions(encryptedSharedPreferences: true),
         );
 
@@ -166,6 +166,17 @@ class PlatformAdminRepository {
   /// Reactivate org.
   Future<void> reactivateOrg(String orgId) async {
     await _adminDio.post(ApiConfig.platformAdminReactivateOrg(orgId));
+  }
+
+  /// Update organisation plan tier.
+  Future<void> updateOrgPlan(String orgId, String planTier, {String? note}) async {
+    await _adminDio.put(
+      ApiConfig.platformAdminUpdateOrgPlan(orgId),
+      data: {
+        'planTier': planTier,
+        if (note != null && note.isNotEmpty) 'note': note,
+      },
+    );
   }
 
   /// List all users (v2 API).

@@ -298,6 +298,8 @@ class ApiConfig {
       '/api/platform-admin/v1/orgs/$orgId/suspend';
   static String platformAdminReactivateOrg(String orgId) =>
       '/api/platform-admin/v1/orgs/$orgId/reactivate';
+  static String platformAdminUpdateOrgPlan(String orgId) =>
+      '/api/platform-admin/v1/orgs/$orgId/plan';
   static const String platformAdminUsersV2 = '/api/platform-admin/v1/users';
   static String platformAdminUserDetailV2(String userId) =>
       '/api/platform-admin/v1/users/$userId';

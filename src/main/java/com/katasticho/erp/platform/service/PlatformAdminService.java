@@ -10,6 +10,7 @@ import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.platform.context.PlatformAdminContext;
 import com.katasticho.erp.platform.dto.PlatformApprovalRequest;
 import com.katasticho.erp.platform.dto.PlatformOrgResponse;
+import com.katasticho.erp.platform.dto.PlatformPlanUpdateRequest;
 import com.katasticho.erp.platform.dto.PlatformPasswordResetRequest;
 import com.katasticho.erp.platform.dto.PlatformUserResponse;
 import com.katasticho.erp.platform.entity.PlatformAdminAudit;
@@ -161,6 +162,31 @@ public class PlatformAdminService {
                 "{\"approvalStatus\":\"APPROVED\"}");
 
         logPlatformAdminAudit("REACTIVATE_ORG", "ORGANISATION", org.getId(), org.getName(), null, null);
+
+        return PlatformOrgResponse.from(org);
+    }
+
+    @Transactional
+    public PlatformOrgResponse updateOrgPlan(UUID orgId, PlatformPlanUpdateRequest request) {
+        if (request == null || isBlank(request.planTier())) {
+            throw new BusinessException("Plan tier is required",
+                    "PLAN_TIER_REQUIRED", HttpStatus.BAD_REQUEST);
+        }
+        Organisation org = organisationRepository.findById(orgId)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
+        String oldPlan = org.getPlanTier();
+        String newPlan = request.planTier().trim().toUpperCase();
+        org.setPlanTier(newPlan);
+        org = organisationRepository.save(org);
+
+        auditService.logSync(org.getId(), null, "ORGANISATION", org.getId(),
+                "UPDATE_PLAN_TIER",
+                "{\"planTier\":\"" + safeJson(oldPlan) + "\"}",
+                "{\"planTier\":\"" + safeJson(newPlan) + "\"}");
+
+        logPlatformAdminAudit("UPDATE_ORG_PLAN", "ORGANISATION", org.getId(), org.getName(),
+                request.note(), "{\"oldPlan\":\"" + safeJson(oldPlan) +
+                        "\",\"newPlan\":\"" + safeJson(newPlan) + "\"}");
 
         return PlatformOrgResponse.from(org);
     }

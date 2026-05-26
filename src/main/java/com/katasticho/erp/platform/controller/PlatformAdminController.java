@@ -4,6 +4,7 @@ import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.platform.context.PlatformAdminContext;
 import com.katasticho.erp.platform.dto.PlatformApprovalRequest;
 import com.katasticho.erp.platform.dto.PlatformOrgResponse;
+import com.katasticho.erp.platform.dto.PlatformPlanUpdateRequest;
 import com.katasticho.erp.platform.dto.PlatformPasswordResetRequest;
 import com.katasticho.erp.platform.dto.PlatformUserResponse;
 import com.katasticho.erp.platform.entity.PlatformAdminAudit;
@@ -74,6 +75,16 @@ public class PlatformAdminController {
         return ResponseEntity.ok(ApiResponse.ok(
                 platformAdminService.reactivateOrg(orgId, adminId),
                 "Organisation reactivated"));
+    }
+
+    @PutMapping("/orgs/{orgId}/plan")
+    public ResponseEntity<ApiResponse<PlatformOrgResponse>> updatePlan(
+            @PathVariable UUID orgId,
+            @RequestBody PlatformPlanUpdateRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                platformAdminService.updateOrgPlan(orgId, request),
+                "Organisation plan updated"));
     }
 
     @PostMapping("/users/{userId}/reset-password")
