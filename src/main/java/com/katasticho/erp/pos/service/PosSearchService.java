@@ -171,6 +171,8 @@ public class PosSearchService {
                     item.getPurchasePrice() != null ? item.getPurchasePrice().doubleValue() : 0);
 
             UUID effectiveTaxGroupId = resolvedTaxGroupIds.get(item.getId());
+            UUID rackLocationId = item.getRackLocationId();
+            String rackCode = rackLocationId != null ? rackCodes.get(rackLocationId) : null;
 
             return new PosSearchResult(
                     item.getId(),
@@ -196,7 +198,7 @@ public class PosSearchService {
                     item.getDrugSchedule(),
                     item.getComposition(),
                     item.getManufacturer(),
-                    rackCodes.get(item.getRackLocationId()));
+                    rackCode);
         }).toList();
     }
 
