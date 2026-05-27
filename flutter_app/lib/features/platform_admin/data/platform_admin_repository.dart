@@ -130,7 +130,7 @@ class PlatformAdminRepository {
       ApiConfig.platformAdminOrgsV2,
       queryParameters: {
         if (status != null) 'status': status,
-        if (search != null && search.isNotEmpty) 'search': search,
+        if (search != null && search.isNotEmpty) 'query': search,
         if (page != null) 'page': page,
         if (size != null) 'size': size,
       },

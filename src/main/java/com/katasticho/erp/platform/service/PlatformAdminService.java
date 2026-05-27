@@ -69,7 +69,7 @@ public class PlatformAdminService {
 
     public List<PlatformOrgResponse> listOrganisations(String status, String query) {
         String normalizedStatus = isBlank(status) ? null : status.trim().toUpperCase();
-        String normalizedQuery = isBlank(query) ? null : query.trim();
+        String normalizedQuery = isBlank(query) ? null : query.trim().toLowerCase();
         return organisationRepository.searchForPlatformAdmin(normalizedStatus, normalizedQuery)
                 .stream()
                 .map(PlatformOrgResponse::from)

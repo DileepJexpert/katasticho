@@ -22,9 +22,9 @@ public interface OrganisationRepository extends JpaRepository<Organisation, UUID
             select o from Organisation o
             where o.isDeleted = false
               and (:status is null or o.approvalStatus = :status)
-              and (:query is null or lower(o.name) like lower(concat('%', :query, '%'))
-                   or lower(coalesce(o.phone, '')) like lower(concat('%', :query, '%'))
-                   or lower(coalesce(o.email, '')) like lower(concat('%', :query, '%')))
+              and (:query is null or lower(o.name) like concat('%', :query, '%')
+                   or lower(coalesce(o.phone, '')) like concat('%', :query, '%')
+                   or lower(coalesce(o.email, '')) like concat('%', :query, '%'))
             order by o.createdAt desc
             """)
     List<Organisation> searchForPlatformAdmin(@Param("status") String status, @Param("query") String query);
