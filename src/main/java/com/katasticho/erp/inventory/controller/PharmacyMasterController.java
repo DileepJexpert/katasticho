@@ -41,7 +41,7 @@ public class PharmacyMasterController {
 
     @GetMapping("/rack-locations")
     public ResponseEntity<ApiResponse<List<RackLocationResponse>>> rackLocations(
-            @RequestParam UUID warehouseId) {
+            @RequestParam(required = false) UUID warehouseId) {
         return ResponseEntity.ok(ApiResponse.ok(service.rackLocations(warehouseId)));
     }
 
@@ -49,6 +49,11 @@ public class PharmacyMasterController {
     public ResponseEntity<ApiResponse<RackLocationResponse>> createRackLocation(
             @Valid @RequestBody RackLocationRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(service.createRackLocation(request), "Rack location saved"));
+    }
+
+    @PostMapping("/rack-locations/seed-demo")
+    public ResponseEntity<ApiResponse<List<RackLocationResponse>>> seedDemoRackLocations() {
+        return ResponseEntity.ok(ApiResponse.ok(service.seedDemoRackLocations(), "Demo rack layout loaded"));
     }
 
     @GetMapping("/substitutions")

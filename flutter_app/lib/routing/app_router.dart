@@ -65,6 +65,7 @@ import '../features/inventory/presentation/item_group_list_screen.dart';
 import '../features/inventory/presentation/item_group_create_screen.dart';
 import '../features/inventory/presentation/item_group_detail_screen.dart';
 import '../features/inventory/presentation/generate_variants_screen.dart';
+import '../features/inventory/presentation/rack_locations_screen.dart';
 import '../features/procurement/presentation/stock_receipt_list_screen.dart';
 import '../features/procurement/presentation/stock_receipt_create_screen.dart';
 import '../features/procurement/presentation/stock_receipt_detail_screen.dart';
@@ -161,6 +162,7 @@ class Routes {
   static const items = '/items';
   static const itemCreate = '/items/create';
   static const itemImport = '/items/import';
+  static const rackLocations = '/inventory/rack-locations';
   static const itemDetail = '/items/:id';
   static const itemGroups = '/item-groups';
   static const itemGroupCreate = '/item-groups/create';
@@ -799,6 +801,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ItemImportScreen(),
           ),
           GoRoute(
+            path: Routes.rackLocations,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RackLocationsScreen(),
+            ),
+          ),
+          GoRoute(
             path: '/items/:id',
             builder: (context, state) => ItemDetailScreen(
               itemId: state.pathParameters['id']!,
@@ -1185,6 +1193,7 @@ String? _capabilityRedirectForLocation(
   if ((location == Routes.items ||
           location == Routes.itemCreate ||
           location == Routes.itemImport ||
+          location == Routes.rackLocations ||
           location.startsWith('/items/') ||
           location == Routes.itemGroups ||
           location.startsWith('/item-groups/') ||

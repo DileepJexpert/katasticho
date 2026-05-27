@@ -487,6 +487,8 @@ class ApiConfig {
   static String hsnGstByCode(String code) =>
       '/api/v1/pharmacy-masters/hsn/$code';
   static const String rackLocations = '/api/v1/pharmacy-masters/rack-locations';
+  static const String rackLocationsSeedDemo =
+      '/api/v1/pharmacy-masters/rack-locations/seed-demo';
   static const String genericSubstitutions =
       '/api/v1/pharmacy-masters/substitutions';
   static const String drugInteractionCheck =

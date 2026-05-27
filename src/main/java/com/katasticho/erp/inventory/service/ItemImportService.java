@@ -13,9 +13,11 @@ import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.entity.ItemType;
 import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.ReferenceType;
+import com.katasticho.erp.inventory.entity.RackLocation;
 import com.katasticho.erp.inventory.entity.StockBatch;
 import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.RackLocationRepository;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import lombok.RequiredArgsConstructor;
@@ -98,12 +100,13 @@ public class ItemImportService {
     private final AccountingPostingEngine postingEngine;
     private final DefaultAccountService defaultAccountService;
     private final PlatformTransactionManager transactionManager;
+    private final RackLocationRepository rackLocationRepository;
 
     public static final String TEMPLATE_HEADER =
             "sku,name,description,item_type,category,brand,hsn_code,"
             + "unit_of_measure,purchase_price,sale_price,mrp,gst_rate,"
             + "reorder_level,reorder_quantity,opening_stock,"
-            + "barcode,manufacturer,batch_number,mfg_date,expiry_date";
+            + "barcode,manufacturer,rack_location_code,batch_number,mfg_date,expiry_date";
 
     /**
      * Dry-run validator — parse the file, validate every row, return a
@@ -173,6 +176,16 @@ public class ItemImportService {
 
             try {
                 tx.executeWithoutResult(status -> {
+                    if (p.rackLocationCode != null && !p.rackLocationCode.isBlank()) {
+                        RackLocation rack = rackLocationRepository
+                                .findByOrgIdAndWarehouseIdAndCodeIgnoreCaseAndIsDeletedFalse(
+                                        orgId, defaultWarehouse.getId(), p.rackLocationCode.trim())
+                                .orElseThrow(() -> new BusinessException(
+                                        "Rack code not found in default warehouse: " + p.rackLocationCode,
+                                        "IMPORT_RACK_NOT_FOUND", HttpStatus.BAD_REQUEST));
+                        p.itemTemplate.setRackLocationId(rack.getId());
+                    }
+
                     Item saved = itemRepository.save(p.itemTemplate);
 
                     if (p.batchNumber != null && !p.batchNumber.isBlank()) {
@@ -331,6 +344,7 @@ public class ItemImportService {
 
             String barcode = get(row, "barcode");
             String manufacturer = get(row, "manufacturer");
+            String rackLocationCode = get(row, "rack_location_code");
             String batchNumber = get(row, "batch_number");
             LocalDate mfgDate = null;
             LocalDate expiryDate = null;
@@ -394,7 +408,7 @@ public class ItemImportService {
                     null);
 
             out.add(new ParsedRow(preview, item, openingStock, trackInventory,
-                    batchNumber, mfgDate, expiryDate));
+                    rackLocationCode, batchNumber, mfgDate, expiryDate));
         }
 
         return out;
@@ -431,6 +445,7 @@ public class ItemImportService {
             Item itemTemplate,
             BigDecimal openingStock,
             boolean trackInventory,
+            String rackLocationCode,
             String batchNumber,
             LocalDate mfgDate,
             LocalDate expiryDate
@@ -446,6 +461,7 @@ public class ItemImportService {
                     null,
                     null,
                     false,
+                    null,
                     null,
                     null,
                     null);

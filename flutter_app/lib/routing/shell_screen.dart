@@ -266,6 +266,11 @@ const _inventoryGroup = NavGroup(
         activeIcon: Icons.timer_rounded,
         route: Routes.nearExpiry),
     NavItem(
+        label: 'Rack Locations',
+        icon: Icons.grid_view_outlined,
+        activeIcon: Icons.grid_view_rounded,
+        route: Routes.rackLocations),
+    NavItem(
         label: 'Goods Receipts',
         icon: Icons.local_shipping_outlined,
         activeIcon: Icons.local_shipping_rounded,
@@ -891,6 +896,7 @@ bool _isNavItemVisible(String route, BusinessCapabilities capabilities) {
   if (route == Routes.stockReceipts ||
       route == Routes.purchaseOrders ||
       route == Routes.items ||
+      route == Routes.rackLocations ||
       route == Routes.itemGroups ||
       route == Routes.reorder ||
       route == Routes.shortbook ||

@@ -86,6 +86,48 @@ public class PharmacyMasterService {
         return toRack(rackRepository.save(rack));
     }
 
+    @Transactional
+    public List<RackLocationResponse> seedDemoRackLocations() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Warehouse warehouse = warehouseRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
+                .orElseThrow(() -> new BusinessException(
+                        "No default warehouse configured for demo rack layout",
+                        "RACK_DEMO_NO_DEFAULT_WAREHOUSE", HttpStatus.BAD_REQUEST));
+
+        List<RackLocationRequest> demoRacks = List.of(
+                new RackLocationRequest(warehouse.getId(), "A1-01", "Fast-moving tablets", "Tablets", "A1", "1", "1"),
+                new RackLocationRequest(warehouse.getId(), "A1-02", "Secondary tablets", "Tablets", "A1", "2", "1"),
+                new RackLocationRequest(warehouse.getId(), "B1-01", "Capsules", "Capsules", "B1", "1", "1"),
+                new RackLocationRequest(warehouse.getId(), "B2-01", "Syrups and bottles", "Liquids", "B2", "1", "1"),
+                new RackLocationRequest(warehouse.getId(), "C1-01", "Injections", "Injectables", "C1", "1", "1"),
+                new RackLocationRequest(warehouse.getId(), "D1-01", "Surgical and devices", "Surgical", "D1", "1", "1"),
+                new RackLocationRequest(warehouse.getId(), "FRZ-01", "Cold chain fridge", "ColdChain", "FRZ", "1", "1"),
+                new RackLocationRequest(warehouse.getId(), "OTC-01", "Front counter OTC", "OTC", "OTC", "1", "1")
+        );
+
+        List<RackLocationResponse> createdOrExisting = new ArrayList<>();
+        for (RackLocationRequest request : demoRacks) {
+            RackLocation rack = rackRepository.findByOrgIdAndWarehouseIdAndCodeIgnoreCaseAndIsDeletedFalse(
+                            orgId, request.warehouseId(), request.code().trim())
+                    .orElseGet(() -> {
+                        RackLocation newRack = new RackLocation();
+                        newRack.setWarehouseId(request.warehouseId());
+                        newRack.setCode(request.code().trim().toUpperCase());
+                        newRack.setName(blankToNull(request.name()));
+                        newRack.setZone(blankToNull(request.zone()));
+                        newRack.setAisle(blankToNull(request.aisle()));
+                        newRack.setShelf(blankToNull(request.shelf()));
+                        newRack.setBin(blankToNull(request.bin()));
+                        return rackRepository.save(newRack);
+                    });
+            createdOrExisting.add(toRack(rack));
+        }
+
+        return createdOrExisting.stream()
+                .sorted(Comparator.comparing(RackLocationResponse::code))
+                .toList();
+    }
+
     public List<GenericSubstitutionResponse> substitutions(UUID drugMasterId) {
         List<GenericSubstitution> rows =
                 substitutionRepository.findByDrugMasterIdAndActiveTrueOrderByEstimatedSavingsDesc(drugMasterId);

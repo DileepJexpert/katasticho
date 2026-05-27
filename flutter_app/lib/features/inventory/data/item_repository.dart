@@ -82,6 +82,54 @@ class ItemRepository {
         .toList();
   }
 
+  Future<List<Map<String, dynamic>>> listRackLocationsForWarehouse(
+    String? warehouseId,
+  ) async {
+    final response = await _api.get(
+      ApiConfig.rackLocations,
+      queryParameters: {
+        if (warehouseId != null && warehouseId.isNotEmpty)
+          'warehouseId': warehouseId,
+      },
+    );
+    final raw = response.data as Map<String, dynamic>;
+    final data = raw['data'] ?? raw;
+    if (data is! List) return const [];
+    return data
+        .whereType<Map>()
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> listWarehouses() async {
+    final response = await _api.get(ApiConfig.warehouses);
+    final raw = response.data as Map<String, dynamic>;
+    final data = raw['data'] ?? raw;
+    if (data is! List) return const [];
+    return data
+        .whereType<Map>()
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> createRackLocation(
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _api.post(ApiConfig.rackLocations, data: data);
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> seedDemoRackLocations() async {
+    final response = await _api.post(ApiConfig.rackLocationsSeedDemo);
+    final raw = response.data as Map<String, dynamic>;
+    final data = raw['data'] ?? raw;
+    if (data is! List) return const [];
+    return data
+        .whereType<Map>()
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .toList();
+  }
+
   /// Dry-run validate the CSV. Server parses + validates every row but
   /// writes nothing. Returns an ItemImportPreview payload so the UI can
   /// render a preview table with per-row OK / ERROR status.

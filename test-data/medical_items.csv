@@ -1,20 +1,20 @@
-sku,name,description,item_type,category,brand,hsn_code,unit_of_measure,purchase_price,sale_price,mrp,gst_rate,reorder_level,reorder_quantity,opening_stock,barcode,manufacturer,batch_number,mfg_date,expiry_date
-MED001,Paracetamol 500mg Strip,Antipyretic and analgesic tablet strip of 10,GOODS,Tablets,Cipla,30049099,STRIP,12.50,18.00,20.00,12,50,100,200,8901234560011,Cipla Ltd,B2024A01,2024-01-15,2026-06-30
-MED002,Amoxicillin 500mg Capsule,Antibiotic capsule strip of 10,GOODS,Capsules,Sun Pharma,30041090,STRIP,35.00,52.00,58.50,12,30,60,100,8901234560028,Sun Pharmaceutical,B2024A02,2024-03-10,2025-09-15
-MED003,Cetirizine 10mg Tablet,Antihistamine tablet strip of 10,GOODS,Tablets,Dr Reddys,30049099,STRIP,8.00,12.00,15.00,12,40,80,150,8901234560035,Dr Reddys Laboratories,B2024A03,2024-06-01,2026-12-31
-MED004,Azithromycin 500mg Tablet,Antibiotic tablet strip of 3,GOODS,Tablets,Alkem,30041090,STRIP,55.00,78.00,85.00,12,20,40,60,8901234560042,Alkem Laboratories,B2024A04,2024-02-20,2025-08-20
-MED005,Pantoprazole 40mg Tablet,Proton pump inhibitor strip of 15,GOODS,Tablets,Mankind,30049099,STRIP,22.00,35.00,42.00,12,30,60,120,8901234560059,Mankind Pharma,B2024A05,2024-04-01,2026-03-31
-MED006,Metformin 500mg Tablet,Antidiabetic tablet strip of 10,GOODS,Tablets,USV,30049099,STRIP,10.00,15.00,18.00,12,100,200,500,8901234560066,USV Pvt Ltd,B2024A06,2024-05-10,2027-05-09
-MED007,Atorvastatin 10mg Tablet,Cholesterol lowering tablet strip of 10,GOODS,Tablets,Lupin,30049099,STRIP,28.00,42.00,48.00,12,40,80,180,8901234560073,Lupin Ltd,B2024A07,2024-07-15,2026-07-14
-MED008,Cough Syrup 100ml,Dextromethorphan cough suppressant,GOODS,Syrups,Dabur,30049099,BOTTLE,38.00,55.00,65.00,12,20,50,80,8901234560080,Dabur India,B2024B01,2024-01-01,2026-01-01
-MED009,Multivitamin Syrup 200ml,Daily vitamin supplement syrup,GOODS,Syrups,Abbott,21069099,BOTTLE,65.00,95.00,110.00,18,15,30,40,8901234560097,Abbott India,B2024B02,2024-06-15,2026-06-14
-MED010,Betadine Solution 100ml,Povidone iodine antiseptic solution,GOODS,Antiseptics,Win Medicare,30049099,BOTTLE,45.00,68.00,78.00,12,10,25,35,8901234560103,Win Medicare Ltd,B2024B03,2024-08-01,2027-07-31
-MED011,Diclofenac Gel 30g,Anti-inflammatory topical gel,GOODS,Ointments,Novartis,30049099,TUBE,32.00,48.00,55.00,12,15,30,50,8901234560110,Novartis India,B2024C01,2024-03-01,2026-02-28
-MED012,Clotrimazole Cream 15g,Antifungal topical cream,GOODS,Ointments,Glenmark,30049099,TUBE,18.00,28.00,32.00,12,20,40,60,8901234560127,Glenmark Pharma,B2024C02,2024-05-20,2026-05-19
-MED013,Insulin Glargine 3ml Pen,Long acting insulin pen cartridge,GOODS,Injections,Sanofi,30049032,PCS,420.00,580.00,650.00,5,5,10,15,8901234560134,Sanofi India,B2024D01,2024-02-01,2025-07-31
-MED014,Tetanus Toxoid Injection,TT vaccine single dose vial,GOODS,Injections,Serum Institute,30022090,PCS,12.00,18.00,22.00,5,10,20,30,8901234560141,Serum Institute,B2024D02,2024-09-01,2026-08-31
-MED015,Vitamin B12 Injection 1ml,Cyanocobalamin injection ampoule,GOODS,Injections,Pfizer,30049099,PCS,8.00,15.00,18.00,12,20,50,80,8901234560158,Pfizer India,B2024D03,2024-04-15,2026-04-14
-MED016,ORS Powder Sachet,Oral rehydration salt sachets pack of 1,GOODS,OTC,WHO Standard,30049099,PCS,5.00,8.00,10.00,5,100,200,500,8901234560165,FDC Ltd,B2024E01,2024-01-01,2027-12-31
+sku,name,description,item_type,category,brand,hsn_code,unit_of_measure,purchase_price,sale_price,mrp,gst_rate,reorder_level,reorder_quantity,opening_stock,barcode,manufacturer,rack_location_code,batch_number,mfg_date,expiry_date
+MED001,Paracetamol 500mg Strip,Antipyretic and analgesic tablet strip of 10,GOODS,Tablets,Cipla,30049099,STRIP,12.50,18.00,20.00,12,50,100,200,8901234560011,Cipla Ltd,A1-01,B2024A01,2024-01-15,2026-06-30
+MED002,Amoxicillin 500mg Capsule,Antibiotic capsule strip of 10,GOODS,Capsules,Sun Pharma,30041090,STRIP,35.00,52.00,58.50,12,30,60,100,8901234560028,Sun Pharmaceutical,B1-01,B2024A02,2024-03-10,2025-09-15
+MED003,Cetirizine 10mg Tablet,Antihistamine tablet strip of 10,GOODS,Tablets,Dr Reddys,30049099,STRIP,8.00,12.00,15.00,12,40,80,150,8901234560035,Dr Reddys Laboratories,A1-02,B2024A03,2024-06-01,2026-12-31
+MED004,Azithromycin 500mg Tablet,Antibiotic tablet strip of 3,GOODS,Tablets,Alkem,30041090,STRIP,55.00,78.00,85.00,12,20,40,60,8901234560042,Alkem Laboratories,A1-02,B2024A04,2024-02-20,2025-08-20
+MED005,Pantoprazole 40mg Tablet,Proton pump inhibitor strip of 15,GOODS,Tablets,Mankind,30049099,STRIP,22.00,35.00,42.00,12,30,60,120,8901234560059,Mankind Pharma,A1-01,B2024A05,2024-04-01,2026-03-31
+MED006,Metformin 500mg Tablet,Antidiabetic tablet strip of 10,GOODS,Tablets,USV,30049099,STRIP,10.00,15.00,18.00,12,100,200,500,8901234560066,USV Pvt Ltd,A1-01,B2024A06,2024-05-10,2027-05-09
+MED007,Atorvastatin 10mg Tablet,Cholesterol lowering tablet strip of 10,GOODS,Tablets,Lupin,30049099,STRIP,28.00,42.00,48.00,12,40,80,180,8901234560073,Lupin Ltd,A1-02,B2024A07,2024-07-15,2026-07-14
+MED008,Cough Syrup 100ml,Dextromethorphan cough suppressant,GOODS,Syrups,Dabur,30049099,BOTTLE,38.00,55.00,65.00,12,20,50,80,8901234560080,Dabur India,B2-01,B2024B01,2024-01-01,2026-01-01
+MED009,Multivitamin Syrup 200ml,Daily vitamin supplement syrup,GOODS,Syrups,Abbott,21069099,BOTTLE,65.00,95.00,110.00,18,15,30,40,8901234560097,Abbott India,B2-01,B2024B02,2024-06-15,2026-06-14
+MED010,Betadine Solution 100ml,Povidone iodine antiseptic solution,GOODS,Antiseptics,Win Medicare,30049099,BOTTLE,45.00,68.00,78.00,12,10,25,35,8901234560103,Win Medicare Ltd,OTC-01,B2024B03,2024-08-01,2027-07-31
+MED011,Diclofenac Gel 30g,Anti-inflammatory topical gel,GOODS,Ointments,Novartis,30049099,TUBE,32.00,48.00,55.00,12,15,30,50,8901234560110,Novartis India,OTC-01,B2024C01,2024-03-01,2026-02-28
+MED012,Clotrimazole Cream 15g,Antifungal topical cream,GOODS,Ointments,Glenmark,30049099,TUBE,18.00,28.00,32.00,12,20,40,60,8901234560127,Glenmark Pharma,OTC-01,B2024C02,2024-05-20,2026-05-19
+MED013,Insulin Glargine 3ml Pen,Long acting insulin pen cartridge,GOODS,Injections,Sanofi,30049032,PCS,420.00,580.00,650.00,5,5,10,15,8901234560134,Sanofi India,FRZ-01,B2024D01,2024-02-01,2025-07-31
+MED014,Tetanus Toxoid Injection,TT vaccine single dose vial,GOODS,Injections,Serum Institute,30022090,PCS,12.00,18.00,22.00,5,10,20,30,8901234560141,Serum Institute,C1-01,B2024D02,2024-09-01,2026-08-31
+MED015,Vitamin B12 Injection 1ml,Cyanocobalamin injection ampoule,GOODS,Injections,Pfizer,30049099,PCS,8.00,15.00,18.00,12,20,50,80,8901234560158,Pfizer India,C1-01,B2024D03,2024-04-15,2026-04-14
+MED016,ORS Powder Sachet,Oral rehydration salt sachets pack of 1,GOODS,OTC,WHO Standard,30049099,PCS,5.00,8.00,10.00,5,100,200,500,8901234560165,FDC Ltd,OTC-01,B2024E01,2024-01-01,2027-12-31
 MED017,Dettol Antiseptic 200ml,Chloroxylenol antiseptic liquid,GOODS,OTC,Dettol,34012020,BOTTLE,55.00,82.00,95.00,18,10,20,30,8901234560172,Reckitt Benckiser,,,,
 MED018,Vicks Vaporub 50g,Topical cough suppressant ointment,GOODS,OTC,Vicks,30049099,PCS,65.00,95.00,105.00,18,15,25,40,8901234560189,P&G Hygiene,,,,
 MED019,Surgical Mask N95 Pack of 5,N95 respiratory protection masks,GOODS,Medical Devices,3M,63079090,BOX,120.00,175.00,199.00,18,20,50,100,8901234560196,3M India,,,,
@@ -23,29 +23,29 @@ MED021,Blood Glucose Test Strips 50s,Glucometer test strips pack of 50,GOODS,Med
 MED022,Crepe Bandage 10cm x 4m,Elastic crepe bandage roll,GOODS,Surgical,Johnson Johnson,30059090,PCS,22.00,35.00,40.00,12,15,30,50,8901234560226,J&J India,,,,
 MED023,Cotton Roll 500g,Absorbent cotton wool roll,GOODS,Surgical,Softmedic,56011010,PCS,55.00,82.00,95.00,5,10,20,30,8901234560233,Soft Medicare,,,,
 MED024,Disposable Syringe 5ml,Single use sterile syringe with needle,GOODS,Surgical,Hindustan Syringes,90183110,PCS,3.50,6.00,7.00,12,100,500,1000,8901234560240,Hindustan Syringes,,,,
-MED025,Ayurvedic Chyawanprash 500g,Immunity booster herbal supplement,GOODS,Ayurvedic,Dabur,21069099,PCS,150.00,225.00,260.00,12,5,10,20,8901234560257,Dabur India,B2024F01,2024-03-01,2026-02-28
-MED026,Ashwagandha Capsules 60s,Herbal stress relief capsules,GOODS,Ayurvedic,Himalaya,21069099,BOTTLE,95.00,145.00,165.00,12,10,20,30,8901234560264,Himalaya Wellness,B2024F02,2024-07-01,2026-06-30
-MED027,Isabgol Husk 200g,Psyllium husk for digestion,GOODS,Ayurvedic,Sat Isabgol,12119013,PCS,45.00,68.00,75.00,5,15,30,50,8901234560271,Sidhpur Sat Isabgol,B2024F03,2024-01-10,2027-01-09
+MED025,Ayurvedic Chyawanprash 500g,Immunity booster herbal supplement,GOODS,Ayurvedic,Dabur,21069099,PCS,150.00,225.00,260.00,12,5,10,20,8901234560257,Dabur India,OTC-01,B2024F01,2024-03-01,2026-02-28
+MED026,Ashwagandha Capsules 60s,Herbal stress relief capsules,GOODS,Ayurvedic,Himalaya,21069099,BOTTLE,95.00,145.00,165.00,12,10,20,30,8901234560264,Himalaya Wellness,OTC-01,B2024F02,2024-07-01,2026-06-30
+MED027,Isabgol Husk 200g,Psyllium husk for digestion,GOODS,Ayurvedic,Sat Isabgol,12119013,PCS,45.00,68.00,75.00,5,15,30,50,8901234560271,Sidhpur Sat Isabgol,OTC-01,B2024F03,2024-01-10,2027-01-09
 MED028,Baby Diaper Pack Medium 30s,Disposable baby diapers size M,GOODS,Baby Care,Pampers,96190090,BOX,320.00,475.00,530.00,18,8,15,20,8901234560288,P&G India,,,,
-MED029,Baby Cerelac 300g,Infant cereal complementary food,GOODS,Baby Care,Nestle,19011010,PCS,180.00,265.00,295.00,5,5,10,15,8901234560295,Nestle India,B2024G01,2024-06-01,2025-12-01
-MED030,Lactogen Stage 1 400g,Infant formula milk powder,GOODS,Baby Care,Nestle,04022999,PCS,280.00,420.00,465.00,5,5,10,12,8901234560301,Nestle India,B2024G02,2024-08-15,2025-08-14
-MED031,Loose Camphor,Camphor tablets sold by weight,GOODS,OTC,Mangalam,29142200,KG,350.00,520.00,600.00,18,2,5,10,,,,,
-MED032,Loose Turmeric Powder,Medicinal grade turmeric powder,GOODS,Ayurvedic,Local,09103010,KG,120.00,180.00,220.00,5,3,5,8,,,,,
-MED033,Aloe Vera Gel Bulk,Pure aloe vera gel for dispensing,GOODS,Ayurvedic,Patanjali,33049990,KG,200.00,320.00,380.00,18,2,5,6,,,,,
-MED034,Consultation Fee,Doctor consultation charge,SERVICE,Services,,99931200,,0,300.00,,18,,,,,,,,
-MED035,Home Delivery Charge,Medicine home delivery fee,SERVICE,Services,,99679990,,0,50.00,,18,,,,,,,,
-MED036,Blood Pressure Check,BP measurement service fee,SERVICE,Services,,99931200,,0,30.00,,18,,,,,,,,
-MED037,Omeprazole 20mg Capsule,Proton pump inhibitor strip of 10 (EXPIRED),GOODS,Capsules,Cipla,30049099,STRIP,15.00,22.00,25.00,12,20,40,30,8901234560370,Cipla Ltd,B2023X01,2023-01-15,2024-12-31
-MED038,Ranitidine 150mg Tablet,H2 blocker strip of 10 (EXPIRING SOON),GOODS,Tablets,Glenmark,30049099,STRIP,8.00,12.00,15.00,12,25,50,45,8901234560387,Glenmark Pharma,B2024X01,2024-06-01,2025-06-15
-MED039,Ibuprofen 400mg Tablet,NSAID pain relief strip of 10 (LOW STOCK),GOODS,Tablets,Alkem,30049099,STRIP,10.00,16.00,18.00,12,50,100,8,8901234560394,Alkem Laboratories,B2024Y01,2024-08-01,2026-07-31
-MED040,Albendazole 400mg Tablet,Deworming single dose tablet (LOW STOCK),GOODS,Tablets,Cipla,30049099,PCS,4.00,8.00,10.00,12,30,60,3,8901234560400,Cipla Ltd,B2024Y02,2024-09-01,2026-08-31
-MED041,Montelukast 10mg Tablet,Leukotriene receptor antagonist strip of 10,GOODS,Tablets,Sun Pharma,30049099,STRIP,42.00,62.00,70.00,12,20,40,80,8901234560417,Sun Pharmaceutical,B2024Z01,2024-03-15,2026-03-14
-MED042,Levocetirizine 5mg Tablet,Second gen antihistamine strip of 10,GOODS,Tablets,Torrent,30049099,STRIP,12.00,18.00,22.00,12,30,60,120,8901234560424,Torrent Pharma,B2024Z02,2024-05-01,2026-04-30
-MED043,Amlodipine 5mg Tablet,Calcium channel blocker strip of 10,GOODS,Tablets,Micro Labs,30049099,STRIP,15.00,24.00,28.00,12,40,80,200,8901234560431,Micro Labs Ltd,B2024Z03,2024-07-20,2027-07-19
-MED044,Losartan 50mg Tablet,ARB antihypertensive strip of 10,GOODS,Tablets,Zydus,30049099,STRIP,18.00,28.00,32.00,12,35,70,150,8901234560448,Zydus Lifesciences,B2024Z04,2024-04-10,2026-04-09
-MED045,Dolo 650mg Tablet,Paracetamol 650mg strip of 15,GOODS,Tablets,Micro Labs,30049099,STRIP,18.00,26.00,30.50,12,60,120,300,8901234560455,Micro Labs Ltd,B2024Z05,2024-08-01,2026-07-31
-MED046,Augmentin 625 Duo Tablet,Amoxicillin + Clavulanate strip of 10,GOODS,Tablets,GSK,30041090,STRIP,120.00,175.00,198.00,12,10,20,35,8901234560462,GlaxoSmithKline,B2024Z06,2024-06-15,2025-12-14
-MED047,Deriphyllin Retard 150mg,Theophylline + Etophylline tablet strip of 10,GOODS,Tablets,Franco Indian,30049099,STRIP,28.00,42.00,48.00,12,15,30,50,8901234560479,Franco Indian,B2024Z07,2024-02-28,2026-02-27
-MED048,Allegra 120mg Tablet,Fexofenadine antiallergy strip of 10,GOODS,Tablets,Sanofi,30049099,STRIP,52.00,78.00,88.00,12,15,30,45,8901234560486,Sanofi India,B2024Z08,2024-09-10,2026-09-09
-MED049,Becosules Capsule Strip,Vitamin B complex capsules strip of 20,GOODS,Capsules,Pfizer,21069099,STRIP,22.00,32.00,38.00,18,25,50,100,8901234560493,Pfizer India,B2024Z09,2024-04-20,2026-04-19
-MED050,Volini Spray 100g,Diclofenac spray for pain relief,GOODS,Ointments,Sun Pharma,30049099,PCS,130.00,195.00,225.00,12,8,15,25,8901234560509,Sun Pharmaceutical,B2024Z10,2024-05-25,2026-05-24
+MED029,Baby Cerelac 300g,Infant cereal complementary food,GOODS,Baby Care,Nestle,19011010,PCS,180.00,265.00,295.00,5,5,10,15,8901234560295,Nestle India,OTC-01,B2024G01,2024-06-01,2025-12-01
+MED030,Lactogen Stage 1 400g,Infant formula milk powder,GOODS,Baby Care,Nestle,04022999,PCS,280.00,420.00,465.00,5,5,10,12,8901234560301,Nestle India,OTC-01,B2024G02,2024-08-15,2025-08-14
+MED031,Loose Camphor,Camphor tablets sold by weight,GOODS,OTC,Mangalam,29142200,KG,350.00,520.00,600.00,18,2,5,10,,,,,,
+MED032,Loose Turmeric Powder,Medicinal grade turmeric powder,GOODS,Ayurvedic,Local,09103010,KG,120.00,180.00,220.00,5,3,5,8,,,,,,
+MED033,Aloe Vera Gel Bulk,Pure aloe vera gel for dispensing,GOODS,Ayurvedic,Patanjali,33049990,KG,200.00,320.00,380.00,18,2,5,6,,,,,,
+MED034,Consultation Fee,Doctor consultation charge,SERVICE,Services,,99931200,,0,300.00,,18,,,,,,,,,
+MED035,Home Delivery Charge,Medicine home delivery fee,SERVICE,Services,,99679990,,0,50.00,,18,,,,,,,,,
+MED036,Blood Pressure Check,BP measurement service fee,SERVICE,Services,,99931200,,0,30.00,,18,,,,,,,,,
+MED037,Omeprazole 20mg Capsule,Proton pump inhibitor strip of 10 (EXPIRED),GOODS,Capsules,Cipla,30049099,STRIP,15.00,22.00,25.00,12,20,40,30,8901234560370,Cipla Ltd,B1-01,B2023X01,2023-01-15,2024-12-31
+MED038,Ranitidine 150mg Tablet,H2 blocker strip of 10 (EXPIRING SOON),GOODS,Tablets,Glenmark,30049099,STRIP,8.00,12.00,15.00,12,25,50,45,8901234560387,Glenmark Pharma,A1-02,B2024X01,2024-06-01,2025-06-15
+MED039,Ibuprofen 400mg Tablet,NSAID pain relief strip of 10 (LOW STOCK),GOODS,Tablets,Alkem,30049099,STRIP,10.00,16.00,18.00,12,50,100,8,8901234560394,Alkem Laboratories,A1-01,B2024Y01,2024-08-01,2026-07-31
+MED040,Albendazole 400mg Tablet,Deworming single dose tablet (LOW STOCK),GOODS,Tablets,Cipla,30049099,PCS,4.00,8.00,10.00,12,30,60,3,8901234560400,Cipla Ltd,A1-02,B2024Y02,2024-09-01,2026-08-31
+MED041,Montelukast 10mg Tablet,Leukotriene receptor antagonist strip of 10,GOODS,Tablets,Sun Pharma,30049099,STRIP,42.00,62.00,70.00,12,20,40,80,8901234560417,Sun Pharmaceutical,A1-01,B2024Z01,2024-03-15,2026-03-14
+MED042,Levocetirizine 5mg Tablet,Second gen antihistamine strip of 10,GOODS,Tablets,Torrent,30049099,STRIP,12.00,18.00,22.00,12,30,60,120,8901234560424,Torrent Pharma,A1-02,B2024Z02,2024-05-01,2026-04-30
+MED043,Amlodipine 5mg Tablet,Calcium channel blocker strip of 10,GOODS,Tablets,Micro Labs,30049099,STRIP,15.00,24.00,28.00,12,40,80,200,8901234560431,Micro Labs Ltd,A1-01,B2024Z03,2024-07-20,2027-07-19
+MED044,Losartan 50mg Tablet,ARB antihypertensive strip of 10,GOODS,Tablets,Zydus,30049099,STRIP,18.00,28.00,32.00,12,35,70,150,8901234560448,Zydus Lifesciences,A1-02,B2024Z04,2024-04-10,2026-04-09
+MED045,Dolo 650mg Tablet,Paracetamol 650mg strip of 15,GOODS,Tablets,Micro Labs,30049099,STRIP,18.00,26.00,30.50,12,60,120,300,8901234560455,Micro Labs Ltd,A1-01,B2024Z05,2024-08-01,2026-07-31
+MED046,Augmentin 625 Duo Tablet,Amoxicillin + Clavulanate strip of 10,GOODS,Tablets,GSK,30041090,STRIP,120.00,175.00,198.00,12,10,20,35,8901234560462,GlaxoSmithKline,A1-02,B2024Z06,2024-06-15,2025-12-14
+MED047,Deriphyllin Retard 150mg,Theophylline + Etophylline tablet strip of 10,GOODS,Tablets,Franco Indian,30049099,STRIP,28.00,42.00,48.00,12,15,30,50,8901234560479,Franco Indian,A1-02,B2024Z07,2024-02-28,2026-02-27
+MED048,Allegra 120mg Tablet,Fexofenadine antiallergy strip of 10,GOODS,Tablets,Sanofi,30049099,STRIP,52.00,78.00,88.00,12,15,30,45,8901234560486,Sanofi India,A1-02,B2024Z08,2024-09-10,2026-09-09
+MED049,Becosules Capsule Strip,Vitamin B complex capsules strip of 20,GOODS,Capsules,Pfizer,21069099,STRIP,22.00,32.00,38.00,18,25,50,100,8901234560493,Pfizer India,B1-01,B2024Z09,2024-04-20,2026-04-19
+MED050,Volini Spray 100g,Diclofenac spray for pain relief,GOODS,Ointments,Sun Pharma,30049099,PCS,130.00,195.00,225.00,12,8,15,25,8901234560509,Sun Pharmaceutical,OTC-01,B2024Z10,2024-05-25,2026-05-24
