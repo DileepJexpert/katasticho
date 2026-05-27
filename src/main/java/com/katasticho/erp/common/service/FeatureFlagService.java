@@ -76,9 +76,10 @@ public class FeatureFlagService {
         flagRepository.deleteByOrgId(orgId);
 
         Map<String, Boolean> merged = defaultFlags();
+        List<String> normalizedCodes = normalizeSubCategoryCodes(subCategoryCodes);
 
-        if (subCategoryCodes != null && !subCategoryCodes.isEmpty()) {
-            UUID templateId = resolveTemplateId(subCategoryCodes);
+        if (normalizedCodes != null && !normalizedCodes.isEmpty()) {
+            UUID templateId = resolveTemplateId(normalizedCodes);
 
             if (templateId != null) {
                 // Apply module-level flags (INVENTORY, POS, etc.) from businessType
@@ -91,13 +92,13 @@ public class FeatureFlagService {
 
                 // Overlay sub-category-specific overrides
                 List<IndustryFeatureConfig> subCatConfigs = featureConfigRepository
-                        .findByIndustryTemplateIdAndSubCategoryCodeIn(templateId, subCategoryCodes);
+                        .findByIndustryTemplateIdAndSubCategoryCodeIn(templateId, normalizedCodes);
                 for (IndustryFeatureConfig cfg : subCatConfigs) {
                     cfg.getFeatureFlags().forEach(f -> merged.put(f, true));
                 }
             } else {
                 // Ultimate fallback for legacy / unknown codes not in DB
-                for (String code : subCategoryCodes) {
+                for (String code : normalizedCodes) {
                     flagsForSubCategoryFallback(code).forEach((f, enabled) -> {
                         if (enabled) merged.put(f, true);
                     });
@@ -115,7 +116,63 @@ public class FeatureFlagService {
 
         invalidateCache(orgId);
         log.info("Seeded {} feature flags for org {} (subCategories={})",
-                merged.size(), orgId, subCategoryCodes);
+                merged.size(), orgId, normalizedCodes);
+    }
+
+    private List<String> normalizeSubCategoryCodes(List<String> codes) {
+        if (codes == null || codes.isEmpty()) {
+            return List.of();
+        }
+        return codes.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(code -> !code.isEmpty())
+                .map(this::normalizeSubCategoryCode)
+                .distinct()
+                .toList();
+    }
+
+    private String normalizeSubCategoryCode(String rawCode) {
+        String code = rawCode.trim().toUpperCase(Locale.ROOT);
+        return switch (code) {
+            case "PHARMACY", "VETERINARY" -> "SINGLE_MEDICAL_STORE";
+            case "HOMEOPATHY", "AYURVEDA" -> "AYURVEDIC_HOMEOPATHY";
+            case "MEDICAL_EQUIPMENT", "DENTAL_SUPPLIES" -> "SURGICAL_EQUIPMENT";
+            case "GROCERY", "DAIRY", "DRY_FRUITS" -> "KIRANA_GENERAL";
+            case "ORGANIC_FOOD", "PET_FOOD" -> "ORGANIC_HEALTH";
+            case "FROZEN_FOODS" -> "SUPERMARKET";
+            case "ELECTRONICS", "HOME_APPLIANCES" -> "HOME_APPLIANCES";
+            case "MOBILE_ACCESSORIES" -> "MOBILE_ACCESSORIES";
+            case "COMPUTERS" -> "COMPUTER_LAPTOP";
+            case "ELECTRICAL" -> "LED_LIGHTING";
+            case "SECURITY_SYSTEMS" -> "CCTV_SECURITY";
+            case "HARDWARE", "TOOLS_EQUIPMENT" -> "HARDWARE_TOOLS";
+            case "PLUMBING", "SANITARY" -> "PLUMBING_SANITARY";
+            case "PAINT" -> "PAINT_ACCESSORIES";
+            case "TILES_FLOORING" -> "BUILDING_MATERIALS";
+            case "GARMENTS", "KIDS_WEAR", "LINGERIE", "SPORTSWEAR" -> "READYMADE_GARMENTS";
+            case "FOOTWEAR" -> "FOOTWEAR";
+            case "ACCESSORIES" -> "JEWELRY_ACCESSORIES";
+            case "RESTAURANT" -> "RESTAURANT";
+            case "BAKERY", "CONFECTIONERY" -> "BAKERY_CONFECTIONERY";
+            case "BEVERAGES" -> "JUICE_BEVERAGE";
+            case "FOOD_PROCESSING" -> "FOOD_PROCESSING";
+            case "AUTO_PARTS", "TYRES", "BATTERIES", "LUBRICANTS", "AUTO_ACCESSORIES" -> "AUTO_PARTS";
+            case "SALON" -> "SALON";
+            case "LAUNDRY" -> "LAUNDRY";
+            case "GYM" -> "GYM";
+            case "PHOTOGRAPHY" -> "PHOTOGRAPHY";
+            case "REPAIR_SERVICES" -> "REPAIR_SERVICES";
+            case "CONSULTING" -> "CONSULTING";
+            case "GENERAL_TRADE" -> "GENERAL_TRADE";
+            case "STATIONERY" -> "STATIONERY";
+            case "BOOKS" -> "BOOKS";
+            case "TOYS_GIFTS" -> "TOYS_GIFTS";
+            case "FURNITURE" -> "FURNITURE";
+            case "COSMETICS" -> "COSMETICS";
+            case "JEWELLERY" -> "JEWELLERY";
+            default -> code;
+        };
     }
 
     /**
