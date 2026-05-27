@@ -574,12 +574,15 @@ public class AuthService {
     }
 
     private AccountSubmissionResponse pendingSubmission(AppUser user, Organisation org) {
+        String message = "APPROVED".equals(org.getApprovalStatus())
+                ? "Account created successfully."
+                : "Account created. Katixo admin approval is required before login.";
         return new AccountSubmissionResponse(
                 org.getId(),
                 user.getId(),
                 org.getName(),
                 org.getApprovalStatus(),
-                "Account created. Katixo admin approval is required before login."
+                message
         );
     }
 

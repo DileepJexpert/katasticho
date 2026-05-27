@@ -9,6 +9,7 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/auth_repository.dart';
+import '../../onboarding/data/onboarding_state.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -62,7 +63,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       );
 
       final data = response['data'] as Map<String, dynamic>;
-      if (data['approvalStatus'] == 'PENDING') {
+      final approvalStatus = data['approvalStatus']?.toString() ?? 'PENDING';
+      if (approvalStatus == 'PENDING') {
         if (mounted) {
           await showDialog<void>(
             context: context,
@@ -88,13 +90,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         return;
       }
 
-      final user = data['user'] as Map<String, dynamic>;
+      final loginResponse = await authRepo.loginWithPassword(
+        identifier: _phoneController.text.trim(),
+        password: _passwordController.text,
+      );
+      final loginData = loginResponse['data'] as Map<String, dynamic>;
+      final user = loginData['user'] as Map<String, dynamic>;
       final onboardingCompleted = user['onboardingCompleted'] as bool? ?? false;
       final defaultLandingPage = user['defaultLandingPage'] as String?;
 
       await ref.read(authProvider.notifier).onLoginSuccess(
-            accessToken: data['accessToken'] as String,
-            refreshToken: data['refreshToken'] as String,
+            accessToken: loginData['accessToken'] as String,
+            refreshToken: loginData['refreshToken'] as String,
             userId: user['id'].toString(),
             userName: user['fullName'] as String,
             role: user['role'] as String,
@@ -105,6 +112,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             industryCode: user['industryCode'] as String?,
             onboardingCompleted: onboardingCompleted,
             defaultLandingPage: defaultLandingPage,
+          );
+
+      ref.read(onboardingProvider.notifier).setDetails(
+            gstin: _gstinController.text.trim(),
+            stateName: '',
+            stateCode: '',
+            phone: _phoneController.text.trim(),
           );
 
       if (mounted) {

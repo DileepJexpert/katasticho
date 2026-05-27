@@ -74,6 +74,17 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    final onboarding = ref.read(onboardingProvider);
+    _gstinController.text = onboarding.gstin;
+    _phoneController.text = onboarding.phone;
+    if (onboarding.stateCode.isNotEmpty) {
+      _selectedStateCode = onboarding.stateCode;
+    }
+  }
+
+  @override
   void dispose() {
     _gstinController.dispose();
     _phoneController.dispose();
