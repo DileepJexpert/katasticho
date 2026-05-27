@@ -438,6 +438,38 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ],
                     ),
+                    KSpacing.vGapLg,
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: KColors.draftBg,
+                        borderRadius: KSpacing.borderRadiusMd,
+                        border: Border.all(color: KColors.divider),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Platform administration',
+                            style: KTypography.labelLarge,
+                            textAlign: TextAlign.center,
+                          ),
+                          KSpacing.vGapXs,
+                          Text(
+                            'Use the separate admin portal for approvals, plan control, and tenant operations.',
+                            style: KTypography.bodySmall
+                                .copyWith(color: KColors.textSecondary),
+                            textAlign: TextAlign.center,
+                          ),
+                          KSpacing.vGapMd,
+                          OutlinedButton.icon(
+                            onPressed: () => context.go(Routes.platformAdminLogin),
+                            icon: const Icon(Icons.admin_panel_settings_outlined),
+                            label: const Text('Open Platform Admin Portal'),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),

@@ -105,16 +105,39 @@ class _PlatformAdminLoginScreenState
                     KSpacing.vGapLg,
 
                     Text(
-                      'Katixo Admin',
+                      'Katixo Platform Admin',
                       style: KTypography.h1,
                       textAlign: TextAlign.center,
                     ),
                     KSpacing.vGapSm,
                     Text(
-                      'Platform administration panel',
+                      'Separate control plane for approvals, plans, users, and tenant operations',
                       style: KTypography.bodyMedium
                           .copyWith(color: KColors.textSecondary),
                       textAlign: TextAlign.center,
+                    ),
+                    KSpacing.vGapSm,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: KColors.draftBg,
+                        borderRadius: KSpacing.borderRadiusMd,
+                        border: Border.all(color: KColors.divider),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.alternate_email, size: 18, color: KColors.textSecondary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Platform admin uses email + password only. Tenant phone login does not work here.',
+                              style: KTypography.bodySmall
+                                  .copyWith(color: KColors.textSecondary),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     KSpacing.vGapXl,
 
@@ -170,6 +193,13 @@ class _PlatformAdminLoginScreenState
                       isLoading: _isLoading,
                       fullWidth: true,
                       size: KButtonSize.large,
+                    ),
+                    KSpacing.vGapMd,
+                    Center(
+                      child: TextButton(
+                        onPressed: () => context.go(Routes.login),
+                        child: const Text('Back to tenant login'),
+                      ),
                     ),
                   ],
                 ),
