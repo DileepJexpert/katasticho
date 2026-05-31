@@ -367,6 +367,8 @@ class ApiConfig {
   // Credit Reminders
   static const String creditRemindersOverdue =
       '/api/v1/ar/credit-reminders/overdue';
+  static const String creditRemindersRisk =
+      '/api/v1/ar/credit-reminders/risk';
   static String creditReminderOutstanding(String contactId) =>
       '/api/v1/ar/credit-reminders/$contactId/outstanding';
   static String creditReminderText(String contactId) =>

@@ -42,6 +42,7 @@ Current active work: distributor workflow controls and credit-control visibility
 - Inactive contacts are blocked from Sales Order creation with `SO_CONTACT_INACTIVE`.
 - Explicit customer sales hold is supported on Contact with `salesHold`, `salesHoldReason`, and `salesHoldUntil`. Active holds block Sales Order creation with `SO_CONTACT_SALES_HOLD`; expired holds are ignored.
 - Customer risk reporting is exposed through AR credit reminders using existing contacts, invoices, credit limits, overdue invoices, and sales holds. It is read-only and introduces no posting or workflow side effects.
+- Customer risk UI is reused inside the existing Credit Ledger screen with risk labels and a risk-only filter; no duplicate customer risk module/page is introduced.
 - Customer Indent is removed; Sales Order with backorder is the customer demand flow.
 - Distributor capability should extend existing flows, not fork them.
 - Workflow must be org-configurable. No customer-specific code branches.
@@ -82,4 +83,4 @@ Next implementation task:
   5. Click Issue; it should move to `PENDING_APPROVAL` instead of posting.
   6. Approve from Settings -> Approval Inbox.
   7. Confirm the credit note becomes `ISSUED` or `APPLIED` and journal/stock effects happen after approval.
-- Next distributor candidates: payment collection exception approval, dashboard UI for customer risk, then stock adjustment approval only after a draft adjustment document exists.
+- Next distributor candidates: payment collection exception approval, distributor dashboard summaries, then stock adjustment approval only after a draft adjustment document exists.

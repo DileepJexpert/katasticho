@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
-import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../data/credit_reminder_repository.dart';
 import '../../reports/data/report_repository.dart';
 
 enum _SortMode { amount, age }
-enum _FilterMode { all, overdue }
+enum _FilterMode { all, overdue, risk }
 
 class CreditLedgerScreen extends ConsumerStatefulWidget {
   const CreditLedgerScreen({super.key});
@@ -22,6 +21,7 @@ class CreditLedgerScreen extends ConsumerStatefulWidget {
 
 class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
   Map<String, dynamic>? _report;
+  Map<String, Map<String, dynamic>> _riskByContactId = {};
   bool _isLoading = false;
   String? _error;
   String _searchQuery = '';
@@ -42,7 +42,23 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
     try {
       final repo = ref.read(reportRepositoryProvider);
       final data = await repo.getAgeingReport();
-      setState(() => _report = (data['data'] ?? data) as Map<String, dynamic>);
+      final riskRepo = ref.read(creditReminderRepositoryProvider);
+      final riskResponse = await riskRepo.getCustomerRisk();
+      final riskRaw = riskResponse['data'];
+      final riskList = riskRaw is List ? riskRaw : <dynamic>[];
+      final riskByContactId = <String, Map<String, dynamic>>{};
+      for (final entry in riskList) {
+        if (entry is Map<String, dynamic>) {
+          final contactId = entry['contactId']?.toString();
+          if (contactId != null && contactId.isNotEmpty) {
+            riskByContactId[contactId] = entry;
+          }
+        }
+      }
+      setState(() {
+        _report = (data['data'] ?? data) as Map<String, dynamic>;
+        _riskByContactId = riskByContactId;
+      });
     } catch (e) {
       setState(() => _error = 'Failed to load credit ledger');
     } finally {
@@ -61,6 +77,12 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
       if (_filterMode == _FilterMode.overdue) {
         final current = (c['current'] as num?)?.toDouble() ?? 0;
         return total - current > 0;
+      }
+      if (_filterMode == _FilterMode.risk) {
+        final contactId = c['contactId']?.toString() ?? '';
+        final risk = _riskByContactId[contactId];
+        final riskLevel = risk?['riskLevel']?.toString() ?? 'OK';
+        return riskLevel != 'OK' && riskLevel != 'WATCH';
       }
       return true;
     }).toList();
@@ -119,6 +141,7 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
                     if (v == 'age') _sortMode = _SortMode.age;
                     if (v == 'all') _filterMode = _FilterMode.all;
                     if (v == 'overdue') _filterMode = _FilterMode.overdue;
+                    if (v == 'risk') _filterMode = _FilterMode.risk;
                   });
                 },
                 itemBuilder: (_) => [
@@ -171,6 +194,18 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
                       ],
                     ),
                   ),
+                  PopupMenuItem(
+                    value: 'risk',
+                    child: Row(
+                      children: [
+                        if (_filterMode == _FilterMode.risk)
+                          const Icon(Icons.check, size: 16),
+                        if (_filterMode == _FilterMode.risk)
+                          const SizedBox(width: 8),
+                        const Text('Risk only'),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -204,7 +239,9 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
         icon: Icons.celebration_outlined,
         title: _filterMode == _FilterMode.overdue
             ? 'No overdue balances'
-            : 'No outstanding balances',
+            : _filterMode == _FilterMode.risk
+                ? 'No risky customers'
+                : 'No outstanding balances',
         subtitle: 'All customers are settled',
       );
     }
@@ -256,6 +293,11 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
               (contact['totalOutstanding'] as num?)?.toDouble() ?? 0;
           final maxAge = _maxDaysOverdue(contact);
           final contactId = contact['contactId']?.toString() ?? '';
+          final risk = _riskByContactId[contactId];
+          final riskLevel = risk?['riskLevel']?.toString() ?? 'OK';
+          final utilization =
+              (risk?['creditUtilizationPercent'] as num?)?.toDouble() ?? 0;
+          final salesHold = risk?['salesHold'] == true;
 
           return Padding(
             padding: const EdgeInsets.only(bottom: KSpacing.sm),
@@ -286,13 +328,9 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
                         Text(
                           maxAge > 0
                               ? '$maxAge days overdue'
-                              : 'Not yet due',
+                              : _riskLabel(riskLevel, utilization, salesHold),
                           style: KTypography.bodySmall.copyWith(
-                            color: maxAge > 60
-                                ? KColors.error
-                                : maxAge > 30
-                                    ? KColors.warning
-                                    : KColors.textSecondary,
+                            color: _riskColor(riskLevel, maxAge),
                           ),
                         ),
                       ],
@@ -301,7 +339,7 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
                   Text(
                     CurrencyFormatter.formatIndian(total),
                     style: KTypography.amountSmall.copyWith(
-                      color: maxAge > 60 ? KColors.error : KColors.warning,
+                      color: _riskColor(riskLevel, maxAge),
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -313,5 +351,26 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
         },
       ),
     );
+  }
+
+  String _riskLabel(String riskLevel, double utilization, bool salesHold) {
+    if (salesHold || riskLevel == 'SALES_HOLD') return 'Sales hold';
+    if (riskLevel == 'OVER_CREDIT') {
+      return utilization > 0
+          ? 'Over credit ${utilization.toStringAsFixed(0)}%'
+          : 'Over credit';
+    }
+    if (riskLevel == 'OVERDUE') return 'Overdue';
+    if (riskLevel == 'WATCH') return 'Watch';
+    return 'Not yet due';
+  }
+
+  Color _riskColor(String riskLevel, int maxAge) {
+    if (riskLevel == 'SALES_HOLD' || riskLevel == 'OVER_CREDIT') {
+      return KColors.error;
+    }
+    if (riskLevel == 'OVERDUE' || maxAge > 60) return KColors.error;
+    if (maxAge > 30 || riskLevel == 'WATCH') return KColors.warning;
+    return KColors.textSecondary;
   }
 }

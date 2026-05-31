@@ -17,6 +17,11 @@ class CreditReminderRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> getCustomerRisk() async {
+    final response = await _api.get(ApiConfig.creditRemindersRisk);
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> getCustomerOutstanding(String contactId) async {
     final response =
         await _api.get(ApiConfig.creditReminderOutstanding(contactId));
