@@ -1,5 +1,6 @@
 package com.katasticho.erp.ar.controller;
 
+import com.katasticho.erp.ar.dto.CustomerRiskResponse;
 import com.katasticho.erp.ar.dto.OverdueCustomerResponse;
 import com.katasticho.erp.ar.dto.ReminderTextResponse;
 import com.katasticho.erp.ar.service.CreditReminderService;
@@ -24,6 +25,13 @@ public class CreditReminderController {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<List<OverdueCustomerResponse>>> getOverdueCustomers() {
         List<OverdueCustomerResponse> result = creditReminderService.getOverdueCustomers();
+        return ResponseEntity.ok(ApiResponse.ok(result));
+    }
+
+    @GetMapping("/risk")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<List<CustomerRiskResponse>>> getCustomerRisk() {
+        List<CustomerRiskResponse> result = creditReminderService.getCustomerRisk();
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 

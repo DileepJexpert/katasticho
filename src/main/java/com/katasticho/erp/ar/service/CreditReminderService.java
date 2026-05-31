@@ -1,5 +1,6 @@
 package com.katasticho.erp.ar.service;
 
+import com.katasticho.erp.ar.dto.CustomerRiskResponse;
 import com.katasticho.erp.ar.dto.OverdueCustomerResponse;
 import com.katasticho.erp.ar.dto.ReminderTextResponse;
 import com.katasticho.erp.ar.entity.Invoice;
@@ -177,6 +178,38 @@ public class CreditReminderService {
         );
     }
 
+    public List<CustomerRiskResponse> getCustomerRisk() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        LocalDate today = LocalDate.now();
+
+        List<Invoice> outstandingInvoices = invoiceRepository.findOutstandingInvoices(orgId);
+        List<Contact> activeSalesHolds = contactRepository.findActiveCustomerSalesHolds(orgId, today);
+
+        Map<UUID, List<Invoice>> invoicesByContact = outstandingInvoices.stream()
+                .collect(Collectors.groupingBy(Invoice::getContactId, LinkedHashMap::new, Collectors.toList()));
+
+        Set<UUID> contactIds = new LinkedHashSet<>(invoicesByContact.keySet());
+        activeSalesHolds.forEach(contact -> contactIds.add(contact.getId()));
+        if (contactIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<UUID, Contact> contactsById = contactRepository
+                .findByOrgIdAndIsDeletedFalseAndIdIn(orgId, contactIds).stream()
+                .collect(Collectors.toMap(Contact::getId, contact -> contact));
+        activeSalesHolds.forEach(contact -> contactsById.putIfAbsent(contact.getId(), contact));
+
+        return contactIds.stream()
+                .map(contactId -> buildCustomerRisk(contactsById.get(contactId),
+                        invoicesByContact.getOrDefault(contactId, List.of()), today))
+                .filter(Objects::nonNull)
+                .sorted(Comparator
+                        .comparingInt((CustomerRiskResponse risk) -> riskRank(risk.riskLevel()))
+                        .thenComparing(CustomerRiskResponse::overdueAmount, Comparator.reverseOrder())
+                        .thenComparing(CustomerRiskResponse::outstandingAr, Comparator.reverseOrder()))
+                .toList();
+    }
+
     public ReminderTextResponse generateReminderMessage(UUID contactId) {
         UUID orgId = TenantContext.getCurrentOrgId();
         LocalDate today = LocalDate.now();
@@ -298,5 +331,112 @@ public class CreditReminderService {
         if (cleanPhone.length() == 10) cleanPhone = "91" + cleanPhone;
         String encoded = URLEncoder.encode(message, StandardCharsets.UTF_8);
         return "https://wa.me/" + cleanPhone + "?text=" + encoded;
+    }
+
+    private CustomerRiskResponse buildCustomerRisk(Contact contact, List<Invoice> invoices, LocalDate today) {
+        if (contact == null) {
+            return null;
+        }
+
+        BigDecimal outstanding = BigDecimal.ZERO;
+        BigDecimal overdueAmount = BigDecimal.ZERO;
+        int overdueCount = 0;
+        long maxDaysOverdue = 0;
+
+        for (Invoice invoice : invoices) {
+            BigDecimal balance = balanceDue(invoice);
+            outstanding = outstanding.add(balance);
+            long daysOverdue = ChronoUnit.DAYS.between(invoice.getDueDate(), today);
+            if (daysOverdue > 0) {
+                overdueAmount = overdueAmount.add(balance);
+                overdueCount++;
+                maxDaysOverdue = Math.max(maxDaysOverdue, daysOverdue);
+            }
+        }
+
+        BigDecimal contactOutstanding = contact.getOutstandingAr() != null ? contact.getOutstandingAr() : BigDecimal.ZERO;
+        if (outstanding.compareTo(BigDecimal.ZERO) == 0 && contactOutstanding.compareTo(BigDecimal.ZERO) > 0) {
+            outstanding = contactOutstanding;
+        }
+
+        BigDecimal creditLimit = contact.getCreditLimit() != null ? contact.getCreditLimit() : BigDecimal.ZERO;
+        boolean overCredit = creditLimit.compareTo(BigDecimal.ZERO) > 0 && outstanding.compareTo(creditLimit) > 0;
+        boolean salesHoldActive = contact.isSalesHold()
+                && (contact.getSalesHoldUntil() == null || !contact.getSalesHoldUntil().isBefore(today));
+
+        List<String> reasons = new ArrayList<>();
+        if (salesHoldActive) {
+            reasons.add("Customer is on sales hold");
+        }
+        if (overCredit) {
+            reasons.add("Outstanding exceeds credit limit");
+        }
+        if (overdueCount > 0) {
+            reasons.add(overdueCount + " overdue invoice(s)");
+        }
+
+        String riskLevel = resolveRiskLevel(salesHoldActive, overCredit, overdueCount, outstanding);
+        BigDecimal utilization = creditUtilizationPercent(outstanding, creditLimit);
+        String phone = contact.getMobile() != null && !contact.getMobile().isBlank()
+                ? contact.getMobile() : contact.getPhone();
+
+        return new CustomerRiskResponse(
+                contact.getId(),
+                contact.getDisplayName(),
+                phone,
+                creditLimit,
+                outstanding,
+                overdueAmount,
+                invoices.size(),
+                overdueCount,
+                maxDaysOverdue,
+                utilization,
+                salesHoldActive,
+                contact.getSalesHoldReason(),
+                contact.getSalesHoldUntil(),
+                riskLevel,
+                reasons
+        );
+    }
+
+    private BigDecimal balanceDue(Invoice invoice) {
+        if (invoice.getBalanceDue() != null) {
+            return invoice.getBalanceDue();
+        }
+        return invoice.getTotalAmount() != null ? invoice.getTotalAmount() : BigDecimal.ZERO;
+    }
+
+    private BigDecimal creditUtilizationPercent(BigDecimal outstanding, BigDecimal creditLimit) {
+        if (creditLimit == null || creditLimit.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return outstanding.multiply(new BigDecimal("100"))
+                .divide(creditLimit, 2, RoundingMode.HALF_UP);
+    }
+
+    private String resolveRiskLevel(boolean salesHold, boolean overCredit, int overdueCount, BigDecimal outstanding) {
+        if (salesHold) {
+            return "SALES_HOLD";
+        }
+        if (overCredit) {
+            return "OVER_CREDIT";
+        }
+        if (overdueCount > 0) {
+            return "OVERDUE";
+        }
+        if (outstanding != null && outstanding.compareTo(BigDecimal.ZERO) > 0) {
+            return "WATCH";
+        }
+        return "OK";
+    }
+
+    private int riskRank(String riskLevel) {
+        return switch (riskLevel) {
+            case "SALES_HOLD" -> 0;
+            case "OVER_CREDIT" -> 1;
+            case "OVERDUE" -> 2;
+            case "WATCH" -> 3;
+            default -> 4;
+        };
     }
 }

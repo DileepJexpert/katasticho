@@ -51,6 +51,16 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
 
     List<Contact> findByOrgIdAndIsDeletedFalseAndIdIn(UUID orgId, Collection<UUID> ids);
 
+    @Query("""
+            SELECT c FROM Contact c
+            WHERE c.orgId = :orgId
+              AND c.isDeleted = false
+              AND (c.contactType = 'CUSTOMER' OR c.contactType = 'BOTH')
+              AND c.salesHold = true
+              AND (c.salesHoldUntil IS NULL OR c.salesHoldUntil >= :today)
+            """)
+    List<Contact> findActiveCustomerSalesHolds(@Param("orgId") UUID orgId, @Param("today") java.time.LocalDate today);
+
     boolean existsByOrgIdAndGstinAndIsDeletedFalse(UUID orgId, String gstin);
 
     boolean existsByOrgIdAndGstinAndIdNotAndIsDeletedFalse(UUID orgId, String gstin, UUID id);
