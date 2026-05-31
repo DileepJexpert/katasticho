@@ -14,6 +14,10 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.common.workflow.ApprovalWorkflowService;
+import com.katasticho.erp.common.workflow.DocumentStateConfig;
+import com.katasticho.erp.common.workflow.DocumentStateEngine;
+import com.katasticho.erp.common.workflow.WorkflowDefinition;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.organisation.BranchRepository;
@@ -54,6 +58,8 @@ class PaymentServiceTest {
     @Mock private CommentService commentService;
     @Mock private CurrencyService currencyService;
     @Mock private com.katasticho.erp.common.snapshot.DocumentSnapshotService documentSnapshotService;
+    @Mock private ApprovalWorkflowService approvalWorkflowService;
+    @Mock private DocumentStateEngine documentStateEngine;
 
     private PaymentService paymentService;
     private UUID orgId;
@@ -66,9 +72,14 @@ class PaymentServiceTest {
         paymentService = new PaymentService(
                 paymentRepository, invoiceRepository, contactRepository,
                 organisationRepository, branchRepository, journalService, postingEngine,
-                invoiceService, currencyService, auditService, commentService, documentSnapshotService);
+                invoiceService, currencyService, auditService, commentService, documentSnapshotService,
+                approvalWorkflowService, documentStateEngine);
 
         lenient().when(currencyService.getRate(any(), any(), any())).thenReturn(BigDecimal.ONE);
+        lenient().when(approvalWorkflowService.findMatchingWorkflow(any(), any(), anyMap()))
+                .thenReturn(Optional.empty());
+        lenient().when(documentStateEngine.validateTransition(any(), any(), any(), any()))
+                .thenReturn(DocumentStateConfig.builder().build());
         savedPayments = new HashMap<>();
         lenient().when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> {
             Payment p = inv.getArgument(0);
@@ -289,6 +300,64 @@ class PaymentServiceTest {
         assertEquals("AR_PAYMENT_ALREADY_POSTED", ex.getErrorCode());
         verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any());
         verify(invoiceService, never()).updatePaymentStatus(any(), any());
+    }
+
+    @Test
+    void recordPayment_matchingWorkflow_setsPendingApprovalAndDoesNotPost() {
+        Invoice invoice = Invoice.builder()
+                .orgId(orgId).contactId(UUID.randomUUID())
+                .invoiceNumber("INV-2026-000009").status("SENT")
+                .totalAmount(new BigDecimal("75000.00"))
+                .amountPaid(BigDecimal.ZERO)
+                .balanceDue(new BigDecimal("75000.00"))
+                .build();
+        invoice.setId(UUID.randomUUID());
+
+        WorkflowDefinition workflow = WorkflowDefinition.builder()
+                .code("PAYMENT_HIGH_VALUE_APPROVAL")
+                .name("Payment High Value Approval")
+                .documentType("PAYMENT")
+                .triggerCondition("{\"field\":\"payment.amount\",\"operator\":\"GT\",\"value\":50000}")
+                .active(true)
+                .build();
+        workflow.setId(UUID.randomUUID());
+        workflow.setOrgId(orgId);
+
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoice.getId(), orgId))
+                .thenReturn(Optional.of(invoice));
+        when(invoiceService.computeFiscalYear(any(LocalDate.class), anyInt())).thenReturn(2026);
+        when(invoiceService.generateNumber(eq(orgId), eq("PAY"), anyInt()))
+                .thenReturn("PAY-2026-000009");
+        when(approvalWorkflowService.findMatchingWorkflow(eq(orgId), eq("PAYMENT"), anyMap()))
+                .thenReturn(Optional.of(workflow));
+
+        var request = new RecordPaymentRequest(
+                invoice.getId(),
+                null,
+                LocalDate.now(),
+                new BigDecimal("75000"),
+                "BANK_TRANSFER",
+                "UTR-HIGH",
+                "HDFC-001",
+                "High value payment"
+        );
+
+        Payment result = paymentService.recordPayment(request);
+
+        assertEquals(com.katasticho.erp.ar.entity.PaymentStatus.PENDING_APPROVAL, result.getStatus());
+        assertNull(result.getJournalEntryId());
+        assertNull(result.getPostedAt());
+
+        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any());
+        verify(invoiceService, never()).updatePaymentStatus(any(), any());
+        verify(approvalWorkflowService).requestApproval(
+                eq(orgId),
+                eq(workflow),
+                eq("PAYMENT"),
+                eq(result.getId()),
+                contains("requires approval"),
+                argThat(ctx -> new BigDecimal("75000").compareTo((BigDecimal) ctx.get("payment.amount")) == 0));
     }
 
     @Test

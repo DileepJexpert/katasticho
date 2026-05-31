@@ -18,6 +18,9 @@ import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.common.snapshot.DocumentSnapshotService;
+import com.katasticho.erp.common.workflow.ApprovalWorkflowService;
+import com.katasticho.erp.common.workflow.DocumentStateEngine;
+import com.katasticho.erp.common.workflow.WorkflowDefinition;
 import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.organisation.Branch;
 import com.katasticho.erp.organisation.BranchRepository;
@@ -34,6 +37,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.Map;
+import java.util.Optional;
 import java.util.List;
 import java.util.UUID;
 
@@ -63,6 +70,8 @@ public class PaymentService {
     private final AuditService auditService;
     private final CommentService commentService;
     private final DocumentSnapshotService documentSnapshotService;
+    private final ApprovalWorkflowService approvalWorkflowService;
+    private final DocumentStateEngine documentStateEngine;
 
     /**
      * Record a payment against an invoice (supports partial payments).
@@ -132,6 +141,26 @@ public class PaymentService {
 
         payment = paymentRepository.save(payment);
 
+        PaymentApprovalDecision approvalDecision = evaluateApproval(orgId, payment, invoice);
+        if (approvalDecision.requiresApproval()) {
+            documentStateEngine.validateTransition(orgId, "PAYMENT", payment.getStatus().name(), PaymentStatus.PENDING_APPROVAL.name());
+            payment.setStatus(PaymentStatus.PENDING_APPROVAL);
+            payment = paymentRepository.save(payment);
+            approvalWorkflowService.requestApproval(
+                    orgId,
+                    approvalDecision.workflow(),
+                    "PAYMENT",
+                    payment.getId(),
+                    approvalDecision.reason(),
+                    approvalDecision.context());
+            commentService.addSystemComment("INVOICE", invoice.getId(),
+                    "Payment of \u20b9" + payment.getAmount() + " is pending approval (" + payment.getPaymentMethod() + ")");
+            documentSnapshotService.createSnapshot("PAYMENT", payment.getId(), payment.getPaymentNumber(), toResponse(payment));
+            log.info("Payment {} pending approval: {} for invoice {}", payment.getPaymentNumber(),
+                    payment.getAmount(), invoice.getInvoiceNumber());
+            return payment;
+        }
+
         return postPayment(payment.getId());
     }
 
@@ -160,6 +189,10 @@ public class PaymentService {
         Invoice invoice = invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Invoice", invoiceId));
 
+        if (payment.getStatus() == PaymentStatus.PENDING_APPROVAL) {
+            documentStateEngine.validateTransition(orgId, "PAYMENT", PaymentStatus.PENDING_APPROVAL.name(), PaymentStatus.POSTED.name());
+        }
+
         JournalEntry journalEntry = postingEngine.postPaymentReceived(
                 orgId, payment.getPaymentNumber(), invoice.getInvoiceNumber(),
                 payment.getPaymentDate(), payment.getAmount(), payment.getPaymentMethod());
@@ -183,6 +216,28 @@ public class PaymentService {
 
         log.info("Payment {} posted: {} for invoice {}", payment.getPaymentNumber(),
                 payment.getAmount(), invoice.getInvoiceNumber());
+        return payment;
+    }
+
+    @Transactional
+    public Payment voidPendingPayment(UUID paymentId, String reason) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        UUID userId = TenantContext.getCurrentUserId();
+        Payment payment = paymentRepository.findByIdAndOrgIdAndIsDeletedFalse(paymentId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Payment", paymentId));
+        if (payment.getStatus() != PaymentStatus.PENDING_APPROVAL && payment.getStatus() != PaymentStatus.DRAFT) {
+            throw new BusinessException("Only draft or pending approval payments can be voided without reversal",
+                    "AR_PAYMENT_VOID_REQUIRES_DRAFT_OR_PENDING", HttpStatus.BAD_REQUEST);
+        }
+        if (payment.getStatus() == PaymentStatus.PENDING_APPROVAL) {
+            documentStateEngine.validateTransition(orgId, "PAYMENT", PaymentStatus.PENDING_APPROVAL.name(), PaymentStatus.VOIDED.name());
+        }
+        payment.setStatus(PaymentStatus.VOIDED);
+        payment.setVoidReason(reason);
+        payment.setVoidedAt(Instant.now());
+        payment.setVoidedBy(userId);
+        payment = paymentRepository.save(payment);
+        documentSnapshotService.createSnapshot("PAYMENT", payment.getId(), payment.getPaymentNumber(), toResponse(payment));
         return payment;
     }
 
@@ -247,6 +302,59 @@ public class PaymentService {
                 p.getReferenceNumber(), p.getBankAccount(), p.getNotes(),
                 p.getStatus() != null ? p.getStatus().name() : null,
                 p.getJournalEntryId(), p.getPostedAt(), p.getCreatedAt());
+    }
+
+    private PaymentApprovalDecision evaluateApproval(UUID orgId, Payment payment, Invoice invoice) {
+        Map<String, Object> context = paymentApprovalContext(payment, invoice);
+        Optional<WorkflowDefinition> workflow = approvalWorkflowService.findMatchingWorkflow(orgId, "PAYMENT", context);
+        return workflow
+                .map(definition -> PaymentApprovalDecision.approval(
+                        definition,
+                        paymentApprovalReason(definition, payment, context),
+                        context))
+                .orElseGet(PaymentApprovalDecision::none);
+    }
+
+    private Map<String, Object> paymentApprovalContext(Payment payment, Invoice invoice) {
+        long daysBackdated = Math.max(0, ChronoUnit.DAYS.between(payment.getPaymentDate(), LocalDate.now()));
+        return Map.of(
+                "payment.amount", payment.getAmount(),
+                "payment.paymentDate", payment.getPaymentDate().toString(),
+                "payment.daysBackdated", daysBackdated,
+                "payment.method", payment.getPaymentMethod(),
+                "invoice.balanceDue", invoice.getBalanceDue(),
+                "invoice.number", invoice.getInvoiceNumber()
+        );
+    }
+
+    private String paymentApprovalReason(WorkflowDefinition workflow, Payment payment, Map<String, Object> context) {
+        if ("PAYMENT_BACKDATED_APPROVAL".equals(workflow.getCode())) {
+            return "Payment " + payment.getPaymentNumber() + " is backdated by "
+                    + context.get("payment.daysBackdated") + " day(s)";
+        }
+        if ("PAYMENT_HIGH_VALUE_APPROVAL".equals(workflow.getCode())) {
+            return "Payment " + payment.getPaymentNumber() + " amount " + payment.getAmount()
+                    + " requires approval";
+        }
+        return "Payment " + payment.getPaymentNumber() + " requires approval";
+    }
+
+    private record PaymentApprovalDecision(
+            WorkflowDefinition workflow,
+            String reason,
+            Map<String, Object> context
+    ) {
+        static PaymentApprovalDecision none() {
+            return new PaymentApprovalDecision(null, null, Map.of());
+        }
+
+        static PaymentApprovalDecision approval(WorkflowDefinition workflow, String reason, Map<String, Object> context) {
+            return new PaymentApprovalDecision(workflow, reason, context);
+        }
+
+        boolean requiresApproval() {
+            return workflow != null;
+        }
     }
 
 }

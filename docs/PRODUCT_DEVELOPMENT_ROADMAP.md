@@ -44,7 +44,7 @@ Current active work: distributor workflow controls and credit-control visibility
 - Customer risk reporting is exposed through AR credit reminders using existing contacts, invoices, credit limits, overdue invoices, and sales holds. It is read-only and introduces no posting or workflow side effects.
 - Customer risk UI is reused inside the existing Credit Ledger screen with risk labels and a risk-only filter; no duplicate customer risk module/page is introduced.
 - Customer Indent is removed; Sales Order with backorder is the customer demand flow.
-- AR payment approval will be introduced in phases. Phase 1 only adds payment lifecycle status and a single `postPayment()` accounting gate; approval workflows, multi-invoice allocations, write-offs, and bank reconciliation state changes are deferred.
+- AR payment approval is being introduced in phases. Phase 1 added payment lifecycle status and a single `postPayment()` accounting gate. Phase 2 reuses existing workflow definitions for `PAYMENT`; matching payments move to `PENDING_APPROVAL`, approval posts them through `postPayment()`, and rejection voids them without accounting side effects.
 - Distributor capability should extend existing flows, not fork them.
 - Workflow must be org-configurable. No customer-specific code branches.
 
@@ -92,4 +92,5 @@ Payment lifecycle implementation plan:
 3. Save new payments as `DRAFT`, then immediately call `postPayment()` for normal payments.
 4. Make `postPayment()` the only method allowed to post the journal, update invoice balance, and mark payment `POSTED`.
 5. Keep bank reconciliation behavior unchanged in this phase because it still calls `recordPayment()`.
-6. Add approval in a later phase by stopping between `DRAFT` and `postPayment()` when a `PAYMENT` workflow matches.
+6. Payment approval reuses the existing workflow engine with inactive default templates for high-value and backdated payments.
+7. Bank reconciliation state changes remain deferred; current bank reconciliation still calls `recordPayment()`.

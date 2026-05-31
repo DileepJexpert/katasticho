@@ -45,6 +45,14 @@ public class WorkflowSeedService {
                 new String[]{"OWNER", "ADMIN", "ACCOUNTANT"}, false);
         created |= transition(orgId, "CREDIT_NOTE", "PENDING_APPROVAL", "REJECTED",
                 new String[]{"OWNER", "ADMIN", "ACCOUNTANT"}, false);
+        created |= transition(orgId, "PAYMENT", "DRAFT", "POSTED",
+                new String[]{"OWNER", "ADMIN", "ACCOUNTANT"}, false);
+        created |= transition(orgId, "PAYMENT", "DRAFT", "PENDING_APPROVAL",
+                new String[]{"OWNER", "ADMIN", "ACCOUNTANT"}, false);
+        created |= transition(orgId, "PAYMENT", "PENDING_APPROVAL", "POSTED",
+                new String[]{"OWNER", "ADMIN", "ACCOUNTANT"}, false);
+        created |= transition(orgId, "PAYMENT", "PENDING_APPROVAL", "VOIDED",
+                new String[]{"OWNER", "ADMIN", "ACCOUNTANT"}, false);
 
         created |= workflow(orgId, "SALES_ORDER",
                 "SALES_ORDER_CREDIT_APPROVAL",
@@ -63,6 +71,18 @@ public class WorkflowSeedService {
                 "Credit Note Return Approval",
                 """
                         {"field":"creditNote.totalAmount","operator":"GTE","value":5000}
+                        """);
+        created |= workflow(orgId, "PAYMENT",
+                "PAYMENT_HIGH_VALUE_APPROVAL",
+                "Payment High Value Approval",
+                """
+                        {"field":"payment.amount","operator":"GT","value":50000}
+                        """);
+        created |= workflow(orgId, "PAYMENT",
+                "PAYMENT_BACKDATED_APPROVAL",
+                "Payment Backdated Approval",
+                """
+                        {"field":"payment.daysBackdated","operator":"GT","value":7}
                         """);
 
         return created ? SeedResult.CREATED_NEW : SeedResult.ALREADY_EXISTS;
