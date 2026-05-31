@@ -5,6 +5,7 @@ import com.katasticho.erp.contact.entity.GstTreatment;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -47,6 +48,9 @@ public record ContactResponse(
         BigDecimal outstandingAr,
         BigDecimal outstandingAp,
         UUID defaultPriceListId,
+        boolean salesHold,
+        String salesHoldReason,
+        LocalDate salesHoldUntil,
 
         boolean tdsApplicable,
         String tdsSection,

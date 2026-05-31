@@ -10,6 +10,7 @@ import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.organisation.OrgSettingsService;
 import com.katasticho.erp.tax.TaxSeedService;
 import com.katasticho.erp.common.service.FeatureFlagService;
+import com.katasticho.erp.common.workflow.WorkflowSeedService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -71,6 +72,7 @@ public class OrgBootstrapService {
     private final TaxSeedService taxSeedService;
     private final FeatureFlagService featureFlagService;
     private final OrgSettingsService orgSettingsService;
+    private final WorkflowSeedService workflowSeedService;
     private final OrgBootstrapStatusRepository statusRepository;
 
     private final ConcurrentHashMap<UUID, Boolean> verifiedOrgs = new ConcurrentHashMap<>();
@@ -151,12 +153,16 @@ public class OrgBootstrapService {
         StepOutcome settings = runStep("OrgSettings", orgId,
                 () -> { orgSettingsService.seedDefaults(orgId, org); return SeedResult.CREATED_NEW; });
 
+        StepOutcome workflows = runStep("Workflows", orgId,
+                () -> workflowSeedService.seedDefaultsForOrg(orgId));
+
         boolean allOk = uoms.succeeded() && accounts.succeeded()
-                && defaults.succeeded() && tax.succeeded() && features.succeeded() && settings.succeeded();
+                && defaults.succeeded() && tax.succeeded() && features.succeeded()
+                && settings.succeeded() && workflows.succeeded();
 
         String summary = String.format(
-                "Org %s bootstrap: UoMs=%s, CoA=%s, DefaultAccounts=%s, TaxConfig=%s, Features=%s, Settings=%s",
-                orgId, format(uoms), format(accounts), format(defaults), format(tax), format(features), format(settings));
+                "Org %s bootstrap: UoMs=%s, CoA=%s, DefaultAccounts=%s, TaxConfig=%s, Features=%s, Settings=%s, Workflows=%s",
+                orgId, format(uoms), format(accounts), format(defaults), format(tax), format(features), format(settings), format(workflows));
         log.info(summary);
 
         recordStatus(orgId, uoms, accounts, defaults, tax, allOk, summary);

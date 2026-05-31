@@ -112,6 +112,20 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push(Routes.teamMembers),
             ),
             _SettingsTile(
+              icon: Icons.fact_check_outlined,
+              title: 'Approval Inbox',
+              subtitle: 'Review pending workflow approvals',
+              onTap: () => context.push(Routes.approvals),
+            ),
+            _SettingsTile(
+              icon: Icons.account_tree_outlined,
+              title: 'Workflows',
+              subtitle: canManageBusiness
+                  ? 'Configure approvals, triggers, and approver roles'
+                  : 'Review approval workflows configured for this organisation',
+              onTap: () => context.push(Routes.workflowSettings),
+            ),
+            _SettingsTile(
               icon: Icons.table_chart_outlined,
               title: 'Chart of Accounts',
               subtitle: 'Manage account structure',
@@ -140,8 +154,8 @@ class SettingsScreen extends ConsumerWidget {
                 icon: Icons.tune,
                 title: 'Inventory Features',
                 subtitle: 'Enable inventory in your business configuration',
-                onTap: () => _showComingSoon(
-                    context, 'Inventory module is not enabled for this business'),
+                onTap: () => _showComingSoon(context,
+                    'Inventory module is not enabled for this business'),
               ),
             KSpacing.vGapLg,
 
@@ -477,7 +491,8 @@ class _BusinessProfileCard extends StatelessWidget {
     return labels;
   }
 
-  static List<String> _labelsFromCapabilities(BusinessCapabilities capabilities) {
+  static List<String> _labelsFromCapabilities(
+      BusinessCapabilities capabilities) {
     final labels = <String>[
       if (capabilities.canUseAccounting) 'Accounting',
       if (capabilities.canUseAiInbox) 'AI',

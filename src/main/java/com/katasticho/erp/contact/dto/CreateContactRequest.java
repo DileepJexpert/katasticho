@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 
 public record CreateContactRequest(
@@ -54,6 +55,9 @@ public record CreateContactRequest(
         BigDecimal creditLimit,
         BigDecimal openingBalance,
         UUID defaultPriceListId,
+        Boolean salesHold,
+        String salesHoldReason,
+        LocalDate salesHoldUntil,
 
         // TDS (vendor)
         Boolean tdsApplicable,

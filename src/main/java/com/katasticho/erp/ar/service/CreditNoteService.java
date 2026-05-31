@@ -11,6 +11,9 @@ import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
 import com.katasticho.erp.common.snapshot.DocumentSnapshotService;
+import com.katasticho.erp.common.workflow.ApprovalWorkflowService;
+import com.katasticho.erp.common.workflow.DocumentStateEngine;
+import com.katasticho.erp.common.workflow.WorkflowDefinition;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.currency.CurrencyService;
@@ -30,6 +33,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -62,6 +67,8 @@ public class CreditNoteService {
     private final InventoryService inventoryService;
     private final CommentService commentService;
     private final DocumentSnapshotService documentSnapshotService;
+    private final ApprovalWorkflowService approvalWorkflowService;
+    private final DocumentStateEngine documentStateEngine;
 
     /**
      * Create a DRAFT credit note with tax calculation.
@@ -216,6 +223,45 @@ public class CreditNoteService {
                     "AR_CN_NOT_DRAFT", HttpStatus.BAD_REQUEST);
         }
 
+        Map<String, Object> context = creditNoteApprovalContext(cn);
+        Optional<WorkflowDefinition> workflow =
+                approvalWorkflowService.findMatchingWorkflow(orgId, "CREDIT_NOTE", context);
+        if (workflow.isPresent()) {
+            documentStateEngine.validateTransition(orgId, "CREDIT_NOTE", "DRAFT", "PENDING_APPROVAL");
+            cn.setStatus("PENDING_APPROVAL");
+            cn = creditNoteRepository.save(cn);
+            String reason = "Credit note requires approval: amount " + cn.getTotalAmount();
+            approvalWorkflowService.requestApproval(
+                    orgId,
+                    workflow.get(),
+                    "CREDIT_NOTE",
+                    cn.getId(),
+                    reason,
+                    context);
+            commentService.addSystemComment("CREDIT_NOTE", cn.getId(), reason);
+            return cn;
+        }
+
+        return postCreditNote(cn);
+    }
+
+    @Transactional
+    public CreditNote issueApprovedCreditNote(UUID creditNoteId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        CreditNote cn = creditNoteRepository.findByIdAndOrgIdAndIsDeletedFalse(creditNoteId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("CreditNote", creditNoteId));
+
+        if (!"PENDING_APPROVAL".equals(cn.getStatus())) {
+            throw new BusinessException("Only PENDING_APPROVAL credit notes can be issued after approval",
+                    "AR_CN_NOT_PENDING_APPROVAL", HttpStatus.BAD_REQUEST);
+        }
+
+        documentStateEngine.validateTransition(orgId, "CREDIT_NOTE", "PENDING_APPROVAL", "ISSUED");
+        return postCreditNote(cn);
+    }
+
+    private CreditNote postCreditNote(CreditNote cn) {
         // Post journal via the accounting posting engine
         JournalEntry journalEntry = postingEngine.postCreditNote(cn);
 
@@ -225,7 +271,7 @@ public class CreditNoteService {
         for (CreditNoteLine line : cn.getLines()) {
             if (line.getItemId() != null) {
                 inventoryService.restoreStockForCreditNote(
-                        orgId,
+                        cn.getOrgId(),
                         line.getItemId(),
                         line.getQuantity(),
                         line.getUnitPrice(),
@@ -256,6 +302,14 @@ public class CreditNoteService {
 
         log.info("Credit note {} issued, journal={}", cn.getCreditNoteNumber(), journalEntry.getEntryNumber());
         return cn;
+    }
+
+    private Map<String, Object> creditNoteApprovalContext(CreditNote cn) {
+        return Map.of(
+                "creditNote.totalAmount", cn.getTotalAmount() != null ? cn.getTotalAmount() : BigDecimal.ZERO,
+                "creditNote.hasInvoice", cn.getInvoiceId() != null,
+                "creditNote.lineCount", cn.getLines() != null ? cn.getLines().size() : 0,
+                "contact.id", cn.getContactId().toString());
     }
 
     public CreditNote getCreditNote(UUID creditNoteId) {

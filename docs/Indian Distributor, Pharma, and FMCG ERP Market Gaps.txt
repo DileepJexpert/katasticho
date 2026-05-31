@@ -1,0 +1,1050 @@
+--- PAGE 1 ---
+Indian Distributor, Pharma, and FMCG ERP Market
+Gaps
+Executive Summary
+The Indian distributor , pharma, and FMCG ERP market is not short on software; it is short on software that
+combines India-specific operational depth with modern usability, mobile execution, predictable
+support, and low-friction migration. Incumbents such as BUSY, Marg, Horizon, CBO, Vyapar , and Tally
+already cover a large share of the “table stakes” that buyers ask for—GST, e-invoicing, e-way bills, billing,
+inventory, basic reporting, and in several cases even batch/expiry and distributor workflows. That means
+the next winner is unlikely to succeed on compliance alone. The real opening is in workflow speed, offline
+execution, scheme/pricing complexity, support reliability, and migration simplicity. 
+Across the public source set, the recurring pattern is clear . The Indian incumbents are strongest where
+Indian trade operations are ugly and specific: loading sheets, van statements, route-wise reports, ERP-
+to-ERP ordering, batch-wise stock, expiry monitoring, credit control, and scheme handling. But users
+also keep signaling friction around dated interfaces, beginners finding products complex, fragmented
+mobile experiences, support inconsistency, missing integrations, and slow or painful navigation.
+Those frictions are visible in user reviews for BUSY, Marg, Vyapar , Tally, Zoho Books, and Odoo, and they
+map directly to the product choices visible on official feature pages. 
+Zoho and Odoo are strong products, but they are often passed over in this segment for a different reason:
+buyers here frequently want a distribution-native operating system, not a broad platform that still needs
+app-stacking, partner-led design, or custom development to feel “local” to Indian pharma/FMCG
+distribution. Zoho Books and Zoho Inventory are separate products with separate limits and add-ons;
+Odoo’s own pricing and estimator explicitly separate software from implementation effort, data import,
+training, and customization. Both are better fits where the buyer accepts a more structured implementation
+motion. They are weaker fits where the buyer expects fast go-live, offline resilience, highly localized
+trade workflows, and low consulting dependence. 
+For Katixo, the most attractive wedge is not “generic ERP for everyone.” It is distributor-first ERP with
+domain packs. The recommended sequence is: distributor core first, then pharma trade pack, then 
+FMCG secondary-sales and van-sales pack, and only afterward manufacturing-lite. In this market,
+distribution operations are the daily pain center; manufacturing depth matters, but it is not the fastest
+wedge for taking share from BUSY/Marg/Tally/Horizon-style installs. 
+Research Basis
+This report is based on public material only, with emphasis on the sources you requested: official product
+pages, Google Play pages, G2, SoftwareSuggest, and official community/forum threads. Where public
+information was thin or inconsistent, fields are marked unspecified rather than guessed. Higher-
+1
+2
+3
+4
+1
+
+--- PAGE 2 ---
+confidence findings come from official pages and official docs; user quotes and review summaries are used
+to surface buyer pain, not as the sole evidence base. 
+In this report, Zoho means the stack that an Indian distributor typically evaluates for this use case—
+primarily Zoho Books + Zoho Inventory, and sometimes adjacent Zoho apps for CRM or workflow
+extension. Zoho’s own pricing pages make clear that Books and Inventory are separately metered products
+with separate plan limits, users, locations, orders, APIs, and add-ons. Odoo refers to Odoo’s Standard or
+Custom plans, where the software subscription is distinct from implementation effort. Odoo’s pricing pages
+explicitly state that implementation services, custom code maintenance, and many project services are
+extra, and its estimator explicitly includes business analysis, configuration, training, data import, and
+customization. 
+A notable market insight from the source corpus is that compliance has become table stakes. BUSY,
+Marg, Tally, Zoho Books, and Odoo all publicly position GST, e-invoicing, e-way bills, reconciliation, or return
+support. In other words, many vendors can now say “we handle GST.” That reduces the strategic value of
+compliance as a differentiator and increases the importance of the layer above it: exception handling,
+operator speed, batch/expiry discipline, pricing/scheme logic, collections, and branch execution. 
+Pain Points in Indian Incumbents
+The strongest Indian incumbents are strongest for a reason: they are close to the way Indian trade actually
+runs. But the same products also reveal a market-wide gap between operational depth and experience
+quality. The pattern is not “missing features”; it is “features exist, but users still fight the software.” 
+Product What it covers well Where users struggle most
+BUSY
+Strong India GST posture, e-invoice/e-
+way support, pharma and FMCG
+positioning, low entry pricing, multi-
+branch-oriented Emerald edition,
+partner network, and a mobile
+companion tied to desktop/cloud sync.
+Public user feedback points more to dated UX
+and findability than feature absence. The
+mobile app is valuable, but it is still an extension
+of the desktop product and requires sync/
+configuration. That makes BUSY feel like 
+accounting software expanded into
+distribution, not a modern distributor
+operating system.
+Marg
+Very strong domain fit for pharma/
+FMCG trade: ERP-to-ERP ordering,
+rates/schemes visible to retailers,
+batch-wise stock, expiry reporting,
+local support centers, and multiple
+mobile surfaces such as eRetail/
+eOrder/MargBooks.
+The trade-off is complexity and product
+sprawl. Users describe Marg as hard for
+beginners, and the company’s own app change
+logs show continuing fixes around scanner
+behavior , PDF sharing, multi-branch financial-
+year issues, barcode defaults, printing, and
+expiry validation. That suggests depth, but also
+operational roughness and fragmented UX.
+5
+6
+7
+8
+9
+10
+2
+
+--- PAGE 3 ---
+Product What it covers well Where users struggle most
+CBO
+CBO is one of the most domain-specific
+products in the set: pharma
+manufacturing, distribution, finance,
+web reporting, mobile/tab reporting,
+HR-payroll, SFA, and explicit
+traceability, shelf-life, lot recall,
+dangerous/restricted goods control,
+and ATP/CTP-style capabilities. CBO
+also claims both online and offline
+operation.
+The public pain pattern is around speed,
+implementation friction, and support
+confidence. One SoftwareSuggest user asks for
+“more speed,” another flags implementation as
+not easy and support as missing. The Play page
+for CBO SFA also states that app data “isn’t
+encrypted,” which is a trust and governance risk
+for a field-force-heavy deployment.
+Horizon
+Horizon is unusually explicit about 
+distribution-native workflows:
+loading sheets, van statements, sales
+order bulk processing, offers/schemes,
+cash collection statements, route-wise
+sales reports, batch-wise stock, user-
+wise access control, auto backup, and
+both perpetual and cloud options.
+Horizon looks operationally relevant, but the
+public ecosystem is thinner . Public support is
+visible through phone contact and a self-care
+portal, yet no enterprise-style SLA is advertised
+in the reviewed sources. Review evidence is
+limited, and at least one review flags support
+directly. The product reads as operationally
+strong but commercially less transparent
+and less ecosystem-rich than larger peers.
+Vyapar
+Vyapar is strongest where owner-led
+SMBs care most: mobile-first billing,
+offline operation, GST reports, batch/
+expiry tracking, reminders, low-cost
+entry, and easy onboarding. Its
+Android scale is far above most
+specialist Indian peers.
+The gap is depth. Official positioning
+emphasizes billing, accounting, inventory,
+reminders, and reports—not route/beat plans,
+van-sales reconciliation, or deep scheme/
+pricelist orchestration. Review data also points
+to integration gaps, screen-flip friction, 
+multiple-price limitations, and localized-
+language limitations. Vyapar is excellent for
+“simple business control,” weaker for “formal
+distributor operating model.”
+Tally
+Tally remains very strong in accounting
+credibility, GST posture, cloud access,
+multi-branch/multi-GSTIN handling,
+and partner reach. For many
+businesses, Tally is still the safest
+accounting standard.
+The weakness in this segment is that Tally’s
+public story is still much more accounting-
+centered than distribution-native. It can
+support a lot, but the reviewed materials do not
+foreground route/beat management, van
+reconciliation, or distributor-specific scheme
+engines the way Horizon or Marg do. User
+review feedback asks for better cloud
+collaboration, more automation, and more
+responsive support.
+A strategic takeaway for Katixo is that the Indian incumbents split into two clusters. BUSY, Tally, and
+Vyapar are closer to accounting-led or owner-led usage patterns. Marg, Horizon, and CBO are closer to
+operations-led distribution patterns. The market gap lies between those clusters: software that is as
+11
+12
+13
+14
+3
+
+--- PAGE 4 ---
+distribution-native as Horizon/Marg/CBO, but as usable, mobile, and implementation-light as the best parts
+of Vyapar or Zoho. 
+User Voice
+The most revealing direct quotes are short, practical, and painfully specific. They also explain why “feature
+parity” does not automatically convert into adoption.
+Vendor Short user quote What it signals
+BUSY “boring and not much user friendly” Dated UI still matters, especially outside the
+accounts team.
+BUSY “difficult to locate things” Search/navigation usability is a real conversion
+and retention problem.
+Marg “very complex for beginners” High domain depth is being paid for with
+onboarding friction.
+Vyapar “no option to sort transactions from
+‘Oldest to Newest’” 
+Small workflow omissions become trust
+problems in accounting contexts.
+Vyapar “Constant flipping of the screen
+takes time” 
+Mobile billing speed depends on reducing page
+changes, not just adding features.
+TallyPrime “increase cloud-based collaboration
+and automation” 
+Tally’s accounting strength does not fully solve
+collaborative execution needs.
+Zoho
+Books
+“still waiting for the migration
+team to finish” 
+Even when migration tools exist, migration
+experience can still block adoption.
+Zoho
+Books
+“UI experiences could be improved” Polished SaaS branding does not eliminate
+operational UX rough edges.
+Odoo “beginner setup wasn’t that easy” Configuration effort is not theoretical; buyers
+feel it early.
+Odoo “way too many modules” Breadth can look like complexity instead of
+value to SMB/midmarket buyers.
+CBO “Need some more speed” Specialist depth still loses if field or transaction
+speed is weak.
+Taken together , these quotes point to five recurring purchase blockers: navigation friction, training
+burden, migration anxiety, slow or multi-step transaction entry, and unclear ownership of support
+problems. Those are exactly the areas where a new entrant can outperform without needing to outspend
+every incumbent on breadth. 
+15
+16
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+4
+
+--- PAGE 5 ---
+Why Zoho and Odoo Often Lose in This Segment
+Zoho and Odoo are frequently strong on paper . The problem is that this segment does not buy “paper ERP .”
+It buys fit-to-trade execution.
+Reason Zoho evidence Odoo evidence Buying implication
+Stacked or
+implementation-
+heavy cost model
+Zoho Books starts at ₹749/
+month billed annually, Zoho
+Inventory starts at ₹999/
+month billed annually, and
+Inventory adds metering for
+users, orders, and locations.
+That means even the lightest
+paid Books+Inventory stack
+starts around ₹1,748/month,
+before extra apps or add-ons.
+Odoo Standard is listed
+at US$16.90/user/
+month and Custom at 
+US$25.50/user/month;
+implementation
+services are separate. 
+Buyers comparing
+against Vyapar ,
+BUSY, Marg, or
+Tally often see
+higher “landed
+cost,” not just
+software cost.
+Implementation
+and migration
+effort
+Zoho provides migration
+guides from Tally and
+QuickBooks, but public user
+feedback still shows
+migration delays. 
+Odoo’s estimator
+explicitly includes
+business analysis,
+configuration, training,
+data import, and
+customization;
+implementation service
+is listed as not included
+in plan pricing. 
+In this segment,
+buyers strongly
+prefer products
+that feel
+installable or
+partner-light.
+Localization exists,
+but deep trade
+localization still
+needs work
+Zoho Books supports GST, e-
+invoicing, e-way bills, and
+Zoho Inventory supports
+batches/expiry, but official/
+community content still
+shows edge questions around
+pricing models, item
+mutability, and batch limits. 
+Odoo supports Indian
+GST returns and
+reports, but forum
+evidence shows
+questions around
+batch/expiry on delivery
+orders and expiration-
+driven replenishment
+needing custom logic. 
+Buyers in pharma/
+FMCG distribution
+need fewer
+workarounds and
+fewer “forum
+answer”
+moments.
+27
+28
+29
+30
+31
+32
+5
+
+--- PAGE 6 ---
+Reason Zoho evidence Odoo evidence Buying implication
+Offline and field
+execution
+mismatch
+Zoho community replies
+explicitly say Zoho Books
+does not provide offline
+mode or a desktop version,
+even though mobile apps are
+available. 
+Odoo supports mobile/
+PWA usage and has an
+offline mode concept,
+but official docs
+position it as PWA/
+browser-oriented and
+official search snippets
+note a capped offline
+data allocation. 
+That is weaker
+than the desktop/
+offline
+expectations of
+Indian
+distributors, van-
+sales teams, and
+low-connectivity
+geographies.
+Partner
+dependence for
+domain fit
+Zoho has official support and
+partner programs, but deep
+distributor workflows usually
+imply Books + Inventory +
+extra workflow/tooling
+choices. 
+Odoo explicitly routes
+many implementation
+needs through
+partners, and G2
+reviews mention
+partner quality and
+setup problems. 
+Buyers here often
+want a vendor
+who “already
+understands
+distributor trade,”
+not a platform
+that must be
+shaped into it.
+This does not mean Zoho or Odoo are weak. In fact, both are strong where businesses want structured
+implementation, better cross-functional breadth, or broader cloud ecosystems. Zoho is particularly credible
+in GST, accounting mobility, support, and integrations; Odoo is particularly credible in breadth, deployment
+flexibility, API/customization, and integrated process coverage. The issue is narrower: in Indian distributor/
+pharma/FMCG buying cycles, they often lose to products that feel more immediately local, keyboard-fast,
+offline-safe, and operator-friendly. 
+Prioritized Market Gaps
+The table below is a synthesis of the source set rather than a vendor claim. It prioritizes gaps by likely
+market impact and relative implementation effort.
+Gap Why it matters in this market Impact Ease
+Offline-first distributor and
+van-sales execution
+Weak internet is still operational reality; owner
+trust rises sharply when orders, collections, and
+van stock work without connectivity.
+Very
+high Medium
+Fast, keyboard-first billing
+and order entry
+Users repeatedly complain about navigation,
+flips, and having trouble locating things. Speed
+at the counter or order desk directly affects
+adoption.
+Very
+high Medium
+Scheme and pricing engine
+Indian trade runs on party-specific rates, slab
+schemes, free goods, quantity discounts, and
+exceptions. Generic ERPs usually under-serve
+this.
+Very
+high Medium
+33
+34
+35
+36
+37
+6
+
+--- PAGE 7 ---
+Gap Why it matters in this market Impact Ease
+Batch/expiry/FEFO
+discipline with alerts
+Especially important in pharma and FMCG.
+Compliance alone is not enough; users need
+operational prevention of expiry loss and
+wrong-batch dispatch.
+Very
+high Medium
+Low-friction migration
+cockpit
+Migration fear remains one of the biggest
+blockers, including for cloud SaaS products that
+already publish migration utilities.
+Very
+high Medium
+Multi-branch control
+center that does not feel
+“enterprisey”
+Smaller distributors need branch/godown
+visibility without an enterprise-scale setup
+project.
+High Medium
+Support model with clear
+SLAs and ownership
+Many products advertise support, but few
+present the support experience as a strategic
+differentiator .
+High High
+Open integrations for
+payments, WhatsApp,
+barcode, GST, and banking
+Buyers increasingly expect the ERP to fit into
+wider workflows, not stay isolated. High High
+Role-based reporting that
+mirrors trade reality
+Owners want outstandings, near-expiry, beat
+sales, van settlement, and branch leakage—not
+just generic accounting reports.
+High Medium
+Retailer ordering and
+assisted order capture
+Marg’s ERP-to-ERP and eRetail-style capabilities
+show that ordering convenience is a real sell-
+side advantage.
+High Medium
+This ranking follows directly from the explicit trade workflows on Horizon, Marg, CBO, and BUSY, combined
+with the usability, migration, and cloud/offline complaints visible in BUSY, Vyapar , Zoho, Odoo, and Tally
+reviews. In short: the unmet need is not more modules; it is less operational friction in the modules
+that matter most. 
+Katixo Product Strategy
+The best product strategy for Katixo is to position it as India-first, distributor-native ERP rather than
+“another accounting software” and not “generic ERP with plugins.” The right message is: faster trade
+execution, fewer errors, easier migration, better mobile/offline control. That positioning directly
+attacks the combined weakness of incumbent Indian desktop products and generalized cloud suites. 
+38
+39
+7
+
+--- PAGE 8 ---
+Strategy areaRecommendation for Katixo Why this should work
+Market
+wedge
+Start with Distributor Core. Add Pharma Trade
+Pack and FMCG Sales Pack next. Delay full
+manufacturing until the distribution spine is
+proven.
+Source evidence shows that trade
+execution pain is more urgent
+and more visible than
+production-planning pain in this
+segment.
+Core
+modules
+Party/item masters, sales/purchase/order/
+challan/returns, stock transfer , batch/expiry/
+FEFO, scheme engine, credit control, collections,
+GST/e-invoice/e-way, audit trail, branch/godown
+control, 20–30 essential reports.
+This is the minimum to replace
+BUSY/Marg/Tally-level
+operational trust.
+Pharma pack
+Batch recall, near-expiry, breakage/expiry claims,
+stockist settlement workflow, product
+substitutions, doctor/product secondary-sales
+inputs if needed later .
+CBO and Marg show that pharma
+buyers reward explicit batch/
+expiry/recall language. 
+FMCG pack
+Beat plan, van loading/unloading, route-wise
+sales, salesman incentive, party-specific
+schemes, multi-pricelist execution, secondary-
+sales dashboards.
+Horizon and BUSY explicitly
+foreground route/van/distributor
+workflows. 
+Deployment
+Offer desktop/offline-first hybrid, managed
+cloud, and private cloud/on-prem. Same
+product, same data model, different hosting
+modes.
+This neutralizes the biggest anti-
+cloud objection without giving up
+SaaS convenience.
+Mobile
+strategy
+One strong Android app for orders, collections,
+van stock, approval tasks, and key reports.
+Offline by default, sync retry visible, conflicts
+resolvable.
+Buyers are tired of fragmented
+companion apps. Marg’s app
+family and BUSY’s desktop-tied
+app show the pain/opportunity. 
+Integrations
+GST/GSP , e-way, bank import/reconciliation, UPI
+QR, WhatsApp document sharing, barcode/
+thermal printing, Excel import/export, API/
+webhooks.
+Compliance and communication
+are already common; Katixo
+should make them invisible and
+reliable rather than “extra.”
+Migration
+tools
+Build importers for Tally, BUSY, Marg, Excel/
+CSV, with trial company, validation summary,
+duplicate detection, opening balance checks, and
+cutover checklist.
+Migration tools are not optional
+in a switching market. BUSY and
+Zoho already advertise migration
+paths. 
+Pricing
+Use a two-lane model: low-friction monthly
+cloud pricing plus desktop/hybrid annual pricing.
+Bundle migration and first-week hypercare into
+paid plans.
+Buyers compare against Vyapar/
+Tally for low entry and Zoho/
+Odoo for cloud sophistication. 
+40
+41
+42
+43
+44
+8
+
+--- PAGE 9 ---
+Strategy areaRecommendation for Katixo Why this should work
+Support
+model
+Publish actual SLAs: response times for P1/P2/
+P3, L1/L2/L3 ownership, WhatsApp support,
+ticket portal, remote assist, partner escalation,
+and named account success for larger accounts.
+Support is a trust signal in this
+market, and most vendors still
+market it too vaguely.
+Partner
+program
+Certify partners by domain, not just by region:
+Distributor Core, Pharma, FMCG. Give them
+migration kits, demo data, UAT checklists, and
+implementation playbooks.
+Odoo and Tally show the value of
+partner ecosystems; Katixo can
+win by making partner quality
+more consistent. 
+A pragmatic pricing architecture for Katixo would be to sit between Tally/Vyapar on entry cost and Zoho/
+Odoo on cloud sophistication, while staying cheaper than a Books+Inventory+custom-workflow stack or
+an Odoo project with partner implementation. The exact number will depend on packaging, but the
+strategic rule is simple: do not force customers to choose between affordability and operational fit. 
+Benchmark, UX Priorities, and Roadmap
+The benchmark below is qualitative. Citations in the Product column support the whole row.
+Product Pricing Localization Pharma
+features
+FMCG
+features Mobile appOffline
+support
+Ease of
+use CustomizationPartner
+network
+Support
+SLAs DeploymentIntegrations
+BUSY Low Strong India
+GST Moderate Strong Yes
+Strong
+on
+desktop/
+hybrid
+Moderate Moderate Strong
+24x7 help,
+formal
+SLA not
+seen
+Desktop,
+cloud,
+mobile
+Moderate
+Marg Low–mid Very strong Strong Strong Yes, multi-
+app Strong
+Moderate–
+low for
+new users
+High Strong
+Published
+hours,
+local
+support-
+centre
+model
+Desktop,
+cloud,
+mobile
+Moderate
+CBO Unspecified Strong India
+pharma
+Very
+strong Moderate Yes Officially
+yes Moderate High Moderate
+Contact/
+support
+published,
+no SLA
+seen
+Web,
+mobile,
+offline/
+online ERP
+Unspecified–
+moderate
+Horizon Mid Strong India
+GST
+Moderate–
+strong Strong Yes, order
+app Strong High Moderate Unspecified
+Support
+portal/
+phone, no
+SLA seen
+Perpetual +
+cloud
+Low–
+moderate
+45
+46
+47
+48
+49
+50
+9
+
+--- PAGE 10 ---
+Product Pricing Localization Pharma
+features
+FMCG
+features Mobile appOffline
+support
+Ease of
+use CustomizationPartner
+network
+Support
+SLAs DeploymentIntegrations
+Vyapar Very low Strong India
+GST Moderate Moderate Very
+strong
+Very
+strong High Low–
+moderate
+Limited vs
+legacy
+ecosystems
+Published
+hours +
+WhatsApp
+Mobile +
+desktop
+Low–
+moderate
+Tally Low–mid Very strong
+India GST Moderate Moderate
+Limited
+public
+distributor-
+mobile
+story
+Strong
+on
+desktop/
+cloud
+High for
+accounting
+users
+Moderate Very strong
+Help
+center +
+partners,
+no clear
+SLA seen
+Desktop +
+cloud Moderate
+Zoho Modular , stacks
+over time
+Strong India
+GST Moderate Moderate Strong Weak Moderate–
+high Moderate Strong
+Books
+India
+hours;
+Inventory
+24x5
+Cloud,
+mobile,
+desktop
+app
+surfaces
+High
+Odoo Per-user +
+implementation
+Strong but
+implementation-
+led
+Moderate Moderate–
+strong Yes Partial
+Moderate–
+low for
+new users
+Very high Strong
+24/5
+email
+support +
+partners
+Odoo
+Online,
+Odoo.sh,
+on-prem
+High
+One conclusion from the benchmark is especially important: Katixo should not try to beat every
+competitor on everything at launch. It should try to beat the Indian incumbents on usability, migration,
+and mobile/offline execution, while beating Zoho/Odoo on distributor-local fit and lower
+implementation drag. That is a much more realistic path to share capture. 
+The most urgent UX fixes are not cosmetic. They are transaction-speed fixes.
+UX fix Why it matters Priority
+Single-screen order and bill entryRemoves page-switching and “screen flip” waste.P0
+Global search for party, item, batch,
+invoice, and barcode Directly addresses “difficult to locate things.” P0
+Inline scheme/credit/stock warnings
+instead of modal interruptionsKeeps the operator in flow. P0
+FEFO-first batch picker with near-
+expiry highlight Reduces wrong-batch dispatch and expiry mistakes.P0
+Persistent last-used context by role
+Branch, warehouse, printer , voucher series,
+salesman, and route should not be reselected
+repeatedly.
+P0
+Migration wizard with dry-run and
+error export
+Turns migration from a sales promise into a visible
+process. P1
+51
+52
+53
+54
+55
+10
+
+--- PAGE 11 ---
+UX fix Why it matters Priority
+Offline sync dashboard Makes mobile confidence measurable and
+supportable. P1
+Van-load and day-close wizard Converts route/van complexity into guided
+execution. P1
+Role dashboards Owners, accountants, warehouse teams, and
+salesmen need different defaults. P1
+These UX priorities are directly tied to the reviewed pain patterns around navigation friction, screen flipping,
+migration delays, complexity for beginners, and the need for operator-speed execution in field and trade
+workflows. 
+A good default Katixo order-to-cash flow is shown below.
+That flow is intentionally opinionated: it puts pricing, credit, batch, compliance, and collection into one
+controlled path because that is where Indian distributor software wins or loses operational trust. 
+A migration flow should be handled with the same seriousness as billing.
+This matters because migration is repeatedly visible in product strategy, help documentation, and user
+complaint data—not only as a technical task, but as a trust problem. 
+The recommended MVP scope for Katixo is narrow enough to ship, but broad enough to displace a real
+incumbent install.
+Include in MVP Defer from MVP
+Sales, purchases, orders, challans, returns Full MRP and advanced production
+planning
+Item/party masters with GST and branch/godown logicDeep HR/payroll
+Batch/expiry/FEFO and near-expiry alerts Advanced BI designer
+Scheme engine v1 and multi-pricelist v1 E-commerce and ONDC connectors
+Credit control and outstandings Complex custom workflow builder
+GST, e-invoice, e-way integration Advanced WMS slotting/wave planning
+56
+Retailer
+order
+Single-screen
+capture
+Party
+price
+and
+scheme
+engine
+Credit
+and
+overdue
+check
+FEFO
+batch
+allocation
+Picklist
+or
+van
+load
+e-Invoice
+and
+e-Way
+generation
+WhatsApp
+or
+print
+dispatch
+docs
+Collection
+via
+cash
+UPI
+cheque
+Outstanding
+and
+bank
+reconciliation
+GST
+and
+management
+dashboards
+57
+Source
+system
+Tally
+BUSY
+Marg
+Excel
+Extract
+and
+import
+Map
+masters
+and
+opening
+balances
+Validate
+tax
+stock
+and
+party
+data
+Dry-run
+trial
+company
+User
+acceptance
+testing
+Cutover
+weekend
+Hypercare
+and
+issue
+queue
+58
+11
+
+--- PAGE 12 ---
+Include in MVP Defer from MVP
+Android offline app for orders, collections, and van stock
+v1 Full CRM/SFA suite beyond essentials
+Tally/BUSY/Marg/Excel migration v1 Sector-specific manufacturing recipes
+A practical 6–9 month roadmap looks like this:
+Phase Timeline Milestones Resource estimate
+Foundation Month
+1–2
+Product spec, data model, auth/roles,
+masters, tax engine, billing core, reporting
+skeleton
+1 PM/BA, 3 backend, 2
+frontend, 1 QA, shared
+designer
+MVP alpha Month
+3–4
+Sales/purchase/order/challan/returns,
+stock transfer , batch/expiry, scheme engine
+v1, GST docs, print formats, core
+dashboards
+Same as above + 1 more
+QA
+Pilot beta Month
+5–6
+Android offline app v1, collections, van
+stock, sync engine, e-invoice/e-way,
+migration wizard, partner demo
+environment
+Add 2 mobile engineers, 1
+DevOps, 1 implementation
+lead
+Go-live
+readiness Month 7
+Multi-branch controls, audit trail, hypercare
+console, ticketing, telemetry, backup/
+restore, remote assist
+Add 1 customer-success/
+implementation FTE
+Domain
+expansion
+Month
+8–9
+Pharma pack v1, FMCG route/beat/van
+dashboards, salesman incentive v1, API/
+webhooks, partner certification toolkit
+Keep core team; add 1
+domain analyst part-time
+A realistic delivery team for this roadmap is 10–12 core FTE for 6–9 months: roughly 1 PM/BA, 3 backend, 2
+frontend, 2 mobile, 2 QA, 1 DevOps/shared platform, and 1–2 implementation/support leads, plus
+part-time design and domain consulting. A leaner team can still deliver , but it will usually force one of three
+trade-offs: weaker mobile, weaker migration, or weaker compliance automation. Those are exactly the
+wrong areas to compromise in this market.
+https://busy.in/
+https://busy.in/
+https://www.g2.com/products/busy-accounting-software/reviews
+https://www.g2.com/products/busy-accounting-software/reviews
+https://www.zoho.com/in/books/pricing/pricing-comparison.html
+https://www.zoho.com/in/books/pricing/pricing-comparison.html
+https://www.horizontechsolutions.co.in/distribution-billing-software.html
+https://www.horizontechsolutions.co.in/distribution-billing-software.html
+1 7
+2 16 26 55 56
+3 6 27 53
+4 8 12 15 38 39 41 50 57
+12
+
+--- PAGE 13 ---
+https://busy.in/pricing/
+https://busy.in/pricing/
+https://www.margerp.com/
+https://www.margerp.com/
+https://www.cboerp.com/pharma-erp-software.php
+https://www.cboerp.com/pharma-erp-software.php
+https://vyaparapp.in/
+https://vyaparapp.in/
+https://tallysolutions.com/erp-software/erp-multi-branch-setup-configuration-guide/?
+srsltid=AfmBOooxPRyu7l1d6vpF57zIFWdvH1AUMbdn732jE5NzbxbA6VGFXnbx
+https://tallysolutions.com/erp-software/erp-multi-branch-setup-configuration-guide/?
+srsltid=AfmBOooxPRyu7l1d6vpF57zIFWdvH1AUMbdn732jE5NzbxbA6VGFXnbx
+https://www.g2.com/products/marg-erp/reviews
+https://www.g2.com/products/marg-erp/reviews
+https://play.google.com/store/apps/details?id=in.android.vyapar
+https://play.google.com/store/apps/details?id=in.android.vyapar
+https://www.softwaresuggest.com/vyapar/reviews
+https://www.softwaresuggest.com/vyapar/reviews
+https://www.softwaresuggest.com/tallyprime/reviews
+https://www.softwaresuggest.com/tallyprime/reviews
+https://play.google.com/store/apps/details?hl=en_IN&id=com.zoho.books
+https://play.google.com/store/apps/details?hl=en_IN&id=com.zoho.books
+https://www.g2.com/products/zoho-books/reviews
+https://www.g2.com/products/zoho-books/reviews
+https://www.g2.com/products/odoo-odoo-erp/reviews
+https://www.g2.com/products/odoo-odoo-erp/reviews
+https://www.softwaresuggest.com/cbo/reviews
+https://www.softwaresuggest.com/cbo/reviews
+https://www.odoo.com/pricing
+https://www.odoo.com/pricing
+https://www.zoho.com/books/help/migration/tally-to-zoho-books.html
+https://www.zoho.com/books/help/migration/tally-to-zoho-books.html
+https://www.odoo.com/pricing-packs
+https://www.odoo.com/pricing-packs
+https://www.odoo.com/documentation/19.0/applications/finance/fiscal_localizations/india.html
+https://www.odoo.com/documentation/19.0/applications/finance/fiscal_localizations/india.html
+https://help.zoho.com/portal/en/community/topic/zoho-books-offline
+https://help.zoho.com/portal/en/community/topic/zoho-books-offline
+5 9 47
+10 48
+11 40 49
+13 51
+14 52
+17
+18
+19
+20
+21 31 37
+22
+23 24
+25
+28 36 54
+29
+30
+32
+33
+13
+
+--- PAGE 14 ---
+https://www.odoo.com/documentation/19.0/administration/mobile.html
+https://www.odoo.com/documentation/19.0/administration/mobile.html
+https://www.zoho.com/in/books/support/
+https://www.zoho.com/in/books/support/
+https://play.google.com/store/apps/details?id=com.margbooks
+https://play.google.com/store/apps/details?id=com.margbooks
+https://busy.in/download/
+https://busy.in/download/
+https://vyaparapp.in/free/billing-software-kerala
+https://vyaparapp.in/free/billing-software-kerala
+https://tallysolutions.com/partners/?
+srsltid=AfmBOor91u15qhNS15q3fU37UAsoFzAdjLMyxpm6rCrHwKn7Dt1zhim8
+https://tallysolutions.com/partners/?srsltid=AfmBOor91u15qhNS15q3fU37UAsoFzAdjLMyxpm6rCrHwKn7Dt1zhim8
+34
+35
+42
+43 58
+44 46
+45
+14
+

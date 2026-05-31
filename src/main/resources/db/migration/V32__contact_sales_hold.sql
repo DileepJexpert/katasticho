@@ -1,0 +1,4 @@
+ALTER TABLE public.contact
+    ADD COLUMN IF NOT EXISTS sales_hold BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS sales_hold_reason TEXT,
+    ADD COLUMN IF NOT EXISTS sales_hold_until DATE;

@@ -149,8 +149,13 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
       if (mounted) {
         final created = (result['data'] ?? result) as Map<String, dynamic>;
         final id = created['id']?.toString();
+        final status = created['status']?.toString();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sales order created successfully')),
+          SnackBar(
+            content: Text(status == 'PENDING_APPROVAL'
+                ? 'Sales order created and sent for approval'
+                : 'Sales order created successfully'),
+          ),
         );
         if (id != null) {
           context.go('/sales-orders/$id');

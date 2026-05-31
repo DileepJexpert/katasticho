@@ -135,6 +135,13 @@ public class OrgSettingsService {
         defaults.put("inventory.low_stock_alert", "true");
         defaults.put("inventory.negative_stock", "false");
         defaults.put("inventory.valuation_method", "FIFO");
+        defaults.put("inventory.batch_policy", "FEFO");
+
+        // Distributor policy defaults
+        defaults.put("sales.credit_policy", "WARN");
+        defaults.put("sales.overdue_policy", "WARN");
+        defaults.put("sales.overdue_grace_days", "0");
+        defaults.put("sales.dispatch_mode", "CHALLAN_FIRST");
 
         // Communication
         defaults.put("notifications.email_enabled", "false");

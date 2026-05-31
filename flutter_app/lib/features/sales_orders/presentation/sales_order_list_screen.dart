@@ -14,6 +14,7 @@ import '../data/sales_order_repository.dart';
 const _statusTabs = [
   KListTab(label: 'All'),
   KListTab(label: 'Draft', value: 'DRAFT'),
+  KListTab(label: 'Pending Approval', value: 'PENDING_APPROVAL'),
   KListTab(label: 'Confirmed', value: 'CONFIRMED'),
   KListTab(label: 'Partial Ship', value: 'PARTIALLY_SHIPPED'),
   KListTab(label: 'Shipped', value: 'SHIPPED'),
@@ -25,7 +26,8 @@ class SalesOrderListScreen extends ConsumerStatefulWidget {
   const SalesOrderListScreen({super.key});
 
   @override
-  ConsumerState<SalesOrderListScreen> createState() => _SalesOrderListScreenState();
+  ConsumerState<SalesOrderListScreen> createState() =>
+      _SalesOrderListScreenState();
 }
 
 class _SalesOrderListScreenState extends ConsumerState<SalesOrderListScreen> {
@@ -82,8 +84,7 @@ class _SalesOrderListScreenState extends ConsumerState<SalesOrderListScreen> {
     final msg = fail == 0
         ? 'Deleted $success successfully'
         : 'Deleted $success, $fail failed';
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -273,7 +274,8 @@ class _SalesOrderTable extends StatelessWidget {
             DataCell(KTableAmountCell(value: total)),
             DataCell(KTableOpenActionCell(
               tooltip: 'Open sales order',
-              onPressed: id.isEmpty ? null : () => context.go('/sales-orders/$id'),
+              onPressed:
+                  id.isEmpty ? null : () => context.go('/sales-orders/$id'),
             )),
           ],
         );

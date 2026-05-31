@@ -127,9 +127,9 @@ import '../features/platform_admin/presentation/platform_admin_audit_screen.dart
 import '../features/platform_admin/data/platform_admin_auth_state.dart';
 import '../features/pharma/presentation/drug_licenses_screen.dart';
 import '../features/pharma/presentation/prescription_history_screen.dart';
-import '../features/pharma/presentation/customer_indent_list_screen.dart';
-import '../features/pharma/presentation/customer_indent_create_screen.dart';
 import '../features/loyalty/presentation/wallet_history_screen.dart';
+import '../features/workflow/presentation/approval_inbox_screen.dart';
+import '../features/workflow/presentation/workflow_settings_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -231,6 +231,8 @@ class Routes {
   static const businessConfiguration = '/settings/business-configuration';
   static const orgDetails = '/settings/org-details';
   static const branches = '/settings/branches';
+  static const workflowSettings = '/settings/workflows';
+  static const approvals = '/approvals';
   static const defaultAccounts = '/settings/default-accounts';
   static const taxAccountMappings = '/settings/tax-accounts';
   static const inventoryFeatures = '/settings/inventory-features';
@@ -270,9 +272,6 @@ class Routes {
   static const prescriptionHistory = '/pharma/prescriptions/:contactId';
   static String prescriptionHistoryPath(String contactId) =>
       '/pharma/prescriptions/$contactId';
-  static const customerIndents = '/customer-indents';
-  static const customerIndentCreate = '/customer-indents/create';
-
   // Loyalty Wallet
   static const walletHistory = '/loyalty/wallet/:contactId';
   static String walletHistoryPath(String contactId) =>
@@ -857,21 +856,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           // Loyalty — Wallet History (per contact)
           GoRoute(
-            path: Routes.customerIndents,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: CustomerIndentListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: Routes.customerIndentCreate,
-            builder: (context, state) {
-              final extra = state.extra;
-              return CustomerIndentCreateScreen(
-                prefill: extra is Map<String, dynamic> ? extra : null,
-              );
-            },
-          ),
-          GoRoute(
             path: Routes.walletHistory,
             builder: (context, state) {
               final contactId = state.pathParameters['contactId']!;
@@ -964,10 +948,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final extra = state.extra;
               return CreateDebitNoteScreen(
-                prefillExpiryDate:
-                    extra is DateTime ? extra : null,
-                prefill:
-                    extra is Map<String, dynamic> ? extra : null,
+                prefillExpiryDate: extra is DateTime ? extra : null,
+                prefill: extra is Map<String, dynamic> ? extra : null,
               );
             },
           ),
@@ -1134,8 +1116,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.businessConfiguration,
-            builder: (context, state) =>
-                const BusinessConfigurationScreen(),
+            builder: (context, state) => const BusinessConfigurationScreen(),
           ),
           GoRoute(
             path: Routes.orgDetails,
@@ -1144,6 +1125,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.branches,
             builder: (context, state) => const BranchesScreen(),
+          ),
+          GoRoute(
+            path: Routes.workflowSettings,
+            builder: (context, state) => const WorkflowSettingsScreen(),
+          ),
+          GoRoute(
+            path: Routes.approvals,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ApprovalInboxScreen(),
+            ),
           ),
           GoRoute(
             path: Routes.defaultAccounts,
@@ -1181,13 +1172,20 @@ String? _capabilityRedirectForLocation(
       !capabilities.canUsePos) {
     return Routes.dashboard;
   }
-  if ((location == Routes.salesOrders ||
-          location == Routes.salesOrderCreate ||
-          location.startsWith('/sales-orders/') ||
-          location == Routes.deliveryChallans ||
-          location == Routes.deliveryChallanCreate ||
-          location.startsWith('/delivery-challans/')) &&
-      !capabilities.canUseDistribution) {
+  final isSalesOrderRoute = location == Routes.salesOrders ||
+      location == Routes.salesOrderCreate ||
+      location.startsWith('/sales-orders/');
+
+  final isDeliveryChallanRoute = location == Routes.deliveryChallans ||
+      location == Routes.deliveryChallanCreate ||
+      location.startsWith('/delivery-challans/');
+
+  if (isSalesOrderRoute &&
+      !(capabilities.canUseDistribution || capabilities.canUsePharma)) {
+    return Routes.dashboard;
+  }
+
+  if (isDeliveryChallanRoute && !capabilities.canUseDistribution) {
     return Routes.dashboard;
   }
   if ((location == Routes.items ||
@@ -1216,9 +1214,6 @@ String? _capabilityRedirectForLocation(
     return Routes.dashboard;
   }
   if ((location == Routes.drugLicenses ||
-          location == Routes.customerIndents ||
-          location == Routes.customerIndentCreate ||
-          location.startsWith('/customer-indents/') ||
           location.startsWith('/pharma/prescriptions/')) &&
       !capabilities.canUsePharma) {
     return Routes.dashboard;

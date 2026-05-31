@@ -10,7 +10,9 @@ import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.service.InvoiceService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.policy.PolicyResolverService;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.common.workflow.ApprovalWorkflowService;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.estimate.repository.EstimateRepository;
@@ -71,6 +73,8 @@ class SalesCycleTest {
     @Mock private GenericTaxEngine taxEngine;
     @Mock private CommentService commentService;
     @Mock private DeliveryChallanRepository challanRepository;
+    @Mock private PolicyResolverService policyResolverService;
+    @Mock private ApprovalWorkflowService approvalWorkflowService;
 
     // ── DeliveryChallanService extra mocks ────────────────────────
     @Mock private StockBatchRepository batchRepository;
@@ -116,7 +120,8 @@ class SalesCycleTest {
                 contactRepository, itemRepository, warehouseRepository,
                 stockBalanceRepository, branchRepository, estimateRepository,
                 invoiceService, invoiceRepository, sequenceRepository,
-                defaultAccountService, taxEngine, commentService, challanRepository);
+                defaultAccountService, taxEngine, commentService, challanRepository,
+                policyResolverService, approvalWorkflowService);
 
         deliveryChallanService = new DeliveryChallanService(
                 challanRepository, salesOrderRepository, reservationRepository,

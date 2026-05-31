@@ -78,6 +78,9 @@ public class ContactService {
                 .creditLimit(req.creditLimit() != null ? req.creditLimit() : java.math.BigDecimal.ZERO)
                 .openingBalance(req.openingBalance() != null ? req.openingBalance() : java.math.BigDecimal.ZERO)
                 .defaultPriceListId(req.defaultPriceListId())
+                .salesHold(Boolean.TRUE.equals(req.salesHold()))
+                .salesHoldReason(req.salesHoldReason())
+                .salesHoldUntil(req.salesHoldUntil())
                 .tdsApplicable(Boolean.TRUE.equals(req.tdsApplicable()))
                 .tdsSection(req.tdsSection())
                 .tdsRate(req.tdsRate())
@@ -143,6 +146,9 @@ public class ContactService {
         if (req.creditLimit() != null) contact.setCreditLimit(req.creditLimit());
         if (req.openingBalance() != null) contact.setOpeningBalance(req.openingBalance());
         contact.setDefaultPriceListId(req.defaultPriceListId());
+        contact.setSalesHold(Boolean.TRUE.equals(req.salesHold()));
+        contact.setSalesHoldReason(req.salesHoldReason());
+        contact.setSalesHoldUntil(req.salesHoldUntil());
         contact.setTdsApplicable(Boolean.TRUE.equals(req.tdsApplicable()));
         contact.setTdsSection(req.tdsSection());
         contact.setTdsRate(req.tdsRate());
@@ -262,6 +268,7 @@ public class ContactService {
                 c.getCreditLimit(), c.getOpeningBalance(),
                 c.getOutstandingAr(), c.getOutstandingAp(),
                 c.getDefaultPriceListId(),
+                c.isSalesHold(), c.getSalesHoldReason(), c.getSalesHoldUntil(),
                 c.isTdsApplicable(), c.getTdsSection(), c.getTdsRate(),
                 c.getBankName(), c.getBankAccountNo(), c.getBankIfsc(), c.getUpiId(),
                 c.isActive(), c.getNotes(), c.getCreatedAt(),

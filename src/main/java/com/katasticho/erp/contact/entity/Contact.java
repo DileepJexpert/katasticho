@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -149,6 +150,16 @@ public class Contact extends BaseEntity {
 
     @Column(name = "default_price_list_id")
     private UUID defaultPriceListId;
+
+    @Column(name = "sales_hold", nullable = false)
+    @Builder.Default
+    private boolean salesHold = false;
+
+    @Column(name = "sales_hold_reason")
+    private String salesHoldReason;
+
+    @Column(name = "sales_hold_until")
+    private LocalDate salesHoldUntil;
 
     // TDS
     @Column(name = "tds_applicable", nullable = false)

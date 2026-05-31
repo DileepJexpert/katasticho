@@ -6,9 +6,11 @@ import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../routing/app_router.dart';
+import '../../workflow/data/workflow_repository.dart';
 import '../data/sales_order_providers.dart';
 import '../data/sales_order_repository.dart';
 
@@ -40,6 +42,10 @@ class SalesOrderDetailScreen extends ConsumerWidget {
                     itemBuilder: (context) => [
                       const PopupMenuItem(
                           value: 'pdf', child: Text('Download PDF')),
+                      if (status == 'PENDING_APPROVAL')
+                        const PopupMenuItem(
+                            value: 'approvals',
+                            child: Text('Open Approval Inbox')),
                       if (status == 'DRAFT') ...[
                         const PopupMenuItem(
                             value: 'confirm', child: Text('Confirm')),
@@ -139,6 +145,15 @@ class SalesOrderDetailScreen extends ConsumerWidget {
         }
         break;
       case 'confirm':
+        if (status == 'PENDING_APPROVAL') {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Approve this sales order before confirming')),
+            );
+          }
+          return;
+        }
         try {
           await repo.confirmSalesOrder(salesOrderId);
           ref.invalidate(salesOrderDetailProvider(salesOrderId));
@@ -155,6 +170,9 @@ class SalesOrderDetailScreen extends ConsumerWidget {
             );
           }
         }
+        break;
+      case 'approvals':
+        if (context.mounted) context.push(Routes.approvals);
         break;
       case 'cancel':
         _showCancelConfirmation(context, ref);
@@ -353,6 +371,11 @@ class _SalesOrderDetailBody extends ConsumerWidget {
               ),
             ),
             KSpacing.vGapMd,
+            if (status == 'PENDING_APPROVAL') ...[
+              _PendingApprovalBanner(salesOrderId: salesOrderId),
+              KSpacing.vGapMd,
+            ],
+            _ApprovalHistoryPanel(salesOrderId: salesOrderId),
             if (wide)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -414,6 +437,317 @@ class _SalesOrderDetailBody extends ConsumerWidget {
       },
     );
   }
+}
+
+class _PendingApprovalBanner extends ConsumerStatefulWidget {
+  final String salesOrderId;
+
+  const _PendingApprovalBanner({required this.salesOrderId});
+
+  @override
+  ConsumerState<_PendingApprovalBanner> createState() =>
+      _PendingApprovalBannerState();
+}
+
+class _PendingApprovalBannerState
+    extends ConsumerState<_PendingApprovalBanner> {
+  bool _deciding = false;
+
+  Future<void> _decide(String approvalId, bool approve) async {
+    final note = await _promptNote(approve);
+    if (!mounted) return;
+    setState(() => _deciding = true);
+    try {
+      final repo = ref.read(workflowRepositoryProvider);
+      if (approve) {
+        await repo.approve(approvalId, note: note);
+      } else {
+        await repo.reject(approvalId, note: note);
+      }
+      ref.invalidate(approvalRequestsProvider);
+      ref.invalidate(approvalRequestForDocumentProvider(
+          'SALES_ORDER|${widget.salesOrderId}'));
+      ref.invalidate(approvalHistoryForDocumentProvider(
+          'SALES_ORDER|${widget.salesOrderId}'));
+      ref.invalidate(salesOrderDetailProvider(widget.salesOrderId));
+      ref.invalidate(salesOrderListProvider);
+      _showSnack(approve ? 'Sales order approved' : 'Sales order rejected');
+    } catch (e) {
+      _showSnack(ApiErrorParser.message(e));
+    } finally {
+      if (mounted) setState(() => _deciding = false);
+    }
+  }
+
+  Future<String?> _promptNote(bool approve) async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(approve ? 'Approve sales order' : 'Reject sales order'),
+        content: TextField(
+          controller: controller,
+          autofocus: !approve,
+          minLines: 2,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            labelText: 'Note',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            style: !approve
+                ? FilledButton.styleFrom(backgroundColor: KColors.error)
+                : null,
+            child: Text(approve ? 'Approve' : 'Reject'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final approvalAsync = ref.watch(approvalRequestForDocumentProvider(
+        'SALES_ORDER|${widget.salesOrderId}'));
+    final approval = approvalAsync.valueOrNull;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: KColors.warning.withValues(alpha: 0.10),
+        borderRadius: KSpacing.borderRadiusMd,
+        border: Border.all(color: KColors.warning.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.pending_actions_outlined, color: KColors.warning),
+          KSpacing.hGapSm,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Pending approval',
+                  style: KTypography.labelLarge.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'This sales order cannot be confirmed, dispatched, or invoiced until the approval workflow is completed.',
+                  style: KTypography.bodySmall.copyWith(
+                    color: cs.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (approval != null) ...[
+                FilledButton.icon(
+                  onPressed:
+                      _deciding ? null : () => _decide(approval.id, true),
+                  icon: _deciding
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_rounded),
+                  label: const Text('Approve'),
+                ),
+                TextButton.icon(
+                  onPressed:
+                      _deciding ? null : () => _decide(approval.id, false),
+                  icon: const Icon(Icons.close_rounded),
+                  label: const Text('Reject'),
+                  style: TextButton.styleFrom(foregroundColor: KColors.error),
+                ),
+              ],
+              TextButton.icon(
+                onPressed: () => context.push(Routes.approvals),
+                icon: const Icon(Icons.fact_check_outlined),
+                label: Text(approval == null ? 'Approvals' : 'Inbox'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ApprovalHistoryPanel extends ConsumerWidget {
+  final String salesOrderId;
+
+  const _ApprovalHistoryPanel({required this.salesOrderId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final historyAsync = ref.watch(
+      approvalHistoryForDocumentProvider('SALES_ORDER|$salesOrderId'),
+    );
+
+    return historyAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (history) {
+        if (history.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: KSpacing.md),
+          child: KCard(
+            title: 'Approval History',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final request in history.requests) ...[
+                  _ApprovalRequestTimelineRow(request: request),
+                  const SizedBox(height: 8),
+                ],
+                for (final decision in history.decisions) ...[
+                  _ApprovalDecisionTimelineRow(decision: decision),
+                  const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ApprovalRequestTimelineRow extends StatelessWidget {
+  final ApprovalRequest request;
+
+  const _ApprovalRequestTimelineRow({required this.request});
+
+  @override
+  Widget build(BuildContext context) {
+    return _TimelineRow(
+      icon: Icons.pending_actions_outlined,
+      color: KColors.warning,
+      title: '${_approvalLabel(request.status)} approval requested',
+      subtitle: request.triggerReason.isEmpty
+          ? 'Step ${request.currentStep}'
+          : request.triggerReason,
+      trailing: request.requestedAt,
+    );
+  }
+}
+
+class _ApprovalDecisionTimelineRow extends StatelessWidget {
+  final ApprovalDecision decision;
+
+  const _ApprovalDecisionTimelineRow({required this.decision});
+
+  @override
+  Widget build(BuildContext context) {
+    final approved = decision.decision == 'APPROVED';
+    return _TimelineRow(
+      icon: approved ? Icons.check_circle_outline : Icons.cancel_outlined,
+      color: approved ? KColors.success : KColors.error,
+      title:
+          '${_approvalLabel(decision.decision)} at step ${decision.stepNumber}',
+      subtitle: (decision.note ?? '').isEmpty ? 'No note' : decision.note!,
+      trailing: decision.decidedAt,
+    );
+  }
+}
+
+class _TimelineRow extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final String? trailing;
+
+  const _TimelineRow({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
+        KSpacing.hGapSm,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: KTypography.labelLarge.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: KTypography.bodySmall.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (trailing != null)
+          Text(
+            trailing!,
+            style: KTypography.labelSmall.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+String _approvalLabel(String value) {
+  return value
+      .replaceAll('_', ' ')
+      .toLowerCase()
+      .split(' ')
+      .where((part) => part.isNotEmpty)
+      .map((part) => part[0].toUpperCase() + part.substring(1))
+      .join(' ');
 }
 
 class _InfoFact {

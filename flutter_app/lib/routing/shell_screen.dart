@@ -145,11 +145,6 @@ const _salesGroup = NavGroup(
         activeIcon: Icons.assignment_rounded,
         route: Routes.salesOrders),
     NavItem(
-        label: 'Customer Indents',
-        icon: Icons.assignment_late_outlined,
-        activeIcon: Icons.assignment_late_rounded,
-        route: Routes.customerIndents),
-    NavItem(
         label: 'Delivery Challans',
         icon: Icons.local_shipping_outlined,
         activeIcon: Icons.local_shipping_rounded,
@@ -884,11 +879,14 @@ bool _isNavItemVisible(String route, BusinessCapabilities capabilities) {
       route == Routes.receiptSettings) {
     return capabilities.canUsePos;
   }
-  if (route == Routes.salesOrders || route == Routes.deliveryChallans) {
+  if (route == Routes.salesOrders) {
+    return capabilities.canUseDistribution || capabilities.canUsePharma;
+  }
+
+  if (route == Routes.deliveryChallans) {
     return capabilities.canUseDistribution;
   }
-  if (route == Routes.customerIndents ||
-      route == Routes.drugLicenses ||
+  if (route == Routes.drugLicenses ||
       route == Routes.prescriptionHistory) {
     return capabilities.canUsePharma;
   }

@@ -455,12 +455,6 @@ class ApiConfig {
   static String prescriptionsByReceipt(String receiptId) =>
       '/api/v1/prescriptions/by-receipt/$receiptId';
 
-  // Customer Indents / out-of-stock requests
-  static const String customerIndents = '/api/v1/customer-indents';
-  static String customerIndentById(String id) => '/api/v1/customer-indents/$id';
-  static String customerIndentStatus(String id) =>
-      '/api/v1/customer-indents/$id/status';
-
   // Purchase Orders
   static const String purchaseOrders = '/api/v1/purchase-orders';
   static String purchaseOrderById(String id) => '/api/v1/purchase-orders/$id';

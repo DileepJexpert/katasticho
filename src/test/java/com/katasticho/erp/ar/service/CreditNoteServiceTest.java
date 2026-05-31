@@ -11,6 +11,9 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.common.workflow.ApprovalWorkflowService;
+import com.katasticho.erp.common.workflow.DocumentStateEngine;
+import com.katasticho.erp.common.workflow.WorkflowDefinition;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.entity.ContactType;
 import com.katasticho.erp.contact.repository.ContactRepository;
@@ -58,6 +61,8 @@ class CreditNoteServiceTest {
     @Mock private CurrencyService currencyService;
     @Mock private DefaultAccountService defaultAccountService;
     @Mock private com.katasticho.erp.common.snapshot.DocumentSnapshotService documentSnapshotService;
+    @Mock private ApprovalWorkflowService approvalWorkflowService;
+    @Mock private DocumentStateEngine documentStateEngine;
 
     private CreditNoteService creditNoteService;
     private UUID orgId;
@@ -72,7 +77,8 @@ class CreditNoteServiceTest {
                 invoiceRepository, sequenceRepository, organisationRepository,
                 invoiceService, journalService, postingEngine, taxEngine,
                 currencyService, auditService, inventoryService,
-                commentService, documentSnapshotService);
+                commentService, documentSnapshotService,
+                approvalWorkflowService, documentStateEngine);
 
         lenient().when(currencyService.getRate(any(), any(), any())).thenReturn(BigDecimal.ONE);
         lenient().when(defaultAccountService.getCode(any(), eq(DefaultAccountPurpose.AR))).thenReturn("1200");
@@ -81,6 +87,8 @@ class CreditNoteServiceTest {
         userId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
+        lenient().when(approvalWorkflowService.findMatchingWorkflow(eq(orgId), eq("CREDIT_NOTE"), anyMap()))
+                .thenReturn(Optional.empty());
 
         org = Organisation.builder().name("Test Corp").stateCode("MH").build();
         org.setId(orgId);
@@ -184,5 +192,73 @@ class CreditNoteServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> creditNoteService.issueCreditNote(issuedCn.getId()));
         assertEquals("AR_CN_NOT_DRAFT", ex.getErrorCode());
+    }
+
+    @Test
+    void issueCreditNote_withMatchingWorkflow_marksPendingApprovalWithoutPosting() {
+        CreditNote draftCn = CreditNote.builder()
+                .orgId(orgId)
+                .contactId(contact.getId())
+                .creditNoteNumber("CN-2026-000010")
+                .creditNoteDate(LocalDate.of(2026, 4, 15))
+                .status("DRAFT")
+                .totalAmount(new BigDecimal("7500.00"))
+                .build();
+        draftCn.setId(UUID.randomUUID());
+
+        WorkflowDefinition workflow = WorkflowDefinition.builder()
+                .code("CREDIT_NOTE_RETURN_APPROVAL")
+                .name("Credit Note Return Approval")
+                .documentType("CREDIT_NOTE")
+                .triggerCondition("{}")
+                .active(true)
+                .build();
+        workflow.setId(UUID.randomUUID());
+        workflow.setOrgId(orgId);
+
+        when(creditNoteRepository.findByIdAndOrgIdAndIsDeletedFalse(draftCn.getId(), orgId))
+                .thenReturn(Optional.of(draftCn));
+        when(approvalWorkflowService.findMatchingWorkflow(eq(orgId), eq("CREDIT_NOTE"), anyMap()))
+                .thenReturn(Optional.of(workflow));
+        when(creditNoteRepository.save(any(CreditNote.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CreditNote result = creditNoteService.issueCreditNote(draftCn.getId());
+
+        assertEquals("PENDING_APPROVAL", result.getStatus());
+        verify(postingEngine, never()).postCreditNote(any());
+        verify(approvalWorkflowService).requestApproval(
+                eq(orgId),
+                eq(workflow),
+                eq("CREDIT_NOTE"),
+                eq(draftCn.getId()),
+                contains("requires approval"),
+                anyMap());
+    }
+
+    @Test
+    void issueApprovedCreditNote_postsPendingApprovalCreditNote() {
+        CreditNote pendingCn = CreditNote.builder()
+                .orgId(orgId)
+                .contactId(contact.getId())
+                .creditNoteNumber("CN-2026-000011")
+                .creditNoteDate(LocalDate.of(2026, 4, 15))
+                .status("PENDING_APPROVAL")
+                .totalAmount(new BigDecimal("7500.00"))
+                .build();
+        pendingCn.setId(UUID.randomUUID());
+
+        JournalEntry mockJournal = JournalEntry.builder().entryNumber("JE-2026-000004").build();
+        mockJournal.setId(UUID.randomUUID());
+
+        when(creditNoteRepository.findByIdAndOrgIdAndIsDeletedFalse(pendingCn.getId(), orgId))
+                .thenReturn(Optional.of(pendingCn));
+        when(postingEngine.postCreditNote(pendingCn)).thenReturn(mockJournal);
+        when(creditNoteRepository.save(any(CreditNote.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CreditNote result = creditNoteService.issueApprovedCreditNote(pendingCn.getId());
+
+        assertEquals("ISSUED", result.getStatus());
+        assertEquals(mockJournal.getId(), result.getJournalEntryId());
+        verify(postingEngine).postCreditNote(pendingCn);
     }
 }

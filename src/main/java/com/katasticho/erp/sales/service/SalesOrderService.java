@@ -12,7 +12,12 @@ import com.katasticho.erp.ar.entity.InvoiceNumberSequence;
 import com.katasticho.erp.ar.service.InvoiceService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.policy.CreditPolicy;
+import com.katasticho.erp.common.policy.OverduePolicy;
+import com.katasticho.erp.common.policy.PolicyResolverService;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.common.workflow.ApprovalWorkflowService;
+import com.katasticho.erp.common.workflow.WorkflowDefinition;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.estimate.entity.Estimate;
@@ -55,6 +60,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -77,6 +83,8 @@ public class SalesOrderService {
     private final GenericTaxEngine taxEngine;
     private final CommentService commentService;
     private final DeliveryChallanRepository challanRepository;
+    private final PolicyResolverService policyResolverService;
+    private final ApprovalWorkflowService approvalWorkflowService;
 
     // ── CREATE ──────────────────────────────────────────────────
 
@@ -175,8 +183,34 @@ public class SalesOrderService {
         so.setAdjustmentDescription(request.adjustmentDescription());
         so.setTotal(subtotal.add(totalTax).add(shippingCharge).add(adjustment));
 
+        SalesOrderRiskDecision creditLimitDecision = evaluateCreditLimit(orgId, contact, so.getTotal());
+        SalesOrderRiskDecision overdueDecision = evaluateOverdueInvoices(orgId, contact);
+        SalesOrderRiskDecision approvalDecision = creditLimitDecision.requiresApproval()
+                ? creditLimitDecision
+                : overdueDecision.requiresApproval() ? overdueDecision : SalesOrderRiskDecision.none();
+        if (approvalDecision.requiresApproval()) {
+            so.setStatus("PENDING_APPROVAL");
+        }
+
         so = salesOrderRepository.save(so);
         commentService.addSystemComment("SALES_ORDER", so.getId(), "Sales order created");
+        if (creditLimitDecision.warningMessage() != null) {
+            commentService.addSystemComment("SALES_ORDER", so.getId(), creditLimitDecision.warningMessage());
+        }
+        if (overdueDecision.warningMessage() != null) {
+            commentService.addSystemComment("SALES_ORDER", so.getId(), overdueDecision.warningMessage());
+        }
+        if (approvalDecision.requiresApproval()) {
+            approvalWorkflowService.requestApproval(
+                    orgId,
+                    approvalDecision.workflow(),
+                    "SALES_ORDER",
+                    so.getId(),
+                    approvalDecision.warningMessage(),
+                    approvalDecision.context());
+            commentService.addSystemComment("SALES_ORDER", so.getId(),
+                    "Sales order is pending approval: " + approvalDecision.warningMessage());
+        }
 
         log.info("Sales order created: {} for contact {}", soNumber, contact.getId());
         String name = contact.getCompanyName() != null ? contact.getCompanyName() : contact.getDisplayName();
@@ -728,6 +762,19 @@ public class SalesOrderService {
     }
 
     private void validateContactType(Contact contact) {
+        if (!contact.isActive()) {
+            throw new BusinessException("Cannot create sales order for an inactive contact",
+                    "SO_CONTACT_INACTIVE", HttpStatus.BAD_REQUEST);
+        }
+        if (contact.isSalesHold()
+                && (contact.getSalesHoldUntil() == null || !contact.getSalesHoldUntil().isBefore(LocalDate.now()))) {
+            String reason = contact.getSalesHoldReason() != null && !contact.getSalesHoldReason().isBlank()
+                    ? ": " + contact.getSalesHoldReason()
+                    : "";
+            throw new BusinessException("Customer is on sales hold" + reason,
+                    "SO_CONTACT_SALES_HOLD", HttpStatus.BAD_REQUEST);
+        }
+
         String type = contact.getContactType().name();
         if ("VENDOR".equals(type)) {
             throw new BusinessException("Cannot create sales order for a vendor-only contact",
@@ -748,6 +795,110 @@ public class SalesOrderService {
             nextVal = 1L;
         }
         return String.format("%s-%d-%06d", prefix, year, nextVal);
+    }
+
+    private SalesOrderRiskDecision evaluateCreditLimit(UUID orgId, Contact contact, BigDecimal orderTotal) {
+        BigDecimal creditLimit = nonNull(contact.getCreditLimit());
+        if (creditLimit.compareTo(BigDecimal.ZERO) <= 0) {
+            return SalesOrderRiskDecision.none();
+        }
+
+        BigDecimal outstandingAr = nonNull(contact.getOutstandingAr());
+        BigDecimal exposure = outstandingAr.add(nonNull(orderTotal));
+        if (exposure.compareTo(creditLimit) <= 0) {
+            return SalesOrderRiskDecision.none();
+        }
+
+        String contactName = contact.getCompanyName() != null ? contact.getCompanyName() : contact.getDisplayName();
+        String message = String.format(
+                "Credit limit exceeded for %s: outstanding %s + order %s = exposure %s, limit %s",
+                contactName != null ? contactName : contact.getId(),
+                outstandingAr, nonNull(orderTotal), exposure, creditLimit);
+
+        Map<String, Object> context = Map.of(
+                "credit.outstandingAr", outstandingAr,
+                "credit.orderTotal", nonNull(orderTotal),
+                "credit.exposureAmount", exposure,
+                "credit.creditLimit", creditLimit,
+                "contact.id", contact.getId().toString());
+
+        Optional<WorkflowDefinition> workflow = approvalWorkflowService
+                .findMatchingWorkflow(orgId, "SALES_ORDER", context);
+        if (workflow.isPresent()) {
+            return SalesOrderRiskDecision.approval(message, workflow.get(), context);
+        }
+
+        CreditPolicy policy = policyResolverService.creditPolicy(orgId);
+        if (policy == CreditPolicy.BLOCK) {
+            throw new BusinessException(message, "SO_CREDIT_LIMIT_EXCEEDED", HttpStatus.BAD_REQUEST);
+        }
+        if (policy == CreditPolicy.APPROVAL_REQUIRED) {
+            throw new BusinessException(
+                    "Credit approval workflow is not active for this organisation",
+                    "SO_CREDIT_APPROVAL_WORKFLOW_MISSING",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        return SalesOrderRiskDecision.warning(message);
+    }
+
+    private SalesOrderRiskDecision evaluateOverdueInvoices(UUID orgId, Contact contact) {
+        int graceDays = policyResolverService.overdueGraceDays(orgId);
+        LocalDate cutoffDate = LocalDate.now().minusDays(graceDays);
+        List<Invoice> overdueInvoices = invoiceRepository.findOutstandingByContact(orgId, contact.getId()).stream()
+                .filter(invoice -> invoice.getDueDate() != null && invoice.getDueDate().isBefore(cutoffDate))
+                .toList();
+
+        if (overdueInvoices.isEmpty()) {
+            return SalesOrderRiskDecision.none();
+        }
+
+        BigDecimal overdueAmount = overdueInvoices.stream()
+                .map(Invoice::getBalanceDue)
+                .map(this::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        LocalDate oldestDueDate = overdueInvoices.stream()
+                .map(Invoice::getDueDate)
+                .min(LocalDate::compareTo)
+                .orElse(null);
+
+        String contactName = contact.getCompanyName() != null ? contact.getCompanyName() : contact.getDisplayName();
+        String message = String.format(
+                "Customer %s has %d overdue invoice(s), amount %s, oldest due date %s",
+                contactName != null ? contactName : contact.getId(),
+                overdueInvoices.size(),
+                overdueAmount,
+                oldestDueDate);
+
+        Map<String, Object> context = Map.of(
+                "overdue.count", overdueInvoices.size(),
+                "overdue.amount", overdueAmount,
+                "overdue.oldestDueDate", oldestDueDate != null ? oldestDueDate.toString() : "",
+                "overdue.graceDays", graceDays,
+                "contact.id", contact.getId().toString());
+
+        Optional<WorkflowDefinition> workflow = approvalWorkflowService
+                .findMatchingWorkflow(orgId, "SALES_ORDER", context);
+        if (workflow.isPresent()) {
+            return SalesOrderRiskDecision.approval(message, workflow.get(), context);
+        }
+
+        OverduePolicy policy = policyResolverService.overduePolicy(orgId);
+        if (policy == OverduePolicy.BLOCK) {
+            throw new BusinessException(message, "SO_OVERDUE_INVOICES", HttpStatus.BAD_REQUEST);
+        }
+        if (policy == OverduePolicy.APPROVAL_REQUIRED) {
+            throw new BusinessException(
+                    "Overdue invoice approval workflow is not active for this organisation",
+                    "SO_OVERDUE_APPROVAL_WORKFLOW_MISSING",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        return SalesOrderRiskDecision.warning(message);
+    }
+
+    private BigDecimal nonNull(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
     }
 
     private SalesOrderResponse toResponseWithContactLookup(SalesOrder so) {
@@ -791,5 +942,27 @@ public class SalesOrderService {
                 invoiceCount, challanRepository.countBySalesOrderIdAndIsDeletedFalse(so.getId()),
                 so.isAllowBackorder(),
                 so.getCreatedAt());
+    }
+
+    private record SalesOrderRiskDecision(
+            String warningMessage,
+            WorkflowDefinition workflow,
+            Map<String, Object> context
+    ) {
+        static SalesOrderRiskDecision none() {
+            return new SalesOrderRiskDecision(null, null, Map.of());
+        }
+
+        static SalesOrderRiskDecision warning(String message) {
+            return new SalesOrderRiskDecision(message, null, Map.of());
+        }
+
+        static SalesOrderRiskDecision approval(String message, WorkflowDefinition workflow, Map<String, Object> context) {
+            return new SalesOrderRiskDecision(message, workflow, context);
+        }
+
+        boolean requiresApproval() {
+            return workflow != null;
+        }
     }
 }

@@ -10,6 +10,7 @@ import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.organisation.OrgSettingsService;
 import com.katasticho.erp.tax.TaxSeedService;
+import com.katasticho.erp.common.workflow.WorkflowSeedService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +39,7 @@ class OrgBootstrapServiceTest {
     @Mock private TaxSeedService taxSeedService;
     @Mock private FeatureFlagService featureFlagService;
     @Mock private OrgSettingsService orgSettingsService;
+    @Mock private WorkflowSeedService workflowSeedService;
     @Mock private OrgBootstrapStatusRepository statusRepository;
 
     private OrgBootstrapService bootstrapService;
@@ -50,7 +52,7 @@ class OrgBootstrapServiceTest {
         bootstrapService = new OrgBootstrapService(
                 organisationRepository, uomService, accountService,
                 defaultAccountService, taxSeedService, featureFlagService,
-                orgSettingsService, statusRepository);
+                orgSettingsService, workflowSeedService, statusRepository);
 
         orgId = UUID.randomUUID();
         org = mock(Organisation.class);
@@ -60,6 +62,7 @@ class OrgBootstrapServiceTest {
 
         lenient().when(statusRepository.findById(any())).thenReturn(Optional.empty());
         lenient().when(statusRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(workflowSeedService.seedDefaultsForOrg(any())).thenReturn(SeedResult.ALREADY_EXISTS);
     }
 
     @Test

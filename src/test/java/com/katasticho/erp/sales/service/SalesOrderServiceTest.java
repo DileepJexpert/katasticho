@@ -2,12 +2,19 @@ package com.katasticho.erp.sales.service;
 
 import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
 import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
+import com.katasticho.erp.ar.entity.Invoice;
+import com.katasticho.erp.ar.entity.InvoiceNumberSequence;
 import com.katasticho.erp.ar.repository.InvoiceNumberSequenceRepository;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.service.InvoiceService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.policy.CreditPolicy;
+import com.katasticho.erp.common.policy.OverduePolicy;
+import com.katasticho.erp.common.policy.PolicyResolverService;
 import com.katasticho.erp.common.service.CommentService;
+import com.katasticho.erp.common.workflow.ApprovalWorkflowService;
+import com.katasticho.erp.common.workflow.WorkflowDefinition;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.estimate.repository.EstimateRepository;
@@ -19,6 +26,8 @@ import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.sales.dto.SalesOrderResponse;
+import com.katasticho.erp.sales.dto.CreateSalesOrderRequest;
+import com.katasticho.erp.sales.dto.SalesOrderLineRequest;
 import com.katasticho.erp.sales.entity.SalesOrder;
 import com.katasticho.erp.sales.entity.SalesOrderLine;
 import com.katasticho.erp.sales.entity.StockReservation;
@@ -64,6 +73,8 @@ class SalesOrderServiceTest {
     @Mock private GenericTaxEngine taxEngine;
     @Mock private CommentService commentService;
     @Mock private DeliveryChallanRepository challanRepository;
+    @Mock private PolicyResolverService policyResolverService;
+    @Mock private ApprovalWorkflowService approvalWorkflowService;
 
     private SalesOrderService salesOrderService;
 
@@ -82,7 +93,8 @@ class SalesOrderServiceTest {
                 contactRepository, itemRepository, warehouseRepository,
                 stockBalanceRepository, branchRepository, estimateRepository,
                 invoiceService, invoiceRepository, sequenceRepository,
-                defaultAccountService, taxEngine, commentService, challanRepository);
+                defaultAccountService, taxEngine, commentService, challanRepository,
+                policyResolverService, approvalWorkflowService);
 
         orgId = UUID.randomUUID();
         contactId = UUID.randomUUID();
@@ -107,13 +119,31 @@ class SalesOrderServiceTest {
 
         lenient().when(warehouseRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId))
                 .thenReturn(Optional.of(warehouse));
+        lenient().when(branchRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId))
+                .thenReturn(Optional.empty());
         lenient().when(itemRepository.findById(itemId)).thenReturn(Optional.of(trackedItem));
         lenient().when(contactRepository.findById(contactId)).thenReturn(Optional.of(contact));
         lenient().when(invoiceRepository.countBySalesOrderId(any())).thenReturn(0);
-        lenient().when(salesOrderRepository.save(any(SalesOrder.class)))
+        lenient().when(sequenceRepository.findByOrgIdAndPrefixAndYear(eq(orgId), eq("SO"), anyInt()))
+                .thenReturn(Optional.empty());
+        lenient().when(sequenceRepository.save(any(InvoiceNumberSequence.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(salesOrderRepository.save(any(SalesOrder.class)))
+                .thenAnswer(inv -> {
+                    SalesOrder so = inv.getArgument(0);
+                    if (so.getId() == null) {
+                        so.setId(UUID.randomUUID());
+                    }
+                    return so;
+                });
         lenient().when(reservationRepository.save(any(StockReservation.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(policyResolverService.creditPolicy(orgId)).thenReturn(CreditPolicy.WARN);
+        lenient().when(policyResolverService.overduePolicy(orgId)).thenReturn(OverduePolicy.WARN);
+        lenient().when(policyResolverService.overdueGraceDays(orgId)).thenReturn(0);
+        lenient().when(invoiceRepository.findOutstandingByContact(orgId, contactId)).thenReturn(List.of());
+        lenient().when(approvalWorkflowService.findMatchingWorkflow(eq(orgId), eq("SALES_ORDER"), anyMap()))
+                .thenReturn(Optional.empty());
     }
 
     @AfterEach
@@ -121,7 +151,251 @@ class SalesOrderServiceTest {
         TenantContext.clear();
     }
 
+    // ── create() credit policy ───────────────────────────────────────────────
+
+    @Test
+    void create_overCreditLimitWithWarnPolicy_createsOrderAndAddsWarningComment() {
+        contact.setCreditLimit(new BigDecimal("1000"));
+        contact.setOutstandingAr(new BigDecimal("900"));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
+
+        SalesOrderResponse result = salesOrderService.create(createRequest(new BigDecimal("200")));
+
+        assertEquals(new BigDecimal("200"), result.totalAmount());
+        verify(salesOrderRepository).save(any(SalesOrder.class));
+        verify(commentService).addSystemComment(eq("SALES_ORDER"), any(), eq("Sales order created"));
+        verify(commentService).addSystemComment(eq("SALES_ORDER"), any(),
+                contains("Credit limit exceeded"));
+    }
+
+    @Test
+    void create_overCreditLimitWithBlockPolicy_throwsBusinessException() {
+        contact.setCreditLimit(new BigDecimal("1000"));
+        contact.setOutstandingAr(new BigDecimal("900"));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
+        when(policyResolverService.creditPolicy(orgId)).thenReturn(CreditPolicy.BLOCK);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> salesOrderService.create(createRequest(new BigDecimal("200"))));
+
+        assertEquals("SO_CREDIT_LIMIT_EXCEEDED", ex.getErrorCode());
+        verify(salesOrderRepository, never()).save(any(SalesOrder.class));
+        verify(commentService, never()).addSystemComment(eq("SALES_ORDER"), any(), anyString());
+    }
+
+    @Test
+    void create_overCreditLimitWithMatchingWorkflow_createsPendingApprovalOrder() {
+        contact.setCreditLimit(new BigDecimal("1000"));
+        contact.setOutstandingAr(new BigDecimal("900"));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
+
+        WorkflowDefinition workflow = WorkflowDefinition.builder()
+                .code("SALES_ORDER_CREDIT_APPROVAL")
+                .name("Sales Order Credit Approval")
+                .documentType("SALES_ORDER")
+                .triggerCondition("{}")
+                .active(true)
+                .build();
+        workflow.setId(UUID.randomUUID());
+        workflow.setOrgId(orgId);
+        when(approvalWorkflowService.findMatchingWorkflow(eq(orgId), eq("SALES_ORDER"), anyMap()))
+                .thenReturn(Optional.of(workflow));
+
+        SalesOrderResponse result = salesOrderService.create(createRequest(new BigDecimal("200")));
+
+        assertEquals("PENDING_APPROVAL", result.status());
+        ArgumentCaptor<SalesOrder> captor = ArgumentCaptor.forClass(SalesOrder.class);
+        verify(salesOrderRepository).save(captor.capture());
+        assertEquals("PENDING_APPROVAL", captor.getValue().getStatus());
+        verify(approvalWorkflowService).requestApproval(
+                eq(orgId),
+                eq(workflow),
+                eq("SALES_ORDER"),
+                any(),
+                contains("Credit limit exceeded"),
+                anyMap());
+    }
+
+    @Test
+    void create_underCreditLimit_createsOrderWithoutWarningComment() {
+        contact.setCreditLimit(new BigDecimal("1000"));
+        contact.setOutstandingAr(new BigDecimal("700"));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
+
+        salesOrderService.create(createRequest(new BigDecimal("200")));
+
+        verify(salesOrderRepository).save(any(SalesOrder.class));
+        verify(commentService).addSystemComment(eq("SALES_ORDER"), any(), eq("Sales order created"));
+        verify(commentService, never()).addSystemComment(eq("SALES_ORDER"), any(),
+                contains("Credit limit exceeded"));
+    }
+
+    @Test
+    void create_withoutCreditLimit_createsOrderWithoutWarningComment() {
+        contact.setCreditLimit(BigDecimal.ZERO);
+        contact.setOutstandingAr(new BigDecimal("5000"));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
+
+        salesOrderService.create(createRequest(new BigDecimal("200")));
+
+        verify(salesOrderRepository).save(any(SalesOrder.class));
+        verify(commentService, never()).addSystemComment(eq("SALES_ORDER"), any(),
+                contains("Credit limit exceeded"));
+    }
+
     // ── confirm() ────────────────────────────────────────────────
+
+    @Test
+    void create_inactiveContact_throwsBusinessExceptionBeforeOrderSave() {
+        contact.setActive(false);
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> salesOrderService.create(createRequest(new BigDecimal("200"))));
+
+        assertEquals("SO_CONTACT_INACTIVE", ex.getErrorCode());
+        verify(salesOrderRepository, never()).save(any(SalesOrder.class));
+        verify(sequenceRepository, never()).save(any(InvoiceNumberSequence.class));
+    }
+
+    @Test
+    void create_contactOnSalesHold_throwsBusinessExceptionBeforeOrderSave() {
+        contact.setSalesHold(true);
+        contact.setSalesHoldReason("Credit review pending");
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> salesOrderService.create(createRequest(new BigDecimal("200"))));
+
+        assertEquals("SO_CONTACT_SALES_HOLD", ex.getErrorCode());
+        verify(salesOrderRepository, never()).save(any(SalesOrder.class));
+        verify(sequenceRepository, never()).save(any(InvoiceNumberSequence.class));
+    }
+
+    @Test
+    void create_contactWithExpiredSalesHold_createsOrder() {
+        contact.setSalesHold(true);
+        contact.setSalesHoldUntil(LocalDate.now().minusDays(1));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
+
+        SalesOrderResponse result = salesOrderService.create(createRequest(new BigDecimal("200")));
+
+        assertEquals(new BigDecimal("200"), result.totalAmount());
+        verify(salesOrderRepository).save(any(SalesOrder.class));
+    }
+
+    @Test
+    void create_withOverdueInvoiceAndWarnPolicy_createsOrderAndAddsWarningComment() {
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
+        when(invoiceRepository.findOutstandingByContact(orgId, contactId))
+                .thenReturn(List.of(overdueInvoice(new BigDecimal("800"), LocalDate.now().minusDays(5))));
+
+        SalesOrderResponse result = salesOrderService.create(createRequest(new BigDecimal("200")));
+
+        assertEquals(new BigDecimal("200"), result.totalAmount());
+        verify(salesOrderRepository).save(any(SalesOrder.class));
+        verify(commentService).addSystemComment(eq("SALES_ORDER"), any(),
+                contains("overdue invoice"));
+    }
+
+    @Test
+    void create_withOverdueInvoiceAndBlockPolicy_throwsBusinessException() {
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
+        when(invoiceRepository.findOutstandingByContact(orgId, contactId))
+                .thenReturn(List.of(overdueInvoice(new BigDecimal("800"), LocalDate.now().minusDays(5))));
+        when(policyResolverService.overduePolicy(orgId)).thenReturn(OverduePolicy.BLOCK);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> salesOrderService.create(createRequest(new BigDecimal("200"))));
+
+        assertEquals("SO_OVERDUE_INVOICES", ex.getErrorCode());
+        verify(salesOrderRepository, never()).save(any(SalesOrder.class));
+    }
+
+    @Test
+    void create_withOverdueInvoiceAndMatchingWorkflow_createsPendingApprovalOrder() {
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
+        when(invoiceRepository.findOutstandingByContact(orgId, contactId))
+                .thenReturn(List.of(overdueInvoice(new BigDecimal("800"), LocalDate.now().minusDays(5))));
+
+        WorkflowDefinition workflow = WorkflowDefinition.builder()
+                .code("SALES_ORDER_OVERDUE_APPROVAL")
+                .name("Sales Order Overdue Approval")
+                .documentType("SALES_ORDER")
+                .triggerCondition("{}")
+                .active(true)
+                .build();
+        workflow.setId(UUID.randomUUID());
+        workflow.setOrgId(orgId);
+        when(approvalWorkflowService.findMatchingWorkflow(eq(orgId), eq("SALES_ORDER"), anyMap()))
+                .thenReturn(Optional.of(workflow));
+
+        SalesOrderResponse result = salesOrderService.create(createRequest(new BigDecimal("200")));
+
+        assertEquals("PENDING_APPROVAL", result.status());
+        verify(approvalWorkflowService).requestApproval(
+                eq(orgId),
+                eq(workflow),
+                eq("SALES_ORDER"),
+                any(),
+                contains("overdue invoice"),
+                anyMap());
+    }
+
+    private CreateSalesOrderRequest createRequest(BigDecimal rate) {
+        return new CreateSalesOrderRequest(
+                contactId,
+                List.of(new SalesOrderLineRequest(
+                        itemId,
+                        "Widget A",
+                        BigDecimal.ONE,
+                        rate,
+                        "PCS",
+                        BigDecimal.ZERO,
+                        null,
+                        null)),
+                LocalDate.now(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false);
+    }
+
+    private Invoice overdueInvoice(BigDecimal balanceDue, LocalDate dueDate) {
+        Invoice invoice = new Invoice();
+        invoice.setId(UUID.randomUUID());
+        invoice.setOrgId(orgId);
+        invoice.setContactId(contactId);
+        invoice.setInvoiceNumber("INV-TEST");
+        invoice.setInvoiceDate(dueDate.minusDays(10));
+        invoice.setDueDate(dueDate);
+        invoice.setStatus("SENT");
+        invoice.setBalanceDue(balanceDue);
+        return invoice;
+    }
+
+    // confirm()
 
     @Test
     void confirm_draftOrderWithAdequateStock_createsReservationAndSetsConfirmed() {
