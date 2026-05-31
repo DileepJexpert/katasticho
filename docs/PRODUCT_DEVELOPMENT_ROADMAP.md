@@ -44,6 +44,7 @@ Current active work: distributor workflow controls and credit-control visibility
 - Customer risk reporting is exposed through AR credit reminders using existing contacts, invoices, credit limits, overdue invoices, and sales holds. It is read-only and introduces no posting or workflow side effects.
 - Customer risk UI is reused inside the existing Credit Ledger screen with risk labels and a risk-only filter; no duplicate customer risk module/page is introduced.
 - Customer Indent is removed; Sales Order with backorder is the customer demand flow.
+- AR payment approval will be introduced in phases. Phase 1 only adds payment lifecycle status and a single `postPayment()` accounting gate; approval workflows, multi-invoice allocations, write-offs, and bank reconciliation state changes are deferred.
 - Distributor capability should extend existing flows, not fork them.
 - Workflow must be org-configurable. No customer-specific code branches.
 
@@ -84,3 +85,11 @@ Next implementation task:
   6. Approve from Settings -> Approval Inbox.
   7. Confirm the credit note becomes `ISSUED` or `APPLIED` and journal/stock effects happen after approval.
 - Next distributor candidates: payment collection exception approval, distributor dashboard summaries, then stock adjustment approval only after a draft adjustment document exists.
+
+Payment lifecycle implementation plan:
+1. Add payment status fields to the existing `payment` table.
+2. Reuse existing `PaymentService.recordPayment()` for the public API.
+3. Save new payments as `DRAFT`, then immediately call `postPayment()` for normal payments.
+4. Make `postPayment()` the only method allowed to post the journal, update invoice balance, and mark payment `POSTED`.
+5. Keep bank reconciliation behavior unchanged in this phase because it still calls `recordPayment()`.
+6. Add approval in a later phase by stopping between `DRAFT` and `postPayment()` when a `PAYMENT` workflow matches.

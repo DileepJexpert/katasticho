@@ -19,6 +19,8 @@ public record PaymentResponse(
         String referenceNumber,
         String bankAccount,
         String notes,
+        String status,
         UUID journalEntryId,
+        Instant postedAt,
         Instant createdAt
 ) {}

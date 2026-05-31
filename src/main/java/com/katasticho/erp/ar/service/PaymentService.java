@@ -8,6 +8,7 @@ import com.katasticho.erp.ar.dto.RecordPaymentForInvoiceRequest;
 import com.katasticho.erp.ar.dto.RecordPaymentRequest;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.entity.Payment;
+import com.katasticho.erp.ar.entity.PaymentStatus;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.repository.PaymentRepository;
 import com.katasticho.erp.contact.entity.Contact;
@@ -32,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -98,11 +100,6 @@ public class PaymentService {
         int periodYear = invoiceService.computeFiscalYear(request.paymentDate(), org.getFiscalYearStart());
         String paymentNumber = invoiceService.generateNumber(orgId, "PAY", periodYear);
 
-        // Post journal via the accounting posting engine
-        JournalEntry journalEntry = postingEngine.postPaymentReceived(
-                orgId, paymentNumber, invoice.getInvoiceNumber(),
-                request.paymentDate(), request.amount(), request.paymentMethod());
-
         // Resolve contactId: prefer explicit value, else inherit from invoice
         UUID resolvedContactId = request.contactId() != null ? request.contactId() : invoice.getContactId();
 
@@ -129,16 +126,52 @@ public class PaymentService {
                 .referenceNumber(request.referenceNumber())
                 .bankAccount(request.bankAccount())
                 .notes(request.notes())
-                .journalEntryId(journalEntry.getId())
+                .status(PaymentStatus.DRAFT)
                 .createdBy(userId)
                 .build();
 
         payment = paymentRepository.save(payment);
 
-        // Update invoice payment status
-        invoiceService.updatePaymentStatus(invoice, request.amount());
+        return postPayment(payment.getId());
+    }
 
-        // System comment on the invoice timeline
+    @Transactional
+    public Payment postPayment(UUID paymentId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        UUID userId = TenantContext.getCurrentUserId();
+
+        Payment payment = paymentRepository.findByIdAndOrgIdAndIsDeletedFalse(paymentId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Payment", paymentId));
+
+        if (payment.getStatus() == PaymentStatus.POSTED) {
+            throw new BusinessException("Payment " + payment.getPaymentNumber() + " is already posted",
+                    "AR_PAYMENT_ALREADY_POSTED", HttpStatus.BAD_REQUEST);
+        }
+        if (payment.getStatus() == PaymentStatus.VOIDED) {
+            throw new BusinessException("Payment " + payment.getPaymentNumber() + " is voided and cannot be posted",
+                    "AR_PAYMENT_VOIDED", HttpStatus.BAD_REQUEST);
+        }
+        if (payment.getStatus() != PaymentStatus.DRAFT && payment.getStatus() != PaymentStatus.PENDING_APPROVAL) {
+            throw new BusinessException("Payment " + payment.getPaymentNumber() + " cannot be posted from status " + payment.getStatus(),
+                    "AR_PAYMENT_INVALID_STATUS", HttpStatus.BAD_REQUEST);
+        }
+
+        UUID invoiceId = payment.getInvoiceId();
+        Invoice invoice = invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Invoice", invoiceId));
+
+        JournalEntry journalEntry = postingEngine.postPaymentReceived(
+                orgId, payment.getPaymentNumber(), invoice.getInvoiceNumber(),
+                payment.getPaymentDate(), payment.getAmount(), payment.getPaymentMethod());
+
+        payment.setJournalEntryId(journalEntry.getId());
+        payment.setStatus(PaymentStatus.POSTED);
+        payment.setPostedAt(Instant.now());
+        payment.setPostedBy(userId);
+        payment = paymentRepository.save(payment);
+
+        invoiceService.updatePaymentStatus(invoice, payment.getAmount());
+
         commentService.addSystemComment("INVOICE", invoice.getId(),
                 "Payment of \u20b9" + payment.getAmount() + " received (" + payment.getPaymentMethod() + ")");
 
@@ -148,7 +181,7 @@ public class PaymentService {
                         + "\",\"invoice\":\"" + invoice.getInvoiceNumber() + "\"}");
         documentSnapshotService.createSnapshot("PAYMENT", payment.getId(), payment.getPaymentNumber(), toResponse(payment));
 
-        log.info("Payment {} recorded: {} for invoice {}", payment.getPaymentNumber(),
+        log.info("Payment {} posted: {} for invoice {}", payment.getPaymentNumber(),
                 payment.getAmount(), invoice.getInvoiceNumber());
         return payment;
     }
@@ -212,7 +245,8 @@ public class PaymentService {
                 p.getPaymentNumber(), p.getPaymentDate(),
                 p.getAmount(), p.getCurrency(), p.getPaymentMethod(),
                 p.getReferenceNumber(), p.getBankAccount(), p.getNotes(),
-                p.getJournalEntryId(), p.getCreatedAt());
+                p.getStatus() != null ? p.getStatus().name() : null,
+                p.getJournalEntryId(), p.getPostedAt(), p.getCreatedAt());
     }
 
 }

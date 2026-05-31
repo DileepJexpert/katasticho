@@ -29,7 +29,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -57,6 +59,7 @@ class PaymentServiceTest {
     private UUID orgId;
     private UUID userId;
     private Organisation org;
+    private Map<UUID, Payment> savedPayments;
 
     @BeforeEach
     void setUp() {
@@ -66,6 +69,15 @@ class PaymentServiceTest {
                 invoiceService, currencyService, auditService, commentService, documentSnapshotService);
 
         lenient().when(currencyService.getRate(any(), any(), any())).thenReturn(BigDecimal.ONE);
+        savedPayments = new HashMap<>();
+        lenient().when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> {
+            Payment p = inv.getArgument(0);
+            if (p.getId() == null) p.setId(UUID.randomUUID());
+            savedPayments.put(p.getId(), p);
+            return p;
+        });
+        lenient().when(paymentRepository.findByIdAndOrgIdAndIsDeletedFalse(any(UUID.class), any(UUID.class)))
+                .thenAnswer(inv -> Optional.ofNullable(savedPayments.get(inv.getArgument(0))));
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
@@ -104,12 +116,6 @@ class PaymentServiceTest {
         mockJournal.setId(UUID.randomUUID());
         when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any()))
                 .thenReturn(mockJournal);
-        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> {
-            Payment p = inv.getArgument(0);
-            if (p.getId() == null) p.setId(UUID.randomUUID());
-            return p;
-        });
-
         var request = new RecordPaymentRequest(
                 invoice.getId(),
                 null,
@@ -126,6 +132,9 @@ class PaymentServiceTest {
         assertNotNull(result);
         assertEquals("PAY-2026-000001", result.getPaymentNumber());
         assertEquals(0, new BigDecimal("5000").compareTo(result.getAmount()));
+        assertEquals(com.katasticho.erp.ar.entity.PaymentStatus.POSTED, result.getStatus());
+        assertNotNull(result.getPostedAt());
+        assertEquals(userId, result.getPostedBy());
 
         verify(postingEngine).postPaymentReceived(
                 eq(orgId), eq("PAY-2026-000001"), eq("INV-2026-000001"),
@@ -208,12 +217,6 @@ class PaymentServiceTest {
         mockJournal.setId(UUID.randomUUID());
         when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any()))
                 .thenReturn(mockJournal);
-        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> {
-            Payment p = inv.getArgument(0);
-            if (p.getId() == null) p.setId(UUID.randomUUID());
-            return p;
-        });
-
         var request = new RecordPaymentRequest(
                 invoice.getId(),
                 null,
@@ -251,12 +254,6 @@ class PaymentServiceTest {
         je.setId(UUID.randomUUID());
         when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any()))
                 .thenReturn(je);
-        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> {
-            Payment p = inv.getArgument(0);
-            if (p.getId() == null) p.setId(UUID.randomUUID());
-            return p;
-        });
-
         var req = new RecordPaymentForInvoiceRequest(
                 new BigDecimal("500"), "BANK_TRANSFER",
                 LocalDate.of(2026, 4, 18), null, "UTR-001", null);
@@ -267,6 +264,31 @@ class PaymentServiceTest {
         assertEquals(0, new BigDecimal("500").compareTo(response.amount()));
         assertEquals("BANK_TRANSFER", response.paymentMethod());
         verify(invoiceService).updatePaymentStatus(invoice, new BigDecimal("500"));
+    }
+
+    @Test
+    void postPayment_alreadyPosted_throwsBusinessException() {
+        Payment payment = Payment.builder()
+                .orgId(orgId)
+                .contactId(UUID.randomUUID())
+                .invoiceId(UUID.randomUUID())
+                .paymentNumber("PAY-POSTED")
+                .paymentDate(LocalDate.now())
+                .amount(new BigDecimal("500"))
+                .currency("INR")
+                .baseAmount(new BigDecimal("500"))
+                .paymentMethod("CASH")
+                .status(com.katasticho.erp.ar.entity.PaymentStatus.POSTED)
+                .build();
+        payment.setId(UUID.randomUUID());
+        savedPayments.put(payment.getId(), payment);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> paymentService.postPayment(payment.getId()));
+
+        assertEquals("AR_PAYMENT_ALREADY_POSTED", ex.getErrorCode());
+        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any());
+        verify(invoiceService, never()).updatePaymentStatus(any(), any());
     }
 
     @Test

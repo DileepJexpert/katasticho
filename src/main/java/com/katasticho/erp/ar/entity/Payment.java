@@ -68,6 +68,26 @@ public class Payment {
     @Column(name = "journal_entry_id")
     private UUID journalEntryId;
 
+    @Column(nullable = false, length = 25)
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private PaymentStatus status = PaymentStatus.POSTED;
+
+    @Column(name = "posted_at")
+    private Instant postedAt;
+
+    @Column(name = "posted_by")
+    private UUID postedBy;
+
+    @Column(name = "void_reason")
+    private String voidReason;
+
+    @Column(name = "voided_at")
+    private Instant voidedAt;
+
+    @Column(name = "voided_by")
+    private UUID voidedBy;
+
     @Column(name = "is_deleted", nullable = false)
     @Builder.Default
     private boolean isDeleted = false;

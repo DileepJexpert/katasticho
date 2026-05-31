@@ -22,7 +22,7 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     List<Payment> findByInvoiceIdAndIsDeletedFalse(UUID invoiceId);
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.invoiceId = :invoiceId AND p.isDeleted = false")
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.invoiceId = :invoiceId AND p.status = 'POSTED' AND p.isDeleted = false")
     BigDecimal sumPaymentsByInvoice(UUID invoiceId);
 
     // ─── Dashboard aggregation queries ───────────────────────────────────
@@ -32,6 +32,7 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
         SELECT COALESCE(SUM(p.amount), 0) FROM Payment p
         WHERE p.orgId = :orgId
           AND p.isDeleted = false
+          AND p.status = 'POSTED'
           AND p.paymentDate BETWEEN :from AND :to
     """)
     BigDecimal sumCollectedByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
@@ -42,6 +43,7 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
         WHERE p.orgId = :orgId
           AND p.branchId = :branchId
           AND p.isDeleted = false
+          AND p.status = 'POSTED'
           AND p.paymentDate BETWEEN :from AND :to
     """)
     BigDecimal sumCollectedByOrgBranchAndDateRange(UUID orgId, UUID branchId, LocalDate from, LocalDate to);
