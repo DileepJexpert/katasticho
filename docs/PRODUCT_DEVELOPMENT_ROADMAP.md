@@ -61,6 +61,10 @@ Current active work: distributor workflow controls and credit-control visibility
 - Existing feature flag and module access services
 - Existing pricing and scheme foundation
 
+## Reference Plans
+
+- Workflow context hints: `docs/WORKFLOW_CONTEXT_HINTS_PLAN.md`
+
 ## Next Implementation Task
 
 Manual QA for workflow v1:
