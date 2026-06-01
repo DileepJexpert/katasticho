@@ -49,6 +49,7 @@ Current active work: distributor workflow controls and credit-control visibility
 - Distributor dashboard first pass reuses existing dashboard providers: Sales Order alerts, dealer collections, supplier dues, branch rollups, low-stock, and expiry-risk widgets are surfaced on distributor/pharma-distributor dashboards without a new backend endpoint.
 - Purchase Order does not post stock. PO action starts receiving by opening a draft Goods Receipt; only Goods Receipt detail `Receive Stock` posts inventory movement.
 - Sales Order does not post stock. Confirmed Sales Order starts dispatch by opening a draft Delivery Challan; only Delivery Challan detail `Dispatch` posts stock movement.
+- Delivery Challan does not post accounting. Dispatched or delivered challans create invoices through the existing Sales Order `convert-to-invoice` path; invoice posting updates AR/accounting and must skip duplicate stock movement.
 - Distributor capability should extend existing flows, not fork them.
 - Workflow must be org-configurable. No customer-specific code branches.
 
@@ -121,3 +122,5 @@ Sales dispatch flow decision:
 2. That action opens Delivery Challan creation prefilled from the Sales Order.
 3. Delivery Challan is saved as `DRAFT` for shipped quantity and transport verification.
 4. Delivery Challan detail `Dispatch` is the only customer dispatch stock posting action.
+5. After dispatch or delivery, Delivery Challan detail can create a Sales Invoice from the linked Sales Order using the challan's SO-line quantities.
+6. Sales Invoice creation/posting remains the receivable/accounting step and must not deduct stock again for Sales Order invoices.

@@ -5,8 +5,12 @@ import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
+import '../../../routing/app_router.dart';
+import '../../invoices/data/invoice_providers.dart';
+import '../../sales_orders/data/sales_order_providers.dart';
+import '../../sales_orders/data/sales_order_repository.dart';
 import '../data/delivery_challan_providers.dart';
 import '../data/delivery_challan_repository.dart';
 
@@ -49,7 +53,15 @@ class DeliveryChallanDetailScreen extends ConsumerWidget {
                   ],
                   if (status == 'DISPATCHED')
                     const PopupMenuItem(
+                        value: 'invoice',
+                        child: Text('Create Sales Invoice')),
+                  if (status == 'DISPATCHED')
+                    const PopupMenuItem(
                         value: 'deliver', child: Text('Mark Delivered')),
+                  if (status == 'DELIVERED')
+                    const PopupMenuItem(
+                        value: 'invoice',
+                        child: Text('Create Sales Invoice')),
                 ],
               );
             },
@@ -97,6 +109,34 @@ class DeliveryChallanDetailScreen extends ConsumerWidget {
                       icon: Icons.local_shipping_outlined,
                       onPressed: () =>
                           _handleAction(context, ref, 'dispatch', status),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          if (status == 'DISPATCHED' || status == 'DELIVERED') {
+            return Container(
+              padding: const EdgeInsets.all(KSpacing.md),
+              decoration: BoxDecoration(
+                color: KColors.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    const Spacer(),
+                    KButton(
+                      label: 'Create Sales Invoice',
+                      icon: Icons.receipt_long_outlined,
+                      onPressed: () =>
+                          _handleAction(context, ref, 'invoice', status),
                     ),
                   ],
                 ),
@@ -170,12 +210,78 @@ class DeliveryChallanDetailScreen extends ConsumerWidget {
           }
         }
         break;
+      case 'invoice':
+        await _createInvoiceFromChallan(context, ref);
+        break;
       case 'cancel':
         _showCancelConfirmation(context, ref);
         break;
       case 'delete':
         _showDeleteConfirmation(context, ref);
         break;
+    }
+  }
+
+  Future<void> _createInvoiceFromChallan(
+      BuildContext context, WidgetRef ref) async {
+    final detail = ref.read(deliveryChallanDetailProvider(challanId));
+    final data = detail.valueOrNull;
+    if (data == null) return;
+
+    final challan = (data['data'] ?? data) as Map<String, dynamic>;
+    final salesOrderId = challan['salesOrderId']?.toString();
+    final lines = (challan['lines'] as List?) ?? const [];
+    final invoiceLines = lines
+        .whereType<Map<String, dynamic>>()
+        .map((line) => {
+              'soLineId': line['salesOrderLineId'],
+              'quantity': line['quantity'],
+            })
+        .where((line) =>
+            line['soLineId'] != null &&
+            line['quantity'] != null &&
+            ((line['quantity'] as num?)?.toDouble() ?? 0) > 0)
+        .toList();
+
+    if (salesOrderId == null || invoiceLines.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No invoiceable challan lines found')),
+      );
+      return;
+    }
+
+    try {
+      final salesOrderRepo = ref.read(salesOrderRepositoryProvider);
+      final result = await salesOrderRepo.convertToInvoice(
+        salesOrderId,
+        {'lines': invoiceLines},
+      );
+      final invoice = (result['data'] ?? result) as Map<String, dynamic>;
+      final invoiceId = invoice['id']?.toString();
+
+      ref.invalidate(deliveryChallanDetailProvider(challanId));
+      ref.invalidate(deliveryChallanListProvider);
+      ref.invalidate(salesOrderDetailProvider(salesOrderId));
+      ref.invalidate(salesOrderListProvider);
+      ref.invalidate(invoiceListProvider);
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sales invoice created')),
+      );
+      if (invoiceId != null && invoiceId.isNotEmpty) {
+        context.go('/invoices/$invoiceId');
+      } else {
+        context.go(Routes.invoices);
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ApiErrorParser.message(e)),
+          backgroundColor: KColors.error,
+        ),
+      );
     }
   }
 
