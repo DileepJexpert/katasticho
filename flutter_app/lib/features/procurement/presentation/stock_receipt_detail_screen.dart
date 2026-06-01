@@ -2,10 +2,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/workflow/workflow_hint_resolver.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
@@ -255,12 +257,12 @@ class StockReceiptDetailScreen extends ConsumerWidget {
   }
 }
 
-class _ReceiptBody extends StatelessWidget {
+class _ReceiptBody extends ConsumerWidget {
   final Map<String, dynamic> receipt;
   const _ReceiptBody({required this.receipt});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final number = receipt['receiptNumber'] as String? ?? '--';
     final status = receipt['status'] as String? ?? 'DRAFT';
     final supplierName =
@@ -275,6 +277,13 @@ class _ReceiptBody extends StatelessWidget {
     final total = (receipt['totalAmount'] as num?)?.toDouble() ?? 0;
     final lines =
         (receipt['lines'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final auth = ref.watch(authProvider);
+    final hint = WorkflowHintResolver.resolve(
+      pageKey: 'stock_receipt.detail',
+      status: status,
+      businessType: auth.businessType,
+      industryCode: auth.industryCode,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -325,6 +334,10 @@ class _ReceiptBody extends StatelessWidget {
               ),
             ),
             KSpacing.vGapMd,
+            if (hint != null) ...[
+              KContextHint(hint: hint),
+              KSpacing.vGapMd,
+            ],
             if (isWide)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,

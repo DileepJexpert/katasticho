@@ -2,10 +2,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/workflow/workflow_hint_resolver.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
@@ -265,12 +267,12 @@ class PurchaseOrderDetailScreen extends ConsumerWidget {
   }
 }
 
-class _PoBody extends StatelessWidget {
+class _PoBody extends ConsumerWidget {
   final Map<String, dynamic> po;
   const _PoBody({required this.po});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final poNumber = po['poNumber'] as String? ?? '--';
     final status = po['status'] as String? ?? 'DRAFT';
     final supplierName = po['supplierName'] as String? ?? 'Unknown supplier';
@@ -279,6 +281,13 @@ class _PoBody extends StatelessWidget {
     final notes = po['notes'] as String?;
     final total = (po['totalAmount'] as num?)?.toDouble() ?? 0;
     final lines = (po['lines'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final auth = ref.watch(authProvider);
+    final hint = WorkflowHintResolver.resolve(
+      pageKey: 'purchase_order.detail',
+      status: status,
+      businessType: auth.businessType,
+      industryCode: auth.industryCode,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -328,6 +337,10 @@ class _PoBody extends StatelessWidget {
               ),
             ),
             KSpacing.vGapMd,
+            if (hint != null) ...[
+              KContextHint(hint: hint),
+              KSpacing.vGapMd,
+            ],
             if (isWide)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,

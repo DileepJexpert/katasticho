@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/workflow/workflow_hint_resolver.dart';
 import '../../../routing/app_router.dart';
 import '../../invoices/data/invoice_providers.dart';
 import '../../sales_orders/data/sales_order_providers.dart';
@@ -367,6 +369,13 @@ class _DeliveryChallanDetailBody extends ConsumerWidget {
     final salesOrderNumber =
         challan['salesOrderNumber'] as String? ?? '--';
     final lines = (challan['lines'] as List?) ?? [];
+    final auth = ref.watch(authProvider);
+    final hint = WorkflowHintResolver.resolve(
+      pageKey: 'delivery_challan.detail',
+      status: status,
+      businessType: auth.businessType,
+      industryCode: auth.industryCode,
+    );
 
     return DefaultTabController(
       length: 2,
@@ -395,6 +404,17 @@ class _DeliveryChallanDetailBody extends ConsumerWidget {
               ],
             ),
           ),
+
+          if (hint != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                KSpacing.md,
+                KSpacing.md,
+                KSpacing.md,
+                0,
+              ),
+              child: KContextHint(hint: hint),
+            ),
 
           const TabBar(
             tabs: [

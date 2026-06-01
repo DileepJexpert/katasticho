@@ -2,10 +2,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/workflow/workflow_hint_resolver.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/form_error_handler.dart';
 import '../../../core/utils/date_formatter.dart';
@@ -185,6 +187,12 @@ class _StockReceiptCreateScreenState
 
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authProvider);
+    final hint = WorkflowHintResolver.resolve(
+      pageKey: 'stock_receipt.create',
+      businessType: auth.businessType,
+      industryCode: auth.industryCode,
+    );
     return Scaffold(
       appBar: AppBar(
         title: const Text('New Goods Receipt'),
@@ -234,12 +242,21 @@ class _StockReceiptCreateScreenState
           Expanded(
             child: SingleChildScrollView(
               padding: KSpacing.pagePadding,
-              child: switch (_currentStep) {
-                0 => _buildSupplierStep(),
-                1 => _buildItemsStep(),
-                2 => _buildReviewStep(),
-                _ => const SizedBox(),
-              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (hint != null) ...[
+                    KContextHint(hint: hint),
+                    KSpacing.vGapMd,
+                  ],
+                  switch (_currentStep) {
+                    0 => _buildSupplierStep(),
+                    1 => _buildItemsStep(),
+                    2 => _buildReviewStep(),
+                    _ => const SizedBox(),
+                  },
+                ],
+              ),
             ),
           ),
           Container(

@@ -8,6 +8,7 @@ export 'k_command_palette.dart';
 export 'k_compact_row.dart';
 export 'k_data_table.dart';
 export 'k_date_picker.dart';
+export 'k_context_hint.dart';
 export 'k_detail_drawer.dart';
 export 'k_dialog.dart';
 export 'k_document_header.dart';

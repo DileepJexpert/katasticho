@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -9,6 +10,7 @@ import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/form_error_handler.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/workflow/workflow_hint_resolver.dart';
 import '../../sales_orders/data/sales_order_repository.dart';
 import '../data/delivery_challan_providers.dart';
 import '../data/delivery_challan_repository.dart';
@@ -227,11 +229,27 @@ class _DeliveryChallanCreateScreenState
 
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authProvider);
+    final hint = WorkflowHintResolver.resolve(
+      pageKey: 'delivery_challan.create',
+      businessType: auth.businessType,
+      industryCode: auth.industryCode,
+    );
     return Scaffold(
       appBar: AppBar(title: const Text('New Delivery Challan')),
       body: Column(
         children: [
           _StepIndicator(current: _currentStep),
+          if (hint != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                KSpacing.md,
+                KSpacing.md,
+                KSpacing.md,
+                0,
+              ),
+              child: KContextHint(hint: hint),
+            ),
           Expanded(
             child: _loadingOrders
                 ? const KLoading(message: 'Loading...')
@@ -563,8 +581,6 @@ class _ShipLine {
 class _StepIndicator extends StatelessWidget {
   final int current;
   const _StepIndicator({required this.current});
-
-  static const _labels = ['Select Order', 'Ship Lines', 'Details'];
 
   @override
   Widget build(BuildContext context) {

@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/workflow/workflow_hint_resolver.dart';
 import '../../../routing/app_router.dart';
 import '../../workflow/data/workflow_repository.dart';
 import '../data/sales_order_providers.dart';
@@ -365,6 +367,13 @@ class _SalesOrderDetailBody extends ConsumerWidget {
     final shippingCharge = (order['shippingCharge'] as num?)?.toDouble() ?? 0;
     final adjustment = (order['adjustment'] as num?)?.toDouble() ?? 0;
     final lines = (order['lines'] as List?) ?? [];
+    final auth = ref.watch(authProvider);
+    final hint = WorkflowHintResolver.resolve(
+      pageKey: 'sales_order.detail',
+      status: status,
+      businessType: auth.businessType,
+      industryCode: auth.industryCode,
+    );
 
     final facts = [
       _InfoFact('Order date', order['orderDate'] as String? ?? '--'),
@@ -406,6 +415,10 @@ class _SalesOrderDetailBody extends ConsumerWidget {
               ),
             ),
             KSpacing.vGapMd,
+            if (hint != null) ...[
+              KContextHint(hint: hint),
+              KSpacing.vGapMd,
+            ],
             if (status == 'PENDING_APPROVAL') ...[
               _PendingApprovalBanner(salesOrderId: salesOrderId),
               KSpacing.vGapMd,
