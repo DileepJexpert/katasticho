@@ -938,7 +938,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.purchaseOrderCreate,
-            builder: (context, state) => const PurchaseOrderCreateScreen(),
+            builder: (context, state) {
+              final extra = state.extra;
+              if (extra is PurchaseOrderPrefill) {
+                return PurchaseOrderCreateScreen(prefillItems: extra.items);
+              }
+              return PurchaseOrderCreateScreen(
+                prefillItems: extra as List<Map<String, dynamic>>?,
+              );
+            },
           ),
           GoRoute(
             path: '/purchase-orders/:id',

@@ -6,7 +6,9 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../routing/app_router.dart';
 import '../data/item_repository.dart';
+import '../../procurement/presentation/purchase_order_create_screen.dart';
 
 class ReorderScreen extends ConsumerStatefulWidget {
   const ReorderScreen({super.key});
@@ -17,6 +19,7 @@ class ReorderScreen extends ConsumerStatefulWidget {
 
 class _ReorderScreenState extends ConsumerState<ReorderScreen> {
   String _sortBy = 'urgency';
+  final Set<String> _selectedItemIds = {};
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +67,8 @@ class _ReorderScreenState extends ConsumerState<ReorderScreen> {
             }
 
             final sorted = _sortItems(items);
+            _selectedItemIds
+                .removeWhere((id) => !items.any((item) => _itemId(item) == id));
 
             return Column(
               children: [
@@ -88,13 +93,43 @@ class _ReorderScreenState extends ConsumerState<ReorderScreen> {
                 ),
                 Expanded(
                   child: ListView.separated(
-                    padding: KSpacing.pagePadding,
+                    padding: EdgeInsets.fromLTRB(
+                      KSpacing.md,
+                      KSpacing.md,
+                      KSpacing.md,
+                      _selectedItemIds.isEmpty ? KSpacing.md : 96,
+                    ),
                     itemCount: sorted.length,
                     separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) =>
-                        _ReorderItemCard(item: sorted[index]),
+                    itemBuilder: (context, index) {
+                      final item = sorted[index];
+                      final itemId = _itemId(item);
+                      final selected = itemId != null &&
+                          _selectedItemIds.contains(itemId);
+                      return _ReorderItemCard(
+                        item: item,
+                        selected: selected,
+                        onSelectedChanged: itemId == null
+                            ? null
+                            : (checked) {
+                                setState(() {
+                                  if (checked == true) {
+                                    _selectedItemIds.add(itemId);
+                                  } else {
+                                    _selectedItemIds.remove(itemId);
+                                  }
+                                });
+                              },
+                      );
+                    },
                   ),
                 ),
+                if (_selectedItemIds.isNotEmpty)
+                  _CreatePoBar(
+                    selectedCount: _selectedItemIds.length,
+                    onClear: () => setState(_selectedItemIds.clear),
+                    onCreate: () => _createPurchaseOrder(sorted),
+                  ),
               ],
             );
           },
@@ -128,12 +163,55 @@ class _ReorderScreenState extends ConsumerState<ReorderScreen> {
     }
     return sorted;
   }
+
+  void _createPurchaseOrder(List<Map<String, dynamic>> items) {
+    final selectedItems = items.where((item) {
+      final id = _itemId(item);
+      return id != null && _selectedItemIds.contains(id);
+    }).map(_toPoPrefillLine).toList();
+
+    if (selectedItems.isEmpty) return;
+    context.go(
+      Routes.purchaseOrderCreate,
+      extra: PurchaseOrderPrefill(items: selectedItems),
+    );
+  }
+
+  static String? _itemId(Map<String, dynamic> item) =>
+      item['itemId']?.toString() ?? item['id']?.toString();
+
+  static Map<String, dynamic> _toPoPrefillLine(Map<String, dynamic> item) {
+    final onHand = (item['quantityOnHand'] as num?)?.toDouble() ??
+        (item['totalOnHand'] as num?)?.toDouble() ??
+        0;
+    final reorderLevel = (item['reorderLevel'] as num?)?.toDouble() ?? 0;
+    final reorderQty = (item['reorderQuantity'] as num?)?.toDouble() ?? 0;
+    final shortfall = (reorderLevel - onHand).clamp(0, double.infinity);
+    final suggestQty = reorderQty > 0 ? reorderQty : shortfall;
+
+    return {
+      'itemId': _itemId(item),
+      'itemName': item['itemName']?.toString() ??
+          item['name']?.toString() ??
+          'Item',
+      'suggestOrderQty': suggestQty <= 0 ? 1 : suggestQty,
+      'unitPrice': (item['purchasePrice'] as num?)?.toDouble() ??
+          (item['averageCost'] as num?)?.toDouble() ??
+          0,
+    };
+  }
 }
 
 class _ReorderItemCard extends StatelessWidget {
   final Map<String, dynamic> item;
+  final bool selected;
+  final ValueChanged<bool?>? onSelectedChanged;
 
-  const _ReorderItemCard({required this.item});
+  const _ReorderItemCard({
+    required this.item,
+    required this.selected,
+    required this.onSelectedChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -147,8 +225,6 @@ class _ReorderItemCard extends StatelessWidget {
     final avgCost = (item['averageCost'] as num?)?.toDouble() ?? 0;
     final itemId = item['itemId']?.toString() ?? item['id']?.toString();
     final warehouseName = item['warehouseName']?.toString();
-    final isLowStock = item['lowStock'] as bool? ?? true;
-
     final ratio = reorderLevel > 0 ? onHand / reorderLevel : 1.0;
     final stockColor = ratio <= 0.25
         ? KColors.error
@@ -157,7 +233,11 @@ class _ReorderItemCard extends StatelessWidget {
             : KColors.accent;
 
     return KCard(
-      onTap: itemId != null ? () => context.push('/items/$itemId') : null,
+      onTap: onSelectedChanged != null
+          ? () => onSelectedChanged!(!selected)
+          : itemId != null
+              ? () => context.push('/items/$itemId')
+              : null,
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,6 +245,11 @@ class _ReorderItemCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Checkbox(
+                value: selected,
+                onChanged: onSelectedChanged,
+              ),
+              KSpacing.hGapXs,
               CircleAvatar(
                 radius: 20,
                 backgroundColor: stockColor.withValues(alpha: 0.12),
@@ -192,7 +277,13 @@ class _ReorderItemCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, size: 18, color: KColors.textHint),
+              IconButton(
+                tooltip: 'Open item',
+                icon: const Icon(Icons.chevron_right,
+                    size: 18, color: KColors.textHint),
+                onPressed:
+                    itemId != null ? () => context.push('/items/$itemId') : null,
+              ),
             ],
           ),
           KSpacing.vGapSm,
@@ -241,6 +332,56 @@ class _ReorderItemCard extends StatelessWidget {
 
   static String _fmt(double q) =>
       q == q.truncateToDouble() ? q.toStringAsFixed(0) : q.toStringAsFixed(1);
+}
+
+class _CreatePoBar extends StatelessWidget {
+  final int selectedCount;
+  final VoidCallback onClear;
+  final VoidCallback onCreate;
+
+  const _CreatePoBar({
+    required this.selectedCount,
+    required this.onClear,
+    required this.onCreate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(KSpacing.md),
+      decoration: BoxDecoration(
+        color: KColors.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            Text(
+              '$selectedCount selected',
+              style: KTypography.labelLarge,
+            ),
+            const Spacer(),
+            TextButton(
+              onPressed: onClear,
+              child: const Text('Clear'),
+            ),
+            KSpacing.hGapSm,
+            KButton(
+              label: 'Create PO Draft',
+              icon: Icons.shopping_cart_checkout_outlined,
+              onPressed: onCreate,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _Metric extends StatelessWidget {

@@ -7,14 +7,21 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
-import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../data/purchase_order_repository.dart';
 import 'supplier_picker_sheet.dart';
 
+class PurchaseOrderPrefill {
+  final List<Map<String, dynamic>>? items;
+
+  const PurchaseOrderPrefill({this.items});
+}
+
 class PurchaseOrderCreateScreen extends ConsumerStatefulWidget {
-  const PurchaseOrderCreateScreen({super.key});
+  final List<Map<String, dynamic>>? prefillItems;
+
+  const PurchaseOrderCreateScreen({super.key, this.prefillItems});
 
   @override
   ConsumerState<PurchaseOrderCreateScreen> createState() =>
@@ -32,6 +39,39 @@ class _PurchaseOrderCreateScreenState
   final _notesCtl = TextEditingController();
 
   List<_PoLine> _lines = [_PoLine()];
+
+  @override
+  void initState() {
+    super.initState();
+    _prefillFromSource();
+  }
+
+  void _prefillFromSource() {
+    final items = widget.prefillItems;
+    if (items == null || items.isEmpty) return;
+
+    final prefilled = items.map((item) {
+      final line = _PoLine();
+      line.itemId = item['itemId']?.toString() ?? item['id']?.toString();
+      line.description = item['itemName']?.toString() ??
+          item['name']?.toString() ??
+          item['description']?.toString() ??
+          '';
+      line.quantity = (item['suggestOrderQty'] as num?)?.toDouble() ??
+          (item['quantity'] as num?)?.toDouble() ??
+          1;
+      line.unitPrice = (item['unitPrice'] as num?)?.toDouble() ??
+          (item['purchasePrice'] as num?)?.toDouble() ??
+          (item['averageCost'] as num?)?.toDouble() ??
+          0;
+      line.taxGroupId = item['taxGroupId']?.toString();
+      return line;
+    }).where((line) => line.itemId != null).toList();
+
+    if (prefilled.isNotEmpty) {
+      _lines = prefilled;
+    }
+  }
 
   @override
   void dispose() {
