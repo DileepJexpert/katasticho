@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/api/api_client.dart';
 import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -8,15 +7,6 @@ import '../../../core/widgets/widgets.dart';
 import '../../onboarding/data/onboarding_state.dart';
 import '../../onboarding/data/organisation_repository.dart';
 import '../data/feature_flag_repository.dart';
-
-final _businessConfigProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
-  final orgId = ref.watch(authProvider).orgId;
-  if (orgId == null || orgId.isEmpty) return {};
-  final client = ref.watch(apiClientProvider);
-  final res = await client.get('/api/v1/organisations/$orgId');
-  return (res.data['data'] as Map<String, dynamic>?) ?? {};
-});
 
 class BusinessConfigurationScreen extends ConsumerStatefulWidget {
   const BusinessConfigurationScreen({super.key});
@@ -266,10 +256,9 @@ class _BusinessConfigurationScreenState
     if (_initialized) return;
     _businessType = (org['businessType'] as String?) ?? 'RETAILER';
     _industryCode = (org['industryCode'] as String?) ?? 'OTHER_RETAIL';
-    final subCategories = (org['subCategories'] as List?)
-            ?.map((e) => e.toString())
-            .toSet() ??
-        <String>{};
+    final subCategories =
+        (org['subCategories'] as List?)?.map((e) => e.toString()).toSet() ??
+            <String>{};
     _selectedSubCategories
       ..clear()
       ..addAll(subCategories);
@@ -299,7 +288,7 @@ class _BusinessConfigurationScreenState
             industryDisplayName: industryLabel,
           );
       ref.invalidate(featureFlagsProvider);
-      ref.invalidate(_businessConfigProvider);
+      ref.invalidate(orgDetailsProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Business configuration updated')),
@@ -316,7 +305,7 @@ class _BusinessConfigurationScreenState
 
   @override
   Widget build(BuildContext context) {
-    final configAsync = ref.watch(_businessConfigProvider);
+    final configAsync = ref.watch(orgDetailsProvider);
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -340,12 +329,13 @@ class _BusinessConfigurationScreenState
         loading: () => const KLoading(),
         error: (e, _) => KErrorView(
           message: 'Failed to load business configuration',
-          onRetry: () => ref.invalidate(_businessConfigProvider),
+          onRetry: () => ref.invalidate(orgDetailsProvider),
         ),
         data: (org) {
           _initializeFromOrg(org);
           final subCategories =
-              kSubCategoriesByIndustry[_industryCode ?? 'OTHER_RETAIL'] ?? const [];
+              kSubCategoriesByIndustry[_industryCode ?? 'OTHER_RETAIL'] ??
+                  const [];
 
           return SingleChildScrollView(
             padding: KSpacing.pagePadding,
@@ -619,8 +609,8 @@ class _ImpactBullet extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Icon(Icons.check_circle_rounded,
-                size: 16, color: cs.primary),
+            child:
+                Icon(Icons.check_circle_rounded, size: 16, color: cs.primary),
           ),
           const SizedBox(width: 8),
           Expanded(

@@ -67,9 +67,8 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
 
   String get _selectedStateName {
     if (_selectedStateCode == null) return '';
-    final match = _indianStates
-        .where((s) => s['code'] == _selectedStateCode)
-        .firstOrNull;
+    final match =
+        _indianStates.where((s) => s['code'] == _selectedStateCode).firstOrNull;
     return match?['name'] ?? '';
   }
 
@@ -103,6 +102,12 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
               industryCode: onboarding.industryCode,
               subCategories: onboarding.subCategories,
             );
+        await ref.read(authProvider.notifier).updateBusinessProfile(
+              businessType: onboarding.businessType,
+              industryCode: onboarding.industryCode,
+              industryDisplayName: onboarding.industryDisplayName,
+            );
+        ref.invalidate(orgDetailsProvider);
       }
     } catch (_) {
       // proceed to complete regardless
@@ -141,6 +146,12 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
             stateCode: _selectedStateCode ?? '',
             phone: _phoneController.text.trim(),
           );
+      await ref.read(authProvider.notifier).updateBusinessProfile(
+            businessType: onboarding.businessType,
+            industryCode: onboarding.industryCode,
+            industryDisplayName: onboarding.industryDisplayName,
+          );
+      ref.invalidate(orgDetailsProvider);
 
       if (mounted) context.go(Routes.onboardingComplete);
     } catch (e) {
@@ -171,7 +182,8 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
               KSpacing.vGapSm,
               Text(
                 'Optional — you can update these later in Settings.',
-                style: KTypography.bodyMedium.copyWith(color: KColors.textSecondary),
+                style: KTypography.bodyMedium
+                    .copyWith(color: KColors.textSecondary),
               ),
               KSpacing.vGapXl,
               if (_error != null) ...[
@@ -227,7 +239,8 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
                 child: Center(
                   child: Text(
                     'Skip for now',
-                    style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                    style: KTypography.bodySmall
+                        .copyWith(color: KColors.textSecondary),
                   ),
                 ),
               ),

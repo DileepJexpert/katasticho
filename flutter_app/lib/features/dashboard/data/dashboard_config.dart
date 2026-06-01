@@ -5,6 +5,7 @@ import '../../../core/theme/k_colors.dart';
 enum DashboardVertical {
   retail,
   pharmacy,
+  pharmaDistributor,
   foodBeverage,
   distributor,
   manufacturer,
@@ -46,6 +47,7 @@ class DashboardConfig {
       industryCode: industryCode,
     )) {
       DashboardVertical.manufacturer => _clothManufacturing,
+      DashboardVertical.pharmaDistributor => _pharmaDistributor,
       DashboardVertical.distributor => _trading,
       DashboardVertical.pharmacy => _pharmacy,
       DashboardVertical.foodBeverage => _foodBeverage,
@@ -62,8 +64,12 @@ class DashboardConfig {
   }) {
     final type = businessType?.toUpperCase();
     final code = (industryCode ?? industry)?.toUpperCase();
+    final isPharma = code == 'PHARMACY' || code?.contains('PHARMA') == true;
 
     if (type == 'MANUFACTURER') return DashboardVertical.manufacturer;
+    if (type == 'DISTRIBUTOR' && isPharma) {
+      return DashboardVertical.pharmaDistributor;
+    }
     if (type == 'DISTRIBUTOR') return DashboardVertical.distributor;
     if (type == 'SERVICE_PROVIDER' || type == 'SERVICES') {
       return DashboardVertical.service;
@@ -271,6 +277,75 @@ const _pharmacy = DashboardConfig(
     WidgetConfig(id: 'expiring_items', title: 'Expiring Items', type: 'list'),
     WidgetConfig(
         id: 'overdue_invoices', title: 'Overdue Invoices', type: 'list'),
+  ],
+);
+
+const _pharmaDistributor = DashboardConfig(
+  industry: 'PHARMACY',
+  businessType: 'DISTRIBUTOR',
+  vertical: DashboardVertical.pharmaDistributor,
+  greeting: 'Welcome back',
+  kpis: [
+    KpiConfig(
+      id: 'today_sales',
+      title: "Today's Dispatch",
+      icon: Icons.local_shipping_rounded,
+      color: KColors.primary,
+      endpoint: '/api/v1/dashboard/today-sales',
+    ),
+    KpiConfig(
+      id: 'receivables',
+      title: 'Dealer Collections',
+      icon: Icons.account_balance_wallet,
+      color: KColors.warning,
+      endpoint: '/api/v1/dashboard/receivables',
+    ),
+    KpiConfig(
+      id: 'expiring_stock',
+      title: 'Expiry Risk',
+      icon: Icons.event_busy_rounded,
+      color: KColors.error,
+      endpoint: '/api/v1/dashboard/expiring-stock',
+    ),
+    KpiConfig(
+      id: 'payables',
+      title: 'Supplier Dues',
+      icon: Icons.payment,
+      color: KColors.error,
+      endpoint: '/api/v1/dashboard/ap-summary',
+    ),
+  ],
+  quickActions: [
+    QuickAction(
+      label: 'Sales Order',
+      icon: Icons.assignment_rounded,
+      route: '/sales-orders/create',
+      color: KColors.primary,
+    ),
+    QuickAction(
+      label: 'Record Payment',
+      icon: Icons.payments,
+      route: '/invoices',
+      color: KColors.success,
+    ),
+    QuickAction(
+      label: 'Near Expiry',
+      icon: Icons.event_busy_rounded,
+      route: '/inventory/near-expiry',
+      color: KColors.warning,
+    ),
+    QuickAction(
+      label: 'GST Returns',
+      icon: Icons.account_balance,
+      route: '/gst',
+      color: KColors.accent,
+    ),
+  ],
+  widgets: [
+    WidgetConfig(id: 'sales_chart', title: 'Dispatch Trend', type: 'chart'),
+    WidgetConfig(id: 'expiring_items', title: 'Expiring Batches', type: 'list'),
+    WidgetConfig(
+        id: 'overdue_invoices', title: 'Dealer Collections', type: 'list'),
   ],
 );
 

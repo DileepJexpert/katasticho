@@ -8,6 +8,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../onboarding/data/organisation_repository.dart';
 import '../data/dashboard_config.dart';
 import '../data/dashboard_repository.dart';
 import '../widgets/aaj_ka_hisaab_card.dart';
@@ -50,19 +51,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final orgDetails = ref.watch(orgDetailsProvider).valueOrNull;
     final capabilities = ref.watch(businessCapabilitiesProvider);
     final config = DashboardConfig.forProfile(
-      businessType: authState.businessType,
+      businessType:
+          orgDetails?['businessType'] as String? ?? authState.businessType,
       industry: authState.industry,
-      industryCode: authState.industryCode,
+      industryCode:
+          orgDetails?['industryCode'] as String? ?? authState.industryCode,
     );
-    final quickActions = _visibleQuickActions(config.quickActions, capabilities);
+    final quickActions =
+        _visibleQuickActions(config.quickActions, capabilities);
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= KSpacing.desktopBreakpoint;
     final isRetail = config.vertical == DashboardVertical.retail ||
         config.vertical == DashboardVertical.pharmacy ||
         config.vertical == DashboardVertical.foodBeverage;
     final isOrderDriven = config.vertical == DashboardVertical.distributor ||
+        config.vertical == DashboardVertical.pharmaDistributor ||
         config.vertical == DashboardVertical.manufacturer;
     final role = authState.role?.toUpperCase() ?? 'OWNER';
     final isCashier = role == 'OPERATOR' || role == 'CASHIER';
@@ -585,6 +591,7 @@ class _FinanceDashboardHero extends StatelessWidget {
 
   bool get _useBusinessCommandCenter =>
       vertical == DashboardVertical.distributor ||
+      vertical == DashboardVertical.pharmaDistributor ||
       vertical == DashboardVertical.manufacturer;
 
   Widget _buildCommandCenter() {

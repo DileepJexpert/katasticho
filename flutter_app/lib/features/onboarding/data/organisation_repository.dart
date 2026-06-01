@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
+import '../../../core/auth/auth_state.dart';
 
 class OrganisationRepository {
   final ApiClient _client;
@@ -29,8 +30,20 @@ class OrganisationRepository {
   Future<void> completeOnboarding(String orgId) async {
     await _client.post('/api/v1/organisations/$orgId/onboarding-complete');
   }
+
+  Future<Map<String, dynamic>> getOrg(String orgId) async {
+    final res = await _client.get('/api/v1/organisations/$orgId');
+    return (res.data['data'] as Map<String, dynamic>?) ?? {};
+  }
 }
 
 final organisationRepositoryProvider = Provider<OrganisationRepository>((ref) {
   return OrganisationRepository(ref.watch(apiClientProvider));
+});
+
+final orgDetailsProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final orgId = ref.watch(authProvider).orgId;
+  if (orgId == null || orgId.isEmpty) return {};
+  return ref.watch(organisationRepositoryProvider).getOrg(orgId);
 });

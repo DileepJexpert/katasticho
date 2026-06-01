@@ -9,6 +9,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
+import '../../onboarding/data/organisation_repository.dart';
 import '../data/feature_flag_repository.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -20,6 +21,7 @@ class SettingsScreen extends ConsumerWidget {
     final capabilities = ref.watch(businessCapabilitiesProvider);
     final previewAllModules = ref.watch(previewAllModulesProvider);
     final featureFlagsAsync = ref.watch(featureFlagsProvider);
+    final orgDetailsAsync = ref.watch(orgDetailsProvider);
     final role = authState.role?.toUpperCase() ?? 'OWNER';
     final canManageBusiness = role == 'OWNER' || role == 'ADMIN';
 
@@ -75,6 +77,7 @@ class SettingsScreen extends ConsumerWidget {
             KSpacing.vGapSm,
             _BusinessProfileCard(
               authState: authState,
+              orgDetailsAsync: orgDetailsAsync,
               capabilities: capabilities,
               featureFlagsAsync: featureFlagsAsync,
               previewAllModules: previewAllModules,
@@ -373,6 +376,7 @@ class _PreviewModulesCard extends StatelessWidget {
 
 class _BusinessProfileCard extends StatelessWidget {
   final AuthState authState;
+  final AsyncValue<Map<String, dynamic>> orgDetailsAsync;
   final BusinessCapabilities capabilities;
   final AsyncValue<Set<String>> featureFlagsAsync;
   final bool previewAllModules;
@@ -380,6 +384,7 @@ class _BusinessProfileCard extends StatelessWidget {
 
   const _BusinessProfileCard({
     required this.authState,
+    required this.orgDetailsAsync,
     required this.capabilities,
     required this.featureFlagsAsync,
     required this.previewAllModules,
@@ -402,8 +407,13 @@ class _BusinessProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final businessType = authState.businessType ?? 'Not set';
-    final industry = authState.industryCode ?? authState.industry ?? 'Not set';
+    final org = orgDetailsAsync.valueOrNull;
+    final businessType =
+        org?['businessType'] as String? ?? authState.businessType ?? 'Not set';
+    final industry = org?['industryCode'] as String? ??
+        authState.industryCode ??
+        authState.industry ??
+        'Not set';
 
     return KCard(
       child: Column(
@@ -433,6 +443,10 @@ class _BusinessProfileCard extends StatelessWidget {
                       _prettyLabel(industry),
                       style: KTypography.bodyMedium,
                     ),
+                    if (orgDetailsAsync.isLoading) ...[
+                      const SizedBox(height: 8),
+                      const LinearProgressIndicator(minHeight: 2),
+                    ],
                   ],
                 ),
               ),
