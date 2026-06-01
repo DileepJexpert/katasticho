@@ -15,13 +15,29 @@ import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/stock_receipt_repository.dart';
 import 'supplier_picker_sheet.dart';
 
+class StockReceiptPrefill {
+  final Map<String, dynamic>? supplier;
+  final List<Map<String, dynamic>>? items;
+
+  const StockReceiptPrefill({
+    this.supplier,
+    this.items,
+  });
+}
+
 /// Two-step GRN creation: pick supplier + add lines, then review.
 /// Saving creates the receipt in DRAFT state — posting (which writes to
 /// the inventory ledger) happens from the detail screen so the user has
 /// one last chance to bail out.
 class StockReceiptCreateScreen extends ConsumerStatefulWidget {
   final List<Map<String, dynamic>>? prefillItems;
-  const StockReceiptCreateScreen({super.key, this.prefillItems});
+  final Map<String, dynamic>? prefillSupplier;
+
+  const StockReceiptCreateScreen({
+    super.key,
+    this.prefillItems,
+    this.prefillSupplier,
+  });
 
   @override
   ConsumerState<StockReceiptCreateScreen> createState() =>
@@ -40,15 +56,16 @@ class _StockReceiptCreateScreenState
   final _supplierInvoiceNoCtl = TextEditingController();
   final _notesCtl = TextEditingController();
 
-  List<_GrnLine> _lines = [_GrnLine()];
+  final List<_GrnLine> _lines = [_GrnLine()];
 
   @override
   void initState() {
     super.initState();
-    _prefillFromShortbook();
+    _prefillFromSource();
   }
 
-  void _prefillFromShortbook() {
+  void _prefillFromSource() {
+    _supplier = widget.prefillSupplier;
     final items = widget.prefillItems;
     if (items == null || items.isEmpty) return;
 
@@ -57,6 +74,7 @@ class _StockReceiptCreateScreenState
       line.itemId = item['itemId']?.toString();
       line.description = item['itemName']?.toString() ?? '';
       line.quantity = (item['suggestOrderQty'] as num?)?.toDouble() ?? 1;
+      line.unitPrice = (item['unitPrice'] as num?)?.toDouble() ?? 0;
       return line;
     }).toList();
 
@@ -99,8 +117,8 @@ class _StockReceiptCreateScreenState
         .where((l) => l.trackBatches && l.batchNumber.trim().isEmpty)
         .toList();
     if (missingBatch.isNotEmpty) {
-      setState(() =>
-          _errorMessage = 'Batch number is required for: ${missingBatch.map((l) => l.description).join(', ')}');
+      setState(() => _errorMessage =
+          'Batch number is required for: ${missingBatch.map((l) => l.description).join(', ')}');
       return;
     }
 

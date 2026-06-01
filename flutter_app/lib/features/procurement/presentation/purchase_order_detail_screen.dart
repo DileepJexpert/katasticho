@@ -10,6 +10,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/purchase_order_repository.dart';
+import 'stock_receipt_create_screen.dart';
 
 class PurchaseOrderDetailScreen extends ConsumerWidget {
   final String poId;
@@ -120,8 +121,8 @@ class PurchaseOrderDetailScreen extends ConsumerWidget {
                   ],
                   if (canReceive)
                     KButton(
-                      label: 'Receive Stock',
-                      icon: Icons.inventory_2_outlined,
+                      label: 'Create Goods Receipt',
+                      icon: Icons.receipt_long_outlined,
                       onPressed: () => _navigateToReceive(context, po),
                     ),
                 ],
@@ -192,20 +193,28 @@ class PurchaseOrderDetailScreen extends ConsumerWidget {
   }
 
   void _navigateToReceive(BuildContext context, Map<String, dynamic> po) {
-    // Navigate to stock receipt create with PO prefill
+    // A PO does not post stock. It opens a draft GRN; stock is posted only
+    // from Goods Receipt detail via Receive Stock.
     context.go(
       Routes.stockReceiptCreate,
-      extra: (po['lines'] as List?)
-          ?.cast<Map<String, dynamic>>()
-          .map((l) => {
-                'itemId': l['itemId'],
-                'itemName': l['itemName'] ?? l['description'] ?? '',
-                'suggestOrderQty':
-                    ((l['quantity'] as num?)?.toDouble() ?? 0) -
-                        ((l['receivedQuantity'] as num?)?.toDouble() ?? 0),
-              })
-          .where((l) => (l['suggestOrderQty'] as double) > 0)
-          .toList(),
+      extra: StockReceiptPrefill(
+        supplier: {
+          'id': po['supplierId'],
+          'name': po['supplierName'] ?? 'Supplier',
+        },
+        items: (po['lines'] as List?)
+            ?.cast<Map<String, dynamic>>()
+            .map((l) => {
+                  'itemId': l['itemId'],
+                  'itemName': l['itemName'] ?? l['description'] ?? '',
+                  'unitPrice': l['unitPrice'],
+                  'suggestOrderQty':
+                      ((l['quantity'] as num?)?.toDouble() ?? 0) -
+                          ((l['receivedQuantity'] as num?)?.toDouble() ?? 0),
+                })
+            .where((l) => (l['suggestOrderQty'] as double) > 0)
+            .toList(),
+      ),
     );
   }
 
@@ -269,8 +278,7 @@ class _PoBody extends StatelessWidget {
     final deliveryDateRaw = po['expectedDeliveryDate'] as String?;
     final notes = po['notes'] as String?;
     final total = (po['totalAmount'] as num?)?.toDouble() ?? 0;
-    final lines =
-        (po['lines'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final lines = (po['lines'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -431,7 +439,8 @@ class _PoLinesPanel extends StatelessWidget {
             final unitPrice = (line['unitPrice'] as num?)?.toDouble() ?? 0;
             final lineTotal = (line['lineTotal'] as num?)?.toDouble() ?? 0;
 
-            final qtyFmt = qty.toStringAsFixed(qty.truncateToDouble() == qty ? 0 : 2);
+            final qtyFmt =
+                qty.toStringAsFixed(qty.truncateToDouble() == qty ? 0 : 2);
             final recFmt = receivedQty.toStringAsFixed(
                 receivedQty.truncateToDouble() == receivedQty ? 0 : 2);
 

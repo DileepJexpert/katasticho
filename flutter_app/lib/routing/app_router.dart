@@ -909,9 +909,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.stockReceiptCreate,
-            builder: (context, state) => StockReceiptCreateScreen(
-              prefillItems: state.extra as List<Map<String, dynamic>>?,
-            ),
+            builder: (context, state) {
+              final extra = state.extra;
+              if (extra is StockReceiptPrefill) {
+                return StockReceiptCreateScreen(
+                  prefillItems: extra.items,
+                  prefillSupplier: extra.supplier,
+                );
+              }
+              return StockReceiptCreateScreen(
+                prefillItems: extra as List<Map<String, dynamic>>?,
+              );
+            },
           ),
           GoRoute(
             path: '/stock-receipts/:id',

@@ -47,6 +47,7 @@ Current active work: distributor workflow controls and credit-control visibility
 - AR payment approval is being introduced in phases. Phase 1 added payment lifecycle status and a single `postPayment()` accounting gate. Phase 2 reuses existing workflow definitions for `PAYMENT`; matching payments move to `PENDING_APPROVAL`, approval posts them through `postPayment()`, and rejection voids them without accounting side effects.
 - Payment approval frontend visibility is wired into existing screens: record-payment feedback, invoice Payments tab status chips, and Approval Inbox recognition for `PAYMENT` requests.
 - Distributor dashboard first pass reuses existing dashboard providers: Sales Order alerts, dealer collections, supplier dues, branch rollups, low-stock, and expiry-risk widgets are surfaced on distributor/pharma-distributor dashboards without a new backend endpoint.
+- Purchase Order does not post stock. PO action starts receiving by opening a draft Goods Receipt; only Goods Receipt detail `Receive Stock` posts inventory movement.
 - Distributor capability should extend existing flows, not fork them.
 - Workflow must be org-configurable. No customer-specific code branches.
 
@@ -103,3 +104,9 @@ Distributor dashboard implementation plan:
 2. Surface Sales Order alerts prominently for distributor/pharma distributor.
 3. Surface expiry risk prominently for pharma distributor.
 4. Add new backend summary endpoints only when an existing widget cannot express the operating question.
+
+Procurement flow decision:
+1. Purchase Order button label is `Create Goods Receipt`.
+2. That action opens GRN creation, prefilled from PO supplier, pending quantities, and expected unit prices.
+3. GRN is saved as `DRAFT` for quantity, batch, expiry, rack, and cost verification.
+4. GRN detail `Receive Stock` is the only stock posting action.
