@@ -86,7 +86,10 @@ class SalesOrderDetailScreen extends ConsumerWidget {
           final status = order['status'] as String? ?? '';
           final shippedStatus = order['shippedStatus'] as String? ?? '';
           final canCreateChallan =
-              status == 'CONFIRMED' && shippedStatus != 'FULLY_SHIPPED';
+              (status == 'CONFIRMED' ||
+                      status == 'PARTIALLY_SHIPPED' ||
+                      status == 'BACKORDER') &&
+                  shippedStatus != 'FULLY_SHIPPED';
 
           if (status == 'DRAFT') {
             return Container(

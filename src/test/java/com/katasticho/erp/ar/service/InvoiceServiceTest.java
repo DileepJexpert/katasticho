@@ -320,6 +320,55 @@ class InvoiceServiceTest {
     }
 
     @Test
+    void sendStandaloneInvoice_postsJournalAndMovesInventory() {
+        Invoice draftInvoice = draftInvoiceWithLine();
+
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(draftInvoice.getId(), orgId))
+                .thenReturn(Optional.of(draftInvoice));
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubContactLookup(contact);
+        stubTaxLineLookup(draftInvoice.getId(), Collections.emptyList());
+
+        JournalEntry mockJournal = JournalEntry.builder()
+                .entryNumber("JE-2026-000001").status("POSTED").build();
+        mockJournal.setId(UUID.randomUUID());
+        when(postingEngine.postSalesInvoice(draftInvoice)).thenReturn(mockJournal);
+
+        InvoiceResponse result = invoiceService.sendInvoice(draftInvoice.getId());
+
+        assertEquals("SENT", result.status());
+        assertEquals(mockJournal.getId(), result.journalEntryId());
+        verify(inventoryService).validateStockForInvoice(draftInvoice);
+        verify(postingEngine).postSalesInvoice(draftInvoice);
+        verify(inventoryService).deductStockForInvoice(draftInvoice);
+    }
+
+    @Test
+    void sendSalesOrderInvoiceWithSkipStockMovement_postsJournalButDoesNotMoveInventoryAgain() {
+        Invoice draftInvoice = draftInvoiceWithLine();
+        draftInvoice.setSalesOrderId(UUID.randomUUID());
+
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(draftInvoice.getId(), orgId))
+                .thenReturn(Optional.of(draftInvoice));
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubContactLookup(contact);
+        stubTaxLineLookup(draftInvoice.getId(), Collections.emptyList());
+
+        JournalEntry mockJournal = JournalEntry.builder()
+                .entryNumber("JE-2026-000001").status("POSTED").build();
+        mockJournal.setId(UUID.randomUUID());
+        when(postingEngine.postSalesInvoice(draftInvoice)).thenReturn(mockJournal);
+
+        InvoiceResponse result = invoiceService.sendInvoice(draftInvoice.getId(), true);
+
+        assertEquals("SENT", result.status());
+        assertEquals(mockJournal.getId(), result.journalEntryId());
+        verify(inventoryService, never()).validateStockForInvoice(any());
+        verify(postingEngine).postSalesInvoice(draftInvoice);
+        verify(inventoryService, never()).deductStockForInvoice(any());
+    }
+
+    @Test
     void shouldRejectSendForNonDraftInvoice() {
         Invoice sentInvoice = Invoice.builder().orgId(orgId).status("SENT").build();
         sentInvoice.setId(UUID.randomUUID());
@@ -460,5 +509,32 @@ class InvoiceServiceTest {
         assertEquals("AR_INVOICE_LINE_AMOUNT_NOT_POSITIVE", ex.getErrorCode());
         verify(invoiceRepository, never()).save(any());
         verify(taxLineItemRepository, never()).saveAll(any());
+    }
+
+    private Invoice draftInvoiceWithLine() {
+        Invoice draftInvoice = Invoice.builder()
+                .orgId(orgId)
+                .contactId(contact.getId())
+                .invoiceNumber("INV-2026-000001")
+                .invoiceDate(LocalDate.of(2026, 4, 11))
+                .dueDate(LocalDate.of(2026, 5, 11))
+                .status("DRAFT")
+                .subtotal(new BigDecimal("10000.00"))
+                .taxAmount(new BigDecimal("1800.00"))
+                .totalAmount(new BigDecimal("11800.00"))
+                .balanceDue(new BigDecimal("11800.00"))
+                .build();
+        draftInvoice.setId(UUID.randomUUID());
+
+        var line = com.katasticho.erp.ar.entity.InvoiceLine.builder()
+                .lineNumber(1)
+                .description("Widget")
+                .accountCode("4010")
+                .taxableAmount(new BigDecimal("10000.00"))
+                .taxAmount(new BigDecimal("1800.00"))
+                .lineTotal(new BigDecimal("11800.00"))
+                .build();
+        draftInvoice.addLine(line);
+        return draftInvoice;
     }
 }

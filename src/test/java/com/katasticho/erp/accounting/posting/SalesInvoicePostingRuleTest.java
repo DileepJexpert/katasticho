@@ -84,6 +84,88 @@ class SalesInvoicePostingRuleTest {
     }
 
     @Test
+    void salesOrderInvoicePostsReceivableRevenueTaxAndCogsLedgersOnce() {
+        UUID orgId = UUID.randomUUID();
+        UUID invoiceId = UUID.randomUUID();
+        UUID salesOrderId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        Invoice invoice = invoice(orgId, invoiceId, itemId);
+        invoice.setSalesOrderId(salesOrderId);
+
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR)).thenReturn("1100");
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.COGS)).thenReturn("5010");
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.INVENTORY_ASSET)).thenReturn("1200");
+        when(taxLineItemRepository.findBySourceTypeAndSourceId("INVOICE", invoiceId))
+                .thenReturn(List.of(tax("2020", "CGST", "500.00"), tax("2021", "SGST", "500.00")));
+
+        Item item = Item.builder()
+                .name("Rice")
+                .sku("RICE")
+                .purchasePrice(new BigDecimal("100.00"))
+                .trackInventory(true)
+                .build();
+        item.setId(itemId);
+        when(itemRepository.findAllById(any())).thenReturn(List.of(item));
+
+        JournalPostRequest request = rule.generate(PostingContext.salesInvoice(invoice));
+
+        assertThat(request.sourceModule()).isEqualTo("SALES");
+        assertThat(request.sourceId()).isEqualTo(invoiceId);
+        assertLine(request.lines().get(0), "1100", "21000.00", "0");
+        assertLine(request.lines().get(1), "4010", "0", "20000.00");
+        assertLine(request.lines().get(2), "2020", "0", "500.00");
+        assertLine(request.lines().get(3), "2021", "0", "500.00");
+        assertLine(request.lines().get(4), "5010", "10000.00", "0");
+        assertLine(request.lines().get(5), "1200", "0", "10000.00");
+
+        BigDecimal debit = request.lines().stream()
+                .map(JournalLineRequest::debit)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal credit = request.lines().stream()
+                .map(JournalLineRequest::credit)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(debit).isEqualByComparingTo("31000.00");
+        assertThat(credit).isEqualByComparingTo("31000.00");
+    }
+
+    @Test
+    void nonInventoryInvoiceLineDoesNotPostCogsOrInventoryLedger() {
+        UUID orgId = UUID.randomUUID();
+        UUID invoiceId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        Invoice invoice = invoice(orgId, invoiceId, itemId);
+
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR)).thenReturn("1100");
+        when(taxLineItemRepository.findBySourceTypeAndSourceId("INVOICE", invoiceId))
+                .thenReturn(List.of(tax("2020", "CGST", "500.00"), tax("2021", "SGST", "500.00")));
+
+        Item item = Item.builder()
+                .name("Service")
+                .sku("SVC")
+                .purchasePrice(new BigDecimal("100.00"))
+                .trackInventory(false)
+                .build();
+        item.setId(itemId);
+        when(itemRepository.findAllById(any())).thenReturn(List.of(item));
+
+        JournalPostRequest request = rule.generate(PostingContext.salesInvoice(invoice));
+
+        assertThat(request.lines()).hasSize(4);
+        assertLine(request.lines().get(0), "1100", "21000.00", "0");
+        assertLine(request.lines().get(1), "4010", "0", "20000.00");
+        assertLine(request.lines().get(2), "2020", "0", "500.00");
+        assertLine(request.lines().get(3), "2021", "0", "500.00");
+
+        BigDecimal debit = request.lines().stream()
+                .map(JournalLineRequest::debit)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal credit = request.lines().stream()
+                .map(JournalLineRequest::credit)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(debit).isEqualByComparingTo(credit);
+    }
+
+    @Test
     void failsWhenTaxAccountMappingIsMissing() {
         UUID orgId = UUID.randomUUID();
         UUID invoiceId = UUID.randomUUID();
