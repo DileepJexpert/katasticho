@@ -484,6 +484,10 @@ class _AccountingDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDistributorVertical =
+        config.vertical == DashboardVertical.distributor ||
+            config.vertical == DashboardVertical.pharmaDistributor;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -499,6 +503,10 @@ class _AccountingDashboard extends StatelessWidget {
           expandedAging: expandedAging,
           onToggleAging: onToggleAging,
         ),
+        if (isDistributorVertical && capabilities.canUseDistribution) ...[
+          KSpacing.vGapLg,
+          const SoAlertsCard(),
+        ],
         KSpacing.vGapLg,
         if (isDesktop)
           Row(
@@ -517,6 +525,10 @@ class _AccountingDashboard extends StatelessWidget {
                     if (capabilities.canUseInventory) ...[
                       const SizedBox(height: 16),
                       const PurchasesByBranchWidget(),
+                      if (isDistributorVertical) ...[
+                        const SizedBox(height: 16),
+                        const ExpiringSoonWidget(),
+                      ],
                       const SizedBox(height: 16),
                       const LowStockWidget(),
                     ],
@@ -567,6 +579,10 @@ class _AccountingDashboard extends StatelessWidget {
           if (capabilities.canUseInventory) ...[
             KSpacing.vGapMd,
             const LowStockWidget(),
+            if (isDistributorVertical) ...[
+              KSpacing.vGapMd,
+              const ExpiringSoonWidget(),
+            ],
           ],
         ],
       ],

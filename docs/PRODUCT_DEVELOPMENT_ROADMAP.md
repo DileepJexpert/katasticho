@@ -46,6 +46,7 @@ Current active work: distributor workflow controls and credit-control visibility
 - Customer Indent is removed; Sales Order with backorder is the customer demand flow.
 - AR payment approval is being introduced in phases. Phase 1 added payment lifecycle status and a single `postPayment()` accounting gate. Phase 2 reuses existing workflow definitions for `PAYMENT`; matching payments move to `PENDING_APPROVAL`, approval posts them through `postPayment()`, and rejection voids them without accounting side effects.
 - Payment approval frontend visibility is wired into existing screens: record-payment feedback, invoice Payments tab status chips, and Approval Inbox recognition for `PAYMENT` requests.
+- Distributor dashboard first pass reuses existing dashboard providers: Sales Order alerts, dealer collections, supplier dues, branch rollups, low-stock, and expiry-risk widgets are surfaced on distributor/pharma-distributor dashboards without a new backend endpoint.
 - Distributor capability should extend existing flows, not fork them.
 - Workflow must be org-configurable. No customer-specific code branches.
 
@@ -96,3 +97,9 @@ Payment lifecycle implementation plan:
 6. Payment approval reuses the existing workflow engine with inactive default templates for high-value and backdated payments.
 7. Bank reconciliation state changes remain deferred; current bank reconciliation still calls `recordPayment()`.
 8. Frontend payment approval visibility is complete in existing screens; do not create a duplicate payment approval module.
+
+Distributor dashboard implementation plan:
+1. Reuse existing dashboard APIs before adding new endpoints.
+2. Surface Sales Order alerts prominently for distributor/pharma distributor.
+3. Surface expiry risk prominently for pharma distributor.
+4. Add new backend summary endpoints only when an existing widget cannot express the operating question.
