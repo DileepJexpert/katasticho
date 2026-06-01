@@ -45,6 +45,7 @@ Current active work: distributor workflow controls and credit-control visibility
 - Customer risk UI is reused inside the existing Credit Ledger screen with risk labels and a risk-only filter; no duplicate customer risk module/page is introduced.
 - Customer Indent is removed; Sales Order with backorder is the customer demand flow.
 - AR payment approval is being introduced in phases. Phase 1 added payment lifecycle status and a single `postPayment()` accounting gate. Phase 2 reuses existing workflow definitions for `PAYMENT`; matching payments move to `PENDING_APPROVAL`, approval posts them through `postPayment()`, and rejection voids them without accounting side effects.
+- Payment approval frontend visibility is wired into existing screens: record-payment feedback, invoice Payments tab status chips, and Approval Inbox recognition for `PAYMENT` requests.
 - Distributor capability should extend existing flows, not fork them.
 - Workflow must be org-configurable. No customer-specific code branches.
 
@@ -94,3 +95,4 @@ Payment lifecycle implementation plan:
 5. Keep bank reconciliation behavior unchanged in this phase because it still calls `recordPayment()`.
 6. Payment approval reuses the existing workflow engine with inactive default templates for high-value and backdated payments.
 7. Bank reconciliation state changes remain deferred; current bank reconciliation still calls `recordPayment()`.
+8. Frontend payment approval visibility is complete in existing screens; do not create a duplicate payment approval module.

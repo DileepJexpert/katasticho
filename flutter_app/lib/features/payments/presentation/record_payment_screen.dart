@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
@@ -8,8 +7,8 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
-import '../../invoices/data/invoice_repository.dart';
 import '../../invoices/data/invoice_providers.dart';
+import '../../workflow/data/workflow_repository.dart';
 import '../data/payment_repository.dart';
 
 const _paymentMethods = [
@@ -55,7 +54,7 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
 
     try {
       final repo = ref.read(paymentRepositoryProvider);
-      await repo.recordPayment(widget.invoiceId, {
+      final response = await repo.recordPayment(widget.invoiceId, {
         'amount': double.tryParse(_amountController.text) ?? 0,
         'paymentMethod': _paymentMethod,
         'paymentDate': DateFormatter.api(_paymentDate),
@@ -69,10 +68,18 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
       ref.invalidate(invoiceDetailProvider(widget.invoiceId));
       ref.invalidate(invoicePaymentsProvider(widget.invoiceId));
       ref.invalidate(invoiceListProvider);
+      ref.invalidate(approvalRequestsProvider);
 
       if (mounted) {
+        final payment = (response['data'] is Map<String, dynamic>)
+            ? response['data'] as Map<String, dynamic>
+            : response;
+        final status = payment['status']?.toString();
+        final message = status == 'PENDING_APPROVAL'
+            ? 'Payment sent for approval'
+            : 'Payment recorded successfully';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment recorded successfully')),
+          SnackBar(content: Text(message)),
         );
         context.pop();
       }
@@ -116,14 +123,11 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
         ),
         data: (data) {
           final invoice = (data['data'] ?? data) as Map<String, dynamic>;
-          final invoiceNumber =
-              invoice['invoiceNumber'] as String? ?? '--';
-          final total =
-              (invoice['total'] as num?)?.toDouble() ?? 0;
+          final invoiceNumber = invoice['invoiceNumber'] as String? ?? '--';
+          final total = (invoice['total'] as num?)?.toDouble() ?? 0;
           final balanceDue =
               (invoice['balanceDue'] as num?)?.toDouble() ?? total;
-          final customerName =
-              invoice['contactName'] as String? ?? 'Customer';
+          final customerName = invoice['contactName'] as String? ?? 'Customer';
 
           // Pre-fill amount with balance due
           if (_amountController.text.isEmpty) {
@@ -156,8 +160,7 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
                           KSpacing.hGapMd,
                           _InfoChip(
                             label: 'Balance Due',
-                            value:
-                                CurrencyFormatter.formatIndian(balanceDue),
+                            value: CurrencyFormatter.formatIndian(balanceDue),
                             color: KColors.error,
                           ),
                         ],
@@ -202,10 +205,8 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
                       ),
                       label: Text(m.$2),
                       selected: isSelected,
-                      selectedColor:
-                          KColors.primary.withValues(alpha: 0.12),
-                      onSelected: (_) =>
-                          setState(() => _paymentMethod = m.$1),
+                      selectedColor: KColors.primary.withValues(alpha: 0.12),
+                      onSelected: (_) => setState(() => _paymentMethod = m.$1),
                     );
                   }).toList(),
                 ),

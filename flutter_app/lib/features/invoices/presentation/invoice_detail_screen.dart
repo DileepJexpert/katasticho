@@ -471,11 +471,19 @@ class _PaymentsTab extends ConsumerWidget {
             final number = p['paymentNumber'] as String? ?? '';
             final date = p['paymentDate'] as String? ?? '';
             final reference = p['referenceNumber'] as String?;
+            final status = p['status']?.toString() ?? 'POSTED';
+            final isPendingApproval = status == 'PENDING_APPROVAL';
             return KCard(
               margin: const EdgeInsets.only(bottom: KSpacing.sm),
               child: Row(
                 children: [
-                  const Icon(Icons.payments, color: KColors.success),
+                  Icon(
+                    isPendingApproval
+                        ? Icons.pending_actions_rounded
+                        : Icons.payments,
+                    color:
+                        isPendingApproval ? KColors.warning : KColors.success,
+                  ),
                   KSpacing.hGapMd,
                   Expanded(
                     child: Column(
@@ -496,10 +504,13 @@ class _PaymentsTab extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  KStatusChip(status: status),
+                  KSpacing.hGapMd,
                   Text(
                     CurrencyFormatter.formatIndian(amount),
                     style: KTypography.amountSmall.copyWith(
-                      color: KColors.success,
+                      color:
+                          isPendingApproval ? KColors.warning : KColors.success,
                     ),
                   ),
                 ],

@@ -135,6 +135,10 @@ class _ApprovalInboxScreenState extends ConsumerState<ApprovalInboxScreen> {
       context.push('/sales-orders/${request.documentId}');
       return;
     }
+    if (request.documentType == 'PAYMENT') {
+      _showSnack('Open the related invoice Payments tab to view this payment');
+      return;
+    }
     _showSnack('Document view is not available for ${request.documentType}');
   }
 }
@@ -171,7 +175,7 @@ class _ApprovalRequestCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  Icons.fact_check_outlined,
+                  _iconFor(request.documentType),
                   color: cs.onPrimaryContainer,
                 ),
               ),
@@ -242,6 +246,15 @@ class _ApprovalRequestCard extends StatelessWidget {
         .where((part) => part.isNotEmpty)
         .map((part) => part[0].toUpperCase() + part.substring(1))
         .join(' ');
+  }
+
+  static IconData _iconFor(String documentType) {
+    return switch (documentType) {
+      'SALES_ORDER' => Icons.assignment_rounded,
+      'CREDIT_NOTE' => Icons.assignment_return_rounded,
+      'PAYMENT' => Icons.payments_rounded,
+      _ => Icons.fact_check_outlined,
+    };
   }
 }
 
