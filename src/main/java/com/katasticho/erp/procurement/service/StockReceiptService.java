@@ -266,6 +266,7 @@ public class StockReceiptService {
             if (movement != null) {
                 line.setStockMovementId(movement.getId());
             }
+            updateLatestPurchasePrice(item, line.getUnitPrice());
         }
 
         receipt.setStatus("RECEIVED");
@@ -412,6 +413,21 @@ public class StockReceiptService {
 
     private static BigDecimal nz(BigDecimal v) {
         return v != null ? v : BigDecimal.ZERO;
+    }
+
+    private void updateLatestPurchasePrice(Item item, BigDecimal unitPrice) {
+        if (unitPrice == null || unitPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        BigDecimal latest = unitPrice.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal current = item.getPurchasePrice() != null
+                ? item.getPurchasePrice().setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        if (current.compareTo(latest) == 0) {
+            return;
+        }
+        item.setPurchasePrice(latest);
+        itemRepository.save(item);
     }
 }
 

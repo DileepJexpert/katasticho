@@ -194,9 +194,9 @@ class StockReceiptServiceTest {
         var line2 = com.katasticho.erp.procurement.entity.StockReceiptLine.builder()
                 .lineNumber(2).itemId(crocin.getId()).description("Crocin Advance")
                 .quantity(new BigDecimal("150")).unitOfMeasure("STRIP")
-                .unitPrice(new BigDecimal("22")).taxableAmount(new BigDecimal("3300"))
+                .unitPrice(new BigDecimal("24.50")).taxableAmount(new BigDecimal("3675.00"))
                 .gstRate(new BigDecimal("12")).taxAmount(new BigDecimal("396"))
-                .lineTotal(new BigDecimal("3696")).build();
+                .lineTotal(new BigDecimal("4116.00")).build();
         line2.setId(UUID.randomUUID());
         draft.addLine(line1);
         draft.addLine(line2);
@@ -240,10 +240,14 @@ class StockReceiptServiceTest {
         // Second line — Crocin
         assertEquals(crocin.getId(), movements.get(1).itemId());
         assertEquals(0, new BigDecimal("150").compareTo(movements.get(1).quantity()));
+        assertEquals(0, new BigDecimal("24.50").compareTo(movements.get(1).unitCost()));
 
         // Lines now hold the resulting movement IDs
         assertEquals(m1.getId(), line1.getStockMovementId());
         assertEquals(m2.getId(), line2.getStockMovementId());
+        assertEquals(0, new BigDecimal("24.50").compareTo(crocin.getPurchasePrice()));
+        verify(itemRepository).save(crocin);
+        verify(itemRepository, never()).save(paracetamol);
     }
 
     // T-GRN-03: Receive on a non-DRAFT receipt is rejected

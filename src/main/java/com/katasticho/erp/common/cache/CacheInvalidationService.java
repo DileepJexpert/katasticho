@@ -2,6 +2,7 @@ package com.katasticho.erp.common.cache;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -12,6 +13,7 @@ import java.util.UUID;
 public class CacheInvalidationService {
 
     private final CacheService cacheService;
+    private final CacheManager cacheManager;
 
     public void onItemChanged(UUID orgId, UUID itemId) {
         log.info("[CacheInvalidation] Item changed org={} item={}", orgId, itemId);
@@ -19,6 +21,7 @@ public class CacheInvalidationService {
         cacheService.evictOrgCache(CacheKeys.STOCK_BALANCE, orgId);
         cacheService.evict(CacheKeys.posItems(orgId));
         cacheService.evict(CacheKeys.lowStock(orgId));
+        clearSpringCache("pos-search");
     }
 
     public void onStockMovement(UUID orgId, UUID itemId, UUID warehouseId) {
@@ -27,6 +30,7 @@ public class CacheInvalidationService {
         cacheService.evict(CacheKeys.posItems(orgId));
         cacheService.evict(CacheKeys.lowStock(orgId));
         cacheService.evict(CacheKeys.dailySummary(orgId));
+        clearSpringCache("pos-search");
     }
 
     public void onInvoiceChanged(UUID orgId, UUID contactId) {
@@ -68,5 +72,13 @@ public class CacheInvalidationService {
         cacheService.evict(CacheKeys.lowStock(orgId));
         cacheService.evict(CacheKeys.expiringSoon(orgId));
         cacheService.evict(CacheKeys.warmerStatus(orgId));
+        clearSpringCache("pos-search");
+    }
+
+    private void clearSpringCache(String name) {
+        var cache = cacheManager.getCache(name);
+        if (cache != null) {
+            cache.clear();
+        }
     }
 }
