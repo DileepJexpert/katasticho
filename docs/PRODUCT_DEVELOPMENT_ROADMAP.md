@@ -48,6 +48,7 @@ Current active work: distributor workflow controls and credit-control visibility
 - Payment approval frontend visibility is wired into existing screens: record-payment feedback, invoice Payments tab status chips, and Approval Inbox recognition for `PAYMENT` requests.
 - Distributor dashboard first pass reuses existing dashboard providers: Sales Order alerts, dealer collections, supplier dues, branch rollups, low-stock, and expiry-risk widgets are surfaced on distributor/pharma-distributor dashboards without a new backend endpoint.
 - Purchase Order does not post stock. PO action starts receiving by opening a draft Goods Receipt; only Goods Receipt detail `Receive Stock` posts inventory movement.
+- Sales Order does not post stock. Confirmed Sales Order starts dispatch by opening a draft Delivery Challan; only Delivery Challan detail `Dispatch` posts stock movement.
 - Distributor capability should extend existing flows, not fork them.
 - Workflow must be org-configurable. No customer-specific code branches.
 
@@ -110,3 +111,9 @@ Procurement flow decision:
 2. That action opens GRN creation, prefilled from PO supplier, pending quantities, and expected unit prices.
 3. GRN is saved as `DRAFT` for quantity, batch, expiry, rack, and cost verification.
 4. GRN detail `Receive Stock` is the only stock posting action.
+
+Sales dispatch flow decision:
+1. Sales Order button label is `Create Delivery Challan` after confirmation.
+2. That action opens Delivery Challan creation prefilled from the Sales Order.
+3. Delivery Challan is saved as `DRAFT` for shipped quantity and transport verification.
+4. Delivery Challan detail `Dispatch` is the only customer dispatch stock posting action.

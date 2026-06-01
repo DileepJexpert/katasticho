@@ -84,6 +84,9 @@ class SalesOrderDetailScreen extends ConsumerWidget {
         data: (data) {
           final order = (data['data'] ?? data) as Map<String, dynamic>;
           final status = order['status'] as String? ?? '';
+          final shippedStatus = order['shippedStatus'] as String? ?? '';
+          final canCreateChallan =
+              status == 'CONFIRMED' && shippedStatus != 'FULLY_SHIPPED';
 
           if (status == 'DRAFT') {
             return Container(
@@ -107,6 +110,35 @@ class SalesOrderDetailScreen extends ConsumerWidget {
                       icon: Icons.check_circle_outline,
                       onPressed: () =>
                           _handleAction(context, ref, 'confirm', status),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          if (canCreateChallan) {
+            return Container(
+              padding: const EdgeInsets.all(KSpacing.md),
+              decoration: BoxDecoration(
+                color: KColors.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    const Spacer(),
+                    KButton(
+                      label: 'Create Delivery Challan',
+                      icon: Icons.local_shipping_outlined,
+                      onPressed: () => context.go(
+                        '${Routes.deliveryChallanCreate}?salesOrderId=$salesOrderId',
+                      ),
                     ),
                   ],
                 ),
