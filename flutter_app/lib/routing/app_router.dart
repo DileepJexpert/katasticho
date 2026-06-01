@@ -112,6 +112,7 @@ import '../features/inventory/presentation/reorder_screen.dart';
 import '../features/inventory/presentation/shortbook_screen.dart';
 import '../features/team/presentation/team_screen.dart';
 import '../features/settings/presentation/ai_model_settings_screen.dart';
+import '../features/settings/presentation/business_policy_settings_screen.dart';
 import '../features/ca_console/presentation/ca_console_screen.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/auth/presentation/reset_password_screen.dart';
@@ -231,6 +232,7 @@ class Routes {
   static const businessConfiguration = '/settings/business-configuration';
   static const orgDetails = '/settings/org-details';
   static const branches = '/settings/branches';
+  static const businessPolicies = '/settings/business-policies';
   static const workflowSettings = '/settings/workflows';
   static const approvals = '/approvals';
   static const defaultAccounts = '/settings/default-accounts';
@@ -288,7 +290,6 @@ class Routes {
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
-  final capabilities = ref.watch(businessCapabilitiesProvider);
 
   return GoRouter(
     initialLocation: Routes.login,
@@ -358,8 +359,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             : Routes.caConsole;
       }
 
-      final capabilityRedirect =
-          _capabilityRedirectForLocation(loc, capabilities);
+      final capabilityRedirect = _capabilityRedirectForLocation(
+          loc, ref.read(businessCapabilitiesProvider));
       if (isAuthenticated &&
           onboardingCompleted &&
           !isAuthRoute &&
@@ -1134,6 +1135,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.branches,
             builder: (context, state) => const BranchesScreen(),
+          ),
+          GoRoute(
+            path: Routes.businessPolicies,
+            builder: (context, state) => const BusinessPolicySettingsScreen(),
           ),
           GoRoute(
             path: Routes.workflowSettings,

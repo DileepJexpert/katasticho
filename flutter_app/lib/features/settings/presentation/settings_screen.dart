@@ -121,6 +121,12 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push(Routes.approvals),
             ),
             _SettingsTile(
+              icon: Icons.policy_outlined,
+              title: 'Business Policies',
+              subtitle: 'Credit, overdue, batch, and dispatch behavior',
+              onTap: () => context.push(Routes.businessPolicies),
+            ),
+            _SettingsTile(
               icon: Icons.account_tree_outlined,
               title: 'Workflows',
               subtitle: canManageBusiness

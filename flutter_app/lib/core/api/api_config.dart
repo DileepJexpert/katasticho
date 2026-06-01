@@ -83,6 +83,7 @@ class ApiConfig {
   static const String gstr3bExport = '/api/v1/gst/gstr3b/export';
 
   // AI Model Settings
+  static const String orgSettings = '/api/v1/settings';
   static const String aiSettings = '/api/v1/settings/ai';
   static const String aiSettingsTest = '/api/v1/settings/ai/test';
 
