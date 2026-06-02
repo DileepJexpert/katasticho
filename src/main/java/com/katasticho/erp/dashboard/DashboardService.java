@@ -30,6 +30,7 @@ import com.katasticho.erp.pos.entity.SalesReceipt;
 import com.katasticho.erp.pos.repository.SalesReceiptLineRepository;
 import com.katasticho.erp.pos.repository.SalesReceiptRepository;
 import com.katasticho.erp.sales.entity.SalesOrder;
+import com.katasticho.erp.sales.repository.DeliveryChallanRepository;
 import com.katasticho.erp.sales.repository.SalesOrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -66,6 +67,7 @@ public class DashboardService {
     private final JournalEntryRepository journalEntryRepository;
     private final StockMovementRepository stockMovementRepository;
     private final SalesOrderRepository salesOrderRepository;
+    private final DeliveryChallanRepository deliveryChallanRepository;
 
     @Transactional(readOnly = true)
     public TodaySalesResponse getTodaySales(LocalDate from, LocalDate to, UUID branchId) {
@@ -731,6 +733,9 @@ public class DashboardService {
         long backorder = salesOrderRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "BACKORDER");
         long partial   = salesOrderRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "PARTIALLY_SHIPPED");
         long overdue   = salesOrderRepository.countOverdue(orgId, overdueCutoff);
+        long draftChallans = deliveryChallanRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "DRAFT");
+        long dispatchedChallans = deliveryChallanRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "DISPATCHED");
+        long deliveredChallans = deliveryChallanRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "DELIVERED");
 
         List<String> actionable = List.of("CONFIRMED", "BACKORDER", "PARTIALLY_SHIPPED");
         List<SalesOrder> recent = salesOrderRepository.findActionableOrders(
@@ -763,6 +768,9 @@ public class DashboardService {
             );
         }).toList();
 
-        return new SoAlertResponse(confirmed, backorder, partial, overdue, items);
+        return new SoAlertResponse(
+                confirmed, backorder, partial, overdue,
+                draftChallans, dispatchedChallans, deliveredChallans,
+                items);
     }
 }

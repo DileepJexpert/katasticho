@@ -8,6 +8,9 @@ public record SoAlertResponse(
         long backorderCount,
         long partiallyShippedCount,
         long overdueCount,        // confirmed/backorder older than 2 days
+        long draftChallanCount,
+        long dispatchedChallanCount,
+        long deliveredChallanCount,
         List<SoAlertItem> recentOrders
 ) {
     public record SoAlertItem(

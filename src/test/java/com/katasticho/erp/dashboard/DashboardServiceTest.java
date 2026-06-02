@@ -25,6 +25,7 @@ import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.pos.repository.SalesReceiptLineRepository;
 import com.katasticho.erp.pos.repository.SalesReceiptRepository;
+import com.katasticho.erp.sales.entity.SalesOrder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -64,6 +65,7 @@ class DashboardServiceTest {
     @Mock private JournalEntryRepository journalEntryRepository;
     @Mock private StockMovementRepository stockMovementRepository;
     @Mock private com.katasticho.erp.sales.repository.SalesOrderRepository salesOrderRepository;
+    @Mock private com.katasticho.erp.sales.repository.DeliveryChallanRepository deliveryChallanRepository;
 
     private DashboardService dashboardService;
     private UUID orgId;
@@ -78,7 +80,7 @@ class DashboardServiceTest {
                 salesReceiptRepository, salesReceiptLineRepository,
                 stockBatchRepository, stockBatchBalanceRepository,
                 vendorPaymentRepository, journalEntryRepository,
-                stockMovementRepository, salesOrderRepository);
+                stockMovementRepository, salesOrderRepository, deliveryChallanRepository);
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);
@@ -552,6 +554,58 @@ class DashboardServiceTest {
 
         assertTrue(dashboardService.getExpiringSoon(90).isEmpty());
         verifyNoInteractions(itemRepository);
+    }
+
+    @Test
+    void getSoAlerts_includesOrderAndDeliveryChallanCounters() {
+        LocalDate today = LocalDate.now();
+        UUID contactId = UUID.randomUUID();
+
+        SalesOrder order = SalesOrder.builder()
+                .contactId(contactId)
+                .salesorderNumber("SO-001")
+                .status("CONFIRMED")
+                .total(new BigDecimal("12500"))
+                .orderDate(today.minusDays(3))
+                .build();
+        order.setId(UUID.randomUUID());
+        order.setOrgId(orgId);
+
+        Contact contact = new Contact();
+        contact.setId(contactId);
+        contact.setDisplayName("Aashvi Pharma Dealer");
+
+        when(salesOrderRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "CONFIRMED"))
+                .thenReturn(2L);
+        when(salesOrderRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "BACKORDER"))
+                .thenReturn(1L);
+        when(salesOrderRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "PARTIALLY_SHIPPED"))
+                .thenReturn(3L);
+        when(salesOrderRepository.countOverdue(eq(orgId), any(LocalDate.class)))
+                .thenReturn(1L);
+        when(deliveryChallanRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "DRAFT"))
+                .thenReturn(4L);
+        when(deliveryChallanRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "DISPATCHED"))
+                .thenReturn(5L);
+        when(deliveryChallanRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "DELIVERED"))
+                .thenReturn(6L);
+        when(salesOrderRepository.findActionableOrders(eq(orgId), any(), any(Pageable.class)))
+                .thenReturn(List.of(order));
+        when(contactRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), any(Collection.class)))
+                .thenReturn(List.of(contact));
+
+        SoAlertResponse response = dashboardService.getSoAlerts();
+
+        assertEquals(2L, response.confirmedCount());
+        assertEquals(1L, response.backorderCount());
+        assertEquals(3L, response.partiallyShippedCount());
+        assertEquals(1L, response.overdueCount());
+        assertEquals(4L, response.draftChallanCount());
+        assertEquals(5L, response.dispatchedChallanCount());
+        assertEquals(6L, response.deliveredChallanCount());
+        assertEquals(1, response.recentOrders().size());
+        assertEquals("Aashvi Pharma Dealer", response.recentOrders().get(0).contactName());
+        assertTrue(response.recentOrders().get(0).daysPending() >= 3);
     }
 
     // ── getOutstandingReceivable ──────────────────────────────────────

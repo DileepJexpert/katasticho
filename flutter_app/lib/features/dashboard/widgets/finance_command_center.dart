@@ -26,7 +26,11 @@ class BusinessCommandCenter extends ConsumerWidget {
     final ar = ref.watch(arSummaryProvider);
     final ap = ref.watch(apSummaryProvider);
     final expiring = ref.watch(expiringSoonProvider);
+    final soAlerts = ref.watch(soAlertsProvider);
     final profile = _BusinessVerticalProfile.forVertical(vertical);
+    final usesDispatchFlow = vertical == DashboardVertical.distributor ||
+        vertical == DashboardVertical.pharmaDistributor ||
+        vertical == DashboardVertical.manufacturer;
 
     final signals = [
       ar.when(
@@ -57,25 +61,55 @@ class BusinessCommandCenter extends ConsumerWidget {
           route: '/bills',
         ),
       ),
-      today.when(
-        loading: () => _CommandSignal.loading(profile.velocityTitle),
-        error: (_, __) => _CommandSignal.error(profile.velocityTitle),
-        data: (v) {
-          final isCounterFlow = profile.salesRoute == '/pos';
-          final count =
-              isCounterFlow ? v.posTransactionCount : v.transactionCount;
-          final amount = isCounterFlow ? v.posSalesTotal : v.totalSales;
-          return _CommandSignal(
-            title: profile.velocityTitle,
-            value: '$count',
-            caption:
-                '${CurrencyFormatter.formatCompact(amount)} ${profile.salesCaption}',
-            icon: Icons.speed_rounded,
-            color: KColors.primary,
-            route: profile.salesRoute,
-          );
-        },
-      ),
+      if (usesDispatchFlow)
+        soAlerts.when(
+          loading: () => _CommandSignal.loading(profile.velocityTitle),
+          error: (_, __) => _CommandSignal.error(profile.velocityTitle),
+          data: (v) {
+            final ready = (v['confirmedCount'] as num?)?.toInt() ?? 0;
+            final backorder = (v['backorderCount'] as num?)?.toInt() ?? 0;
+            final partial =
+                (v['partiallyShippedCount'] as num?)?.toInt() ?? 0;
+            final draftChallans =
+                (v['draftChallanCount'] as num?)?.toInt() ?? 0;
+            final dispatched =
+                (v['dispatchedChallanCount'] as num?)?.toInt() ?? 0;
+            final active = ready + backorder + partial + draftChallans;
+            final caption = active > 0
+                ? '$ready ready SO, $draftChallans draft DC'
+                : dispatched > 0
+                    ? '$dispatched dispatched DC'
+                    : 'no dispatch exceptions';
+            return _CommandSignal(
+              title: profile.velocityTitle,
+              value: '$active',
+              caption: caption,
+              icon: Icons.local_shipping_rounded,
+              color: active > 0 ? KColors.warning : KColors.success,
+              route: profile.salesRoute,
+            );
+          },
+        )
+      else
+        today.when(
+          loading: () => _CommandSignal.loading(profile.velocityTitle),
+          error: (_, __) => _CommandSignal.error(profile.velocityTitle),
+          data: (v) {
+            final isCounterFlow = profile.salesRoute == '/pos';
+            final count =
+                isCounterFlow ? v.posTransactionCount : v.transactionCount;
+            final amount = isCounterFlow ? v.posSalesTotal : v.totalSales;
+            return _CommandSignal(
+              title: profile.velocityTitle,
+              value: '$count',
+              caption:
+                  '${CurrencyFormatter.formatCompact(amount)} ${profile.salesCaption}',
+              icon: Icons.speed_rounded,
+              color: KColors.primary,
+              route: profile.salesRoute,
+            );
+          },
+        ),
       expiring.when(
         loading: () => _CommandSignal.loading(profile.riskTitle),
         error: (_, __) => _CommandSignal.error(profile.riskTitle),

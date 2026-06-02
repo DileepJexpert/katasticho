@@ -24,4 +24,6 @@ public interface DeliveryChallanRepository extends JpaRepository<DeliveryChallan
     List<DeliveryChallan> findBySalesOrderIdAndOrgIdAndIsDeletedFalse(UUID salesOrderId, UUID orgId);
 
     int countBySalesOrderIdAndIsDeletedFalse(UUID salesOrderId);
+
+    long countByOrgIdAndStatusAndIsDeletedFalse(UUID orgId, String status);
 }

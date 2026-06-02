@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
-import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
@@ -29,11 +28,17 @@ class SoAlertsCard extends ConsumerWidget {
         final backorder = (data['backorderCount'] as num?)?.toInt() ?? 0;
         final partial = (data['partiallyShippedCount'] as num?)?.toInt() ?? 0;
         final overdue = (data['overdueCount'] as num?)?.toInt() ?? 0;
+        final draftChallans =
+            (data['draftChallanCount'] as num?)?.toInt() ?? 0;
+        final dispatchedChallans =
+            (data['dispatchedChallanCount'] as num?)?.toInt() ?? 0;
+        final deliveredChallans =
+            (data['deliveredChallanCount'] as num?)?.toInt() ?? 0;
         final orders = (data['recentOrders'] as List?)
                 ?.cast<Map<String, dynamic>>() ??
             [];
 
-        final total = confirmed + backorder + partial;
+        final total = confirmed + backorder + partial + draftChallans + dispatchedChallans;
         if (total == 0) return const SizedBox.shrink();
 
         return KCard(
@@ -60,7 +65,8 @@ class SoAlertsCard extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Order Alerts', style: KTypography.labelLarge),
+                          Text('Dispatch Alerts',
+                              style: KTypography.labelLarge),
                           if (overdue > 0)
                             Text(
                               '$overdue order${overdue > 1 ? 's' : ''} waiting 2+ days',
@@ -78,37 +84,74 @@ class SoAlertsCard extends ConsumerWidget {
                 ),
               ),
               // Status summary chips
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-                child: Row(
-                  children: [
-                    if (confirmed > 0)
-                      _StatusChip(
-                        label: '$confirmed Ready',
-                        color: KColors.success,
-                        bgColor: KColors.successLight,
-                        icon: Icons.check_circle_outline,
-                      ),
-                    if (confirmed > 0 && (backorder > 0 || partial > 0))
-                      const SizedBox(width: 8),
-                    if (backorder > 0)
-                      _StatusChip(
-                        label: '$backorder Backorder',
-                        color: KColors.error,
-                        bgColor: KColors.errorLight,
-                        icon: Icons.hourglass_empty_outlined,
-                      ),
-                    if (backorder > 0 && partial > 0) const SizedBox(width: 8),
-                    if (partial > 0)
-                      _StatusChip(
-                        label: '$partial Partial',
-                        color: KColors.warning,
-                        bgColor: KColors.warningLight,
-                        icon: Icons.splitscreen_outlined,
-                      ),
-                  ],
+              if (confirmed > 0 || backorder > 0 || partial > 0)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (confirmed > 0)
+                        _StatusChip(
+                          label: '$confirmed SO Ready',
+                          color: KColors.success,
+                          bgColor: KColors.successLight,
+                          icon: Icons.check_circle_outline,
+                        ),
+                      if (backorder > 0)
+                        _StatusChip(
+                          label: '$backorder Backorder',
+                          color: KColors.error,
+                          bgColor: KColors.errorLight,
+                          icon: Icons.hourglass_empty_outlined,
+                        ),
+                      if (partial > 0)
+                        _StatusChip(
+                          label: '$partial Partial',
+                          color: KColors.warning,
+                          bgColor: KColors.warningLight,
+                          icon: Icons.splitscreen_outlined,
+                        ),
+                    ],
+                  ),
                 ),
-              ),
+              if (draftChallans > 0 ||
+                  dispatchedChallans > 0 ||
+                  deliveredChallans > 0)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (draftChallans > 0)
+                        _StatusChip(
+                          label: '$draftChallans DC Draft',
+                          color: KColors.primary,
+                          bgColor: KColors.primaryLight,
+                          icon: Icons.local_shipping_outlined,
+                        ),
+                      if (dispatchedChallans > 0)
+                        _StatusChip(
+                          label: '$dispatchedChallans Dispatched',
+                          color: KColors.warning,
+                          bgColor: KColors.warningLight,
+                          icon: Icons.route_outlined,
+                        ),
+                      if (deliveredChallans > 0)
+                        _StatusChip(
+                          label: '$deliveredChallans Delivered',
+                          color: KColors.success,
+                          bgColor: KColors.successLight,
+                          icon: Icons.done_all_outlined,
+                        ),
+                      TextButton(
+                        onPressed: () => context.push('/delivery-challans'),
+                        child: const Text('Open Challans'),
+                      ),
+                    ],
+                  ),
+                ),
               const Divider(height: 1),
               // Recent order rows
               ...orders.take(5).map((order) => _OrderRow(order: order)),
