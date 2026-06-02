@@ -25,6 +25,7 @@ import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.organisation.BranchRepository;
+import com.katasticho.erp.pricing.service.PriceListService;
 import com.katasticho.erp.sales.dto.SalesOrderResponse;
 import com.katasticho.erp.sales.dto.CreateSalesOrderRequest;
 import com.katasticho.erp.sales.dto.SalesOrderLineRequest;
@@ -75,6 +76,7 @@ class SalesOrderServiceTest {
     @Mock private DeliveryChallanRepository challanRepository;
     @Mock private PolicyResolverService policyResolverService;
     @Mock private ApprovalWorkflowService approvalWorkflowService;
+    @Mock private PriceListService priceListService;
 
     private SalesOrderService salesOrderService;
 
@@ -94,7 +96,7 @@ class SalesOrderServiceTest {
                 stockBalanceRepository, branchRepository, estimateRepository,
                 invoiceService, invoiceRepository, sequenceRepository,
                 defaultAccountService, taxEngine, commentService, challanRepository,
-                policyResolverService, approvalWorkflowService);
+                policyResolverService, approvalWorkflowService, priceListService);
 
         orgId = UUID.randomUUID();
         contactId = UUID.randomUUID();
@@ -144,6 +146,7 @@ class SalesOrderServiceTest {
         lenient().when(invoiceRepository.findOutstandingByContact(orgId, contactId)).thenReturn(List.of());
         lenient().when(approvalWorkflowService.findMatchingWorkflow(eq(orgId), eq("SALES_ORDER"), anyMap()))
                 .thenReturn(Optional.empty());
+        lenient().when(priceListService.resolvePrice(any(), any(), any())).thenReturn(Optional.empty());
     }
 
     @AfterEach
@@ -351,6 +354,25 @@ class SalesOrderServiceTest {
                 any(),
                 contains("overdue invoice"),
                 anyMap());
+    }
+
+    @Test
+    void create_itemLineUsesResolvedPriceListRate() {
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
+        when(priceListService.resolvePrice(contactId, itemId, BigDecimal.ONE))
+                .thenReturn(Optional.of(new BigDecimal("175.50")));
+
+        SalesOrderResponse result = salesOrderService.create(createRequest(new BigDecimal("200")));
+
+        assertEquals(0, new BigDecimal("175.50").compareTo(result.totalAmount()));
+        assertEquals(1, result.lines().size());
+        assertEquals(0, new BigDecimal("175.50").compareTo(result.lines().get(0).rate()));
+        ArgumentCaptor<SalesOrder> captor = ArgumentCaptor.forClass(SalesOrder.class);
+        verify(salesOrderRepository).save(captor.capture());
+        SalesOrder saved = captor.getValue();
+        assertEquals(0, new BigDecimal("175.50").compareTo(saved.getTotal()));
+        assertEquals(0, new BigDecimal("175.50").compareTo(saved.getLines().get(0).getRate()));
     }
 
     private CreateSalesOrderRequest createRequest(BigDecimal rate) {

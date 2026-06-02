@@ -48,6 +48,7 @@ Current active work: distributor workflow controls and credit-control visibility
 - Payment approval frontend visibility is wired into existing screens: record-payment feedback, invoice Payments tab status chips, and Approval Inbox recognition for `PAYMENT` requests.
 - Distributor dashboard first pass reuses existing dashboard providers: Sales Order alerts, dealer collections, supplier dues, branch rollups, low-stock, and expiry-risk widgets are surfaced on distributor/pharma-distributor dashboards without a new backend endpoint.
 - Business policy settings are exposed in Settings -> Business Policies, backed by existing `org_settings`; no new policy storage layer is introduced.
+- Sales Order creation uses the same customer/default price-list resolver as Invoice creation, so distributor quotes/orders reflect customer-specific rates before dispatch or billing.
 - Purchase Order does not post stock. PO action starts receiving by opening a draft Goods Receipt; only Goods Receipt detail `Receive Stock` posts inventory movement.
 - Sales Order does not post stock. Confirmed Sales Order starts dispatch by opening a draft Delivery Challan; only Delivery Challan detail `Dispatch` posts stock movement.
 - Delivery Challan does not post accounting. Dispatched or delivered challans create invoices through the existing Sales Order `convert-to-invoice` path; invoice posting updates AR/accounting and must skip duplicate stock movement.
@@ -111,6 +112,11 @@ Distributor dashboard implementation plan:
 2. Surface Sales Order alerts prominently for distributor/pharma distributor.
 3. Surface expiry risk prominently for pharma distributor.
 4. Add new backend summary endpoints only when an existing widget cannot express the operating question.
+
+Pricing implementation plan:
+1. Keep price lists and schemes inside the existing pricing module.
+2. Apply price-list resolution at Sales Order creation and Invoice creation.
+3. Next hardening task: prevent SO-to-invoice conversion from re-pricing locked Sales Order rates if a price list changes after order booking.
 
 Procurement flow decision:
 1. Purchase Order button label is `Create Goods Receipt`.

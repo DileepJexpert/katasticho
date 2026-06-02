@@ -31,6 +31,7 @@ import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Branch;
+import com.katasticho.erp.pricing.service.PriceListService;
 import com.katasticho.erp.sales.dto.*;
 import com.katasticho.erp.sales.entity.SalesOrder;
 import com.katasticho.erp.sales.entity.SalesOrderLine;
@@ -85,6 +86,7 @@ public class SalesOrderService {
     private final DeliveryChallanRepository challanRepository;
     private final PolicyResolverService policyResolverService;
     private final ApprovalWorkflowService approvalWorkflowService;
+    private final PriceListService priceListService;
 
     // ── CREATE ──────────────────────────────────────────────────
 
@@ -133,7 +135,22 @@ public class SalesOrderService {
                 itemId = autoCreateItem(orgId, lr);
             }
 
-            BigDecimal lineAmount = lr.quantity().multiply(lr.rate());
+            UUID resolvedItemId = itemId;
+            BigDecimal effectiveRate = lr.rate();
+            if (resolvedItemId != null) {
+                effectiveRate = priceListService
+                        .resolvePrice(contact.getId(), resolvedItemId, lr.quantity())
+                        .map(resolved -> {
+                            if (resolved.compareTo(lr.rate()) != 0) {
+                                log.info("Sales order price list override item={}: client={} resolved={}",
+                                        resolvedItemId, lr.rate(), resolved);
+                            }
+                            return resolved;
+                        })
+                        .orElse(lr.rate());
+            }
+
+            BigDecimal lineAmount = lr.quantity().multiply(effectiveRate);
             BigDecimal discountPct = lr.discountPct() != null ? lr.discountPct() : BigDecimal.ZERO;
             if (discountPct.compareTo(BigDecimal.ZERO) > 0) {
                 lineAmount = lineAmount.multiply(BigDecimal.ONE.subtract(discountPct.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)))
@@ -156,7 +173,7 @@ public class SalesOrderService {
                     .description(lr.description())
                     .quantity(lr.quantity())
                     .unit(lr.unit())
-                    .rate(lr.rate())
+                    .rate(effectiveRate)
                     .discountPct(discountPct)
                     .taxGroupId(lr.taxGroupId())
                     .taxRate(taxRate)
