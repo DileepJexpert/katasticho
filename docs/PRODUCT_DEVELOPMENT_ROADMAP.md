@@ -19,6 +19,16 @@ Phase 1: Core document state and approval workflow foundation is implemented acr
 
 Current active work: distributor workflow controls and credit-control visibility are being layered onto existing documents without creating duplicate business flows.
 
+## Session Checkpoint - 2026-06-02
+
+Code is pushed to remote `main` through dealer collection follow-ups.
+
+Hold here for manual testing before new feature development. The next session should start with validation and hardening, not another feature:
+1. Verify Sales Order credit approval, overdue controls, Credit Note approval, and payment approval.
+2. Verify Sales Order scheme flow end-to-end through confirmation, Delivery Challan dispatch, Sales Invoice creation, and accounting.
+3. Verify procurement flow from shortage planning to Purchase Order, draft Goods Receipt, batch/expiry/rack/cost entry, and stock receipt.
+4. Fix any test-blocking issues found during those checks before starting distributor dashboard v2, field-sales, or manufacturing work.
+
 ## Phase Roadmap
 
 1. Cleanup and stabilize the current distributor/pharma baseline.
