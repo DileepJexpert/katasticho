@@ -16,6 +16,7 @@ public class PolicyResolverService {
     public static final String SALES_CREDIT_POLICY = "sales.credit_policy";
     public static final String SALES_OVERDUE_POLICY = "sales.overdue_policy";
     public static final String SALES_OVERDUE_GRACE_DAYS = "sales.overdue_grace_days";
+    public static final String SALES_SCHEME_APPLY_MODE = "sales.scheme_apply_mode";
     public static final String INVENTORY_BATCH_POLICY = "inventory.batch_policy";
     public static final String SALES_DISPATCH_MODE = "sales.dispatch_mode";
 
@@ -45,6 +46,10 @@ public class PolicyResolverService {
 
     public DispatchMode dispatchMode(UUID orgId) {
         return resolveEnum(orgId, SALES_DISPATCH_MODE, DispatchMode.CHALLAN_FIRST, DispatchMode.class);
+    }
+
+    public SchemeApplyMode schemeApplyMode(UUID orgId) {
+        return resolveEnum(orgId, SALES_SCHEME_APPLY_MODE, SchemeApplyMode.MANUAL, SchemeApplyMode.class);
     }
 
     private <E extends Enum<E>> E resolveEnum(UUID orgId, String key, E defaultValue, Class<E> enumType) {

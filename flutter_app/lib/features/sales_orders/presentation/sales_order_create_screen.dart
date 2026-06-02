@@ -13,6 +13,7 @@ import '../../../routing/app_router.dart';
 import '../../contacts/data/contact_repository.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../pricing/data/scheme_repository.dart';
+import '../../settings/data/org_settings_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/sales_order_providers.dart';
 import '../data/sales_order_repository.dart';
@@ -419,6 +420,13 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
   }
 
   Widget _buildItemsStep() {
+    final schemeApplyMode = ref.watch(orgSettingsProvider).maybeWhen(
+          data: (settings) => _safeSchemeApplyMode(
+            settings['sales.scheme_apply_mode'],
+          ),
+          orElse: () => 'MANUAL',
+        );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -428,6 +436,7 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
           return _LineItemCard(
             item: _lineItems[index],
             index: index,
+            schemeApplyMode: schemeApplyMode,
             onRemove: _lineItems.length > 1
                 ? () => setState(() => _lineItems.removeAt(index))
                 : null,
@@ -476,6 +485,15 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
         ),
       ],
     );
+  }
+
+  String _safeSchemeApplyMode(String? raw) {
+    final value = (raw ?? '').trim().toUpperCase();
+    return switch (value) {
+      'AUTO' => 'AUTO',
+      'DISABLED' => 'DISABLED',
+      _ => 'MANUAL',
+    };
   }
 
   Widget _buildReviewStep() {
@@ -656,6 +674,7 @@ class _LineItem {
 class _LineItemCard extends ConsumerStatefulWidget {
   final _LineItem item;
   final int index;
+  final String schemeApplyMode;
   final VoidCallback? onRemove;
   final ValueChanged<_LineItem> onAddFreeLine;
   final VoidCallback onRemoveLinkedSchemeLines;
@@ -664,6 +683,7 @@ class _LineItemCard extends ConsumerStatefulWidget {
   const _LineItemCard({
     required this.item,
     required this.index,
+    required this.schemeApplyMode,
     this.onRemove,
     required this.onAddFreeLine,
     required this.onRemoveLinkedSchemeLines,
@@ -770,6 +790,8 @@ class _LineItemCardState extends ConsumerState<_LineItemCard> {
   }
 
   void _applyScheme(Map<String, dynamic> scheme) {
+    if (widget.item.appliedSchemeId == scheme['id']?.toString()) return;
+
     final schemeId = scheme['id']?.toString();
     final schemeName = scheme['name']?.toString();
     final type = scheme['schemeType']?.toString();
@@ -822,12 +844,14 @@ class _LineItemCardState extends ConsumerState<_LineItemCard> {
     final isLinked = widget.item.itemId != null;
     final itemId = widget.item.itemId;
     final quantity = widget.item.quantity;
-    final applicableSchemes =
-        itemId == null || quantity <= 0 || widget.item.isFreeSchemeLine
-            ? null
-            : ref.watch(applicableSchemesProvider(
-                ApplicableSchemeLookup(itemId: itemId, quantity: quantity),
-              ));
+    final applicableSchemes = itemId == null ||
+            quantity <= 0 ||
+            widget.item.isFreeSchemeLine ||
+            widget.schemeApplyMode == 'DISABLED'
+        ? null
+        : ref.watch(applicableSchemesProvider(
+            ApplicableSchemeLookup(itemId: itemId, quantity: quantity),
+          ));
 
     return KCard(
       margin: const EdgeInsets.only(bottom: KSpacing.xs),
@@ -971,11 +995,20 @@ class _LineItemCardState extends ConsumerState<_LineItemCard> {
             applicableSchemes.when(
               data: (schemes) {
                 if (schemes.isEmpty) return const SizedBox.shrink();
+                if (widget.schemeApplyMode == 'AUTO' &&
+                    widget.item.appliedSchemeId == null) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && widget.item.appliedSchemeId == null) {
+                      _applyScheme(schemes.first);
+                    }
+                  });
+                }
                 return Padding(
                   padding: const EdgeInsets.only(top: KSpacing.xs),
                   child: _SchemeAvailabilityHint(
                     schemes: schemes,
                     appliedSchemeId: widget.item.appliedSchemeId,
+                    showApplyAction: widget.schemeApplyMode == 'MANUAL',
                     onApply: _applyScheme,
                   ),
                 );
@@ -1042,11 +1075,13 @@ class _LineChip extends StatelessWidget {
 class _SchemeAvailabilityHint extends StatelessWidget {
   final List<Map<String, dynamic>> schemes;
   final String? appliedSchemeId;
+  final bool showApplyAction;
   final ValueChanged<Map<String, dynamic>> onApply;
 
   const _SchemeAvailabilityHint({
     required this.schemes,
     required this.appliedSchemeId,
+    required this.showApplyAction,
     required this.onApply,
   });
 
@@ -1083,16 +1118,18 @@ class _SchemeAvailabilityHint extends StatelessWidget {
               ),
             ),
           ),
-          KSpacing.hGapXs,
-          TextButton(
-            style: TextButton.styleFrom(
-              minimumSize: const Size(0, 30),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          if (showApplyAction || isApplied) ...[
+            KSpacing.hGapXs,
+            TextButton(
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, 30),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: isApplied ? null : () => onApply(primary),
+              child: Text(isApplied ? 'Applied' : 'Apply'),
             ),
-            onPressed: isApplied ? null : () => onApply(primary),
-            child: Text(isApplied ? 'Applied' : 'Apply'),
-          ),
+          ],
         ],
       ),
     );

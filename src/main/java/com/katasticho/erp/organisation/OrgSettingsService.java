@@ -141,6 +141,7 @@ public class OrgSettingsService {
         defaults.put("sales.credit_policy", "WARN");
         defaults.put("sales.overdue_policy", "WARN");
         defaults.put("sales.overdue_grace_days", "0");
+        defaults.put("sales.scheme_apply_mode", "MANUAL");
         defaults.put("sales.dispatch_mode", "CHALLAN_FIRST");
 
         // Communication

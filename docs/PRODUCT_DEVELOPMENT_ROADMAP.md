@@ -52,6 +52,7 @@ Current active work: distributor workflow controls and credit-control visibility
 - Sales Order to Invoice conversion preserves booked Sales Order line rates and uses an explicit invoice creation path that skips price-list re-resolution.
 - Sales Order scheme visibility v1 is complete. Linked Sales Order lines show applicable scheme hints using the existing scheme lookup.
 - Sales Order scheme application v2 is manual only. `PERCENT_DISCOUNT` schemes update the existing line discount percent; `BUY_X_GET_Y` schemes add an explicit zero-rate free line. There is still no automatic scheme application and no new backend scheme schema.
+- Sales Order scheme apply policy v3 uses `sales.scheme_apply_mode = MANUAL | AUTO | DISABLED`. Default is `MANUAL`; Settings -> Business Policies exposes it. `AUTO` applies the first applicable scheme on the SO line; `DISABLED` hides SO scheme lookup/actions.
 - Purchase Order does not post stock. PO action starts receiving by opening a draft Goods Receipt; only Goods Receipt detail `Receive Stock` posts inventory movement.
 - Sales Order does not post stock. Confirmed Sales Order starts dispatch by opening a draft Delivery Challan; only Delivery Challan detail `Dispatch` posts stock movement.
 - Delivery Challan does not post accounting. Dispatched or delivered challans create invoices through the existing Sales Order `convert-to-invoice` path; invoice posting updates AR/accounting and must skip duplicate stock movement.
@@ -125,7 +126,11 @@ Pricing implementation plan:
    - percent schemes fill the existing discount percent field;
    - buy/get schemes add explicit zero-rate free lines;
    - stale linked free lines are removed when the paid line item or quantity changes.
-6. Next hardening task: add `sales.scheme_apply_mode = MANUAL | AUTO | DISABLED` only after manual SO scheme testing is stable.
+6. Sales Order scheme apply policy v3 is complete:
+   - `MANUAL` keeps the compact `Apply` action;
+   - `AUTO` applies the first applicable scheme once per paid line;
+   - `DISABLED` suppresses SO scheme lookup and actions.
+7. Next hardening task: test SO scheme mode end-to-end through confirmation, delivery challan, invoice, and accounting.
 
 Procurement flow decision:
 1. Purchase Order button label is `Create Goods Receipt`.

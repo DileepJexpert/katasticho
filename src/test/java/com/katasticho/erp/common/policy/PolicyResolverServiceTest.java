@@ -48,6 +48,22 @@ class PolicyResolverServiceTest {
     }
 
     @Test
+    void schemeApplyMode_missingSettingDefaultsToManual() {
+        when(orgSettingsService.get(orgId, PolicyResolverService.SALES_SCHEME_APPLY_MODE, SchemeApplyMode.MANUAL.name()))
+                .thenReturn(SchemeApplyMode.MANUAL.name());
+
+        assertEquals(SchemeApplyMode.MANUAL, service.schemeApplyMode(orgId));
+    }
+
+    @Test
+    void schemeApplyMode_invalidSettingDefaultsToManual() {
+        when(orgSettingsService.get(orgId, PolicyResolverService.SALES_SCHEME_APPLY_MODE, SchemeApplyMode.MANUAL.name()))
+                .thenReturn("SMART");
+
+        assertEquals(SchemeApplyMode.MANUAL, service.schemeApplyMode(orgId));
+    }
+
+    @Test
     void overduePolicy_missingSettingDefaultsToWarn() {
         when(orgSettingsService.get(orgId, PolicyResolverService.SALES_OVERDUE_POLICY, OverduePolicy.WARN.name()))
                 .thenReturn(OverduePolicy.WARN.name());

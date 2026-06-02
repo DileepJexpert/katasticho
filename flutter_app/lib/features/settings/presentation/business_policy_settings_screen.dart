@@ -20,6 +20,7 @@ class _BusinessPolicySettingsScreenState
     extends ConsumerState<BusinessPolicySettingsScreen> {
   static const _creditPolicies = ['WARN', 'BLOCK', 'APPROVAL_REQUIRED'];
   static const _overduePolicies = ['WARN', 'BLOCK', 'APPROVAL_REQUIRED'];
+  static const _schemeApplyModes = ['MANUAL', 'AUTO', 'DISABLED'];
   static const _batchPolicies = ['FEFO', 'FIFO', 'MANUAL'];
   static const _dispatchModes = ['CHALLAN_FIRST', 'INVOICE_FIRST', 'COMBINED'];
 
@@ -28,6 +29,7 @@ class _BusinessPolicySettingsScreenState
   bool _initialized = false;
   String _creditPolicy = 'WARN';
   String _overduePolicy = 'WARN';
+  String _schemeApplyMode = 'MANUAL';
   String _batchPolicy = 'FEFO';
   String _dispatchMode = 'CHALLAN_FIRST';
 
@@ -96,6 +98,15 @@ class _BusinessPolicySettingsScreenState
                       border: OutlineInputBorder(),
                     ),
                   ),
+                  KSpacing.vGapMd,
+                  _PolicyDropdown(
+                    label: 'Sales Order scheme mode',
+                    value: _schemeApplyMode,
+                    items: _schemeApplyModes,
+                    enabled: canEdit && !_saving,
+                    onChanged: (value) =>
+                        setState(() => _schemeApplyMode = value),
+                  ),
                 ],
               ),
               KSpacing.vGapMd,
@@ -147,6 +158,8 @@ class _BusinessPolicySettingsScreenState
         _safeValue(settings['sales.credit_policy'], _creditPolicies, 'WARN');
     _overduePolicy =
         _safeValue(settings['sales.overdue_policy'], _overduePolicies, 'WARN');
+    _schemeApplyMode = _safeValue(
+        settings['sales.scheme_apply_mode'], _schemeApplyModes, 'MANUAL');
     _batchPolicy =
         _safeValue(settings['inventory.batch_policy'], _batchPolicies, 'FEFO');
     _dispatchMode = _safeValue(
@@ -173,6 +186,7 @@ class _BusinessPolicySettingsScreenState
         ..['sales.credit_policy'] = _creditPolicy
         ..['sales.overdue_policy'] = _overduePolicy
         ..['sales.overdue_grace_days'] = _safeInt(_graceDaysController.text)
+        ..['sales.scheme_apply_mode'] = _schemeApplyMode
         ..['inventory.batch_policy'] = _batchPolicy
         ..['sales.dispatch_mode'] = _dispatchMode;
 
