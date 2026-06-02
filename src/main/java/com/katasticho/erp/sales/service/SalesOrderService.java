@@ -512,7 +512,7 @@ public class SalesOrderService {
                 so.getTerms(),
                 invoiceLines);
 
-        InvoiceResponse invoiceResponse = invoiceService.createInvoice(invoiceRequest);
+        InvoiceResponse invoiceResponse = invoiceService.createInvoiceFromSalesOrder(invoiceRequest);
 
         Invoice invoice = invoiceRepository.findById(invoiceResponse.id()).orElseThrow();
         invoice.setSalesOrderId(so.getId());

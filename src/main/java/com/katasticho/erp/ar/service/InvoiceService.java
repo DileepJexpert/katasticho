@@ -88,6 +88,21 @@ public class InvoiceService {
      */
     @Transactional
     public InvoiceResponse createInvoice(CreateInvoiceRequest request) {
+        return createInvoice(request, true);
+    }
+
+    /**
+     * Create an invoice from an already-priced Sales Order. The SO line
+     * rate is the booked customer agreement, so this path deliberately
+     * skips price-list resolution even if the customer's price list has
+     * changed since the order was accepted.
+     */
+    @Transactional
+    public InvoiceResponse createInvoiceFromSalesOrder(CreateInvoiceRequest request) {
+        return createInvoice(request, false);
+    }
+
+    private InvoiceResponse createInvoice(CreateInvoiceRequest request, boolean resolvePriceLists) {
         UUID orgId = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
 
@@ -152,7 +167,7 @@ public class InvoiceService {
             // and returns empty if neither step matches — in which
             // case the client price is authoritative (legacy path).
             BigDecimal effectiveUnitPrice = lineReq.unitPrice();
-            if (lineReq.itemId() != null) {
+            if (resolvePriceLists && lineReq.itemId() != null) {
                 effectiveUnitPrice = priceListService
                         .resolvePrice(contact.getId(), lineReq.itemId(), lineReq.quantity())
                         .map(resolved -> {

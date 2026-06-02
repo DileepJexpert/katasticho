@@ -264,7 +264,7 @@ class SalesCycleTest {
 
         when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.SALES_REVENUE))
                 .thenReturn("4010");
-        when(invoiceService.createInvoice(any())).thenReturn(mockInvoiceResponse);
+        when(invoiceService.createInvoiceFromSalesOrder(any())).thenReturn(mockInvoiceResponse);
         when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(mockInvoice));
         when(invoiceService.sendInvoice(eq(invoiceId), eq(true))).thenReturn(mockInvoiceResponse);
         when(invoiceService.getInvoiceResponse(invoiceId)).thenReturn(mockInvoiceResponse);
@@ -323,7 +323,7 @@ class SalesCycleTest {
                 () -> salesOrderService.convertToInvoice(soId, request));
 
         assertEquals("SO_INVOICE_EXCEEDS_SHIPPED", ex.getErrorCode());
-        verify(invoiceService, never()).createInvoice(any());
+        verify(invoiceService, never()).createInvoiceFromSalesOrder(any());
     }
 
     @Test
@@ -461,7 +461,7 @@ class SalesCycleTest {
 
         when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.SALES_REVENUE))
                 .thenReturn("4010");
-        when(invoiceService.createInvoice(any())).thenReturn(mockInvoiceResponse);
+        when(invoiceService.createInvoiceFromSalesOrder(any())).thenReturn(mockInvoiceResponse);
         when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(mockInvoice));
         when(invoiceService.sendInvoice(eq(invoiceId), eq(true))).thenReturn(mockInvoiceResponse);
         when(invoiceService.getInvoiceResponse(invoiceId)).thenReturn(mockInvoiceResponse);
@@ -553,7 +553,7 @@ class SalesCycleTest {
                 .thenReturn(Optional.of(so));
         when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.SALES_REVENUE))
                 .thenReturn("4010");
-        when(invoiceService.createInvoice(any())).thenReturn(mockInvoiceResponse);
+        when(invoiceService.createInvoiceFromSalesOrder(any())).thenReturn(mockInvoiceResponse);
         when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(mockInvoice));
         when(invoiceService.sendInvoice(eq(invoiceId), eq(true))).thenReturn(mockInvoiceResponse);
         when(invoiceService.getInvoiceResponse(invoiceId)).thenReturn(mockInvoiceResponse);
