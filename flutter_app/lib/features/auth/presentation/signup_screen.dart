@@ -121,11 +121,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             phone: _phoneController.text.trim(),
           );
 
-      if (mounted) {
-        context.go(onboardingCompleted
-            ? (defaultLandingPage ?? Routes.dashboard)
-            : Routes.onboardingBusinessType);
-      }
+      // Auth state change refreshes the router. Keep navigation centralized
+      // so signup and onboarding redirects cannot race each other.
     } catch (e) {
       setState(() {
         _errorMessage = _friendlyError(e.toString());

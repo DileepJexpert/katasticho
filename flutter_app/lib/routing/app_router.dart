@@ -289,13 +289,16 @@ class Routes {
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
-  final businessCapabilities = ref.watch(businessCapabilitiesProvider);
+  final routerRefresh = _RouterRefreshNotifier(ref);
+  ref.onDispose(routerRefresh.dispose);
 
   return GoRouter(
     initialLocation: Routes.login,
     debugLogDiagnostics: true,
+    refreshListenable: routerRefresh,
     redirect: (context, state) {
+      final authState = ref.read(authProvider);
+      final businessCapabilities = ref.read(businessCapabilitiesProvider);
       final isAuthenticated = authState.isAuthenticated;
       final onboardingCompleted = authState.onboardingCompleted;
       final loc = state.matchedLocation;
@@ -1184,6 +1187,18 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+class _RouterRefreshNotifier extends ChangeNotifier {
+  _RouterRefreshNotifier(this._ref) {
+    _ref.listen<AuthState>(authProvider, (_, __) => notifyListeners());
+    _ref.listen<BusinessCapabilities>(
+      businessCapabilitiesProvider,
+      (_, __) => notifyListeners(),
+    );
+  }
+
+  final Ref _ref;
+}
 
 String? _capabilityRedirectForLocation(
   String location,

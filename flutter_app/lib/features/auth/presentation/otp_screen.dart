@@ -165,13 +165,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
       debugPrint('[OtpScreen] onLoginSuccess completed, onboardingCompleted: $onboardingCompleted');
 
-      if (mounted) {
-        if (widget.isSignup || !onboardingCompleted) {
-          context.go(Routes.onboardingBusinessType);
-        } else {
-          context.go(defaultLandingPage ?? Routes.dashboard);
-        }
-      }
+      // Auth state change refreshes the router. Keep navigation centralized
+      // so OTP login/signup and onboarding redirects cannot race each other.
     } catch (e, st) {
       debugPrint('[OtpScreen] Verify/Signup FAILED: $e');
       debugPrint('[OtpScreen] Stack trace: $st');

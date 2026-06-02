@@ -70,11 +70,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             defaultLandingPage: defaultLandingPage,
           );
 
-      if (mounted) {
-        context.go(onboardingCompleted
-            ? (defaultLandingPage ?? Routes.dashboard)
-            : Routes.onboardingBusinessType);
-      }
+      // Auth state change refreshes the router. Keep navigation centralized
+      // so login and onboarding redirects cannot race each other.
     } catch (e) {
       setState(() {
         _errorMessage = _friendlyError(e.toString());
