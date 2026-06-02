@@ -431,6 +431,20 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
             onRemove: _lineItems.length > 1
                 ? () => setState(() => _lineItems.removeAt(index))
                 : null,
+            onAddFreeLine: (line) => setState(
+              () {
+                final sourceKey = _lineItems[index].lineKey;
+                _lineItems.removeWhere(
+                  (item) => item.schemeSourceLineKey == sourceKey,
+                );
+                _lineItems.insert(index + 1, line);
+              },
+            ),
+            onRemoveLinkedSchemeLines: () => setState(
+              () => _lineItems.removeWhere(
+                (item) => item.schemeSourceLineKey == _lineItems[index].lineKey,
+              ),
+            ),
             onChanged: () => setState(() {}),
           );
         }),
@@ -612,6 +626,9 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
 }
 
 class _LineItem {
+  static int _nextLineKey = 1;
+
+  final int lineKey = _nextLineKey++;
   String? itemId;
   String? taxGroupId;
   String description = '';
@@ -622,6 +639,10 @@ class _LineItem {
   double discountPct = 0;
   double _taxRate = 0;
   List<String> availableUnits = const [];
+  String? appliedSchemeId;
+  String? appliedSchemeName;
+  bool isFreeSchemeLine = false;
+  int? schemeSourceLineKey;
 
   double get taxableAmount {
     final base = quantity * rate;
@@ -636,12 +657,16 @@ class _LineItemCard extends ConsumerStatefulWidget {
   final _LineItem item;
   final int index;
   final VoidCallback? onRemove;
+  final ValueChanged<_LineItem> onAddFreeLine;
+  final VoidCallback onRemoveLinkedSchemeLines;
   final VoidCallback onChanged;
 
   const _LineItemCard({
     required this.item,
     required this.index,
     this.onRemove,
+    required this.onAddFreeLine,
+    required this.onRemoveLinkedSchemeLines,
     required this.onChanged,
   });
 
@@ -692,6 +717,7 @@ class _LineItemCardState extends ConsumerState<_LineItemCard> {
   Future<void> _pickItem() async {
     final picked = await showItemPicker(context);
     if (picked == null) return;
+    _clearAppliedScheme(removeLinkedFreeLines: true);
     setState(() {
       widget.item.itemId = picked['id']?.toString();
       widget.item.description = picked['name']?.toString() ?? '';
@@ -728,10 +754,67 @@ class _LineItemCardState extends ConsumerState<_LineItemCard> {
   }
 
   void _clearItemLink() {
+    _clearAppliedScheme(removeLinkedFreeLines: true);
     setState(() {
       widget.item.itemId = null;
     });
     widget.onChanged();
+  }
+
+  void _clearAppliedScheme({required bool removeLinkedFreeLines}) {
+    widget.item.appliedSchemeId = null;
+    widget.item.appliedSchemeName = null;
+    if (removeLinkedFreeLines) {
+      widget.onRemoveLinkedSchemeLines();
+    }
+  }
+
+  void _applyScheme(Map<String, dynamic> scheme) {
+    final schemeId = scheme['id']?.toString();
+    final schemeName = scheme['name']?.toString();
+    final type = scheme['schemeType']?.toString();
+
+    if (type == 'PERCENT_DISCOUNT') {
+      final pct = (scheme['discountPercent'] as num?)?.toDouble() ??
+          double.tryParse('${scheme['discountPercent']}') ??
+          0;
+      setState(() {
+        widget.item.discountPct = pct;
+        widget.item.appliedSchemeId = schemeId;
+        widget.item.appliedSchemeName = schemeName;
+        _discountCtl.text = pct == pct.roundToDouble()
+            ? pct.toInt().toString()
+            : pct.toStringAsFixed(2);
+      });
+      widget.onChanged();
+      return;
+    }
+
+    if (type == 'BUY_X_GET_Y') {
+      final freeQty = (scheme['freeQuantity'] as num?)?.toDouble() ??
+          double.tryParse('${scheme['freeQuantity']}') ??
+          0;
+      if (freeQty <= 0 || widget.item.itemId == null) return;
+
+      widget.item.appliedSchemeId = schemeId;
+      widget.item.appliedSchemeName = schemeName;
+      widget.onAddFreeLine(_LineItem()
+        ..itemId = widget.item.itemId
+        ..taxGroupId = widget.item.taxGroupId
+        ..description = '${widget.item.description} (Scheme free)'
+        ..hsnCode = widget.item.hsnCode
+        ..quantity = freeQty
+        ..rate = 0
+        ..unit = widget.item.unit
+        ..discountPct = 0
+        .._taxRate = widget.item._taxRate
+        ..availableUnits = widget.item.availableUnits
+        ..appliedSchemeId = schemeId
+        ..appliedSchemeName = schemeName
+        ..isFreeSchemeLine = true
+        ..schemeSourceLineKey = widget.item.lineKey);
+      widget.onChanged();
+    }
   }
 
   @override
@@ -739,11 +822,12 @@ class _LineItemCardState extends ConsumerState<_LineItemCard> {
     final isLinked = widget.item.itemId != null;
     final itemId = widget.item.itemId;
     final quantity = widget.item.quantity;
-    final applicableSchemes = itemId == null || quantity <= 0
-        ? null
-        : ref.watch(applicableSchemesProvider(
-            ApplicableSchemeLookup(itemId: itemId, quantity: quantity),
-          ));
+    final applicableSchemes =
+        itemId == null || quantity <= 0 || widget.item.isFreeSchemeLine
+            ? null
+            : ref.watch(applicableSchemesProvider(
+                ApplicableSchemeLookup(itemId: itemId, quantity: quantity),
+              ));
 
     return KCard(
       margin: const EdgeInsets.only(bottom: KSpacing.xs),
@@ -775,6 +859,21 @@ class _LineItemCardState extends ConsumerState<_LineItemCard> {
                           )),
                     ],
                   ),
+                ),
+              ],
+              if (widget.item.isFreeSchemeLine) ...[
+                KSpacing.hGapSm,
+                _LineChip(
+                  icon: Icons.card_giftcard,
+                  label: 'Free',
+                  color: KColors.primary,
+                ),
+              ] else if (widget.item.appliedSchemeName != null) ...[
+                KSpacing.hGapSm,
+                _LineChip(
+                  icon: Icons.local_offer_outlined,
+                  label: 'Scheme',
+                  color: KColors.primary,
                 ),
               ],
               const Spacer(),
@@ -822,6 +921,7 @@ class _LineItemCardState extends ConsumerState<_LineItemCard> {
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               onChanged: (v) {
+                _clearAppliedScheme(removeLinkedFreeLines: true);
                 widget.item.quantity = double.tryParse(v) ?? 1;
                 widget.onChanged();
               },
@@ -848,9 +948,11 @@ class _LineItemCardState extends ConsumerState<_LineItemCard> {
             KTextField(
               label: 'Disc %',
               controller: _discountCtl,
+              enabled: !widget.item.isFreeSchemeLine,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               onChanged: (v) {
+                _clearAppliedScheme(removeLinkedFreeLines: false);
                 widget.item.discountPct = double.tryParse(v) ?? 0;
                 widget.onChanged();
               },
@@ -871,7 +973,11 @@ class _LineItemCardState extends ConsumerState<_LineItemCard> {
                 if (schemes.isEmpty) return const SizedBox.shrink();
                 return Padding(
                   padding: const EdgeInsets.only(top: KSpacing.xs),
-                  child: _SchemeAvailabilityHint(schemes: schemes),
+                  child: _SchemeAvailabilityHint(
+                    schemes: schemes,
+                    appliedSchemeId: widget.item.appliedSchemeId,
+                    onApply: _applyScheme,
+                  ),
                 );
               },
               loading: () => const Padding(
@@ -896,15 +1002,60 @@ class _LineItemCardState extends ConsumerState<_LineItemCard> {
   }
 }
 
+class _LineChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _LineChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: KTypography.labelSmall.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SchemeAvailabilityHint extends StatelessWidget {
   final List<Map<String, dynamic>> schemes;
+  final String? appliedSchemeId;
+  final ValueChanged<Map<String, dynamic>> onApply;
 
-  const _SchemeAvailabilityHint({required this.schemes});
+  const _SchemeAvailabilityHint({
+    required this.schemes,
+    required this.appliedSchemeId,
+    required this.onApply,
+  });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final primary = schemes.first;
+    final primaryId = primary['id']?.toString();
+    final isApplied = primaryId != null && primaryId == appliedSchemeId;
     final extraCount = schemes.length - 1;
     final text = extraCount > 0
         ? '${_schemeSummary(primary)} +$extraCount more'
@@ -931,6 +1082,16 @@ class _SchemeAvailabilityHint extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
+          ),
+          KSpacing.hGapXs,
+          TextButton(
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 30),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: isApplied ? null : () => onApply(primary),
+            child: Text(isApplied ? 'Applied' : 'Apply'),
           ),
         ],
       ),
