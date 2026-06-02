@@ -20,6 +20,7 @@ public record CustomerRiskResponse(
         String salesHoldReason,
         LocalDate salesHoldUntil,
         String riskLevel,
-        List<String> reasons
+        List<String> reasons,
+        CollectionFollowUpResponse latestFollowUp
 ) {
 }

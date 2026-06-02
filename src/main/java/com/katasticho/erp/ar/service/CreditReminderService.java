@@ -1,6 +1,8 @@
 package com.katasticho.erp.ar.service;
 
 import com.katasticho.erp.ar.dto.CustomerRiskResponse;
+import com.katasticho.erp.ar.dto.CollectionFollowUpRequest;
+import com.katasticho.erp.ar.dto.CollectionFollowUpResponse;
 import com.katasticho.erp.ar.dto.OverdueCustomerResponse;
 import com.katasticho.erp.ar.dto.ReminderTextResponse;
 import com.katasticho.erp.ar.entity.Invoice;
@@ -59,6 +61,12 @@ public class CreditReminderService {
                 .collect(Collectors.toMap(
                         ReminderLogRepository.ContactLastReminder::getContactId,
                         ReminderLogRepository.ContactLastReminder::getLastSentAt));
+        Map<UUID, CollectionFollowUpResponse> latestFollowUps = reminderLogRepository
+                .findLatestFollowUpsByContacts(orgId, contactIds).stream()
+                .collect(Collectors.toMap(
+                        ReminderLog::getContactId,
+                        this::toFollowUpResponse,
+                        (existing, replacement) -> existing));
 
         List<OverdueCustomerResponse> results = new ArrayList<>();
 
@@ -109,6 +117,7 @@ public class CreditReminderService {
                     maxDaysOverdue,
                     invoices.size(),
                     lastReminders.get(contact.getId()),
+                    latestFollowUps.get(contact.getId()),
                     invoiceList
             ));
         }
@@ -160,6 +169,10 @@ public class CreditReminderService {
                 .findLatestByOrgAndContact(orgId, contactId)
                 .map(ReminderLog::getSentAt)
                 .orElse(null);
+        CollectionFollowUpResponse latestFollowUp = reminderLogRepository
+                .findLatestFollowUpByOrgAndContact(orgId, contactId)
+                .map(this::toFollowUpResponse)
+                .orElse(null);
 
         String phone = contact.getMobile() != null && !contact.getMobile().isBlank()
                 ? contact.getMobile() : contact.getPhone();
@@ -174,6 +187,7 @@ public class CreditReminderService {
                 maxDaysOverdue,
                 invoices.size(),
                 lastReminder,
+                latestFollowUp,
                 invoiceList
         );
     }
@@ -199,9 +213,17 @@ public class CreditReminderService {
                 .collect(Collectors.toMap(Contact::getId, contact -> contact));
         activeSalesHolds.forEach(contact -> contactsById.putIfAbsent(contact.getId(), contact));
 
+        Map<UUID, CollectionFollowUpResponse> latestFollowUps = reminderLogRepository
+                .findLatestFollowUpsByContacts(orgId, new ArrayList<>(contactIds)).stream()
+                .collect(Collectors.toMap(
+                        ReminderLog::getContactId,
+                        this::toFollowUpResponse,
+                        (existing, replacement) -> existing));
+
         return contactIds.stream()
                 .map(contactId -> buildCustomerRisk(contactsById.get(contactId),
-                        invoicesByContact.getOrDefault(contactId, List.of()), today))
+                        invoicesByContact.getOrDefault(contactId, List.of()), today,
+                        latestFollowUps.get(contactId)))
                 .filter(Objects::nonNull)
                 .sorted(Comparator
                         .comparingInt((CustomerRiskResponse risk) -> riskRank(risk.riskLevel()))
@@ -318,6 +340,41 @@ public class CreditReminderService {
         reminderLogRepository.save(log);
     }
 
+    @Transactional
+    public CollectionFollowUpResponse recordFollowUp(UUID contactId, CollectionFollowUpRequest request) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        UUID userId = TenantContext.getCurrentUserId();
+
+        contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Contact", contactId));
+
+        String status = normalizeFollowUpStatus(request != null ? request.status() : null);
+        String note = request != null ? trimToNull(request.note()) : null;
+
+        ReminderLog log = ReminderLog.builder()
+                .orgId(orgId)
+                .contactId(contactId)
+                .sentAt(Instant.now())
+                .channel("FOLLOW_UP")
+                .followupStatus(status)
+                .promiseToPayDate(request != null ? request.promiseToPayDate() : null)
+                .note(note)
+                .messagePreview(note != null && note.length() > 250 ? note.substring(0, 250) : note)
+                .sentBy(userId)
+                .build();
+
+        return toFollowUpResponse(reminderLogRepository.save(log));
+    }
+
+    public List<CollectionFollowUpResponse> getFollowUps(UUID contactId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Contact", contactId));
+        return reminderLogRepository.findFollowUpsByOrgAndContact(orgId, contactId).stream()
+                .map(this::toFollowUpResponse)
+                .toList();
+    }
+
     // ── Helpers ─────────────────────────────────────────────────
 
     private String formatAmount(BigDecimal amount) {
@@ -333,7 +390,8 @@ public class CreditReminderService {
         return "https://wa.me/" + cleanPhone + "?text=" + encoded;
     }
 
-    private CustomerRiskResponse buildCustomerRisk(Contact contact, List<Invoice> invoices, LocalDate today) {
+    private CustomerRiskResponse buildCustomerRisk(Contact contact, List<Invoice> invoices, LocalDate today,
+                                                   CollectionFollowUpResponse latestFollowUp) {
         if (contact == null) {
             return null;
         }
@@ -395,8 +453,34 @@ public class CreditReminderService {
                 contact.getSalesHoldReason(),
                 contact.getSalesHoldUntil(),
                 riskLevel,
-                reasons
+                reasons,
+                latestFollowUp
         );
+    }
+
+    private CollectionFollowUpResponse toFollowUpResponse(ReminderLog log) {
+        return new CollectionFollowUpResponse(
+                log.getId(),
+                log.getContactId(),
+                log.getFollowupStatus(),
+                log.getPromiseToPayDate(),
+                log.getNote(),
+                log.getSentAt(),
+                log.getSentBy());
+    }
+
+    private String normalizeFollowUpStatus(String raw) {
+        String value = raw == null ? "" : raw.trim().toUpperCase(Locale.ROOT);
+        return switch (value) {
+            case "TO_CALL", "VISITED", "PROMISED", "DISPUTED" -> value;
+            default -> "TO_CALL";
+        };
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private BigDecimal balanceDue(Invoice invoice) {

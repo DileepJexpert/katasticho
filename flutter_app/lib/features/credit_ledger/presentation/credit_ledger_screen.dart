@@ -10,6 +10,7 @@ import '../data/credit_reminder_repository.dart';
 import '../../reports/data/report_repository.dart';
 
 enum _SortMode { amount, age }
+
 enum _FilterMode { all, overdue, risk }
 
 class CreditLedgerScreen extends ConsumerStatefulWidget {
@@ -67,9 +68,8 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
   }
 
   List<Map<String, dynamic>> _getFilteredContacts() {
-    final contacts = (_report?['contacts'] as List?)
-            ?.cast<Map<String, dynamic>>() ??
-        [];
+    final contacts =
+        (_report?['contacts'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
     var filtered = contacts.where((c) {
       final total = (c['totalOutstanding'] as num?)?.toDouble() ?? 0;
@@ -129,8 +129,7 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
           KListPageHeader(
             title: 'Credit Ledger',
             searchHint: 'Search customer...',
-            onSearchChanged: (q) =>
-                setState(() => _searchQuery = q.trim()),
+            onSearchChanged: (q) => setState(() => _searchQuery = q.trim()),
             actions: [
               PopupMenuButton<String>(
                 icon: const Icon(Icons.sort, size: 20),
@@ -289,8 +288,7 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
 
           final contact = contacts[index - 1];
           final name = contact['contactName'] as String? ?? 'Unknown';
-          final total =
-              (contact['totalOutstanding'] as num?)?.toDouble() ?? 0;
+          final total = (contact['totalOutstanding'] as num?)?.toDouble() ?? 0;
           final maxAge = _maxDaysOverdue(contact);
           final contactId = contact['contactId']?.toString() ?? '';
           final risk = _riskByContactId[contactId];
@@ -298,6 +296,8 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
           final utilization =
               (risk?['creditUtilizationPercent'] as num?)?.toDouble() ?? 0;
           final salesHold = risk?['salesHold'] == true;
+          final latestFollowUp =
+              risk?['latestFollowUp'] as Map<String, dynamic>?;
 
           return Padding(
             padding: const EdgeInsets.only(bottom: KSpacing.sm),
@@ -333,6 +333,10 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
                             color: _riskColor(riskLevel, maxAge),
                           ),
                         ),
+                        if (latestFollowUp != null) ...[
+                          KSpacing.vGapXs,
+                          _FollowUpChip(followUp: latestFollowUp),
+                        ],
                       ],
                     ),
                   ),
@@ -372,5 +376,44 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
     if (riskLevel == 'OVERDUE' || maxAge > 60) return KColors.error;
     if (maxAge > 30 || riskLevel == 'WATCH') return KColors.warning;
     return KColors.textSecondary;
+  }
+}
+
+class _FollowUpChip extends StatelessWidget {
+  final Map<String, dynamic> followUp;
+
+  const _FollowUpChip({required this.followUp});
+
+  @override
+  Widget build(BuildContext context) {
+    final status = followUp['status']?.toString() ?? 'TO_CALL';
+    final promiseDate = followUp['promiseToPayDate']?.toString();
+    final label = promiseDate == null || promiseDate.isEmpty
+        ? _label(status)
+        : '${_label(status)} · PTP $promiseDate';
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.event_note_outlined, size: 13, color: KColors.primary),
+        KSpacing.hGapXs,
+        Flexible(
+          child: Text(
+            label,
+            style: KTypography.labelSmall.copyWith(color: KColors.primary),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _label(String status) {
+    return status
+        .replaceAll('_', ' ')
+        .toLowerCase()
+        .split(' ')
+        .map((part) =>
+            part.isEmpty ? part : part[0].toUpperCase() + part.substring(1))
+        .join(' ');
   }
 }

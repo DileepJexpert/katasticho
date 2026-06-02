@@ -43,6 +43,7 @@ Current active work: distributor workflow controls and credit-control visibility
 - Explicit customer sales hold is supported on Contact with `salesHold`, `salesHoldReason`, and `salesHoldUntil`. Active holds block Sales Order creation with `SO_CONTACT_SALES_HOLD`; expired holds are ignored.
 - Customer risk reporting is exposed through AR credit reminders using existing contacts, invoices, credit limits, overdue invoices, and sales holds. It is read-only and introduces no posting or workflow side effects.
 - Customer risk UI is reused inside the existing Credit Ledger screen with risk labels and a risk-only filter; no duplicate customer risk module/page is introduced.
+- Dealer collection workflow is layered onto Credit Ledger. Follow-ups are stored as collection activity on reminder tracking, payment entry remains invoice-specific, and no follow-up action changes ledger, invoice balance, payment, stock, or journal state.
 - Customer Indent is removed; Sales Order with backorder is the customer demand flow.
 - AR payment approval is being introduced in phases. Phase 1 added payment lifecycle status and a single `postPayment()` accounting gate. Phase 2 reuses existing workflow definitions for `PAYMENT`; matching payments move to `PENDING_APPROVAL`, approval posts them through `postPayment()`, and rejection voids them without accounting side effects.
 - Payment approval frontend visibility is wired into existing screens: record-payment feedback, invoice Payments tab status chips, and Approval Inbox recognition for `PAYMENT` requests.
@@ -117,6 +118,13 @@ Distributor dashboard implementation plan:
 2. Surface Sales Order alerts prominently for distributor/pharma distributor.
 3. Surface expiry risk prominently for pharma distributor.
 4. Add new backend summary endpoints only when an existing widget cannot express the operating question.
+
+Dealer collection implementation plan:
+1. Reuse Credit Ledger and AR risk APIs instead of creating a duplicate dealer module.
+2. Track follow-up status (`TO_CALL`, `VISITED`, `PROMISED`, `DISPUTED`), promise-to-pay date, and notes as collection activity.
+3. Show latest follow-up compactly in Credit Ledger.
+4. Record payments from invoice rows only, using the existing invoice payment posting path.
+5. Follow-ups must never mutate invoices, payments, journals, or stock.
 
 Pricing implementation plan:
 1. Keep price lists and schemes inside the existing pricing module.

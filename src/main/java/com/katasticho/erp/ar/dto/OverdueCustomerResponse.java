@@ -16,6 +16,7 @@ public record OverdueCustomerResponse(
         long maxDaysOverdue,
         int invoiceCount,
         Instant lastReminderSentAt,
+        CollectionFollowUpResponse latestFollowUp,
         List<OverdueInvoice> invoices
 ) {
     public record OverdueInvoice(

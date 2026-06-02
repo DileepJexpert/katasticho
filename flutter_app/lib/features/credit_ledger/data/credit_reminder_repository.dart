@@ -29,15 +29,32 @@ class CreditReminderRepository {
   }
 
   Future<Map<String, dynamic>> getReminderText(String contactId) async {
-    final response =
-        await _api.get(ApiConfig.creditReminderText(contactId));
+    final response = await _api.get(ApiConfig.creditReminderText(contactId));
     return response.data as Map<String, dynamic>;
   }
 
-  Future<void> markReminderSent(String contactId, {String channel = 'WHATSAPP'}) async {
+  Future<void> markReminderSent(String contactId,
+      {String channel = 'WHATSAPP'}) async {
     await _api.post(
       ApiConfig.creditReminderMarkSent(contactId),
       data: {'channel': channel},
     );
+  }
+
+  Future<Map<String, dynamic>> recordFollowUp(
+    String contactId,
+    Map<String, dynamic> body,
+  ) async {
+    final response = await _api.post(
+      ApiConfig.creditReminderFollowUps(contactId),
+      data: body,
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getFollowUps(String contactId) async {
+    final response =
+        await _api.get(ApiConfig.creditReminderFollowUps(contactId));
+    return response.data as Map<String, dynamic>;
   }
 }

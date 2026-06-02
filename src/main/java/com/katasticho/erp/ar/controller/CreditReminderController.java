@@ -1,5 +1,7 @@
 package com.katasticho.erp.ar.controller;
 
+import com.katasticho.erp.ar.dto.CollectionFollowUpRequest;
+import com.katasticho.erp.ar.dto.CollectionFollowUpResponse;
 import com.katasticho.erp.ar.dto.CustomerRiskResponse;
 import com.katasticho.erp.ar.dto.OverdueCustomerResponse;
 import com.katasticho.erp.ar.dto.ReminderTextResponse;
@@ -59,5 +61,21 @@ public class CreditReminderController {
         String channel = body != null ? body.getOrDefault("channel", "WHATSAPP") : "WHATSAPP";
         creditReminderService.markReminderSent(contactId, channel);
         return ResponseEntity.ok(ApiResponse.ok(Map.of("status", "ok"), "Reminder marked as sent"));
+    }
+
+    @PostMapping("/{contactId}/follow-ups")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<CollectionFollowUpResponse>> recordFollowUp(
+            @PathVariable UUID contactId,
+            @RequestBody(required = false) CollectionFollowUpRequest request) {
+        CollectionFollowUpResponse result = creditReminderService.recordFollowUp(contactId, request);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Collection follow-up recorded"));
+    }
+
+    @GetMapping("/{contactId}/follow-ups")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<List<CollectionFollowUpResponse>>> getFollowUps(
+            @PathVariable UUID contactId) {
+        return ResponseEntity.ok(ApiResponse.ok(creditReminderService.getFollowUps(contactId)));
     }
 }

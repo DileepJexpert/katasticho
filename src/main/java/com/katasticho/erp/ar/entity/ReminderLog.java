@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
@@ -34,6 +35,15 @@ public class ReminderLog {
 
     @Column(name = "message_preview")
     private String messagePreview;
+
+    @Column(name = "followup_status", length = 30)
+    private String followupStatus;
+
+    @Column(name = "promise_to_pay_date")
+    private LocalDate promiseToPayDate;
+
+    @Column(name = "note")
+    private String note;
 
     @Column(name = "sent_by")
     private UUID sentBy;

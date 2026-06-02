@@ -1,6 +1,9 @@
 package com.katasticho.erp.ar.service;
 
+import com.katasticho.erp.ar.dto.CollectionFollowUpRequest;
+import com.katasticho.erp.ar.dto.CollectionFollowUpResponse;
 import com.katasticho.erp.ar.dto.CustomerRiskResponse;
+import com.katasticho.erp.ar.entity.ReminderLog;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.repository.ReminderLogRepository;
@@ -24,6 +27,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 class CreditReminderServiceTest {
@@ -113,6 +117,36 @@ class CreditReminderServiceTest {
         assertEquals(0, new BigDecimal("1000.00").compareTo(risk.outstandingAr()));
         assertEquals(0, new BigDecimal("900.00").compareTo(risk.overdueAmount()));
         assertTrue(risk.reasons().contains("1 overdue invoice(s)"));
+    }
+
+    @Test
+    void recordFollowUp_writesCollectionActivityOnly() {
+        UUID contactId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        TenantContext.setCurrentUserId(userId);
+        Contact customer = customer("Dealer One", new BigDecimal("5000.00"), false);
+        customer.setId(contactId);
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(java.util.Optional.of(customer));
+        when(reminderLogRepository.save(any(ReminderLog.class))).thenAnswer(inv -> {
+            ReminderLog log = inv.getArgument(0);
+            log.setId(UUID.randomUUID());
+            return log;
+        });
+
+        CollectionFollowUpResponse result = service.recordFollowUp(contactId,
+                new CollectionFollowUpRequest("PROMISED", LocalDate.now().plusDays(3), "Will pay after bank clearing"));
+
+        assertEquals(contactId, result.contactId());
+        assertEquals("PROMISED", result.status());
+        assertEquals(userId, result.recordedBy());
+        ArgumentCaptor<ReminderLog> captor = ArgumentCaptor.forClass(ReminderLog.class);
+        verify(reminderLogRepository).save(captor.capture());
+        ReminderLog saved = captor.getValue();
+        assertEquals("FOLLOW_UP", saved.getChannel());
+        assertEquals("PROMISED", saved.getFollowupStatus());
+        assertEquals("Will pay after bank clearing", saved.getNote());
+        verifyNoInteractions(invoiceRepository);
     }
 
     private Contact customer(String name, BigDecimal creditLimit, boolean salesHold) {
