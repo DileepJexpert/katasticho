@@ -67,3 +67,30 @@ final schemesProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
   return ref.watch(schemeRepositoryProvider).listSchemes();
 });
+
+class ApplicableSchemeLookup {
+  final String itemId;
+  final double quantity;
+
+  const ApplicableSchemeLookup({
+    required this.itemId,
+    required this.quantity,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    return other is ApplicableSchemeLookup &&
+        other.itemId == itemId &&
+        other.quantity == quantity;
+  }
+
+  @override
+  int get hashCode => Object.hash(itemId, quantity);
+}
+
+final applicableSchemesProvider = FutureProvider.autoDispose
+    .family<List<Map<String, dynamic>>, ApplicableSchemeLookup>((ref, lookup) {
+  return ref
+      .watch(schemeRepositoryProvider)
+      .getApplicable(lookup.itemId, lookup.quantity);
+});

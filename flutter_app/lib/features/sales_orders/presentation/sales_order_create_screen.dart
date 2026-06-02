@@ -12,6 +12,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../contacts/data/contact_repository.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
+import '../../pricing/data/scheme_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/sales_order_providers.dart';
 import '../data/sales_order_repository.dart';
@@ -631,7 +632,7 @@ class _LineItem {
   double get lineTotal => taxableAmount + taxAmount;
 }
 
-class _LineItemCard extends StatefulWidget {
+class _LineItemCard extends ConsumerStatefulWidget {
   final _LineItem item;
   final int index;
   final VoidCallback? onRemove;
@@ -645,10 +646,10 @@ class _LineItemCard extends StatefulWidget {
   });
 
   @override
-  State<_LineItemCard> createState() => _LineItemCardState();
+  ConsumerState<_LineItemCard> createState() => _LineItemCardState();
 }
 
-class _LineItemCardState extends State<_LineItemCard> {
+class _LineItemCardState extends ConsumerState<_LineItemCard> {
   late final TextEditingController _descCtl;
   late final TextEditingController _hsnCtl;
   late final TextEditingController _qtyCtl;
@@ -736,6 +737,14 @@ class _LineItemCardState extends State<_LineItemCard> {
   @override
   Widget build(BuildContext context) {
     final isLinked = widget.item.itemId != null;
+    final itemId = widget.item.itemId;
+    final quantity = widget.item.quantity;
+    final applicableSchemes = itemId == null || quantity <= 0
+        ? null
+        : ref.watch(applicableSchemesProvider(
+            ApplicableSchemeLookup(itemId: itemId, quantity: quantity),
+          ));
+
     return KCard(
       margin: const EdgeInsets.only(bottom: KSpacing.xs),
       padding: const EdgeInsets.all(KSpacing.sm),
@@ -856,6 +865,21 @@ class _LineItemCardState extends State<_LineItemCard> {
               },
             ),
           ]),
+          if (applicableSchemes != null)
+            applicableSchemes.when(
+              data: (schemes) {
+                if (schemes.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: KSpacing.xs),
+                  child: _SchemeAvailabilityHint(schemes: schemes),
+                );
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.only(top: KSpacing.xs),
+                child: _SchemeAvailabilityLoading(),
+              ),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
           KSpacing.vGapXs,
           Align(
             alignment: Alignment.centerRight,
@@ -868,6 +892,104 @@ class _LineItemCardState extends State<_LineItemCard> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SchemeAvailabilityHint extends StatelessWidget {
+  final List<Map<String, dynamic>> schemes;
+
+  const _SchemeAvailabilityHint({required this.schemes});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final primary = schemes.first;
+    final extraCount = schemes.length - 1;
+    final text = extraCount > 0
+        ? '${_schemeSummary(primary)} +$extraCount more'
+        : _schemeSummary(primary);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: cs.tertiaryContainer.withValues(alpha: 0.45),
+        borderRadius: KSpacing.borderRadiusSm,
+        border: Border.all(color: cs.tertiary.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.local_offer_outlined, size: 16, color: cs.tertiary),
+          KSpacing.hGapXs,
+          Expanded(
+            child: Text(
+              'Scheme available: $text',
+              style: KTypography.bodySmall.copyWith(
+                color: cs.onTertiaryContainer,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _schemeSummary(Map<String, dynamic> scheme) {
+    final name = scheme['name']?.toString().trim();
+    final prefix = name == null || name.isEmpty ? '' : '$name - ';
+    final type = scheme['schemeType']?.toString();
+
+    if (type == 'BUY_X_GET_Y') {
+      final buyQty = _quantityText(scheme['buyQuantity']);
+      final freeQty = _quantityText(scheme['freeQuantity']);
+      if (buyQty != null && freeQty != null) {
+        return '${prefix}Buy $buyQty get $freeQty free';
+      }
+      if (freeQty != null) return '${prefix}Free qty $freeQty';
+    }
+
+    if (type == 'PERCENT_DISCOUNT') {
+      final pct = _quantityText(scheme['discountPercent']);
+      if (pct != null) return '$prefix$pct% discount';
+    }
+
+    return name == null || name.isEmpty ? 'Eligible scheme' : name;
+  }
+
+  static String? _quantityText(dynamic raw) {
+    final value = raw is num ? raw.toDouble() : double.tryParse('$raw');
+    if (value == null) return null;
+    if (value == value.roundToDouble()) return value.toInt().toString();
+    return value.toStringAsFixed(2);
+  }
+}
+
+class _SchemeAvailabilityLoading extends StatelessWidget {
+  const _SchemeAvailabilityLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 12,
+          height: 12,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        KSpacing.hGapXs,
+        Text(
+          'Checking schemes...',
+          style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant),
+        ),
+      ],
     );
   }
 }
