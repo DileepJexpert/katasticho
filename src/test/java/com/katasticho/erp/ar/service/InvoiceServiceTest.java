@@ -511,6 +511,43 @@ class InvoiceServiceTest {
         verify(taxLineItemRepository, never()).saveAll(any());
     }
 
+    @Test
+    void createInvoiceFromSalesOrder_allowsZeroValueFreeLineWhenTotalIsPositive() {
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contact.getId(), orgId))
+                .thenReturn(Optional.of(contact));
+        stubContactLookup(contact);
+        when(sequenceRepository.findByOrgIdAndPrefixAndYear(eq(orgId), eq("INV"), anyInt()))
+                .thenReturn(Optional.empty());
+        when(sequenceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> {
+            Invoice i = inv.getArgument(0);
+            if (i.getId() == null) i.setId(UUID.randomUUID());
+            stubTaxLineLookup(i.getId(), Collections.emptyList());
+            return i;
+        });
+        when(taxEngine.calculate(eq(orgId), isNull(), any(BigDecimal.class), eq(TaxEngine.TransactionType.SALE)))
+                .thenReturn(new TaxEngine.TaxCalculationResult(List.of(), BigDecimal.ZERO));
+
+        var request = new CreateInvoiceRequest(
+                contact.getId(),
+                LocalDate.of(2026, 4, 11),
+                null, "MH", false, null, null,
+                List.of(
+                        new InvoiceLineRequest("Paid strip", "3004", new BigDecimal("10"),
+                                new BigDecimal("100"), BigDecimal.ZERO, BigDecimal.ZERO, "4010", UUID.randomUUID(), null, null),
+                        new InvoiceLineRequest("Scheme free strip", "3004", BigDecimal.ONE,
+                                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, "4010", UUID.randomUUID(), null, null))
+        );
+
+        InvoiceResponse result = invoiceService.createInvoiceFromSalesOrder(request);
+
+        assertEquals(0, new BigDecimal("1000.00").compareTo(result.totalAmount()));
+        assertEquals(2, result.lines().size());
+        assertEquals(0, BigDecimal.ZERO.compareTo(result.lines().get(1).unitPrice()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(result.lines().get(1).lineTotal()));
+    }
+
     private Invoice draftInvoiceWithLine() {
         Invoice draftInvoice = Invoice.builder()
                 .orgId(orgId)

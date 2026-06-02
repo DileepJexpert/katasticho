@@ -56,6 +56,7 @@ Current active work: distributor workflow controls and credit-control visibility
 - Purchase Order does not post stock. PO action starts receiving by opening a draft Goods Receipt; only Goods Receipt detail `Receive Stock` posts inventory movement.
 - Sales Order does not post stock. Confirmed Sales Order starts dispatch by opening a draft Delivery Challan; only Delivery Challan detail `Dispatch` posts stock movement.
 - Delivery Challan does not post accounting. Dispatched or delivered challans create invoices through the existing Sales Order `convert-to-invoice` path; invoice posting updates AR/accounting and must skip duplicate stock movement.
+- Sales Order scheme free lines are allowed to invoice as zero-value lines only through the Sales Order invoice path. Normal invoice creation still rejects zero-value lines. Free goods stock is deducted on Delivery Challan dispatch and invoice posting skips stock movement.
 - Distributor capability should extend existing flows, not fork them.
 - Workflow must be org-configurable. No customer-specific code branches.
 
@@ -130,7 +131,8 @@ Pricing implementation plan:
    - `MANUAL` keeps the compact `Apply` action;
    - `AUTO` applies the first applicable scheme once per paid line;
    - `DISABLED` suppresses SO scheme lookup and actions.
-7. Next hardening task: test SO scheme mode end-to-end through confirmation, delivery challan, invoice, and accounting.
+7. Sales Order scheme safety tests are complete for percent discount preservation, zero-rate free line invoicing, paid/free stock deduction at Delivery Challan dispatch, and invoice stock-skip behavior.
+8. Next hardening task: manually test SO scheme mode end-to-end through confirmation, delivery challan, invoice, and accounting in the running app.
 
 Procurement flow decision:
 1. Purchase Order button label is `Create Goods Receipt`.

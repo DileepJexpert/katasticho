@@ -736,6 +736,89 @@ class SalesOrderServiceTest {
     }
 
     @Test
+    void convertToInvoice_preservesSchemeDiscountAndZeroRateFreeLine() {
+        UUID soId = UUID.randomUUID();
+        UUID paidLineId = UUID.randomUUID();
+        UUID freeLineId = UUID.randomUUID();
+        UUID invoiceId = UUID.randomUUID();
+
+        SalesOrderLine paidLine = SalesOrderLine.builder()
+                .lineNumber(1)
+                .itemId(itemId)
+                .description("Widget A")
+                .quantity(new BigDecimal("10"))
+                .rate(new BigDecimal("100.00"))
+                .discountPct(new BigDecimal("10.00"))
+                .taxRate(BigDecimal.ZERO)
+                .build();
+        paidLine.setId(paidLineId);
+        paidLine.setQuantityShipped(new BigDecimal("10"));
+        paidLine.setQuantityInvoiced(BigDecimal.ZERO);
+
+        SalesOrderLine freeLine = SalesOrderLine.builder()
+                .lineNumber(2)
+                .itemId(itemId)
+                .description("Widget A (Scheme free)")
+                .quantity(BigDecimal.ONE)
+                .rate(BigDecimal.ZERO)
+                .discountPct(BigDecimal.ZERO)
+                .taxRate(BigDecimal.ZERO)
+                .build();
+        freeLine.setId(freeLineId);
+        freeLine.setQuantityShipped(BigDecimal.ONE);
+        freeLine.setQuantityInvoiced(BigDecimal.ZERO);
+
+        SalesOrder so = SalesOrder.builder()
+                .contactId(contactId)
+                .orderDate(LocalDate.now())
+                .build();
+        so.setId(soId);
+        so.setOrgId(orgId);
+        so.setStatus("SHIPPED");
+        so.addLine(paidLine);
+        so.addLine(freeLine);
+
+        Invoice invoice = new Invoice();
+        invoice.setId(invoiceId);
+
+        when(salesOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(soId, orgId))
+                .thenReturn(Optional.of(so));
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.SALES_REVENUE))
+                .thenReturn("4010");
+        when(invoiceService.createInvoiceFromSalesOrder(any()))
+                .thenReturn(mockInvoiceResponse(invoiceId));
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(invoiceService.sendInvoice(invoiceId, true)).thenReturn(mockInvoiceResponse(invoiceId));
+        when(invoiceService.getInvoiceResponse(invoiceId)).thenReturn(mockInvoiceResponse(invoiceId));
+
+        var request = new com.katasticho.erp.sales.dto.ConvertToInvoiceRequest(
+                List.of(
+                        new com.katasticho.erp.sales.dto.ConvertToInvoiceRequest.InvoiceLineItem(
+                                paidLineId, new BigDecimal("10")),
+                        new com.katasticho.erp.sales.dto.ConvertToInvoiceRequest.InvoiceLineItem(
+                                freeLineId, BigDecimal.ONE)));
+
+        salesOrderService.convertToInvoice(soId, request);
+
+        ArgumentCaptor<CreateInvoiceRequest> invoiceRequestCaptor =
+                ArgumentCaptor.forClass(CreateInvoiceRequest.class);
+        verify(invoiceService).createInvoiceFromSalesOrder(invoiceRequestCaptor.capture());
+        verify(invoiceService).sendInvoice(invoiceId, true);
+
+        CreateInvoiceRequest invoiceRequest = invoiceRequestCaptor.getValue();
+        assertEquals(2, invoiceRequest.lines().size());
+        assertEquals(0, new BigDecimal("10.00")
+                .compareTo(invoiceRequest.lines().get(0).discountPercent()));
+        assertEquals(0, new BigDecimal("100.00")
+                .compareTo(invoiceRequest.lines().get(0).unitPrice()));
+        assertEquals(0, BigDecimal.ZERO
+                .compareTo(invoiceRequest.lines().get(1).unitPrice()));
+        assertEquals(0, BigDecimal.ONE
+                .compareTo(invoiceRequest.lines().get(1).quantity()));
+    }
+
+    @Test
     void convertToInvoice_requestExceedsShippedQuantity_throwsBusinessException() {
         UUID soId = UUID.randomUUID();
         UUID soLineId = UUID.randomUUID();

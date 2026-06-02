@@ -287,6 +287,127 @@ class SalesCycleTest {
     // ── Part B: Edge cases ────────────────────────────────────────
 
     @Test
+    void schemeFreeLine_dispatchDeductsPaidAndFreeStockThenInvoiceSkipsStockMovement() {
+        UUID soId = UUID.randomUUID();
+        UUID paidLineId = UUID.randomUUID();
+        UUID freeLineId = UUID.randomUUID();
+        UUID challanId = UUID.randomUUID();
+        UUID invoiceId = UUID.randomUUID();
+
+        SalesOrderLine paidLine = SalesOrderLine.builder()
+                .lineNumber(1)
+                .itemId(itemId)
+                .description("Widget A")
+                .quantity(new BigDecimal("10"))
+                .rate(new BigDecimal("100.00"))
+                .discountPct(new BigDecimal("10.00"))
+                .taxRate(BigDecimal.ZERO)
+                .build();
+        paidLine.setId(paidLineId);
+
+        SalesOrderLine freeLine = SalesOrderLine.builder()
+                .lineNumber(2)
+                .itemId(itemId)
+                .description("Widget A (Scheme free)")
+                .quantity(BigDecimal.ONE)
+                .rate(BigDecimal.ZERO)
+                .discountPct(BigDecimal.ZERO)
+                .taxRate(BigDecimal.ZERO)
+                .build();
+        freeLine.setId(freeLineId);
+
+        SalesOrder so = SalesOrder.builder()
+                .contactId(contactId)
+                .orderDate(LocalDate.now())
+                .build();
+        so.setId(soId);
+        so.setOrgId(orgId);
+        so.setStatus("CONFIRMED");
+        so.addLine(paidLine);
+        so.addLine(freeLine);
+
+        DeliveryChallan challan = DeliveryChallan.builder()
+                .salesOrderId(soId)
+                .contactId(contactId)
+                .warehouseId(warehouseId)
+                .challanNumber("DC-SCHEME")
+                .challanDate(LocalDate.now())
+                .build();
+        challan.setId(challanId);
+        challan.setOrgId(orgId);
+        challan.addLine(DeliveryChallanLine.builder()
+                .lineNumber(1)
+                .itemId(itemId)
+                .salesOrderLineId(paidLineId)
+                .quantity(new BigDecimal("10"))
+                .build());
+        challan.addLine(DeliveryChallanLine.builder()
+                .lineNumber(2)
+                .itemId(itemId)
+                .salesOrderLineId(freeLineId)
+                .quantity(BigDecimal.ONE)
+                .build());
+
+        StockReservation paidReservation = StockReservation.builder()
+                .orgId(orgId).itemId(itemId).warehouseId(warehouseId)
+                .sourceType("SALES_ORDER").sourceId(soId).sourceLineId(paidLineId)
+                .quantityReserved(new BigDecimal("10"))
+                .build();
+        paidReservation.setStatus("ACTIVE");
+        StockReservation freeReservation = StockReservation.builder()
+                .orgId(orgId).itemId(itemId).warehouseId(warehouseId)
+                .sourceType("SALES_ORDER").sourceId(soId).sourceLineId(freeLineId)
+                .quantityReserved(BigDecimal.ONE)
+                .build();
+        freeReservation.setStatus("ACTIVE");
+
+        when(challanRepository.findByIdAndOrgIdAndIsDeletedFalse(challanId, orgId))
+                .thenReturn(Optional.of(challan));
+        when(salesOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(soId, orgId))
+                .thenReturn(Optional.of(so));
+        when(salesOrderRepository.findById(soId)).thenReturn(Optional.of(so));
+        when(reservationRepository.findBySourceTypeAndSourceLineId("SALES_ORDER", paidLineId))
+                .thenReturn(Optional.of(paidReservation));
+        when(reservationRepository.findBySourceTypeAndSourceLineId("SALES_ORDER", freeLineId))
+                .thenReturn(Optional.of(freeReservation));
+
+        deliveryChallanService.dispatch(challanId);
+
+        ArgumentCaptor<StockMovementRequest> movementCaptor =
+                ArgumentCaptor.forClass(StockMovementRequest.class);
+        verify(inventoryService, times(2)).recordMovement(movementCaptor.capture());
+        List<BigDecimal> quantities = movementCaptor.getAllValues().stream()
+                .map(StockMovementRequest::quantity)
+                .toList();
+        assertTrue(quantities.contains(new BigDecimal("-10")));
+        assertTrue(quantities.contains(new BigDecimal("-1")));
+        assertEquals("FULFILLED", paidReservation.getStatus());
+        assertEquals("FULFILLED", freeReservation.getStatus());
+        assertEquals("FULLY_SHIPPED", so.getShippedStatus());
+
+        Invoice mockInvoice = new Invoice();
+        mockInvoice.setId(invoiceId);
+        mockInvoice.setSalesOrderId(soId);
+        InvoiceResponse mockInvoiceResponse = buildMockInvoiceResponse(invoiceId);
+
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.SALES_REVENUE))
+                .thenReturn("4010");
+        when(invoiceService.createInvoiceFromSalesOrder(any())).thenReturn(mockInvoiceResponse);
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(mockInvoice));
+        when(invoiceService.sendInvoice(eq(invoiceId), eq(true))).thenReturn(mockInvoiceResponse);
+        when(invoiceService.getInvoiceResponse(invoiceId)).thenReturn(mockInvoiceResponse);
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        salesOrderService.convertToInvoice(soId, new ConvertToInvoiceRequest(
+                List.of(
+                        new ConvertToInvoiceRequest.InvoiceLineItem(paidLineId, new BigDecimal("10")),
+                        new ConvertToInvoiceRequest.InvoiceLineItem(freeLineId, BigDecimal.ONE))));
+
+        verify(invoiceService).sendInvoice(invoiceId, true);
+        verify(inventoryService, never()).deductStockForInvoice(any());
+    }
+
+    @Test
     void edgeCase_cannotInvoiceMoreThanShipped() {
         UUID soId = UUID.randomUUID();
         UUID soLineId = UUID.randomUUID();

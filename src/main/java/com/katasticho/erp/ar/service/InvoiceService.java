@@ -88,7 +88,7 @@ public class InvoiceService {
      */
     @Transactional
     public InvoiceResponse createInvoice(CreateInvoiceRequest request) {
-        return createInvoice(request, true);
+        return createInvoice(request, true, false);
     }
 
     /**
@@ -99,10 +99,10 @@ public class InvoiceService {
      */
     @Transactional
     public InvoiceResponse createInvoiceFromSalesOrder(CreateInvoiceRequest request) {
-        return createInvoice(request, false);
+        return createInvoice(request, false, true);
     }
 
-    private InvoiceResponse createInvoice(CreateInvoiceRequest request, boolean resolvePriceLists) {
+    private InvoiceResponse createInvoice(CreateInvoiceRequest request, boolean resolvePriceLists, boolean allowZeroAmountLines) {
         UUID orgId = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
 
@@ -183,7 +183,8 @@ public class InvoiceService {
             // Calculate line amounts
             BigDecimal grossAmount = lineReq.quantity().multiply(effectiveUnitPrice)
                     .setScale(2, RoundingMode.HALF_UP);
-            if (grossAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            boolean zeroAmountLine = grossAmount.compareTo(BigDecimal.ZERO) == 0;
+            if (grossAmount.compareTo(BigDecimal.ZERO) < 0 || (zeroAmountLine && !allowZeroAmountLines)) {
                 throw new BusinessException(
                         "Invoice line amount must be greater than zero for: " + lineReq.description(),
                         "AR_INVOICE_LINE_AMOUNT_NOT_POSITIVE",
@@ -192,7 +193,8 @@ public class InvoiceService {
             BigDecimal discountAmt = grossAmount.multiply(lineReq.discountPercent())
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             BigDecimal taxableAmount = grossAmount.subtract(discountAmt);
-            if (taxableAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            if (taxableAmount.compareTo(BigDecimal.ZERO) < 0
+                    || (taxableAmount.compareTo(BigDecimal.ZERO) == 0 && !allowZeroAmountLines)) {
                 throw new BusinessException(
                         "Invoice line taxable amount must be greater than zero for: " + lineReq.description(),
                         "AR_INVOICE_LINE_AMOUNT_NOT_POSITIVE",
