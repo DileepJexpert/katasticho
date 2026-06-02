@@ -290,6 +290,7 @@ class Routes {
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
+  final businessCapabilities = ref.watch(businessCapabilitiesProvider);
 
   return GoRouter(
     initialLocation: Routes.login,
@@ -359,8 +360,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             : Routes.caConsole;
       }
 
-      final capabilityRedirect = _capabilityRedirectForLocation(
-          loc, ref.read(businessCapabilitiesProvider));
+      final capabilityRedirect =
+          _capabilityRedirectForLocation(loc, businessCapabilities);
       if (isAuthenticated &&
           onboardingCompleted &&
           !isAuthRoute &&
