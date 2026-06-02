@@ -62,16 +62,22 @@ class DashboardConfig {
     String? industry,
     String? industryCode,
   }) {
-    final type = businessType?.toUpperCase();
-    final code = (industryCode ?? industry)?.toUpperCase();
-    final isPharma = code == 'PHARMACY' || code?.contains('PHARMA') == true;
+    final type = _normalized(businessType);
+    final code = _normalized(industryCode ?? industry);
+    final isPharma = code == 'PHARMACY' || code.contains('PHARMA');
+    final isDistributor =
+        type.contains('DISTRIBUTOR') || code.contains('DISTRIBUTOR');
+    final isManufacturer =
+        type.contains('MANUFACTURER') || code.contains('MANUFACTURER');
 
-    if (type == 'MANUFACTURER') return DashboardVertical.manufacturer;
-    if (type == 'DISTRIBUTOR' && isPharma) {
+    if (isDistributor && isPharma) {
       return DashboardVertical.pharmaDistributor;
     }
-    if (type == 'DISTRIBUTOR') return DashboardVertical.distributor;
-    if (type == 'SERVICE_PROVIDER' || type == 'SERVICES') {
+    if (isDistributor) return DashboardVertical.distributor;
+    if (isManufacturer) return DashboardVertical.manufacturer;
+    if (type == 'SERVICE_PROVIDER' ||
+        type == 'SERVICES' ||
+        code.contains('SERVICE')) {
       return DashboardVertical.service;
     }
 
@@ -99,6 +105,8 @@ class DashboardConfig {
       _ => DashboardVertical.general,
     };
   }
+
+  static String _normalized(String? value) => (value ?? '').trim().toUpperCase();
 }
 
 class KpiConfig {

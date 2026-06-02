@@ -73,12 +73,14 @@ class BusinessCapabilities {
   }
 
   factory BusinessCapabilities.fallback(AuthState auth) {
-    final type = auth.businessType?.toUpperCase();
-    final code = auth.industryCode?.toUpperCase() ?? auth.industry?.toUpperCase();
-    final isRetail = type == 'RETAILER';
-    final isDistributor = type == 'DISTRIBUTOR';
-    final isManufacturer = type == 'MANUFACTURER';
-    final isPharma = code == 'PHARMACY' || code?.contains('PHARMA') == true;
+    final type = _normalized(auth.businessType);
+    final code = _normalized(auth.industryCode ?? auth.industry);
+    final isRetail = type.contains('RETAIL') || code.contains('RETAIL');
+    final isDistributor =
+        type.contains('DISTRIBUTOR') || code.contains('DISTRIBUTOR');
+    final isManufacturer =
+        type.contains('MANUFACTURER') || code.contains('MANUFACTURER');
+    final isPharma = code == 'PHARMACY' || code.contains('PHARMA');
 
     return BusinessCapabilities(
       canUseAccounting: true,
@@ -93,6 +95,8 @@ class BusinessCapabilities {
       canUseReports: true,
     );
   }
+
+  static String _normalized(String? value) => (value ?? '').trim().toUpperCase();
 }
 
 const bool _previewAllModules =

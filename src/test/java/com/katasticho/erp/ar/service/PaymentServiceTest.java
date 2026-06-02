@@ -361,6 +361,112 @@ class PaymentServiceTest {
     }
 
     @Test
+    void recordPayment_backdatedWorkflow_setsPendingApprovalAndDoesNotPost() {
+        Invoice invoice = Invoice.builder()
+                .orgId(orgId).contactId(UUID.randomUUID())
+                .invoiceNumber("INV-2026-000010").status("SENT")
+                .totalAmount(new BigDecimal("10000.00"))
+                .amountPaid(BigDecimal.ZERO)
+                .balanceDue(new BigDecimal("10000.00"))
+                .build();
+        invoice.setId(UUID.randomUUID());
+
+        WorkflowDefinition workflow = WorkflowDefinition.builder()
+                .code("PAYMENT_BACKDATED_APPROVAL")
+                .name("Payment Backdated Approval")
+                .documentType("PAYMENT")
+                .triggerCondition("{\"field\":\"payment.daysBackdated\",\"operator\":\"GT\",\"value\":7}")
+                .active(true)
+                .build();
+        workflow.setId(UUID.randomUUID());
+        workflow.setOrgId(orgId);
+
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoice.getId(), orgId))
+                .thenReturn(Optional.of(invoice));
+        when(invoiceService.computeFiscalYear(any(LocalDate.class), anyInt())).thenReturn(2026);
+        when(invoiceService.generateNumber(eq(orgId), eq("PAY"), anyInt()))
+                .thenReturn("PAY-2026-000010");
+        when(approvalWorkflowService.findMatchingWorkflow(eq(orgId), eq("PAYMENT"), anyMap()))
+                .thenReturn(Optional.of(workflow));
+
+        var request = new RecordPaymentRequest(
+                invoice.getId(),
+                null,
+                LocalDate.now().minusDays(10),
+                new BigDecimal("5000"),
+                "BANK_TRANSFER",
+                "UTR-BACKDATED",
+                "HDFC-001",
+                "Backdated payment"
+        );
+
+        Payment result = paymentService.recordPayment(request);
+
+        assertEquals(com.katasticho.erp.ar.entity.PaymentStatus.PENDING_APPROVAL, result.getStatus());
+        assertNull(result.getJournalEntryId());
+        assertNull(result.getPostedAt());
+
+        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any());
+        verify(invoiceService, never()).updatePaymentStatus(any(), any());
+        verify(approvalWorkflowService).requestApproval(
+                eq(orgId),
+                eq(workflow),
+                eq("PAYMENT"),
+                eq(result.getId()),
+                contains("backdated"),
+                argThat(ctx -> ((Long) ctx.get("payment.daysBackdated")) >= 10L));
+    }
+
+    @Test
+    void postPayment_pendingApproval_postsJournalAndUpdatesInvoice() {
+        UUID invoiceId = UUID.randomUUID();
+        Invoice invoice = Invoice.builder()
+                .orgId(orgId).contactId(UUID.randomUUID())
+                .invoiceNumber("INV-2026-000011").status("SENT")
+                .totalAmount(new BigDecimal("10000.00"))
+                .amountPaid(BigDecimal.ZERO)
+                .balanceDue(new BigDecimal("10000.00"))
+                .build();
+        invoice.setId(invoiceId);
+
+        Payment payment = Payment.builder()
+                .orgId(orgId)
+                .contactId(invoice.getContactId())
+                .invoiceId(invoiceId)
+                .paymentNumber("PAY-PENDING")
+                .paymentDate(LocalDate.now())
+                .amount(new BigDecimal("5000"))
+                .currency("INR")
+                .baseAmount(new BigDecimal("5000"))
+                .paymentMethod("BANK_TRANSFER")
+                .status(com.katasticho.erp.ar.entity.PaymentStatus.PENDING_APPROVAL)
+                .build();
+        payment.setId(UUID.randomUUID());
+        savedPayments.put(payment.getId(), payment);
+
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
+                .thenReturn(Optional.of(invoice));
+        JournalEntry journal = JournalEntry.builder().entryNumber("JE-PAY-PENDING").status("POSTED").build();
+        journal.setId(UUID.randomUUID());
+        when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any()))
+                .thenReturn(journal);
+
+        Payment result = paymentService.postPayment(payment.getId());
+
+        assertEquals(com.katasticho.erp.ar.entity.PaymentStatus.POSTED, result.getStatus());
+        assertEquals(journal.getId(), result.getJournalEntryId());
+        assertNotNull(result.getPostedAt());
+        assertEquals(userId, result.getPostedBy());
+        verify(documentStateEngine).validateTransition(
+                eq(orgId), eq("PAYMENT"), eq("PENDING_APPROVAL"), eq("POSTED"));
+        verify(postingEngine).postPaymentReceived(
+                eq(orgId), eq("PAY-PENDING"), eq("INV-2026-000011"),
+                eq(payment.getPaymentDate()), eq(new BigDecimal("5000")), eq("BANK_TRANSFER"));
+        verify(invoiceService).updatePaymentStatus(invoice, new BigDecimal("5000"));
+    }
+
+    @Test
     void recordForInvoice_amountExceedsBalance_throws400() {
         Invoice invoice = Invoice.builder()
                 .orgId(orgId).contactId(UUID.randomUUID())
