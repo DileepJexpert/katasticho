@@ -29,6 +29,33 @@ Hold here for manual testing before new feature development. The next session sh
 3. Verify procurement flow from shortage planning to Purchase Order, draft Goods Receipt, batch/expiry/rack/cost entry, and stock receipt.
 4. Fix any test-blocking issues found during those checks before starting distributor dashboard v2, field-sales, or manufacturing work.
 
+## Resume Index - 2026-06-03
+
+Current code is pushed to remote `main` through commit `fad1012 Add POS keyboard shortcut contract`.
+
+Developed since the previous checkpoint:
+1. Workflow context hints are implemented with `WorkflowHintResolver` and `KContextHint`.
+2. Workflow hints are wired into Purchase Order, Goods Receipt create/detail, Sales Order detail, and Delivery Challan create/detail screens.
+3. Purchase Order receiving flow is clarified: PO starts a draft Goods Receipt; Goods Receipt `Receive Stock` is the only stock posting step.
+4. Sales Order dispatch flow is clarified: Sales Order starts a draft Delivery Challan; Delivery Challan `Dispatch` is the only stock deduction step; invoice creation remains the accounting step.
+5. Item stock flow is clarified: Item master creation does not create stock movement; opening stock/GRN/adjustment flows are responsible for stock.
+6. Stock summary now includes zero-stock inventory-tracked items so newly created stockable items are visible for planning.
+7. POS/global shortcut contract is documented in `docs/how-to/KEYBOARD_SHORTCUTS.md` and centralized in Flutter via `KShortcuts`.
+
+Current resume position:
+- `RESUME-DIST-2026-06-03-01`
+- Start with manual QA and hardening, not a new feature module.
+- First validation target: procurement flow from Shortage -> Purchase Order -> draft Goods Receipt -> Receive Stock, including batch, expiry, rack, purchase cost, stock summary, item detail, and accounting side effects.
+- Second validation target: Sales Order -> Delivery Challan dispatch -> Sales Invoice, including free scheme lines, stock deduction once, and invoice accounting.
+- Third validation target: workflow approval paths for Sales Order credit/overdue, Credit Note, and Payment.
+
+Still left from planned distributor-first work:
+1. Manual QA and bug fixes for the full procurement and dispatch chains.
+2. Distributor dashboard v2 only after the above flows are verified.
+3. Field-sales/mobile workflows after distributor desktop workflows are stable.
+4. Manufacturing workflows after distributor workflows are stable.
+5. Bank reconciliation hardening remains deferred; do not let it block distributor validation.
+
 ## Phase Roadmap
 
 1. Cleanup and stabilize the current distributor/pharma baseline.
