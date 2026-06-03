@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../features/onboarding/data/organisation_repository.dart';
 import '../../features/settings/data/feature_flag_repository.dart';
 import 'auth_state.dart';
 
@@ -72,6 +73,30 @@ class BusinessCapabilities {
     );
   }
 
+  factory BusinessCapabilities.fromEnabledFeaturesAndProfile(
+    Set<String> features,
+    AuthState auth,
+  ) {
+    final fromFlags = BusinessCapabilities.fromEnabledFeatures(features);
+    final fromProfile = BusinessCapabilities.fallback(auth);
+    return BusinessCapabilities(
+      canUseAccounting:
+          fromFlags.canUseAccounting || fromProfile.canUseAccounting,
+      canUseAiInbox: fromFlags.canUseAiInbox || fromProfile.canUseAiInbox,
+      canUsePos: fromFlags.canUsePos || fromProfile.canUsePos,
+      canUseInventory: fromFlags.canUseInventory || fromProfile.canUseInventory,
+      canUseDistribution:
+          fromFlags.canUseDistribution || fromProfile.canUseDistribution,
+      canUsePharma: fromFlags.canUsePharma || fromProfile.canUsePharma,
+      canUseManufacturing:
+          fromFlags.canUseManufacturing || fromProfile.canUseManufacturing,
+      canUseBatchExpiry:
+          fromFlags.canUseBatchExpiry || fromProfile.canUseBatchExpiry,
+      canUseBankRecon: fromFlags.canUseBankRecon || fromProfile.canUseBankRecon,
+      canUseReports: fromFlags.canUseReports || fromProfile.canUseReports,
+    );
+  }
+
   factory BusinessCapabilities.fallback(AuthState auth) {
     final type = _normalized(auth.businessType);
     final code = _normalized(auth.industryCode ?? auth.industry);
@@ -96,7 +121,8 @@ class BusinessCapabilities {
     );
   }
 
-  static String _normalized(String? value) => (value ?? '').trim().toUpperCase();
+  static String _normalized(String? value) =>
+      (value ?? '').trim().toUpperCase();
 }
 
 const bool _previewAllModules =
@@ -141,10 +167,17 @@ final previewAllModulesProvider =
   return PreviewAllModulesNotifier();
 });
 
-final businessCapabilitiesProvider = Provider<BusinessCapabilities>((ref) {
+final businessCapabilitiesProvider =
+    Provider.autoDispose<BusinessCapabilities>((ref) {
   final auth = ref.watch(authProvider);
   final previewAllModules = ref.watch(previewAllModulesProvider);
   final enabledFeatures = ref.watch(featureFlagsProvider).valueOrNull;
+  final orgDetails = ref.watch(orgDetailsProvider).valueOrNull;
+  final profileAuth = auth.copyWith(
+    businessType: orgDetails?['businessType'] as String?,
+    industryCode: orgDetails?['industryCode'] as String?,
+    industry: orgDetails?['industry'] as String?,
+  );
   if (!auth.isAuthenticated) {
     return BusinessCapabilities.none;
   }
@@ -152,7 +185,10 @@ final businessCapabilitiesProvider = Provider<BusinessCapabilities>((ref) {
     return BusinessCapabilities.allEnabled;
   }
   if (enabledFeatures == null || enabledFeatures.isEmpty) {
-    return BusinessCapabilities.fallback(auth);
+    return BusinessCapabilities.fallback(profileAuth);
   }
-  return BusinessCapabilities.fromEnabledFeatures(enabledFeatures);
+  return BusinessCapabilities.fromEnabledFeaturesAndProfile(
+    enabledFeatures,
+    profileAuth,
+  );
 });
