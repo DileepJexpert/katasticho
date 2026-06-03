@@ -50,21 +50,52 @@ cd flutter_app && flutter test
 - Do NOT create PRs unless explicitly asked.
 - The bulk of existing history is the user's own Codex commits (`DileepJexpert@users.noreply.github.com`) — do not rebase/reauthor them.
 
-## Known Pending Work (audit findings — fix only when asked, by number)
-1. Payment over-collection: no cap vs invoice balance (HIGH)
-2. Broken report date filter: SQL param mismatch (HIGH)
-3. No posted-payment reversal path (HIGH)
-4. Self-approval gap in workflows (HIGH)
-5. Empty drug-interaction seeds — warfarin not in salt_master (HIGH)
-6. Empty generic-substitution seeds (MEDIUM)
-7. Delivery challan: no stock validation (MEDIUM)
-8–18. Misc design/consistency issues (LOW–MEDIUM)
-
-Also pending: Flutter UI for HSN/rack/substitution masters (backend exists, no screens); Customer Indent decision (removed by Codex, replaced by sales-order backorder).
-
 ## Pharmacy Masters (already implemented backend)
 - `PharmacyMasterController` @ `/api/v1/pharmacy-masters`: manufacturers/search, hsn/search, hsn/{code}, rack-locations (GET/POST/seed-demo), substitutions, interactions/check.
 - `DrugMasterController` @ `/api/v1/drug-master`: search, {id}, salts/search.
+
+---
+
+## Known Bugs (verified 2026-06-03 — fix by number when asked)
+
+### BUG-1: Sales Register tax JOIN inflates amounts (HIGH)
+- **File:** `src/main/java/com/katasticho/erp/reporting/service/DetailedReportService.java:168-173`
+- **Problem:** `tax_line_item` is JOINed at invoice level (`source_id = i.id`) not at invoice_line level. If an invoice has 3 lines, each line gets the full invoice CGST/SGST/IGST amounts — inflating totals by 3x.
+- **Fix:** JOIN tax_line_item to invoice_line (via source_line_id), or aggregate tax at invoice level separately.
+
+### BUG-2: No posted-payment reversal path (HIGH)
+- **File:** `src/main/java/com/katasticho/erp/ar/service/PaymentService.java:222-242`
+- **Problem:** `voidPendingPayment()` only works for DRAFT/PENDING_APPROVAL status. Once a payment is POSTED (journal written, invoice balance reduced, contact outstanding updated), there is no way to reverse it. The error message says "without reversal" but no reversal method exists.
+- **Fix:** Add `reversePostedPayment()` that: creates a reverse journal, restores invoice.balanceDue, restores contact.outstanding, marks payment REVERSED.
+
+### BUG-3: Self-approval gap in workflows (HIGH)
+- **File:** `src/main/java/com/katasticho/erp/common/workflow/ApprovalWorkflowService.java:192-203`
+- **Problem:** `ensureApproverCanDecide()` checks role/userId match but never compares against `request.getRequestedBy()`. An OWNER who creates a high-value payment can approve their own request.
+- **Fix:** Add `if (step.getApproverUserId().equals(request.getRequestedBy())) throw ...` or compare against requestedBy at the decide() level.
+
+### BUG-4: Empty drug-interaction seeds (HIGH)
+- **File:** `src/main/resources/db/migration/V29__create_pharmacy_reference_masters.sql`
+- **Problem:** Drug interaction INSERT references "warfarin" via `SELECT id FROM salt_master WHERE LOWER(name) = 'warfarin'`, but warfarin is NOT in salt_master (V28 has 157 salts, none named warfarin). The INSERT silently produces zero rows. The entire drug interaction feature returns empty results.
+- **Fix:** Either add warfarin to salt_master (new migration V37) and re-seed interactions, or use salts that actually exist (e.g., aspirin, metformin) with known interaction pairs.
+
+### BUG-5: Empty generic-substitution seeds (MEDIUM)
+- **File:** `src/main/resources/db/migration/V29__create_pharmacy_reference_masters.sql`
+- **Problem:** Generic substitution INSERT references drug_master rows that may not exist or match. The feature silently returns empty results.
+- **Fix:** Seed substitutions using verified drug_master IDs from V34/V36 seed data.
+
+### BUG-6: Delivery challan dispatch — no stock validation (MEDIUM)
+- **File:** `src/main/java/com/katasticho/erp/sales/service/DeliveryChallanService.java:142-198`
+- **Problem:** `dispatch()` calls `inventoryService.recordMovement()` with negative quantity but never checks if sufficient stock exists. You can dispatch 1000 units when stock is 10 — stock goes negative silently.
+- **Fix:** Before recordMovement, check stock_balance for the item+warehouse (and batch if batch-tracked). Throw `BusinessException("Insufficient stock...", "DC_INSUFFICIENT_STOCK", BAD_REQUEST)` if short.
+
+### BUG-7: POS receipt tax split approximation (LOW)
+- **File:** `src/main/java/com/katasticho/erp/reporting/service/DetailedReportService.java:189-194`
+- **Problem:** POS tax is divided equally across all receipt lines (`sr.cgst / COUNT(lines)`). If items have different GST rates, this produces wrong per-line tax amounts in the Sales Register.
+- **Fix:** Either store per-line tax on `sales_receipt_line`, or compute line-level tax from HSN→GST mapping in the report query.
+
+### Previously reported as bugs but actually OK:
+- **Payment over-collection:** `PaymentService.java:97-102` DOES validate `amount > balanceDue` and throws `AR_PAYMENT_EXCEEDS_BALANCE`. This is correctly implemented.
+- **Report date filter params:** `DetailedReportService.java:225-226` correctly passes 10 params for 10 `?` placeholders in the UNION ALL query. No mismatch.
 
 ---
 
@@ -76,7 +107,7 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 ### Phase 0: QA & Bug Fixes (CURRENT)
 **Goal:** Stabilize existing flows before adding new features.
 **Reference:** `docs/PRODUCT_DEVELOPMENT_ROADMAP.md` (Resume Index 2026-06-03), `docs/how-to/DISTRIBUTOR_MANUAL_QA_CHECKLIST.md`
-- Fix the 7 HIGH audit findings listed above
+- Fix BUG-1 through BUG-6 listed above
 - Manual QA per the 16-section checklist:
   1. Item master + opening stock
   2. Shortage → Purchase Order
@@ -123,8 +154,8 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - Flutter: Rack location management screen (backend: POST /rack-locations, seed-demo)
 - Flutter: Generic substitution suggestions at POS checkout
 - Flutter: Drug interaction warning at prescription/POS
-- Seed real drug interaction data (current seeds are empty — warfarin not in salt_master)
-- Seed real generic substitution data
+- Seed real drug interaction data (current seeds are empty — see BUG-4)
+- Seed real generic substitution data (see BUG-5)
 - Expiry settlement returns workflow
 - Near-expiry alert dashboard widget
 
@@ -201,3 +232,53 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - Do NOT build a generic rule engine. Use `org_settings` for the first policy layer.
 - Distributor capability extends existing flows — never fork them.
 - Workflow must be org-configurable, no customer-specific code branches.
+
+---
+
+## Existing Test Files (for reference)
+Backend tests exist in `src/test/java/com/katasticho/erp/`:
+- `sales/SalesCycleTest.java` — full SO→DC→Invoice cycle
+- `sales/service/DeliveryChallanServiceTest.java` — DC dispatch, batch carry
+- `sales/service/SalesOrderServiceTest.java` — SO creation, validation
+- `sales/service/SalesOrderWorkflowHandlerTest.java` — approval transitions
+- `ar/service/PaymentServiceTest.java` — payment recording
+- `ar/service/CreditNoteServiceTest.java` — credit note approval
+- `inventory/service/InventoryServiceFefoTest.java` — FEFO batch consumption
+- `inventory/service/BomServiceTest.java` — BOM explosion
+- `inventory/service/UomServiceTest.java` — UoM conversion
+- `procurement/service/StockReceiptServiceTest.java` — GRN receive stock
+- `common/workflow/ApprovalWorkflowServiceTest.java` — workflow engine
+- `accounting/service/JournalServiceTest.java` — journal posting
+- `reporting/service/DetailedReportService` — no test file (needs one)
+
+## Existing Service Files (key ones)
+- `ar/service/PaymentService.java` — payment recording, posting, voiding
+- `ar/service/InvoiceService.java` — invoice CRUD, posting, SO→Invoice conversion
+- `ar/service/CreditNoteService.java` — credit note with approval workflow
+- `sales/service/SalesOrderService.java` — SO CRUD, credit/overdue checks, scheme application
+- `sales/service/DeliveryChallanService.java` — DC CRUD, dispatch (stock deduction)
+- `procurement/service/PurchaseOrderService.java` — PO CRUD, GRN creation
+- `procurement/service/StockReceiptService.java` — GRN receive stock (batch, expiry, rack, cost)
+- `inventory/service/InventoryService.java` — single stock movement gate
+- `inventory/service/PharmacyMasterService.java` — HSN, manufacturer, rack, substitution, interaction
+- `inventory/service/DrugMasterService.java` — drug/salt search
+- `common/workflow/ApprovalWorkflowService.java` — workflow engine (approve/reject)
+- `pricing/service/PriceListService.java` — price list resolution
+- `pricing/service/SchemeService.java` — scheme lookup and application
+- `reporting/service/DetailedReportService.java` — cash flow, journal register, sales/purchase register, customer statement
+- `reporting/service/InventoryReportService.java` — stock summary, movements, low-stock alert
+
+## Doc Files Index
+| Doc | Purpose | Read when |
+|-----|---------|-----------|
+| `docs/PRODUCT_DEVELOPMENT_ROADMAP.md` | Master roadmap, resume checkpoints, active decisions | Starting any new phase |
+| `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` | Why distributor-first, gap analysis, phase sequencing | Questioning product direction |
+| `docs/how-to/DISTRIBUTOR_MANUAL_QA_CHECKLIST.md` | 16-section QA checklist with corner cases | Phase 0 QA work |
+| `docs/architecture/inventory-feature-gap.md` | Zoho parity gap analysis, sprint 26-30 schema sketches | Phase 2 inventory work |
+| `docs/REPORTS_IMPLEMENTATION_STATUS.md` | Which reports exist, endpoints, what's missing | Phase 4 reports work |
+| `docs/REPORTS_P0_SPECIFICATION.md` | Detailed SQL/DTO specs for all 14 reports | Implementing a report |
+| `docs/PAYROLL_IMPLEMENTATION_SPEC.md` | Full payroll spec: tables, APIs, Flutter screens, accounting | Phase 5 payroll work |
+| `docs/AI_APPROACH_AND_ROADMAP.md` | AI architecture: tables, agents, safety rules, 7 phases | Phase 6 AI work |
+| `docs/PARTNER_NETWORK_MODULE_PLAN.md` | B2B ordering: data model, flows, 10 implementation phases | Phase 8 partner network |
+| `docs/WORKFLOW_CONTEXT_HINTS_PLAN.md` | Context hints: resolver, widget, hint text per vertical | Adding workflow hints |
+| `docs/plans/week-2-ap-module.md` | AP module spec (already implemented) | Debugging AP flows |

@@ -29,7 +29,32 @@ Hold here for manual testing before new feature development. The next session sh
 3. Verify procurement flow from shortage planning to Purchase Order, draft Goods Receipt, batch/expiry/rack/cost entry, and stock receipt.
 4. Fix any test-blocking issues found during those checks before starting distributor dashboard v2, field-sales, or manufacturing work.
 
-## Resume Index - 2026-06-03
+## Resume Index - 2026-06-03 (Claude Code)
+
+Switched from OpenAI Codex to Claude Code. Full codebase audit completed.
+Branch: `claude/erp-requirements-doc-g0o1P` (matches main + CLAUDE.md).
+
+### Verified Bugs (fix before new features)
+See CLAUDE.md "Known Bugs" section for exact file paths and line numbers:
+- BUG-1: Sales Register tax JOIN inflates amounts (tax at invoice level, not line level)
+- BUG-2: No posted-payment reversal (voidPendingPayment only handles DRAFT/PENDING)
+- BUG-3: Self-approval gap (ensureApproverCanDecide doesn't check requestedBy)
+- BUG-4: Empty drug-interaction seeds (warfarin not in salt_master)
+- BUG-5: Empty generic-substitution seeds
+- BUG-6: DC dispatch has no stock validation (can dispatch more than available)
+- BUG-7: POS receipt tax split approximation (divides tax equally across lines)
+
+### What was previously reported as bugs but is actually OK
+- Payment over-collection: PaymentService.java:97-102 correctly validates amount > balanceDue
+- Report date filter params: UNION ALL query has correct 10-for-10 parameter binding
+
+### Current resume position
+- `RESUME-CLAUDE-CODE-2026-06-03`
+- Phase 0 (QA & Bug Fixes) is active. Fix BUG-1 through BUG-6 first.
+- Then run 16-section QA checklist from `docs/how-to/DISTRIBUTOR_MANUAL_QA_CHECKLIST.md`.
+- Do NOT start Phase 1 until Phase 0 is complete.
+
+## Resume Index - 2026-06-03 (Codex)
 
 Current code is pushed to remote `main` through distributor flow hardening work.
 
