@@ -150,6 +150,7 @@ public class ApprovalWorkflowService {
                         HttpStatus.BAD_REQUEST));
 
         ensureApproverCanDecide(currentStep);
+        ensureRequesterCannotApproveOwnRequest(request);
 
         approvalDecisionRepository.save(ApprovalDecision.builder()
                 .approvalRequest(request)
@@ -193,12 +194,25 @@ public class ApprovalWorkflowService {
         UUID userId = TenantContext.getCurrentUserId();
         String role = TenantContext.getCurrentRole();
 
-        boolean userMatches = step.getApproverUserId() != null && step.getApproverUserId().equals(userId);
-        boolean roleMatches = step.getApproverRole() != null && step.getApproverRole().equals(role);
+        if (step.getApproverUserId() != null) {
+            if (!step.getApproverUserId().equals(userId)) {
+                throw new BusinessException("You are not allowed to approve this step",
+                        "WORKFLOW_APPROVER_FORBIDDEN", HttpStatus.FORBIDDEN);
+            }
+            return;
+        }
 
-        if (!userMatches && !roleMatches) {
+        if (step.getApproverRole() == null || !step.getApproverRole().equals(role)) {
             throw new BusinessException("You are not allowed to approve this step",
                     "WORKFLOW_APPROVER_FORBIDDEN", HttpStatus.FORBIDDEN);
+        }
+    }
+
+    private void ensureRequesterCannotApproveOwnRequest(ApprovalRequest request) {
+        UUID userId = TenantContext.getCurrentUserId();
+        if (request.getRequestedBy() != null && request.getRequestedBy().equals(userId)) {
+            throw new BusinessException("You cannot approve your own request",
+                    "WORKFLOW_SELF_APPROVAL_FORBIDDEN", HttpStatus.FORBIDDEN);
         }
     }
 

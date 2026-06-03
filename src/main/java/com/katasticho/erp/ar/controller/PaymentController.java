@@ -16,6 +16,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -38,6 +39,16 @@ public class PaymentController {
     public ResponseEntity<ApiResponse<PaymentResponse>> getPayment(@PathVariable UUID id) {
         Payment payment = paymentService.getPayment(id);
         return ResponseEntity.ok(ApiResponse.ok(paymentService.toResponse(payment)));
+    }
+
+    @PostMapping("/{id}/void")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<PaymentResponse>> voidPayment(
+            @PathVariable UUID id,
+            @RequestBody(required = false) Map<String, String> body) {
+        String reason = body != null ? body.getOrDefault("reason", "Voided") : "Voided";
+        Payment payment = paymentService.voidPayment(id, reason);
+        return ResponseEntity.ok(ApiResponse.ok(paymentService.toResponse(payment), "Payment voided"));
     }
 
     @GetMapping

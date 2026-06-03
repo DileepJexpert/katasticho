@@ -36,7 +36,7 @@ public interface DeliveryChallanRepository extends JpaRepository<DeliveryChallan
           AND dc.isDeleted = false
           AND so.isDeleted = false
           AND dc.status IN ('DISPATCHED','DELIVERED')
-          AND so.invoicedStatus <> 'INVOICED'
+          AND so.invoicedStatus <> 'FULLY_INVOICED'
         ORDER BY dc.dispatchDate ASC NULLS LAST, dc.challanDate ASC
         """)
     List<DeliveryChallan> findDispatchedNotFullyInvoiced(@Param("orgId") UUID orgId);
