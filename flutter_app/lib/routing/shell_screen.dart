@@ -387,6 +387,16 @@ const _reportsGroup = NavGroup(
         activeIcon: Icons.receipt_long_rounded,
         route: '/reports/operational/sales-register'),
     NavItem(
+        label: 'Pending Dispatch',
+        icon: Icons.local_shipping_outlined,
+        activeIcon: Icons.local_shipping_rounded,
+        route: '/reports/operational/pending-dispatch'),
+    NavItem(
+        label: 'Challan Not Invoiced',
+        icon: Icons.assignment_late_outlined,
+        activeIcon: Icons.assignment_late_rounded,
+        route: '/reports/operational/challan-not-invoiced'),
+    NavItem(
         label: 'Purchase Register',
         icon: Icons.receipt_outlined,
         activeIcon: Icons.receipt_rounded,
@@ -913,6 +923,8 @@ bool _isNavItemVisible(String route, BusinessCapabilities capabilities) {
       route == Routes.ageingReport ||
       route == Routes.apAgeingReport ||
       route == '/reports/operational/sales-register' ||
+      route == '/reports/operational/pending-dispatch' ||
+      route == '/reports/operational/challan-not-invoiced' ||
       route == '/reports/operational/purchase-register' ||
       route == '/reports/operational/daily-sales') {
     return capabilities.canUseReports;

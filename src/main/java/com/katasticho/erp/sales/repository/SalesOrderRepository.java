@@ -42,6 +42,16 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID> {
                                           Pageable pageable);
 
     @Query("""
+        SELECT so FROM SalesOrder so
+        WHERE so.orgId = :orgId
+          AND so.status IN ('CONFIRMED','BACKORDER','PARTIALLY_SHIPPED')
+          AND so.shippedStatus <> 'SHIPPED'
+          AND so.isDeleted = false
+        ORDER BY so.expectedShipmentDate ASC NULLS LAST, so.orderDate ASC
+        """)
+    List<SalesOrder> findPendingDispatch(@Param("orgId") UUID orgId);
+
+    @Query("""
         SELECT COUNT(so) FROM SalesOrder so
         WHERE so.orgId = :orgId
           AND so.status IN ('CONFIRMED','BACKORDER')

@@ -103,4 +103,16 @@ public class FinancialReportController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         return ResponseEntity.ok(ApiResponse.ok(operationalReportService.stockMovement(startDate, endDate)));
     }
+
+    @GetMapping("/pending-dispatch")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<OperationalReportResponse>> getPendingDispatch() {
+        return ResponseEntity.ok(ApiResponse.ok(operationalReportService.pendingDispatch()));
+    }
+
+    @GetMapping("/challan-not-invoiced")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<OperationalReportResponse>> getChallanNotInvoiced() {
+        return ResponseEntity.ok(ApiResponse.ok(operationalReportService.challanNotInvoiced()));
+    }
 }

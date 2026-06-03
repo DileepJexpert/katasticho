@@ -4,6 +4,8 @@ import com.katasticho.erp.sales.entity.DeliveryChallan;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -26,4 +28,16 @@ public interface DeliveryChallanRepository extends JpaRepository<DeliveryChallan
     int countBySalesOrderIdAndIsDeletedFalse(UUID salesOrderId);
 
     long countByOrgIdAndStatusAndIsDeletedFalse(UUID orgId, String status);
+
+    @Query("""
+        SELECT dc FROM DeliveryChallan dc
+        JOIN SalesOrder so ON so.id = dc.salesOrderId
+        WHERE dc.orgId = :orgId
+          AND dc.isDeleted = false
+          AND so.isDeleted = false
+          AND dc.status IN ('DISPATCHED','DELIVERED')
+          AND so.invoicedStatus <> 'INVOICED'
+        ORDER BY dc.dispatchDate ASC NULLS LAST, dc.challanDate ASC
+        """)
+    List<DeliveryChallan> findDispatchedNotFullyInvoiced(@Param("orgId") UUID orgId);
 }

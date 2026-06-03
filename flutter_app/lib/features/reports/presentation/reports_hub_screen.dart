@@ -149,10 +149,33 @@ List<_ReportGroupData> _reportGroups(BuildContext context) => [
         title: 'Sales & Receivables',
         reports: [
           _ReportLink(
+            icon: Icons.local_shipping_outlined,
+            title: 'Pending Dispatch',
+            color: KColors.warning,
+            onTap: () => _openOperational(
+              context,
+              'pending-dispatch',
+              'Pending Dispatch',
+              dateRange: false,
+            ),
+          ),
+          _ReportLink(
+            icon: Icons.receipt_long_outlined,
+            title: 'Challan Not Invoiced',
+            color: KColors.error,
+            onTap: () => _openOperational(
+              context,
+              'challan-not-invoiced',
+              'Challan Not Invoiced',
+              dateRange: false,
+            ),
+          ),
+          _ReportLink(
             icon: Icons.point_of_sale_outlined,
             title: 'Daily Sales',
             color: KColors.success,
-            onTap: () => _openOperational(context, 'daily-sales', 'Daily Sales'),
+            onTap: () =>
+                _openOperational(context, 'daily-sales', 'Daily Sales'),
           ),
           _ReportLink(
             icon: Icons.receipt_long_outlined,

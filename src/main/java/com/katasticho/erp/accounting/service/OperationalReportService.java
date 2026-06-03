@@ -25,6 +25,10 @@ import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.pos.entity.SalesReceipt;
 import com.katasticho.erp.pos.repository.SalesReceiptRepository;
+import com.katasticho.erp.sales.entity.DeliveryChallan;
+import com.katasticho.erp.sales.entity.SalesOrder;
+import com.katasticho.erp.sales.repository.DeliveryChallanRepository;
+import com.katasticho.erp.sales.repository.SalesOrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -49,6 +53,8 @@ public class OperationalReportService {
     private final ItemRepository itemRepository;
     private final WarehouseRepository warehouseRepository;
     private final StockBatchRepository stockBatchRepository;
+    private final SalesOrderRepository salesOrderRepository;
+    private final DeliveryChallanRepository deliveryChallanRepository;
 
     public OperationalReportResponse salesRegister(LocalDate startDate, LocalDate endDate) {
         Context ctx = context();
@@ -334,6 +340,97 @@ public class OperationalReportService {
                         col("type", "Type", "text"), col("quantity", "Qty", "number"),
                         col("unitCost", "Unit Cost", "currency"), col("totalCost", "Total Cost", "currency"),
                         col("reference", "Reference", "text")),
+                rows);
+    }
+
+    public OperationalReportResponse pendingDispatch() {
+        Context ctx = context();
+        List<SalesOrder> orders = salesOrderRepository.findPendingDispatch(ctx.orgId());
+        Map<UUID, String> contacts = contactNames(ctx.orgId(), orders.stream().map(SalesOrder::getContactId).toList());
+
+        LocalDate today = LocalDate.now();
+        List<Map<String, Object>> rows = orders.stream()
+                .map(so -> {
+                    LocalDate expected = so.getExpectedShipmentDate();
+                    long daysWaiting = so.getOrderDate() == null ? 0 : java.time.temporal.ChronoUnit.DAYS.between(so.getOrderDate(), today);
+                    return row(
+                            "orderDate", so.getOrderDate(),
+                            "expectedShipment", expected,
+                            "orderNumber", so.getSalesorderNumber(),
+                            "customer", contacts.getOrDefault(so.getContactId(), "Unknown"),
+                            "status", so.getStatus(),
+                            "shippedStatus", so.getShippedStatus(),
+                            "invoicedStatus", so.getInvoicedStatus(),
+                            "total", nz(so.getTotal()),
+                            "daysWaiting", BigDecimal.valueOf(Math.max(daysWaiting, 0)),
+                            "sourceId", so.getId()
+                    );
+                })
+                .toList();
+
+        long overdue = orders.stream()
+                .filter(so -> so.getExpectedShipmentDate() != null && so.getExpectedShipmentDate().isBefore(today))
+                .count();
+
+        return response("pending-dispatch", "Pending Dispatch",
+                "Confirmed and backorder sales orders still waiting for dispatch.",
+                today, today, ctx.currency(),
+                metrics(metric("orders", "Orders", BigDecimal.valueOf(orders.size()), "number"),
+                        metric("overdue", "Past Expected Date", BigDecimal.valueOf(overdue), "number"),
+                        metric("value", "Order Value", sum(orders, SalesOrder::getTotal), "currency")),
+                columns(col("orderDate", "Order Date", "date"), col("expectedShipment", "Expected", "date"),
+                        col("orderNumber", "Sales Order", "text"), col("customer", "Customer", "text"),
+                        col("status", "Status", "status"), col("shippedStatus", "Shipment", "status"),
+                        col("invoicedStatus", "Invoice", "status"), col("total", "Total", "currency"),
+                        col("daysWaiting", "Days", "number")),
+                rows);
+    }
+
+    public OperationalReportResponse challanNotInvoiced() {
+        Context ctx = context();
+        List<DeliveryChallan> challans = deliveryChallanRepository.findDispatchedNotFullyInvoiced(ctx.orgId());
+        Map<UUID, String> contacts = contactNames(ctx.orgId(), challans.stream().map(DeliveryChallan::getContactId).toList());
+        Map<UUID, SalesOrder> salesOrders = salesOrderRepository.findAllById(
+                        challans.stream().map(DeliveryChallan::getSalesOrderId).filter(Objects::nonNull).toList())
+                .stream()
+                .collect(Collectors.toMap(SalesOrder::getId, Function.identity()));
+
+        LocalDate today = LocalDate.now();
+        List<Map<String, Object>> rows = challans.stream()
+                .map(dc -> {
+                    SalesOrder so = salesOrders.get(dc.getSalesOrderId());
+                    LocalDate dispatchDate = dc.getDispatchDate() != null ? dc.getDispatchDate() : dc.getChallanDate();
+                    long daysOpen = dispatchDate == null ? 0 : java.time.temporal.ChronoUnit.DAYS.between(dispatchDate, today);
+                    return row(
+                            "challanDate", dc.getChallanDate(),
+                            "dispatchDate", dc.getDispatchDate(),
+                            "challanNumber", dc.getChallanNumber(),
+                            "salesOrder", so == null ? null : so.getSalesorderNumber(),
+                            "customer", contacts.getOrDefault(dc.getContactId(), "Unknown"),
+                            "challanStatus", dc.getStatus(),
+                            "invoiceStatus", so == null ? "Unknown" : so.getInvoicedStatus(),
+                            "orderTotal", so == null ? BigDecimal.ZERO : nz(so.getTotal()),
+                            "daysOpen", BigDecimal.valueOf(Math.max(daysOpen, 0)),
+                            "sourceId", dc.getId()
+                    );
+                })
+                .toList();
+
+        BigDecimal orderValue = salesOrders.values().stream()
+                .map(SalesOrder::getTotal)
+                .map(OperationalReportService::nz)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return response("challan-not-invoiced", "Challan Not Invoiced",
+                "Dispatched or delivered challans whose linked sales orders are not fully invoiced.",
+                today, today, ctx.currency(),
+                metrics(metric("challans", "Challans", BigDecimal.valueOf(challans.size()), "number"),
+                        metric("value", "Linked SO Value", orderValue, "currency")),
+                columns(col("challanDate", "Challan Date", "date"), col("dispatchDate", "Dispatch Date", "date"),
+                        col("challanNumber", "Challan", "text"), col("salesOrder", "Sales Order", "text"),
+                        col("customer", "Customer", "text"), col("challanStatus", "Challan Status", "status"),
+                        col("invoiceStatus", "Invoice Status", "status"), col("orderTotal", "SO Total", "currency"),
+                        col("daysOpen", "Days", "number")),
                 rows);
     }
 
