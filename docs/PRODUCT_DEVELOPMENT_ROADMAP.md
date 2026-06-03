@@ -60,6 +60,8 @@ Hardening added after this checkpoint:
 1. GRN receive tests now assert backorder fulfilment notification runs once per unique received item.
 2. Delivery Challan dispatch tests now assert selected batch id is carried into the stock movement.
 3. POS search tests now assert rack code is returned for counter staff when an item has a rack location.
+4. Sales invoice posting skips zero-value scheme/free revenue rows while still posting free-goods cost to COGS/inventory.
+5. Sales Order partial invoicing after full shipment is covered so status remains `PARTIALLY_INVOICED` until all shipped quantity is billed.
 
 ## Phase Roadmap
 

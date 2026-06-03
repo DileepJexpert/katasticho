@@ -52,6 +52,10 @@ public class SalesInvoicePostingRule implements PostingRuleStrategy {
                 null, null));
 
         for (InvoiceLine line : invoice.getLines()) {
+            if (line.getTaxableAmount() == null
+                    || line.getTaxableAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
             lines.add(new JournalLineRequest(
                     line.getAccountCode(),
                     BigDecimal.ZERO, line.getTaxableAmount(),

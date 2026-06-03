@@ -819,6 +819,62 @@ class SalesOrderServiceTest {
     }
 
     @Test
+    void convertToInvoice_partialInvoiceAfterFullShipment_keepsPartiallyInvoicedStatus() {
+        UUID soId = UUID.randomUUID();
+        UUID soLineId = UUID.randomUUID();
+        UUID invoiceId = UUID.randomUUID();
+
+        SalesOrderLine line = SalesOrderLine.builder()
+                .lineNumber(1)
+                .itemId(itemId)
+                .description("Widget A")
+                .quantity(new BigDecimal("20"))
+                .rate(new BigDecimal("100.00"))
+                .discountPct(BigDecimal.ZERO)
+                .taxRate(BigDecimal.ZERO)
+                .build();
+        line.setId(soLineId);
+        line.setQuantityShipped(new BigDecimal("20"));
+        line.setQuantityInvoiced(BigDecimal.ZERO);
+
+        SalesOrder so = SalesOrder.builder()
+                .contactId(contactId)
+                .orderDate(LocalDate.now())
+                .build();
+        so.setId(soId);
+        so.setOrgId(orgId);
+        so.setStatus("SHIPPED");
+        so.setShippedStatus("FULLY_SHIPPED");
+        so.setInvoicedStatus("NOT_INVOICED");
+        so.addLine(line);
+
+        Invoice invoice = new Invoice();
+        invoice.setId(invoiceId);
+
+        when(salesOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(soId, orgId))
+                .thenReturn(Optional.of(so));
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.SALES_REVENUE))
+                .thenReturn("4010");
+        when(invoiceService.createInvoiceFromSalesOrder(any()))
+                .thenReturn(mockInvoiceResponse(invoiceId));
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(invoiceService.sendInvoice(invoiceId, true)).thenReturn(mockInvoiceResponse(invoiceId));
+        when(invoiceService.getInvoiceResponse(invoiceId)).thenReturn(mockInvoiceResponse(invoiceId));
+
+        var request = new com.katasticho.erp.sales.dto.ConvertToInvoiceRequest(
+                List.of(new com.katasticho.erp.sales.dto.ConvertToInvoiceRequest.InvoiceLineItem(
+                        soLineId, new BigDecimal("8"))));
+
+        salesOrderService.convertToInvoice(soId, request);
+
+        assertEquals(0, new BigDecimal("8").compareTo(line.getQuantityInvoiced()));
+        assertEquals("PARTIALLY_INVOICED", so.getInvoicedStatus());
+        assertEquals("PARTIALLY_INVOICED", so.getStatus());
+        verify(invoiceService).sendInvoice(invoiceId, true);
+    }
+
+    @Test
     void convertToInvoice_requestExceedsShippedQuantity_throwsBusinessException() {
         UUID soId = UUID.randomUUID();
         UUID soLineId = UUID.randomUUID();

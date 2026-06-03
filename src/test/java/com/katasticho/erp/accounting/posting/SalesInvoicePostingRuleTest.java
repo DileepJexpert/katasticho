@@ -129,6 +129,82 @@ class SalesInvoicePostingRuleTest {
     }
 
     @Test
+    void schemeFreeLineSkipsZeroRevenueButIncludesFreeItemCostInCogs() {
+        UUID orgId = UUID.randomUUID();
+        UUID invoiceId = UUID.randomUUID();
+        UUID paidItemId = UUID.randomUUID();
+        UUID freeItemId = UUID.randomUUID();
+
+        Invoice invoice = Invoice.builder()
+                .id(invoiceId)
+                .orgId(orgId)
+                .invoiceNumber("INV-FREE")
+                .invoiceDate(LocalDate.of(2026, 5, 13))
+                .totalAmount(new BigDecimal("1000.00"))
+                .build();
+        invoice.setLines(List.of(
+                InvoiceLine.builder()
+                        .description("Paid strip")
+                        .quantity(new BigDecimal("10.00"))
+                        .taxableAmount(new BigDecimal("1000.00"))
+                        .lineTotal(new BigDecimal("1000.00"))
+                        .accountCode("4010")
+                        .itemId(paidItemId)
+                        .build(),
+                InvoiceLine.builder()
+                        .description("Scheme free strip")
+                        .quantity(BigDecimal.ONE)
+                        .taxableAmount(BigDecimal.ZERO)
+                        .lineTotal(BigDecimal.ZERO)
+                        .accountCode("4010")
+                        .itemId(freeItemId)
+                        .build()));
+
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR)).thenReturn("1100");
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.COGS)).thenReturn("5010");
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.INVENTORY_ASSET)).thenReturn("1200");
+        when(taxLineItemRepository.findBySourceTypeAndSourceId("INVOICE", invoiceId))
+                .thenReturn(List.of());
+
+        Item paidItem = Item.builder()
+                .name("Paid strip")
+                .sku("PAID")
+                .purchasePrice(new BigDecimal("60.00"))
+                .trackInventory(true)
+                .build();
+        paidItem.setId(paidItemId);
+        Item freeItem = Item.builder()
+                .name("Free strip")
+                .sku("FREE")
+                .purchasePrice(new BigDecimal("60.00"))
+                .trackInventory(true)
+                .build();
+        freeItem.setId(freeItemId);
+        when(itemRepository.findAllById(any())).thenReturn(List.of(paidItem, freeItem));
+
+        JournalPostRequest request = rule.generate(PostingContext.salesInvoice(invoice));
+
+        assertThat(request.lines()).hasSize(4);
+        assertLine(request.lines().get(0), "1100", "1000.00", "0");
+        assertLine(request.lines().get(1), "4010", "0", "1000.00");
+        assertLine(request.lines().get(2), "5010", "660.00", "0");
+        assertLine(request.lines().get(3), "1200", "0", "660.00");
+
+        assertThat(request.lines())
+                .noneMatch(line -> line.debit().compareTo(BigDecimal.ZERO) == 0
+                        && line.credit().compareTo(BigDecimal.ZERO) == 0);
+
+        BigDecimal debit = request.lines().stream()
+                .map(JournalLineRequest::debit)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal credit = request.lines().stream()
+                .map(JournalLineRequest::credit)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(debit).isEqualByComparingTo("1660.00");
+        assertThat(credit).isEqualByComparingTo("1660.00");
+    }
+
+    @Test
     void nonInventoryInvoiceLineDoesNotPostCogsOrInventoryLedger() {
         UUID orgId = UUID.randomUUID();
         UUID invoiceId = UUID.randomUUID();
