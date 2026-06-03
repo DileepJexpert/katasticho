@@ -31,7 +31,7 @@ Hold here for manual testing before new feature development. The next session sh
 
 ## Resume Index - 2026-06-03
 
-Current code is pushed to remote `main` through commit `fad1012 Add POS keyboard shortcut contract`.
+Current code is pushed to remote `main` through distributor flow hardening work.
 
 Developed since the previous checkpoint:
 1. Workflow context hints are implemented with `WorkflowHintResolver` and `KContextHint`.
@@ -43,11 +43,11 @@ Developed since the previous checkpoint:
 7. POS/global shortcut contract is documented in `docs/how-to/KEYBOARD_SHORTCUTS.md` and centralized in Flutter via `KShortcuts`.
 
 Current resume position:
-- `RESUME-DIST-2026-06-03-01`
+- `RESUME-DIST-2026-06-03-02`
 - Start with manual QA and hardening, not a new feature module.
 - First validation target: procurement flow from Shortage -> Purchase Order -> draft Goods Receipt -> Receive Stock, including batch, expiry, rack, purchase cost, stock summary, item detail, and accounting side effects.
 - Second validation target: Sales Order -> Delivery Challan dispatch -> Sales Invoice, including free scheme lines, stock deduction once, and invoice accounting.
-- Third validation target: workflow approval paths for Sales Order credit/overdue, Credit Note, and Payment.
+- Third validation target: manual workflow approval QA for Sales Order credit/overdue, Credit Note, and Payment. Backend decision/posting side effects are covered by focused tests.
 
 Still left from planned distributor-first work:
 1. Manual QA and bug fixes for the full procurement and dispatch chains.
@@ -62,6 +62,7 @@ Hardening added after this checkpoint:
 3. POS search tests now assert rack code is returned for counter staff when an item has a rack location.
 4. Sales invoice posting skips zero-value scheme/free revenue rows while still posting free-goods cost to COGS/inventory.
 5. Sales Order partial invoicing after full shipment is covered so status remains `PARTIALLY_INVOICED` until all shipped quantity is billed.
+6. Workflow approval hardening now covers Sales Order approval/rejection transitions, payment rejection without accounting or invoice side effects, and approved invoice-linked Credit Notes applying AR only after approval.
 
 ## Phase Roadmap
 

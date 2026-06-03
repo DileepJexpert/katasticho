@@ -467,6 +467,39 @@ class PaymentServiceTest {
     }
 
     @Test
+    void voidPendingPayment_pendingApprovalVoidsWithoutPostingOrInvoiceUpdate() {
+        UUID invoiceId = UUID.randomUUID();
+        Payment payment = Payment.builder()
+                .orgId(orgId)
+                .contactId(UUID.randomUUID())
+                .invoiceId(invoiceId)
+                .paymentNumber("PAY-PENDING-VOID")
+                .paymentDate(LocalDate.now())
+                .amount(new BigDecimal("5000"))
+                .currency("INR")
+                .baseAmount(new BigDecimal("5000"))
+                .paymentMethod("BANK_TRANSFER")
+                .status(com.katasticho.erp.ar.entity.PaymentStatus.PENDING_APPROVAL)
+                .build();
+        payment.setId(UUID.randomUUID());
+        savedPayments.put(payment.getId(), payment);
+
+        Payment result = paymentService.voidPendingPayment(payment.getId(), "Approval rejected");
+
+        assertEquals(com.katasticho.erp.ar.entity.PaymentStatus.VOIDED, result.getStatus());
+        assertEquals("Approval rejected", result.getVoidReason());
+        assertNotNull(result.getVoidedAt());
+        assertEquals(userId, result.getVoidedBy());
+        assertNull(result.getJournalEntryId());
+
+        verify(documentStateEngine).validateTransition(
+                eq(orgId), eq("PAYMENT"), eq("PENDING_APPROVAL"), eq("VOIDED"));
+        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any());
+        verify(invoiceRepository, never()).findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId);
+        verify(invoiceService, never()).updatePaymentStatus(any(), any());
+    }
+
+    @Test
     void recordForInvoice_amountExceedsBalance_throws400() {
         Invoice invoice = Invoice.builder()
                 .orgId(orgId).contactId(UUID.randomUUID())

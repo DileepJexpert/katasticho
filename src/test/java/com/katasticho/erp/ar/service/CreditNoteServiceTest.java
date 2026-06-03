@@ -261,4 +261,48 @@ class CreditNoteServiceTest {
         assertEquals(mockJournal.getId(), result.getJournalEntryId());
         verify(postingEngine).postCreditNote(pendingCn);
     }
+
+    @Test
+    void issueApprovedCreditNote_withLinkedInvoiceAppliesCreditOnlyAfterApproval() {
+        UUID invoiceId = UUID.randomUUID();
+        Invoice invoice = Invoice.builder()
+                .orgId(orgId)
+                .contactId(contact.getId())
+                .invoiceNumber("INV-2026-000012")
+                .status("SENT")
+                .totalAmount(new BigDecimal("10000.00"))
+                .amountPaid(BigDecimal.ZERO)
+                .balanceDue(new BigDecimal("10000.00"))
+                .build();
+        invoice.setId(invoiceId);
+
+        CreditNote pendingCn = CreditNote.builder()
+                .orgId(orgId)
+                .contactId(contact.getId())
+                .invoiceId(invoiceId)
+                .creditNoteNumber("CN-2026-000012")
+                .creditNoteDate(LocalDate.of(2026, 4, 15))
+                .status("PENDING_APPROVAL")
+                .totalAmount(new BigDecimal("2500.00"))
+                .build();
+        pendingCn.setId(UUID.randomUUID());
+
+        JournalEntry mockJournal = JournalEntry.builder().entryNumber("JE-2026-000005").build();
+        mockJournal.setId(UUID.randomUUID());
+
+        when(creditNoteRepository.findByIdAndOrgIdAndIsDeletedFalse(pendingCn.getId(), orgId))
+                .thenReturn(Optional.of(pendingCn));
+        when(postingEngine.postCreditNote(pendingCn)).thenReturn(mockJournal);
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(creditNoteRepository.save(any(CreditNote.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CreditNote result = creditNoteService.issueApprovedCreditNote(pendingCn.getId());
+
+        assertEquals("APPLIED", result.getStatus());
+        assertEquals(mockJournal.getId(), result.getJournalEntryId());
+        verify(documentStateEngine).validateTransition(
+                eq(orgId), eq("CREDIT_NOTE"), eq("PENDING_APPROVAL"), eq("ISSUED"));
+        verify(postingEngine).postCreditNote(pendingCn);
+        verify(invoiceService).updatePaymentStatus(invoice, new BigDecimal("2500.00"));
+    }
 }
