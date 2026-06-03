@@ -143,7 +143,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           await Future.delayed(const Duration(milliseconds: 200));
         },
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -152,7 +152,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 userName: authState.userName ?? 'User',
                 orgName: authState.orgName ?? 'Your Business',
               ),
-              KSpacing.vGapMd,
+              const SizedBox(height: 10),
               if (isCashier)
                 _CashierDashboard(isDesktop: isDesktop)
               else if (isRetail)
@@ -665,7 +665,7 @@ class _DistributorDashboard extends StatelessWidget {
             _BusinessActionPanel(title: actionTitle, actions: quickActions),
           ],
         ],
-        KSpacing.vGapMd,
+        const SizedBox(height: 10),
         _KpiGrid(
           kpis: config.kpis,
           isDesktop: isDesktop,
@@ -673,10 +673,10 @@ class _DistributorDashboard extends StatelessWidget {
           onToggleAging: onToggleAging,
         ),
         if (capabilities.canUseDistribution) ...[
-          KSpacing.vGapMd,
+          const SizedBox(height: 10),
           const SoAlertsCard(),
         ],
-        KSpacing.vGapMd,
+        const SizedBox(height: 10),
         if (isDesktop)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -687,10 +687,10 @@ class _DistributorDashboard extends StatelessWidget {
                   children: [
                     const SalesChartWidget(),
                     if (capabilities.canUseInventory) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
                       const LowStockWidget(),
                       if (_isPharma && capabilities.canUseBatchExpiry) ...[
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 10),
                         const ExpiringSoonWidget(),
                       ],
                     ],
@@ -704,16 +704,16 @@ class _DistributorDashboard extends StatelessWidget {
                   children: [
                     if (capabilities.canUseAccounting) ...[
                       const OutstandingReceivableCard(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
                       const OverdueInvoicesWidget(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
                       const BillsToPayCard(),
                     ],
                     if (!_isPharma && capabilities.canUseInventory) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
                       const ExpiringSoonWidget(),
                     ],
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                     const TopSellingWidget(),
                   ],
                 ),
@@ -914,7 +914,7 @@ class _GreetingStrip extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(KSpacing.radiusLg),
@@ -923,15 +923,15 @@ class _GreetingStrip extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 30,
+            height: 30,
             decoration: BoxDecoration(
               color: cs.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.waving_hand_rounded, size: 18, color: cs.primary),
+            child: Icon(Icons.waving_hand_rounded, size: 16, color: cs.primary),
           ),
-          KSpacing.hGapMd,
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1019,7 +1019,7 @@ class _KpiGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cols = isDesktop ? 4 : 2;
-    final tileH = isDesktop ? 112.0 : 116.0;
+    final tileH = isDesktop ? 92.0 : 108.0;
     final todaySalesAsync = ref.watch(todaySalesProvider);
     final apSummaryAsync = ref.watch(apSummaryProvider);
     final arSummaryAsync = ref.watch(arSummaryProvider);

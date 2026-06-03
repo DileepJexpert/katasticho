@@ -68,8 +68,7 @@ class BusinessCommandCenter extends ConsumerWidget {
           data: (v) {
             final ready = (v['confirmedCount'] as num?)?.toInt() ?? 0;
             final backorder = (v['backorderCount'] as num?)?.toInt() ?? 0;
-            final partial =
-                (v['partiallyShippedCount'] as num?)?.toInt() ?? 0;
+            final partial = (v['partiallyShippedCount'] as num?)?.toInt() ?? 0;
             final draftChallans =
                 (v['draftChallanCount'] as num?)?.toInt() ?? 0;
             final dispatched =
@@ -442,7 +441,7 @@ class _CommandCenterShell extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(KSpacing.radiusLg),
@@ -454,15 +453,15 @@ class _CommandCenterShell extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 38,
-                height: 38,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.11),
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: accent, size: 20),
+                child: Icon(icon, color: accent, size: 17),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -472,6 +471,7 @@ class _CommandCenterShell extends StatelessWidget {
                       style: KTypography.h4.copyWith(
                         color: cs.onSurface,
                         fontWeight: FontWeight.w800,
+                        fontSize: 16,
                       ),
                     ),
                     Text(
@@ -487,7 +487,7 @@ class _CommandCenterShell extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           if (isDesktop)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,20 +497,20 @@ class _CommandCenterShell extends StatelessWidget {
                   child: Row(
                     children: [
                       for (var i = 0; i < signals.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 10),
+                        if (i > 0) const SizedBox(width: 8),
                         Expanded(child: signals[i]),
                       ],
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(flex: 2, child: insight),
               ],
             )
           else ...[
             Wrap(
-              spacing: 10,
-              runSpacing: 10,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 for (final signal in signals)
                   SizedBox(
@@ -521,7 +521,7 @@ class _CommandCenterShell extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             insight,
           ],
         ],
@@ -572,8 +572,8 @@ class _CommandSignal extends StatelessWidget {
       borderRadius: BorderRadius.circular(KSpacing.radiusMd),
       onTap: route == null ? null : () => context.go(route!),
       child: Container(
-        height: 104,
-        padding: const EdgeInsets.all(11),
+        height: 82,
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.055),
           borderRadius: BorderRadius.circular(KSpacing.radiusMd),
@@ -585,23 +585,23 @@ class _CommandSignal extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 28,
-                  height: 28,
+                  width: 24,
+                  height: 24,
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: loading
                       ? const Padding(
-                          padding: EdgeInsets.all(7),
+                          padding: EdgeInsets.all(6),
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Icon(icon, color: color, size: 16),
+                      : Icon(icon, color: color, size: 14),
                 ),
                 const Spacer(),
                 if (route != null)
                   Icon(Icons.arrow_forward_rounded,
-                      size: 15, color: cs.onSurfaceVariant),
+                      size: 14, color: cs.onSurfaceVariant),
               ],
             ),
             const Spacer(),
@@ -609,7 +609,7 @@ class _CommandSignal extends StatelessWidget {
               value,
               style: KTypography.amountMedium.copyWith(
                 color: cs.onSurface,
-                fontSize: 18,
+                fontSize: 16,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -758,8 +758,8 @@ class _InsightCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return Container(
-      height: 104,
-      padding: const EdgeInsets.all(12),
+      height: 82,
+      padding: const EdgeInsets.all(9),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.38),
         borderRadius: BorderRadius.circular(KSpacing.radiusMd),
@@ -781,15 +781,15 @@ class _InsightCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Expanded(
             child: Text(
               message,
               style: KTypography.bodySmall.copyWith(
                 color: cs.onSurface,
-                height: 1.25,
+                height: 1.18,
               ),
-              maxLines: 3,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ),
