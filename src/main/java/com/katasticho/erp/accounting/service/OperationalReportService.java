@@ -207,19 +207,46 @@ public class OperationalReportService {
 
     public OperationalReportResponse stockSummary() {
         Context ctx = context();
+        List<Item> trackableItems = itemRepository.findByOrgIdAndIsDeletedFalseAndTrackInventoryTrue(ctx.orgId())
+                .stream()
+                .filter(Item::isActive)
+                .toList();
         List<StockBalance> balances = stockBalanceRepository.findByOrgIdOrderByLastMovementAtDesc(ctx.orgId());
-        Map<UUID, Item> items = itemMap(ctx.orgId(), balances.stream().map(StockBalance::getItemId).toList());
         Map<UUID, Warehouse> warehouses = warehouseMap(balances.stream().map(StockBalance::getWarehouseId).toList());
+        Warehouse defaultWarehouse = warehouseRepository
+                .findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(ctx.orgId())
+                .orElse(null);
 
-        List<Map<String, Object>> rows = balances.stream()
-                .map(b -> {
-                    Item item = items.get(b.getItemId());
+        Map<UUID, List<StockBalance>> balancesByItem = balances.stream()
+                .collect(Collectors.groupingBy(StockBalance::getItemId));
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Item item : trackableItems) {
+            List<StockBalance> itemBalances = balancesByItem.getOrDefault(item.getId(), List.of());
+            if (itemBalances.isEmpty()) {
+                BigDecimal reorderLevel = nz(item.getReorderLevel());
+                rows.add(row(
+                        "sku", item.getSku(),
+                        "item", item.getName(),
+                        "warehouse", defaultWarehouse == null ? "Default" : defaultWarehouse.getName(),
+                        "onHand", BigDecimal.ZERO,
+                        "reserved", BigDecimal.ZERO,
+                        "available", BigDecimal.ZERO,
+                        "averageCost", nz(item.getPurchasePrice()),
+                        "stockValue", BigDecimal.ZERO,
+                        "reorderLevel", reorderLevel,
+                        "lowStock", reorderLevel.compareTo(BigDecimal.ZERO) > 0 ? "Yes" : "No"
+                ));
+                continue;
+            }
+
+            for (StockBalance b : itemBalances) {
                     Warehouse wh = warehouses.get(b.getWarehouseId());
                     BigDecimal stockValue = nz(b.getQuantityOnHand()).multiply(nz(b.getAverageCost()));
-                    BigDecimal reorderLevel = item == null ? BigDecimal.ZERO : nz(item.getReorderLevel());
-                    return row(
-                            "sku", item == null ? "--" : item.getSku(),
-                            "item", item == null ? "Unknown" : item.getName(),
+                    BigDecimal reorderLevel = nz(item.getReorderLevel());
+                    rows.add(row(
+                            "sku", item.getSku(),
+                            "item", item.getName(),
                             "warehouse", wh == null ? "Unknown" : wh.getName(),
                             "onHand", nz(b.getQuantityOnHand()),
                             "reserved", nz(b.getReservedQty()),
@@ -228,9 +255,9 @@ public class OperationalReportService {
                             "stockValue", stockValue,
                             "reorderLevel", reorderLevel,
                             "lowStock", nz(b.getQuantityOnHand()).compareTo(reorderLevel) <= 0 ? "Yes" : "No"
-                    );
-                })
-                .toList();
+                    ));
+            }
+        }
 
         BigDecimal value = rows.stream()
                 .map(r -> (BigDecimal) r.get("stockValue"))

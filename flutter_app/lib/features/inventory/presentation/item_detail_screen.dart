@@ -436,7 +436,7 @@ class _ItemDetailBody extends ConsumerWidget {
           if (trackInventory) ...[
             Text('Recent Movements', style: KTypography.h3),
             KSpacing.vGapSm,
-            _MovementsList(itemId: itemId),
+            _MovementsList(itemId: itemId, itemName: name),
           ],
           KSpacing.vGapXl,
         ],
@@ -486,7 +486,8 @@ class _ItemDetailBody extends ConsumerWidget {
 
 class _MovementsList extends ConsumerWidget {
   final String itemId;
-  const _MovementsList({required this.itemId});
+  final String itemName;
+  const _MovementsList({required this.itemId, required this.itemName});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -515,14 +516,42 @@ class _MovementsList extends ConsumerWidget {
 
         if (movements.isEmpty) {
           return KCard(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(
-                  'No stock movements yet',
+            title: 'No stock movements yet',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'This item master exists, but no physical stock has entered or left the system yet.',
                   style: KTypography.bodySmall,
                 ),
-              ),
+                KSpacing.vGapSm,
+                Text(
+                  'Use Goods Receipt to receive supplier stock. Use Adjust only for corrections or setup stock that was missed during item creation.',
+                  style: KTypography.bodySmall.copyWith(
+                    color: KColors.textSecondary,
+                  ),
+                ),
+                KSpacing.vGapMd,
+                Wrap(
+                  spacing: KSpacing.sm,
+                  runSpacing: KSpacing.sm,
+                  children: [
+                    KButton(
+                      label: 'Create Goods Receipt',
+                      icon: Icons.inventory_2_outlined,
+                      size: KButtonSize.small,
+                      onPressed: () => context.go(Routes.stockReceiptCreate),
+                    ),
+                    KButton(
+                      label: 'Adjust',
+                      icon: Icons.tune,
+                      variant: KButtonVariant.outlined,
+                      size: KButtonSize.small,
+                      onPressed: () => _openAdjustSheet(context, ref),
+                    ),
+                  ],
+                ),
+              ],
             ),
           );
         }
@@ -538,6 +567,20 @@ class _MovementsList extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+
+  void _openAdjustSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => StockAdjustSheet(
+        itemId: itemId,
+        itemName: itemName,
+        onSaved: () {
+          ref.invalidate(itemDetailProvider(itemId));
+        },
+      ),
     );
   }
 }

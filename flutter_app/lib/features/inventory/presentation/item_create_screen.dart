@@ -1261,6 +1261,24 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                       icon: Icons.inventory_2_outlined,
                       initiallyExpanded: false,
                       children: [
+                        KCard(
+                          padding: const EdgeInsets.all(KSpacing.sm),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.info_outline,
+                                  size: 18, color: KColors.primary),
+                              KSpacing.hGapSm,
+                              Expanded(
+                                child: Text(
+                                  'This page creates the product master. Opening stock is only for initial setup stock already in the business. New supplier stock should be received through Purchase Order -> Goods Receipt.',
+                                  style: KTypography.bodySmall,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        KSpacing.vGapSm,
                         SwitchListTile.adaptive(
                           contentPadding: EdgeInsets.zero,
                           dense: true,
@@ -1302,6 +1320,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                             KTextField(
                               label: 'Opening Stock',
                               controller: _openingStockController,
+                              hint: 'Initial setup stock only',
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                       decimal: true),
