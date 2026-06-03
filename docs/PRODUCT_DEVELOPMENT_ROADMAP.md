@@ -121,6 +121,7 @@ Hardening added after this checkpoint:
 
 - Workflow context hints: `docs/WORKFLOW_CONTEXT_HINTS_PLAN.md`
 - Future partner network/B2B ordering module: `docs/PARTNER_NETWORK_MODULE_PLAN.md`
+- Distributor manual QA checklist: `docs/how-to/DISTRIBUTOR_MANUAL_QA_CHECKLIST.md`
 
 ## Next Implementation Task
 
