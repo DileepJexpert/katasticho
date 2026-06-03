@@ -248,6 +248,55 @@ class StockReceiptServiceTest {
         assertEquals(0, new BigDecimal("24.50").compareTo(crocin.getPurchasePrice()));
         verify(itemRepository).save(crocin);
         verify(itemRepository, never()).save(paracetamol);
+        verify(salesOrderService).onStockReceived(orgId, paracetamol.getId(), defaultWarehouse.getId());
+        verify(salesOrderService).onStockReceived(orgId, crocin.getId(), defaultWarehouse.getId());
+    }
+
+    @Test
+    void receive_duplicateItemLines_triggersBackorderFulfilmentOncePerItem() {
+        StockReceipt draft = StockReceipt.builder()
+                .orgId(orgId)
+                .receiptNumber("GRN-2026-000002")
+                .receiptDate(LocalDate.of(2026, 4, 13))
+                .warehouseId(defaultWarehouse.getId())
+                .supplierId(supplier.getId())
+                .status("DRAFT")
+                .currency("INR")
+                .subtotal(new BigDecimal("3000.00"))
+                .taxAmount(BigDecimal.ZERO)
+                .totalAmount(new BigDecimal("3000.00"))
+                .build();
+        draft.setId(UUID.randomUUID());
+
+        var line1 = com.katasticho.erp.procurement.entity.StockReceiptLine.builder()
+                .lineNumber(1).itemId(paracetamol.getId()).description("Paracetamol 500mg")
+                .quantity(new BigDecimal("100")).unitOfMeasure("STRIP")
+                .unitPrice(new BigDecimal("10")).taxableAmount(new BigDecimal("1000"))
+                .gstRate(BigDecimal.ZERO).taxAmount(BigDecimal.ZERO)
+                .lineTotal(new BigDecimal("1000")).build();
+        var line2 = com.katasticho.erp.procurement.entity.StockReceiptLine.builder()
+                .lineNumber(2).itemId(paracetamol.getId()).description("Paracetamol 500mg")
+                .quantity(new BigDecimal("200")).unitOfMeasure("STRIP")
+                .unitPrice(new BigDecimal("10")).taxableAmount(new BigDecimal("2000"))
+                .gstRate(BigDecimal.ZERO).taxAmount(BigDecimal.ZERO)
+                .lineTotal(new BigDecimal("2000")).build();
+        draft.addLine(line1);
+        draft.addLine(line2);
+
+        when(receiptRepository.findByIdAndOrgIdAndIsDeletedFalse(draft.getId(), orgId))
+                .thenReturn(Optional.of(draft));
+        when(receiptRepository.save(any(StockReceipt.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(paracetamol.getId(), orgId))
+                .thenReturn(Optional.of(paracetamol));
+        when(inventoryService.recordMovement(any(StockMovementRequest.class)))
+                .thenReturn(StockMovement.builder().itemId(paracetamol.getId()).build());
+        when(itemRepository.findAllById(anyIterable())).thenReturn(List.of(paracetamol));
+
+        stockReceiptService.receive(draft.getId());
+
+        verify(inventoryService, times(2)).recordMovement(any(StockMovementRequest.class));
+        verify(salesOrderService, times(1))
+                .onStockReceived(orgId, paracetamol.getId(), defaultWarehouse.getId());
     }
 
     // T-GRN-03: Receive on a non-DRAFT receipt is rejected

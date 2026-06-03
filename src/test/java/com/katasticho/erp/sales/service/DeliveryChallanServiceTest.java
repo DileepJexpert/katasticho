@@ -121,6 +121,7 @@ class DeliveryChallanServiceTest {
     void dispatch_draftChallan_deductsStockAndFulfillsReservation() {
         UUID challanId = UUID.randomUUID();
         UUID soLineId = UUID.randomUUID();
+        UUID batchId = UUID.randomUUID();
 
         SalesOrderLine soLine = SalesOrderLine.builder()
                 .lineNumber(1)
@@ -146,6 +147,7 @@ class DeliveryChallanServiceTest {
                 .itemId(itemId)
                 .salesOrderLineId(soLineId)
                 .quantity(new BigDecimal("10"))
+                .batchId(batchId)
                 .build();
         challanLine.setId(UUID.randomUUID());
 
@@ -192,6 +194,7 @@ class DeliveryChallanServiceTest {
         assertEquals(itemId, move.itemId());
         assertEquals(warehouseId, move.warehouseId());
         assertEquals(0, new BigDecimal("-10").compareTo(move.quantity()));
+        assertEquals(batchId, move.batchId());
 
         // Reservation marked fulfilled
         assertEquals("FULFILLED", reservation.getStatus());

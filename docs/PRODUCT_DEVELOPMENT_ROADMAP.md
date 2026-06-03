@@ -56,6 +56,11 @@ Still left from planned distributor-first work:
 4. Manufacturing workflows after distributor workflows are stable.
 5. Bank reconciliation hardening remains deferred; do not let it block distributor validation.
 
+Hardening added after this checkpoint:
+1. GRN receive tests now assert backorder fulfilment notification runs once per unique received item.
+2. Delivery Challan dispatch tests now assert selected batch id is carried into the stock movement.
+3. POS search tests now assert rack code is returned for counter staff when an item has a rack location.
+
 ## Phase Roadmap
 
 1. Cleanup and stabilize the current distributor/pharma baseline.
