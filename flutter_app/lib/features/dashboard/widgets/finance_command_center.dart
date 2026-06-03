@@ -569,15 +569,15 @@ class _CommandSignal extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return InkWell(
-      borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+      borderRadius: BorderRadius.circular(KSpacing.radiusSm),
       onTap: route == null ? null : () => context.go(route!),
       child: Container(
-        height: 82,
-        padding: const EdgeInsets.all(8),
+        height: 96,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.055),
-          borderRadius: BorderRadius.circular(KSpacing.radiusMd),
-          border: Border.all(color: color.withValues(alpha: 0.14)),
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+          border: Border.all(color: Colors.transparent),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
