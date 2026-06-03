@@ -267,11 +267,6 @@ const _inventoryGroup = NavGroup(
         activeIcon: Icons.grid_view_rounded,
         route: Routes.rackLocations),
     NavItem(
-        label: 'Goods Receipts',
-        icon: Icons.local_shipping_outlined,
-        activeIcon: Icons.local_shipping_rounded,
-        route: Routes.stockReceipts),
-    NavItem(
         label: 'Price Lists',
         icon: Icons.sell_outlined,
         activeIcon: Icons.sell_rounded,
@@ -882,8 +877,7 @@ bool _isNavItemVisible(String route, BusinessCapabilities capabilities) {
   if (route == Routes.deliveryChallans) {
     return capabilities.canUseDistribution;
   }
-  if (route == Routes.drugLicenses ||
-      route == Routes.prescriptionHistory) {
+  if (route == Routes.drugLicenses || route == Routes.prescriptionHistory) {
     return capabilities.canUsePharma;
   }
   if (route == Routes.nearExpiry) return capabilities.canUseBatchExpiry;
