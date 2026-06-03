@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../commands/command_registry.dart';
+import '../shortcuts/k_shortcuts.dart';
 import '../shell/shell_providers.dart';
 import '../theme/k_spacing.dart';
 import '../theme/k_typography.dart';
@@ -136,7 +137,7 @@ class KTopBar extends ConsumerWidget implements PreferredSizeWidget {
                                   color: cs.outlineVariant, width: 1),
                             ),
                             child: Text(
-                              'Ctrl K',
+                              KShortcuts.commandPalette,
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,

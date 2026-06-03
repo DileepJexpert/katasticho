@@ -11,7 +11,6 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../routing/app_router.dart';
 import '../data/pos_cart_state.dart';
 import '../data/pos_held_carts.dart';
 import '../data/pos_recent_transactions.dart';
@@ -32,6 +31,7 @@ import 'widgets/pos_recent_transactions.dart';
 import 'widgets/pos_recent_bills.dart';
 import 'widgets/pos_weight_popup.dart';
 import '../../inventory/data/batch_repository.dart';
+import '../../../core/shortcuts/k_shortcuts.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../pricing/data/scheme_repository.dart';
 import '../../../core/auth/auth_state.dart';
@@ -1013,21 +1013,21 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
-    final isCtrl = HardwareKeyboard.instance.isControlPressed;
+    final hasModifier = KShortcuts.isControlOrMetaPressed();
 
-    if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyF) {
+    if (hasModifier && event.logicalKey == LogicalKeyboardKey.keyF) {
       _searchFocusNode.requestFocus();
       return KeyEventResult.handled;
     }
 
     // Ctrl+Enter → complete sale with current payment mode
-    if (isCtrl && event.logicalKey == LogicalKeyboardKey.enter) {
+    if (hasModifier && event.logicalKey == LogicalKeyboardKey.enter) {
       final cart = ref.read(posCartProvider);
       if (!cart.isEmpty) _onPaymentTap(cart.paymentMode);
       return KeyEventResult.handled;
     }
 
-    if (isCtrl && event.logicalKey == LogicalKeyboardKey.delete) {
+    if (hasModifier && event.logicalKey == LogicalKeyboardKey.delete) {
       ref.read(posCartProvider.notifier).clear();
       _searchFocusNode.requestFocus();
       return KeyEventResult.handled;
@@ -1096,7 +1096,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       IconButton(
         onPressed: _scanBarcode,
         icon: const Icon(Icons.qr_code_scanner, size: 20),
-        tooltip: 'Scan barcode (F7)',
+        tooltip: 'Scan barcode (${KShortcuts.posScan})',
       ),
       IconButton(
         onPressed: _showRecentTransactions,
@@ -1340,13 +1340,22 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   Wrap(
                     spacing: 16,
                     children: [
-                      Text('F1 Cash', style: _shortcutStyle),
-                      Text('F2 UPI', style: _shortcutStyle),
-                      Text('F3 Card', style: _shortcutStyle),
-                      Text('F4 Hold', style: _shortcutStyle),
-                      Text('F5 Recall', style: _shortcutStyle),
-                      Text('F6 Split', style: _shortcutStyle),
-                      Text('F7 Scan', style: _shortcutStyle),
+                      Text('${KShortcuts.posSearch} Search',
+                          style: _shortcutStyle),
+                      Text('${KShortcuts.posCash} Cash',
+                          style: _shortcutStyle),
+                      Text('${KShortcuts.posUpi} UPI',
+                          style: _shortcutStyle),
+                      Text('${KShortcuts.posCard} Card',
+                          style: _shortcutStyle),
+                      Text('${KShortcuts.posHold} Hold',
+                          style: _shortcutStyle),
+                      Text('${KShortcuts.posRecall} Recall',
+                          style: _shortcutStyle),
+                      Text('${KShortcuts.posSplit} Split',
+                          style: _shortcutStyle),
+                      Text('${KShortcuts.posScan} Scan',
+                          style: _shortcutStyle),
                     ],
                   ),
                 ],

@@ -7,6 +7,7 @@ import '../core/auth/business_capabilities.dart';
 import '../core/auth/auth_state.dart';
 import '../core/commands/command_registry.dart';
 import '../core/shell/shell_providers.dart';
+import '../core/shortcuts/k_shortcuts.dart';
 import '../core/theme/k_colors.dart';
 import '../core/theme/k_spacing.dart';
 import '../core/widgets/k_assistant_fab.dart';
@@ -470,12 +471,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
   bool _handleKey(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
     if (event.logicalKey != LogicalKeyboardKey.keyK) return false;
-    final pressed = HardwareKeyboard.instance.logicalKeysPressed;
-    final mod = pressed.contains(LogicalKeyboardKey.controlLeft) ||
-        pressed.contains(LogicalKeyboardKey.controlRight) ||
-        pressed.contains(LogicalKeyboardKey.metaLeft) ||
-        pressed.contains(LogicalKeyboardKey.metaRight);
-    if (!mod) return false;
+    if (!KShortcuts.isControlOrMetaPressed()) return false;
     KCommandPalette.show(context, commands: buildAppCommands());
     return true;
   }

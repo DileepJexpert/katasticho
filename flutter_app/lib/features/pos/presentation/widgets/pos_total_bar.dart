@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/k_colors.dart';
+import '../../../../core/shortcuts/k_shortcuts.dart';
 import '../../../../core/theme/k_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../data/pos_cart_state.dart';
@@ -160,7 +161,7 @@ class PosTotalBar extends ConsumerWidget {
                   child: _PaymentButton(
                     icon: Icons.payments_outlined,
                     label: 'Cash',
-                    shortcut: 'F1',
+                    shortcut: KShortcuts.posCash,
                     color: KColors.success,
                     isSelected: cart.paymentMode == 'CASH',
                     onTap: cart.isEmpty ? null : onCashTap,
@@ -171,7 +172,7 @@ class PosTotalBar extends ConsumerWidget {
                   child: _PaymentButton(
                     icon: Icons.qr_code_2,
                     label: 'UPI',
-                    shortcut: 'F2',
+                    shortcut: KShortcuts.posUpi,
                     color: KColors.primary,
                     isSelected: cart.paymentMode == 'UPI',
                     onTap: cart.isEmpty ? null : onUpiTap,
@@ -182,7 +183,7 @@ class PosTotalBar extends ConsumerWidget {
                   child: _PaymentButton(
                     icon: Icons.credit_card,
                     label: 'Card',
-                    shortcut: 'F3',
+                    shortcut: KShortcuts.posCard,
                     color: KColors.secondary,
                     isSelected: cart.paymentMode == 'CARD',
                     onTap: cart.isEmpty ? null : onCardTap,
@@ -193,7 +194,7 @@ class PosTotalBar extends ConsumerWidget {
                   child: _PaymentButton(
                     icon: Icons.call_split,
                     label: 'Split',
-                    shortcut: 'F6',
+                    shortcut: KShortcuts.posSplit,
                     color: KColors.info,
                     isSelected: false,
                     onTap: cart.isEmpty ? null : onSplitTap,
