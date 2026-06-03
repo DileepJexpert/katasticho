@@ -65,3 +65,139 @@ Also pending: Flutter UI for HSN/rack/substitution masters (backend exists, no s
 ## Pharmacy Masters (already implemented backend)
 - `PharmacyMasterController` @ `/api/v1/pharmacy-masters`: manufacturers/search, hsn/search, hsn/{code}, rack-locations (GET/POST/seed-demo), substitutions, interactions/check.
 - `DrugMasterController` @ `/api/v1/drug-master`: search, {id}, salts/search.
+
+---
+
+## Development Roadmap (follow in sequence)
+
+Product direction: **Distributor-first ERP** → Pharma pack → FMCG pack → Manufacturing-lite.
+See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
+
+### Phase 0: QA & Bug Fixes (CURRENT)
+**Goal:** Stabilize existing flows before adding new features.
+**Reference:** `docs/PRODUCT_DEVELOPMENT_ROADMAP.md` (Resume Index 2026-06-03), `docs/how-to/DISTRIBUTOR_MANUAL_QA_CHECKLIST.md`
+- Fix the 7 HIGH audit findings listed above
+- Manual QA per the 16-section checklist:
+  1. Item master + opening stock
+  2. Shortage → Purchase Order
+  3. PO → draft Goods Receipt
+  4. GRN → Receive Stock (batch, expiry, rack, cost)
+  5. POS search + rack visibility
+  6. Sales Order creation
+  7. SO credit/overdue controls
+  8. SO schemes (percent discount, buy-x-get-y)
+  9. SO → Delivery Challan
+  10. DC dispatch (stock deduction)
+  11. DC → Sales Invoice (no duplicate stock movement)
+  12. Payment + collection
+  13. Credit Note approval
+  14. Dashboard + reports
+  15. Browser/session switching
+  16. Full regression pass
+
+### Phase 1: Distributor Core Hardening
+**Goal:** Rock-solid SO→DC→Invoice and PO→GRN→Receive flows.
+**Reference:** `docs/PRODUCT_DEVELOPMENT_ROADMAP.md` (Phase Roadmap items 1-7)
+- Distributor dashboard v2 (backend endpoints where existing widgets fall short)
+- Distributor operational reports: Pending Dispatch, Challan Not Invoiced (partially done)
+- Credit control: WARN/BLOCK/APPROVAL_REQUIRED per policy
+- Scheme application: MANUAL/AUTO/DISABLED modes (backend done, need E2E Flutter QA)
+- Pricing: price-list resolution on SO and Invoice, rate preservation on SO→Invoice conversion
+- Payment approval workflow E2E
+- Credit Note approval E2E
+
+### Phase 2: Inventory Feature Parity
+**Goal:** Match Zoho Inventory feature surface using existing architecture.
+**Reference:** `docs/architecture/inventory-feature-gap.md`
+- **Sprint 26:** Batch-aware selling — FEFO consumption on invoice, expiry alert job, damaged-stock UI
+- **Sprint 27:** Physical count (bulk stock count form + commit), serial number tracking, barcode scan
+- **Sprint 28:** Composite items / BOM (auto-deduction on sale), item variants/groups
+- **Sprint 29:** Price list enhancements, UoM + conversion, optional FIFO costing per batch
+- **Sprint 30:** Multi-warehouse live, transfer orders, picklist generation
+
+### Phase 3: Pharma Domain Pack
+**Goal:** Complete pharma-specific features on top of distributor core.
+**Reference:** Backend already exists in `PharmacyMasterService`. Flutter UI is missing.
+- Flutter: HSN→GST auto-fill in item/invoice forms
+- Flutter: Manufacturer autocomplete in item creation
+- Flutter: Rack location management screen (backend: POST /rack-locations, seed-demo)
+- Flutter: Generic substitution suggestions at POS checkout
+- Flutter: Drug interaction warning at prescription/POS
+- Seed real drug interaction data (current seeds are empty — warfarin not in salt_master)
+- Seed real generic substitution data
+- Expiry settlement returns workflow
+- Near-expiry alert dashboard widget
+
+### Phase 4: Reports Completion
+**Goal:** Finish remaining reports + Flutter UI for all reports.
+**Reference:** `docs/REPORTS_IMPLEMENTATION_STATUS.md`, `docs/REPORTS_P0_SPECIFICATION.md`
+- 10/14 P0 reports implemented (backend). Remaining:
+  - Day Book (chronological transaction log)
+  - Vendor Statement (vendor ledger)
+- Flutter report screens for all 14 reports
+- CSV/Excel export
+- Database performance indexes (see REPORTS doc)
+- AR Aging invoice-level drill-down
+
+### Phase 5: Payroll Module
+**Goal:** Indian SMB payroll with PF/ESI/PT/TDS.
+**Reference:** `docs/PAYROLL_IMPLEMENTATION_SPEC.md`
+- Gated by `PAYROLL` module flag and `salary_handling_mode` (NONE/SIMPLE_EXPENSE/FORMAL_PAYROLL)
+- 12 new tables (payroll_settings, employee, salary_component, payroll_run, payslip, etc.)
+- Backend: package `com.katasticho.erp.payroll`
+- Journal posting via existing `JournalService`, NOT direct ledger writes
+- Flutter: 11 screens (dashboard, settings wizard, employees, salary structure, payroll runs, payslips, payments, statutory, reports)
+
+### Phase 6: AI Foundation
+**Goal:** Cross-cutting AI decision layer (observe → suggest → review → learn).
+**Reference:** `docs/AI_APPROACH_AND_ROADMAP.md`
+- Phase 1: `ai_suggestions`, `domain_events`, `ai_patterns`, `ai_training_examples` tables + backend
+- Phase 2: Rule-based agents (anomaly, GST compliance, inventory intelligence) — no external AI calls
+- Phase 3: Flutter AI Inbox (accept/reject/modify suggestions)
+- Phase 4: Pattern learning from reviewed suggestions
+- Phase 5: AI assistant endpoint (`POST /api/v1/ai/assistant`)
+- Phase 6: Selective business table AI summary fields
+- Phase 7: External AI / MCP integrations
+- **Safety:** AI must never directly post journals, change stock, or file GST. All through existing services.
+
+### Phase 7: FMCG Field Execution Pack
+**Goal:** Route/beat/van workflows for FMCG distributors.
+**Reference:** `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` (Gap #3)
+- Beat/route planning
+- Van stock, loading, unloading
+- Day-close wizard
+- Salesman incentive workflows
+- Route collections
+- Secondary-sales dashboards
+- Likely new modules, but on top of existing sales/inventory/accounting core
+
+### Phase 8: Partner Network (B2B Ordering)
+**Goal:** Connected B2B trade network within the same product.
+**Reference:** `docs/PARTNER_NETWORK_MODULE_PLAN.md`
+- Package: `com.katasticho.erp.partnernetwork`, Flutter: `features/partner_network`
+- Trading partner request/approval, published catalog, supplier search from Shortage
+- Linked buyer PO ↔ seller incoming B2B order → SO → DC → Invoice
+- Must call existing services (PurchaseOrderService, SalesOrderService, etc.) — no direct stock/accounting writes
+- 10 implementation phases detailed in the plan doc
+
+### Phase 9: Manufacturing-Lite
+**Goal:** Limited finished-goods / BOM extension. NOT full MRP.
+**Reference:** `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` (Phase 4)
+- Work orders, issue to production, finished goods completion
+- WIP tracking, production costing
+- Only after distributor workflows are fully stable
+
+---
+
+## Key Architecture Decisions (from docs)
+- Customer Indent is removed. Sales Order with backorder is the customer demand flow.
+- PO does NOT post stock. PO → draft GRN → GRN "Receive Stock" is the only stock posting step.
+- SO does NOT post stock. SO → draft DC → DC "Dispatch" is the only stock deduction step.
+- DC does NOT post accounting. DC → Invoice → Invoice posting is the accounting step.
+- Invoice posting from SO path must NOT deduct stock again (already deducted at DC dispatch).
+- Composite item stock = derived from min buildable count across components. Composite never gets its own stock movement.
+- Stock movements are append-only (`stock_movement`). Corrections use REVERSE entries, never UPDATE/DELETE.
+- `stock_balance` is a derived cache, rebuildable from the ledger.
+- Do NOT build a generic rule engine. Use `org_settings` for the first policy layer.
+- Distributor capability extends existing flows — never fork them.
+- Workflow must be org-configurable, no customer-specific code branches.
