@@ -119,6 +119,7 @@ Hardening added after this checkpoint:
 ## Reference Plans
 
 - Workflow context hints: `docs/WORKFLOW_CONTEXT_HINTS_PLAN.md`
+- Future partner network/B2B ordering module: `docs/PARTNER_NETWORK_MODULE_PLAN.md`
 
 ## Next Implementation Task
 
