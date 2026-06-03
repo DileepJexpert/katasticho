@@ -30,6 +30,7 @@ import '../widgets/branch_selector_widget.dart';
 import '../widgets/date_range_picker_widget.dart';
 import '../widgets/finance_command_center.dart';
 import '../widgets/so_alerts_card.dart';
+import '../../inventory/data/item_repository.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -488,6 +489,17 @@ class _AccountingDashboard extends StatelessWidget {
         config.vertical == DashboardVertical.distributor ||
             config.vertical == DashboardVertical.pharmaDistributor;
 
+    if (isDistributorVertical) {
+      return _DistributorDashboard(
+        config: config,
+        quickActions: quickActions,
+        capabilities: capabilities,
+        isDesktop: isDesktop,
+        expandedAging: expandedAging,
+        onToggleAging: onToggleAging,
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -594,6 +606,148 @@ class _AccountingDashboard extends StatelessWidget {
 //  SHARED COMPONENTS
 // ═══════════════════════════════════════════════════════════════════
 
+class _DistributorDashboard extends StatelessWidget {
+  final DashboardConfig config;
+  final List<QuickAction> quickActions;
+  final BusinessCapabilities capabilities;
+  final bool isDesktop;
+  final String? expandedAging;
+  final ValueChanged<String> onToggleAging;
+
+  const _DistributorDashboard({
+    required this.config,
+    required this.quickActions,
+    required this.capabilities,
+    required this.isDesktop,
+    required this.expandedAging,
+    required this.onToggleAging,
+  });
+
+  bool get _isPharma => config.vertical == DashboardVertical.pharmaDistributor;
+
+  @override
+  Widget build(BuildContext context) {
+    final actionTitle = _isPharma ? 'Pharma actions' : 'Distributor actions';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (isDesktop)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 7,
+                child: BusinessCommandCenter(
+                  isDesktop: isDesktop,
+                  vertical: config.vertical,
+                ),
+              ),
+              if (quickActions.isNotEmpty) ...[
+                KSpacing.hGapMd,
+                Expanded(
+                  flex: 4,
+                  child: _BusinessActionPanel(
+                    title: actionTitle,
+                    actions: quickActions,
+                  ),
+                ),
+              ],
+            ],
+          )
+        else ...[
+          BusinessCommandCenter(
+            isDesktop: isDesktop,
+            vertical: config.vertical,
+          ),
+          if (quickActions.isNotEmpty) ...[
+            KSpacing.vGapSm,
+            _BusinessActionPanel(title: actionTitle, actions: quickActions),
+          ],
+        ],
+        KSpacing.vGapMd,
+        _KpiGrid(
+          kpis: config.kpis,
+          isDesktop: isDesktop,
+          expandedAging: expandedAging,
+          onToggleAging: onToggleAging,
+        ),
+        if (capabilities.canUseDistribution) ...[
+          KSpacing.vGapMd,
+          const SoAlertsCard(),
+        ],
+        KSpacing.vGapMd,
+        if (isDesktop)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 3,
+                child: Column(
+                  children: [
+                    const SalesChartWidget(),
+                    if (capabilities.canUseInventory) ...[
+                      const SizedBox(height: 16),
+                      const LowStockWidget(),
+                      if (_isPharma && capabilities.canUseBatchExpiry) ...[
+                        const SizedBox(height: 16),
+                        const ExpiringSoonWidget(),
+                      ],
+                    ],
+                  ],
+                ),
+              ),
+              KSpacing.hGapMd,
+              Expanded(
+                flex: 2,
+                child: Column(
+                  children: [
+                    if (capabilities.canUseAccounting) ...[
+                      const OutstandingReceivableCard(),
+                      const SizedBox(height: 16),
+                      const OverdueInvoicesWidget(),
+                      const SizedBox(height: 16),
+                      const BillsToPayCard(),
+                    ],
+                    if (!_isPharma && capabilities.canUseInventory) ...[
+                      const SizedBox(height: 16),
+                      const ExpiringSoonWidget(),
+                    ],
+                    const SizedBox(height: 16),
+                    const TopSellingWidget(),
+                  ],
+                ),
+              ),
+            ],
+          )
+        else ...[
+          if (capabilities.canUseAccounting) ...[
+            const OutstandingReceivableCard(),
+            KSpacing.vGapMd,
+          ],
+          if (capabilities.canUseInventory) ...[
+            const LowStockWidget(),
+            if (capabilities.canUseBatchExpiry) ...[
+              KSpacing.vGapMd,
+              const ExpiringSoonWidget(),
+            ],
+            KSpacing.vGapMd,
+          ],
+          const SalesChartWidget(),
+          if (capabilities.canUseAccounting) ...[
+            KSpacing.vGapMd,
+            const OverdueInvoicesWidget(),
+            KSpacing.vGapMd,
+            const BillsToPayCard(),
+          ],
+          KSpacing.vGapMd,
+          const TopSellingWidget(),
+        ],
+      ],
+    );
+  }
+}
+
 class _FinanceDashboardHero extends StatelessWidget {
   final List<QuickAction> actions;
   final bool isDesktop;
@@ -650,6 +804,53 @@ class _FinanceDashboardHero extends StatelessWidget {
           child: _FinanceActionPanel(actions: actions),
         ),
       ],
+    );
+  }
+}
+
+class _BusinessActionPanel extends StatelessWidget {
+  final String title;
+  final List<QuickAction> actions;
+
+  const _BusinessActionPanel({
+    required this.title,
+    required this.actions,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: KSpacing.borderRadiusLg,
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.flash_on_rounded, size: 18, color: cs.primary),
+              KSpacing.hGapSm,
+              Expanded(
+                child: Text(
+                  title,
+                  style: KTypography.labelLarge.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const _FilterBar(compact: true),
+          const SizedBox(height: 10),
+          QuickActionGrid(actions: actions),
+        ],
+      ),
     );
   }
 }
@@ -823,6 +1024,8 @@ class _KpiGrid extends ConsumerWidget {
     final apSummaryAsync = ref.watch(apSummaryProvider);
     final arSummaryAsync = ref.watch(arSummaryProvider);
     final monthlyProfitAsync = ref.watch(monthlyProfitProvider);
+    final expiringSoonAsync = ref.watch(expiringSoonProvider);
+    final lowStockAsync = ref.watch(lowStockProvider);
 
     Widget buildTile(KpiConfig kpi) {
       if (kpi.id == 'payables') {
@@ -918,6 +1121,40 @@ class _KpiGrid extends ConsumerWidget {
             iconColor: kpi.color,
             trend: 'MTD',
           ),
+        );
+      }
+
+      if (kpi.id == 'expiring_stock') {
+        return expiringSoonAsync.when(
+          loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
+          error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '--'),
+          data: (items) => KKpiCard(
+            title: kpi.title,
+            value: '${items.length}',
+            icon: kpi.icon,
+            iconColor: kpi.color,
+            trend: items.isEmpty ? 'Clear' : '90 days',
+          ),
+        );
+      }
+
+      if (kpi.id == 'low_stock') {
+        return lowStockAsync.when(
+          loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
+          error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '--'),
+          data: (raw) {
+            final content = raw['data'] ?? raw;
+            final items = content is List
+                ? content
+                : (content is Map ? (content['content'] as List?) ?? [] : []);
+            return KKpiCard(
+              title: kpi.title,
+              value: '${items.length}',
+              icon: kpi.icon,
+              iconColor: kpi.color,
+              trend: items.isEmpty ? 'Clear' : 'Reorder',
+            );
+          },
         );
       }
 

@@ -63,6 +63,7 @@ Hardening added after this checkpoint:
 4. Sales invoice posting skips zero-value scheme/free revenue rows while still posting free-goods cost to COGS/inventory.
 5. Sales Order partial invoicing after full shipment is covered so status remains `PARTIALLY_INVOICED` until all shipped quantity is billed.
 6. Workflow approval hardening now covers Sales Order approval/rejection transitions, payment rejection without accounting or invoice side effects, and approved invoice-linked Credit Notes applying AR only after approval.
+7. Distributor dashboard v2 frontend pass has started: distributor/pharma distributor now uses a dedicated operating layout, distributor action labels, SO/DC alerts first, and real expiry/low-stock KPI values instead of zero placeholders.
 
 ## Phase Roadmap
 
