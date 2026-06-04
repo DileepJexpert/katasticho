@@ -114,6 +114,79 @@ class ApprovalWorkflowServiceTest {
     }
 
     @Test
+    void approve_rejectsSelfApprovalEvenWhenRoleMatches() {
+        WorkflowDefinition workflow = workflow();
+        ApprovalRequest request = ApprovalRequest.builder()
+                .workflowDefinition(workflow)
+                .documentType("SALES_ORDER")
+                .documentId(UUID.randomUUID())
+                .currentStep((short) 1)
+                .status(ApprovalStatus.PENDING)
+                .requestedBy(userId)
+                .build();
+        request.setId(UUID.randomUUID());
+        request.setOrgId(orgId);
+
+        WorkflowStep step = WorkflowStep.builder()
+                .workflowDefinition(workflow)
+                .stepNumber((short) 1)
+                .approverRole("OWNER")
+                .build();
+        step.setId(UUID.randomUUID());
+        step.setOrgId(orgId);
+
+        when(approvalRequestRepository.findByIdAndOrgIdAndIsDeletedFalse(request.getId(), orgId))
+                .thenReturn(Optional.of(request));
+        when(workflowStepRepository.findFirstByWorkflowDefinition_IdAndStepNumberAndIsDeletedFalse(
+                workflow.getId(), (short) 1))
+                .thenReturn(Optional.of(step));
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.approve(request.getId(), "self"));
+
+        assertEquals("WORKFLOW_SELF_APPROVAL_FORBIDDEN", ex.getErrorCode());
+        verify(approvalDecisionRepository, never()).save(any());
+        verify(handler, never()).onApproved(any());
+    }
+
+    @Test
+    void approve_specificUserStepIgnoresMatchingFallbackRole() {
+        WorkflowDefinition workflow = workflow();
+        ApprovalRequest request = ApprovalRequest.builder()
+                .workflowDefinition(workflow)
+                .documentType("SALES_ORDER")
+                .documentId(UUID.randomUUID())
+                .currentStep((short) 1)
+                .status(ApprovalStatus.PENDING)
+                .requestedBy(UUID.randomUUID())
+                .build();
+        request.setId(UUID.randomUUID());
+        request.setOrgId(orgId);
+
+        WorkflowStep step = WorkflowStep.builder()
+                .workflowDefinition(workflow)
+                .stepNumber((short) 1)
+                .approverUserId(UUID.randomUUID())
+                .approverRole("OWNER")
+                .build();
+        step.setId(UUID.randomUUID());
+        step.setOrgId(orgId);
+
+        when(approvalRequestRepository.findByIdAndOrgIdAndIsDeletedFalse(request.getId(), orgId))
+                .thenReturn(Optional.of(request));
+        when(workflowStepRepository.findFirstByWorkflowDefinition_IdAndStepNumberAndIsDeletedFalse(
+                workflow.getId(), (short) 1))
+                .thenReturn(Optional.of(step));
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.approve(request.getId(), "wrong user"));
+
+        assertEquals("WORKFLOW_APPROVER_FORBIDDEN", ex.getErrorCode());
+        verify(approvalDecisionRepository, never()).save(any());
+        verify(handler, never()).onApproved(any());
+    }
+
+    @Test
     void findForDocument_defaultsToPendingRequest() {
         WorkflowDefinition workflow = workflow();
         UUID documentId = UUID.randomUUID();

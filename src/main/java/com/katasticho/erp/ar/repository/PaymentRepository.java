@@ -1,10 +1,12 @@
 package com.katasticho.erp.ar.repository;
 
 import com.katasticho.erp.ar.entity.Payment;
+import com.katasticho.erp.ar.entity.PaymentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -24,6 +26,16 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.invoiceId = :invoiceId AND p.status = 'POSTED' AND p.isDeleted = false")
     BigDecimal sumPaymentsByInvoice(UUID invoiceId);
+
+    @Query("""
+        SELECT COALESCE(SUM(p.amount), 0) FROM Payment p
+        WHERE p.invoiceId = :invoiceId
+          AND p.status IN :statuses
+          AND p.isDeleted = false
+    """)
+    BigDecimal sumPaymentsByInvoiceAndStatuses(
+            @Param("invoiceId") UUID invoiceId,
+            @Param("statuses") List<PaymentStatus> statuses);
 
     // ─── Dashboard aggregation queries ───────────────────────────────────
 

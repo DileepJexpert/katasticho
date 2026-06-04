@@ -278,6 +278,39 @@ class PaymentServiceTest {
     }
 
     @Test
+    void recordPayment_rejectsWhenPendingApprovalAlreadyReservesBalance() {
+        Invoice invoice = Invoice.builder()
+                .orgId(orgId).contactId(UUID.randomUUID())
+                .invoiceNumber("INV-PENDING-RESERVE").status("SENT")
+                .totalAmount(new BigDecimal("1000.00"))
+                .amountPaid(BigDecimal.ZERO)
+                .balanceDue(new BigDecimal("1000.00"))
+                .build();
+        invoice.setId(UUID.randomUUID());
+
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoice.getId(), orgId))
+                .thenReturn(Optional.of(invoice));
+        when(paymentRepository.sumPaymentsByInvoiceAndStatuses(eq(invoice.getId()), anyList()))
+                .thenReturn(new BigDecimal("700.00"));
+
+        var request = new RecordPaymentRequest(
+                invoice.getId(),
+                null,
+                LocalDate.now(),
+                new BigDecimal("400.00"),
+                "CASH", null, null, null
+        );
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> paymentService.recordPayment(request));
+
+        assertEquals("AR_PAYMENT_EXCEEDS_BALANCE", ex.getErrorCode());
+        verify(paymentRepository, never()).save(any(Payment.class));
+        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     void postPayment_alreadyPosted_throwsBusinessException() {
         Payment payment = Payment.builder()
                 .orgId(orgId)
@@ -464,6 +497,89 @@ class PaymentServiceTest {
                 eq(orgId), eq("PAY-PENDING"), eq("INV-2026-000011"),
                 eq(payment.getPaymentDate()), eq(new BigDecimal("5000")), eq("BANK_TRANSFER"));
         verify(invoiceService).updatePaymentStatus(invoice, new BigDecimal("5000"));
+    }
+
+    @Test
+    void postPayment_pendingApprovalRejectsIfBalanceChangedBeforeApproval() {
+        UUID invoiceId = UUID.randomUUID();
+        Invoice invoice = Invoice.builder()
+                .orgId(orgId).contactId(UUID.randomUUID())
+                .invoiceNumber("INV-CHANGED-BAL").status("PARTIALLY_PAID")
+                .totalAmount(new BigDecimal("10000.00"))
+                .amountPaid(new BigDecimal("8000.00"))
+                .balanceDue(new BigDecimal("2000.00"))
+                .build();
+        invoice.setId(invoiceId);
+
+        Payment payment = Payment.builder()
+                .orgId(orgId)
+                .contactId(invoice.getContactId())
+                .invoiceId(invoiceId)
+                .paymentNumber("PAY-PENDING-TOO-MUCH")
+                .paymentDate(LocalDate.now())
+                .amount(new BigDecimal("5000.00"))
+                .currency("INR")
+                .baseAmount(new BigDecimal("5000.00"))
+                .paymentMethod("BANK_TRANSFER")
+                .status(com.katasticho.erp.ar.entity.PaymentStatus.PENDING_APPROVAL)
+                .build();
+        payment.setId(UUID.randomUUID());
+        savedPayments.put(payment.getId(), payment);
+
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
+                .thenReturn(Optional.of(invoice));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> paymentService.postPayment(payment.getId()));
+
+        assertEquals("AR_PAYMENT_EXCEEDS_BALANCE", ex.getErrorCode());
+        verify(documentStateEngine).validateTransition(
+                eq(orgId), eq("PAYMENT"), eq("PENDING_APPROVAL"), eq("POSTED"));
+        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any());
+        verify(invoiceService, never()).updatePaymentStatus(any(), any());
+    }
+
+    @Test
+    void voidPayment_postedPaymentReversesJournalAndBacksOutInvoiceBalance() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID journalId = UUID.randomUUID();
+        Invoice invoice = Invoice.builder()
+                .orgId(orgId).contactId(UUID.randomUUID())
+                .invoiceNumber("INV-VOID-POSTED").status("PAID")
+                .totalAmount(new BigDecimal("1000.00"))
+                .amountPaid(new BigDecimal("1000.00"))
+                .balanceDue(BigDecimal.ZERO)
+                .build();
+        invoice.setId(invoiceId);
+
+        Payment payment = Payment.builder()
+                .orgId(orgId)
+                .contactId(invoice.getContactId())
+                .invoiceId(invoiceId)
+                .paymentNumber("PAY-VOID-POSTED")
+                .paymentDate(LocalDate.now())
+                .amount(new BigDecimal("1000.00"))
+                .currency("INR")
+                .baseAmount(new BigDecimal("1000.00"))
+                .paymentMethod("CASH")
+                .journalEntryId(journalId)
+                .status(com.katasticho.erp.ar.entity.PaymentStatus.POSTED)
+                .build();
+        payment.setId(UUID.randomUUID());
+        savedPayments.put(payment.getId(), payment);
+
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
+                .thenReturn(Optional.of(invoice));
+
+        Payment result = paymentService.voidPayment(payment.getId(), "Wrong receipt");
+
+        assertEquals(com.katasticho.erp.ar.entity.PaymentStatus.VOIDED, result.getStatus());
+        assertEquals("Wrong receipt", result.getVoidReason());
+        assertNotNull(result.getVoidedAt());
+        assertEquals(userId, result.getVoidedBy());
+        verify(journalService).reverseEntry(journalId);
+        verify(invoiceService).updatePaymentStatus(invoice, new BigDecimal("-1000.00"));
+        verify(documentSnapshotService).createSnapshot(eq("PAYMENT"), eq(payment.getId()), eq("PAY-VOID-POSTED"), any());
     }
 
     @Test

@@ -511,6 +511,10 @@ public class InvoiceService {
     @Transactional
     public void updatePaymentStatus(Invoice invoice, BigDecimal paymentAmount) {
         invoice.setAmountPaid(invoice.getAmountPaid().add(paymentAmount));
+        if (invoice.getAmountPaid().compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException("Invoice paid amount cannot become negative",
+                    "AR_INVOICE_PAYMENT_REVERSAL_INVALID", HttpStatus.BAD_REQUEST);
+        }
         invoice.setBalanceDue(invoice.getTotalAmount().subtract(invoice.getAmountPaid()));
 
         if (invoice.getBalanceDue().compareTo(BigDecimal.ZERO) <= 0) {
@@ -518,6 +522,10 @@ public class InvoiceService {
             invoice.setBalanceDue(BigDecimal.ZERO);
         } else if (invoice.getAmountPaid().compareTo(BigDecimal.ZERO) > 0) {
             invoice.setStatus("PARTIALLY_PAID");
+        } else if (!"DRAFT".equals(invoice.getStatus()) && !"CANCELLED".equals(invoice.getStatus())) {
+            invoice.setStatus(invoice.getDueDate() != null && invoice.getDueDate().isBefore(LocalDate.now())
+                    ? "OVERDUE"
+                    : "SENT");
         }
 
         invoiceRepository.save(invoice);

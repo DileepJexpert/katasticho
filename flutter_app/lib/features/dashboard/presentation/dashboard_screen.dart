@@ -669,6 +669,7 @@ class _DistributorDashboard extends StatelessWidget {
         _KpiGrid(
           kpis: config.kpis,
           isDesktop: isDesktop,
+          compact: true,
           expandedAging: expandedAging,
           onToggleAging: onToggleAging,
         ),
@@ -973,6 +974,130 @@ class _GreetingStrip extends StatelessWidget {
   }
 }
 
+class _CompactKpiCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color? iconColor;
+  final String? trend;
+  final bool? trendPositive;
+  final bool showChevron;
+  final bool expanded;
+  final VoidCallback? onTap;
+
+  const _CompactKpiCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    this.iconColor,
+    this.trend,
+    this.trendPositive,
+    this.showChevron = false,
+    this.expanded = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final accent = iconColor ?? cs.primary;
+    final positive = trendPositive == true;
+    final trendColor = positive ? KColors.success : KColors.error;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.7)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Icon(icon, color: accent, size: 16),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      value,
+                      style: KTypography.amountMedium.copyWith(
+                        color: cs.onSurface,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      title,
+                      style: KTypography.labelSmall.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (trend != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  constraints: const BoxConstraints(maxWidth: 92),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: trendColor.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(KSpacing.radiusRound),
+                  ),
+                  child: Text(
+                    trend!,
+                    style: KTypography.labelSmall.copyWith(
+                      color: trendColor,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 10,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+              if (showChevron) ...[
+                const SizedBox(width: 4),
+                AnimatedRotation(
+                  turns: expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 18,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FilterBar extends ConsumerWidget {
   final bool compact;
 
@@ -1006,12 +1131,14 @@ class _FilterBar extends ConsumerWidget {
 class _KpiGrid extends ConsumerWidget {
   final List<KpiConfig> kpis;
   final bool isDesktop;
+  final bool compact;
   final String? expandedAging;
   final ValueChanged<String> onToggleAging;
 
   const _KpiGrid({
     required this.kpis,
     required this.isDesktop,
+    this.compact = false,
     required this.expandedAging,
     required this.onToggleAging,
   });
@@ -1019,7 +1146,8 @@ class _KpiGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cols = isDesktop ? 4 : 2;
-    final tileH = isDesktop ? 92.0 : 108.0;
+    final tileH =
+        compact ? (isDesktop ? 78.0 : 88.0) : (isDesktop ? 112.0 : 116.0);
     final todaySalesAsync = ref.watch(todaySalesProvider);
     final apSummaryAsync = ref.watch(apSummaryProvider);
     final arSummaryAsync = ref.watch(arSummaryProvider);
@@ -1047,7 +1175,7 @@ class _KpiGrid extends ConsumerWidget {
               trend = 'All current';
               trendPositive = true;
             }
-            return KKpiCard(
+            return _buildKpiCard(
               title: kpi.title,
               value: value,
               icon: kpi.icon,
@@ -1081,7 +1209,7 @@ class _KpiGrid extends ConsumerWidget {
               trend = 'All current';
               trendPositive = true;
             }
-            return KKpiCard(
+            return _buildKpiCard(
               title: kpi.title,
               value: value,
               icon: kpi.icon,
@@ -1100,7 +1228,7 @@ class _KpiGrid extends ConsumerWidget {
         return monthlyProfitAsync.when(
           loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
           error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
-          data: (mp) => KKpiCard(
+          data: (mp) => _buildKpiCard(
             title: kpi.title,
             value: CurrencyFormatter.formatCompact(mp.grossProfit),
             icon: kpi.icon,
@@ -1114,7 +1242,7 @@ class _KpiGrid extends ConsumerWidget {
         return monthlyProfitAsync.when(
           loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
           error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
-          data: (mp) => KKpiCard(
+          data: (mp) => _buildKpiCard(
             title: kpi.title,
             value: CurrencyFormatter.formatCompact(mp.revenue),
             icon: kpi.icon,
@@ -1128,7 +1256,7 @@ class _KpiGrid extends ConsumerWidget {
         return expiringSoonAsync.when(
           loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
           error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '--'),
-          data: (items) => KKpiCard(
+          data: (items) => _buildKpiCard(
             title: kpi.title,
             value: '${items.length}',
             icon: kpi.icon,
@@ -1147,7 +1275,7 @@ class _KpiGrid extends ConsumerWidget {
             final items = content is List
                 ? content
                 : (content is Map ? (content['content'] as List?) ?? [] : []);
-            return KKpiCard(
+            return _buildKpiCard(
               title: kpi.title,
               value: '${items.length}',
               icon: kpi.icon,
@@ -1163,7 +1291,7 @@ class _KpiGrid extends ConsumerWidget {
         error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
         data: (data) {
           final (value, trend) = _valueFor(kpi.id, data);
-          return KKpiCard(
+          return _buildKpiCard(
             title: kpi.title,
             value: value,
             icon: kpi.icon,
@@ -1230,6 +1358,43 @@ class _KpiGrid extends ConsumerWidget {
     }
 
     return Column(children: children);
+  }
+
+  Widget _buildKpiCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    Color? iconColor,
+    String? trend,
+    bool? trendPositive,
+    bool showChevron = false,
+    bool expanded = false,
+    VoidCallback? onTap,
+  }) {
+    if (compact) {
+      return _CompactKpiCard(
+        title: title,
+        value: value,
+        icon: icon,
+        iconColor: iconColor,
+        trend: trend,
+        trendPositive: trendPositive,
+        showChevron: showChevron,
+        expanded: expanded,
+        onTap: onTap,
+      );
+    }
+    return KKpiCard(
+      title: title,
+      value: value,
+      icon: icon,
+      iconColor: iconColor,
+      trend: trend,
+      trendPositive: trendPositive,
+      showChevron: showChevron,
+      expanded: expanded,
+      onTap: onTap,
+    );
   }
 
   Widget _buildAlignedPanel(int cols, int column) {

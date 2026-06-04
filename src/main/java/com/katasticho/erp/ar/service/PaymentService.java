@@ -84,8 +84,7 @@ public class PaymentService {
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
-        Invoice invoice = invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(request.invoiceId(), orgId)
-                .orElseThrow(() -> BusinessException.notFound("Invoice", request.invoiceId()));
+        Invoice invoice = findInvoiceForPayment(request.invoiceId(), orgId);
 
         // Validate invoice is payable
         if ("DRAFT".equals(invoice.getStatus()) || "CANCELLED".equals(invoice.getStatus())
@@ -95,11 +94,7 @@ public class PaymentService {
         }
 
         // Validate amount doesn't exceed balance
-        if (request.amount().compareTo(invoice.getBalanceDue()) > 0) {
-            throw new BusinessException(
-                    "Payment amount " + request.amount() + " exceeds balance due " + invoice.getBalanceDue(),
-                    "AR_PAYMENT_EXCEEDS_BALANCE", HttpStatus.BAD_REQUEST);
-        }
+        requirePaymentWithinAvailableBalance(invoice, request.amount());
 
         // Exchange rate
         BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.paymentDate());
@@ -186,12 +181,14 @@ public class PaymentService {
         }
 
         UUID invoiceId = payment.getInvoiceId();
-        Invoice invoice = invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)
-                .orElseThrow(() -> BusinessException.notFound("Invoice", invoiceId));
+        Invoice invoice = findInvoiceForPayment(invoiceId, orgId);
 
         if (payment.getStatus() == PaymentStatus.PENDING_APPROVAL) {
             documentStateEngine.validateTransition(orgId, "PAYMENT", PaymentStatus.PENDING_APPROVAL.name(), PaymentStatus.POSTED.name());
+        } else {
+            documentStateEngine.validateTransition(orgId, "PAYMENT", PaymentStatus.DRAFT.name(), PaymentStatus.POSTED.name());
         }
+        requirePaymentWithinCurrentBalance(invoice, payment.getAmount());
 
         JournalEntry journalEntry = postingEngine.postPaymentReceived(
                 orgId, payment.getPaymentNumber(), invoice.getInvoiceNumber(),
@@ -216,6 +213,51 @@ public class PaymentService {
 
         log.info("Payment {} posted: {} for invoice {}", payment.getPaymentNumber(),
                 payment.getAmount(), invoice.getInvoiceNumber());
+        return payment;
+    }
+
+    @Transactional
+    public Payment voidPayment(UUID paymentId, String reason) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        UUID userId = TenantContext.getCurrentUserId();
+        Payment payment = paymentRepository.findByIdAndOrgIdAndIsDeletedFalse(paymentId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Payment", paymentId));
+
+        if (payment.getStatus() == PaymentStatus.DRAFT || payment.getStatus() == PaymentStatus.PENDING_APPROVAL) {
+            return voidPendingPayment(paymentId, reason);
+        }
+        if (payment.getStatus() == PaymentStatus.VOIDED) {
+            throw new BusinessException("Payment " + payment.getPaymentNumber() + " is already voided",
+                    "AR_PAYMENT_ALREADY_VOIDED", HttpStatus.BAD_REQUEST);
+        }
+        if (payment.getStatus() != PaymentStatus.POSTED) {
+            throw new BusinessException("Payment " + payment.getPaymentNumber() + " cannot be voided from status " + payment.getStatus(),
+                    "AR_PAYMENT_INVALID_VOID_STATUS", HttpStatus.BAD_REQUEST);
+        }
+        if (payment.getJournalEntryId() == null) {
+            throw new BusinessException("Posted payment has no journal entry to reverse",
+                    "AR_PAYMENT_JOURNAL_MISSING", HttpStatus.BAD_REQUEST);
+        }
+
+        UUID invoiceId = payment.getInvoiceId();
+        Invoice invoice = findInvoiceForPayment(invoiceId, orgId);
+
+        journalService.reverseEntry(payment.getJournalEntryId());
+        invoiceService.updatePaymentStatus(invoice, payment.getAmount().negate());
+
+        payment.setStatus(PaymentStatus.VOIDED);
+        payment.setVoidReason(reason);
+        payment.setVoidedAt(Instant.now());
+        payment.setVoidedBy(userId);
+        payment = paymentRepository.save(payment);
+
+        commentService.addSystemComment("INVOICE", invoice.getId(),
+                "Payment of ₹" + payment.getAmount() + " voided"
+                        + (reason != null && !reason.isBlank() ? " (" + reason + ")" : ""));
+        auditService.log("PAYMENT", payment.getId(), "VOID",
+                "{\"status\":\"POSTED\"}",
+                "{\"status\":\"VOIDED\",\"reason\":\"" + (reason != null ? reason : "") + "\"}");
+        documentSnapshotService.createSnapshot("PAYMENT", payment.getId(), payment.getPaymentNumber(), toResponse(payment));
         return payment;
     }
 
@@ -256,8 +298,7 @@ public class PaymentService {
     public PaymentResponse recordForInvoice(UUID invoiceId, RecordPaymentForInvoiceRequest req) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
-        Invoice invoice = invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)
-                .orElseThrow(() -> BusinessException.notFound("Invoice", invoiceId));
+        Invoice invoice = findInvoiceForPayment(invoiceId, orgId);
 
         if (!List.of("SENT", "PARTIALLY_PAID", "OVERDUE").contains(invoice.getStatus())) {
             throw new BusinessException(
@@ -265,11 +306,7 @@ public class PaymentService {
                     "AR_INVOICE_NOT_PAYABLE", HttpStatus.BAD_REQUEST);
         }
 
-        if (req.amount().compareTo(invoice.getBalanceDue()) > 0) {
-            throw new BusinessException(
-                    "Payment amount " + req.amount() + " exceeds balance due " + invoice.getBalanceDue(),
-                    "AR_PAYMENT_EXCEEDS_BALANCE", HttpStatus.BAD_REQUEST);
-        }
+        requirePaymentWithinAvailableBalance(invoice, req.amount());
 
         RecordPaymentRequest internal = new RecordPaymentRequest(
                 invoiceId, invoice.getContactId(), req.paymentDate(), req.amount(),
@@ -313,6 +350,38 @@ public class PaymentService {
                         paymentApprovalReason(definition, payment, context),
                         context))
                 .orElseGet(PaymentApprovalDecision::none);
+    }
+
+    private Invoice findInvoiceForPayment(UUID invoiceId, UUID orgId) {
+        Optional<Invoice> locked = invoiceRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId);
+        if (locked != null && locked.isPresent()) {
+            return locked.get();
+        }
+        return invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Invoice", invoiceId));
+    }
+
+    private void requirePaymentWithinAvailableBalance(Invoice invoice, BigDecimal amount) {
+        BigDecimal pendingAmount = paymentRepository.sumPaymentsByInvoiceAndStatuses(
+                invoice.getId(), List.of(PaymentStatus.PENDING_APPROVAL));
+        if (pendingAmount == null) {
+            pendingAmount = BigDecimal.ZERO;
+        }
+        BigDecimal available = invoice.getBalanceDue().subtract(pendingAmount);
+        if (amount.compareTo(available) > 0) {
+            throw new BusinessException(
+                    "Payment amount " + amount + " exceeds available balance " + available
+                            + " after pending payments " + pendingAmount,
+                    "AR_PAYMENT_EXCEEDS_BALANCE", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void requirePaymentWithinCurrentBalance(Invoice invoice, BigDecimal amount) {
+        if (amount.compareTo(invoice.getBalanceDue()) > 0) {
+            throw new BusinessException(
+                    "Payment amount " + amount + " exceeds balance due " + invoice.getBalanceDue(),
+                    "AR_PAYMENT_EXCEEDS_BALANCE", HttpStatus.BAD_REQUEST);
+        }
     }
 
     private Map<String, Object> paymentApprovalContext(Payment payment, Invoice invoice) {
