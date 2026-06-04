@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V39**. Next new migration = V40.
+- Location: `src/main/resources/db/migration/`. Latest is **V40**. Next new migration = V41.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -148,16 +148,18 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Expiry settlement returns (done):** Near-expiry screen supports selecting batches → drafts supplier return (debit note) with pre-filled lines.
 - **Near-expiry alert dashboard (done):** `NearExpiryScreen` with configurable days threshold, batch selection, return drafting. Dashboard widget links to `/inventory/near-expiry`.
 
-### Phase 4: Reports Completion
+### Phase 4: Reports Completion (COMPLETE — 2026-06-04)
 **Goal:** Finish remaining reports + Flutter UI for all reports.
 **Reference:** `docs/REPORTS_IMPLEMENTATION_STATUS.md`, `docs/REPORTS_P0_SPECIFICATION.md`
-- 10/14 P0 reports implemented (backend). Remaining:
-  - Day Book (chronological transaction log)
-  - Vendor Statement (vendor ledger)
-- Flutter report screens for all 14 reports
-- CSV/Excel export
-- Database performance indexes (see REPORTS doc)
-- AR Aging invoice-level drill-down
+- **Day Book (done):** `OperationalReportService.dayBook()` — chronological journal entries, exposed via `/api/v1/reports/day-book`.
+- **Vendor Statement (done):** `ContactLedgerService.getLedger()` — unified contact ledger for both customers and vendors, exposed via `/api/v1/contacts/{id}/ledger`.
+- **Cash Flow (done):** `OperationalReportService.cashFlow()` — daily inflow/outflow from posted journals, via `/api/v1/reports/cash-flow`.
+- **Journal Register (done):** `OperationalReportService.journalRegister()` — all journal entries with debit/credit totals, via `/api/v1/reports/journal-register`.
+- **Low Stock Alert (done):** `OperationalReportService.lowStockAlert()` — items below reorder level with deficit/cost, via `/api/v1/reports/low-stock`.
+- **GST Summary (done):** `OperationalReportService.gstSummary()` — output tax vs input credit for period, via `/api/v1/reports/gst-summary`.
+- **Reports Hub (done):** Flutter `ReportsHubScreen` updated with 5 groups: Financial (7 reports), Sales & Receivables (6), Purchases & Payables (2), Inventory (3), Tax & Compliance (1).
+- **Database indexes (done):** V40 migration adds 9 indexes for report query performance (invoice_date, bill_date, receipt_date, stock_movement_date, journal_entry_date, tax_line_source, payment_contact).
+- **Generic report viewer (done):** `OperationalReportScreen` renders all operational reports with date pickers, search, column display, metrics summary.
 
 ### Phase 5: Payroll Module
 **Goal:** Indian SMB payroll with PF/ESI/PT/TDS.

@@ -143,6 +143,20 @@ List<_ReportGroupData> _reportGroups(BuildContext context) => [
             color: KColors.info,
             onTap: () => _openOperational(context, 'day-book', 'Day Book'),
           ),
+          _ReportLink(
+            icon: Icons.water_drop_outlined,
+            title: 'Cash Flow',
+            color: KColors.success,
+            onTap: () =>
+                _openOperational(context, 'cash-flow', 'Cash Flow Statement'),
+          ),
+          _ReportLink(
+            icon: Icons.list_alt_outlined,
+            title: 'Journal Register',
+            color: KColors.secondary,
+            onTap: () => _openOperational(
+                context, 'journal-register', 'Journal Register'),
+          ),
         ],
       ),
       _ReportGroupData(
@@ -239,6 +253,29 @@ List<_ReportGroupData> _reportGroups(BuildContext context) => [
             color: KColors.accent,
             onTap: () =>
                 _openOperational(context, 'stock-movement', 'Stock Movement'),
+          ),
+          _ReportLink(
+            icon: Icons.warning_amber_outlined,
+            title: 'Low Stock Alert',
+            color: KColors.error,
+            onTap: () => _openOperational(
+              context,
+              'low-stock',
+              'Low Stock Alert',
+              dateRange: false,
+            ),
+          ),
+        ],
+      ),
+      _ReportGroupData(
+        title: 'Tax & Compliance',
+        reports: [
+          _ReportLink(
+            icon: Icons.calculate_outlined,
+            title: 'GST Summary',
+            color: KColors.primary,
+            onTap: () =>
+                _openOperational(context, 'gst-summary', 'GST Summary'),
           ),
         ],
       ),

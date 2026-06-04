@@ -434,6 +434,193 @@ public class OperationalReportService {
                 rows);
     }
 
+    public OperationalReportResponse cashFlow(LocalDate startDate, LocalDate endDate) {
+        Context ctx = context();
+        List<JournalEntry> entries = journalEntryRepository
+                .findByOrgIdAndEffectiveDateBetweenOrderByEffectiveDateDescCreatedAtDesc(ctx.orgId(), startDate, endDate);
+
+        Map<LocalDate, BigDecimal> inflowByDate = new LinkedHashMap<>();
+        Map<LocalDate, BigDecimal> outflowByDate = new LinkedHashMap<>();
+
+        for (JournalEntry je : entries) {
+            if (!"POSTED".equals(je.getStatus())) continue;
+            BigDecimal totalDebit = je.getLines().stream()
+                    .map(l -> nz(l.getBaseDebit()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalCredit = je.getLines().stream()
+                    .map(l -> nz(l.getBaseCredit()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            if ("SALES".equals(je.getSourceModule()) || "POS".equals(je.getSourceModule())) {
+                inflowByDate.merge(je.getEffectiveDate(), totalDebit, BigDecimal::add);
+            }
+            if ("PURCHASE".equals(je.getSourceModule())) {
+                outflowByDate.merge(je.getEffectiveDate(), totalCredit, BigDecimal::add);
+            }
+        }
+
+        Set<LocalDate> allDates = new TreeSet<>();
+        allDates.addAll(inflowByDate.keySet());
+        allDates.addAll(outflowByDate.keySet());
+
+        BigDecimal totalInflow = BigDecimal.ZERO;
+        BigDecimal totalOutflow = BigDecimal.ZERO;
+        List<Map<String, Object>> rows = new ArrayList<>();
+        BigDecimal running = BigDecimal.ZERO;
+        for (LocalDate date : allDates) {
+            BigDecimal inflow = inflowByDate.getOrDefault(date, BigDecimal.ZERO);
+            BigDecimal outflow = outflowByDate.getOrDefault(date, BigDecimal.ZERO);
+            BigDecimal net = inflow.subtract(outflow);
+            running = running.add(net);
+            totalInflow = totalInflow.add(inflow);
+            totalOutflow = totalOutflow.add(outflow);
+            rows.add(row("date", date, "inflow", inflow, "outflow", outflow, "net", net, "balance", running));
+        }
+
+        return response("cash-flow", "Cash Flow Statement",
+                "Daily operating cash inflows vs outflows from posted journals.",
+                startDate, endDate, ctx.currency(),
+                metrics(metric("inflow", "Total Inflow", totalInflow, "currency"),
+                        metric("outflow", "Total Outflow", totalOutflow, "currency"),
+                        metric("net", "Net Cash Flow", totalInflow.subtract(totalOutflow), "currency")),
+                columns(col("date", "Date", "date"), col("inflow", "Inflow", "currency"),
+                        col("outflow", "Outflow", "currency"), col("net", "Net", "currency"),
+                        col("balance", "Running Balance", "currency")),
+                rows);
+    }
+
+    public OperationalReportResponse journalRegister(LocalDate startDate, LocalDate endDate) {
+        Context ctx = context();
+        List<JournalEntry> entries = journalEntryRepository
+                .findByOrgIdAndEffectiveDateBetweenOrderByEffectiveDateDescCreatedAtDesc(ctx.orgId(), startDate, endDate);
+
+        List<Map<String, Object>> rows = entries.stream()
+                .map(e -> {
+                    BigDecimal totalDebit = e.getLines().stream()
+                            .map(l -> nz(l.getBaseDebit()))
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal totalCredit = e.getLines().stream()
+                            .map(l -> nz(l.getBaseCredit()))
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    return row("date", e.getEffectiveDate(),
+                            "number", e.getEntryNumber(),
+                            "source", e.getSourceModule(),
+                            "description", e.getDescription(),
+                            "debit", totalDebit,
+                            "credit", totalCredit,
+                            "status", e.getStatus(),
+                            "lineCount", BigDecimal.valueOf(e.getLines().size()));
+                })
+                .toList();
+
+        BigDecimal grandDebit = rows.stream()
+                .map(r -> (BigDecimal) r.get("debit"))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return response("journal-register", "Journal Register",
+                "All journal entries with totals, filterable by date range.",
+                startDate, endDate, ctx.currency(),
+                metrics(metric("entries", "Journal Entries", BigDecimal.valueOf(entries.size()), "number"),
+                        metric("totalDebit", "Total Debit", grandDebit, "currency")),
+                columns(col("date", "Date", "date"), col("number", "Journal #", "text"),
+                        col("source", "Source", "text"), col("description", "Description", "text"),
+                        col("debit", "Debit", "currency"), col("credit", "Credit", "currency"),
+                        col("status", "Status", "status"), col("lineCount", "Lines", "number")),
+                rows);
+    }
+
+    public OperationalReportResponse lowStockAlert() {
+        Context ctx = context();
+        List<Item> items = itemRepository.findByOrgIdAndIsDeletedFalseAndTrackInventoryTrue(ctx.orgId())
+                .stream()
+                .filter(Item::isActive)
+                .filter(i -> nz(i.getReorderLevel()).compareTo(BigDecimal.ZERO) > 0)
+                .toList();
+
+        List<StockBalance> balances = stockBalanceRepository.findByOrgIdOrderByLastMovementAtDesc(ctx.orgId());
+        Map<UUID, BigDecimal> totalOnHand = balances.stream()
+                .collect(Collectors.groupingBy(StockBalance::getItemId,
+                        Collectors.reducing(BigDecimal.ZERO, b -> nz(b.getQuantityOnHand()), BigDecimal::add)));
+
+        LocalDate today = LocalDate.now();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Item item : items) {
+            BigDecimal onHand = totalOnHand.getOrDefault(item.getId(), BigDecimal.ZERO);
+            BigDecimal reorderLevel = nz(item.getReorderLevel());
+            if (onHand.compareTo(reorderLevel) <= 0) {
+                BigDecimal deficit = reorderLevel.subtract(onHand);
+                rows.add(row("sku", item.getSku(),
+                        "item", item.getName(),
+                        "onHand", onHand,
+                        "reorderLevel", reorderLevel,
+                        "deficit", deficit,
+                        "reorderQty", nz(item.getReorderQuantity()),
+                        "purchasePrice", nz(item.getPurchasePrice()),
+                        "estCost", deficit.multiply(nz(item.getPurchasePrice()))));
+            }
+        }
+        rows.sort((a, b) -> ((BigDecimal) b.get("deficit")).compareTo((BigDecimal) a.get("deficit")));
+
+        BigDecimal totalEstCost = rows.stream()
+                .map(r -> (BigDecimal) r.get("estCost"))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return response("low-stock", "Low Stock Alert",
+                "Items below reorder level, sorted by deficit.",
+                today, today, ctx.currency(),
+                metrics(metric("items", "Low Stock Items", BigDecimal.valueOf(rows.size()), "number"),
+                        metric("estCost", "Est. Reorder Cost", totalEstCost, "currency")),
+                columns(col("sku", "SKU", "text"), col("item", "Item", "text"),
+                        col("onHand", "On Hand", "number"), col("reorderLevel", "Reorder Level", "number"),
+                        col("deficit", "Deficit", "number"), col("reorderQty", "Reorder Qty", "number"),
+                        col("purchasePrice", "Unit Price", "currency"), col("estCost", "Est. Cost", "currency")),
+                rows);
+    }
+
+    public OperationalReportResponse gstSummary(LocalDate startDate, LocalDate endDate) {
+        Context ctx = context();
+        List<Invoice> invoices = invoiceRepository.findPostedByOrgAndDateRange(ctx.orgId(), startDate, endDate);
+
+        BigDecimal outputTaxable = BigDecimal.ZERO;
+        BigDecimal outputTax = BigDecimal.ZERO;
+
+        for (Invoice inv : invoices) {
+            outputTaxable = outputTaxable.add(nz(inv.getSubtotal()));
+            outputTax = outputTax.add(nz(inv.getTaxAmount()));
+        }
+
+        List<PurchaseBill> bills = purchaseBillRepository.findPostedByOrgAndDateRange(
+                ctx.orgId(), startDate, endDate);
+        BigDecimal inputTaxable = BigDecimal.ZERO;
+        BigDecimal inputTax = BigDecimal.ZERO;
+
+        for (PurchaseBill bill : bills) {
+            inputTaxable = inputTaxable.add(nz(bill.getSubtotal()));
+            inputTax = inputTax.add(nz(bill.getTaxAmount()));
+        }
+
+        BigDecimal netPayable = outputTax.subtract(inputTax);
+
+        List<Map<String, Object>> rows = List.of(
+                row("category", "Output Tax (Sales)", "count", BigDecimal.valueOf(invoices.size()),
+                        "taxable", outputTaxable, "tax", outputTax),
+                row("category", "Input Credit (Purchases)", "count", BigDecimal.valueOf(bills.size()),
+                        "taxable", inputTaxable, "tax", inputTax),
+                row("category", "Net Payable", "count", BigDecimal.ZERO,
+                        "taxable", outputTaxable.subtract(inputTaxable), "tax", netPayable)
+        );
+
+        return response("gst-summary", "GST Summary",
+                "Output tax vs input credit summary for the period.",
+                startDate, endDate, ctx.currency(),
+                metrics(metric("output", "Output Tax", outputTax, "currency"),
+                        metric("input", "Input Credit", inputTax, "currency"),
+                        metric("net", "Net Payable", netPayable, "currency")),
+                columns(col("category", "Category", "text"), col("count", "Transactions", "number"),
+                        col("taxable", "Taxable Amount", "currency"), col("tax", "Tax Amount", "currency")),
+                rows);
+    }
+
     private Context context() {
         UUID orgId = TenantContext.getCurrentOrgId();
         Organisation org = organisationRepository.findById(orgId)
