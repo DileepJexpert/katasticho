@@ -63,15 +63,12 @@ cd flutter_app && flutter test
 - **Problem:** `tax_line_item` is JOINed at invoice level (`source_id = i.id`) not at invoice_line level. If an invoice has 3 lines, each line gets the full invoice CGST/SGST/IGST amounts — inflating totals by 3x.
 - **Fix:** JOIN tax_line_item to invoice_line (via source_line_id), or aggregate tax at invoice level separately.
 
-### BUG-2: No posted-payment reversal path (HIGH)
-- **File:** `src/main/java/com/katasticho/erp/ar/service/PaymentService.java:222-242`
-- **Problem:** `voidPendingPayment()` only works for DRAFT/PENDING_APPROVAL status. Once a payment is POSTED (journal written, invoice balance reduced, contact outstanding updated), there is no way to reverse it. The error message says "without reversal" but no reversal method exists.
-- **Fix:** Add `reversePostedPayment()` that: creates a reverse journal, restores invoice.balanceDue, restores contact.outstanding, marks payment REVERSED.
+### ~~BUG-2: No posted-payment reversal path~~ — FIXED (2026-06-04, Codex)
+- `voidPayment()` now handles POSTED payments: reverses journal via `journalService.reverseEntry()`, restores invoice balance via `updatePaymentStatus(amount.negate())`, adds pessimistic locking on invoice. 17 tests pass.
+- **Residual concern:** contact.outstandingAr may not be restored on void — verify in integration test.
 
-### BUG-3: Self-approval gap in workflows (HIGH)
-- **File:** `src/main/java/com/katasticho/erp/common/workflow/ApprovalWorkflowService.java:192-203`
-- **Problem:** `ensureApproverCanDecide()` checks role/userId match but never compares against `request.getRequestedBy()`. An OWNER who creates a high-value payment can approve their own request.
-- **Fix:** Add `if (step.getApproverUserId().equals(request.getRequestedBy())) throw ...` or compare against requestedBy at the decide() level.
+### ~~BUG-3: Self-approval gap in workflows~~ — FIXED (2026-06-04, Codex)
+- `ensureRequesterCannotApproveOwnRequest()` added at `ApprovalWorkflowService.java:211-217`. Throws `WORKFLOW_SELF_APPROVAL_FORBIDDEN` when `request.getRequestedBy().equals(currentUserId)`. Also improved `ensureApproverCanDecide()` to prioritize user-specific steps over role fallback. 6 tests pass.
 
 ### BUG-4: Empty drug-interaction seeds (HIGH)
 - **File:** `src/main/resources/db/migration/V29__create_pharmacy_reference_masters.sql`
