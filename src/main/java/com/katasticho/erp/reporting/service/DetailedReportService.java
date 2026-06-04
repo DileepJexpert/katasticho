@@ -165,11 +165,11 @@ public class DetailedReportService {
             JOIN contact c ON i.contact_id = c.id
             JOIN invoice_line il ON i.id = il.invoice_id
             LEFT JOIN item it ON il.item_id = it.id
-            LEFT JOIN tax_line_item tli_cgst ON i.id = tli_cgst.source_id
+            LEFT JOIN tax_line_item tli_cgst ON il.id = tli_cgst.source_line_id
               AND tli_cgst.source_type='INVOICE' AND tli_cgst.component_code LIKE '%CGST%'
-            LEFT JOIN tax_line_item tli_sgst ON i.id = tli_sgst.source_id
+            LEFT JOIN tax_line_item tli_sgst ON il.id = tli_sgst.source_line_id
               AND tli_sgst.source_type='INVOICE' AND tli_sgst.component_code LIKE '%SGST%'
-            LEFT JOIN tax_line_item tli_igst ON i.id = tli_igst.source_id
+            LEFT JOIN tax_line_item tli_igst ON il.id = tli_igst.source_line_id
               AND tli_igst.source_type='INVOICE' AND tli_igst.component_code LIKE '%IGST%'
             WHERE i.org_id = ? AND i.invoice_date BETWEEN ? AND ? AND i.status = 'SENT'
               AND (? IS NULL OR 'INVOICE' = ?)
