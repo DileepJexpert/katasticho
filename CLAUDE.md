@@ -114,25 +114,25 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
   15. Browser/session switching
   16. Full regression pass
 
-### Phase 1: Distributor Core Hardening
+### Phase 1: Distributor Core Hardening (COMPLETE — 2026-06-04)
 **Goal:** Rock-solid SO→DC→Invoice and PO→GRN→Receive flows.
 **Reference:** `docs/PRODUCT_DEVELOPMENT_ROADMAP.md` (Phase Roadmap items 1-7)
-- Distributor dashboard v2 (backend endpoints where existing widgets fall short)
-- Distributor operational reports: Pending Dispatch, Challan Not Invoiced (partially done)
-- Credit control: WARN/BLOCK/APPROVAL_REQUIRED per policy
-- Scheme application: MANUAL/AUTO/DISABLED modes (backend done, need E2E Flutter QA)
-- Pricing: price-list resolution on SO and Invoice, rate preservation on SO→Invoice conversion
-- Payment approval workflow E2E
-- Credit Note approval E2E
+- ~~Distributor dashboard v2~~ — already complete (14 endpoints, 24 Flutter widgets)
+- ~~Distributor operational reports~~ — pendingDispatch + challanNotInvoiced verified correct
+- ~~Credit control E2E~~ — `SalesOrderResponse.warnings` added, Flutter dialog on SO create
+- ~~Scheme application E2E~~ — MANUAL/AUTO/DISABLED working end-to-end
+- ~~Pricing~~ — price-list resolution on SO, rate preservation on SO→Invoice confirmed
+- ~~Payment approval E2E~~ — payment list shows PENDING_APPROVAL status
+- ~~Credit Note approval E2E~~ — detail screen banner + status-aware menu + approval inbox nav
 
-### Phase 2: Inventory Feature Parity
+### Phase 2: Inventory Feature Parity (IN PROGRESS)
 **Goal:** Match Zoho Inventory feature surface using existing architecture.
-**Reference:** `docs/architecture/inventory-feature-gap.md`
-- **Sprint 26:** Batch-aware selling — FEFO consumption on invoice, expiry alert job, damaged-stock UI
-- **Sprint 27:** Physical count (bulk stock count form + commit), serial number tracking, barcode scan
-- **Sprint 28:** Composite items / BOM (auto-deduction on sale), item variants/groups
-- **Sprint 29:** Price list enhancements, UoM + conversion, optional FIFO costing per batch
-- **Sprint 30:** Multi-warehouse live, transfer orders, picklist generation
+**Reference:** `docs/architecture/inventory-feature-gap.md` (NOTE: gap doc is stale — most S26-S29 backend features already implemented)
+- **Sprint 26 (done):** FEFO auto-pick, batch balance, expiry alert job, GRN batch capture — all implemented + tested
+- **Sprint 27 (in progress):** Physical count — backend module implemented (StockCountService, 6 tests). Serial number + barcode still TODO.
+- **Sprint 28 (done):** BOM/composite items — BomService with explosion, tested. Item groups/variants — entities exist.
+- **Sprint 29 (done):** Price lists — PriceListService implemented. UoM — UomService + entities implemented.
+- **Sprint 30 (TODO):** Transfer orders, picklist generation — tables exist, no service/controller yet
 
 ### Phase 3: Pharma Domain Pack
 **Goal:** Complete pharma-specific features on top of distributor core.
@@ -237,6 +237,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `procurement/service/StockReceiptServiceTest.java` — GRN receive stock
 - `common/workflow/ApprovalWorkflowServiceTest.java` — workflow engine
 - `accounting/service/JournalServiceTest.java` — journal posting
+- `inventory/service/StockCountServiceTest.java` — physical stock count (6 tests)
 - `reporting/service/DetailedReportService` — no test file (needs one)
 
 ## Existing Service Files (key ones)
@@ -253,6 +254,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `common/workflow/ApprovalWorkflowService.java` — workflow engine (approve/reject)
 - `pricing/service/PriceListService.java` — price list resolution
 - `pricing/service/SchemeService.java` — scheme lookup and application
+- `inventory/service/StockCountService.java` — physical stock count (create, post with variance movements, cancel)
 - `reporting/service/DetailedReportService.java` — cash flow, journal register, sales/purchase register, customer statement
 - `reporting/service/InventoryReportService.java` — stock summary, movements, low-stock alert
 
