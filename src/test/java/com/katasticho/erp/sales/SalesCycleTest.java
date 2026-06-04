@@ -80,6 +80,7 @@ class SalesCycleTest {
 
     // ── DeliveryChallanService extra mocks ────────────────────────
     @Mock private StockBatchRepository batchRepository;
+    @Mock private StockBatchBalanceRepository stockBatchBalanceRepository;
     @Mock private InventoryService inventoryService;
 
     private SalesOrderService salesOrderService;
@@ -128,7 +129,8 @@ class SalesCycleTest {
         deliveryChallanService = new DeliveryChallanService(
                 challanRepository, salesOrderRepository, reservationRepository,
                 contactRepository, itemRepository, warehouseRepository,
-                batchRepository, branchRepository, sequenceRepository,
+                batchRepository, stockBalanceRepository, stockBatchBalanceRepository,
+                branchRepository, sequenceRepository,
                 inventoryService, salesOrderService, commentService);
 
         // Common lenient stubs
@@ -370,6 +372,10 @@ class SalesCycleTest {
                 .thenReturn(Optional.of(paidReservation));
         when(reservationRepository.findBySourceTypeAndSourceLineId("SALES_ORDER", freeLineId))
                 .thenReturn(Optional.of(freeReservation));
+        StockBalance schemeBalance = new StockBalance();
+        schemeBalance.setQuantityOnHand(new BigDecimal("50"));
+        when(stockBalanceRepository.findByOrgIdAndItemIdAndWarehouseId(orgId, itemId, warehouseId))
+                .thenReturn(Optional.of(schemeBalance));
 
         deliveryChallanService.dispatch(challanId);
 
@@ -559,6 +565,10 @@ class SalesCycleTest {
         when(salesOrderRepository.findById(soId)).thenReturn(Optional.of(so));
         when(reservationRepository.findBySourceTypeAndSourceLineId("SALES_ORDER", soLineId))
                 .thenReturn(Optional.of(reservation));
+        StockBalance partialBalance = new StockBalance();
+        partialBalance.setQuantityOnHand(new BigDecimal("20"));
+        when(stockBalanceRepository.findByOrgIdAndItemIdAndWarehouseId(orgId, itemId, warehouseId))
+                .thenReturn(Optional.of(partialBalance));
 
         deliveryChallanService.dispatch(challanId);
 

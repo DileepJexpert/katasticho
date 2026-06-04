@@ -9,7 +9,11 @@ import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.inventory.dto.StockMovementRequest;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.entity.Warehouse;
+import com.katasticho.erp.inventory.entity.StockBatchBalance;
+import com.katasticho.erp.inventory.entity.StockBalance;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.StockBatchBalanceRepository;
+import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.InventoryService;
@@ -47,6 +51,8 @@ class DeliveryChallanServiceTest {
     @Mock private ItemRepository itemRepository;
     @Mock private WarehouseRepository warehouseRepository;
     @Mock private StockBatchRepository batchRepository;
+    @Mock private StockBalanceRepository stockBalanceRepository;
+    @Mock private StockBatchBalanceRepository stockBatchBalanceRepository;
     @Mock private BranchRepository branchRepository;
     @Mock private InvoiceNumberSequenceRepository sequenceRepository;
     @Mock private InventoryService inventoryService;
@@ -69,7 +75,8 @@ class DeliveryChallanServiceTest {
         deliveryChallanService = new DeliveryChallanService(
                 challanRepository, salesOrderRepository, reservationRepository,
                 contactRepository, itemRepository, warehouseRepository,
-                batchRepository, branchRepository, sequenceRepository,
+                batchRepository, stockBalanceRepository, stockBatchBalanceRepository,
+                branchRepository, sequenceRepository,
                 inventoryService, salesOrderService, commentService);
 
         orgId = UUID.randomUUID();
@@ -181,6 +188,10 @@ class DeliveryChallanServiceTest {
                 .thenReturn(Optional.of(reservation));
         when(reservationRepository.save(any(StockReservation.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
+        StockBatchBalance batchBalance = new StockBatchBalance();
+        batchBalance.setQuantityOnHand(new BigDecimal("10"));
+        when(stockBatchBalanceRepository.findByOrgIdAndBatchIdAndWarehouseId(orgId, batchId, warehouseId))
+                .thenReturn(Optional.of(batchBalance));
 
         DeliveryChallanResponse result = deliveryChallanService.dispatch(challanId);
 
@@ -279,6 +290,10 @@ class DeliveryChallanServiceTest {
                 .thenReturn(Optional.of(reservation));
         when(reservationRepository.save(any(StockReservation.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
+        StockBalance stockBalance = new StockBalance();
+        stockBalance.setQuantityOnHand(new BigDecimal("10"));
+        when(stockBalanceRepository.findByOrgIdAndItemIdAndWarehouseId(orgId, itemId, warehouseId))
+                .thenReturn(Optional.of(stockBalance));
 
         deliveryChallanService.dispatch(challanId);
 
@@ -311,6 +326,101 @@ class DeliveryChallanServiceTest {
                 () -> deliveryChallanService.dispatch(challanId));
 
         assertEquals("DC_NOT_DRAFT", ex.getErrorCode());
+        verify(inventoryService, never()).recordMovement(any());
+    }
+
+    @Test
+    void dispatch_insufficientBatchStock_throwsDcInsufficientStock() {
+        UUID challanId = UUID.randomUUID();
+        UUID soLineId = UUID.randomUUID();
+        UUID batchId = UUID.randomUUID();
+
+        SalesOrderLine soLine = SalesOrderLine.builder()
+                .lineNumber(1).itemId(itemId).description("Widget A")
+                .quantity(new BigDecimal("10")).rate(new BigDecimal("500"))
+                .build();
+        soLine.setId(soLineId);
+        soLine.setQuantityShipped(BigDecimal.ZERO);
+
+        SalesOrder so = SalesOrder.builder().contactId(contactId).orderDate(LocalDate.now()).build();
+        so.setId(soId);
+        so.setOrgId(orgId);
+        so.setStatus("CONFIRMED");
+        so.addLine(soLine);
+
+        DeliveryChallanLine challanLine = DeliveryChallanLine.builder()
+                .lineNumber(1).itemId(itemId).salesOrderLineId(soLineId)
+                .quantity(new BigDecimal("10")).batchId(batchId)
+                .build();
+        challanLine.setId(UUID.randomUUID());
+
+        DeliveryChallan challan = DeliveryChallan.builder()
+                .salesOrderId(soId).contactId(contactId).warehouseId(warehouseId)
+                .challanNumber("DC-001").challanDate(LocalDate.now())
+                .build();
+        challan.setId(challanId);
+        challan.setOrgId(orgId);
+        challan.addLine(challanLine);
+
+        when(challanRepository.findByIdAndOrgIdAndIsDeletedFalse(challanId, orgId))
+                .thenReturn(Optional.of(challan));
+        when(salesOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(soId, orgId))
+                .thenReturn(Optional.of(so));
+        StockBatchBalance batchBalance = new StockBatchBalance();
+        batchBalance.setQuantityOnHand(new BigDecimal("3")); // only 3 available, need 10
+        when(stockBatchBalanceRepository.findByOrgIdAndBatchIdAndWarehouseId(orgId, batchId, warehouseId))
+                .thenReturn(Optional.of(batchBalance));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> deliveryChallanService.dispatch(challanId));
+
+        assertEquals("DC_INSUFFICIENT_STOCK", ex.getErrorCode());
+        verify(inventoryService, never()).recordMovement(any());
+    }
+
+    @Test
+    void dispatch_insufficientItemStock_throwsDcInsufficientStock() {
+        UUID challanId = UUID.randomUUID();
+        UUID soLineId = UUID.randomUUID();
+
+        SalesOrderLine soLine = SalesOrderLine.builder()
+                .lineNumber(1).itemId(itemId).description("Widget A")
+                .quantity(new BigDecimal("10")).rate(new BigDecimal("500"))
+                .build();
+        soLine.setId(soLineId);
+        soLine.setQuantityShipped(BigDecimal.ZERO);
+
+        SalesOrder so = SalesOrder.builder().contactId(contactId).orderDate(LocalDate.now()).build();
+        so.setId(soId);
+        so.setOrgId(orgId);
+        so.setStatus("CONFIRMED");
+        so.addLine(soLine);
+
+        DeliveryChallanLine challanLine = DeliveryChallanLine.builder()
+                .lineNumber(1).itemId(itemId).salesOrderLineId(soLineId)
+                .quantity(new BigDecimal("10")) // no batchId — item-level check
+                .build();
+        challanLine.setId(UUID.randomUUID());
+
+        DeliveryChallan challan = DeliveryChallan.builder()
+                .salesOrderId(soId).contactId(contactId).warehouseId(warehouseId)
+                .challanNumber("DC-001").challanDate(LocalDate.now())
+                .build();
+        challan.setId(challanId);
+        challan.setOrgId(orgId);
+        challan.addLine(challanLine);
+
+        when(challanRepository.findByIdAndOrgIdAndIsDeletedFalse(challanId, orgId))
+                .thenReturn(Optional.of(challan));
+        when(salesOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(soId, orgId))
+                .thenReturn(Optional.of(so));
+        when(stockBalanceRepository.findByOrgIdAndItemIdAndWarehouseId(orgId, itemId, warehouseId))
+                .thenReturn(Optional.empty()); // zero stock
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> deliveryChallanService.dispatch(challanId));
+
+        assertEquals("DC_INSUFFICIENT_STOCK", ex.getErrorCode());
         verify(inventoryService, never()).recordMovement(any());
     }
 

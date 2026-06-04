@@ -13,6 +13,8 @@ import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.ReferenceType;
 import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.StockBatchBalanceRepository;
+import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.InventoryService;
@@ -49,6 +51,8 @@ public class DeliveryChallanService {
     private final ItemRepository itemRepository;
     private final WarehouseRepository warehouseRepository;
     private final StockBatchRepository batchRepository;
+    private final StockBalanceRepository stockBalanceRepository;
+    private final StockBatchBalanceRepository stockBatchBalanceRepository;
     private final BranchRepository branchRepository;
     private final InvoiceNumberSequenceRepository sequenceRepository;
     private final InventoryService inventoryService;
@@ -165,6 +169,8 @@ public class DeliveryChallanService {
 
             Item item = itemRepository.findById(line.getItemId()).orElse(null);
             if (item == null || !item.isTrackInventory()) continue;
+
+            validateSufficientStock(orgId, line, challan.getWarehouseId(), item.getName());
 
             StockMovementRequest moveRequest = new StockMovementRequest(
                     line.getItemId(),
@@ -297,6 +303,31 @@ public class DeliveryChallanService {
         UUID orgId = TenantContext.getCurrentOrgId();
         return challanRepository.findBySalesOrderIdAndOrgIdAndIsDeletedFalse(salesOrderId, orgId)
                 .stream().map(this::toResponse).toList();
+    }
+
+    private void validateSufficientStock(UUID orgId, DeliveryChallanLine line, UUID warehouseId, String itemName) {
+        BigDecimal required = line.getQuantity();
+        if (line.getBatchId() != null) {
+            BigDecimal batchQty = stockBatchBalanceRepository
+                    .findByOrgIdAndBatchIdAndWarehouseId(orgId, line.getBatchId(), warehouseId)
+                    .map(b -> b.getQuantityOnHand())
+                    .orElse(BigDecimal.ZERO);
+            if (batchQty.compareTo(required) < 0) {
+                throw new BusinessException(
+                        "Insufficient stock for item '" + itemName + "': available " + batchQty + ", required " + required,
+                        "DC_INSUFFICIENT_STOCK", HttpStatus.BAD_REQUEST);
+            }
+        } else {
+            BigDecimal onHand = stockBalanceRepository
+                    .findByOrgIdAndItemIdAndWarehouseId(orgId, line.getItemId(), warehouseId)
+                    .map(b -> b.getQuantityOnHand())
+                    .orElse(BigDecimal.ZERO);
+            if (onHand.compareTo(required) < 0) {
+                throw new BusinessException(
+                        "Insufficient stock for item '" + itemName + "': available " + onHand + ", required " + required,
+                        "DC_INSUFFICIENT_STOCK", HttpStatus.BAD_REQUEST);
+            }
+        }
     }
 
     private DeliveryChallan findOrThrow(UUID challanId, UUID orgId) {
