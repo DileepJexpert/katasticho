@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V36**. Next new migration = V37.
+- Location: `src/main/resources/db/migration/`. Latest is **V37**. Next new migration = V38.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -58,10 +58,8 @@ cd flutter_app && flutter test
 
 ## Known Bugs (verified 2026-06-03 — fix by number when asked)
 
-### BUG-1: Sales Register tax JOIN inflates amounts (HIGH)
-- **File:** `src/main/java/com/katasticho/erp/reporting/service/DetailedReportService.java:168-173`
-- **Problem:** `tax_line_item` is JOINed at invoice level (`source_id = i.id`) not at invoice_line level. If an invoice has 3 lines, each line gets the full invoice CGST/SGST/IGST amounts — inflating totals by 3x.
-- **Fix:** JOIN tax_line_item to invoice_line (via source_line_id), or aggregate tax at invoice level separately.
+### ~~BUG-1: Sales Register tax JOIN inflates amounts~~ — FIXED (2026-06-04)
+- Tax JOINs changed from invoice-level (`i.id`) to line-level (`il.id` via `source_line_id`) in `DetailedReportService.java:168-173`.
 
 ### ~~BUG-2: No posted-payment reversal path~~ — FIXED (2026-06-04, Codex)
 - `voidPayment()` now handles POSTED payments: reverses journal via `journalService.reverseEntry()`, restores invoice balance via `updatePaymentStatus(amount.negate())`, adds pessimistic locking on invoice. 17 tests pass.
@@ -70,25 +68,17 @@ cd flutter_app && flutter test
 ### ~~BUG-3: Self-approval gap in workflows~~ — FIXED (2026-06-04, Codex)
 - `ensureRequesterCannotApproveOwnRequest()` added at `ApprovalWorkflowService.java:211-217`. Throws `WORKFLOW_SELF_APPROVAL_FORBIDDEN` when `request.getRequestedBy().equals(currentUserId)`. Also improved `ensureApproverCanDecide()` to prioritize user-specific steps over role fallback. 6 tests pass.
 
-### BUG-4: Empty drug-interaction seeds (HIGH)
-- **File:** `src/main/resources/db/migration/V29__create_pharmacy_reference_masters.sql`
-- **Problem:** Drug interaction INSERT references "warfarin" via `SELECT id FROM salt_master WHERE LOWER(name) = 'warfarin'`, but warfarin is NOT in salt_master (V28 has 157 salts, none named warfarin). The INSERT silently produces zero rows. The entire drug interaction feature returns empty results.
-- **Fix:** Either add warfarin to salt_master (new migration V37) and re-seed interactions, or use salts that actually exist (e.g., aspirin, metformin) with known interaction pairs.
+### ~~BUG-4: Empty drug-interaction seeds~~ — FIXED (2026-06-04)
+- V37 migration seeds 12 clinically significant interaction pairs using salts from V28 (Aspirin+Ibuprofen, Atorvastatin+Erythromycin, Ciprofloxacin+Theophylline, Sertraline+Tramadol, etc). All `ON CONFLICT DO NOTHING`.
 
-### BUG-5: Empty generic-substitution seeds (MEDIUM)
-- **File:** `src/main/resources/db/migration/V29__create_pharmacy_reference_masters.sql`
-- **Problem:** Generic substitution INSERT references drug_master rows that may not exist or match. The feature silently returns empty results.
-- **Fix:** Seed substitutions using verified drug_master IDs from V34/V36 seed data.
+### ~~BUG-5: Empty generic-substitution seeds~~ — FIXED (2026-06-04)
+- V37 migration seeds 16 bidirectional substitution pairs using V28 drug_master brands (Crocin↔Calpol, Brufen↔Ibugesic, Omez↔Ocid, Azithral↔Azee, Taxim-O↔Cefix, etc).
 
-### BUG-6: Delivery challan dispatch — no stock validation (MEDIUM)
-- **File:** `src/main/java/com/katasticho/erp/sales/service/DeliveryChallanService.java:142-198`
-- **Problem:** `dispatch()` calls `inventoryService.recordMovement()` with negative quantity but never checks if sufficient stock exists. You can dispatch 1000 units when stock is 10 — stock goes negative silently.
-- **Fix:** Before recordMovement, check stock_balance for the item+warehouse (and batch if batch-tracked). Throw `BusinessException("Insufficient stock...", "DC_INSUFFICIENT_STOCK", BAD_REQUEST)` if short.
+### ~~BUG-6: Delivery challan dispatch — no stock validation~~ — FIXED (2026-06-04)
+- `validateSufficientStock()` added before `recordMovement()` in `DeliveryChallanService.dispatch()`. Checks `stock_batch_balance` (batch lines) or `stock_balance` (non-batch lines). Throws `DC_INSUFFICIENT_STOCK` if short. 2 new tests + 6 existing pass (8 total).
 
-### BUG-7: POS receipt tax split approximation (LOW)
-- **File:** `src/main/java/com/katasticho/erp/reporting/service/DetailedReportService.java:189-194`
-- **Problem:** POS tax is divided equally across all receipt lines (`sr.cgst / COUNT(lines)`). If items have different GST rates, this produces wrong per-line tax amounts in the Sales Register.
-- **Fix:** Either store per-line tax on `sales_receipt_line`, or compute line-level tax from HSN→GST mapping in the report query.
+### ~~BUG-7: POS receipt tax split approximation~~ — FIXED (2026-06-04)
+- POS sales register now joins `hsn_gst_master` on `srl.hsn_code` to derive per-line GST rate. Tax computed arithmetically per line instead of equal-division across receipt lines. Handles intra/inter-state split.
 
 ### Previously reported as bugs but actually OK:
 - **Payment over-collection:** `PaymentService.java:97-102` DOES validate `amount > balanceDue` and throws `AR_PAYMENT_EXCEEDS_BALANCE`. This is correctly implemented.
@@ -98,10 +88,11 @@ cd flutter_app && flutter test
 
 ## Development Roadmap (follow in sequence)
 
-Product direction: **Distributor-first ERP** → Pharma pack → FMCG pack → Manufacturing-lite.
+Product direction: **Indian SMB ERP platform** with shared core + vertical packs.
+See `docs/BRD_KATASTICHO_ERP.md` for full Business Requirements Document.
 See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 
-### Phase 0: QA & Bug Fixes (CURRENT)
+### Phase 0: QA & Bug Fixes (COMPLETE — all 7 bugs fixed)
 **Goal:** Stabilize existing flows before adding new features.
 **Reference:** `docs/PRODUCT_DEVELOPMENT_ROADMAP.md` (Resume Index 2026-06-03), `docs/how-to/DISTRIBUTOR_MANUAL_QA_CHECKLIST.md`
 - Fix BUG-1 through BUG-6 listed above
