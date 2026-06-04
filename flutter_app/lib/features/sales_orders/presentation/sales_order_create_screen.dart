@@ -152,17 +152,69 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
         final created = (result['data'] ?? result) as Map<String, dynamic>;
         final id = created['id']?.toString();
         final status = created['status']?.toString();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(status == 'PENDING_APPROVAL'
-                ? 'Sales order created and sent for approval'
-                : 'Sales order created successfully'),
-          ),
-        );
-        if (id != null) {
-          context.go('/sales-orders/$id');
+        final warnings = (created['warnings'] as List<dynamic>?)
+                ?.map((w) => w.toString())
+                .toList() ??
+            [];
+
+        if (warnings.isNotEmpty) {
+          await showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              icon: const Icon(Icons.warning_amber_rounded,
+                  color: KColors.warning, size: 32),
+              title: Text(
+                status == 'PENDING_APPROVAL'
+                    ? 'Order Sent for Approval'
+                    : 'Order Created with Warnings',
+                style: KTypography.titleMedium,
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: warnings
+                    .map((w) => Padding(
+                          padding:
+                              const EdgeInsets.only(bottom: KSpacing.xs),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.circle,
+                                  size: 6, color: KColors.warning),
+                              const SizedBox(width: KSpacing.sm),
+                              Expanded(
+                                child: Text(w,
+                                    style: KTypography.bodySmall),
+                              ),
+                            ],
+                          ),
+                        ))
+                    .toList(),
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
         } else {
-          context.go(Routes.salesOrders);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(status == 'PENDING_APPROVAL'
+                  ? 'Sales order created and sent for approval'
+                  : 'Sales order created successfully'),
+            ),
+          );
+        }
+
+        if (mounted) {
+          if (id != null) {
+            context.go('/sales-orders/$id');
+          } else {
+            context.go(Routes.salesOrders);
+          }
         }
       }
     } catch (e) {
