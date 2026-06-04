@@ -144,6 +144,21 @@ public class DetailedReportService {
         UUID orgId = TenantContext.getCurrentOrgId();
 
         String query = """
+            WITH invoice_tax AS (
+              SELECT
+                source_id,
+                source_line_id,
+                SUM(CASE WHEN component_code LIKE '%CGST%' THEN tax_amount ELSE 0 END) as cgst_amount,
+                SUM(CASE WHEN component_code LIKE '%SGST%' THEN tax_amount ELSE 0 END) as sgst_amount,
+                SUM(CASE WHEN component_code LIKE '%IGST%' THEN tax_amount ELSE 0 END) as igst_amount,
+                MAX(CASE WHEN component_code LIKE '%CGST%' THEN rate ELSE NULL END) as cgst_rate,
+                MAX(CASE WHEN component_code LIKE '%SGST%' THEN rate ELSE NULL END) as sgst_rate,
+                MAX(CASE WHEN component_code LIKE '%IGST%' THEN rate ELSE NULL END) as igst_rate
+              FROM tax_line_item
+              WHERE source_type = 'INVOICE'
+                AND source_line_id IS NOT NULL
+              GROUP BY source_id, source_line_id
+            )
             SELECT
               'INVOICE' as document_type,
               i.invoice_number as document_number,
@@ -155,22 +170,23 @@ public class DetailedReportService {
               it.name as unit,
               il.unit_price,
               il.taxable_amount,
-              COALESCE(tli_cgst.tax_amount, 0) as cgst_amount,
-              COALESCE(tli_sgst.tax_amount, 0) as sgst_amount,
-              COALESCE(tli_igst.tax_amount, 0) as igst_amount,
+              COALESCE(itax.cgst_amount, 0) as cgst_amount,
+              COALESCE(itax.sgst_amount, 0) as sgst_amount,
+              COALESCE(itax.igst_amount, 0) as igst_amount,
               il.line_total as total_amount,
-              CASE WHEN tli_cgst.rate IS NOT NULL THEN tli_cgst.rate * 2 ELSE 0 END as gst_rate,
+              CASE
+                WHEN itax.igst_rate IS NOT NULL THEN itax.igst_rate
+                WHEN itax.cgst_rate IS NOT NULL OR itax.sgst_rate IS NOT NULL
+                  THEN COALESCE(itax.cgst_rate, 0) + COALESCE(itax.sgst_rate, 0)
+                ELSE 0
+              END as gst_rate,
               i.place_of_supply
             FROM invoice i
             JOIN contact c ON i.contact_id = c.id
             JOIN invoice_line il ON i.id = il.invoice_id
             LEFT JOIN item it ON il.item_id = it.id
-            LEFT JOIN tax_line_item tli_cgst ON i.id = tli_cgst.source_id
-              AND tli_cgst.source_type='INVOICE' AND tli_cgst.component_code LIKE '%CGST%'
-            LEFT JOIN tax_line_item tli_sgst ON i.id = tli_sgst.source_id
-              AND tli_sgst.source_type='INVOICE' AND tli_sgst.component_code LIKE '%SGST%'
-            LEFT JOIN tax_line_item tli_igst ON i.id = tli_igst.source_id
-              AND tli_igst.source_type='INVOICE' AND tli_igst.component_code LIKE '%IGST%'
+            LEFT JOIN invoice_tax itax ON itax.source_id = i.id
+              AND itax.source_line_id = il.id
             WHERE i.org_id = ? AND i.invoice_date BETWEEN ? AND ? AND i.status = 'SENT'
               AND (? IS NULL OR 'INVOICE' = ?)
 
