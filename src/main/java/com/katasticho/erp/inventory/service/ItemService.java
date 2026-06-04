@@ -566,6 +566,15 @@ public class ItemService {
     }
 
     @Transactional(readOnly = true)
+    public ItemResponse getByBarcode(String barcode) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Item item = itemRepository.findByOrgIdAndBarcodeAndIsDeletedFalse(orgId, barcode)
+                .orElseThrow(() -> new BusinessException("No item found with barcode: " + barcode,
+                        "INV_BARCODE_NOT_FOUND", HttpStatus.NOT_FOUND));
+        return toResponse(item);
+    }
+
+    @Transactional(readOnly = true)
     public Page<ItemResponse> listItems(String search, boolean activeOnly, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
         Page<Item> page;

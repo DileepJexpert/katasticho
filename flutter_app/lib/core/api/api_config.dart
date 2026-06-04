@@ -128,6 +128,48 @@ class ApiConfig {
   static const String uoms = '/api/v1/uoms';
   static String uomById(String id) => '/api/v1/uoms/$id';
 
+  // Barcode lookup
+  static String itemByBarcode(String barcode) =>
+      '/api/v1/items/by-barcode/$barcode';
+
+  // Stock Counts
+  static const String stockCounts = '/api/v1/stock-counts';
+  static String stockCountById(String id) => '/api/v1/stock-counts/$id';
+  static String postStockCount(String id) => '/api/v1/stock-counts/$id/post';
+  static String cancelStockCount(String id) =>
+      '/api/v1/stock-counts/$id/cancel';
+
+  // Transfer Orders
+  static const String transferOrders = '/api/v1/transfer-orders';
+  static String transferOrderById(String id) =>
+      '/api/v1/transfer-orders/$id';
+  static String shipTransferOrder(String id) =>
+      '/api/v1/transfer-orders/$id/ship';
+  static String receiveTransferOrder(String id) =>
+      '/api/v1/transfer-orders/$id/receive';
+  static String cancelTransferOrder(String id) =>
+      '/api/v1/transfer-orders/$id/cancel';
+
+  // Picklists
+  static const String picklists = '/api/v1/picklists';
+  static String picklistById(String id) => '/api/v1/picklists/$id';
+  static String picklistsBySalesOrder(String soId) =>
+      '/api/v1/picklists/by-sales-order/$soId';
+  static String startPicklist(String id) => '/api/v1/picklists/$id/start';
+  static String picklistLines(String id) => '/api/v1/picklists/$id/lines';
+  static String completePicklist(String id) =>
+      '/api/v1/picklists/$id/complete';
+  static String cancelPicklist(String id) => '/api/v1/picklists/$id/cancel';
+
+  // Serial Numbers
+  static const String serialNumbers = '/api/v1/serial-numbers';
+  static String serialNumbersReceive = '/api/v1/serial-numbers/receive';
+  static String serialNumbersAssignSale = '/api/v1/serial-numbers/assign-sale';
+  static String serialNumbersByItem(String itemId) =>
+      '/api/v1/serial-numbers/by-item/$itemId';
+  static String serialNumbersAvailable(String itemId) =>
+      '/api/v1/serial-numbers/available/$itemId';
+
   // Batches (v2 — perishables / FEFO)
   static String batchesByItem(String itemId) => '/api/v1/batches/item/$itemId';
 

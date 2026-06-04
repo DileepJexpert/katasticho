@@ -121,6 +121,12 @@ public class ItemController {
                 .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
+    @GetMapping("/by-barcode/{barcode}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<ItemResponse>> getByBarcode(@PathVariable String barcode) {
+        return ResponseEntity.ok(ApiResponse.ok(itemService.getByBarcode(barcode)));
+    }
+
     // ── Composite items / BOM (Feature 4) ───────────────────────────────
     //
     // Endpoints live under the parent item so the URL mirrors the

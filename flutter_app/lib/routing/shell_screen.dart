@@ -267,6 +267,21 @@ const _inventoryGroup = NavGroup(
         activeIcon: Icons.grid_view_rounded,
         route: Routes.rackLocations),
     NavItem(
+        label: 'Stock Counts',
+        icon: Icons.fact_check_outlined,
+        activeIcon: Icons.fact_check_rounded,
+        route: Routes.stockCounts),
+    NavItem(
+        label: 'Transfer Orders',
+        icon: Icons.swap_horiz_outlined,
+        activeIcon: Icons.swap_horiz_rounded,
+        route: Routes.transferOrders),
+    NavItem(
+        label: 'Picklists',
+        icon: Icons.checklist_outlined,
+        activeIcon: Icons.checklist_rounded,
+        route: Routes.picklists),
+    NavItem(
         label: 'Price Lists',
         icon: Icons.sell_outlined,
         activeIcon: Icons.sell_rounded,
@@ -901,6 +916,9 @@ bool _isNavItemVisible(String route, BusinessCapabilities capabilities) {
       route == Routes.priceLists ||
       route == Routes.schemes ||
       route == Routes.itemImport ||
+      route == Routes.stockCounts ||
+      route == Routes.transferOrders ||
+      route == Routes.picklists ||
       route == '/reports/operational/stock-summary' ||
       route == '/reports/operational/stock-movement') {
     return capabilities.canUseInventory;

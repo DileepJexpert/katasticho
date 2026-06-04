@@ -108,6 +108,13 @@ import '../features/journals/presentation/guided_transaction_screen.dart';
 import '../features/accounting_periods/presentation/period_close_screen.dart';
 import '../features/contacts/presentation/contact_statement_screen.dart';
 import '../features/inventory/presentation/near_expiry_screen.dart';
+import '../features/inventory/presentation/stock_count_list_screen.dart';
+import '../features/inventory/presentation/stock_count_create_screen.dart';
+import '../features/inventory/presentation/stock_count_detail_screen.dart';
+import '../features/inventory/presentation/transfer_order_list_screen.dart';
+import '../features/inventory/presentation/transfer_order_create_screen.dart';
+import '../features/inventory/presentation/transfer_order_detail_screen.dart';
+import '../features/inventory/presentation/picklist_list_screen.dart';
 import '../features/inventory/presentation/reorder_screen.dart';
 import '../features/inventory/presentation/shortbook_screen.dart';
 import '../features/team/presentation/team_screen.dart';
@@ -227,6 +234,11 @@ class Routes {
   static const reorder = '/reorder';
   static const shortbook = '/shortbook';
   static const nearExpiry = '/inventory/near-expiry';
+  static const stockCounts = '/inventory/stock-counts';
+  static const stockCountCreate = '/inventory/stock-counts/create';
+  static const transferOrders = '/inventory/transfer-orders';
+  static const transferOrderCreate = '/inventory/transfer-orders/create';
+  static const picklists = '/inventory/picklists';
   static const contactStatement = '/contacts/:id/statement';
   static const settings = '/settings';
   static const businessConfiguration = '/settings/business-configuration';
@@ -832,6 +844,44 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.nearExpiry,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: NearExpiryScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.stockCounts,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: StockCountListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.stockCountCreate,
+            builder: (context, state) => const StockCountCreateScreen(),
+          ),
+          GoRoute(
+            path: '/inventory/stock-counts/:id',
+            builder: (context, state) => StockCountDetailScreen(
+              id: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: Routes.transferOrders,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: TransferOrderListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.transferOrderCreate,
+            builder: (context, state) => const TransferOrderCreateScreen(),
+          ),
+          GoRoute(
+            path: '/inventory/transfer-orders/:id',
+            builder: (context, state) => TransferOrderDetailScreen(
+              id: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: Routes.picklists,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PicklistListScreen(),
             ),
           ),
           // Pharma — Drug Licenses & Compliance

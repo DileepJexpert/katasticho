@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V37**. Next new migration = V38.
+- Location: `src/main/resources/db/migration/`. Latest is **V39**. Next new migration = V40.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -125,14 +125,15 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - ~~Payment approval E2E~~ — payment list shows PENDING_APPROVAL status
 - ~~Credit Note approval E2E~~ — detail screen banner + status-aware menu + approval inbox nav
 
-### Phase 2: Inventory Feature Parity (IN PROGRESS)
+### Phase 2: Inventory Feature Parity (COMPLETE — 2026-06-04)
 **Goal:** Match Zoho Inventory feature surface using existing architecture.
 **Reference:** `docs/architecture/inventory-feature-gap.md` (NOTE: gap doc is stale — most S26-S29 backend features already implemented)
 - **Sprint 26 (done):** FEFO auto-pick, batch balance, expiry alert job, GRN batch capture — all implemented + tested
-- **Sprint 27 (in progress):** Physical count — backend module implemented (StockCountService, 6 tests). Serial number + barcode still TODO.
+- **Sprint 27 (done):** Physical count (StockCountService, 6 tests). Serial number tracking (SerialNumberService + controller). Barcode lookup endpoint (`GET /api/v1/items/by-barcode/{barcode}`).
 - **Sprint 28 (done):** BOM/composite items — BomService with explosion, tested. Item groups/variants — entities exist.
 - **Sprint 29 (done):** Price lists — PriceListService implemented. UoM — UomService + entities implemented.
-- **Sprint 30 (TODO):** Transfer orders, picklist generation — tables exist, no service/controller yet
+- **Sprint 30 (done):** Transfer orders (TransferOrderService, 7 tests). Picklist generation (PicklistService, 8 tests, V39 migration).
+- **Flutter screens:** Stock count (list/create/detail), transfer order (list/create/detail), picklist list — all created with routes and API config.
 
 ### Phase 3: Pharma Domain Pack
 **Goal:** Complete pharma-specific features on top of distributor core.
@@ -238,6 +239,8 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `common/workflow/ApprovalWorkflowServiceTest.java` — workflow engine
 - `accounting/service/JournalServiceTest.java` — journal posting
 - `inventory/service/StockCountServiceTest.java` — physical stock count (6 tests)
+- `inventory/service/TransferOrderServiceTest.java` — transfer orders (7 tests)
+- `inventory/service/PicklistServiceTest.java` — picklist generation (8 tests)
 - `reporting/service/DetailedReportService` — no test file (needs one)
 
 ## Existing Service Files (key ones)
@@ -255,6 +258,9 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `pricing/service/PriceListService.java` — price list resolution
 - `pricing/service/SchemeService.java` — scheme lookup and application
 - `inventory/service/StockCountService.java` — physical stock count (create, post with variance movements, cancel)
+- `inventory/service/TransferOrderService.java` — inter-warehouse transfers (create, ship, receive, cancel with reversal)
+- `inventory/service/PicklistService.java` — warehouse picklist generation from sales orders (create, start, update, complete, cancel)
+- `inventory/service/SerialNumberService.java` — serial number tracking (receive, assign to sale, damage, return)
 - `reporting/service/DetailedReportService.java` — cash flow, journal register, sales/purchase register, customer statement
 - `reporting/service/InventoryReportService.java` — stock summary, movements, low-stock alert
 
