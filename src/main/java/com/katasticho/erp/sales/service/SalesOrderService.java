@@ -231,7 +231,10 @@ public class SalesOrderService {
 
         log.info("Sales order created: {} for contact {}", soNumber, contact.getId());
         String name = contact.getCompanyName() != null ? contact.getCompanyName() : contact.getDisplayName();
-        return toResponse(so, name);
+        List<String> warnings = new ArrayList<>();
+        if (creditLimitDecision.warningMessage() != null) warnings.add(creditLimitDecision.warningMessage());
+        if (overdueDecision.warningMessage() != null) warnings.add(overdueDecision.warningMessage());
+        return toResponse(so, name, warnings);
     }
 
     // ── CREATE FROM ESTIMATE ────────────────────────────────────
@@ -926,6 +929,10 @@ public class SalesOrderService {
     }
 
     SalesOrderResponse toResponse(SalesOrder so, String contactName) {
+        return toResponse(so, contactName, List.of());
+    }
+
+    SalesOrderResponse toResponse(SalesOrder so, String contactName, List<String> warnings) {
         List<SalesOrderLineResponse> lineResponses = so.getLines().stream()
                 .map(l -> {
                     String itemName = l.getItemId() != null
@@ -958,7 +965,8 @@ public class SalesOrderService {
                 lineResponses,
                 invoiceCount, challanRepository.countBySalesOrderIdAndIsDeletedFalse(so.getId()),
                 so.isAllowBackorder(),
-                so.getCreatedAt());
+                so.getCreatedAt(),
+                warnings);
     }
 
     private record SalesOrderRiskDecision(

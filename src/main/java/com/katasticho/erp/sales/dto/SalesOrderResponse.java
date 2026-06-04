@@ -38,5 +38,6 @@ public record SalesOrderResponse(
         int linkedInvoiceCount,
         int linkedChallanCount,
         boolean allowBackorder,
-        Instant createdAt
+        Instant createdAt,
+        List<String> warnings
 ) {}
