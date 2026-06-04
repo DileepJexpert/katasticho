@@ -54,8 +54,10 @@ class _PaymentCard extends StatelessWidget {
     final paymentNumber = payment['paymentNumber'] as String? ?? '--';
     final amount = (payment['amount'] as num?)?.toDouble() ?? 0;
     final method = payment['paymentMethod'] as String? ?? 'OTHER';
+    final status = payment['status'] as String? ?? 'POSTED';
     final date = payment['paymentDate'] as String?;
     final reference = payment['referenceNumber'] as String?;
+    final isPending = status == 'PENDING_APPROVAL';
 
     return KCard(
       child: Row(
@@ -63,12 +65,13 @@ class _PaymentCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: KColors.success.withValues(alpha: 0.1),
+              color: (isPending ? KColors.warning : KColors.success)
+                  .withValues(alpha: 0.1),
               borderRadius: KSpacing.borderRadiusMd,
             ),
             child: Icon(
-              _methodIcon(method),
-              color: KColors.success,
+              isPending ? Icons.hourglass_top_rounded : _methodIcon(method),
+              color: isPending ? KColors.warning : KColors.success,
               size: 24,
             ),
           ),
@@ -81,7 +84,11 @@ class _PaymentCard extends StatelessWidget {
                 KSpacing.vGapXs,
                 Row(
                   children: [
-                    KStatusChip(status: 'PAID', label: _methodLabel(method)),
+                    if (isPending)
+                      const KStatusChip(status: 'PENDING_APPROVAL')
+                    else
+                      KStatusChip(
+                          status: 'PAID', label: _methodLabel(method)),
                     if (date != null) ...[
                       KSpacing.hGapSm,
                       Text(date, style: KTypography.bodySmall),
@@ -101,7 +108,7 @@ class _PaymentCard extends StatelessWidget {
           Text(
             CurrencyFormatter.formatIndian(amount),
             style: KTypography.amountMedium.copyWith(
-              color: KColors.success,
+              color: isPending ? KColors.warning : KColors.success,
             ),
           ),
         ],
