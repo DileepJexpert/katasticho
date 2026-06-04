@@ -533,4 +533,6 @@ class ApiConfig {
       '/api/v1/pharmacy-masters/substitutions';
   static const String drugInteractionCheck =
       '/api/v1/pharmacy-masters/interactions/check';
+  static const String drugInteractionCheckByComposition =
+      '/api/v1/pharmacy-masters/interactions/check-by-composition';
 }

@@ -38,6 +38,8 @@ import '../../../core/auth/auth_state.dart';
 import '../../loyalty/data/wallet_repository.dart';
 import '../../loyalty/presentation/wallet_balance_chip.dart';
 import '../../pharma/data/prescription_repository.dart';
+import '../../../core/api/api_client.dart';
+import '../../../core/api/api_config.dart';
 
 bool _isBeforeToday(DateTime date) {
   final today = DateUtils.dateOnly(DateTime.now());
@@ -582,6 +584,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       return;
     }
 
+    // Drug interaction check — pharmacy orgs only
+    final safeToSell = await _checkDrugInteractions(cart);
+    if (!safeToSell || !mounted) return;
+
     ref.read(posCartProvider.notifier).setPaymentMode(mode);
 
     final paymentResult = await showPosPaymentSheet(
@@ -893,6 +899,195 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             '[POS] _savePrescriptionRecords failed for Rx $rxNumber: $e');
         return <String, dynamic>{};
       });
+    }
+  }
+
+  /// Checks for drug interactions among cart items (pharmacy orgs only).
+  /// Returns `true` if safe to proceed, `false` if the user chose to go back.
+  Future<bool> _checkDrugInteractions(PosCartState cart) async {
+    final authState = ref.read(authProvider);
+    final isPharmacy =
+        (authState.industryCode ?? '').toUpperCase().contains('PHARMA') ||
+            (authState.businessType ?? '').toUpperCase().contains('PHARMA');
+    if (!isPharmacy) return true;
+
+    // Collect unique non-null compositions from cart items
+    final compositions = cart.items
+        .map((item) => item.composition)
+        .where((c) => c != null && c.isNotEmpty)
+        .cast<String>()
+        .toSet()
+        .toList();
+
+    // Need at least 2 distinct compositions to have an interaction
+    if (compositions.length < 2) return true;
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final response = await api.dio.get(
+        ApiConfig.drugInteractionCheckByComposition,
+        queryParameters: {'compositions': compositions.join(',')},
+      );
+
+      final data = response.data;
+      final List<dynamic> interactions;
+      if (data is Map && data['data'] is List) {
+        interactions = data['data'] as List<dynamic>;
+      } else if (data is List) {
+        interactions = data;
+      } else {
+        return true;
+      }
+
+      if (interactions.isEmpty) return true;
+      if (!mounted) return false;
+
+      // Show warning dialog
+      final proceed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) {
+          return AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded,
+                    color: Color(0xFFE65100), size: 24),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Drug Interaction Warning',
+                    style: KTypography.h3,
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${interactions.length} potential interaction${interactions.length == 1 ? '' : 's'} detected:',
+                    style: KTypography.bodySmall
+                        .copyWith(color: KColors.textSecondary),
+                  ),
+                  const SizedBox(height: 12),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 300),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: interactions.length,
+                      separatorBuilder: (_, __) => const Divider(height: 16),
+                      itemBuilder: (_, i) {
+                        final interaction =
+                            interactions[i] as Map<String, dynamic>;
+                        final severity =
+                            (interaction['severity']?.toString() ?? 'MODERATE')
+                                .toUpperCase();
+                        final warning =
+                            interaction['warning']?.toString() ?? '';
+                        final recommendation =
+                            interaction['recommendation']?.toString() ?? '';
+
+                        Color severityColor;
+                        IconData severityIcon;
+                        switch (severity) {
+                          case 'CRITICAL':
+                            severityColor = const Color(0xFFB71C1C);
+                            severityIcon = Icons.dangerous;
+                            break;
+                          case 'HIGH':
+                            severityColor = const Color(0xFFE65100);
+                            severityIcon = Icons.error;
+                            break;
+                          case 'MODERATE':
+                            severityColor = const Color(0xFFF9A825);
+                            severityIcon = Icons.warning;
+                            break;
+                          default: // LOW or unknown
+                            severityColor = const Color(0xFF1565C0);
+                            severityIcon = Icons.info;
+                        }
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(severityIcon,
+                                color: severityColor, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          severityColor.withValues(alpha: 0.12),
+                                      borderRadius:
+                                          BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      severity,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: severityColor,
+                                      ),
+                                    ),
+                                  ),
+                                  if (warning.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(warning,
+                                        style: const TextStyle(fontSize: 13)),
+                                  ],
+                                  if (recommendation.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      recommendation,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: KColors.textSecondary,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Go Back'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFE65100),
+                ),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Continue Anyway'),
+              ),
+            ],
+          );
+        },
+      );
+
+      return proceed ?? false;
+    } catch (e) {
+      // Non-blocking — if the API call fails, allow sale to proceed
+      debugPrint('[POS] Drug interaction check failed (non-blocking): $e');
+      return true;
     }
   }
 

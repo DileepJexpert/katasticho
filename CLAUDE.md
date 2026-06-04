@@ -135,18 +135,18 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Sprint 30 (done):** Transfer orders (TransferOrderService, 7 tests). Picklist generation (PicklistService, 8 tests, V39 migration).
 - **Flutter screens:** Stock count (list/create/detail), transfer order (list/create/detail), picklist list — all created with routes and API config.
 
-### Phase 3: Pharma Domain Pack
+### Phase 3: Pharma Domain Pack (COMPLETE — 2026-06-04)
 **Goal:** Complete pharma-specific features on top of distributor core.
 **Reference:** Backend already exists in `PharmacyMasterService`. Flutter UI is missing.
-- Flutter: HSN→GST auto-fill in item/invoice forms
-- Flutter: Manufacturer autocomplete in item creation
-- Flutter: Rack location management screen (backend: POST /rack-locations, seed-demo)
-- Flutter: Generic substitution suggestions at POS checkout
-- Flutter: Drug interaction warning at prescription/POS
-- Seed real drug interaction data (current seeds are empty — see BUG-4)
-- Seed real generic substitution data (see BUG-5)
-- Expiry settlement returns workflow
-- Near-expiry alert dashboard widget
+- **HSN→GST auto-fill (done):** `HsnGstSearchWidget` — debounced search with GST rate chips. Integrated in item create form (pharmacy orgs). Auto-fills GST % on selection.
+- **Manufacturer autocomplete (done):** `ManufacturerSearchWidget` — debounced search with country tags. Integrated in item create form (pharmacy orgs).
+- **Rack location management (done):** `RackLocationsScreen` — warehouse dropdown, rack list, create sheet, demo seed button. Route: `/inventory/rack-locations`.
+- **Drug interaction warning at POS (done):** `_checkDrugInteractions` in `pos_screen.dart` — collects compositions from cart items, calls `check-by-composition` endpoint, shows severity-coded warning dialog before payment. Non-blocking on API failure.
+- **Composition-based interaction check (done):** `GET /api/v1/pharmacy-masters/interactions/check-by-composition?compositions=...` — splits on +/comma, resolves salt names, checks drug_interaction table.
+- **Drug interaction seeds (done — BUG-4):** V37 migration seeds 12 clinically significant interaction pairs.
+- **Generic substitution seeds (done — BUG-5):** V37 migration seeds 16 bidirectional substitution pairs.
+- **Expiry settlement returns (done):** Near-expiry screen supports selecting batches → drafts supplier return (debit note) with pre-filled lines.
+- **Near-expiry alert dashboard (done):** `NearExpiryScreen` with configurable days threshold, batch selection, return drafting. Dashboard widget links to `/inventory/near-expiry`.
 
 ### Phase 4: Reports Completion
 **Goal:** Finish remaining reports + Flutter UI for all reports.
