@@ -298,8 +298,8 @@ class _VanCard extends StatelessWidget {
                       ),
                       child: Text(
                         vehicleType,
-                        style: KTypography.bodySmall
-                            .copyWith(color: typeColor, fontWeight: FontWeight.w600),
+                        style: KTypography.bodySmall.copyWith(
+                            color: typeColor, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ],
@@ -430,7 +430,8 @@ class _VanStockSheetState extends State<_VanStockSheet> {
                           final itemName = item['itemName']?.toString() ??
                               item['name']?.toString() ??
                               'Item ${item['itemId'] ?? ''}';
-                          final qty = (item['quantity'] as num?)?.toDouble() ?? 0;
+                          final qty =
+                              (item['quantity'] as num?)?.toDouble() ?? 0;
                           final uom = item['uom']?.toString() ?? '';
                           return Row(
                             children: [
