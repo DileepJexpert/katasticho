@@ -364,8 +364,10 @@ public class FieldSalesController {
     public ResponseEntity<ApiResponse<FieldVisit>> checkIn(
             @PathVariable UUID id,
             @RequestBody Map<String, Object> body) {
-        BigDecimal latitude = new BigDecimal(body.get("latitude").toString());
-        BigDecimal longitude = new BigDecimal(body.get("longitude").toString());
+        BigDecimal latitude = body.get("latitude") != null
+                ? new BigDecimal(body.get("latitude").toString()) : BigDecimal.ZERO;
+        BigDecimal longitude = body.get("longitude") != null
+                ? new BigDecimal(body.get("longitude").toString()) : BigDecimal.ZERO;
         return ResponseEntity.ok(ApiResponse.ok(
                 service.checkIn(id, latitude, longitude), "Checked in"));
     }
@@ -374,9 +376,11 @@ public class FieldSalesController {
     public ResponseEntity<ApiResponse<FieldVisit>> checkOut(
             @PathVariable UUID id,
             @RequestBody Map<String, Object> body) {
-        BigDecimal latitude = new BigDecimal(body.get("latitude").toString());
-        BigDecimal longitude = new BigDecimal(body.get("longitude").toString());
-        String notes = (String) body.get("notes");
+        BigDecimal latitude = body.get("latitude") != null
+                ? new BigDecimal(body.get("latitude").toString()) : BigDecimal.ZERO;
+        BigDecimal longitude = body.get("longitude") != null
+                ? new BigDecimal(body.get("longitude").toString()) : BigDecimal.ZERO;
+        String notes = body.get("notes") != null ? body.get("notes").toString() : null;
         return ResponseEntity.ok(ApiResponse.ok(
                 service.checkOut(id, latitude, longitude, notes), "Checked out"));
     }

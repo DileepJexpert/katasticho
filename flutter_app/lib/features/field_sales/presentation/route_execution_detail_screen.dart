@@ -5,6 +5,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/location_service.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/field_sales_repository.dart';
 
@@ -72,9 +73,17 @@ class _RouteExecutionDetailScreenState
 
   Future<void> _checkIn(String visitId) async {
     try {
+      final pos = await LocationService.getCurrentPosition();
+      final lat = pos?.latitude ?? 0;
+      final lng = pos?.longitude ?? 0;
+      if (pos == null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location unavailable — using default')),
+        );
+      }
       await ref
           .read(fieldSalesRepositoryProvider)
-          .checkIn(visitId, 0, 0);
+          .checkIn(visitId, lat, lng);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -94,8 +103,44 @@ class _RouteExecutionDetailScreenState
   }
 
   Future<void> _checkOut(String visitId) async {
+    final notesCtl = TextEditingController();
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Check Out'),
+        content: TextField(
+          controller: notesCtl,
+          decoration: const InputDecoration(
+            labelText: 'Notes',
+            hintText: 'Any visit remarks (optional)',
+          ),
+          maxLines: 2,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Check Out'),
+          ),
+        ],
+      ),
+    );
+    if (proceed != true || !mounted) return;
+
     try {
-      await ref.read(fieldSalesRepositoryProvider).checkOut(visitId);
+      final pos = await LocationService.getCurrentPosition();
+      final lat = pos?.latitude ?? 0;
+      final lng = pos?.longitude ?? 0;
+      final notes = notesCtl.text.trim();
+      await ref.read(fieldSalesRepositoryProvider).checkOut(
+            visitId,
+            lat,
+            lng,
+            notes: notes.isNotEmpty ? notes : null,
+          );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

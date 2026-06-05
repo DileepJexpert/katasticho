@@ -145,8 +145,16 @@ class FieldSalesRepository {
     );
   }
 
-  Future<void> checkOut(String visitId) async {
-    await _api.post(ApiConfig.fieldSalesVisitCheckOut(visitId));
+  Future<void> checkOut(String visitId, double lat, double lng,
+      {String? notes}) async {
+    await _api.post(
+      ApiConfig.fieldSalesVisitCheckOut(visitId),
+      data: {
+        'latitude': lat,
+        'longitude': lng,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      },
+    );
   }
 
   Future<void> skipVisit(String visitId, String reason) async {
