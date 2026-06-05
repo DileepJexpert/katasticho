@@ -171,17 +171,17 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Flutter screens (done):** Employee list, employee create/edit form, payroll run list (with create dialog), payroll run detail (with lifecycle actions + payslip viewer), payroll settings. Routes and sidebar nav integrated.
 - **328 tests pass.**
 
-### Phase 6: AI Foundation
+### Phase 6: AI Foundation (COMPLETE — 2026-06-05)
 **Goal:** Cross-cutting AI decision layer (observe → suggest → review → learn).
 **Reference:** `docs/AI_APPROACH_AND_ROADMAP.md`
-- Phase 1: `ai_suggestions`, `domain_events`, `ai_patterns`, `ai_training_examples` tables + backend
-- Phase 2: Rule-based agents (anomaly, GST compliance, inventory intelligence) — no external AI calls
-- Phase 3: Flutter AI Inbox (accept/reject/modify suggestions)
-- Phase 4: Pattern learning from reviewed suggestions
-- Phase 5: AI assistant endpoint (`POST /api/v1/ai/assistant`)
-- Phase 6: Selective business table AI summary fields
-- Phase 7: External AI / MCP integrations
-- **Safety:** AI must never directly post journals, change stock, or file GST. All through existing services.
+- **Database (done):** V7 migration (ai_suggestion, domain_event, ai_pattern, ai_training_example), V13 (org_ai_settings), V14 (ai_model_run, ai_usage_log, ai_model_registry) — 7 tables total.
+- **Backend entities & repos (done):** 7 JPA entities, 7 repositories in `com.katasticho.erp.ai`.
+- **Rule-based agents (done):** `RuleBasedAiAgentService` (1772 lines) — anomaly detection, GST compliance, inventory intelligence agents. No external AI calls.
+- **Domain event infrastructure (done):** `DomainEventPublisher`, `DomainEventProcessor`, `DomainEventHandler` interface, `DomainEventWorker`. `InvoicePostedAiEventHandler` listens to INVOICE_POSTED events.
+- **AI services (done):** 14 services — AiSuggestionService, NlpQueryService, BillScanService, ItemScanService, VisionModelRouter, ClaudeApiClient, OllamaVisionClient, SqlValidator, SchemaProvider, AiTelemetryService, AiModelRegistryService, OrgAiSettingsService, plus controllers (AiController, AiSuggestionController).
+- **Flutter AI Inbox (done):** `ai_chat_screen.dart` with inbox tab (accept/reject/modify suggestions) + assistant tab. Models and repository.
+- **Tests (done):** 6 test classes in `src/test/java/com/katasticho/erp/ai/service/`.
+- **Safety:** AI never directly posts journals, changes stock, or files GST — all through existing services.
 
 ### Phase 7: FMCG Field Execution Pack
 **Goal:** Route/beat/van workflows for FMCG distributors.
