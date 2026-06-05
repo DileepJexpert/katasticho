@@ -16,5 +16,8 @@ public enum ReferenceType {
     STOCK_RECEIPT,
     SALES_RECEIPT,
     DELIVERY_CHALLAN,
-    SALES_ORDER
+    SALES_ORDER,
+    VAN_LOAD,
+    VAN_UNLOAD,
+    VAN_RETURN
 }

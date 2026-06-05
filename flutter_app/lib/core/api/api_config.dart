@@ -560,4 +560,75 @@ class ApiConfig {
   static String payrollRunPayment(String runId) =>
       '/api/v1/payroll/runs/$runId/payment';
   static const String statutoryPayments = '/api/v1/payroll/statutory-payments';
+
+  // Field Sales / FMCG Execution
+  static const String fieldSalesBeats = '/api/v1/field-sales/beats';
+  static String fieldSalesBeatById(String id) =>
+      '/api/v1/field-sales/beats/$id';
+  static String fieldSalesBeatCustomers(String beatId) =>
+      '/api/v1/field-sales/beats/$beatId/customers';
+  static String fieldSalesBeatCustomer(String beatId, String contactId) =>
+      '/api/v1/field-sales/beats/$beatId/customers/$contactId';
+  static const String fieldSalesRoutes = '/api/v1/field-sales/routes';
+  static String fieldSalesRouteById(String id) =>
+      '/api/v1/field-sales/routes/$id';
+  static String fieldSalesRouteBeats(String routeId) =>
+      '/api/v1/field-sales/routes/$routeId/beats';
+  static const String fieldSalesVans = '/api/v1/field-sales/vans';
+  static String fieldSalesVanById(String id) =>
+      '/api/v1/field-sales/vans/$id';
+  static String fieldSalesVanStock(String vanId) =>
+      '/api/v1/field-sales/vans/$vanId/stock';
+  static const String fieldSalesAssignments = '/api/v1/field-sales/assignments';
+  static String fieldSalesAssignmentsBySalesperson(String id) =>
+      '/api/v1/field-sales/assignments/salesperson/$id';
+  static const String fieldSalesVanTransfersLoad =
+      '/api/v1/field-sales/van-transfers/load';
+  static const String fieldSalesVanTransfersReturn =
+      '/api/v1/field-sales/van-transfers/return';
+  static String fieldSalesVanTransferConfirmLoad(String id) =>
+      '/api/v1/field-sales/van-transfers/$id/confirm-load';
+  static String fieldSalesVanTransferConfirmReturn(String id) =>
+      '/api/v1/field-sales/van-transfers/$id/confirm-return';
+  static String fieldSalesVanTransfersByVan(String vanId) =>
+      '/api/v1/field-sales/van-transfers/van/$vanId';
+  static String fieldSalesVanTransferLines(String id) =>
+      '/api/v1/field-sales/van-transfers/$id/lines';
+  static const String fieldSalesExecutions = '/api/v1/field-sales/executions';
+  static String fieldSalesExecutionById(String id) =>
+      '/api/v1/field-sales/executions/$id';
+  static String fieldSalesExecutionsByDate(String date) =>
+      '/api/v1/field-sales/executions/date/$date';
+  static String fieldSalesExecutionStart(String id) =>
+      '/api/v1/field-sales/executions/$id/start';
+  static String fieldSalesExecutionComplete(String id) =>
+      '/api/v1/field-sales/executions/$id/complete';
+  static String fieldSalesExecutionVisits(String executionId) =>
+      '/api/v1/field-sales/executions/$executionId/visits';
+  static String fieldSalesVisitCheckIn(String id) =>
+      '/api/v1/field-sales/visits/$id/check-in';
+  static String fieldSalesVisitCheckOut(String id) =>
+      '/api/v1/field-sales/visits/$id/check-out';
+  static String fieldSalesVisitSkip(String id) =>
+      '/api/v1/field-sales/visits/$id/skip';
+  static String fieldSalesVisitRecordOrder(String id) =>
+      '/api/v1/field-sales/visits/$id/record-order';
+  static String fieldSalesVisitRecordCollection(String id) =>
+      '/api/v1/field-sales/visits/$id/record-collection';
+  static String fieldSalesDayCloseInitiate(String routeExecutionId) =>
+      '/api/v1/field-sales/day-close/initiate/$routeExecutionId';
+  static String fieldSalesDayCloseById(String id) =>
+      '/api/v1/field-sales/day-close/$id';
+  static String fieldSalesDayCloseSubmit(String id) =>
+      '/api/v1/field-sales/day-close/$id/submit';
+  static String fieldSalesDayCloseApprove(String id) =>
+      '/api/v1/field-sales/day-close/$id/approve';
+  static String fieldSalesDayCloseReject(String id) =>
+      '/api/v1/field-sales/day-close/$id/reject';
+  static const String fieldSalesTargets = '/api/v1/field-sales/targets';
+  static String fieldSalesTargetsBySalesperson(String id) =>
+      '/api/v1/field-sales/targets/salesperson/$id';
+  static String fieldSalesTargetAchievement(String id) =>
+      '/api/v1/field-sales/targets/$id/achievement';
+  static const String fieldSalesDashboard = '/api/v1/field-sales/dashboard';
 }

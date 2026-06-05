@@ -142,6 +142,13 @@ import '../features/payroll/presentation/employee_form_screen.dart';
 import '../features/payroll/presentation/payroll_run_list_screen.dart';
 import '../features/payroll/presentation/payroll_run_detail_screen.dart';
 import '../features/payroll/presentation/payroll_settings_screen.dart';
+import '../features/field_sales/presentation/beat_list_screen.dart';
+import '../features/field_sales/presentation/route_list_screen.dart';
+import '../features/field_sales/presentation/van_list_screen.dart';
+import '../features/field_sales/presentation/route_execution_screen.dart';
+import '../features/field_sales/presentation/route_execution_detail_screen.dart';
+import '../features/field_sales/presentation/day_close_screen.dart';
+import '../features/field_sales/presentation/salesman_dashboard_screen.dart';
 import '../features/workflow/presentation/workflow_settings_screen.dart';
 import 'shell_screen.dart';
 
@@ -304,6 +311,15 @@ class Routes {
   static const payrollRuns = '/payroll/runs';
   static const payrollRunDetail = '/payroll/runs/:id';
   static const payrollSettings = '/payroll/settings';
+
+  // Field Sales / FMCG
+  static const fieldSalesBeats = '/field-sales/beats';
+  static const fieldSalesRoutes = '/field-sales/routes';
+  static const fieldSalesVans = '/field-sales/vans';
+  static const fieldSalesExecutions = '/field-sales/executions';
+  static const fieldSalesExecutionDetail = '/field-sales/executions/:id';
+  static const fieldSalesDayClose = '/field-sales/day-close';
+  static const fieldSalesDashboard = '/field-sales/dashboard';
 
   static const platformAdmin = '/platform-admin';
   static const platformAdminLogin = '/platform-admin/login';
@@ -939,6 +955,49 @@ final routerProvider = Provider<GoRouter>((ref) {
               child: PayrollSettingsScreen(),
             ),
           ),
+          // Field Sales / FMCG Execution
+          GoRoute(
+            path: Routes.fieldSalesBeats,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: BeatListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesRoutes,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RouteListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesVans,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: VanListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesExecutions,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RouteExecutionScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesExecutionDetail,
+            builder: (context, state) => RouteExecutionDetailScreen(
+              executionId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesDayClose,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DayCloseScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesDashboard,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SalesmanDashboardScreen(),
+            ),
+          ),
           // Pharma — Drug Licenses & Compliance
           GoRoute(
             path: Routes.drugLicenses,
@@ -1362,6 +1421,9 @@ String? _capabilityRedirectForLocation(
     return Routes.dashboard;
   }
   if (location == Routes.bankReconciliation && !capabilities.canUseBankRecon) {
+    return Routes.dashboard;
+  }
+  if (location.startsWith('/field-sales') && !capabilities.canUseFieldSales) {
     return Routes.dashboard;
   }
   return null;

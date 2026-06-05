@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V41**. Next new migration = V42.
+- Location: `src/main/resources/db/migration/`. Latest is **V42**. Next new migration = V43.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -183,16 +183,20 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Tests (done):** 6 test classes in `src/test/java/com/katasticho/erp/ai/service/`.
 - **Safety:** AI never directly posts journals, changes stock, or files GST — all through existing services.
 
-### Phase 7: FMCG Field Execution Pack
+### Phase 7: FMCG Field Execution Pack (COMPLETE — 2026-06-05)
 **Goal:** Route/beat/van workflows for FMCG distributors.
 **Reference:** `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` (Gap #3)
-- Beat/route planning
-- Van stock, loading, unloading
-- Day-close wizard
-- Salesman incentive workflows
-- Route collections
-- Secondary-sales dashboards
-- Likely new modules, but on top of existing sales/inventory/accounting core
+- **V42 migration (done):** 13 new tables (beat, beat_customer, route, route_beat, van, van_stock_balance, field_sales_assignment, route_execution, field_visit, van_stock_transfer, van_stock_transfer_line, salesman_target, day_close) + 16 indexes.
+- **Backend (done):** `com.katasticho.erp.fieldsales` — 13 entities, 13 repositories, FieldSalesService (1281 lines), FieldSalesController (51 endpoints at `/api/v1/field-sales`). ModuleCode.FIELD_SALES added. ReferenceType extended with VAN_LOAD/VAN_UNLOAD/VAN_RETURN.
+- **Beat/Route planning (done):** Beat CRUD with customer assignment (visit sequence + frequency). Route CRUD with ordered beat linking. Route-by-day-of-week filtering.
+- **Van stock (done):** Van CRUD with vehicle info + capacity. Van stock balance tracking. Van stock transfer (LOAD/UNLOAD/RETURN) with warehouse stock integration via InventoryService.
+- **Field sales assignment (done):** Link salesperson → route + van + territory with effective dates.
+- **Route execution (done):** Daily route execution lifecycle (PLANNED → IN_PROGRESS → COMPLETED). Auto-creates field visits from route's beats' customers. GPS check-in/check-out per visit. Order and collection recording per visit.
+- **Day-close wizard (done):** Initiate from completed execution. Cash reconciliation (opening/collections/expenses/closing/deposited/variance). Stock and visit summaries. Submit → Approve/Reject lifecycle.
+- **Salesman incentives (done):** Target CRUD (REVENUE/VOLUME/VISITS/COLLECTIONS/NEW_CUSTOMERS). Achievement tracking with percentage and incentive amount calculation.
+- **Secondary-sales dashboard (done):** Aggregated KPIs (routes, visits, productive %, orders, collections) with date range.
+- **Flutter screens (done):** Beat list, route list, van list, route execution (today's routes), execution detail (with visit actions), day close, salesman dashboard. Routes and sidebar nav integrated, gated by `canUseFieldSales`.
+- **328 tests pass.**
 
 ### Phase 8: Partner Network (B2B Ordering)
 **Goal:** Connected B2B trade network within the same product.
