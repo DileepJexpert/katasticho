@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/widgets.dart';
 import '../data/field_sales_repository.dart';
 
 class RouteExecutionDetailScreen extends ConsumerStatefulWidget {
-  final String executionId;
   const RouteExecutionDetailScreen({super.key, required this.executionId});
+  final String executionId;
 
   @override
   ConsumerState<RouteExecutionDetailScreen> createState() =>
@@ -17,16 +20,16 @@ class RouteExecutionDetailScreen extends ConsumerStatefulWidget {
 class _RouteExecutionDetailScreenState
     extends ConsumerState<RouteExecutionDetailScreen> {
   bool _isLoading = true;
-  Map<String, dynamic> _execution = {};
-  List<dynamic> _visits = [];
+  Map<String, dynamic>? _execution;
+  List<Map<String, dynamic>> _visits = [];
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadData();
   }
 
-  Future<void> _load() async {
+  Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
       final repo = ref.read(fieldSalesRepositoryProvider);
@@ -34,165 +37,275 @@ class _RouteExecutionDetailScreenState
         repo.getExecution(widget.executionId),
         repo.getVisits(widget.executionId),
       ]);
-      if (!mounted) return;
-      setState(() {
-        _execution = results[0] as Map<String, dynamic>;
-        _visits = results[1] as List<dynamic>;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _execution = results[0] as Map<String, dynamic>;
+          _visits = (results[1] as List)
+              .whereType<Map<String, dynamic>>()
+              .toList();
+        });
+      }
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load execution: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Color _statusColor(String status) => switch (status) {
-        'PLANNED' => Colors.blue,
-        'IN_PROGRESS' => Colors.orange,
-        'COMPLETED' => KColors.success,
-        'SKIPPED' => KColors.error,
-        'NO_ORDER' => Colors.grey,
-        _ => Colors.grey,
-      };
+  Color _visitStatusColor(String status) {
+    switch (status) {
+      case 'IN_PROGRESS':
+        return Colors.orange;
+      case 'COMPLETED':
+        return Colors.green;
+      case 'SKIPPED':
+        return Colors.red;
+      case 'PLANNED':
+      default:
+        return Colors.blue;
+    }
+  }
 
   Future<void> _checkIn(String visitId) async {
     try {
       await ref
           .read(fieldSalesRepositoryProvider)
-          .checkIn(visitId, {'latitude': 0.0, 'longitude': 0.0});
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Checked in')));
-      _load();
+          .checkIn(visitId, 0, 0);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Checked in successfully'),
+            backgroundColor: KColors.success,
+          ),
+        );
+      }
+      await _loadData();
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to check in: $e')),
+        );
+      }
     }
   }
 
   Future<void> _checkOut(String visitId) async {
     try {
-      await ref
-          .read(fieldSalesRepositoryProvider)
-          .checkOut(visitId, {'latitude': 0.0, 'longitude': 0.0});
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Checked out')));
-      _load();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
-    }
-  }
-
-  Future<void> _skipVisit(String visitId) async {
-    final reason = await showDialog<String>(
-      context: context,
-      builder: (ctx) {
-        final ctrl = TextEditingController();
-        return AlertDialog(
-          title: const Text('Skip Visit'),
-          content: TextField(
-            controller: ctrl,
-            decoration: const InputDecoration(labelText: 'Reason'),
+      await ref.read(fieldSalesRepositoryProvider).checkOut(visitId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Checked out successfully'),
+            backgroundColor: KColors.success,
           ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            FilledButton(
-                onPressed: () => Navigator.pop(ctx, ctrl.text),
-                child: const Text('Skip')),
-          ],
         );
-      },
-    );
-    if (reason == null || !mounted) return;
-    try {
-      await ref
-          .read(fieldSalesRepositoryProvider)
-          .skipVisit(visitId, {'skipReason': reason});
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Visit skipped')));
-      _load();
+      }
+      await _loadData();
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to check out: $e')),
+        );
+      }
     }
   }
 
-  Future<void> _recordOrder(String visitId) async {
-    final ctrl = TextEditingController();
-    final value = await showDialog<String>(
+  Future<void> _showSkipDialog(String visitId) async {
+    final reasonCtl = TextEditingController();
+
+    final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Record Order'),
+        title: const Text('Skip Visit'),
         content: TextField(
-          controller: ctrl,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Order Value'),
+          controller: reasonCtl,
+          decoration: const InputDecoration(
+            labelText: 'Reason *',
+            hintText: 'e.g. Shop closed, owner unavailable',
+          ),
+          maxLines: 2,
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, ctrl.text),
-              child: const Text('Save')),
+            onPressed: () {
+              if (reasonCtl.text.trim().isEmpty) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Reason is required')),
+                );
+                return;
+              }
+              Navigator.pop(ctx, true);
+            },
+            child: const Text('Skip'),
+          ),
         ],
       ),
     );
-    if (value == null || value.isEmpty || !mounted) return;
+
+    if (result != true || !mounted) return;
+
     try {
-      await ref.read(fieldSalesRepositoryProvider).recordVisitOrder(
-          visitId, {'orderValue': double.tryParse(value) ?? 0});
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Order recorded')));
-      _load();
+      await ref
+          .read(fieldSalesRepositoryProvider)
+          .skipVisit(visitId, reasonCtl.text.trim());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Visit skipped')),
+        );
+      }
+      await _loadData();
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to skip visit: $e')),
+        );
+      }
     }
   }
 
-  Future<void> _recordCollection(String visitId) async {
-    final ctrl = TextEditingController();
-    final value = await showDialog<String>(
+  Future<void> _showRecordOrderDialog(String visitId) async {
+    final orderValueCtl = TextEditingController();
+    final salesOrderIdCtl = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Record Order'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: salesOrderIdCtl,
+              decoration: const InputDecoration(
+                labelText: 'Sales Order ID',
+                hintText: 'Optional',
+              ),
+            ),
+            KSpacing.vGapSm,
+            TextField(
+              controller: orderValueCtl,
+              decoration: const InputDecoration(
+                labelText: 'Order Value *',
+                hintText: 'e.g. 5000',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (orderValueCtl.text.trim().isEmpty) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Order value is required')),
+                );
+                return;
+              }
+              Navigator.pop(ctx, true);
+            },
+            child: const Text('Record'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != true || !mounted) return;
+
+    try {
+      final value = double.tryParse(orderValueCtl.text.trim()) ?? 0;
+      await ref.read(fieldSalesRepositoryProvider).recordOrder(
+            visitId,
+            salesOrderIdCtl.text.trim(),
+            value,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Order recorded'),
+            backgroundColor: KColors.success,
+          ),
+        );
+      }
+      await _loadData();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to record order: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showRecordCollectionDialog(String visitId) async {
+    final amountCtl = TextEditingController();
+
+    final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Record Collection'),
         content: TextField(
-          controller: ctrl,
+          controller: amountCtl,
+          decoration: const InputDecoration(
+            labelText: 'Amount *',
+            hintText: 'e.g. 2500',
+          ),
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Amount'),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, ctrl.text),
-              child: const Text('Save')),
+            onPressed: () {
+              if (amountCtl.text.trim().isEmpty) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Amount is required')),
+                );
+                return;
+              }
+              Navigator.pop(ctx, true);
+            },
+            child: const Text('Record'),
+          ),
         ],
       ),
     );
-    if (value == null || value.isEmpty || !mounted) return;
+
+    if (result != true || !mounted) return;
+
     try {
-      await ref.read(fieldSalesRepositoryProvider).recordVisitCollection(
-          visitId, {'collectionAmount': double.tryParse(value) ?? 0});
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Collection recorded')));
-      _load();
+      final amount = double.tryParse(amountCtl.text.trim()) ?? 0;
+      await ref
+          .read(fieldSalesRepositoryProvider)
+          .recordCollection(visitId, amount);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Collection recorded'),
+            backgroundColor: KColors.success,
+          ),
+        );
+      }
+      await _loadData();
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to record collection: $e')),
+        );
+      }
     }
   }
 
@@ -200,197 +313,338 @@ class _RouteExecutionDetailScreenState
     try {
       await ref
           .read(fieldSalesRepositoryProvider)
-          .completeRoute(widget.executionId);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Route completed')));
-      _load();
+          .completeExecution(widget.executionId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Route completed'),
+            backgroundColor: KColors.success,
+          ),
+        );
+      }
+      await _loadData();
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to complete route: $e')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final status = _execution['status'] as String? ?? '';
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Execution Detail')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_execution == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Execution Detail')),
+        body: const Center(child: Text('No data found')),
+      );
+    }
+
+    final exec = _execution!;
+    final status = exec['status']?.toString() ?? 'PLANNED';
+    final routeName = exec['routeName']?.toString() ??
+        exec['routeId']?.toString() ??
+        '--';
+    final salesperson = exec['salespersonName']?.toString() ??
+        exec['salespersonId']?.toString() ??
+        '--';
+    final execDate = exec['date']?.toString() ?? '--';
+    final totalVisits = (exec['totalVisits'] as num?)?.toInt() ?? _visits.length;
+    final completedVisits = (exec['completedVisits'] as num?)?.toInt() ??
+        _visits.where((v) => v['status'] == 'COMPLETED').length;
+    final skippedVisits = (exec['skippedVisits'] as num?)?.toInt() ??
+        _visits.where((v) => v['status'] == 'SKIPPED').length;
+    final ordersTotal =
+        (exec['ordersValue'] as num?)?.toDouble() ?? 0;
+    final collectionsTotal =
+        (exec['collections'] as num?)?.toDouble() ?? 0;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isLoading
-            ? 'Route Execution'
-            : 'Route ${_execution['executionDate'] ?? ''}'),
+        title: const Text('Execution Detail'),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
+      body: RefreshIndicator(
+        onRefresh: _loadData,
+        child: ListView(
+          padding: KSpacing.pagePadding,
+          children: [
+            // -- Header Section --
+            KCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Status chip
-                  Row(children: [
-                    Chip(
-                      label: Text(status,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 12)),
-                      backgroundColor: _statusColor(status),
-                    ),
-                    const Spacer(),
-                    Text('Date: ${_execution['executionDate'] ?? ''}'),
-                  ]),
-                  const SizedBox(height: 16),
-                  // Summary cards
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  Row(
                     children: [
-                      _summaryCard('Planned',
-                          '${_execution['plannedVisits'] ?? 0}', cs),
-                      _summaryCard('Completed',
-                          '${_execution['completedVisits'] ?? 0}', cs),
-                      _summaryCard('Skipped',
-                          '${_execution['skippedVisits'] ?? 0}', cs),
-                      _summaryCard(
-                          'Orders',
-                          CurrencyFormatter.formatIndian(
-                              (_execution['totalOrdersValue'] as num?)
-                                      ?.toDouble() ??
-                                  0),
-                          cs),
-                      _summaryCard(
-                          'Collections',
-                          CurrencyFormatter.formatIndian(
-                              (_execution['totalCollections'] as num?)
-                                      ?.toDouble() ??
-                                  0),
-                          cs),
+                      Expanded(
+                        child: Text(routeName,
+                            style: KTypography.labelLarge),
+                      ),
+                      KStatusChip(
+                        status: status,
+                        label: status.replaceAll('_', ' '),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  Text('Visits',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  if (_visits.isEmpty)
-                    const Center(child: Text('No visits'))
-                  else
-                    ..._visits.map((v) => _visitCard(v as Map<String, dynamic>)),
+                  KSpacing.vGapXs,
+                  Text('Date: $execDate',
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.textSecondary)),
+                  KSpacing.vGapXs,
+                  Text('Salesperson: $salesperson',
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.textSecondary)),
                 ],
               ),
             ),
-      bottomNavigationBar: !_isLoading && status == 'IN_PROGRESS'
+            KSpacing.vGapMd,
+
+            // -- Summary Cards --
+            Wrap(
+              spacing: KSpacing.sm,
+              runSpacing: KSpacing.sm,
+              children: [
+                _SummaryCard(
+                  label: 'Planned',
+                  value: '$totalVisits',
+                  color: Colors.blue,
+                ),
+                _SummaryCard(
+                  label: 'Completed',
+                  value: '$completedVisits',
+                  color: Colors.green,
+                ),
+                _SummaryCard(
+                  label: 'Skipped',
+                  value: '$skippedVisits',
+                  color: Colors.red,
+                ),
+                _SummaryCard(
+                  label: 'Orders',
+                  value: CurrencyFormatter.formatIndian(ordersTotal),
+                  color: KColors.primary,
+                ),
+                _SummaryCard(
+                  label: 'Collections',
+                  value: CurrencyFormatter.formatIndian(collectionsTotal),
+                  color: KColors.success,
+                ),
+              ],
+            ),
+            KSpacing.vGapMd,
+
+            // -- Visits Section --
+            Text('Visits', style: KTypography.labelLarge),
+            KSpacing.vGapSm,
+            if (_visits.isEmpty)
+              const Center(child: Text('No visits found'))
+            else
+              ..._visits.map((visit) {
+                final visitId = visit['id']?.toString() ?? '';
+                final contactId = visit['contactId']?.toString() ??
+                    visit['contactName']?.toString() ??
+                    '--';
+                final seq = (visit['sequence'] as num?)?.toInt() ??
+                    (visit['sequenceNumber'] as num?)?.toInt();
+                final visitStatus =
+                    visit['status']?.toString() ?? 'PLANNED';
+                final checkInTime = visit['checkInTime']?.toString();
+                final checkOutTime = visit['checkOutTime']?.toString();
+                final orderValue =
+                    (visit['orderValue'] as num?)?.toDouble();
+                final collectionAmount =
+                    (visit['collectionAmount'] as num?)?.toDouble();
+                final skipReason = visit['skipReason']?.toString();
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: KSpacing.sm),
+                  child: KCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            if (seq != null) ...[
+                              Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: _visitStatusColor(visitStatus)
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Center(
+                                  child: Text('$seq',
+                                      style: KTypography.labelMedium.copyWith(
+                                          color: _visitStatusColor(
+                                              visitStatus))),
+                                ),
+                              ),
+                              KSpacing.hGapSm,
+                            ],
+                            Expanded(
+                              child: Text('Contact: $contactId',
+                                  style: KTypography.bodyMedium),
+                            ),
+                            KStatusChip(
+                              status: visitStatus,
+                              label: visitStatus.replaceAll('_', ' '),
+                            ),
+                          ],
+                        ),
+
+                        // -- Completed visit details --
+                        if (visitStatus == 'COMPLETED') ...[
+                          KSpacing.vGapSm,
+                          if (checkInTime != null)
+                            Text('Check-in: $checkInTime',
+                                style: KTypography.bodySmall.copyWith(
+                                    color: KColors.textSecondary)),
+                          if (checkOutTime != null)
+                            Text('Check-out: $checkOutTime',
+                                style: KTypography.bodySmall.copyWith(
+                                    color: KColors.textSecondary)),
+                          if (orderValue != null)
+                            Text(
+                                'Order: ${CurrencyFormatter.formatIndian(orderValue)}',
+                                style: KTypography.bodySmall),
+                          if (collectionAmount != null)
+                            Text(
+                                'Collection: ${CurrencyFormatter.formatIndian(collectionAmount)}',
+                                style: KTypography.bodySmall),
+                        ],
+
+                        // -- Skipped visit details --
+                        if (visitStatus == 'SKIPPED' &&
+                            skipReason != null) ...[
+                          KSpacing.vGapSm,
+                          Text('Reason: $skipReason',
+                              style: KTypography.bodySmall
+                                  .copyWith(color: KColors.error)),
+                        ],
+
+                        // -- Action buttons --
+                        KSpacing.vGapSm,
+                        Wrap(
+                          spacing: KSpacing.sm,
+                          runSpacing: KSpacing.xs,
+                          children: [
+                            if (visitStatus == 'PLANNED') ...[
+                              FilledButton.tonal(
+                                onPressed: () => _checkIn(visitId),
+                                child: const Text('Check In'),
+                              ),
+                              OutlinedButton(
+                                onPressed: () => _showSkipDialog(visitId),
+                                child: const Text('Skip'),
+                              ),
+                            ],
+                            if (visitStatus == 'IN_PROGRESS') ...[
+                              FilledButton.tonal(
+                                onPressed: () => _checkOut(visitId),
+                                child: const Text('Check Out'),
+                              ),
+                              OutlinedButton(
+                                onPressed: () =>
+                                    _showRecordOrderDialog(visitId),
+                                child: const Text('Record Order'),
+                              ),
+                              OutlinedButton(
+                                onPressed: () =>
+                                    _showRecordCollectionDialog(visitId),
+                                child: const Text('Record Collection'),
+                              ),
+                            ],
+                            if (visitStatus == 'COMPLETED') ...[
+                              OutlinedButton(
+                                onPressed: () =>
+                                    _showRecordOrderDialog(visitId),
+                                child: const Text('Record Order'),
+                              ),
+                              OutlinedButton(
+                                onPressed: () =>
+                                    _showRecordCollectionDialog(visitId),
+                                child: const Text('Record Collection'),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+      bottomNavigationBar: (status == 'IN_PROGRESS' || status == 'COMPLETED')
           ? SafeArea(
               child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: FilledButton.icon(
-                  onPressed: _completeRoute,
-                  icon: const Icon(Icons.check_circle),
-                  label: const Text('Complete Route'),
+                padding: const EdgeInsets.all(KSpacing.md),
+                child: Row(
+                  children: [
+                    if (status == 'IN_PROGRESS')
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: _completeRoute,
+                          child: const Text('Complete Route'),
+                        ),
+                      ),
+                    if (status == 'COMPLETED')
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () => context.push(
+                              '/field-sales/day-close?executionId=${widget.executionId}'),
+                          child: const Text('Day Close'),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             )
-          : !_isLoading && status == 'COMPLETED'
-              ? SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: FilledButton.icon(
-                      onPressed: () =>
-                          context.push('/field-sales/day-close'),
-                      icon: const Icon(Icons.nightlight),
-                      label: const Text('Day Close'),
-                    ),
-                  ),
-                )
-              : null,
+          : null,
     );
   }
+}
 
-  Widget _summaryCard(String label, String value, ColorScheme cs) {
-    return SizedBox(
-      width: 110,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text(label,
-                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-            ],
-          ),
-        ),
+class _SummaryCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _SummaryCard({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 100),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
-    );
-  }
-
-  Widget _visitCard(Map<String, dynamic> visit) {
-    final vStatus = visit['status'] as String? ?? 'PLANNED';
-    final id = visit['id']?.toString() ?? '';
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Text('#${visit['sequenceNumber'] ?? '-'}',
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: Text('Customer: ${visit['contactId'] ?? ''}',
-                      overflow: TextOverflow.ellipsis)),
-              Chip(
-                label: Text(vStatus,
-                    style:
-                        const TextStyle(color: Colors.white, fontSize: 10)),
-                backgroundColor: _statusColor(vStatus),
-                visualDensity: VisualDensity.compact,
-              ),
-            ]),
-            if (vStatus == 'COMPLETED') ...[
-              const SizedBox(height: 4),
-              Text(
-                  'Order: ${CurrencyFormatter.formatIndian((visit['orderValue'] as num?)?.toDouble() ?? 0)}  |  Collection: ${CurrencyFormatter.formatIndian((visit['collectionAmount'] as num?)?.toDouble() ?? 0)}',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
-            ],
-            if (vStatus == 'SKIPPED' && visit['skipReason'] != null)
-              Text('Reason: ${visit['skipReason']}',
-                  style:
-                      const TextStyle(fontSize: 12, color: KColors.error)),
-            const SizedBox(height: 8),
-            Wrap(spacing: 8, runSpacing: 4, children: [
-              if (vStatus == 'PLANNED')
-                FilledButton.tonal(
-                    onPressed: () => _checkIn(id),
-                    child: const Text('Check In')),
-              if (vStatus == 'PLANNED')
-                OutlinedButton(
-                    onPressed: () => _skipVisit(id),
-                    child: const Text('Skip')),
-              if (vStatus == 'IN_PROGRESS')
-                FilledButton.tonal(
-                    onPressed: () => _checkOut(id),
-                    child: const Text('Check Out')),
-              if (vStatus == 'IN_PROGRESS' || vStatus == 'COMPLETED') ...[
-                OutlinedButton(
-                    onPressed: () => _recordOrder(id),
-                    child: const Text('Order')),
-                OutlinedButton(
-                    onPressed: () => _recordCollection(id),
-                    child: const Text('Collection')),
-              ],
-            ]),
-          ],
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style:
+                  KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+          const SizedBox(height: 2),
+          Text(value,
+              style: KTypography.labelMedium.copyWith(color: color)),
+        ],
       ),
     );
   }
