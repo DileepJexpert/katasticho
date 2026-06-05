@@ -535,4 +535,29 @@ class ApiConfig {
       '/api/v1/pharmacy-masters/interactions/check';
   static const String drugInteractionCheckByComposition =
       '/api/v1/pharmacy-masters/interactions/check-by-composition';
+
+  // Payroll
+  static const String payrollSettings = '/api/v1/payroll/settings';
+  static const String payrollEmployees = '/api/v1/payroll/employees';
+  static String payrollEmployee(String id) => '/api/v1/payroll/employees/$id';
+  static String employeeSalaryStructure(String employeeId) =>
+      '/api/v1/payroll/employees/$employeeId/salary-structure';
+  static const String salaryComponents = '/api/v1/payroll/salary-components';
+  static String salaryComponent(String id) =>
+      '/api/v1/payroll/salary-components/$id';
+  static const String payrollRuns = '/api/v1/payroll/runs';
+  static String payrollRun(String id) => '/api/v1/payroll/runs/$id';
+  static String calculatePayrollRun(String id) =>
+      '/api/v1/payroll/runs/$id/calculate';
+  static String approvePayrollRun(String id) =>
+      '/api/v1/payroll/runs/$id/approve';
+  static String postPayrollRun(String id) => '/api/v1/payroll/runs/$id/post';
+  static String cancelPayrollRun(String id) =>
+      '/api/v1/payroll/runs/$id/cancel';
+  static String payrollRunPayslips(String runId) =>
+      '/api/v1/payroll/runs/$runId/payslips';
+  static String payslip(String id) => '/api/v1/payroll/payslips/$id';
+  static String payrollRunPayment(String runId) =>
+      '/api/v1/payroll/runs/$runId/payment';
+  static const String statutoryPayments = '/api/v1/payroll/statutory-payments';
 }

@@ -22,4 +22,5 @@ public final class ModuleCode {
     public static final String PAYMENTS = "PAYMENTS";
     public static final String BATCH_EXPIRY = "BATCH_EXPIRY";
     public static final String CA_CONSOLE = "CA_CONSOLE";
+    public static final String PAYROLL = "PAYROLL";
 }

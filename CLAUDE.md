@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V40**. Next new migration = V41.
+- Location: `src/main/resources/db/migration/`. Latest is **V41**. Next new migration = V42.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -161,14 +161,15 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Database indexes (done):** V40 migration adds 9 indexes for report query performance (invoice_date, bill_date, receipt_date, stock_movement_date, journal_entry_date, tax_line_source, payment_contact).
 - **Generic report viewer (done):** `OperationalReportScreen` renders all operational reports with date pickers, search, column display, metrics summary.
 
-### Phase 5: Payroll Module
+### Phase 5: Payroll Module (COMPLETE — 2026-06-05)
 **Goal:** Indian SMB payroll with PF/ESI/PT/TDS.
 **Reference:** `docs/PAYROLL_IMPLEMENTATION_SPEC.md`
-- Gated by `PAYROLL` module flag and `salary_handling_mode` (NONE/SIMPLE_EXPENSE/FORMAL_PAYROLL)
-- 12 new tables (payroll_settings, employee, salary_component, payroll_run, payslip, etc.)
-- Backend: package `com.katasticho.erp.payroll`
-- Journal posting via existing `JournalService`, NOT direct ledger writes
-- Flutter: 11 screens (dashboard, settings wizard, employees, salary structure, payroll runs, payslips, payments, statutory, reports)
+- **V41 migration (done):** 12 new tables (payroll_settings, employee, salary_component, employee_salary_structure, employee_salary_component, payroll_run, payslip, payslip_line, payroll_payment, statutory_payment, payroll_audit_log, payroll_document_snapshot). Added `salary_handling_mode` to organisation.
+- **Backend (done):** `com.katasticho.erp.payroll` — 10 entities, 8 repositories, PayrollService (979 lines) with full lifecycle (DRAFT→CALCULATED→APPROVED→POSTED), PayrollController (20+ endpoints at `/api/v1/payroll`). ModuleCode.PAYROLL added.
+- **Statutory calculations (done):** PF 12% of Basic, ESI 0.75%/3.25% of Gross (if ≤21000), PT ₹200 default, LWF ₹25+₹75.
+- **Journal posting (done):** Via existing JournalService — DR Salary Expense/Employer Contributions, CR Salary Payable/PF/ESI/PT/LWF/TDS Payable accounts.
+- **Flutter screens (done):** Employee list, employee create/edit form, payroll run list (with create dialog), payroll run detail (with lifecycle actions + payslip viewer), payroll settings. Routes and sidebar nav integrated.
+- **328 tests pass.**
 
 ### Phase 6: AI Foundation
 **Goal:** Cross-cutting AI decision layer (observe → suggest → review → learn).

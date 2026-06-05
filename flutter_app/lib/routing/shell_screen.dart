@@ -424,6 +424,29 @@ const _reportsGroup = NavGroup(
   ],
 );
 
+const _payrollGroup = NavGroup(
+  label: 'Payroll',
+  icon: Icons.people_alt_outlined,
+  activeIcon: Icons.people_alt_rounded,
+  children: [
+    NavItem(
+        label: 'Employees',
+        icon: Icons.badge_outlined,
+        activeIcon: Icons.badge_rounded,
+        route: Routes.payrollEmployees),
+    NavItem(
+        label: 'Payroll Runs',
+        icon: Icons.calculate_outlined,
+        activeIcon: Icons.calculate_rounded,
+        route: Routes.payrollRuns),
+    NavItem(
+        label: 'Settings',
+        icon: Icons.settings_outlined,
+        activeIcon: Icons.settings_rounded,
+        route: Routes.payrollSettings),
+  ],
+);
+
 /// All groups for route-matching.
 const _allGroups = [
   _salesGroup,
@@ -431,6 +454,7 @@ const _allGroups = [
   _inventoryGroup,
   _accountingGroup,
   _reportsGroup,
+  _payrollGroup,
 ];
 
 /// Flat list of every route across top-level items and groups (for active-state matching).
@@ -844,6 +868,7 @@ List<Widget> _buildSidebarSections({
   final bankingGroup = _visibleGroup(_bankingGroup, capabilities);
   final accountingGroup = _visibleGroup(_accountingGroup, capabilities);
   final reportsGroup = _visibleGroup(_reportsGroup, capabilities);
+  final payrollGroup = _visibleGroup(_payrollGroup, capabilities);
 
   return [
     _SidebarNavItem(item: _dashboardNavItem, collapsed: collapsed),
@@ -868,6 +893,8 @@ List<Widget> _buildSidebarSections({
       _SidebarNavGroup(group: inventoryGroup, collapsed: collapsed),
     if (canAccounting && reportsGroup != null)
       _SidebarNavGroup(group: reportsGroup, collapsed: collapsed),
+    if (canAccounting && payrollGroup != null)
+      _SidebarNavGroup(group: payrollGroup, collapsed: collapsed),
     KSpacing.vGapSm,
     if (!isOperator && !isViewer)
       _SidebarNavItem(item: _contactsNavItem, collapsed: collapsed),

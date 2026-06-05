@@ -137,6 +137,11 @@ import '../features/pharma/presentation/drug_licenses_screen.dart';
 import '../features/pharma/presentation/prescription_history_screen.dart';
 import '../features/loyalty/presentation/wallet_history_screen.dart';
 import '../features/workflow/presentation/approval_inbox_screen.dart';
+import '../features/payroll/presentation/employee_list_screen.dart';
+import '../features/payroll/presentation/employee_form_screen.dart';
+import '../features/payroll/presentation/payroll_run_list_screen.dart';
+import '../features/payroll/presentation/payroll_run_detail_screen.dart';
+import '../features/payroll/presentation/payroll_settings_screen.dart';
 import '../features/workflow/presentation/workflow_settings_screen.dart';
 import 'shell_screen.dart';
 
@@ -290,6 +295,15 @@ class Routes {
   static const walletHistory = '/loyalty/wallet/:contactId';
   static String walletHistoryPath(String contactId) =>
       '/loyalty/wallet/$contactId';
+
+  // Payroll
+  static const payrollEmployees = '/payroll/employees';
+  static const payrollEmployeeCreate = '/payroll/employees/create';
+  static const payrollEmployeeDetail = '/payroll/employees/:id';
+  static const payrollEmployeeEdit = '/payroll/employees/:id/edit';
+  static const payrollRuns = '/payroll/runs';
+  static const payrollRunDetail = '/payroll/runs/:id';
+  static const payrollSettings = '/payroll/settings';
 
   static const platformAdmin = '/platform-admin';
   static const platformAdminLogin = '/platform-admin/login';
@@ -882,6 +896,47 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.picklists,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: PicklistListScreen(),
+            ),
+          ),
+          // Payroll
+          GoRoute(
+            path: Routes.payrollEmployees,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: EmployeeListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.payrollEmployeeCreate,
+            builder: (context, state) => const EmployeeFormScreen(),
+          ),
+          GoRoute(
+            path: Routes.payrollEmployeeDetail,
+            builder: (context, state) => EmployeeFormScreen(
+              employeeId: state.pathParameters['id'],
+            ),
+          ),
+          GoRoute(
+            path: Routes.payrollEmployeeEdit,
+            builder: (context, state) => EmployeeFormScreen(
+              employeeId: state.pathParameters['id'],
+            ),
+          ),
+          GoRoute(
+            path: Routes.payrollRuns,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PayrollRunListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.payrollRunDetail,
+            builder: (context, state) => PayrollRunDetailScreen(
+              runId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: Routes.payrollSettings,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PayrollSettingsScreen(),
             ),
           ),
           // Pharma — Drug Licenses & Compliance
