@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/widgets.dart';
 import '../data/partner_network_repository.dart';
@@ -21,7 +20,6 @@ class PartnerListScreen extends ConsumerWidget {
           children: [
             const KListPageHeader(
               title: 'Trading Partners',
-              subtitle: 'Manage B2B relationships with suppliers and buyers.',
             ),
             TabBar(
               tabs: const [
@@ -223,7 +221,7 @@ class _PartnerCard extends StatelessWidget {
                   child: Text('$sellerName → $buyerName',
                       style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                 ),
-                KStatusChip(label: status),
+                KStatusChip(status: status),
               ],
             ),
             if (partner['paymentTerms'] != null) ...[

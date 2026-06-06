@@ -10,14 +10,11 @@ class CatalogListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final catalogAsync = ref.watch(catalogProvider);
-    final theme = Theme.of(context);
-
     return Scaffold(
       body: Column(
         children: [
           const KListPageHeader(
             title: 'Published Catalog',
-            subtitle: 'Items visible to your approved trading partners.',
           ),
           Expanded(
             child: catalogAsync.when(
@@ -97,7 +94,7 @@ class _CatalogCard extends StatelessWidget {
                         child: Text(name,
                             style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                       ),
-                      KStatusChip(label: isActive ? availability : 'INACTIVE'),
+                      KStatusChip(status: isActive ? availability : 'INACTIVE'),
                     ],
                   ),
                   if (sku != null) ...[

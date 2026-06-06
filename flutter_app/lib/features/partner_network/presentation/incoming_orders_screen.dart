@@ -17,7 +17,6 @@ class IncomingOrdersScreen extends ConsumerWidget {
         children: [
           const KListPageHeader(
             title: 'Incoming B2B Orders',
-            subtitle: 'Orders received from your trading partners.',
           ),
           Expanded(
             child: ordersAsync.when(
@@ -84,7 +83,7 @@ class _OrderCard extends StatelessWidget {
                 ],
               ),
             ),
-            KStatusChip(label: status),
+            KStatusChip(status: status),
           ],
         ),
       ),

@@ -17,7 +17,6 @@ class OutgoingOrdersScreen extends ConsumerWidget {
         children: [
           const KListPageHeader(
             title: 'Outgoing B2B Orders',
-            subtitle: 'Orders you placed with your suppliers.',
           ),
           Expanded(
             child: ordersAsync.when(
@@ -84,7 +83,7 @@ class _OrderCard extends StatelessWidget {
                 ],
               ),
             ),
-            KStatusChip(label: status),
+            KStatusChip(status: status),
           ],
         ),
       ),

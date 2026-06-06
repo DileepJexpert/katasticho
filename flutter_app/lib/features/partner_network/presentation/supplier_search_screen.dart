@@ -38,14 +38,11 @@ class _SupplierSearchScreenState extends ConsumerState<SupplierSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       body: Column(
         children: [
           const KListPageHeader(
             title: 'Supplier Search',
-            subtitle: 'Search published catalogs from your approved suppliers.',
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

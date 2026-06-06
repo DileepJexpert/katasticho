@@ -92,7 +92,7 @@ class _NetworkOrderDetailScreenState extends ConsumerState<NetworkOrderDetailScr
                     Row(
                       children: [
                         Expanded(child: Text('Status', style: theme.textTheme.labelMedium)),
-                        KStatusChip(label: status),
+                        KStatusChip(status: status),
                       ],
                     ),
                     const Divider(height: 20),
@@ -127,7 +127,7 @@ class _NetworkOrderDetailScreenState extends ConsumerState<NetworkOrderDetailScr
                           line['displayName']?.toString() ?? 'Item',
                           style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                         )),
-                        KStatusChip(label: line['status']?.toString() ?? ''),
+                        KStatusChip(status: line['status']?.toString() ?? ''),
                       ],
                     ),
                     const SizedBox(height: 4),
