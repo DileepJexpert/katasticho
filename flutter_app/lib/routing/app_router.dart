@@ -149,6 +149,12 @@ import '../features/field_sales/presentation/route_execution_screen.dart';
 import '../features/field_sales/presentation/route_execution_detail_screen.dart';
 import '../features/field_sales/presentation/day_close_screen.dart';
 import '../features/field_sales/presentation/salesman_dashboard_screen.dart';
+import '../features/partner_network/presentation/partner_list_screen.dart';
+import '../features/partner_network/presentation/catalog_list_screen.dart';
+import '../features/partner_network/presentation/supplier_search_screen.dart';
+import '../features/partner_network/presentation/outgoing_orders_screen.dart';
+import '../features/partner_network/presentation/incoming_orders_screen.dart';
+import '../features/partner_network/presentation/network_order_detail_screen.dart';
 import '../features/workflow/presentation/workflow_settings_screen.dart';
 import 'shell_screen.dart';
 
@@ -320,6 +326,14 @@ class Routes {
   static const fieldSalesExecutionDetail = '/field-sales/executions/:id';
   static const fieldSalesDayClose = '/field-sales/day-close';
   static const fieldSalesDashboard = '/field-sales/dashboard';
+
+  // Partner Network (B2B)
+  static const partnerNetworkPartners = '/partner-network/partners';
+  static const partnerNetworkCatalog = '/partner-network/catalog';
+  static const partnerNetworkSupplierSearch = '/partner-network/supplier-search';
+  static const partnerNetworkOutgoingOrders = '/partner-network/outgoing-orders';
+  static const partnerNetworkIncomingOrders = '/partner-network/incoming-orders';
+  static const partnerNetworkOrderDetail = '/partner-network/orders/:id';
 
   static const platformAdmin = '/platform-admin';
   static const platformAdminLogin = '/platform-admin/login';
@@ -998,6 +1012,44 @@ final routerProvider = Provider<GoRouter>((ref) {
               child: SalesmanDashboardScreen(),
             ),
           ),
+          // Partner Network (B2B)
+          GoRoute(
+            path: Routes.partnerNetworkPartners,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PartnerListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.partnerNetworkCatalog,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: CatalogListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.partnerNetworkSupplierSearch,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SupplierSearchScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.partnerNetworkOutgoingOrders,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: OutgoingOrdersScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.partnerNetworkIncomingOrders,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: IncomingOrdersScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.partnerNetworkOrderDetail,
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return NetworkOrderDetailScreen(orderId: id);
+            },
+          ),
           // Pharma — Drug Licenses & Compliance
           GoRoute(
             path: Routes.drugLicenses,
@@ -1424,6 +1476,9 @@ String? _capabilityRedirectForLocation(
     return Routes.dashboard;
   }
   if (location.startsWith('/field-sales') && !capabilities.canUseFieldSales) {
+    return Routes.dashboard;
+  }
+  if (location.startsWith('/partner-network') && !capabilities.canUsePartnerNetwork) {
     return Routes.dashboard;
   }
   return null;

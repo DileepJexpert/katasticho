@@ -24,4 +24,5 @@ public final class ModuleCode {
     public static final String CA_CONSOLE = "CA_CONSOLE";
     public static final String PAYROLL = "PAYROLL";
     public static final String FIELD_SALES = "FIELD_SALES";
+    public static final String PARTNER_NETWORK = "PARTNER_NETWORK";
 }

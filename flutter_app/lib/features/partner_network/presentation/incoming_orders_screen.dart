@@ -1,0 +1,93 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/widgets/widgets.dart';
+import '../data/partner_network_repository.dart';
+
+class IncomingOrdersScreen extends ConsumerWidget {
+  const IncomingOrdersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ordersAsync = ref.watch(incomingOrdersProvider);
+
+    return Scaffold(
+      body: Column(
+        children: [
+          const KListPageHeader(
+            title: 'Incoming B2B Orders',
+            subtitle: 'Orders received from your trading partners.',
+          ),
+          Expanded(
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => KErrorView(message: e.toString(), onRetry: () => ref.invalidate(incomingOrdersProvider)),
+              data: (orders) {
+                if (orders.isEmpty) {
+                  return const KEmptyState(
+                    icon: Icons.inbox_outlined,
+                    title: 'No incoming orders',
+                    subtitle: 'B2B orders from your buyers will appear here.',
+                  );
+                }
+                return RefreshIndicator(
+                  onRefresh: () async => ref.invalidate(incomingOrdersProvider),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: orders.length,
+                    itemBuilder: (ctx, i) => _OrderCard(
+                      order: orders[i],
+                      onTap: () => context.push('/partner-network/orders/${orders[i]['id']}'),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OrderCard extends StatelessWidget {
+  const _OrderCard({required this.order, required this.onTap});
+  final Map<String, dynamic> order;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final orderNumber = order['orderNumber']?.toString() ?? '';
+    final buyerName = order['buyerOrgName']?.toString() ?? 'Unknown';
+    final status = order['status']?.toString() ?? '';
+    final totalAmount = order['totalAmount'];
+
+    return KCard(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(orderNumber, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text('From: $buyerName', style: theme.textTheme.bodySmall),
+                  if (totalAmount != null) ...[
+                    const SizedBox(height: 2),
+                    Text('₹$totalAmount', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  ],
+                ],
+              ),
+            ),
+            KStatusChip(label: status),
+          ],
+        ),
+      ),
+    );
+  }
+}

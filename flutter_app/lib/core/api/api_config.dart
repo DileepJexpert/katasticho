@@ -631,4 +631,31 @@ class ApiConfig {
   static String fieldSalesTargetAchievement(String id) =>
       '/api/v1/field-sales/targets/$id/achievement';
   static const String fieldSalesDashboard = '/api/v1/field-sales/dashboard';
+
+  // Partner Network
+  static const String partnerNetworkPartners = '/api/v1/partner-network/partners';
+  static const String partnerNetworkPartnersPending = '/api/v1/partner-network/partners/pending';
+  static String partnerNetworkPartnerById(String id) => '/api/v1/partner-network/partners/$id';
+  static const String partnerNetworkPartnerRequest = '/api/v1/partner-network/partners/request';
+  static String partnerNetworkPartnerApprove(String id) => '/api/v1/partner-network/partners/$id/approve';
+  static String partnerNetworkPartnerReject(String id) => '/api/v1/partner-network/partners/$id/reject';
+  static String partnerNetworkPartnerSuspend(String id) => '/api/v1/partner-network/partners/$id/suspend';
+  static const String partnerNetworkCatalog = '/api/v1/partner-network/catalog';
+  static String partnerNetworkCatalogUnpublish(String id) => '/api/v1/partner-network/catalog/$id/unpublish';
+  static const String partnerNetworkSupplierSearch = '/api/v1/partner-network/supplier-search';
+  static String partnerNetworkSupplierSearchByDrug(String drugMasterId) =>
+      '/api/v1/partner-network/supplier-search/by-drug/$drugMasterId';
+  static const String partnerNetworkOrders = '/api/v1/partner-network/orders';
+  static const String partnerNetworkOrdersOutgoing = '/api/v1/partner-network/orders/outgoing';
+  static const String partnerNetworkOrdersIncoming = '/api/v1/partner-network/orders/incoming';
+  static const String partnerNetworkOrdersIncomingPending = '/api/v1/partner-network/orders/incoming/pending';
+  static String partnerNetworkOrderById(String id) => '/api/v1/partner-network/orders/$id';
+  static String partnerNetworkOrderEvents(String id) => '/api/v1/partner-network/orders/$id/events';
+  static String partnerNetworkOrderConfirm(String id) => '/api/v1/partner-network/orders/$id/confirm';
+  static String partnerNetworkOrderReject(String id) => '/api/v1/partner-network/orders/$id/reject';
+  static String partnerNetworkOrderCancel(String id) => '/api/v1/partner-network/orders/$id/cancel';
+  static String partnerNetworkOrderDispatch(String id) => '/api/v1/partner-network/orders/$id/dispatch';
+  static String partnerNetworkOrderDeliver(String id) => '/api/v1/partner-network/orders/$id/deliver';
+  static String partnerNetworkOrderLinkPo(String id) => '/api/v1/partner-network/orders/$id/link-po';
+  static String partnerNetworkOrderLinkSo(String id) => '/api/v1/partner-network/orders/$id/link-so';
 }

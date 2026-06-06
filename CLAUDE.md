@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V42**. Next new migration = V43.
+- Location: `src/main/resources/db/migration/`. Latest is **V43**. Next new migration = V44.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -198,14 +198,18 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Flutter screens (done):** Beat list, route list, van list, route execution (today's routes), execution detail (with visit actions), day close, salesman dashboard. Routes and sidebar nav integrated, gated by `canUseFieldSales`.
 - **328 tests pass.**
 
-### Phase 8: Partner Network (B2B Ordering)
+### Phase 8: Partner Network (B2B Ordering) (COMPLETE — 2026-06-06)
 **Goal:** Connected B2B trade network within the same product.
 **Reference:** `docs/PARTNER_NETWORK_MODULE_PLAN.md`
-- Package: `com.katasticho.erp.partnernetwork`, Flutter: `features/partner_network`
-- Trading partner request/approval, published catalog, supplier search from Shortage
-- Linked buyer PO ↔ seller incoming B2B order → SO → DC → Invoice
-- Must call existing services (PurchaseOrderService, SalesOrderService, etc.) — no direct stock/accounting writes
-- 10 implementation phases detailed in the plan doc
+- **V43 migration (done):** 5 new tables (trading_partner, published_catalog_item, network_order, network_order_line, network_order_event) + 10 indexes.
+- **Backend (done):** `com.katasticho.erp.partnernetwork` — 5 entities, 5 repositories, PartnerNetworkService, PartnerNetworkController (25+ endpoints at `/api/v1/partner-network`). ModuleCode.PARTNER_NETWORK added.
+- **Trading partners (done):** Request/approve/reject/suspend partnership. Cross-org relationship (seller_org_id ↔ buyer_org_id). Self-partner and self-approve prevention. Duplicate prevention via unique constraint.
+- **Published catalog (done):** Seller publishes items with MRP/PTR/availability/pack size. Buyer searches across approved suppliers' catalogs. Drug master linking for pharma product matching.
+- **Network orders (done):** Full order lifecycle: PLACED → CONFIRMED/PARTIALLY_CONFIRMED/REJECTED → DISPATCHED → DELIVERED. Buyer places, seller confirms with per-line quantities. Cancel by buyer. Event audit trail with actor tracking.
+- **SO/PO linking (done):** Link network order to buyer's PurchaseOrder and seller's SalesOrder for downstream DC→Invoice flow.
+- **Module gating (done):** `@RequiresModule(PARTNER_NETWORK)` on controller. Feature flag seeded for distributor, pharma distributor, pharma manufacturer industries.
+- **Flutter screens (done):** Partner list (with tabs for all/pending + request dialog), catalog list (with unpublish), supplier search (with debounced search), outgoing orders, incoming orders, order detail (with lifecycle actions + event timeline). Routes and sidebar nav integrated, gated by `canUsePartnerNetwork`.
+- **Tests (done):** 11 tests in PartnerNetworkServiceTest — partnership CRUD, order lifecycle, access control.
 
 ### Phase 9: Manufacturing-Lite
 **Goal:** Limited finished-goods / BOM extension. NOT full MRP.

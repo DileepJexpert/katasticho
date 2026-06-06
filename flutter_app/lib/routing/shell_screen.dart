@@ -485,6 +485,39 @@ const _fieldSalesGroup = NavGroup(
   ],
 );
 
+const _partnerNetworkGroup = NavGroup(
+  label: 'Partner Network',
+  icon: Icons.handshake_outlined,
+  activeIcon: Icons.handshake_rounded,
+  children: [
+    NavItem(
+        label: 'Partners',
+        icon: Icons.people_outline,
+        activeIcon: Icons.people_rounded,
+        route: Routes.partnerNetworkPartners),
+    NavItem(
+        label: 'My Catalog',
+        icon: Icons.storefront_outlined,
+        activeIcon: Icons.storefront_rounded,
+        route: Routes.partnerNetworkCatalog),
+    NavItem(
+        label: 'Supplier Search',
+        icon: Icons.search_outlined,
+        activeIcon: Icons.search_rounded,
+        route: Routes.partnerNetworkSupplierSearch),
+    NavItem(
+        label: 'Outgoing Orders',
+        icon: Icons.outbox_outlined,
+        activeIcon: Icons.outbox_rounded,
+        route: Routes.partnerNetworkOutgoingOrders),
+    NavItem(
+        label: 'Incoming Orders',
+        icon: Icons.inbox_outlined,
+        activeIcon: Icons.inbox_rounded,
+        route: Routes.partnerNetworkIncomingOrders),
+  ],
+);
+
 /// All groups for route-matching.
 const _allGroups = [
   _salesGroup,
@@ -494,6 +527,7 @@ const _allGroups = [
   _reportsGroup,
   _payrollGroup,
   _fieldSalesGroup,
+  _partnerNetworkGroup,
 ];
 
 /// Flat list of every route across top-level items and groups (for active-state matching).
@@ -909,6 +943,7 @@ List<Widget> _buildSidebarSections({
   final reportsGroup = _visibleGroup(_reportsGroup, capabilities);
   final payrollGroup = _visibleGroup(_payrollGroup, capabilities);
   final fieldSalesGroup = _visibleGroup(_fieldSalesGroup, capabilities);
+  final partnerNetworkGroup = _visibleGroup(_partnerNetworkGroup, capabilities);
 
   return [
     _SidebarNavItem(item: _dashboardNavItem, collapsed: collapsed),
@@ -937,6 +972,8 @@ List<Widget> _buildSidebarSections({
       _SidebarNavGroup(group: payrollGroup, collapsed: collapsed),
     if (!isViewer && fieldSalesGroup != null)
       _SidebarNavGroup(group: fieldSalesGroup, collapsed: collapsed),
+    if (!isViewer && partnerNetworkGroup != null)
+      _SidebarNavGroup(group: partnerNetworkGroup, collapsed: collapsed),
     KSpacing.vGapSm,
     if (!isOperator && !isViewer)
       _SidebarNavItem(item: _contactsNavItem, collapsed: collapsed),
@@ -993,6 +1030,7 @@ bool _isNavItemVisible(String route, BusinessCapabilities capabilities) {
     return capabilities.canUseInventory;
   }
   if (route.startsWith('/field-sales')) return capabilities.canUseFieldSales;
+  if (route.startsWith('/partner-network')) return capabilities.canUsePartnerNetwork;
   if (route == Routes.bankReconciliation) return capabilities.canUseBankRecon;
   if (route == '/accounting/dashboard' ||
       route == Routes.guidedTransactionCreate ||

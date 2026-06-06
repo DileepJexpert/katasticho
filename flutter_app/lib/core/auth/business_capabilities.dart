@@ -18,6 +18,7 @@ class BusinessCapabilities {
   final bool canUseBankRecon;
   final bool canUseReports;
   final bool canUseFieldSales;
+  final bool canUsePartnerNetwork;
 
   const BusinessCapabilities({
     required this.canUseAccounting,
@@ -31,6 +32,7 @@ class BusinessCapabilities {
     required this.canUseBankRecon,
     required this.canUseReports,
     required this.canUseFieldSales,
+    required this.canUsePartnerNetwork,
   });
 
   static const none = BusinessCapabilities(
@@ -45,6 +47,7 @@ class BusinessCapabilities {
     canUseBankRecon: false,
     canUseReports: false,
     canUseFieldSales: false,
+    canUsePartnerNetwork: false,
   );
 
   static const allEnabled = BusinessCapabilities(
@@ -59,6 +62,7 @@ class BusinessCapabilities {
     canUseBankRecon: true,
     canUseReports: true,
     canUseFieldSales: true,
+    canUsePartnerNetwork: true,
   );
 
   factory BusinessCapabilities.fromEnabledFeatures(Set<String> features) {
@@ -75,6 +79,7 @@ class BusinessCapabilities {
       canUseBankRecon: has('BANK_RECON'),
       canUseReports: has('REPORTS'),
       canUseFieldSales: has('FIELD_SALES'),
+      canUsePartnerNetwork: has('PARTNER_NETWORK'),
     );
   }
 
@@ -101,6 +106,8 @@ class BusinessCapabilities {
       canUseReports: fromFlags.canUseReports || fromProfile.canUseReports,
       canUseFieldSales:
           fromFlags.canUseFieldSales || fromProfile.canUseFieldSales,
+      canUsePartnerNetwork:
+          fromFlags.canUsePartnerNetwork || fromProfile.canUsePartnerNetwork,
     );
   }
 
@@ -126,6 +133,7 @@ class BusinessCapabilities {
       canUseBankRecon: true,
       canUseReports: true,
       canUseFieldSales: isDistributor,
+      canUsePartnerNetwork: isDistributor,
     );
   }
 
