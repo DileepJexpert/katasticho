@@ -42,6 +42,7 @@ CREATE TABLE published_catalog_item (
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_by UUID,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT chk_catalog_availability CHECK (availability_status IN ('AVAILABLE','LOW_STOCK','OUT_OF_STOCK','DISCONTINUED'))
 );
