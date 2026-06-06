@@ -237,6 +237,10 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Module gating (done):** `@RequiresModule(MANUFACTURING)` on controller. Feature flag seeded for manufacturer, pharma manufacturer, food, garment, electronics industries.
 - **Flutter screens (done):** Work order list (with status filter chips), create screen (item search, warehouse dropdown, dates, costs), detail screen (with issue/receive/cancel/update-costs lifecycle actions). Routes and sidebar nav integrated, gated by `canUseManufacturing`.
 - **Tests (done):** 12 tests in ManufacturingServiceTest — create (happy path + 3 validation cases), issue to production (2), receive FG (3), cancel (2), update costs (1). 376 total tests pass.
+- **Gap analysis (done):** Current coverage is 13/114 features (11%) vs competitors (Odoo, ERPNext, SAP B1, Katana, MRPeasy). See `docs/MANUFACTURING_FEATURE_TRACKER.md` for full tracker with 101 missing features in 3 tiers.
+- **Tier 1 priorities (TODO):** (1) Subcontracting/job work + GST ITC-04, (2) Routing/operations/workstations/job cards, (3) Quality inspection (IQC/IPQC/OQC + CoA), (4) Scrap/waste with reason codes, (5) SO→WO automation.
+- **Tier 2 priorities (TODO):** BOM versioning, batch traceability in production, WIP journal entries, production reports (cost variance, consumption, WIP valuation), work order enhancements (priority, approval, disassembly), backflush mode.
+- **Tier 3 (DEFERRED):** MRP engine, Gantt scheduling, capacity planning, shop floor mobile, maintenance management, industry-specific (pharma BMR, food FSSAI, garment cut plans).
 
 ---
 
@@ -311,3 +315,4 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 | `docs/PARTNER_NETWORK_MODULE_PLAN.md` | B2B ordering: data model, flows, 10 implementation phases | Phase 8 partner network |
 | `docs/WORKFLOW_CONTEXT_HINTS_PLAN.md` | Context hints: resolver, widget, hint text per vertical | Adding workflow hints |
 | `docs/plans/week-2-ap-module.md` | AP module spec (already implemented) | Debugging AP flows |
+| `docs/MANUFACTURING_FEATURE_TRACKER.md` | 101 missing features, prioritized tiers, daily progress log | Manufacturing work |
