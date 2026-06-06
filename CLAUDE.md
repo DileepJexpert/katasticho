@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V43**. Next new migration = V44.
+- Location: `src/main/resources/db/migration/`. Latest is **V44**. Next new migration = V45.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -79,6 +79,18 @@ cd flutter_app && flutter test
 
 ### ~~BUG-7: POS receipt tax split approximation~~ — FIXED (2026-06-04)
 - POS sales register now joins `hsn_gst_master` on `srl.hsn_code` to derive per-line GST rate. Tax computed arithmetically per line instead of equal-division across receipt lines. Handles intra/inter-state split.
+
+### ~~BUG-8: V42 van_stock_balance UNIQUE constraint uses COALESCE expression~~ — FIXED (2026-06-06)
+- PostgreSQL disallows expressions in table-level `UNIQUE()`. V42 fixed to use `CREATE UNIQUE INDEX` instead. V44 migration added as safety net for existing databases.
+
+### ~~BUG-9: FieldSalesController OPERATOR can access admin operations~~ — FIXED (2026-06-06)
+- Method-level `@PreAuthorize("hasAnyRole('OWNER','ADMIN')")` added to 21 admin endpoints: beat/route/van CRUD, customer assignment, assignments, van-transfers (load/confirm-load/return/confirm-return), day-close approve/reject, target create/update-achievement. Read-only, `/me`, visit action, and dashboard endpoints remain accessible to OPERATOR.
+
+### ~~BUG-10: Field visit actions lack salesperson ownership check~~ — FIXED (2026-06-06)
+- `ensureVisitOwnership()` added to checkIn, checkOut, skipVisit, recordVisitOrder, recordVisitCollection. Verifies `TenantContext.getCurrentUserId()` matches `RouteExecution.salespersonId`. Throws `FS_NOT_ASSIGNED_SALESPERSON` (403) if not.
+
+### ~~BUG-11: Payroll payment recording doesn't create journal entries~~ — FIXED (2026-06-06)
+- `recordPayment()` now posts DR Salary Payable / CR Payment Account via JournalService. `recordStatutoryPayment()` now posts DR {PF/ESI/PT/LWF/TDS} Payable / CR Payment Account. Both set `journalEntryId` on the payment entity.
 
 ### Previously reported as bugs but actually OK:
 - **Payment over-collection:** `PaymentService.java:97-102` DOES validate `amount > balanceDue` and throws `AR_PAYMENT_EXCEEDS_BALANCE`. This is correctly implemented.

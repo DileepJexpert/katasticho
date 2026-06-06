@@ -971,6 +971,7 @@ public class FieldSalesService {
 
         FieldVisit visit = fieldVisitRepository.findByIdAndOrgIdAndIsDeletedFalse(visitId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("FieldVisit", visitId));
+        ensureVisitOwnership(visit, orgId);
 
         if (!"PLANNED".equals(visit.getStatus())) {
             throw new BusinessException(
@@ -1000,6 +1001,7 @@ public class FieldSalesService {
 
         FieldVisit visit = fieldVisitRepository.findByIdAndOrgIdAndIsDeletedFalse(visitId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("FieldVisit", visitId));
+        ensureVisitOwnership(visit, orgId);
 
         if (!"IN_PROGRESS".equals(visit.getStatus())) {
             throw new BusinessException(
@@ -1028,6 +1030,7 @@ public class FieldSalesService {
 
         FieldVisit visit = fieldVisitRepository.findByIdAndOrgIdAndIsDeletedFalse(visitId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("FieldVisit", visitId));
+        ensureVisitOwnership(visit, orgId);
 
         if ("COMPLETED".equals(visit.getStatus()) || "SKIPPED".equals(visit.getStatus())) {
             throw new BusinessException(
@@ -1052,6 +1055,7 @@ public class FieldSalesService {
 
         FieldVisit visit = fieldVisitRepository.findByIdAndOrgIdAndIsDeletedFalse(visitId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("FieldVisit", visitId));
+        ensureVisitOwnership(visit, orgId);
 
         visit.setSalesOrderId(salesOrderId);
         visit.setOrderValue(orderValue != null ? orderValue : BigDecimal.ZERO);
@@ -1071,6 +1075,7 @@ public class FieldSalesService {
 
         FieldVisit visit = fieldVisitRepository.findByIdAndOrgIdAndIsDeletedFalse(visitId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("FieldVisit", visitId));
+        ensureVisitOwnership(visit, orgId);
 
         visit.setCollectionAmount(collectionAmount != null ? collectionAmount : BigDecimal.ZERO);
 
@@ -1088,6 +1093,18 @@ public class FieldSalesService {
         UUID orgId = TenantContext.getCurrentOrgId();
         return fieldVisitRepository
                 .findByOrgIdAndRouteExecutionIdAndIsDeletedFalseOrderBySequenceNumber(orgId, routeExecutionId);
+    }
+
+    private void ensureVisitOwnership(FieldVisit visit, UUID orgId) {
+        UUID currentUserId = TenantContext.getCurrentUserId();
+        RouteExecution execution = routeExecutionRepository
+                .findByIdAndOrgIdAndIsDeletedFalse(visit.getRouteExecutionId(), orgId)
+                .orElseThrow(() -> BusinessException.notFound("RouteExecution", visit.getRouteExecutionId()));
+        if (!execution.getSalespersonId().equals(currentUserId)) {
+            throw new BusinessException(
+                    "Only the assigned salesperson can perform this visit action",
+                    "FS_NOT_ASSIGNED_SALESPERSON", HttpStatus.FORBIDDEN);
+        }
     }
 
     // =====================================================================

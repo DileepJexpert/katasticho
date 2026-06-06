@@ -605,8 +605,39 @@ public class PayrollService {
         payment.setOrgId(orgId);
         payment.setPayrollRunId(runId);
 
+        PayrollSettings settings = settingsRepository.findByOrgId(orgId)
+                .orElseThrow(() -> new BusinessException(
+                        "Payroll settings not configured",
+                        "PAYROLL_SETTINGS_NOT_FOUND", HttpStatus.BAD_REQUEST));
+        requireAccountCode(settings.getDefaultSalaryPayableAccountId(), "salary payable");
+
+        String salaryPayableCode = resolveAccountCode(settings.getDefaultSalaryPayableAccountId());
+        String paymentAccountCode = resolveAccountCode(payment.getPaymentAccountId());
+
+        List<JournalLineRequest> lines = List.of(
+                new JournalLineRequest(salaryPayableCode,
+                        payment.getAmount(), BigDecimal.ZERO,
+                        "Salary payment — payroll run settlement", null, null),
+                new JournalLineRequest(paymentAccountCode,
+                        BigDecimal.ZERO, payment.getAmount(),
+                        "Salary payment — bank/cash", null, null)
+        );
+
+        JournalPostRequest journalRequest = new JournalPostRequest(
+                payment.getPaymentDate(),
+                String.format("Salary payment for payroll run %s", runId),
+                "PAYROLL_PAYMENT",
+                runId,
+                lines,
+                true
+        );
+
+        JournalEntry journalEntry = journalService.postJournal(journalRequest);
+        payment.setJournalEntryId(journalEntry.getId());
+
         payment = paymentRepository.save(payment);
-        log.info("Payroll payment recorded for run {}: amount={}", runId, payment.getAmount());
+        log.info("Payroll payment recorded for run {}: amount={}, journal={}",
+                runId, payment.getAmount(), journalEntry.getEntryNumber());
         return payment;
     }
 
@@ -619,9 +650,56 @@ public class PayrollService {
             payment.setStatus("PAID");
         }
 
+        PayrollSettings settings = settingsRepository.findByOrgId(orgId)
+                .orElseThrow(() -> new BusinessException(
+                        "Payroll settings not configured",
+                        "PAYROLL_SETTINGS_NOT_FOUND", HttpStatus.BAD_REQUEST));
+
+        UUID payableAccountId = resolveStatutoryPayableAccount(settings, payment.getStatutoryType());
+        requireAccountCode(payableAccountId, payment.getStatutoryType() + " payable");
+
+        String payableCode = resolveAccountCode(payableAccountId);
+        String paymentAccountCode = resolveAccountCode(payment.getPaymentAccountId());
+
+        List<JournalLineRequest> lines = List.of(
+                new JournalLineRequest(payableCode,
+                        payment.getAmount(), BigDecimal.ZERO,
+                        payment.getStatutoryType() + " settlement", null, null),
+                new JournalLineRequest(paymentAccountCode,
+                        BigDecimal.ZERO, payment.getAmount(),
+                        payment.getStatutoryType() + " payment — bank/cash", null, null)
+        );
+
+        JournalPostRequest journalRequest = new JournalPostRequest(
+                payment.getPaymentDate() != null ? payment.getPaymentDate() : LocalDate.now(),
+                String.format("Statutory payment — %s for %s",
+                        payment.getStatutoryType(), payment.getPeriodLabel()),
+                "STATUTORY_PAYMENT",
+                null,
+                lines,
+                true
+        );
+
+        JournalEntry journalEntry = journalService.postJournal(journalRequest);
+        payment.setJournalEntryId(journalEntry.getId());
+
         payment = statutoryPaymentRepository.save(payment);
-        log.info("Statutory payment recorded: type={}, amount={}", payment.getStatutoryType(), payment.getAmount());
+        log.info("Statutory payment recorded: type={}, amount={}, journal={}",
+                payment.getStatutoryType(), payment.getAmount(), journalEntry.getEntryNumber());
         return payment;
+    }
+
+    private UUID resolveStatutoryPayableAccount(PayrollSettings settings, String statutoryType) {
+        return switch (statutoryType) {
+            case "PF" -> settings.getDefaultPfPayableAccountId();
+            case "ESI" -> settings.getDefaultEsiPayableAccountId();
+            case "PT" -> settings.getDefaultPtPayableAccountId();
+            case "LWF" -> settings.getDefaultLwfPayableAccountId();
+            case "TDS" -> settings.getDefaultTdsPayableAccountId();
+            default -> throw new BusinessException(
+                    "Unknown statutory type: " + statutoryType,
+                    "PAYROLL_UNKNOWN_STATUTORY_TYPE", HttpStatus.BAD_REQUEST);
+        };
     }
 
     // ──────────────────────────── Private Helpers ─────────────────────────────

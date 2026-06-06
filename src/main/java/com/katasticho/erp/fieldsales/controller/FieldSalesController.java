@@ -31,6 +31,7 @@ public class FieldSalesController {
     // ══════════════════════════════════════════════════════════════
 
     @PostMapping("/beats")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Beat>> createBeat(@RequestBody Map<String, Object> body) {
         Beat beat = Beat.builder()
                 .code((String) body.get("code"))
@@ -44,6 +45,7 @@ public class FieldSalesController {
     }
 
     @PutMapping("/beats/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Beat>> updateBeat(
             @PathVariable UUID id,
             @RequestBody Map<String, Object> body) {
@@ -69,12 +71,14 @@ public class FieldSalesController {
     }
 
     @DeleteMapping("/beats/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteBeat(@PathVariable UUID id) {
         service.deleteBeat(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Beat deleted"));
     }
 
     @PostMapping("/beats/{id}/customers")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<BeatCustomer>> addCustomerToBeat(
             @PathVariable UUID id,
             @RequestBody Map<String, Object> body) {
@@ -88,6 +92,7 @@ public class FieldSalesController {
     }
 
     @DeleteMapping("/beats/{beatId}/customers/{contactId}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Void>> removeCustomerFromBeat(
             @PathVariable UUID beatId,
             @PathVariable UUID contactId) {
@@ -106,6 +111,7 @@ public class FieldSalesController {
 
     @SuppressWarnings("unchecked")
     @PostMapping("/routes")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Route>> createRoute(@RequestBody Map<String, Object> body) {
         List<String> beatIdStrings = (List<String>) body.get("beatIds");
         List<UUID> beatIds = beatIdStrings != null
@@ -123,6 +129,7 @@ public class FieldSalesController {
     }
 
     @PutMapping("/routes/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Route>> updateRoute(
             @PathVariable UUID id,
             @RequestBody Map<String, Object> body) {
@@ -148,6 +155,7 @@ public class FieldSalesController {
     }
 
     @DeleteMapping("/routes/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteRoute(@PathVariable UUID id) {
         service.deleteRoute(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Route deleted"));
@@ -163,6 +171,7 @@ public class FieldSalesController {
     // ══════════════════════════════════════════════════════════════
 
     @PostMapping("/vans")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Van>> createVan(@RequestBody Map<String, Object> body) {
         Van van = Van.builder()
                 .code((String) body.get("code"))
@@ -180,6 +189,7 @@ public class FieldSalesController {
     }
 
     @PutMapping("/vans/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Van>> updateVan(
             @PathVariable UUID id,
             @RequestBody Map<String, Object> body) {
@@ -209,6 +219,7 @@ public class FieldSalesController {
     }
 
     @DeleteMapping("/vans/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteVan(@PathVariable UUID id) {
         service.deleteVan(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Van deleted"));
@@ -224,6 +235,7 @@ public class FieldSalesController {
     // ══════════════════════════════════════════════════════════════
 
     @PostMapping("/assignments")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<FieldSalesAssignment>> createAssignment(
             @RequestBody Map<String, Object> body) {
         FieldSalesAssignment assignment = FieldSalesAssignment.builder()
@@ -264,6 +276,7 @@ public class FieldSalesController {
 
     @SuppressWarnings("unchecked")
     @PostMapping("/van-transfers/load")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<VanStockTransfer>> createVanLoad(
             @RequestBody Map<String, Object> body) {
         UUID vanId = UUID.fromString((String) body.get("vanId"));
@@ -274,6 +287,7 @@ public class FieldSalesController {
     }
 
     @PostMapping("/van-transfers/{id}/confirm-load")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<VanStockTransfer>> confirmVanLoad(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(
                 service.confirmVanLoad(id), "Van load confirmed"));
@@ -281,6 +295,7 @@ public class FieldSalesController {
 
     @SuppressWarnings("unchecked")
     @PostMapping("/van-transfers/return")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<VanStockTransfer>> createVanReturn(
             @RequestBody Map<String, Object> body) {
         UUID vanId = UUID.fromString((String) body.get("vanId"));
@@ -294,6 +309,7 @@ public class FieldSalesController {
     }
 
     @PostMapping("/van-transfers/{id}/confirm-return")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<VanStockTransfer>> confirmVanReturn(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(
                 service.confirmVanReturn(id), "Van return confirmed"));
@@ -458,12 +474,14 @@ public class FieldSalesController {
     }
 
     @PostMapping("/day-close/{id}/approve")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<DayClose>> approveDayClose(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(
                 service.approveDayClose(id), "Day close approved"));
     }
 
     @PostMapping("/day-close/{id}/reject")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<DayClose>> rejectDayClose(
             @PathVariable UUID id,
             @RequestBody Map<String, Object> body) {
@@ -477,6 +495,7 @@ public class FieldSalesController {
     // ══════════════════════════════════════════════════════════════
 
     @PostMapping("/targets")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<SalesmanTarget>> createTarget(
             @RequestBody Map<String, Object> body) {
         SalesmanTarget target = SalesmanTarget.builder()
@@ -510,6 +529,7 @@ public class FieldSalesController {
     }
 
     @PutMapping("/targets/{id}/achievement")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<SalesmanTarget>> updateAchievement(
             @PathVariable UUID id,
             @RequestBody Map<String, Object> body) {
