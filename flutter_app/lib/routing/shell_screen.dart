@@ -207,7 +207,7 @@ const _purchasesGroup = NavGroup(
         label: 'Payables',
         icon: Icons.account_balance_wallet_outlined,
         activeIcon: Icons.account_balance_wallet_rounded,
-        route: Routes.apAgeingReport),
+        route: Routes.payables),
     NavItem(
         label: 'Goods Receipts',
         icon: Icons.local_shipping_outlined,

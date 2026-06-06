@@ -201,6 +201,7 @@ class Routes {
   static const purchaseOrders = '/purchase-orders';
   static const purchaseOrderCreate = '/purchase-orders/create';
   static const purchaseOrderDetail = '/purchase-orders/:id';
+  static const payables = '/payables';
   // Debit Notes (Purchase Returns)
   static const debitNotes = '/debit-notes';
   static const debitNoteCreate = '/debit-notes/create';
@@ -1225,6 +1226,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.apAgeingReport,
+            builder: (context, state) => const ApAgeingScreen(),
+          ),
+          GoRoute(
+            path: Routes.payables,
             builder: (context, state) => const ApAgeingScreen(),
           ),
           GoRoute(
