@@ -10,6 +10,7 @@ import com.katasticho.erp.inventory.entity.ReferenceType;
 import com.katasticho.erp.inventory.entity.StockBalance;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.service.InventoryService;
+import com.katasticho.erp.sales.repository.SalesOrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -52,6 +53,7 @@ public class FieldSalesService {
     private final SalesmanTargetRepository salesmanTargetRepository;
     private final InventoryService inventoryService;
     private final StockBalanceRepository stockBalanceRepository;
+    private final SalesOrderRepository salesOrderRepository;
 
     // =====================================================================
     // Beat Management
@@ -1056,6 +1058,9 @@ public class FieldSalesService {
         FieldVisit visit = fieldVisitRepository.findByIdAndOrgIdAndIsDeletedFalse(visitId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("FieldVisit", visitId));
         ensureVisitOwnership(visit, orgId);
+
+        salesOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(salesOrderId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("SalesOrder", salesOrderId));
 
         visit.setSalesOrderId(salesOrderId);
         visit.setOrderValue(orderValue != null ? orderValue : BigDecimal.ZERO);
