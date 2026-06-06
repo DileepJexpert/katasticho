@@ -58,6 +58,10 @@ class KTypography {
         letterSpacing: -0.1,
       );
 
+  static TextStyle get titleLarge => h2;
+  static TextStyle get titleMedium => h3;
+  static TextStyle get titleSmall => h4;
+
   // ── Body ──
   static TextStyle get bodyLarge => GoogleFonts.inter(
         fontSize: 15,

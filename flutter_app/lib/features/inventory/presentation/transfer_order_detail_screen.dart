@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
@@ -9,7 +8,6 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../routing/app_router.dart';
 
 class TransferOrderDetailScreen extends ConsumerStatefulWidget {
   const TransferOrderDetailScreen({super.key, required this.id});
@@ -221,7 +219,12 @@ class _TransferOrderDetailScreenState
       return Center(child: KErrorView(message: _error!, onRetry: _fetchOrder));
     }
     if (_order == null) {
-      return const Center(child: KEmptyState(message: 'Transfer order not found'));
+      return const Center(
+        child: KEmptyState(
+          icon: Icons.swap_horiz_outlined,
+          title: 'Transfer order not found',
+        ),
+      );
     }
 
     final status = _order!['status'] as String? ?? '';
@@ -264,7 +267,10 @@ class _TransferOrderDetailScreenState
           if (lines.isEmpty)
             const Padding(
               padding: EdgeInsets.all(KSpacing.lg),
-              child: KEmptyState(message: 'No line items'),
+              child: KEmptyState(
+                icon: Icons.inventory_2_outlined,
+                title: 'No line items',
+              ),
             ),
         ],
       ),
@@ -305,14 +311,14 @@ class _TransferOrderDetailScreenState
             _infoRow(
               Icons.calendar_today_outlined,
               'Date',
-              DateFormatter.formatDate(_order!['transferDate']),
+              _formatDate(_order!['transferDate']),
             ),
             if (_order!['shippedAt'] != null) ...[
               const SizedBox(height: KSpacing.xs),
               _infoRow(
                 Icons.local_shipping_outlined,
                 'Shipped',
-                DateFormatter.formatDateTime(_order!['shippedAt']),
+                _formatDateTime(_order!['shippedAt']),
               ),
             ],
             if (_order!['receivedAt'] != null) ...[
@@ -320,7 +326,7 @@ class _TransferOrderDetailScreenState
               _infoRow(
                 Icons.check_circle_outline,
                 'Received',
-                DateFormatter.formatDateTime(_order!['receivedAt']),
+                _formatDateTime(_order!['receivedAt']),
               ),
             ],
             if (_order!['notes'] != null &&
@@ -447,5 +453,15 @@ class _TransferOrderDetailScreenState
     if (v == null) return 0;
     if (v is num) return v.toDouble();
     return double.tryParse(v.toString()) ?? 0;
+  }
+
+  String _formatDate(dynamic value) {
+    final date = DateTime.tryParse(value?.toString() ?? '');
+    return date == null ? '-' : DateFormatter.display(date);
+  }
+
+  String _formatDateTime(dynamic value) {
+    final date = DateTime.tryParse(value?.toString() ?? '');
+    return date == null ? '-' : DateFormatter.dateTime(date);
   }
 }

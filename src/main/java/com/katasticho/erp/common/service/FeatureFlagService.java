@@ -244,6 +244,7 @@ public class FeatureFlagService {
         flags.put(ModuleCode.DISTRIBUTION, false);
         flags.put(ModuleCode.PHARMA, false);
         flags.put(ModuleCode.MANUFACTURING, false);
+        flags.put(ModuleCode.FIELD_SALES, false);
         flags.put(ModuleCode.RECURRING_BILLING, true);
         flags.put(ModuleCode.MULTI_ENTITY, true);
         flags.put(ModuleCode.BATCH_EXPIRY, false);
@@ -273,6 +274,7 @@ public class FeatureFlagService {
             case "TRADING", "DISTRIBUTOR", "TRADING_DISTRIBUTOR", "WHOLESALE", "WHOLESALE_DISTRIBUTOR" -> {
                 flags.put(ModuleCode.INVENTORY, true);
                 flags.put(ModuleCode.DISTRIBUTION, true);
+                flags.put(ModuleCode.FIELD_SALES, true);
             }
             case "PHARMACY", "AYURVEDIC", "ALLOPATHIC_MEDICINE", "AYURVEDIC_HERBAL",
                  "SINGLE_MEDICAL_STORE", "MEDICAL_SHOP_CHAIN" -> {
@@ -285,6 +287,7 @@ public class FeatureFlagService {
                 flags.put(ModuleCode.INVENTORY, true);
                 flags.put(ModuleCode.DISTRIBUTION, true);
                 flags.put(ModuleCode.PHARMA, true);
+                flags.put(ModuleCode.FIELD_SALES, true);
                 flags.put(ModuleCode.BATCH_EXPIRY, true);
                 flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
                 flags.put("MRP_PRICING", true); flags.put("DRUG_SCHEDULE_FIELDS", true);
@@ -317,12 +320,14 @@ public class FeatureFlagService {
             case "PHARMA_MANUFACTURER", "ALLOPATHIC_MANUFACTURER" -> {
                 flags.put(ModuleCode.INVENTORY, true); flags.put(ModuleCode.PHARMA, true);
                 flags.put(ModuleCode.MANUFACTURING, true); flags.put(ModuleCode.BATCH_EXPIRY, true);
+                flags.put(ModuleCode.FIELD_SALES, true);
                 flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
                 flags.put("BOM_ASSEMBLY", true); flags.put("DRUG_SCHEDULE_FIELDS", true);
             }
             case "PHARMA_MANUFACTURER_DISTRIBUTOR", "ALLOPATHIC_MANUFACTURER_DISTRIBUTOR" -> {
                 flags.put(ModuleCode.INVENTORY, true); flags.put(ModuleCode.PHARMA, true);
                 flags.put(ModuleCode.MANUFACTURING, true); flags.put(ModuleCode.DISTRIBUTION, true);
+                flags.put(ModuleCode.FIELD_SALES, true);
                 flags.put(ModuleCode.BATCH_EXPIRY, true);
                 flags.put("BATCH_TRACKING", true); flags.put("EXPIRY_TRACKING", true);
                 flags.put("BOM_ASSEMBLY", true); flags.put("DRUG_SCHEDULE_FIELDS", true);
