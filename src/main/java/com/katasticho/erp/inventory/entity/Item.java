@@ -97,6 +97,10 @@ public class Item extends BaseEntity {
     @Builder.Default
     private boolean trackBatches = false;
 
+    @Column(name = "track_serial_numbers", nullable = false)
+    @Builder.Default
+    private boolean trackSerialNumbers = false;
+
     @Column(name = "reorder_level", nullable = false)
     @Builder.Default
     private BigDecimal reorderLevel = BigDecimal.ZERO;

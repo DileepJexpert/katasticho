@@ -135,6 +135,10 @@ class _ApprovalInboxScreenState extends ConsumerState<ApprovalInboxScreen> {
       context.push('/sales-orders/${request.documentId}');
       return;
     }
+    if (request.documentType == 'CREDIT_NOTE') {
+      context.push('/credit-notes/${request.documentId}');
+      return;
+    }
     if (request.documentType == 'PAYMENT') {
       _showSnack('Open the related invoice Payments tab to view this payment');
       return;

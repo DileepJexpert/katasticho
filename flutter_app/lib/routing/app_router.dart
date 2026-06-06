@@ -108,6 +108,13 @@ import '../features/journals/presentation/guided_transaction_screen.dart';
 import '../features/accounting_periods/presentation/period_close_screen.dart';
 import '../features/contacts/presentation/contact_statement_screen.dart';
 import '../features/inventory/presentation/near_expiry_screen.dart';
+import '../features/inventory/presentation/stock_count_list_screen.dart';
+import '../features/inventory/presentation/stock_count_create_screen.dart';
+import '../features/inventory/presentation/stock_count_detail_screen.dart';
+import '../features/inventory/presentation/transfer_order_list_screen.dart';
+import '../features/inventory/presentation/transfer_order_create_screen.dart';
+import '../features/inventory/presentation/transfer_order_detail_screen.dart';
+import '../features/inventory/presentation/picklist_list_screen.dart';
 import '../features/inventory/presentation/reorder_screen.dart';
 import '../features/inventory/presentation/shortbook_screen.dart';
 import '../features/team/presentation/team_screen.dart';
@@ -130,6 +137,18 @@ import '../features/pharma/presentation/drug_licenses_screen.dart';
 import '../features/pharma/presentation/prescription_history_screen.dart';
 import '../features/loyalty/presentation/wallet_history_screen.dart';
 import '../features/workflow/presentation/approval_inbox_screen.dart';
+import '../features/payroll/presentation/employee_list_screen.dart';
+import '../features/payroll/presentation/employee_form_screen.dart';
+import '../features/payroll/presentation/payroll_run_list_screen.dart';
+import '../features/payroll/presentation/payroll_run_detail_screen.dart';
+import '../features/payroll/presentation/payroll_settings_screen.dart';
+import '../features/field_sales/presentation/beat_list_screen.dart';
+import '../features/field_sales/presentation/route_list_screen.dart';
+import '../features/field_sales/presentation/van_list_screen.dart';
+import '../features/field_sales/presentation/route_execution_screen.dart';
+import '../features/field_sales/presentation/route_execution_detail_screen.dart';
+import '../features/field_sales/presentation/day_close_screen.dart';
+import '../features/field_sales/presentation/salesman_dashboard_screen.dart';
 import '../features/workflow/presentation/workflow_settings_screen.dart';
 import 'shell_screen.dart';
 
@@ -227,6 +246,11 @@ class Routes {
   static const reorder = '/reorder';
   static const shortbook = '/shortbook';
   static const nearExpiry = '/inventory/near-expiry';
+  static const stockCounts = '/inventory/stock-counts';
+  static const stockCountCreate = '/inventory/stock-counts/create';
+  static const transferOrders = '/inventory/transfer-orders';
+  static const transferOrderCreate = '/inventory/transfer-orders/create';
+  static const picklists = '/inventory/picklists';
   static const contactStatement = '/contacts/:id/statement';
   static const settings = '/settings';
   static const businessConfiguration = '/settings/business-configuration';
@@ -278,6 +302,24 @@ class Routes {
   static const walletHistory = '/loyalty/wallet/:contactId';
   static String walletHistoryPath(String contactId) =>
       '/loyalty/wallet/$contactId';
+
+  // Payroll
+  static const payrollEmployees = '/payroll/employees';
+  static const payrollEmployeeCreate = '/payroll/employees/create';
+  static const payrollEmployeeDetail = '/payroll/employees/:id';
+  static const payrollEmployeeEdit = '/payroll/employees/:id/edit';
+  static const payrollRuns = '/payroll/runs';
+  static const payrollRunDetail = '/payroll/runs/:id';
+  static const payrollSettings = '/payroll/settings';
+
+  // Field Sales / FMCG
+  static const fieldSalesBeats = '/field-sales/beats';
+  static const fieldSalesRoutes = '/field-sales/routes';
+  static const fieldSalesVans = '/field-sales/vans';
+  static const fieldSalesExecutions = '/field-sales/executions';
+  static const fieldSalesExecutionDetail = '/field-sales/executions/:id';
+  static const fieldSalesDayClose = '/field-sales/day-close';
+  static const fieldSalesDashboard = '/field-sales/dashboard';
 
   static const platformAdmin = '/platform-admin';
   static const platformAdminLogin = '/platform-admin/login';
@@ -834,6 +876,128 @@ final routerProvider = Provider<GoRouter>((ref) {
               child: NearExpiryScreen(),
             ),
           ),
+          GoRoute(
+            path: Routes.stockCounts,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: StockCountListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.stockCountCreate,
+            builder: (context, state) => const StockCountCreateScreen(),
+          ),
+          GoRoute(
+            path: '/inventory/stock-counts/:id',
+            builder: (context, state) => StockCountDetailScreen(
+              id: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: Routes.transferOrders,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: TransferOrderListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.transferOrderCreate,
+            builder: (context, state) => const TransferOrderCreateScreen(),
+          ),
+          GoRoute(
+            path: '/inventory/transfer-orders/:id',
+            builder: (context, state) => TransferOrderDetailScreen(
+              id: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: Routes.picklists,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PicklistListScreen(),
+            ),
+          ),
+          // Payroll
+          GoRoute(
+            path: Routes.payrollEmployees,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: EmployeeListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.payrollEmployeeCreate,
+            builder: (context, state) => const EmployeeFormScreen(),
+          ),
+          GoRoute(
+            path: Routes.payrollEmployeeDetail,
+            builder: (context, state) => EmployeeFormScreen(
+              employeeId: state.pathParameters['id'],
+            ),
+          ),
+          GoRoute(
+            path: Routes.payrollEmployeeEdit,
+            builder: (context, state) => EmployeeFormScreen(
+              employeeId: state.pathParameters['id'],
+            ),
+          ),
+          GoRoute(
+            path: Routes.payrollRuns,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PayrollRunListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.payrollRunDetail,
+            builder: (context, state) => PayrollRunDetailScreen(
+              runId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: Routes.payrollSettings,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PayrollSettingsScreen(),
+            ),
+          ),
+          // Field Sales / FMCG Execution
+          GoRoute(
+            path: Routes.fieldSalesBeats,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: BeatListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesRoutes,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RouteListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesVans,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: VanListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesExecutions,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RouteExecutionScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesExecutionDetail,
+            builder: (context, state) => RouteExecutionDetailScreen(
+              executionId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesDayClose,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DayCloseScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesDashboard,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SalesmanDashboardScreen(),
+            ),
+          ),
           // Pharma — Drug Licenses & Compliance
           GoRoute(
             path: Routes.drugLicenses,
@@ -1257,6 +1421,9 @@ String? _capabilityRedirectForLocation(
     return Routes.dashboard;
   }
   if (location == Routes.bankReconciliation && !capabilities.canUseBankRecon) {
+    return Routes.dashboard;
+  }
+  if (location.startsWith('/field-sales') && !capabilities.canUseFieldSales) {
     return Routes.dashboard;
   }
   return null;

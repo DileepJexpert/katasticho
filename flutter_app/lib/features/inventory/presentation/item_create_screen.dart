@@ -13,7 +13,9 @@ import '../data/item_group_repository.dart';
 import '../data/item_repository.dart';
 import '../data/uom_repository.dart';
 import 'drug_master_search_widget.dart';
+import 'hsn_gst_search_widget.dart';
 import 'item_scan_sheet.dart';
+import 'manufacturer_search_widget.dart';
 
 /// Form for creating a new inventory item or editing an existing one.
 /// When [itemId] is provided, the screen loads that item and updates it on save.
@@ -1106,10 +1108,19 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                             });
                           },
                         ),
-                        KTextField(
-                          label: 'Manufacturer',
-                          controller: _manufacturerController,
-                        ),
+                        if (_isPharmacyOrg)
+                          ManufacturerSearchWidget(
+                            controller: _manufacturerController,
+                            initialValue: _manufacturerController.text,
+                            onSelected: (name) {
+                              _manufacturerController.text = name;
+                            },
+                          )
+                        else
+                          KTextField(
+                            label: 'Manufacturer',
+                            controller: _manufacturerController,
+                          ),
                       ]),
                       if (_rackLocations.isNotEmpty) ...[
                         KSpacing.vGapSm,
@@ -1185,10 +1196,22 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                             return null;
                           },
                         ),
-                        KTextField(
-                          label: _itemType == 'SERVICE' ? 'SAC' : 'HSN',
-                          controller: _hsnController,
-                        ),
+                        if (_isPharmacyOrg && _itemType != 'SERVICE')
+                          HsnGstSearchWidget(
+                            controller: _hsnController,
+                            initialHsnCode: _hsnController.text,
+                            onSelected: (hsnCode, gstRate, description) {
+                              _hsnController.text = hsnCode;
+                              _gstRateController.text =
+                                  gstRate.toStringAsFixed(gstRate.truncateToDouble() == gstRate ? 0 : 2);
+                              setState(() {});
+                            },
+                          )
+                        else
+                          KTextField(
+                            label: _itemType == 'SERVICE' ? 'SAC' : 'HSN',
+                            controller: _hsnController,
+                          ),
                         KTextField(
                           label: 'GST %',
                           controller: _gstRateController,

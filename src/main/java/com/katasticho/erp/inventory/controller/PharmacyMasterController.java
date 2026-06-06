@@ -67,4 +67,10 @@ public class PharmacyMasterController {
             @RequestParam List<UUID> saltIds) {
         return ResponseEntity.ok(ApiResponse.ok(service.checkInteractions(saltIds)));
     }
+
+    @GetMapping("/interactions/check-by-composition")
+    public ResponseEntity<ApiResponse<List<DrugInteractionResponse>>> interactionCheckByComposition(
+            @RequestParam List<String> compositions) {
+        return ResponseEntity.ok(ApiResponse.ok(service.checkInteractionsByCompositions(compositions)));
+    }
 }

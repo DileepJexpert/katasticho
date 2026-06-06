@@ -17,6 +17,7 @@ class BusinessCapabilities {
   final bool canUseBatchExpiry;
   final bool canUseBankRecon;
   final bool canUseReports;
+  final bool canUseFieldSales;
 
   const BusinessCapabilities({
     required this.canUseAccounting,
@@ -29,6 +30,7 @@ class BusinessCapabilities {
     required this.canUseBatchExpiry,
     required this.canUseBankRecon,
     required this.canUseReports,
+    required this.canUseFieldSales,
   });
 
   static const none = BusinessCapabilities(
@@ -42,6 +44,7 @@ class BusinessCapabilities {
     canUseBatchExpiry: false,
     canUseBankRecon: false,
     canUseReports: false,
+    canUseFieldSales: false,
   );
 
   static const allEnabled = BusinessCapabilities(
@@ -55,6 +58,7 @@ class BusinessCapabilities {
     canUseBatchExpiry: true,
     canUseBankRecon: true,
     canUseReports: true,
+    canUseFieldSales: true,
   );
 
   factory BusinessCapabilities.fromEnabledFeatures(Set<String> features) {
@@ -70,6 +74,7 @@ class BusinessCapabilities {
       canUseBatchExpiry: has('BATCH_EXPIRY'),
       canUseBankRecon: has('BANK_RECON'),
       canUseReports: has('REPORTS'),
+      canUseFieldSales: has('FIELD_SALES'),
     );
   }
 
@@ -94,6 +99,8 @@ class BusinessCapabilities {
           fromFlags.canUseBatchExpiry || fromProfile.canUseBatchExpiry,
       canUseBankRecon: fromFlags.canUseBankRecon || fromProfile.canUseBankRecon,
       canUseReports: fromFlags.canUseReports || fromProfile.canUseReports,
+      canUseFieldSales:
+          fromFlags.canUseFieldSales || fromProfile.canUseFieldSales,
     );
   }
 
@@ -118,6 +125,7 @@ class BusinessCapabilities {
       canUseBatchExpiry: isPharma,
       canUseBankRecon: true,
       canUseReports: true,
+      canUseFieldSales: isDistributor,
     );
   }
 

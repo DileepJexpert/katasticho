@@ -128,6 +128,48 @@ class ApiConfig {
   static const String uoms = '/api/v1/uoms';
   static String uomById(String id) => '/api/v1/uoms/$id';
 
+  // Barcode lookup
+  static String itemByBarcode(String barcode) =>
+      '/api/v1/items/by-barcode/$barcode';
+
+  // Stock Counts
+  static const String stockCounts = '/api/v1/stock-counts';
+  static String stockCountById(String id) => '/api/v1/stock-counts/$id';
+  static String postStockCount(String id) => '/api/v1/stock-counts/$id/post';
+  static String cancelStockCount(String id) =>
+      '/api/v1/stock-counts/$id/cancel';
+
+  // Transfer Orders
+  static const String transferOrders = '/api/v1/transfer-orders';
+  static String transferOrderById(String id) =>
+      '/api/v1/transfer-orders/$id';
+  static String shipTransferOrder(String id) =>
+      '/api/v1/transfer-orders/$id/ship';
+  static String receiveTransferOrder(String id) =>
+      '/api/v1/transfer-orders/$id/receive';
+  static String cancelTransferOrder(String id) =>
+      '/api/v1/transfer-orders/$id/cancel';
+
+  // Picklists
+  static const String picklists = '/api/v1/picklists';
+  static String picklistById(String id) => '/api/v1/picklists/$id';
+  static String picklistsBySalesOrder(String soId) =>
+      '/api/v1/picklists/by-sales-order/$soId';
+  static String startPicklist(String id) => '/api/v1/picklists/$id/start';
+  static String picklistLines(String id) => '/api/v1/picklists/$id/lines';
+  static String completePicklist(String id) =>
+      '/api/v1/picklists/$id/complete';
+  static String cancelPicklist(String id) => '/api/v1/picklists/$id/cancel';
+
+  // Serial Numbers
+  static const String serialNumbers = '/api/v1/serial-numbers';
+  static String serialNumbersReceive = '/api/v1/serial-numbers/receive';
+  static String serialNumbersAssignSale = '/api/v1/serial-numbers/assign-sale';
+  static String serialNumbersByItem(String itemId) =>
+      '/api/v1/serial-numbers/by-item/$itemId';
+  static String serialNumbersAvailable(String itemId) =>
+      '/api/v1/serial-numbers/available/$itemId';
+
   // Batches (v2 — perishables / FEFO)
   static String batchesByItem(String itemId) => '/api/v1/batches/item/$itemId';
 
@@ -491,4 +533,102 @@ class ApiConfig {
       '/api/v1/pharmacy-masters/substitutions';
   static const String drugInteractionCheck =
       '/api/v1/pharmacy-masters/interactions/check';
+  static const String drugInteractionCheckByComposition =
+      '/api/v1/pharmacy-masters/interactions/check-by-composition';
+
+  // Payroll
+  static const String payrollSettings = '/api/v1/payroll/settings';
+  static const String payrollEmployees = '/api/v1/payroll/employees';
+  static String payrollEmployee(String id) => '/api/v1/payroll/employees/$id';
+  static String employeeSalaryStructure(String employeeId) =>
+      '/api/v1/payroll/employees/$employeeId/salary-structure';
+  static const String salaryComponents = '/api/v1/payroll/salary-components';
+  static String salaryComponent(String id) =>
+      '/api/v1/payroll/salary-components/$id';
+  static const String payrollRuns = '/api/v1/payroll/runs';
+  static String payrollRun(String id) => '/api/v1/payroll/runs/$id';
+  static String calculatePayrollRun(String id) =>
+      '/api/v1/payroll/runs/$id/calculate';
+  static String approvePayrollRun(String id) =>
+      '/api/v1/payroll/runs/$id/approve';
+  static String postPayrollRun(String id) => '/api/v1/payroll/runs/$id/post';
+  static String cancelPayrollRun(String id) =>
+      '/api/v1/payroll/runs/$id/cancel';
+  static String payrollRunPayslips(String runId) =>
+      '/api/v1/payroll/runs/$runId/payslips';
+  static String payslip(String id) => '/api/v1/payroll/payslips/$id';
+  static String payrollRunPayment(String runId) =>
+      '/api/v1/payroll/runs/$runId/payment';
+  static const String statutoryPayments = '/api/v1/payroll/statutory-payments';
+
+  // Field Sales / FMCG Execution
+  static const String fieldSalesBeats = '/api/v1/field-sales/beats';
+  static String fieldSalesBeatById(String id) =>
+      '/api/v1/field-sales/beats/$id';
+  static String fieldSalesBeatCustomers(String beatId) =>
+      '/api/v1/field-sales/beats/$beatId/customers';
+  static String fieldSalesBeatCustomer(String beatId, String contactId) =>
+      '/api/v1/field-sales/beats/$beatId/customers/$contactId';
+  static const String fieldSalesRoutes = '/api/v1/field-sales/routes';
+  static String fieldSalesRouteById(String id) =>
+      '/api/v1/field-sales/routes/$id';
+  static String fieldSalesRouteBeats(String routeId) =>
+      '/api/v1/field-sales/routes/$routeId/beats';
+  static const String fieldSalesVans = '/api/v1/field-sales/vans';
+  static String fieldSalesVanById(String id) =>
+      '/api/v1/field-sales/vans/$id';
+  static String fieldSalesVanStock(String vanId) =>
+      '/api/v1/field-sales/vans/$vanId/stock';
+  static const String fieldSalesAssignments = '/api/v1/field-sales/assignments';
+  static String fieldSalesAssignmentsBySalesperson(String id) =>
+      '/api/v1/field-sales/assignments/salesperson/$id';
+  static const String fieldSalesVanTransfersLoad =
+      '/api/v1/field-sales/van-transfers/load';
+  static const String fieldSalesVanTransfersReturn =
+      '/api/v1/field-sales/van-transfers/return';
+  static String fieldSalesVanTransferConfirmLoad(String id) =>
+      '/api/v1/field-sales/van-transfers/$id/confirm-load';
+  static String fieldSalesVanTransferConfirmReturn(String id) =>
+      '/api/v1/field-sales/van-transfers/$id/confirm-return';
+  static String fieldSalesVanTransfersByVan(String vanId) =>
+      '/api/v1/field-sales/van-transfers/van/$vanId';
+  static String fieldSalesVanTransferLines(String id) =>
+      '/api/v1/field-sales/van-transfers/$id/lines';
+  static const String fieldSalesExecutions = '/api/v1/field-sales/executions';
+  static String fieldSalesExecutionById(String id) =>
+      '/api/v1/field-sales/executions/$id';
+  static String fieldSalesExecutionsByDate(String date) =>
+      '/api/v1/field-sales/executions/date/$date';
+  static String fieldSalesExecutionStart(String id) =>
+      '/api/v1/field-sales/executions/$id/start';
+  static String fieldSalesExecutionComplete(String id) =>
+      '/api/v1/field-sales/executions/$id/complete';
+  static String fieldSalesExecutionVisits(String executionId) =>
+      '/api/v1/field-sales/executions/$executionId/visits';
+  static String fieldSalesVisitCheckIn(String id) =>
+      '/api/v1/field-sales/visits/$id/check-in';
+  static String fieldSalesVisitCheckOut(String id) =>
+      '/api/v1/field-sales/visits/$id/check-out';
+  static String fieldSalesVisitSkip(String id) =>
+      '/api/v1/field-sales/visits/$id/skip';
+  static String fieldSalesVisitRecordOrder(String id) =>
+      '/api/v1/field-sales/visits/$id/record-order';
+  static String fieldSalesVisitRecordCollection(String id) =>
+      '/api/v1/field-sales/visits/$id/record-collection';
+  static String fieldSalesDayCloseInitiate(String routeExecutionId) =>
+      '/api/v1/field-sales/day-close/initiate/$routeExecutionId';
+  static String fieldSalesDayCloseById(String id) =>
+      '/api/v1/field-sales/day-close/$id';
+  static String fieldSalesDayCloseSubmit(String id) =>
+      '/api/v1/field-sales/day-close/$id/submit';
+  static String fieldSalesDayCloseApprove(String id) =>
+      '/api/v1/field-sales/day-close/$id/approve';
+  static String fieldSalesDayCloseReject(String id) =>
+      '/api/v1/field-sales/day-close/$id/reject';
+  static const String fieldSalesTargets = '/api/v1/field-sales/targets';
+  static String fieldSalesTargetsBySalesperson(String id) =>
+      '/api/v1/field-sales/targets/salesperson/$id';
+  static String fieldSalesTargetAchievement(String id) =>
+      '/api/v1/field-sales/targets/$id/achievement';
+  static const String fieldSalesDashboard = '/api/v1/field-sales/dashboard';
 }

@@ -79,6 +79,10 @@ public class Organisation {
     @Column(length = 50)
     private String industry;
 
+    @Column(name = "salary_handling_mode", length = 20)
+    @Builder.Default
+    private String salaryHandlingMode = "NONE";
+
     @Column(name = "business_type", nullable = false, length = 20)
     @Builder.Default
     private String businessType = "RETAILER";

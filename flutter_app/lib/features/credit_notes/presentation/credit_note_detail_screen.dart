@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../routing/app_router.dart';
 import '../data/credit_note_providers.dart';
 import '../data/credit_note_repository.dart';
 
@@ -22,14 +24,30 @@ class CreditNoteDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Credit Note Details'),
         actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) => _handleAction(context, ref, value),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                  value: 'issue', child: Text('Issue Credit Note')),
-              const PopupMenuItem(value: 'pdf', child: Text('Download PDF')),
-            ],
-          ),
+          cnAsync.whenOrNull(
+                data: (data) {
+                  final cn =
+                      (data['data'] ?? data) as Map<String, dynamic>;
+                  final status = cn['status'] as String? ?? '';
+                  return PopupMenuButton<String>(
+                    onSelected: (value) =>
+                        _handleAction(context, ref, value),
+                    itemBuilder: (context) => [
+                      if (status == 'DRAFT')
+                        const PopupMenuItem(
+                            value: 'issue',
+                            child: Text('Issue Credit Note')),
+                      if (status == 'PENDING_APPROVAL')
+                        const PopupMenuItem(
+                            value: 'approvals',
+                            child: Text('Open Approval Inbox')),
+                      const PopupMenuItem(
+                          value: 'pdf', child: Text('Download PDF')),
+                    ],
+                  );
+                },
+              ) ??
+              const SizedBox.shrink(),
         ],
       ),
       body: cnAsync.when(
@@ -84,6 +102,9 @@ class CreditNoteDetailScreen extends ConsumerWidget {
       case 'issue':
         _issueConfirmation(context, ref);
         break;
+      case 'approvals':
+        if (context.mounted) context.push(Routes.approvals);
+        break;
       case 'pdf':
         if (context.mounted) {
           final cnAsync = ref.read(creditNoteDetailProvider(creditNoteId));
@@ -125,13 +146,19 @@ class CreditNoteDetailScreen extends ConsumerWidget {
               Navigator.pop(ctx);
               try {
                 final repo = ref.read(creditNoteRepositoryProvider);
-                await repo.issueCreditNote(creditNoteId);
+                final result = await repo.issueCreditNote(creditNoteId);
                 ref.invalidate(creditNoteDetailProvider(creditNoteId));
                 ref.invalidate(creditNoteListProvider);
                 if (context.mounted) {
+                  final issued =
+                      (result['data'] ?? result) as Map<String, dynamic>;
+                  final newStatus = issued['status'] as String? ?? '';
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Credit note issued successfully')),
+                    SnackBar(
+                      content: Text(newStatus == 'PENDING_APPROVAL'
+                          ? 'Credit note sent for approval'
+                          : 'Credit note issued successfully'),
+                    ),
                   );
                 }
               } catch (_) {
@@ -203,6 +230,27 @@ class _CreditNoteDetailBody extends StatelessWidget {
               ],
             ),
           ),
+
+          if (status == 'PENDING_APPROVAL')
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(KSpacing.md),
+              color: KColors.warningLight,
+              child: Row(
+                children: [
+                  const Icon(Icons.hourglass_top_rounded,
+                      size: 20, color: KColors.warning),
+                  const SizedBox(width: KSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'This credit note is pending approval before it can be issued.',
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.warning),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // Tabs
           const TabBar(

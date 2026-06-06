@@ -267,6 +267,21 @@ const _inventoryGroup = NavGroup(
         activeIcon: Icons.grid_view_rounded,
         route: Routes.rackLocations),
     NavItem(
+        label: 'Stock Counts',
+        icon: Icons.fact_check_outlined,
+        activeIcon: Icons.fact_check_rounded,
+        route: Routes.stockCounts),
+    NavItem(
+        label: 'Transfer Orders',
+        icon: Icons.swap_horiz_outlined,
+        activeIcon: Icons.swap_horiz_rounded,
+        route: Routes.transferOrders),
+    NavItem(
+        label: 'Picklists',
+        icon: Icons.checklist_outlined,
+        activeIcon: Icons.checklist_rounded,
+        route: Routes.picklists),
+    NavItem(
         label: 'Price Lists',
         icon: Icons.sell_outlined,
         activeIcon: Icons.sell_rounded,
@@ -409,6 +424,67 @@ const _reportsGroup = NavGroup(
   ],
 );
 
+const _payrollGroup = NavGroup(
+  label: 'Payroll',
+  icon: Icons.people_alt_outlined,
+  activeIcon: Icons.people_alt_rounded,
+  children: [
+    NavItem(
+        label: 'Employees',
+        icon: Icons.badge_outlined,
+        activeIcon: Icons.badge_rounded,
+        route: Routes.payrollEmployees),
+    NavItem(
+        label: 'Payroll Runs',
+        icon: Icons.calculate_outlined,
+        activeIcon: Icons.calculate_rounded,
+        route: Routes.payrollRuns),
+    NavItem(
+        label: 'Settings',
+        icon: Icons.settings_outlined,
+        activeIcon: Icons.settings_rounded,
+        route: Routes.payrollSettings),
+  ],
+);
+
+const _fieldSalesGroup = NavGroup(
+  label: 'Field Sales',
+  icon: Icons.directions_car_outlined,
+  activeIcon: Icons.directions_car_rounded,
+  children: [
+    NavItem(
+        label: 'Dashboard',
+        icon: Icons.dashboard_outlined,
+        activeIcon: Icons.dashboard_rounded,
+        route: Routes.fieldSalesDashboard),
+    NavItem(
+        label: 'Beats',
+        icon: Icons.location_on_outlined,
+        activeIcon: Icons.location_on_rounded,
+        route: Routes.fieldSalesBeats),
+    NavItem(
+        label: 'Routes',
+        icon: Icons.route_outlined,
+        activeIcon: Icons.route_rounded,
+        route: Routes.fieldSalesRoutes),
+    NavItem(
+        label: 'Vans',
+        icon: Icons.local_shipping_outlined,
+        activeIcon: Icons.local_shipping_rounded,
+        route: Routes.fieldSalesVans),
+    NavItem(
+        label: "Today's Routes",
+        icon: Icons.play_circle_outline,
+        activeIcon: Icons.play_circle_filled,
+        route: Routes.fieldSalesExecutions),
+    NavItem(
+        label: 'Day Close',
+        icon: Icons.nightlight_outlined,
+        activeIcon: Icons.nightlight_rounded,
+        route: Routes.fieldSalesDayClose),
+  ],
+);
+
 /// All groups for route-matching.
 const _allGroups = [
   _salesGroup,
@@ -416,6 +492,8 @@ const _allGroups = [
   _inventoryGroup,
   _accountingGroup,
   _reportsGroup,
+  _payrollGroup,
+  _fieldSalesGroup,
 ];
 
 /// Flat list of every route across top-level items and groups (for active-state matching).
@@ -829,6 +907,8 @@ List<Widget> _buildSidebarSections({
   final bankingGroup = _visibleGroup(_bankingGroup, capabilities);
   final accountingGroup = _visibleGroup(_accountingGroup, capabilities);
   final reportsGroup = _visibleGroup(_reportsGroup, capabilities);
+  final payrollGroup = _visibleGroup(_payrollGroup, capabilities);
+  final fieldSalesGroup = _visibleGroup(_fieldSalesGroup, capabilities);
 
   return [
     _SidebarNavItem(item: _dashboardNavItem, collapsed: collapsed),
@@ -853,6 +933,10 @@ List<Widget> _buildSidebarSections({
       _SidebarNavGroup(group: inventoryGroup, collapsed: collapsed),
     if (canAccounting && reportsGroup != null)
       _SidebarNavGroup(group: reportsGroup, collapsed: collapsed),
+    if (canAccounting && payrollGroup != null)
+      _SidebarNavGroup(group: payrollGroup, collapsed: collapsed),
+    if (!isViewer && fieldSalesGroup != null)
+      _SidebarNavGroup(group: fieldSalesGroup, collapsed: collapsed),
     KSpacing.vGapSm,
     if (!isOperator && !isViewer)
       _SidebarNavItem(item: _contactsNavItem, collapsed: collapsed),
@@ -901,10 +985,14 @@ bool _isNavItemVisible(String route, BusinessCapabilities capabilities) {
       route == Routes.priceLists ||
       route == Routes.schemes ||
       route == Routes.itemImport ||
+      route == Routes.stockCounts ||
+      route == Routes.transferOrders ||
+      route == Routes.picklists ||
       route == '/reports/operational/stock-summary' ||
       route == '/reports/operational/stock-movement') {
     return capabilities.canUseInventory;
   }
+  if (route.startsWith('/field-sales')) return capabilities.canUseFieldSales;
   if (route == Routes.bankReconciliation) return capabilities.canUseBankRecon;
   if (route == '/accounting/dashboard' ||
       route == Routes.guidedTransactionCreate ||

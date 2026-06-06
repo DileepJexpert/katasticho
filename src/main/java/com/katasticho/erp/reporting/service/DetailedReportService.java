@@ -202,16 +202,24 @@ public class DetailedReportService {
               srl.quantity,
               srl.unit,
               srl.rate,
-              srl.amount - (sr.cgst + sr.sgst + sr.igst) / (SELECT COUNT(*) FROM sales_receipt_line WHERE receipt_id = sr.id) as taxable_amount,
-              sr.cgst / (SELECT COUNT(*) FROM sales_receipt_line WHERE receipt_id = sr.id) as cgst_amount,
-              sr.sgst / (SELECT COUNT(*) FROM sales_receipt_line WHERE receipt_id = sr.id) as sgst_amount,
-              sr.igst / (SELECT COUNT(*) FROM sales_receipt_line WHERE receipt_id = sr.id) as igst_amount,
+              ROUND(srl.amount * 100.0 / (100.0 + COALESCE(hgm.gst_rate, 0)), 2) as taxable_amount,
+              CASE WHEN sr.igst > 0 THEN 0
+                   ELSE ROUND((srl.amount - srl.amount * 100.0 / (100.0 + COALESCE(hgm.gst_rate, 0))) / 2, 2)
+              END as cgst_amount,
+              CASE WHEN sr.igst > 0 THEN 0
+                   ELSE ROUND((srl.amount - srl.amount * 100.0 / (100.0 + COALESCE(hgm.gst_rate, 0))) / 2, 2)
+              END as sgst_amount,
+              CASE WHEN sr.igst > 0
+                   THEN ROUND(srl.amount - srl.amount * 100.0 / (100.0 + COALESCE(hgm.gst_rate, 0)), 2)
+                   ELSE 0
+              END as igst_amount,
               srl.amount as total_amount,
-              (sr.cgst + sr.sgst) * 200 / srl.amount as gst_rate,
+              COALESCE(hgm.gst_rate, 0) as gst_rate,
               org.state_code as place_of_supply
             FROM sales_receipt sr
             LEFT JOIN contact c ON sr.contact_id = c.id
             JOIN sales_receipt_line srl ON sr.id = srl.receipt_id
+            LEFT JOIN hsn_gst_master hgm ON srl.hsn_code = hgm.hsn_code
             JOIN organisation org ON sr.org_id = org.id
             WHERE sr.org_id = ? AND sr.receipt_date BETWEEN ? AND ?
               AND (? IS NULL OR 'POS' = ?)

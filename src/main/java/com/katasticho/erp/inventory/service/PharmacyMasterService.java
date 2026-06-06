@@ -26,6 +26,7 @@ public class PharmacyMasterService {
     private final GenericSubstitutionRepository substitutionRepository;
     private final DrugInteractionRepository interactionRepository;
     private final DrugMasterRepository drugMasterRepository;
+    private final SaltMasterRepository saltMasterRepository;
     private final WarehouseRepository warehouseRepository;
 
     public List<ManufacturerMasterResponse> searchManufacturers(String query, int limit) {
@@ -148,6 +149,21 @@ public class PharmacyMasterService {
                 .stream()
                 .map(this::toInteraction)
                 .toList();
+    }
+
+    public List<DrugInteractionResponse> checkInteractionsByCompositions(List<String> compositions) {
+        if (compositions == null || compositions.size() < 2) return List.of();
+        Set<String> saltNames = compositions.stream()
+                .filter(c -> c != null && !c.isBlank())
+                .flatMap(c -> Arrays.stream(c.split("[+,]")))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
+        if (saltNames.size() < 2) return List.of();
+        List<SaltMaster> salts = saltMasterRepository.findByNameIgnoreCaseIn(saltNames);
+        if (salts.size() < 2) return List.of();
+        Set<UUID> saltIds = salts.stream().map(SaltMaster::getId).collect(Collectors.toSet());
+        return checkInteractions(new ArrayList<>(saltIds));
     }
 
     private ManufacturerMasterResponse toManufacturer(ManufacturerMaster m) {
