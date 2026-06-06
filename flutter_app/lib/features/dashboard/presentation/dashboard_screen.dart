@@ -629,41 +629,86 @@ class _DistributorDashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     final actionTitle = _isPharma ? 'Pharma actions' : 'Distributor actions';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (isDesktop)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 7,
-                child: BusinessCommandCenter(
+    if (isDesktop) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 7,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                BusinessCommandCenter(
                   isDesktop: isDesktop,
                   vertical: config.vertical,
                 ),
-              ),
-              if (quickActions.isNotEmpty) ...[
-                KSpacing.hGapMd,
-                Expanded(
-                  flex: 4,
-                  child: _BusinessActionPanel(
+                const SizedBox(height: 10),
+                _KpiGrid(
+                  kpis: config.kpis,
+                  isDesktop: isDesktop,
+                  compact: true,
+                  expandedAging: expandedAging,
+                  onToggleAging: onToggleAging,
+                ),
+                if (capabilities.canUseDistribution) ...[
+                  const SizedBox(height: 10),
+                  const SoAlertsCard(),
+                ],
+                const SizedBox(height: 10),
+                const SalesChartWidget(),
+                if (capabilities.canUseInventory) ...[
+                  const SizedBox(height: 10),
+                  const LowStockWidget(),
+                  if (_isPharma && capabilities.canUseBatchExpiry) ...[
+                    const SizedBox(height: 10),
+                    const ExpiringSoonWidget(),
+                  ],
+                ],
+              ],
+            ),
+          ),
+          KSpacing.hGapMd,
+          Expanded(
+            flex: 4,
+            child: Column(
+              children: [
+                if (quickActions.isNotEmpty) ...[
+                  _BusinessActionPanel(
                     title: actionTitle,
                     actions: quickActions,
                   ),
-                ),
+                  const SizedBox(height: 10),
+                ],
+                if (capabilities.canUseAccounting) ...[
+                  const OutstandingReceivableCard(),
+                  const SizedBox(height: 10),
+                  const OverdueInvoicesWidget(),
+                  const SizedBox(height: 10),
+                  const BillsToPayCard(),
+                ],
+                if (!_isPharma && capabilities.canUseInventory) ...[
+                  const SizedBox(height: 10),
+                  const ExpiringSoonWidget(),
+                ],
+                const SizedBox(height: 10),
+                const TopSellingWidget(),
               ],
-            ],
-          )
-        else ...[
-          BusinessCommandCenter(
-            isDesktop: isDesktop,
-            vertical: config.vertical,
+            ),
           ),
-          if (quickActions.isNotEmpty) ...[
-            KSpacing.vGapSm,
-            _BusinessActionPanel(title: actionTitle, actions: quickActions),
-          ],
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        BusinessCommandCenter(
+          isDesktop: isDesktop,
+          vertical: config.vertical,
+        ),
+        if (quickActions.isNotEmpty) ...[
+          KSpacing.vGapSm,
+          _BusinessActionPanel(title: actionTitle, actions: quickActions),
         ],
         const SizedBox(height: 10),
         _KpiGrid(
@@ -678,72 +723,27 @@ class _DistributorDashboard extends StatelessWidget {
           const SoAlertsCard(),
         ],
         const SizedBox(height: 10),
-        if (isDesktop)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: Column(
-                  children: [
-                    const SalesChartWidget(),
-                    if (capabilities.canUseInventory) ...[
-                      const SizedBox(height: 10),
-                      const LowStockWidget(),
-                      if (_isPharma && capabilities.canUseBatchExpiry) ...[
-                        const SizedBox(height: 10),
-                        const ExpiringSoonWidget(),
-                      ],
-                    ],
-                  ],
-                ),
-              ),
-              KSpacing.hGapMd,
-              Expanded(
-                flex: 2,
-                child: Column(
-                  children: [
-                    if (capabilities.canUseAccounting) ...[
-                      const OutstandingReceivableCard(),
-                      const SizedBox(height: 10),
-                      const OverdueInvoicesWidget(),
-                      const SizedBox(height: 10),
-                      const BillsToPayCard(),
-                    ],
-                    if (!_isPharma && capabilities.canUseInventory) ...[
-                      const SizedBox(height: 10),
-                      const ExpiringSoonWidget(),
-                    ],
-                    const SizedBox(height: 10),
-                    const TopSellingWidget(),
-                  ],
-                ),
-              ),
-            ],
-          )
-        else ...[
-          if (capabilities.canUseAccounting) ...[
-            const OutstandingReceivableCard(),
+        if (capabilities.canUseAccounting) ...[
+          const OutstandingReceivableCard(),
+          KSpacing.vGapMd,
+        ],
+        if (capabilities.canUseInventory) ...[
+          const LowStockWidget(),
+          if (capabilities.canUseBatchExpiry) ...[
             KSpacing.vGapMd,
-          ],
-          if (capabilities.canUseInventory) ...[
-            const LowStockWidget(),
-            if (capabilities.canUseBatchExpiry) ...[
-              KSpacing.vGapMd,
-              const ExpiringSoonWidget(),
-            ],
-            KSpacing.vGapMd,
-          ],
-          const SalesChartWidget(),
-          if (capabilities.canUseAccounting) ...[
-            KSpacing.vGapMd,
-            const OverdueInvoicesWidget(),
-            KSpacing.vGapMd,
-            const BillsToPayCard(),
+            const ExpiringSoonWidget(),
           ],
           KSpacing.vGapMd,
-          const TopSellingWidget(),
         ],
+        const SalesChartWidget(),
+        if (capabilities.canUseAccounting) ...[
+          KSpacing.vGapMd,
+          const OverdueInvoicesWidget(),
+          KSpacing.vGapMd,
+          const BillsToPayCard(),
+        ],
+        KSpacing.vGapMd,
+        const TopSellingWidget(),
       ],
     );
   }
