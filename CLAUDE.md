@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V44**. Next new migration = V45.
+- Location: `src/main/resources/db/migration/`. Latest is **V45**. Next new migration = V46.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -223,12 +223,20 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Flutter screens (done):** Partner list (with tabs for all/pending + request dialog), catalog list (with unpublish), supplier search (with debounced search), outgoing orders, incoming orders, order detail (with lifecycle actions + event timeline). Routes and sidebar nav integrated, gated by `canUsePartnerNetwork`.
 - **Tests (done):** 11 tests in PartnerNetworkServiceTest — partnership CRUD, order lifecycle, access control.
 
-### Phase 9: Manufacturing-Lite
+### Phase 9: Manufacturing-Lite (COMPLETE — 2026-06-06)
 **Goal:** Limited finished-goods / BOM extension. NOT full MRP.
 **Reference:** `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` (Phase 4)
-- Work orders, issue to production, finished goods completion
-- WIP tracking, production costing
-- Only after distributor workflows are fully stable
+- **V45 migration (done):** 2 new tables (work_order, work_order_line) + 6 indexes.
+- **Backend (done):** `com.katasticho.erp.manufacturing` — 2 entities, 2 repositories, ManufacturingService (~340 lines), ManufacturingController (7 endpoints at `/api/v1/manufacturing`). ModuleCode.MANUFACTURING added.
+- **Work order lifecycle (done):** DRAFT → IN_PROGRESS → COMPLETED (or CANCELLED at any non-completed stage). Auto-generates WO-XXXXX numbers.
+- **BOM explosion (done):** Explodes BOM components into work order lines. Required qty = BOM qty × production qty. Raw material cost from item purchasePrice.
+- **Issue to production (done):** DRAFT → IN_PROGRESS. Records PRODUCTION_ISSUE stock movements (negative qty) per line via InventoryService. Sets actual start date.
+- **Receive finished goods (done):** Partial receipts supported. Records PRODUCTION_RECEIVE stock movement (positive qty) with calculated FG unit cost. Auto-completes when planned qty met.
+- **Production costing (done):** Raw material + direct labor + overhead = total cost. Unit cost = total / qty. Costs updatable on DRAFT/IN_PROGRESS orders.
+- **Cancel with reversal (done):** IN_PROGRESS cancellation reverses issued stock via ADJUSTMENT movements. DRAFT cancellation without stock impact.
+- **Module gating (done):** `@RequiresModule(MANUFACTURING)` on controller. Feature flag seeded for manufacturer, pharma manufacturer, food, garment, electronics industries.
+- **Flutter screens (done):** Work order list (with status filter chips), create screen (item search, warehouse dropdown, dates, costs), detail screen (with issue/receive/cancel/update-costs lifecycle actions). Routes and sidebar nav integrated, gated by `canUseManufacturing`.
+- **Tests (done):** 12 tests in ManufacturingServiceTest — create (happy path + 3 validation cases), issue to production (2), receive FG (3), cancel (2), update costs (1). 376 total tests pass.
 
 ---
 
@@ -264,6 +272,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `inventory/service/StockCountServiceTest.java` — physical stock count (6 tests)
 - `inventory/service/TransferOrderServiceTest.java` — transfer orders (7 tests)
 - `inventory/service/PicklistServiceTest.java` — picklist generation (8 tests)
+- `manufacturing/service/ManufacturingServiceTest.java` — work order lifecycle (12 tests)
 - `reporting/service/DetailedReportService` — no test file (needs one)
 
 ## Existing Service Files (key ones)
@@ -286,6 +295,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `inventory/service/SerialNumberService.java` — serial number tracking (receive, assign to sale, damage, return)
 - `reporting/service/DetailedReportService.java` — cash flow, journal register, sales/purchase register, customer statement
 - `reporting/service/InventoryReportService.java` — stock summary, movements, low-stock alert
+- `manufacturing/service/ManufacturingService.java` — work order lifecycle (create, issue, receive, cancel, costs)
 
 ## Doc Files Index
 | Doc | Purpose | Read when |

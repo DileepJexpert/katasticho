@@ -19,5 +19,6 @@ public enum ReferenceType {
     SALES_ORDER,
     VAN_LOAD,
     VAN_UNLOAD,
-    VAN_RETURN
+    VAN_RETURN,
+    WORK_ORDER
 }

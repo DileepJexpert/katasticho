@@ -18,5 +18,7 @@ public enum MovementType {
     RETURN_IN,
     RETURN_OUT,
     STOCK_COUNT,
-    REVERSAL
+    REVERSAL,
+    PRODUCTION_ISSUE,
+    PRODUCTION_RECEIVE
 }

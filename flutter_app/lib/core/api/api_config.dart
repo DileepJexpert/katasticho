@@ -658,4 +658,12 @@ class ApiConfig {
   static String partnerNetworkOrderDeliver(String id) => '/api/v1/partner-network/orders/$id/deliver';
   static String partnerNetworkOrderLinkPo(String id) => '/api/v1/partner-network/orders/$id/link-po';
   static String partnerNetworkOrderLinkSo(String id) => '/api/v1/partner-network/orders/$id/link-so';
+
+  // Manufacturing
+  static const String manufacturingWorkOrders = '/api/v1/manufacturing/work-orders';
+  static String manufacturingWorkOrderById(String id) => '/api/v1/manufacturing/work-orders/$id';
+  static String manufacturingWorkOrderIssue(String id) => '/api/v1/manufacturing/work-orders/$id/issue';
+  static String manufacturingWorkOrderReceive(String id) => '/api/v1/manufacturing/work-orders/$id/receive';
+  static String manufacturingWorkOrderCosts(String id) => '/api/v1/manufacturing/work-orders/$id/costs';
+  static String manufacturingWorkOrderCancel(String id) => '/api/v1/manufacturing/work-orders/$id/cancel';
 }

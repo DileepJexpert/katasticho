@@ -680,14 +680,14 @@ public class InventoryService {
     private void validateSign(MovementType type, BigDecimal qty) {
         boolean positive = qty.signum() > 0;
         switch (type) {
-            case PURCHASE, OPENING, RETURN_IN, TRANSFER_IN -> {
+            case PURCHASE, OPENING, RETURN_IN, TRANSFER_IN, PRODUCTION_RECEIVE -> {
                 if (!positive) {
                     throw new BusinessException(
                             type + " movement must have positive quantity, got " + qty,
                             "INV_INVALID_SIGN", HttpStatus.BAD_REQUEST);
                 }
             }
-            case SALE, RETURN_OUT, TRANSFER_OUT -> {
+            case SALE, RETURN_OUT, TRANSFER_OUT, PRODUCTION_ISSUE -> {
                 if (positive) {
                     throw new BusinessException(
                             type + " movement must have negative quantity, got " + qty,

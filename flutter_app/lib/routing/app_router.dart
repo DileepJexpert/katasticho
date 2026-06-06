@@ -155,6 +155,9 @@ import '../features/partner_network/presentation/supplier_search_screen.dart';
 import '../features/partner_network/presentation/outgoing_orders_screen.dart';
 import '../features/partner_network/presentation/incoming_orders_screen.dart';
 import '../features/partner_network/presentation/network_order_detail_screen.dart';
+import '../features/manufacturing/presentation/work_order_list_screen.dart';
+import '../features/manufacturing/presentation/work_order_create_screen.dart';
+import '../features/manufacturing/presentation/work_order_detail_screen.dart';
 import '../features/workflow/presentation/workflow_settings_screen.dart';
 import 'shell_screen.dart';
 
@@ -334,6 +337,11 @@ class Routes {
   static const partnerNetworkOutgoingOrders = '/partner-network/outgoing-orders';
   static const partnerNetworkIncomingOrders = '/partner-network/incoming-orders';
   static const partnerNetworkOrderDetail = '/partner-network/orders/:id';
+
+  // Manufacturing
+  static const manufacturingWorkOrders = '/manufacturing/work-orders';
+  static const manufacturingWorkOrderCreate = '/manufacturing/work-orders/create';
+  static const manufacturingWorkOrderDetail = '/manufacturing/work-orders/:id';
 
   static const platformAdmin = '/platform-admin';
   static const platformAdminLogin = '/platform-admin/login';
@@ -1050,6 +1058,26 @@ final routerProvider = Provider<GoRouter>((ref) {
               return NetworkOrderDetailScreen(orderId: id);
             },
           ),
+          // Manufacturing
+          GoRoute(
+            path: Routes.manufacturingWorkOrders,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: WorkOrderListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.manufacturingWorkOrderCreate,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: WorkOrderCreateScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.manufacturingWorkOrderDetail,
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return WorkOrderDetailScreen(workOrderId: id);
+            },
+          ),
           // Pharma — Drug Licenses & Compliance
           GoRoute(
             path: Routes.drugLicenses,
@@ -1479,6 +1507,9 @@ String? _capabilityRedirectForLocation(
     return Routes.dashboard;
   }
   if (location.startsWith('/partner-network') && !capabilities.canUsePartnerNetwork) {
+    return Routes.dashboard;
+  }
+  if (location.startsWith('/manufacturing') && !capabilities.canUseManufacturing) {
     return Routes.dashboard;
   }
   return null;
