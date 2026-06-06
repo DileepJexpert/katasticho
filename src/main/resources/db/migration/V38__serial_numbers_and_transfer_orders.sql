@@ -18,6 +18,7 @@ CREATE TABLE serial_number (
     is_deleted      BOOLEAN NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by      UUID,
     CONSTRAINT uq_serial_number UNIQUE (org_id, item_id, serial)
 );
 

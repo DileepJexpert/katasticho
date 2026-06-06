@@ -94,9 +94,16 @@ CREATE TABLE van_stock_balance (
     batch_id UUID,
     quantity_on_hand DECIMAL(15,4) NOT NULL DEFAULT 0,
     last_movement_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE(org_id, van_id, item_id, COALESCE(batch_id, '00000000-0000-0000-0000-000000000000'))
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX uq_van_stock_balance_grain
+    ON van_stock_balance (
+        org_id,
+        van_id,
+        item_id,
+        COALESCE(batch_id, '00000000-0000-0000-0000-000000000000'::uuid)
+    );
 
 -- Field sales assignment: links salesperson → route + van
 CREATE TABLE field_sales_assignment (

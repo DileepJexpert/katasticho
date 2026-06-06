@@ -185,7 +185,7 @@ public class PayrollService {
 
     public List<SalaryComponent> listComponents() {
         UUID orgId = TenantContext.getCurrentOrgId();
-        return componentRepository.findByOrgIdAndIsActiveTrueOrderByCodeAsc(orgId);
+        return componentRepository.findByOrgIdAndActiveTrueOrderByCodeAsc(orgId);
     }
 
     @Transactional
@@ -402,7 +402,7 @@ public class PayrollService {
 
         // Load active salary components indexed by code
         Map<String, SalaryComponent> componentsByCode = new HashMap<>();
-        for (SalaryComponent sc : componentRepository.findByOrgIdAndIsActiveTrueOrderByCodeAsc(orgId)) {
+        for (SalaryComponent sc : componentRepository.findByOrgIdAndActiveTrueOrderByCodeAsc(orgId)) {
             componentsByCode.put(sc.getCode(), sc);
         }
 
@@ -822,7 +822,7 @@ public class PayrollService {
         BigDecimal tdsTotal = BigDecimal.ZERO;
 
         Map<String, SalaryComponent> componentsByCode = new HashMap<>();
-        for (SalaryComponent sc : componentRepository.findByOrgIdAndIsActiveTrueOrderByCodeAsc(orgId)) {
+        for (SalaryComponent sc : componentRepository.findByOrgIdAndActiveTrueOrderByCodeAsc(orgId)) {
             componentsByCode.put(sc.getCode(), sc);
         }
 

@@ -11,7 +11,7 @@ import java.util.UUID;
 @Repository
 public interface SalaryComponentRepository extends JpaRepository<SalaryComponent, UUID> {
 
-    List<SalaryComponent> findByOrgIdAndIsActiveTrueOrderByCodeAsc(UUID orgId);
+    List<SalaryComponent> findByOrgIdAndActiveTrueOrderByCodeAsc(UUID orgId);
 
     Optional<SalaryComponent> findByOrgIdAndCode(UUID orgId, String code);
 }
