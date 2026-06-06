@@ -1,0 +1,2260 @@
+From 4e567c2e41363b41920a4b3ba364ad7b1aac4a01 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 6 Jun 2026 02:02:49 +0000
+Subject: [PATCH 1/2] feat: wire dashboard, visits, orders screens to real
+ backend
+
+- api_client.dart: add all field-sales endpoints (assignments/me,
+  executions/me/today, visits, check-in/out, skip, record-order,
+  record-collection, day-close, dashboard, targets/me)
+- today_dashboard_screen: real KPIs from /dashboard, today's routes,
+  my targets with progress bars
+- visits_screen: real visits from today's execution with GPS check-in/out,
+  skip, record order, record collection
+- orders_screen: record orders against active/completed visits
+
+https://claude.ai/code/session_01PEVgPhkmXM1n7yngjsnk7J
+---
+ lib/src/core/network/api_client.dart          | 215 +++++-
+ .../dashboard/today_dashboard_screen.dart     | 383 ++++++++---
+ lib/src/features/orders/orders_screen.dart    | 313 ++++++---
+ lib/src/features/visits/visits_screen.dart    | 619 ++++++++++++++++--
+ 4 files changed, 1305 insertions(+), 225 deletions(-)
+
+diff --git a/lib/src/core/network/api_client.dart b/lib/src/core/network/api_client.dart
+index 89420f3..f8d8e05 100644
+--- a/lib/src/core/network/api_client.dart
++++ b/lib/src/core/network/api_client.dart
+@@ -24,6 +24,8 @@ class FieldApiClient {
+     _session = session;
+   }
+ 
++  // ── Auth ──────────────────────────────────────────────────────
++
+   Future<Map<String, dynamic>> login({
+     required String identifier,
+     required String password,
+@@ -35,25 +37,217 @@ class FieldApiClient {
+     return _unwrap(response.data);
+   }
+ 
+-  Future<Map<String, dynamic>> getFieldBootstrap() async {
++  Future<Map<String, dynamic>> getMe() async {
+     final response = await _dio.get<Map<String, dynamic>>(
+-      '/api/v1/field/sync/bootstrap',
++      '/api/v1/auth/me',
+       options: _authOptions(),
+     );
+     return _unwrap(response.data);
+   }
+ 
+-  Future<Map<String, dynamic>> pushLocationPing(
+-    Map<String, dynamic> data,
++  // ── Assignments ───────────────────────────────────────────────
++
++  Future<List<dynamic>> getMyAssignments() async {
++    final response = await _dio.get<Map<String, dynamic>>(
++      '/api/v1/field-sales/assignments/me',
++      options: _authOptions(),
++    );
++    return _unwrapList(response.data);
++  }
++
++  // ── Route Executions ──────────────────────────────────────────
++
++  Future<List<dynamic>> getMyTodayExecutions() async {
++    final response = await _dio.get<Map<String, dynamic>>(
++      '/api/v1/field-sales/executions/me/today',
++      options: _authOptions(),
++    );
++    return _unwrapList(response.data);
++  }
++
++  Future<Map<String, dynamic>> getExecution(String id) async {
++    final response = await _dio.get<Map<String, dynamic>>(
++      '/api/v1/field-sales/executions/$id',
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  Future<Map<String, dynamic>> startExecution({
++    required String routeId,
++    required String salespersonId,
++    String? vanId,
++    required String executionDate,
++  }) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/field-sales/executions',
++      data: {
++        'routeId': routeId,
++        'salespersonId': salespersonId,
++        if (vanId != null) 'vanId': vanId,
++        'executionDate': executionDate,
++      },
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  Future<Map<String, dynamic>> startRoute(String executionId) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/field-sales/executions/$executionId/start',
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  Future<Map<String, dynamic>> completeRoute(String executionId) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/field-sales/executions/$executionId/complete',
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  // ── Visits ────────────────────────────────────────────────────
++
++  Future<List<dynamic>> getVisits(String executionId) async {
++    final response = await _dio.get<Map<String, dynamic>>(
++      '/api/v1/field-sales/executions/$executionId/visits',
++      options: _authOptions(),
++    );
++    return _unwrapList(response.data);
++  }
++
++  Future<Map<String, dynamic>> checkIn(
++    String visitId, {
++    required double latitude,
++    required double longitude,
++  }) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/field-sales/visits/$visitId/check-in',
++      data: {'latitude': latitude, 'longitude': longitude},
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  Future<Map<String, dynamic>> checkOut(
++    String visitId, {
++    required double latitude,
++    required double longitude,
++    String? notes,
++  }) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/field-sales/visits/$visitId/check-out',
++      data: {
++        'latitude': latitude,
++        'longitude': longitude,
++        if (notes != null && notes.isNotEmpty) 'notes': notes,
++      },
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  Future<Map<String, dynamic>> skipVisit(
++    String visitId,
++    String reason,
+   ) async {
+     final response = await _dio.post<Map<String, dynamic>>(
+-      '/api/v1/field/location-pings',
+-      data: data,
++      '/api/v1/field-sales/visits/$visitId/skip',
++      data: {'skipReason': reason},
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  Future<Map<String, dynamic>> recordOrder(
++    String visitId, {
++    required String salesOrderId,
++    required double orderValue,
++  }) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/field-sales/visits/$visitId/record-order',
++      data: {'salesOrderId': salesOrderId, 'orderValue': orderValue},
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  Future<Map<String, dynamic>> recordCollection(
++    String visitId, {
++    required double collectionAmount,
++  }) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/field-sales/visits/$visitId/record-collection',
++      data: {'collectionAmount': collectionAmount},
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  // ── Day Close ─────────────────────────────────────────────────
++
++  Future<Map<String, dynamic>> initiateDayClose(String executionId) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/field-sales/day-close/initiate/$executionId',
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  Future<Map<String, dynamic>> submitDayClose(
++    String dayCloseId, {
++    double? closingCash,
++    double? cashDeposited,
++    String? notes,
++  }) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/field-sales/day-close/$dayCloseId/submit',
++      data: {
++        if (closingCash != null) 'closingCash': closingCash,
++        if (cashDeposited != null) 'cashDeposited': cashDeposited,
++        if (notes != null && notes.isNotEmpty) 'notes': notes,
++      },
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  Future<Map<String, dynamic>> getDayClose(String id) async {
++    final response = await _dio.get<Map<String, dynamic>>(
++      '/api/v1/field-sales/day-close/$id',
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  // ── Dashboard ─────────────────────────────────────────────────
++
++  Future<Map<String, dynamic>> getDashboard({
++    required String from,
++    required String to,
++  }) async {
++    final response = await _dio.get<Map<String, dynamic>>(
++      '/api/v1/field-sales/dashboard',
++      queryParameters: {'from': from, 'to': to},
+       options: _authOptions(),
+     );
+     return _unwrap(response.data);
+   }
+ 
++  // ── Targets ───────────────────────────────────────────────────
++
++  Future<List<dynamic>> getMyTargets() async {
++    final response = await _dio.get<Map<String, dynamic>>(
++      '/api/v1/field-sales/targets/me',
++      options: _authOptions(),
++    );
++    return _unwrapList(response.data);
++  }
++
++  // ── Helpers ───────────────────────────────────────────────────
++
+   Options _authOptions() {
+     final session = _session;
+     return Options(
+@@ -70,4 +264,13 @@ class FieldApiClient {
+     if (data is Map<String, dynamic>) return data;
+     return envelope;
+   }
++
++  List<dynamic> _unwrapList(Map<String, dynamic>? envelope) {
++    if (envelope == null) return [];
++    final data = envelope['data'];
++    if (data is List) return data;
++    final content = (data is Map) ? data['content'] : null;
++    if (content is List) return content;
++    return [];
++  }
+ }
+diff --git a/lib/src/features/dashboard/today_dashboard_screen.dart b/lib/src/features/dashboard/today_dashboard_screen.dart
+index 118365f..b183372 100644
+--- a/lib/src/features/dashboard/today_dashboard_screen.dart
++++ b/lib/src/features/dashboard/today_dashboard_screen.dart
+@@ -2,115 +2,326 @@ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ 
+ import '../auth/auth_controller.dart';
+-import '../field/field_sample_data.dart';
+ import '../shared/field_widgets.dart';
+ 
+-class TodayDashboardScreen extends ConsumerWidget {
++class TodayDashboardScreen extends ConsumerStatefulWidget {
+   const TodayDashboardScreen({super.key});
+ 
+   @override
+-  Widget build(BuildContext context, WidgetRef ref) {
++  ConsumerState<TodayDashboardScreen> createState() =>
++      _TodayDashboardScreenState();
++}
++
++class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
++  bool _loading = true;
++  Map<String, dynamic> _dashboard = {};
++  List<dynamic> _todayExecutions = [];
++  List<dynamic> _targets = [];
++  String? _error;
++
++  @override
++  void initState() {
++    super.initState();
++    _loadData();
++  }
++
++  Future<void> _loadData() async {
++    setState(() {
++      _loading = true;
++      _error = null;
++    });
++
++    final session = ref.read(authControllerProvider).session;
++    if (session == null || session.isDemo) {
++      setState(() => _loading = false);
++      return;
++    }
++
++    try {
++      final api = ref.read(apiClientProvider);
++      final now = DateTime.now();
++      final from =
++          DateTime(now.year, now.month, 1).toIso8601String().split('T')[0];
++      final to = now.toIso8601String().split('T')[0];
++
++      final results = await Future.wait([
++        api.getDashboard(from: from, to: to),
++        api.getMyTodayExecutions(),
++        api.getMyTargets(),
++      ]);
++
++      if (mounted) {
++        setState(() {
++          _dashboard = results[0] as Map<String, dynamic>;
++          _todayExecutions = results[1] as List<dynamic>;
++          _targets = results[2] as List<dynamic>;
++        });
++      }
++    } catch (e) {
++      if (mounted) setState(() => _error = e.toString());
++    } finally {
++      if (mounted) setState(() => _loading = false);
++    }
++  }
++
++  @override
++  Widget build(BuildContext context) {
+     final session = ref.watch(authControllerProvider).session;
++    final theme = Theme.of(context);
+ 
+-    return PageScaffold(
+-      title: 'Today',
+-      subtitle: session?.isDemo == true
+-          ? 'Demo route for manufacturer MR + distributor salesman workflows.'
+-          : '${session?.orgName ?? 'Organisation'} field workspace.',
+-      children: [
+-        const Row(
+-          children: [
+-            Expanded(
+-              child: MetricTile(
+-                icon: Icons.route,
+-                label: 'Planned visits',
+-                value: '3',
+-                tint: Color(0xFF2563EB),
++    if (_loading) {
++      return const Center(child: CircularProgressIndicator());
++    }
++
++    if (session?.isDemo == true) {
++      return PageScaffold(
++        title: 'Today',
++        subtitle: 'Demo mode — login with real credentials to see live data.',
++        children: [
++          Card(
++            child: Padding(
++              padding: const EdgeInsets.all(14),
++              child: Row(
++                children: [
++                  Icon(Icons.info_outline, color: theme.colorScheme.primary),
++                  const SizedBox(width: 10),
++                  const Expanded(
++                    child: Text(
++                      'Demo mode shows sample data. Login with your Katasticho ERP credentials to connect to the real backend.',
++                    ),
++                  ),
++                ],
+               ),
+             ),
+-            SizedBox(width: 10),
+-            Expanded(
+-              child: MetricTile(
+-                icon: Icons.payments,
+-                label: 'Due to collect',
+-                value: '₹90.9k',
+-                tint: Color(0xFF059669),
++          ),
++        ],
++      );
++    }
++
++    final totalRoutes = (_dashboard['totalRoutes'] as num?)?.toInt() ?? 0;
++    final totalVisits = (_dashboard['totalVisits'] as num?)?.toInt() ?? 0;
++    final productivePercent =
++        (_dashboard['productivePercent'] as num?)?.toDouble() ?? 0;
++    final totalOrders = (_dashboard['totalOrders'] as num?)?.toDouble() ??
++        (_dashboard['totalOrdersValue'] as num?)?.toDouble() ??
++        0;
++    final totalCollections =
++        (_dashboard['totalCollections'] as num?)?.toDouble() ?? 0;
++
++    return RefreshIndicator(
++      onRefresh: _loadData,
++      child: PageScaffold(
++        title: 'Today',
++        subtitle: '${session?.orgName ?? 'Organisation'} field workspace.',
++        children: [
++          if (_error != null) ...[
++            Card(
++              color: Colors.red.shade50,
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Text(_error!,
++                    style: TextStyle(color: Colors.red.shade700)),
+               ),
+             ),
++            const SizedBox(height: 12),
+           ],
+-        ),
+-        const SizedBox(height: 10),
+-        const Row(
+-          children: [
+-            Expanded(
+-              child: MetricTile(
+-                icon: Icons.shopping_bag,
+-                label: 'Orders',
+-                value: '0',
+-                tint: Color(0xFFF59E0B),
++
++          Row(
++            children: [
++              Expanded(
++                child: MetricTile(
++                  icon: Icons.route,
++                  label: 'Routes (MTD)',
++                  value: '$totalRoutes',
++                  tint: const Color(0xFF2563EB),
++                ),
+               ),
+-            ),
+-            SizedBox(width: 10),
+-            Expanded(
+-              child: MetricTile(
+-                icon: Icons.sync,
+-                label: 'Sync queue',
+-                value: '3',
+-                tint: Color(0xFF7C3AED),
++              const SizedBox(width: 10),
++              Expanded(
++                child: MetricTile(
++                  icon: Icons.storefront,
++                  label: 'Visits (MTD)',
++                  value: '$totalVisits',
++                  tint: const Color(0xFF059669),
++                ),
+               ),
+-            ),
+-          ],
+-        ),
+-        const SizedBox(height: 16),
+-        Text(
+-          'Next visits',
+-          style: Theme.of(
+-            context,
+-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+-        ),
+-        const SizedBox(height: 8),
+-        ...sampleVisits.map(
+-          (visit) => Card(
+-            child: Padding(
+-              padding: const EdgeInsets.all(14),
+-              child: Column(
+-                crossAxisAlignment: CrossAxisAlignment.start,
+-                children: [
+-                  Row(
++            ],
++          ),
++          const SizedBox(height: 10),
++          Row(
++            children: [
++              Expanded(
++                child: MetricTile(
++                  icon: Icons.trending_up,
++                  label: 'Productive %',
++                  value: '${productivePercent.toStringAsFixed(1)}%',
++                  tint: const Color(0xFFF59E0B),
++                ),
++              ),
++              const SizedBox(width: 10),
++              Expanded(
++                child: MetricTile(
++                  icon: Icons.payments,
++                  label: 'Collections',
++                  value: _formatCurrency(totalCollections),
++                  tint: const Color(0xFF7C3AED),
++                ),
++              ),
++            ],
++          ),
++          const SizedBox(height: 10),
++          MetricTile(
++            icon: Icons.shopping_cart,
++            label: 'Orders (MTD)',
++            value: _formatCurrency(totalOrders),
++            tint: const Color(0xFF0891B2),
++          ),
++          const SizedBox(height: 20),
++
++          Text(
++            "Today's Routes",
++            style: theme.textTheme.titleMedium
++                ?.copyWith(fontWeight: FontWeight.w800),
++          ),
++          const SizedBox(height: 8),
++          if (_todayExecutions.isEmpty)
++            Card(
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Row(
++                  children: [
++                    Icon(Icons.event_busy, color: Colors.grey.shade400),
++                    const SizedBox(width: 10),
++                    const Expanded(
++                        child: Text('No routes assigned for today.')),
++                  ],
++                ),
++              ),
++            )
++          else
++            ..._todayExecutions.map((exec) {
++              final routeName = exec['routeName']?.toString() ??
++                  exec['routeId']?.toString() ??
++                  'Route';
++              final status = exec['status']?.toString() ?? 'PLANNED';
++              final tv = (exec['totalVisits'] as num?)?.toInt() ?? 0;
++              final cv = (exec['completedVisits'] as num?)?.toInt() ?? 0;
++
++              Color statusColor;
++              switch (status) {
++                case 'IN_PROGRESS':
++                  statusColor = Colors.orange;
++                case 'COMPLETED':
++                  statusColor = Colors.green;
++                default:
++                  statusColor = Colors.blue;
++              }
++
++              return Card(
++                child: Padding(
++                  padding: const EdgeInsets.all(14),
++                  child: Column(
++                    crossAxisAlignment: CrossAxisAlignment.start,
+                     children: [
+-                      Expanded(
+-                        child: Text(
+-                          visit.party.name,
+-                          style: Theme.of(context).textTheme.titleMedium
+-                              ?.copyWith(fontWeight: FontWeight.w800),
+-                        ),
++                      Row(
++                        children: [
++                          Expanded(
++                            child: Text(routeName,
++                                style: theme.textTheme.titleMedium
++                                    ?.copyWith(fontWeight: FontWeight.w800)),
++                          ),
++                          Chip(
++                            label: Text(status.replaceAll('_', ' '),
++                                style: TextStyle(
++                                    color: statusColor,
++                                    fontSize: 12,
++                                    fontWeight: FontWeight.w600)),
++                            backgroundColor:
++                                statusColor.withValues(alpha: 0.1),
++                            side: BorderSide.none,
++                          ),
++                        ],
+                       ),
+-                      Text(visit.window),
++                      const SizedBox(height: 6),
++                      Text('$cv / $tv visits completed'),
+                     ],
+                   ),
+-                  const SizedBox(height: 6),
+-                  Text(visit.objective),
+-                  const SizedBox(height: 10),
+-                  Row(
++                ),
++              );
++            }),
++          const SizedBox(height: 20),
++
++          if (_targets.isNotEmpty) ...[
++            Text('My Targets',
++                style: theme.textTheme.titleMedium
++                    ?.copyWith(fontWeight: FontWeight.w800)),
++            const SizedBox(height: 8),
++            ..._targets.map((t) {
++              final targetType = t['targetType']?.toString() ??
++                  t['type']?.toString() ??
++                  '--';
++              final targetValue =
++                  (t['targetValue'] as num?)?.toDouble() ??
++                  (t['target'] as num?)?.toDouble() ??
++                  0;
++              final achieved = (t['achieved'] as num?)?.toDouble() ??
++                  (t['achievedValue'] as num?)?.toDouble() ??
++                  0;
++              final pct =
++                  targetValue > 0 ? (achieved / targetValue * 100) : 0.0;
++
++              return Card(
++                child: Padding(
++                  padding: const EdgeInsets.all(14),
++                  child: Column(
++                    crossAxisAlignment: CrossAxisAlignment.start,
+                     children: [
+-                      Chip(
+-                        avatar: const Icon(Icons.place, size: 16),
+-                        label: Text(visit.party.area),
++                      Row(
++                        children: [
++                          Text(targetType,
++                              style: theme.textTheme.titleSmall
++                                  ?.copyWith(fontWeight: FontWeight.w700)),
++                          const Spacer(),
++                          Text('${pct.toStringAsFixed(1)}%',
++                              style: TextStyle(
++                                  fontWeight: FontWeight.w700,
++                                  color: pct >= 90
++                                      ? Colors.green
++                                      : pct >= 50
++                                          ? Colors.orange
++                                          : Colors.red)),
++                        ],
+                       ),
+-                      const SizedBox(width: 8),
+-                      ActionChip(
+-                        avatar: const Icon(Icons.flag, size: 16),
+-                        label: const Text('Check in'),
+-                        onPressed: () {},
++                      const SizedBox(height: 8),
++                      ClipRRect(
++                        borderRadius: BorderRadius.circular(4),
++                        child: LinearProgressIndicator(
++                          value: (pct / 100).clamp(0.0, 1.0),
++                          minHeight: 8,
++                        ),
++                      ),
++                      const SizedBox(height: 4),
++                      Text(
++                        '${_formatCurrency(achieved)} / ${_formatCurrency(targetValue)}',
++                        style: theme.textTheme.bodySmall,
+                       ),
+                     ],
+                   ),
+-                ],
+-              ),
+-            ),
+-          ),
+-        ),
+-      ],
++                ),
++              );
++            }),
++          ],
++        ],
++      ),
+     );
+   }
++
++  String _formatCurrency(double value) {
++    if (value >= 100000) {
++      return '₹${(value / 100000).toStringAsFixed(1)}L';
++    } else if (value >= 1000) {
++      return '₹${(value / 1000).toStringAsFixed(1)}k';
++    }
++    return '₹${value.toStringAsFixed(0)}';
++  }
+ }
+diff --git a/lib/src/features/orders/orders_screen.dart b/lib/src/features/orders/orders_screen.dart
+index 9d6dd5c..2ebc0e9 100644
+--- a/lib/src/features/orders/orders_screen.dart
++++ b/lib/src/features/orders/orders_screen.dart
+@@ -1,103 +1,250 @@
+ import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
+ 
+-import '../field/field_sample_data.dart';
++import '../auth/auth_controller.dart';
+ import '../shared/field_widgets.dart';
+ 
+-class OrdersScreen extends StatelessWidget {
++class OrdersScreen extends ConsumerStatefulWidget {
+   const OrdersScreen({super.key});
+ 
+   @override
+-  Widget build(BuildContext context) {
+-    return PageScaffold(
+-      title: 'Orders',
+-      subtitle:
+-          'Book POB, chemist order, retailer order, or distributor stock request.',
+-      children: [
+-        Card(
+-          child: Padding(
+-            padding: const EdgeInsets.all(14),
+-            child: Column(
+-              crossAxisAlignment: CrossAxisAlignment.start,
+-              children: [
+-                Text(
+-                  'New field order',
+-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+-                    fontWeight: FontWeight.w800,
+-                  ),
+-                ),
+-                const SizedBox(height: 12),
+-                DropdownButtonFormField<String>(
+-                  decoration: const InputDecoration(labelText: 'Party'),
+-                  items: sampleParties
+-                      .map(
+-                        (party) => DropdownMenuItem(
+-                          value: party.id,
+-                          child: Text(party.name),
+-                        ),
+-                      )
+-                      .toList(),
+-                  onChanged: (_) {},
+-                ),
+-                const SizedBox(height: 12),
+-                const TextField(
+-                  decoration: InputDecoration(
+-                    labelText: 'Search product',
+-                    prefixIcon: Icon(Icons.medication),
+-                  ),
+-                ),
+-                const SizedBox(height: 12),
+-                Row(
+-                  children: [
+-                    Expanded(
+-                      child: OutlinedButton.icon(
+-                        onPressed: () {},
+-                        icon: const Icon(Icons.inventory),
+-                        label: const Text('Check stock'),
+-                      ),
+-                    ),
+-                    const SizedBox(width: 8),
+-                    Expanded(
+-                      child: FilledButton.icon(
+-                        onPressed: () {},
+-                        icon: const Icon(Icons.add_shopping_cart),
+-                        label: const Text('Add line'),
+-                      ),
+-                    ),
+-                  ],
+-                ),
+-              ],
+-            ),
+-          ),
+-        ),
+-        const SizedBox(height: 12),
+-        const _OrderHint(),
+-      ],
+-    );
+-  }
++  ConsumerState<OrdersScreen> createState() => _OrdersScreenState();
+ }
+ 
+-class _OrderHint extends StatelessWidget {
+-  const _OrderHint();
++class _OrdersScreenState extends ConsumerState<OrdersScreen> {
++  bool _loading = true;
++  List<Map<String, dynamic>> _visits = [];
++  String? _activeExecutionId;
++  String? _error;
+ 
+   @override
+-  Widget build(BuildContext context) {
+-    return Card(
+-      child: Padding(
+-        padding: const EdgeInsets.all(14),
+-        child: Row(
++  void initState() {
++    super.initState();
++    _loadVisits();
++  }
++
++  Future<void> _loadVisits() async {
++    setState(() {
++      _loading = true;
++      _error = null;
++    });
++
++    final session = ref.read(authControllerProvider).session;
++    if (session == null || session.isDemo) {
++      setState(() => _loading = false);
++      return;
++    }
++
++    try {
++      final api = ref.read(apiClientProvider);
++      final executions = await api.getMyTodayExecutions();
++
++      if (executions.isNotEmpty) {
++        final exec = executions[0] as Map<String, dynamic>;
++        final execId = exec['id']?.toString();
++        _activeExecutionId = execId;
++        if (execId != null) {
++          final raw = await api.getVisits(execId);
++          if (mounted) {
++            setState(() {
++              _visits = raw
++                  .whereType<Map<String, dynamic>>()
++                  .where((v) =>
++                      v['status'] == 'IN_PROGRESS' ||
++                      v['status'] == 'COMPLETED')
++                  .toList();
++            });
++          }
++        }
++      }
++    } catch (e) {
++      if (mounted) setState(() => _error = e.toString());
++    } finally {
++      if (mounted) setState(() => _loading = false);
++    }
++  }
++
++  Future<void> _recordOrder(String visitId, String contactName) async {
++    final valueCtl = TextEditingController();
++    final soIdCtl = TextEditingController();
++    final proceed = await showDialog<bool>(
++      context: context,
++      builder: (ctx) => AlertDialog(
++        title: Text('Order for $contactName'),
++        content: Column(
++          mainAxisSize: MainAxisSize.min,
+           children: [
+-            Icon(
+-              Icons.info_outline,
+-              color: Theme.of(context).colorScheme.primary,
++            TextField(
++              controller: soIdCtl,
++              decoration: const InputDecoration(
++                labelText: 'Sales Order ID',
++                hintText: 'Optional — leave blank for quick order',
++              ),
+             ),
+-            const SizedBox(width: 10),
+-            const Expanded(
+-              child: Text(
+-                'When backend facade is added, this will create Sales Order using existing ERP pricing, schemes, credit policy, and workflow.',
++            const SizedBox(height: 12),
++            TextField(
++              controller: valueCtl,
++              keyboardType: TextInputType.number,
++              decoration: const InputDecoration(
++                labelText: 'Order Value *',
++                prefixText: '₹ ',
+               ),
+             ),
+           ],
+         ),
++        actions: [
++          TextButton(
++            onPressed: () => Navigator.pop(ctx, false),
++            child: const Text('Cancel'),
++          ),
++          FilledButton(
++            onPressed: () {
++              if (valueCtl.text.trim().isEmpty) {
++                ScaffoldMessenger.of(ctx).showSnackBar(
++                  const SnackBar(content: Text('Order value is required')),
++                );
++                return;
++              }
++              Navigator.pop(ctx, true);
++            },
++            child: const Text('Record Order'),
++          ),
++        ],
++      ),
++    );
++    if (proceed != true || !mounted) return;
++
++    try {
++      await ref.read(apiClientProvider).recordOrder(
++            visitId,
++            salesOrderId: soIdCtl.text.trim(),
++            orderValue: double.tryParse(valueCtl.text.trim()) ?? 0,
++          );
++      if (mounted) {
++        ScaffoldMessenger.of(context).showSnackBar(
++          const SnackBar(
++              content: Text('Order recorded'), backgroundColor: Colors.green),
++        );
++      }
++      await _loadVisits();
++    } catch (e) {
++      if (mounted) {
++        ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(content: Text('Failed: $e')),
++        );
++      }
++    }
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    final theme = Theme.of(context);
++    final session = ref.watch(authControllerProvider).session;
++
++    if (_loading) {
++      return const Center(child: CircularProgressIndicator());
++    }
++
++    return RefreshIndicator(
++      onRefresh: _loadVisits,
++      child: PageScaffold(
++        title: 'Orders',
++        subtitle: 'Record orders against active or completed visits.',
++        children: [
++          if (_error != null) ...[
++            Card(
++              color: Colors.red.shade50,
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Text(_error!,
++                    style: TextStyle(color: Colors.red.shade700)),
++              ),
++            ),
++            const SizedBox(height: 12),
++          ],
++          if (session?.isDemo == true)
++            Card(
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Row(
++                  children: [
++                    Icon(Icons.info_outline,
++                        color: theme.colorScheme.primary),
++                    const SizedBox(width: 10),
++                    const Expanded(
++                      child: Text(
++                          'Login with real credentials to record orders.'),
++                    ),
++                  ],
++                ),
++              ),
++            )
++          else if (_visits.isEmpty)
++            Card(
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Row(
++                  children: [
++                    Icon(Icons.info_outline, color: Colors.grey.shade400),
++                    const SizedBox(width: 10),
++                    const Expanded(
++                      child: Text(
++                        'Check in to a visit first. Orders can be recorded during or after a visit.',
++                      ),
++                    ),
++                  ],
++                ),
++              ),
++            )
++          else
++            ..._visits.map((visit) {
++              final visitId = visit['id']?.toString() ?? '';
++              final name = visit['contactName']?.toString() ??
++                  visit['contactId']?.toString() ??
++                  'Customer';
++              final status = visit['status']?.toString() ?? '';
++              final existingOrder =
++                  (visit['orderValue'] as num?)?.toDouble();
++
++              return Card(
++                child: Padding(
++                  padding: const EdgeInsets.all(14),
++                  child: Column(
++                    crossAxisAlignment: CrossAxisAlignment.start,
++                    children: [
++                      Row(
++                        children: [
++                          Expanded(
++                            child: Text(name,
++                                style: theme.textTheme.titleMedium
++                                    ?.copyWith(fontWeight: FontWeight.w700)),
++                          ),
++                          Text(status.replaceAll('_', ' '),
++                              style: theme.textTheme.bodySmall),
++                        ],
++                      ),
++                      if (existingOrder != null && existingOrder > 0) ...[
++                        const SizedBox(height: 6),
++                        Text(
++                          'Current order: ₹${existingOrder.toStringAsFixed(0)}',
++                          style: theme.textTheme.bodySmall
++                              ?.copyWith(fontWeight: FontWeight.w600),
++                        ),
++                      ],
++                      const SizedBox(height: 10),
++                      FilledButton.icon(
++                        onPressed: () => _recordOrder(visitId, name),
++                        icon: const Icon(Icons.add_shopping_cart, size: 18),
++                        label: Text(existingOrder != null && existingOrder > 0
++                            ? 'Update Order'
++                            : 'Record Order'),
++                      ),
++                    ],
++                  ),
++                ),
++              );
++            }),
++        ],
+       ),
+     );
+   }
+diff --git a/lib/src/features/visits/visits_screen.dart b/lib/src/features/visits/visits_screen.dart
+index f100f84..4a61220 100644
+--- a/lib/src/features/visits/visits_screen.dart
++++ b/lib/src/features/visits/visits_screen.dart
+@@ -1,75 +1,594 @@
+ import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
+ 
+-import '../field/field_sample_data.dart';
+-import '../field/field_models.dart';
++import '../../core/location/location_service.dart';
++import '../auth/auth_controller.dart';
+ import '../shared/field_widgets.dart';
+ 
+-class VisitsScreen extends StatelessWidget {
++class VisitsScreen extends ConsumerStatefulWidget {
+   const VisitsScreen({super.key});
+ 
++  @override
++  ConsumerState<VisitsScreen> createState() => _VisitsScreenState();
++}
++
++class _VisitsScreenState extends ConsumerState<VisitsScreen> {
++  bool _loading = true;
++  List<dynamic> _executions = [];
++  Map<String, dynamic>? _activeExecution;
++  List<Map<String, dynamic>> _visits = [];
++  String? _error;
++  final _locationService = LocationService();
++
++  @override
++  void initState() {
++    super.initState();
++    _loadData();
++  }
++
++  Future<void> _loadData() async {
++    setState(() {
++      _loading = true;
++      _error = null;
++    });
++
++    final session = ref.read(authControllerProvider).session;
++    if (session == null || session.isDemo) {
++      setState(() => _loading = false);
++      return;
++    }
++
++    try {
++      final api = ref.read(apiClientProvider);
++      final executions = await api.getMyTodayExecutions();
++
++      Map<String, dynamic>? active;
++      List<Map<String, dynamic>> visits = [];
++
++      if (executions.isNotEmpty) {
++        active = executions[0] as Map<String, dynamic>;
++        final execId = active['id']?.toString();
++        if (execId != null) {
++          final rawVisits = await api.getVisits(execId);
++          visits = rawVisits
++              .whereType<Map<String, dynamic>>()
++              .toList();
++        }
++      }
++
++      if (mounted) {
++        setState(() {
++          _executions = executions;
++          _activeExecution = active;
++          _visits = visits;
++        });
++      }
++    } catch (e) {
++      if (mounted) setState(() => _error = e.toString());
++    } finally {
++      if (mounted) setState(() => _loading = false);
++    }
++  }
++
++  Future<void> _startRoute() async {
++    final execId = _activeExecution?['id']?.toString();
++    if (execId == null) return;
++
++    try {
++      await ref.read(apiClientProvider).startRoute(execId);
++      _showSuccess('Route started');
++      await _loadData();
++    } catch (e) {
++      _showError('Failed to start route: $e');
++    }
++  }
++
++  Future<void> _completeRoute() async {
++    final execId = _activeExecution?['id']?.toString();
++    if (execId == null) return;
++
++    try {
++      await ref.read(apiClientProvider).completeRoute(execId);
++      _showSuccess('Route completed');
++      await _loadData();
++    } catch (e) {
++      _showError('Failed to complete route: $e');
++    }
++  }
++
++  Future<void> _checkIn(String visitId) async {
++    try {
++      final loc = await _locationService.currentLocation();
++      await ref.read(apiClientProvider).checkIn(
++            visitId,
++            latitude: loc?.latitude ?? 0,
++            longitude: loc?.longitude ?? 0,
++          );
++      if (loc == null) _showInfo('Location unavailable — using default');
++      _showSuccess('Checked in');
++      await _loadData();
++    } catch (e) {
++      _showError('Check-in failed: $e');
++    }
++  }
++
++  Future<void> _checkOut(String visitId) async {
++    final notesCtl = TextEditingController();
++    final proceed = await showDialog<bool>(
++      context: context,
++      builder: (ctx) => AlertDialog(
++        title: const Text('Check Out'),
++        content: TextField(
++          controller: notesCtl,
++          decoration: const InputDecoration(
++            labelText: 'Notes',
++            hintText: 'Visit remarks (optional)',
++          ),
++          maxLines: 2,
++        ),
++        actions: [
++          TextButton(
++            onPressed: () => Navigator.pop(ctx, false),
++            child: const Text('Cancel'),
++          ),
++          FilledButton(
++            onPressed: () => Navigator.pop(ctx, true),
++            child: const Text('Check Out'),
++          ),
++        ],
++      ),
++    );
++    if (proceed != true || !mounted) return;
++
++    try {
++      final loc = await _locationService.currentLocation();
++      final notes = notesCtl.text.trim();
++      await ref.read(apiClientProvider).checkOut(
++            visitId,
++            latitude: loc?.latitude ?? 0,
++            longitude: loc?.longitude ?? 0,
++            notes: notes.isNotEmpty ? notes : null,
++          );
++      _showSuccess('Checked out');
++      await _loadData();
++    } catch (e) {
++      _showError('Check-out failed: $e');
++    }
++  }
++
++  Future<void> _skipVisit(String visitId) async {
++    final reasonCtl = TextEditingController();
++    final proceed = await showDialog<bool>(
++      context: context,
++      builder: (ctx) => AlertDialog(
++        title: const Text('Skip Visit'),
++        content: TextField(
++          controller: reasonCtl,
++          decoration: const InputDecoration(
++            labelText: 'Reason *',
++            hintText: 'e.g. Shop closed, owner unavailable',
++          ),
++          maxLines: 2,
++        ),
++        actions: [
++          TextButton(
++            onPressed: () => Navigator.pop(ctx, false),
++            child: const Text('Cancel'),
++          ),
++          FilledButton(
++            onPressed: () {
++              if (reasonCtl.text.trim().isEmpty) {
++                ScaffoldMessenger.of(ctx).showSnackBar(
++                  const SnackBar(content: Text('Reason is required')),
++                );
++                return;
++              }
++              Navigator.pop(ctx, true);
++            },
++            child: const Text('Skip'),
++          ),
++        ],
++      ),
++    );
++    if (proceed != true || !mounted) return;
++
++    try {
++      await ref
++          .read(apiClientProvider)
++          .skipVisit(visitId, reasonCtl.text.trim());
++      _showSuccess('Visit skipped');
++      await _loadData();
++    } catch (e) {
++      _showError('Failed to skip: $e');
++    }
++  }
++
++  Future<void> _recordOrder(String visitId) async {
++    final valueCtl = TextEditingController();
++    final soIdCtl = TextEditingController();
++    final proceed = await showDialog<bool>(
++      context: context,
++      builder: (ctx) => AlertDialog(
++        title: const Text('Record Order'),
++        content: Column(
++          mainAxisSize: MainAxisSize.min,
++          children: [
++            TextField(
++              controller: soIdCtl,
++              decoration: const InputDecoration(
++                labelText: 'Sales Order ID',
++                hintText: 'Optional',
++              ),
++            ),
++            const SizedBox(height: 12),
++            TextField(
++              controller: valueCtl,
++              keyboardType: TextInputType.number,
++              decoration: const InputDecoration(
++                labelText: 'Order Value *',
++                hintText: 'e.g. 5000',
++              ),
++            ),
++          ],
++        ),
++        actions: [
++          TextButton(
++            onPressed: () => Navigator.pop(ctx, false),
++            child: const Text('Cancel'),
++          ),
++          FilledButton(
++            onPressed: () {
++              if (valueCtl.text.trim().isEmpty) {
++                ScaffoldMessenger.of(ctx).showSnackBar(
++                  const SnackBar(content: Text('Order value is required')),
++                );
++                return;
++              }
++              Navigator.pop(ctx, true);
++            },
++            child: const Text('Record'),
++          ),
++        ],
++      ),
++    );
++    if (proceed != true || !mounted) return;
++
++    try {
++      await ref.read(apiClientProvider).recordOrder(
++            visitId,
++            salesOrderId: soIdCtl.text.trim(),
++            orderValue: double.tryParse(valueCtl.text.trim()) ?? 0,
++          );
++      _showSuccess('Order recorded');
++      await _loadData();
++    } catch (e) {
++      _showError('Failed to record order: $e');
++    }
++  }
++
++  Future<void> _recordCollection(String visitId) async {
++    final amountCtl = TextEditingController();
++    final proceed = await showDialog<bool>(
++      context: context,
++      builder: (ctx) => AlertDialog(
++        title: const Text('Record Collection'),
++        content: TextField(
++          controller: amountCtl,
++          keyboardType: TextInputType.number,
++          decoration: const InputDecoration(
++            labelText: 'Amount *',
++            hintText: 'e.g. 2500',
++          ),
++        ),
++        actions: [
++          TextButton(
++            onPressed: () => Navigator.pop(ctx, false),
++            child: const Text('Cancel'),
++          ),
++          FilledButton(
++            onPressed: () {
++              if (amountCtl.text.trim().isEmpty) {
++                ScaffoldMessenger.of(ctx).showSnackBar(
++                  const SnackBar(content: Text('Amount is required')),
++                );
++                return;
++              }
++              Navigator.pop(ctx, true);
++            },
++            child: const Text('Record'),
++          ),
++        ],
++      ),
++    );
++    if (proceed != true || !mounted) return;
++
++    try {
++      await ref.read(apiClientProvider).recordCollection(
++            visitId,
++            collectionAmount: double.tryParse(amountCtl.text.trim()) ?? 0,
++          );
++      _showSuccess('Collection recorded');
++      await _loadData();
++    } catch (e) {
++      _showError('Failed to record collection: $e');
++    }
++  }
++
++  void _showSuccess(String msg) {
++    if (!mounted) return;
++    ScaffoldMessenger.of(context).showSnackBar(
++      SnackBar(content: Text(msg), backgroundColor: Colors.green),
++    );
++  }
++
++  void _showError(String msg) {
++    if (!mounted) return;
++    ScaffoldMessenger.of(context).showSnackBar(
++      SnackBar(content: Text(msg)),
++    );
++  }
++
++  void _showInfo(String msg) {
++    if (!mounted) return;
++    ScaffoldMessenger.of(context).showSnackBar(
++      SnackBar(content: Text(msg)),
++    );
++  }
++
+   @override
+   Widget build(BuildContext context) {
+-    return PageScaffold(
+-      title: 'Visits',
+-      subtitle:
+-          'Geo-verified check-ins for doctors, hospitals, chemists, distributors, and retailers.',
+-      children: sampleVisits
+-          .map(
+-            (visit) => Card(
++    final session = ref.watch(authControllerProvider).session;
++    final theme = Theme.of(context);
++
++    if (_loading) {
++      return const Center(child: CircularProgressIndicator());
++    }
++
++    if (session?.isDemo == true) {
++      return const PageScaffold(
++        title: 'Visits',
++        subtitle: 'Demo mode — login to see real visits.',
++        children: [],
++      );
++    }
++
++    final execStatus = _activeExecution?['status']?.toString() ?? 'NONE';
++
++    return RefreshIndicator(
++      onRefresh: _loadData,
++      child: PageScaffold(
++        title: 'Visits',
++        subtitle:
++            'Geo-verified check-ins. GPS captured on every check-in/out.',
++        children: [
++          if (_error != null) ...[
++            Card(
++              color: Colors.red.shade50,
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Text(_error!,
++                    style: TextStyle(color: Colors.red.shade700)),
++              ),
++            ),
++            const SizedBox(height: 12),
++          ],
++
++          // Route status bar
++          if (_activeExecution != null) ...[
++            Card(
+               child: Padding(
+                 padding: const EdgeInsets.all(14),
+-                child: Column(
+-                  crossAxisAlignment: CrossAxisAlignment.start,
++                child: Row(
+                   children: [
+-                    PartyCard(
+-                      party: visit.party,
+-                      trailing: _StatusPill(status: visit.status),
+-                    ),
+-                    const SizedBox(height: 8),
+-                    Text(visit.objective),
+-                    const SizedBox(height: 12),
+-                    Row(
+-                      children: [
+-                        Expanded(
+-                          child: OutlinedButton.icon(
+-                            onPressed: () {},
+-                            icon: const Icon(Icons.location_on),
+-                            label: const Text('Check in'),
++                    Expanded(
++                      child: Column(
++                        crossAxisAlignment: CrossAxisAlignment.start,
++                        children: [
++                          Text(
++                            _activeExecution!['routeName']?.toString() ??
++                                'Today\'s Route',
++                            style: theme.textTheme.titleMedium
++                                ?.copyWith(fontWeight: FontWeight.w800),
+                           ),
+-                        ),
+-                        const SizedBox(width: 8),
+-                        Expanded(
+-                          child: FilledButton.icon(
+-                            onPressed: () {},
+-                            icon: const Icon(Icons.edit_note),
+-                            label: const Text('Record'),
++                          const SizedBox(height: 4),
++                          Text(
++                            'Status: ${execStatus.replaceAll('_', ' ')}',
++                            style: theme.textTheme.bodySmall,
+                           ),
+-                        ),
+-                      ],
++                        ],
++                      ),
+                     ),
++                    if (execStatus == 'PLANNED')
++                      FilledButton(
++                        onPressed: _startRoute,
++                        child: const Text('Start'),
++                      ),
++                    if (execStatus == 'IN_PROGRESS')
++                      FilledButton(
++                        onPressed: _completeRoute,
++                        child: const Text('Complete'),
++                      ),
+                   ],
+                 ),
+               ),
+             ),
+-          )
+-          .toList(),
++            const SizedBox(height: 12),
++          ] else ...[
++            Card(
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Row(
++                  children: [
++                    Icon(Icons.event_busy, color: Colors.grey.shade400),
++                    const SizedBox(width: 10),
++                    const Expanded(
++                      child: Text('No route execution for today.'),
++                    ),
++                  ],
++                ),
++              ),
++            ),
++            const SizedBox(height: 12),
++          ],
++
++          // Visits list
++          if (_visits.isEmpty && _activeExecution != null)
++            const Card(
++              child: Padding(
++                padding: EdgeInsets.all(14),
++                child: Text('No visits in this route.'),
++              ),
++            )
++          else
++            ..._visits.map((visit) => _buildVisitCard(visit, theme)),
++        ],
++      ),
+     );
+   }
+-}
+ 
+-class _StatusPill extends StatelessWidget {
+-  const _StatusPill({required this.status});
++  Widget _buildVisitCard(Map<String, dynamic> visit, ThemeData theme) {
++    final visitId = visit['id']?.toString() ?? '';
++    final status = visit['status']?.toString() ?? 'PLANNED';
++    final contactName = visit['contactName']?.toString() ??
++        visit['contactId']?.toString() ??
++        'Customer';
++    final seq = (visit['sequence'] as num?)?.toInt() ??
++        (visit['sequenceNumber'] as num?)?.toInt();
++    final checkInTime = visit['checkInTime']?.toString();
++    final checkOutTime = visit['checkOutTime']?.toString();
++    final orderValue = (visit['orderValue'] as num?)?.toDouble();
++    final collectionAmount = (visit['collectionAmount'] as num?)?.toDouble();
++    final skipReason = visit['skipReason']?.toString();
+ 
+-  final VisitStatus status;
++    Color statusColor;
++    String statusLabel;
++    switch (status) {
++      case 'IN_PROGRESS':
++        statusColor = Colors.orange;
++        statusLabel = 'In Visit';
++      case 'COMPLETED':
++        statusColor = Colors.green;
++        statusLabel = 'Done';
++      case 'SKIPPED':
++        statusColor = Colors.red;
++        statusLabel = 'Skipped';
++      default:
++        statusColor = Colors.blue;
++        statusLabel = 'Planned';
++    }
+ 
+-  @override
+-  Widget build(BuildContext context) {
+-    final label = switch (status) {
+-      VisitStatus.planned => 'Planned',
+-      VisitStatus.checkedIn => 'In visit',
+-      VisitStatus.completed => 'Done',
+-      VisitStatus.skipped => 'Skipped',
+-    };
+-    return Chip(label: Text(label));
++    return Card(
++      child: Padding(
++        padding: const EdgeInsets.all(14),
++        child: Column(
++          crossAxisAlignment: CrossAxisAlignment.start,
++          children: [
++            Row(
++              children: [
++                if (seq != null) ...[
++                  CircleAvatar(
++                    radius: 14,
++                    backgroundColor: statusColor.withValues(alpha: 0.15),
++                    child: Text('$seq',
++                        style: TextStyle(
++                            color: statusColor,
++                            fontSize: 13,
++                            fontWeight: FontWeight.w700)),
++                  ),
++                  const SizedBox(width: 10),
++                ],
++                Expanded(
++                  child: Text(contactName,
++                      style: theme.textTheme.titleMedium
++                          ?.copyWith(fontWeight: FontWeight.w700)),
++                ),
++                Chip(
++                  label: Text(statusLabel,
++                      style: TextStyle(
++                          color: statusColor,
++                          fontSize: 12,
++                          fontWeight: FontWeight.w600)),
++                  backgroundColor: statusColor.withValues(alpha: 0.1),
++                  side: BorderSide.none,
++                ),
++              ],
++            ),
++
++            if (checkInTime != null) ...[
++              const SizedBox(height: 6),
++              Text('Check-in: $checkInTime',
++                  style: theme.textTheme.bodySmall),
++            ],
++            if (checkOutTime != null)
++              Text('Check-out: $checkOutTime',
++                  style: theme.textTheme.bodySmall),
++            if (orderValue != null && orderValue > 0) ...[
++              const SizedBox(height: 4),
++              Text('Order: ₹${orderValue.toStringAsFixed(0)}',
++                  style: theme.textTheme.bodySmall
++                      ?.copyWith(fontWeight: FontWeight.w600)),
++            ],
++            if (collectionAmount != null && collectionAmount > 0)
++              Text('Collection: ₹${collectionAmount.toStringAsFixed(0)}',
++                  style: theme.textTheme.bodySmall
++                      ?.copyWith(fontWeight: FontWeight.w600)),
++            if (status == 'SKIPPED' && skipReason != null) ...[
++              const SizedBox(height: 4),
++              Text('Reason: $skipReason',
++                  style: theme.textTheme.bodySmall
++                      ?.copyWith(color: Colors.red)),
++            ],
++
++            const SizedBox(height: 10),
++            Wrap(
++              spacing: 8,
++              runSpacing: 6,
++              children: [
++                if (status == 'PLANNED') ...[
++                  FilledButton.icon(
++                    onPressed: () => _checkIn(visitId),
++                    icon: const Icon(Icons.location_on, size: 18),
++                    label: const Text('Check In'),
++                  ),
++                  OutlinedButton(
++                    onPressed: () => _skipVisit(visitId),
++                    child: const Text('Skip'),
++                  ),
++                ],
++                if (status == 'IN_PROGRESS') ...[
++                  FilledButton.icon(
++                    onPressed: () => _checkOut(visitId),
++                    icon: const Icon(Icons.logout, size: 18),
++                    label: const Text('Check Out'),
++                  ),
++                  OutlinedButton.icon(
++                    onPressed: () => _recordOrder(visitId),
++                    icon: const Icon(Icons.shopping_cart, size: 18),
++                    label: const Text('Order'),
++                  ),
++                  OutlinedButton.icon(
++                    onPressed: () => _recordCollection(visitId),
++                    icon: const Icon(Icons.payments, size: 18),
++                    label: const Text('Collect'),
++                  ),
++                ],
++                if (status == 'COMPLETED') ...[
++                  OutlinedButton.icon(
++                    onPressed: () => _recordOrder(visitId),
++                    icon: const Icon(Icons.shopping_cart, size: 18),
++                    label: const Text('Order'),
++                  ),
++                  OutlinedButton.icon(
++                    onPressed: () => _recordCollection(visitId),
++                    icon: const Icon(Icons.payments, size: 18),
++                    label: const Text('Collect'),
++                  ),
++                ],
++              ],
++            ),
++          ],
++        ),
++      ),
++    );
+   }
+ }
+-- 
+2.43.0
+
+
+From 3a24e5310c679d72f642a382d3064e3989c0f437 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 6 Jun 2026 02:08:29 +0000
+Subject: [PATCH 2/2] feat: wire collections, sync screens; clean up parties
+
+- collections_screen: record collections against active/completed visits
+- sync_screen: live connection check via /auth/me, session info display,
+  removes sample data
+- parties_screen: remove sample data, show placeholder for future ERP
+  contacts integration
+- home_shell: fix _pages to non-const (stateful screens aren't const)
+
+https://claude.ai/code/session_01PEVgPhkmXM1n7yngjsnk7J
+---
+ .../collections/collections_screen.dart       | 260 +++++++++++++++---
+ lib/src/features/home/home_shell.dart         |   2 +-
+ lib/src/features/parties/parties_screen.dart  |  38 ++-
+ lib/src/features/sync/sync_screen.dart        | 178 +++++++++++-
+ 4 files changed, 400 insertions(+), 78 deletions(-)
+
+diff --git a/lib/src/features/collections/collections_screen.dart b/lib/src/features/collections/collections_screen.dart
+index f9efe3d..ee2fc79 100644
+--- a/lib/src/features/collections/collections_screen.dart
++++ b/lib/src/features/collections/collections_screen.dart
+@@ -1,60 +1,236 @@
+ import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
+ 
+-import '../field/field_sample_data.dart';
++import '../auth/auth_controller.dart';
+ import '../shared/field_widgets.dart';
+ 
+-class CollectionsScreen extends StatelessWidget {
++class CollectionsScreen extends ConsumerStatefulWidget {
+   const CollectionsScreen({super.key});
+ 
++  @override
++  ConsumerState<CollectionsScreen> createState() => _CollectionsScreenState();
++}
++
++class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
++  bool _loading = true;
++  List<Map<String, dynamic>> _visits = [];
++  String? _error;
++
++  @override
++  void initState() {
++    super.initState();
++    _loadVisits();
++  }
++
++  Future<void> _loadVisits() async {
++    setState(() {
++      _loading = true;
++      _error = null;
++    });
++
++    final session = ref.read(authControllerProvider).session;
++    if (session == null || session.isDemo) {
++      setState(() => _loading = false);
++      return;
++    }
++
++    try {
++      final api = ref.read(apiClientProvider);
++      final executions = await api.getMyTodayExecutions();
++
++      if (executions.isNotEmpty) {
++        final exec = executions[0] as Map<String, dynamic>;
++        final execId = exec['id']?.toString();
++        if (execId != null) {
++          final raw = await api.getVisits(execId);
++          if (mounted) {
++            setState(() {
++              _visits = raw
++                  .whereType<Map<String, dynamic>>()
++                  .where((v) =>
++                      v['status'] == 'IN_PROGRESS' ||
++                      v['status'] == 'COMPLETED')
++                  .toList();
++            });
++          }
++        }
++      }
++    } catch (e) {
++      if (mounted) setState(() => _error = e.toString());
++    } finally {
++      if (mounted) setState(() => _loading = false);
++    }
++  }
++
++  Future<void> _recordCollection(String visitId, String contactName) async {
++    final amountCtl = TextEditingController();
++    final proceed = await showDialog<bool>(
++      context: context,
++      builder: (ctx) => AlertDialog(
++        title: Text('Collect from $contactName'),
++        content: TextField(
++          controller: amountCtl,
++          keyboardType: TextInputType.number,
++          autofocus: true,
++          decoration: const InputDecoration(
++            labelText: 'Amount Collected *',
++            prefixText: '₹ ',
++          ),
++        ),
++        actions: [
++          TextButton(
++            onPressed: () => Navigator.pop(ctx, false),
++            child: const Text('Cancel'),
++          ),
++          FilledButton(
++            onPressed: () {
++              if (amountCtl.text.trim().isEmpty) {
++                ScaffoldMessenger.of(ctx).showSnackBar(
++                  const SnackBar(content: Text('Amount is required')),
++                );
++                return;
++              }
++              Navigator.pop(ctx, true);
++            },
++            child: const Text('Record'),
++          ),
++        ],
++      ),
++    );
++    if (proceed != true || !mounted) return;
++
++    try {
++      await ref.read(apiClientProvider).recordCollection(
++            visitId,
++            collectionAmount: double.tryParse(amountCtl.text.trim()) ?? 0,
++          );
++      if (mounted) {
++        ScaffoldMessenger.of(context).showSnackBar(
++          const SnackBar(
++              content: Text('Collection recorded'),
++              backgroundColor: Colors.green),
++        );
++      }
++      await _loadVisits();
++    } catch (e) {
++      if (mounted) {
++        ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(content: Text('Failed: $e')),
++        );
++      }
++    }
++  }
++
+   @override
+   Widget build(BuildContext context) {
+-    final dueParties = sampleParties.where((party) => party.outstanding > 0);
+-
+-    return PageScaffold(
+-      title: 'Collections',
+-      subtitle:
+-          'Record dealer payments, promises, and follow-ups from the field.',
+-      children: [
+-        ...dueParties.map(
+-          (party) => Card(
+-            child: Padding(
+-              padding: const EdgeInsets.all(14),
+-              child: Column(
+-                crossAxisAlignment: CrossAxisAlignment.start,
+-                children: [
+-                  PartyCard(
+-                    party: party,
+-                    trailing: Text(
+-                      '₹${party.outstanding.toStringAsFixed(0)}',
+-                      style: const TextStyle(fontWeight: FontWeight.w800),
++    final theme = Theme.of(context);
++    final session = ref.watch(authControllerProvider).session;
++
++    if (_loading) {
++      return const Center(child: CircularProgressIndicator());
++    }
++
++    return RefreshIndicator(
++      onRefresh: _loadVisits,
++      child: PageScaffold(
++        title: 'Collections',
++        subtitle: 'Record cash and payment collections from today\'s visits.',
++        children: [
++          if (_error != null) ...[
++            Card(
++              color: Colors.red.shade50,
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Text(_error!,
++                    style: TextStyle(color: Colors.red.shade700)),
++              ),
++            ),
++            const SizedBox(height: 12),
++          ],
++          if (session?.isDemo == true)
++            Card(
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Row(
++                  children: [
++                    Icon(Icons.info_outline, color: theme.colorScheme.primary),
++                    const SizedBox(width: 10),
++                    const Expanded(
++                      child: Text(
++                          'Login with real credentials to record collections.'),
+                     ),
+-                  ),
+-                  const SizedBox(height: 8),
+-                  Row(
++                  ],
++                ),
++              ),
++            )
++          else if (_visits.isEmpty)
++            Card(
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Row(
++                  children: [
++                    Icon(Icons.info_outline, color: Colors.grey.shade400),
++                    const SizedBox(width: 10),
++                    const Expanded(
++                      child: Text(
++                        'Check in to a visit first. Collections can be recorded during or after a visit.',
++                      ),
++                    ),
++                  ],
++                ),
++              ),
++            )
++          else
++            ..._visits.map((visit) {
++              final visitId = visit['id']?.toString() ?? '';
++              final name = visit['contactName']?.toString() ??
++                  visit['contactId']?.toString() ??
++                  'Customer';
++              final status = visit['status']?.toString() ?? '';
++              final existing =
++                  (visit['collectionAmount'] as num?)?.toDouble();
++
++              return Card(
++                child: Padding(
++                  padding: const EdgeInsets.all(14),
++                  child: Column(
++                    crossAxisAlignment: CrossAxisAlignment.start,
+                     children: [
+-                      Expanded(
+-                        child: OutlinedButton.icon(
+-                          onPressed: () {},
+-                          icon: const Icon(Icons.event),
+-                          label: const Text('Promise'),
+-                        ),
++                      Row(
++                        children: [
++                          Expanded(
++                            child: Text(name,
++                                style: theme.textTheme.titleMedium
++                                    ?.copyWith(fontWeight: FontWeight.w700)),
++                          ),
++                          Text(status.replaceAll('_', ' '),
++                              style: theme.textTheme.bodySmall),
++                        ],
+                       ),
+-                      const SizedBox(width: 8),
+-                      Expanded(
+-                        child: FilledButton.icon(
+-                          onPressed: () {},
+-                          icon: const Icon(Icons.payments),
+-                          label: const Text('Collect'),
++                      if (existing != null && existing > 0) ...[
++                        const SizedBox(height: 6),
++                        Text(
++                          'Collected: ₹${existing.toStringAsFixed(0)}',
++                          style: theme.textTheme.bodySmall?.copyWith(
++                              color: Colors.green,
++                              fontWeight: FontWeight.w600),
+                         ),
++                      ],
++                      const SizedBox(height: 10),
++                      FilledButton.icon(
++                        onPressed: () => _recordCollection(visitId, name),
++                        icon: const Icon(Icons.payments, size: 18),
++                        label: Text(existing != null && existing > 0
++                            ? 'Update Collection'
++                            : 'Record Collection'),
+                       ),
+                     ],
+                   ),
+-                ],
+-              ),
+-            ),
+-          ),
+-        ),
+-      ],
++                ),
++              );
++            }),
++        ],
++      ),
+     );
+   }
+ }
+diff --git a/lib/src/features/home/home_shell.dart b/lib/src/features/home/home_shell.dart
+index 790efd2..c0680a8 100644
+--- a/lib/src/features/home/home_shell.dart
++++ b/lib/src/features/home/home_shell.dart
+@@ -20,7 +20,7 @@ class HomeShell extends ConsumerStatefulWidget {
+ class _HomeShellState extends ConsumerState<HomeShell> {
+   int _index = 0;
+ 
+-  static const _pages = [
++  final _pages = const [
+     TodayDashboardScreen(),
+     VisitsScreen(),
+     PartiesScreen(),
+diff --git a/lib/src/features/parties/parties_screen.dart b/lib/src/features/parties/parties_screen.dart
+index 0fedddf..345c5ab 100644
+--- a/lib/src/features/parties/parties_screen.dart
++++ b/lib/src/features/parties/parties_screen.dart
+@@ -1,6 +1,5 @@
+ import 'package:flutter/material.dart';
+ 
+-import '../field/field_sample_data.dart';
+ import '../shared/field_widgets.dart';
+ 
+ class PartiesScreen extends StatelessWidget {
+@@ -11,27 +10,24 @@ class PartiesScreen extends StatelessWidget {
+     return PageScaffold(
+       title: 'Parties',
+       subtitle:
+-          'Doctors, hospitals, chemists, retailers, distributors, and stockists in one list.',
++          'Doctors, hospitals, chemists, retailers, distributors, and stockists.',
+       children: [
+-        const TextField(
+-          decoration: InputDecoration(
+-            hintText: 'Search name, area, phone',
+-            prefixIcon: Icon(Icons.search),
+-          ),
+-        ),
+-        const SizedBox(height: 12),
+-        ...sampleParties.map(
+-          (party) => PartyCard(
+-            party: party,
+-            trailing: party.outstanding > 0
+-                ? Text(
+-                    '₹${party.outstanding.toStringAsFixed(0)}',
+-                    style: const TextStyle(
+-                      color: Color(0xFFDC2626),
+-                      fontWeight: FontWeight.w800,
+-                    ),
+-                  )
+-                : null,
++        Card(
++          child: Padding(
++            padding: const EdgeInsets.all(14),
++            child: Row(
++              crossAxisAlignment: CrossAxisAlignment.start,
++              children: [
++                Icon(Icons.info_outline,
++                    color: Theme.of(context).colorScheme.primary),
++                const SizedBox(width: 10),
++                const Expanded(
++                  child: Text(
++                    'Party / contact lookup will connect to the ERP contacts endpoint in a future release. Visits and collections are already tracked per visit.',
++                  ),
++                ),
++              ],
++            ),
+           ),
+         ),
+       ],
+diff --git a/lib/src/features/sync/sync_screen.dart b/lib/src/features/sync/sync_screen.dart
+index 829eabd..0bb82ee 100644
+--- a/lib/src/features/sync/sync_screen.dart
++++ b/lib/src/features/sync/sync_screen.dart
+@@ -1,34 +1,184 @@
+ import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
+ 
+-import '../field/field_sample_data.dart';
++import '../auth/auth_controller.dart';
+ import '../shared/field_widgets.dart';
+ 
+-class SyncScreen extends StatelessWidget {
++class SyncScreen extends ConsumerStatefulWidget {
+   const SyncScreen({super.key});
+ 
++  @override
++  ConsumerState<SyncScreen> createState() => _SyncScreenState();
++}
++
++class _SyncScreenState extends ConsumerState<SyncScreen> {
++  bool _checking = false;
++  bool? _backendReachable;
++  String? _lastChecked;
++
++  Future<void> _checkConnection() async {
++    setState(() => _checking = true);
++    try {
++      final session = ref.read(authControllerProvider).session;
++      if (session == null || session.isDemo) {
++        setState(() => _backendReachable = false);
++        return;
++      }
++      await ref.read(apiClientProvider).getMe();
++      setState(() {
++        _backendReachable = true;
++        _lastChecked = TimeOfDay.now().format(context);
++      });
++    } catch (_) {
++      setState(() {
++        _backendReachable = false;
++        _lastChecked = TimeOfDay.now().format(context);
++      });
++    } finally {
++      setState(() => _checking = false);
++    }
++  }
++
+   @override
+   Widget build(BuildContext context) {
++    final theme = Theme.of(context);
++    final session = ref.watch(authControllerProvider).session;
++
++    final statusColor = _backendReachable == null
++        ? Colors.grey
++        : _backendReachable!
++            ? Colors.green
++            : Colors.red;
++    final statusLabel = _backendReachable == null
++        ? 'Not checked'
++        : _backendReachable!
++            ? 'Connected'
++            : 'Unreachable';
++
+     return PageScaffold(
+       title: 'Sync',
+-      subtitle: 'Offline work waits here until internet is available.',
++      subtitle: 'Check backend connectivity and session status.',
+       children: [
+-        ...sampleSyncTasks.map(
+-          (task) => Card(
+-            child: ListTile(
+-              leading: const Icon(Icons.cloud_upload_outlined),
+-              title: Text(task.title),
+-              subtitle: Text(task.subtitle),
+-              trailing: Chip(label: Text(task.status)),
++        // Connection status card
++        Card(
++          child: Padding(
++            padding: const EdgeInsets.all(16),
++            child: Column(
++              crossAxisAlignment: CrossAxisAlignment.start,
++              children: [
++                Row(
++                  children: [
++                    Container(
++                      width: 12,
++                      height: 12,
++                      decoration: BoxDecoration(
++                        color: statusColor,
++                        shape: BoxShape.circle,
++                      ),
++                    ),
++                    const SizedBox(width: 10),
++                    Text('Backend: $statusLabel',
++                        style: theme.textTheme.titleMedium
++                            ?.copyWith(fontWeight: FontWeight.w700)),
++                  ],
++                ),
++                if (_lastChecked != null) ...[
++                  const SizedBox(height: 6),
++                  Text('Last checked: $_lastChecked',
++                      style: theme.textTheme.bodySmall),
++                ],
++                const SizedBox(height: 14),
++                FilledButton.icon(
++                  onPressed: _checking ? null : _checkConnection,
++                  icon: _checking
++                      ? const SizedBox(
++                          width: 18,
++                          height: 18,
++                          child: CircularProgressIndicator(strokeWidth: 2),
++                        )
++                      : const Icon(Icons.wifi_find, size: 18),
++                  label: Text(_checking ? 'Checking…' : 'Check Connection'),
++                ),
++              ],
+             ),
+           ),
+         ),
+         const SizedBox(height: 12),
+-        FilledButton.icon(
+-          onPressed: () {},
+-          icon: const Icon(Icons.sync),
+-          label: const Text('Sync now'),
++
++        // Session info
++        if (session != null)
++          Card(
++            child: Padding(
++              padding: const EdgeInsets.all(16),
++              child: Column(
++                crossAxisAlignment: CrossAxisAlignment.start,
++                children: [
++                  Text('Session',
++                      style: theme.textTheme.titleSmall
++                          ?.copyWith(fontWeight: FontWeight.w700)),
++                  const SizedBox(height: 10),
++                  _InfoRow(label: 'Name', value: session.fullName),
++                  _InfoRow(label: 'Role', value: session.role),
++                  _InfoRow(label: 'Org', value: session.orgName),
++                  _InfoRow(
++                      label: 'Industry',
++                      value: session.industry.isNotEmpty
++                          ? session.industry
++                          : '—'),
++                  _InfoRow(
++                      label: 'Mode',
++                      value: session.isDemo ? 'Demo' : 'Live'),
++                ],
++              ),
++            ),
++          ),
++        const SizedBox(height: 12),
++
++        // Note about offline
++        Card(
++          child: Padding(
++            padding: const EdgeInsets.all(14),
++            child: Row(
++              crossAxisAlignment: CrossAxisAlignment.start,
++              children: [
++                Icon(Icons.info_outline, color: theme.colorScheme.primary),
++                const SizedBox(width: 10),
++                const Expanded(
++                  child: Text(
++                    'This app currently requires an active connection. Offline sync (queue-based) will be added in a future release.',
++                  ),
++                ),
++              ],
++            ),
++          ),
+         ),
+       ],
+     );
+   }
+ }
++
++class _InfoRow extends StatelessWidget {
++  const _InfoRow({required this.label, required this.value});
++  final String label;
++  final String value;
++
++  @override
++  Widget build(BuildContext context) {
++    return Padding(
++      padding: const EdgeInsets.only(bottom: 6),
++      child: Row(
++        children: [
++          SizedBox(
++            width: 80,
++            child: Text(label,
++                style: Theme.of(context)
++                    .textTheme
++                    .bodySmall
++                    ?.copyWith(color: Colors.grey.shade600)),
++          ),
++          Expanded(child: Text(value, style: Theme.of(context).textTheme.bodyMedium)),
++        ],
++      ),
++    );
++  }
++}
+-- 
+2.43.0
+
