@@ -23,4 +23,6 @@ public interface RouteExecutionRepository extends JpaRepository<RouteExecution, 
     Page<RouteExecution> findByOrgIdAndIsDeletedFalse(UUID orgId, Pageable pageable);
 
     Optional<RouteExecution> findByOrgIdAndSalespersonIdAndExecutionDateAndIsDeletedFalse(UUID orgId, UUID salespersonId, LocalDate date);
+
+    List<RouteExecution> findAllByOrgIdAndSalespersonIdAndExecutionDateAndIsDeletedFalse(UUID orgId, UUID salespersonId, LocalDate date);
 }

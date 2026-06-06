@@ -871,6 +871,13 @@ public class FieldSalesService {
         return routeExecutionRepository.findByOrgIdAndExecutionDateAndIsDeletedFalse(orgId, date);
     }
 
+    @Transactional(readOnly = true)
+    public List<RouteExecution> getExecutionsForSalesperson(UUID salespersonId, LocalDate date) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        return routeExecutionRepository.findAllByOrgIdAndSalespersonIdAndExecutionDateAndIsDeletedFalse(
+                orgId, salespersonId, date);
+    }
+
     /**
      * Transitions a PLANNED execution to IN_PROGRESS. Sets start time.
      */

@@ -1,5 +1,6 @@
 package com.katasticho.erp.fieldsales.controller;
 
+import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
@@ -251,6 +252,12 @@ public class FieldSalesController {
         return ResponseEntity.ok(ApiResponse.ok(service.getAssignmentsForSalesperson(id)));
     }
 
+    @GetMapping("/assignments/me")
+    public ResponseEntity<ApiResponse<List<FieldSalesAssignment>>> getMyAssignments() {
+        UUID userId = TenantContext.getCurrentUserId();
+        return ResponseEntity.ok(ApiResponse.ok(service.getAssignmentsForSalesperson(userId)));
+    }
+
     // ══════════════════════════════════════════════════════════════
     // Van Stock Transfer endpoints
     // ══════════════════════════════════════════════════════════════
@@ -336,6 +343,13 @@ public class FieldSalesController {
     public ResponseEntity<ApiResponse<List<RouteExecution>>> getExecutionsByDate(
             @PathVariable LocalDate date) {
         return ResponseEntity.ok(ApiResponse.ok(service.getExecutionsByDate(date)));
+    }
+
+    @GetMapping("/executions/me/today")
+    public ResponseEntity<ApiResponse<List<RouteExecution>>> getMyTodayExecutions() {
+        UUID userId = TenantContext.getCurrentUserId();
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.getExecutionsForSalesperson(userId, LocalDate.now())));
     }
 
     @PostMapping("/executions/{id}/start")
@@ -487,6 +501,12 @@ public class FieldSalesController {
     @GetMapping("/targets/salesperson/{id}")
     public ResponseEntity<ApiResponse<List<SalesmanTarget>>> getTargets(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.getTargets(id)));
+    }
+
+    @GetMapping("/targets/me")
+    public ResponseEntity<ApiResponse<List<SalesmanTarget>>> getMyTargets() {
+        UUID userId = TenantContext.getCurrentUserId();
+        return ResponseEntity.ok(ApiResponse.ok(service.getTargets(userId)));
     }
 
     @PutMapping("/targets/{id}/achievement")
