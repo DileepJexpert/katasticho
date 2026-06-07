@@ -6,11 +6,15 @@ import com.katasticho.erp.inventory.dto.StockMovementRequest;
 import com.katasticho.erp.inventory.entity.*;
 import com.katasticho.erp.inventory.repository.BomComponentRepository;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.manufacturing.entity.WorkOrder;
 import com.katasticho.erp.manufacturing.entity.WorkOrderLine;
 import com.katasticho.erp.manufacturing.repository.WorkOrderLineRepository;
 import com.katasticho.erp.manufacturing.repository.WorkOrderRepository;
+import com.katasticho.erp.sales.entity.SalesOrder;
+import com.katasticho.erp.sales.entity.SalesOrderLine;
+import com.katasticho.erp.sales.repository.SalesOrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -36,6 +40,8 @@ public class ManufacturingService {
     private final BomComponentRepository bomComponentRepository;
     private final ItemRepository itemRepository;
     private final InventoryService inventoryService;
+    private final SalesOrderRepository salesOrderRepository;
+    private final WarehouseRepository warehouseRepository;
 
     @Transactional
     public WorkOrder createWorkOrder(UUID finishedGoodId, UUID warehouseId,
@@ -324,6 +330,59 @@ public class ManufacturingService {
         wo = workOrderRepository.save(wo);
         log.info("Work order {} cancelled for org {}", wo.getWorkOrderNumber(), orgId);
         return wo;
+    }
+
+    @Transactional
+    public List<WorkOrder> createWorkOrdersFromSalesOrder(UUID salesOrderId, UUID warehouseId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        SalesOrder so = salesOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(salesOrderId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("SalesOrder", salesOrderId));
+
+        if (!"CONFIRMED".equals(so.getStatus()) && !"BACKORDER".equals(so.getStatus())) {
+            throw new BusinessException(
+                    "Work orders can only be created from CONFIRMED or BACKORDER sales orders",
+                    "MFG_SO_NOT_CONFIRMED", HttpStatus.BAD_REQUEST);
+        }
+
+        UUID effectiveWarehouseId = warehouseId;
+        if (effectiveWarehouseId == null) {
+            effectiveWarehouseId = warehouseRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
+                    .orElseThrow(() -> new BusinessException("No default warehouse configured",
+                            "WAREHOUSE_NOT_FOUND", HttpStatus.BAD_REQUEST))
+                    .getId();
+        }
+
+        List<WorkOrder> created = new ArrayList<>();
+        for (SalesOrderLine line : so.getLines()) {
+            if (line.getItemId() == null) continue;
+
+            Item item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(line.getItemId(), orgId)
+                    .orElse(null);
+            if (item == null || item.getItemType() != ItemType.COMPOSITE) continue;
+
+            List<BomComponent> bom = bomComponentRepository
+                    .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, line.getItemId());
+            if (bom.isEmpty()) continue;
+
+            WorkOrder wo = createWorkOrder(
+                    line.getItemId(), effectiveWarehouseId, line.getQuantity(),
+                    null, null, null, null,
+                    "Auto-created from " + so.getSalesorderNumber());
+            wo.setSalesOrderId(salesOrderId);
+            wo = workOrderRepository.save(wo);
+            created.add(wo);
+        }
+
+        if (created.isEmpty()) {
+            throw new BusinessException(
+                    "No composite items with BOM found in sales order " + so.getSalesorderNumber(),
+                    "MFG_SO_NO_COMPOSITE_ITEMS", HttpStatus.BAD_REQUEST);
+        }
+
+        log.info("Created {} work orders from SO {} for org {}",
+                created.size(), so.getSalesorderNumber(), orgId);
+        return created;
     }
 
     private void recalculateTotalCost(WorkOrder wo) {

@@ -71,6 +71,24 @@ public class WorkOrder extends BaseEntity {
     @Builder.Default
     private BigDecimal unitCost = BigDecimal.ZERO;
 
+    @Column(name = "sales_order_id")
+    private UUID salesOrderId;
+
+    @Column(name = "routing_id")
+    private UUID routingId;
+
+    @Column(length = 10)
+    @Builder.Default
+    private String priority = "NORMAL";
+
+    @Column(name = "scrap_qty")
+    @Builder.Default
+    private BigDecimal scrapQty = BigDecimal.ZERO;
+
+    @Column(name = "scrap_cost")
+    @Builder.Default
+    private BigDecimal scrapCost = BigDecimal.ZERO;
+
     private String notes;
 
     @OneToMany(mappedBy = "workOrder", cascade = CascadeType.ALL, orphanRemoval = true)

@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V45**. Next new migration = V46.
+- Location: `src/main/resources/db/migration/`. Latest is **V46**. Next new migration = V47.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -223,22 +223,20 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Flutter screens (done):** Partner list (with tabs for all/pending + request dialog), catalog list (with unpublish), supplier search (with debounced search), outgoing orders, incoming orders, order detail (with lifecycle actions + event timeline). Routes and sidebar nav integrated, gated by `canUsePartnerNetwork`.
 - **Tests (done):** 11 tests in PartnerNetworkServiceTest — partnership CRUD, order lifecycle, access control.
 
-### Phase 9: Manufacturing-Lite (COMPLETE — 2026-06-06)
-**Goal:** Limited finished-goods / BOM extension. NOT full MRP.
-**Reference:** `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` (Phase 4)
-- **V45 migration (done):** 2 new tables (work_order, work_order_line) + 6 indexes.
-- **Backend (done):** `com.katasticho.erp.manufacturing` — 2 entities, 2 repositories, ManufacturingService (~340 lines), ManufacturingController (7 endpoints at `/api/v1/manufacturing`). ModuleCode.MANUFACTURING added.
-- **Work order lifecycle (done):** DRAFT → IN_PROGRESS → COMPLETED (or CANCELLED at any non-completed stage). Auto-generates WO-XXXXX numbers.
-- **BOM explosion (done):** Explodes BOM components into work order lines. Required qty = BOM qty × production qty. Raw material cost from item purchasePrice.
-- **Issue to production (done):** DRAFT → IN_PROGRESS. Records PRODUCTION_ISSUE stock movements (negative qty) per line via InventoryService. Sets actual start date.
-- **Receive finished goods (done):** Partial receipts supported. Records PRODUCTION_RECEIVE stock movement (positive qty) with calculated FG unit cost. Auto-completes when planned qty met.
-- **Production costing (done):** Raw material + direct labor + overhead = total cost. Unit cost = total / qty. Costs updatable on DRAFT/IN_PROGRESS orders.
-- **Cancel with reversal (done):** IN_PROGRESS cancellation reverses issued stock via ADJUSTMENT movements. DRAFT cancellation without stock impact.
-- **Module gating (done):** `@RequiresModule(MANUFACTURING)` on controller. Feature flag seeded for manufacturer, pharma manufacturer, food, garment, electronics industries.
-- **Flutter screens (done):** Work order list (with status filter chips), create screen (item search, warehouse dropdown, dates, costs), detail screen (with issue/receive/cancel/update-costs lifecycle actions). Routes and sidebar nav integrated, gated by `canUseManufacturing`.
-- **Tests (done):** 12 tests in ManufacturingServiceTest — create (happy path + 3 validation cases), issue to production (2), receive FG (3), cancel (2), update costs (1). 376 total tests pass.
-- **Gap analysis (done):** Current coverage is 13/114 features (11%) vs competitors (Odoo, ERPNext, SAP B1, Katana, MRPeasy). See `docs/MANUFACTURING_FEATURE_TRACKER.md` for full tracker with 101 missing features in 3 tiers.
-- **Tier 1 priorities (TODO):** (1) Subcontracting/job work + GST ITC-04, (2) Routing/operations/workstations/job cards, (3) Quality inspection (IQC/IPQC/OQC + CoA), (4) Scrap/waste with reason codes, (5) SO→WO automation.
+### Phase 9: Manufacturing (Tier 1 COMPLETE — 2026-06-07)
+**Goal:** Production-ready manufacturing module. Coverage: 30/114 features (26%).
+**Reference:** `docs/MANUFACTURING_FEATURE_TRACKER.md` for full tracker with daily progress.
+- **V45 migration (done):** 2 tables (work_order, work_order_line) + 6 indexes.
+- **V46 migration (done):** 15 new tables (workstation, operation, routing, routing_operation, job_card, job_work_order, job_work_order_line, qc_template, qc_parameter, qc_inspection, qc_inspection_result, scrap_reason_code, production_scrap) + 5 ALTER TABLE on work_order + 20 indexes.
+- **Backend (done):** `com.katasticho.erp.manufacturing` — 15 entities, 14 repositories, 5 services (ManufacturingService, RoutingService, JobWorkService, QualityControlService, ScrapService), ManufacturingController (50+ endpoints at `/api/v1/manufacturing`). ModuleCode.MANUFACTURING added.
+- **Work order lifecycle (done):** DRAFT → IN_PROGRESS → COMPLETED (or CANCELLED). BOM explosion, issue to production, receive FG, SO→WO automation.
+- **Routing/Operations/Job Cards (done):** Workstation CRUD, Operation CRUD, Routing with ordered operations. Job cards created from routing, start/complete lifecycle with time tracking.
+- **Job Work (done):** Full lifecycle (DRAFT→SENT→PARTIALLY_RECEIVED→COMPLETED/CANCELLED). JOB_WORK_OUT/IN stock movements, wastage tracking, GST ITC-04 deadline alerts, cancel with reversal.
+- **Quality Control (done):** Templates with parameters, inspections (INCOMING/IN_PROCESS/OUTGOING), record results, finalize (PASSED/FAILED/PARTIAL).
+- **Scrap/Waste (done):** Reason codes, production scrap recording with PRODUCTION_SCRAP stock movements, WO scrap totals.
+- **SO→WO Automation (done):** `createWorkOrdersFromSalesOrder()` finds composite items in confirmed SO, creates linked draft WOs.
+- **Flutter screens (done):** Work order list/create/detail with lifecycle actions. Routes and sidebar nav integrated, gated by `canUseManufacturing`.
+- **Tests (done):** 53 manufacturing tests (ManufacturingServiceTest 15, RoutingServiceTest 9, JobWorkServiceTest 16, QualityControlServiceTest 8, ScrapServiceTest 5). 417 total tests pass.
 - **Tier 2 priorities (TODO):** BOM versioning, batch traceability in production, WIP journal entries, production reports (cost variance, consumption, WIP valuation), work order enhancements (priority, approval, disassembly), backflush mode.
 - **Tier 3 (DEFERRED):** MRP engine, Gantt scheduling, capacity planning, shop floor mobile, maintenance management, industry-specific (pharma BMR, food FSSAI, garment cut plans).
 
@@ -276,7 +274,11 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `inventory/service/StockCountServiceTest.java` — physical stock count (6 tests)
 - `inventory/service/TransferOrderServiceTest.java` — transfer orders (7 tests)
 - `inventory/service/PicklistServiceTest.java` — picklist generation (8 tests)
-- `manufacturing/service/ManufacturingServiceTest.java` — work order lifecycle (12 tests)
+- `manufacturing/service/ManufacturingServiceTest.java` — work order lifecycle + SO→WO (15 tests)
+- `manufacturing/service/RoutingServiceTest.java` — workstation/operation/routing/job card (9 tests)
+- `manufacturing/service/JobWorkServiceTest.java` — job work lifecycle (16 tests)
+- `manufacturing/service/QualityControlServiceTest.java` — QC templates/inspections (8 tests)
+- `manufacturing/service/ScrapServiceTest.java` — scrap recording (5 tests)
 - `reporting/service/DetailedReportService` — no test file (needs one)
 
 ## Existing Service Files (key ones)
@@ -299,7 +301,11 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `inventory/service/SerialNumberService.java` — serial number tracking (receive, assign to sale, damage, return)
 - `reporting/service/DetailedReportService.java` — cash flow, journal register, sales/purchase register, customer statement
 - `reporting/service/InventoryReportService.java` — stock summary, movements, low-stock alert
-- `manufacturing/service/ManufacturingService.java` — work order lifecycle (create, issue, receive, cancel, costs)
+- `manufacturing/service/ManufacturingService.java` — work order lifecycle (create, issue, receive, cancel, costs, SO→WO automation)
+- `manufacturing/service/RoutingService.java` — workstations, operations, routings, job cards (CRUD + lifecycle)
+- `manufacturing/service/JobWorkService.java` — job work orders (create, send, receive, cancel, GST deadline alerts)
+- `manufacturing/service/QualityControlService.java` — QC templates, inspections (create, record results, finalize)
+- `manufacturing/service/ScrapService.java` — scrap reason codes, production scrap recording
 
 ## Doc Files Index
 | Doc | Purpose | Read when |

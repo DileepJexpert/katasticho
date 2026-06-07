@@ -5,12 +5,17 @@ import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.inventory.entity.BomComponent;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.entity.ItemType;
+import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.BomComponentRepository;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.manufacturing.entity.WorkOrder;
 import com.katasticho.erp.manufacturing.repository.WorkOrderLineRepository;
 import com.katasticho.erp.manufacturing.repository.WorkOrderRepository;
+import com.katasticho.erp.sales.entity.SalesOrder;
+import com.katasticho.erp.sales.entity.SalesOrderLine;
+import com.katasticho.erp.sales.repository.SalesOrderRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +40,8 @@ class ManufacturingServiceTest {
     @Mock private BomComponentRepository bomComponentRepo;
     @Mock private ItemRepository itemRepo;
     @Mock private InventoryService inventoryService;
+    @Mock private SalesOrderRepository salesOrderRepo;
+    @Mock private WarehouseRepository warehouseRepo;
 
     private ManufacturingService service;
 
@@ -47,7 +54,8 @@ class ManufacturingServiceTest {
     @BeforeEach
     void setUp() {
         service = new ManufacturingService(
-                workOrderRepo, workOrderLineRepo, bomComponentRepo, itemRepo, inventoryService);
+                workOrderRepo, workOrderLineRepo, bomComponentRepo, itemRepo, inventoryService,
+                salesOrderRepo, warehouseRepo);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
@@ -274,6 +282,126 @@ class ManufacturingServiceTest {
         assertEquals(0, BigDecimal.valueOf(2000).compareTo(result.getDirectLaborCost()));
         assertEquals(0, BigDecimal.valueOf(500).compareTo(result.getOverheadCost()));
         assertTrue(result.getTotalCost().compareTo(BigDecimal.valueOf(2500)) >= 0);
+    }
+
+    @Test
+    void createWorkOrdersFromSalesOrder_compositeItems_createsWOs() {
+        UUID soId = UUID.randomUUID();
+        Item fg = buildCompositeItem();
+        Item rm = buildRawMaterial();
+        BomComponent bom = buildBomComponent();
+
+        SalesOrder so = SalesOrder.builder()
+                .salesorderNumber("SO-00001")
+                .contactId(UUID.randomUUID())
+                .orderDate(java.time.LocalDate.now())
+                .status("CONFIRMED")
+                .lines(new java.util.ArrayList<>())
+                .build();
+        so.setId(soId);
+        so.setOrgId(orgId);
+
+        SalesOrderLine soLine = SalesOrderLine.builder()
+                .salesOrder(so)
+                .lineNumber(1)
+                .itemId(fgItemId)
+                .quantity(BigDecimal.valueOf(5))
+                .rate(BigDecimal.valueOf(500))
+                .amount(BigDecimal.valueOf(2500))
+                .build();
+        soLine.setId(UUID.randomUUID());
+        so.getLines().add(soLine);
+
+        Warehouse wh = Warehouse.builder().name("Main").isDefault(true).build();
+        wh.setId(warehouseId);
+        wh.setOrgId(orgId);
+
+        when(salesOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(soId, orgId))
+                .thenReturn(Optional.of(so));
+        when(warehouseRepo.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId))
+                .thenReturn(Optional.of(wh));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId))
+                .thenReturn(Optional.of(fg));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId))
+                .thenReturn(Optional.of(rm));
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+                .thenReturn(List.of(bom));
+        when(workOrderRepo.findMaxWorkOrderNumber(orgId)).thenReturn(0);
+        when(workOrderRepo.save(any())).thenAnswer(inv -> {
+            WorkOrder wo = inv.getArgument(0);
+            if (wo.getId() == null) wo.setId(UUID.randomUUID());
+            return wo;
+        });
+
+        List<WorkOrder> result = service.createWorkOrdersFromSalesOrder(soId, null);
+
+        assertEquals(1, result.size());
+        assertEquals(soId, result.get(0).getSalesOrderId());
+        assertEquals(0, BigDecimal.valueOf(5).compareTo(result.get(0).getQuantityToProduce()));
+    }
+
+    @Test
+    void createWorkOrdersFromSalesOrder_draftSO_throws() {
+        UUID soId = UUID.randomUUID();
+        SalesOrder so = SalesOrder.builder()
+                .salesorderNumber("SO-00001")
+                .contactId(UUID.randomUUID())
+                .orderDate(java.time.LocalDate.now())
+                .status("DRAFT")
+                .build();
+        so.setId(soId);
+        so.setOrgId(orgId);
+
+        when(salesOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(soId, orgId))
+                .thenReturn(Optional.of(so));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.createWorkOrdersFromSalesOrder(soId, null));
+        assertEquals("MFG_SO_NOT_CONFIRMED", ex.getErrorCode());
+    }
+
+    @Test
+    void createWorkOrdersFromSalesOrder_noCompositeItems_throws() {
+        UUID soId = UUID.randomUUID();
+        Item goods = Item.builder().sku("ITEM-01").itemType(ItemType.GOODS).build();
+        goods.setId(fgItemId);
+        goods.setOrgId(orgId);
+
+        SalesOrder so = SalesOrder.builder()
+                .salesorderNumber("SO-00001")
+                .contactId(UUID.randomUUID())
+                .orderDate(java.time.LocalDate.now())
+                .status("CONFIRMED")
+                .lines(new java.util.ArrayList<>())
+                .build();
+        so.setId(soId);
+        so.setOrgId(orgId);
+
+        SalesOrderLine soLine = SalesOrderLine.builder()
+                .salesOrder(so)
+                .lineNumber(1)
+                .itemId(fgItemId)
+                .quantity(BigDecimal.valueOf(5))
+                .rate(BigDecimal.valueOf(500))
+                .amount(BigDecimal.valueOf(2500))
+                .build();
+        soLine.setId(UUID.randomUUID());
+        so.getLines().add(soLine);
+
+        Warehouse wh = Warehouse.builder().name("Main").isDefault(true).build();
+        wh.setId(warehouseId);
+        wh.setOrgId(orgId);
+
+        when(salesOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(soId, orgId))
+                .thenReturn(Optional.of(so));
+        when(warehouseRepo.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId))
+                .thenReturn(Optional.of(wh));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId))
+                .thenReturn(Optional.of(goods));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.createWorkOrdersFromSalesOrder(soId, null));
+        assertEquals("MFG_SO_NO_COMPOSITE_ITEMS", ex.getErrorCode());
     }
 
     private WorkOrder createTestWorkOrder(String status) {

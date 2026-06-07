@@ -1,7 +1,7 @@
 # Manufacturing Module — Feature Tracker
 
 Gap analysis based on Zoho, ERPNext, Odoo, SAP B1, NetSuite, Katana, MRPeasy, Cin7, Fishbowl, InFlow.
-Current coverage: **13 / 114 features (11%)**. Target: Tier 1 + Tier 2 = competitive for Indian SMBs.
+Current coverage: **30 / 114 features (26%)**. Target: Tier 1 + Tier 2 = competitive for Indian SMBs.
 
 ---
 
@@ -21,26 +21,26 @@ Most Indian SMB manufacturing is outsourced via job work (pharma tablet pressing
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 1 | Subcontracting order entity (send RM to vendor for processing) | TODO | New entity: `job_work_order` with vendor, items, expected output, charges |
-| 2 | Job work challan (DC for materials sent to job worker) | TODO | Reuse DC pattern, new `SUBCONTRACT` reference type |
-| 3 | Job work receipt (receive processed goods back) | TODO | QC on receipt, wastage tracking |
-| 4 | Job work stock tracking (materials at each subcontractor) | TODO | New stock location type or virtual warehouse per vendor |
-| 5 | Job work costing (processing charges in FG cost) | TODO | Roll into work order total cost |
-| 6 | GST ITC-04 data generation (goods sent/received from job workers) | TODO | 180-day return tracking for inputs, 3-year for capital goods |
-| 7 | Job work reason codes and wastage recording | TODO | |
+| 1 | Subcontracting order entity (send RM to vendor for processing) | DONE | `JobWorkOrder` + `JobWorkOrderLine` entities, `JobWorkService` |
+| 2 | Job work challan (DC for materials sent to job worker) | DONE | `sendMaterials()` records JOB_WORK_OUT movements, auto-generates challan number |
+| 3 | Job work receipt (receive processed goods back) | DONE | `receiveGoods()` with wastage tracking, partial/full receipt, JOB_WORK_IN movements |
+| 4 | Job work stock tracking (materials at each subcontractor) | DONE | Via stock_movement ledger with JOB_WORK_OUT/IN types and JOB_WORK_ORDER reference |
+| 5 | Job work costing (processing charges in FG cost) | DONE | processingCharges + totalMaterialCost = totalCost on JobWorkOrder |
+| 6 | GST ITC-04 data generation (goods sent/received from job workers) | DONE | gstReturnDeadline (sendDate + 1yr), deadline alert query endpoint |
+| 7 | Job work reason codes and wastage recording | DONE | wastageQty on lines, cancel reverses unreceived stock via ADJUSTMENT |
 
 ### 1.2 Routing, Operations & Workstations
 Without this, no operation-level tracking is possible. Every competitor has it.
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 8 | Operation/routing definition (ordered steps: Cut→Mix→Pack) | TODO | New entities: `operation`, `routing`, `routing_operation` |
-| 9 | Workstation/work center (machine + capacity + hourly rate) | TODO | New entity: `workstation` with hours/day, cost rate |
-| 10 | Job cards per operation (assigned worker, start/stop, qty) | TODO | New entity: `job_card` linked to work order line + operation |
-| 11 | Operation time tracking (planned vs actual) | TODO | Start/pause/stop timer on job cards |
-| 12 | Labor time logging per operation (worker + hours + cost) | TODO | Feeds into costing and optionally payroll |
+| 8 | Operation/routing definition (ordered steps: Cut→Mix→Pack) | DONE | `Operation`, `Routing`, `RoutingOperation` entities, `RoutingService` CRUD |
+| 9 | Workstation/work center (machine + capacity + hourly rate) | DONE | `Workstation` entity with hourlyRate, capacityHoursPerDay, `RoutingService` CRUD |
+| 10 | Job cards per operation (assigned worker, start/stop, qty) | DONE | `JobCard` entity, `createJobCardsForWorkOrder()` from routing |
+| 11 | Operation time tracking (planned vs actual) | DONE | actualStart/actualEnd on JobCard, timeLoggedMinutes on complete |
+| 12 | Labor time logging per operation (worker + hours + cost) | DONE | timeLoggedMinutes + assignedTo on JobCard |
 | 13 | Work instructions / attachments per operation | TODO | |
-| 14 | BOM with operations/routing attached | TODO | Link routing to BOM, auto-create job cards on WO creation |
+| 14 | BOM with operations/routing attached | DONE | routingId on WorkOrder, `createJobCardsForWorkOrder()` |
 | 15 | Alternative work centers (fallback if primary at capacity) | TODO | |
 | 16 | Operation dependencies (predecessor/successor) | TODO | |
 
@@ -49,23 +49,23 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 17 | Quality inspection templates (parameters + acceptable ranges) | TODO | New entities: `qc_template`, `qc_parameter` |
-| 18 | IQC — Incoming quality control (inspect raw materials at receipt) | TODO | Trigger on GRN receive |
-| 19 | IPQC — In-process quality control (checkpoints between operations) | TODO | Trigger on job card completion |
-| 20 | OQC — Outgoing quality control (final inspection before shipment) | TODO | Trigger on FG receipt or before DC dispatch |
-| 21 | Inspection results recording (measured values, pass/fail, inspector) | TODO | New entity: `qc_inspection` with results |
+| 17 | Quality inspection templates (parameters + acceptable ranges) | DONE | `QcTemplate`, `QcParameter` entities, `QualityControlService` CRUD |
+| 18 | IQC — Incoming quality control (inspect raw materials at receipt) | DONE | `createInspection()` with inspectionType=INCOMING, referenceType/Id for GRN |
+| 19 | IPQC — In-process quality control (checkpoints between operations) | DONE | inspectionType=IN_PROCESS, referenceType=WORK_ORDER |
+| 20 | OQC — Outgoing quality control (final inspection before shipment) | DONE | inspectionType=OUTGOING |
+| 21 | Inspection results recording (measured values, pass/fail, inspector) | DONE | `QcInspection`, `QcInspectionResult`, `recordResults()` + `finalizeInspection()` |
 | 22 | Accept/reject/hold decision workflow | TODO | Quarantine stock on hold |
 | 23 | Non-conformance reports (NCR) with reason codes | TODO | |
 | 24 | Certificate of Analysis (CoA) generation per batch | TODO | Critical for pharma |
-| 25 | Batch-wise QC (track QC per production batch) | TODO | Link to existing batch tracking |
+| 25 | Batch-wise QC (track QC per production batch) | DONE | batchId field on QcInspection for per-batch tracking |
 
 ### 1.4 Scrap & Waste Management
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 26 | Scrap recording during production (qty + reason code) | TODO | Per operation or per work order |
-| 27 | Scrap reason codes (material defect, machine error, operator, tooling) | TODO | Reference table |
-| 28 | Scrap stock location / scrap accounting | TODO | Separate stock movement type |
+| 26 | Scrap recording during production (qty + reason code) | DONE | `ScrapService.recordScrap()` with PRODUCTION_SCRAP movement + WO totals |
+| 27 | Scrap reason codes (material defect, machine error, operator, tooling) | DONE | `ScrapReasonCode` entity, CRUD in `ScrapService` |
+| 28 | Scrap stock location / scrap accounting | DONE | PRODUCTION_SCRAP stock movement type, scrapQty/scrapCost on WorkOrder |
 | 29 | Yield tracking (input vs output ratio, actual vs expected) | TODO | |
 | 30 | BOM scrap/yield percentage (e.g., issue 105% for 5% expected waste) | TODO | Field on `bom_component` |
 | 31 | Material variance reporting (planned vs actual consumption) | TODO | |
@@ -74,8 +74,8 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 32 | Auto-create work orders from sales orders (MTO) | TODO | When SO has composite items, generate draft WO |
-| 33 | SO → WO linkage and traceability | TODO | `sales_order_id` on work_order |
+| 32 | Auto-create work orders from sales orders (MTO) | DONE | `createWorkOrdersFromSalesOrder()` finds composite items, creates WOs |
+| 33 | SO → WO linkage and traceability | DONE | `salesOrderId` on WorkOrder, auto-set by SO→WO flow |
 | 34 | Make-to-Order vs Make-to-Stock modes | TODO | Item-level or org-level setting |
 
 ---
@@ -220,7 +220,7 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 | Date | Items Completed | Total Done | Notes |
 |------|----------------|------------|-------|
 | 2026-06-06 | Phase 9 base: WO lifecycle, BOM explosion, issue/receive, costing, cancel | 13 | Initial Manufacturing-Lite |
-| | | | |
+| 2026-06-07 | Tier 1: Job work (7), routing/ops/job cards (5), QC (5), scrap (3), SO→WO (2) | 30 | V46 migration, 4 services, 41 new tests (417 total) |
 
 ---
 
@@ -228,7 +228,7 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 
 ### Database Migrations
 - V45: `work_order`, `work_order_line` (DONE)
-- V46: Next migration for new manufacturing tables (operations, workstations, job cards, QC, job work)
+- V46: 15 new tables (workstation, operation, routing, routing_operation, job_card, job_work_order, job_work_order_line, qc_template, qc_parameter, qc_inspection, qc_inspection_result, scrap_reason_code, production_scrap) + 5 ALTER TABLE on work_order + 20 indexes (DONE)
 
 ### Key Architecture Decisions
 - Job work reuses DC pattern for material transfer, PO pattern for processing charges
