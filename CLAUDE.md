@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V43**. Next new migration = V44.
+- Location: `src/main/resources/db/migration/`. Latest is **V48**. Next new migration = V49.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -79,6 +79,18 @@ cd flutter_app && flutter test
 
 ### ~~BUG-7: POS receipt tax split approximation~~ — FIXED (2026-06-04)
 - POS sales register now joins `hsn_gst_master` on `srl.hsn_code` to derive per-line GST rate. Tax computed arithmetically per line instead of equal-division across receipt lines. Handles intra/inter-state split.
+
+### ~~BUG-8: V42 van_stock_balance UNIQUE constraint uses COALESCE expression~~ — FIXED (2026-06-06)
+- PostgreSQL disallows expressions in table-level `UNIQUE()`. V42 fixed to use `CREATE UNIQUE INDEX` instead. V44 migration added as safety net for existing databases.
+
+### ~~BUG-9: FieldSalesController OPERATOR can access admin operations~~ — FIXED (2026-06-06)
+- Method-level `@PreAuthorize("hasAnyRole('OWNER','ADMIN')")` added to 21 admin endpoints: beat/route/van CRUD, customer assignment, assignments, van-transfers (load/confirm-load/return/confirm-return), day-close approve/reject, target create/update-achievement. Read-only, `/me`, visit action, and dashboard endpoints remain accessible to OPERATOR.
+
+### ~~BUG-10: Field visit actions lack salesperson ownership check~~ — FIXED (2026-06-06)
+- `ensureVisitOwnership()` added to checkIn, checkOut, skipVisit, recordVisitOrder, recordVisitCollection. Verifies `TenantContext.getCurrentUserId()` matches `RouteExecution.salespersonId`. Throws `FS_NOT_ASSIGNED_SALESPERSON` (403) if not.
+
+### ~~BUG-11: Payroll payment recording doesn't create journal entries~~ — FIXED (2026-06-06)
+- `recordPayment()` now posts DR Salary Payable / CR Payment Account via JournalService. `recordStatutoryPayment()` now posts DR {PF/ESI/PT/LWF/TDS} Payable / CR Payment Account. Both set `journalEntryId` on the payment entity.
 
 ### Previously reported as bugs but actually OK:
 - **Payment over-collection:** `PaymentService.java:97-102` DOES validate `amount > balanceDue` and throws `AR_PAYMENT_EXCEEDS_BALANCE`. This is correctly implemented.
@@ -211,12 +223,22 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Flutter screens (done):** Partner list (with tabs for all/pending + request dialog), catalog list (with unpublish), supplier search (with debounced search), outgoing orders, incoming orders, order detail (with lifecycle actions + event timeline). Routes and sidebar nav integrated, gated by `canUsePartnerNetwork`.
 - **Tests (done):** 11 tests in PartnerNetworkServiceTest — partnership CRUD, order lifecycle, access control.
 
-### Phase 9: Manufacturing-Lite
-**Goal:** Limited finished-goods / BOM extension. NOT full MRP.
-**Reference:** `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` (Phase 4)
-- Work orders, issue to production, finished goods completion
-- WIP tracking, production costing
-- Only after distributor workflows are fully stable
+### Phase 9: Manufacturing (Tier 1 COMPLETE — 2026-06-07)
+**Goal:** Production-ready manufacturing module. Coverage: 30/114 features (26%).
+**Reference:** `docs/MANUFACTURING_FEATURE_TRACKER.md` for full tracker with daily progress.
+- **V47 migration (done):** 2 tables (work_order, work_order_line) + 6 indexes.
+- **V48 migration (done):** 15 new tables (workstation, operation, routing, routing_operation, job_card, job_work_order, job_work_order_line, qc_template, qc_parameter, qc_inspection, qc_inspection_result, scrap_reason_code, production_scrap) + 5 ALTER TABLE on work_order + 20 indexes.
+- **Backend (done):** `com.katasticho.erp.manufacturing` — 15 entities, 14 repositories, 5 services (ManufacturingService, RoutingService, JobWorkService, QualityControlService, ScrapService), ManufacturingController (50+ endpoints at `/api/v1/manufacturing`). ModuleCode.MANUFACTURING added.
+- **Work order lifecycle (done):** DRAFT → IN_PROGRESS → COMPLETED (or CANCELLED). BOM explosion, issue to production, receive FG, SO→WO automation.
+- **Routing/Operations/Job Cards (done):** Workstation CRUD, Operation CRUD, Routing with ordered operations. Job cards created from routing, start/complete lifecycle with time tracking.
+- **Job Work (done):** Full lifecycle (DRAFT→SENT→PARTIALLY_RECEIVED→COMPLETED/CANCELLED). JOB_WORK_OUT/IN stock movements, wastage tracking, GST ITC-04 deadline alerts, cancel with reversal.
+- **Quality Control (done):** Templates with parameters, inspections (INCOMING/IN_PROCESS/OUTGOING), record results, finalize (PASSED/FAILED/PARTIAL).
+- **Scrap/Waste (done):** Reason codes, production scrap recording with PRODUCTION_SCRAP stock movements, WO scrap totals.
+- **SO→WO Automation (done):** `createWorkOrdersFromSalesOrder()` finds composite items in confirmed SO, creates linked draft WOs.
+- **Flutter screens (done):** Work order list/create/detail with lifecycle actions. Routes and sidebar nav integrated, gated by `canUseManufacturing`.
+- **Tests (done):** 53 manufacturing tests (ManufacturingServiceTest 15, RoutingServiceTest 9, JobWorkServiceTest 16, QualityControlServiceTest 8, ScrapServiceTest 5). 417 total tests pass.
+- **Tier 2 priorities (TODO):** BOM versioning, batch traceability in production, WIP journal entries, production reports (cost variance, consumption, WIP valuation), work order enhancements (priority, approval, disassembly), backflush mode.
+- **Tier 3 (DEFERRED):** MRP engine, Gantt scheduling, capacity planning, shop floor mobile, maintenance management, industry-specific (pharma BMR, food FSSAI, garment cut plans).
 
 ---
 
@@ -252,6 +274,11 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `inventory/service/StockCountServiceTest.java` — physical stock count (6 tests)
 - `inventory/service/TransferOrderServiceTest.java` — transfer orders (7 tests)
 - `inventory/service/PicklistServiceTest.java` — picklist generation (8 tests)
+- `manufacturing/service/ManufacturingServiceTest.java` — work order lifecycle + SO→WO (15 tests)
+- `manufacturing/service/RoutingServiceTest.java` — workstation/operation/routing/job card (9 tests)
+- `manufacturing/service/JobWorkServiceTest.java` — job work lifecycle (16 tests)
+- `manufacturing/service/QualityControlServiceTest.java` — QC templates/inspections (8 tests)
+- `manufacturing/service/ScrapServiceTest.java` — scrap recording (5 tests)
 - `reporting/service/DetailedReportService` — no test file (needs one)
 
 ## Existing Service Files (key ones)
@@ -274,6 +301,11 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `inventory/service/SerialNumberService.java` — serial number tracking (receive, assign to sale, damage, return)
 - `reporting/service/DetailedReportService.java` — cash flow, journal register, sales/purchase register, customer statement
 - `reporting/service/InventoryReportService.java` — stock summary, movements, low-stock alert
+- `manufacturing/service/ManufacturingService.java` — work order lifecycle (create, issue, receive, cancel, costs, SO→WO automation)
+- `manufacturing/service/RoutingService.java` — workstations, operations, routings, job cards (CRUD + lifecycle)
+- `manufacturing/service/JobWorkService.java` — job work orders (create, send, receive, cancel, GST deadline alerts)
+- `manufacturing/service/QualityControlService.java` — QC templates, inspections (create, record results, finalize)
+- `manufacturing/service/ScrapService.java` — scrap reason codes, production scrap recording
 
 ## Doc Files Index
 | Doc | Purpose | Read when |
@@ -289,3 +321,4 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 | `docs/PARTNER_NETWORK_MODULE_PLAN.md` | B2B ordering: data model, flows, 10 implementation phases | Phase 8 partner network |
 | `docs/WORKFLOW_CONTEXT_HINTS_PLAN.md` | Context hints: resolver, widget, hint text per vertical | Adding workflow hints |
 | `docs/plans/week-2-ap-module.md` | AP module spec (already implemented) | Debugging AP flows |
+| `docs/MANUFACTURING_FEATURE_TRACKER.md` | 101 missing features, prioritized tiers, daily progress log | Manufacturing work |

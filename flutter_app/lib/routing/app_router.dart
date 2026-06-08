@@ -155,6 +155,18 @@ import '../features/partner_network/presentation/supplier_search_screen.dart';
 import '../features/partner_network/presentation/outgoing_orders_screen.dart';
 import '../features/partner_network/presentation/incoming_orders_screen.dart';
 import '../features/partner_network/presentation/network_order_detail_screen.dart';
+import '../features/manufacturing/presentation/work_order_list_screen.dart';
+import '../features/manufacturing/presentation/work_order_create_screen.dart';
+import '../features/manufacturing/presentation/work_order_detail_screen.dart';
+import '../features/manufacturing/presentation/job_work_list_screen.dart';
+import '../features/manufacturing/presentation/job_work_create_screen.dart';
+import '../features/manufacturing/presentation/job_work_detail_screen.dart';
+import '../features/manufacturing/presentation/routing_list_screen.dart';
+import '../features/manufacturing/presentation/routing_create_screen.dart';
+import '../features/manufacturing/presentation/job_card_list_screen.dart';
+import '../features/manufacturing/presentation/qc_inspection_list_screen.dart';
+import '../features/manufacturing/presentation/qc_inspection_detail_screen.dart';
+import '../features/manufacturing/presentation/scrap_screen.dart';
 import '../features/workflow/presentation/workflow_settings_screen.dart';
 import 'shell_screen.dart';
 
@@ -335,6 +347,20 @@ class Routes {
   static const partnerNetworkOutgoingOrders = '/partner-network/outgoing-orders';
   static const partnerNetworkIncomingOrders = '/partner-network/incoming-orders';
   static const partnerNetworkOrderDetail = '/partner-network/orders/:id';
+
+  // Manufacturing
+  static const manufacturingWorkOrders = '/manufacturing/work-orders';
+  static const manufacturingWorkOrderCreate = '/manufacturing/work-orders/create';
+  static const manufacturingWorkOrderDetail = '/manufacturing/work-orders/:id';
+  static const manufacturingJobWork = '/manufacturing/job-work';
+  static const manufacturingJobWorkCreate = '/manufacturing/job-work/new';
+  static const manufacturingJobWorkDetail = '/manufacturing/job-work/:id';
+  static const manufacturingRoutings = '/manufacturing/routings';
+  static const manufacturingRoutingCreate = '/manufacturing/routings/create';
+  static const manufacturingJobCards = '/manufacturing/work-orders/:id/job-cards';
+  static const manufacturingQcInspections = '/manufacturing/qc/inspections';
+  static const manufacturingQcInspectionDetail = '/manufacturing/qc/inspections/:id';
+  static const manufacturingScrap = '/manufacturing/scrap';
 
   static const platformAdmin = '/platform-admin';
   static const platformAdminLogin = '/platform-admin/login';
@@ -1051,6 +1077,84 @@ final routerProvider = Provider<GoRouter>((ref) {
               return NetworkOrderDetailScreen(orderId: id);
             },
           ),
+          // Manufacturing
+          GoRoute(
+            path: Routes.manufacturingWorkOrders,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: WorkOrderListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.manufacturingWorkOrderCreate,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: WorkOrderCreateScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.manufacturingWorkOrderDetail,
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return WorkOrderDetailScreen(workOrderId: id);
+            },
+          ),
+          GoRoute(
+            path: Routes.manufacturingJobWork,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: JobWorkListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.manufacturingJobWorkCreate,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: JobWorkCreateScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.manufacturingJobWorkDetail,
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return JobWorkDetailScreen(jobWorkId: id);
+            },
+          ),
+          GoRoute(
+            path: Routes.manufacturingRoutings,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RoutingListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.manufacturingRoutingCreate,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RoutingCreateScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.manufacturingJobCards,
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              final woNum = state.uri.queryParameters['woNum'] ?? id;
+              return JobCardListScreen(workOrderId: id, workOrderNumber: woNum);
+            },
+          ),
+          GoRoute(
+            path: Routes.manufacturingQcInspections,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: QcInspectionListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.manufacturingQcInspectionDetail,
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return QcInspectionDetailScreen(inspectionId: id);
+            },
+          ),
+          GoRoute(
+            path: Routes.manufacturingScrap,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ScrapScreen(),
+            ),
+          ),
           // Pharma — Drug Licenses & Compliance
           GoRoute(
             path: Routes.drugLicenses,
@@ -1484,6 +1588,9 @@ String? _capabilityRedirectForLocation(
     return Routes.dashboard;
   }
   if (location.startsWith('/partner-network') && !capabilities.canUsePartnerNetwork) {
+    return Routes.dashboard;
+  }
+  if (location.startsWith('/manufacturing') && !capabilities.canUseManufacturing) {
     return Routes.dashboard;
   }
   return null;

@@ -518,6 +518,39 @@ const _partnerNetworkGroup = NavGroup(
   ],
 );
 
+const _manufacturingGroup = NavGroup(
+  label: 'Manufacturing',
+  icon: Icons.precision_manufacturing_outlined,
+  activeIcon: Icons.precision_manufacturing_rounded,
+  children: [
+    NavItem(
+        label: 'Work Orders',
+        icon: Icons.assignment_outlined,
+        activeIcon: Icons.assignment_rounded,
+        route: Routes.manufacturingWorkOrders),
+    NavItem(
+        label: 'Routings',
+        icon: Icons.route_outlined,
+        activeIcon: Icons.route_rounded,
+        route: Routes.manufacturingRoutings),
+    NavItem(
+        label: 'Job Work',
+        icon: Icons.handyman_outlined,
+        activeIcon: Icons.handyman_rounded,
+        route: Routes.manufacturingJobWork),
+    NavItem(
+        label: 'Quality Control',
+        icon: Icons.verified_outlined,
+        activeIcon: Icons.verified_rounded,
+        route: Routes.manufacturingQcInspections),
+    NavItem(
+        label: 'Scrap',
+        icon: Icons.delete_sweep_outlined,
+        activeIcon: Icons.delete_sweep_rounded,
+        route: Routes.manufacturingScrap),
+  ],
+);
+
 /// All groups for route-matching.
 const _allGroups = [
   _salesGroup,
@@ -528,6 +561,7 @@ const _allGroups = [
   _payrollGroup,
   _fieldSalesGroup,
   _partnerNetworkGroup,
+  _manufacturingGroup,
 ];
 
 /// Flat list of every route across top-level items and groups (for active-state matching).
@@ -944,6 +978,7 @@ List<Widget> _buildSidebarSections({
   final payrollGroup = _visibleGroup(_payrollGroup, capabilities);
   final fieldSalesGroup = _visibleGroup(_fieldSalesGroup, capabilities);
   final partnerNetworkGroup = _visibleGroup(_partnerNetworkGroup, capabilities);
+  final manufacturingGroup = _visibleGroup(_manufacturingGroup, capabilities);
 
   return [
     _SidebarNavItem(item: _dashboardNavItem, collapsed: collapsed),
@@ -974,6 +1009,8 @@ List<Widget> _buildSidebarSections({
       _SidebarNavGroup(group: fieldSalesGroup, collapsed: collapsed),
     if (!isViewer && partnerNetworkGroup != null)
       _SidebarNavGroup(group: partnerNetworkGroup, collapsed: collapsed),
+    if (!isViewer && manufacturingGroup != null)
+      _SidebarNavGroup(group: manufacturingGroup, collapsed: collapsed),
     KSpacing.vGapSm,
     if (!isOperator && !isViewer)
       _SidebarNavItem(item: _contactsNavItem, collapsed: collapsed),
@@ -1031,6 +1068,7 @@ bool _isNavItemVisible(String route, BusinessCapabilities capabilities) {
   }
   if (route.startsWith('/field-sales')) return capabilities.canUseFieldSales;
   if (route.startsWith('/partner-network')) return capabilities.canUsePartnerNetwork;
+  if (route.startsWith('/manufacturing')) return capabilities.canUseManufacturing;
   if (route == Routes.bankReconciliation) return capabilities.canUseBankRecon;
   if (route == '/accounting/dashboard' ||
       route == Routes.guidedTransactionCreate ||

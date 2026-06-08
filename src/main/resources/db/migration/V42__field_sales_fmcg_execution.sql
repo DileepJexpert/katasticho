@@ -96,6 +96,8 @@ CREATE TABLE van_stock_balance (
     last_movement_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE UNIQUE INDEX uq_van_stock_balance_org_van_item_batch
+    ON van_stock_balance(org_id, van_id, item_id, COALESCE(batch_id, '00000000-0000-0000-0000-000000000000'));
 
 CREATE UNIQUE INDEX uq_van_stock_balance_grain
     ON van_stock_balance (

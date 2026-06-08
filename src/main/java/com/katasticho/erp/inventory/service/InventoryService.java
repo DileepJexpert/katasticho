@@ -100,11 +100,12 @@ public class InventoryService {
 
         // Step 3b: batch-tracking invariant. Items with track_batches=true
         // should carry a batchId so per-batch balance stays consistent.
-        // For SALE movements we tolerate a missing batch — the POS FEFO
-        // auto-pick may find nothing, and blocking checkout is worse than
-        // recording an unbatched sale the operator can reconcile later.
+        // We tolerate missing batch for:
+        //  - SALE: POS FEFO auto-pick may find nothing; blocking checkout is worse
+        //  - Manufacturing types: batch selection in production is a Tier 2 feature;
+        //    blocking production for non-batch-aware WOs would break basic manufacturing
         if (item.isTrackBatches() && request.batchId() == null
-                && request.movementType() != MovementType.SALE) {
+                && !isBatchOptionalMovement(request.movementType())) {
             throw new BusinessException(
                     "Item " + item.getSku() + " has track_batches=true — batchId is required",
                     "INV_BATCH_REQUIRED", HttpStatus.BAD_REQUEST);
@@ -680,23 +681,31 @@ public class InventoryService {
     private void validateSign(MovementType type, BigDecimal qty) {
         boolean positive = qty.signum() > 0;
         switch (type) {
-            case PURCHASE, OPENING, RETURN_IN, TRANSFER_IN -> {
+            case PURCHASE, OPENING, RETURN_IN, TRANSFER_IN, PRODUCTION_RECEIVE, JOB_WORK_IN -> {
                 if (!positive) {
                     throw new BusinessException(
                             type + " movement must have positive quantity, got " + qty,
                             "INV_INVALID_SIGN", HttpStatus.BAD_REQUEST);
                 }
             }
-            case SALE, RETURN_OUT, TRANSFER_OUT -> {
+            case SALE, RETURN_OUT, TRANSFER_OUT, PRODUCTION_ISSUE, JOB_WORK_OUT -> {
                 if (positive) {
                     throw new BusinessException(
                             type + " movement must have negative quantity, got " + qty,
                             "INV_INVALID_SIGN", HttpStatus.BAD_REQUEST);
                 }
             }
-            case ADJUSTMENT, STOCK_COUNT, REVERSAL -> {
+            case ADJUSTMENT, STOCK_COUNT, REVERSAL, PRODUCTION_SCRAP -> {
                 // Either sign permitted.
             }
         }
+    }
+
+    private boolean isBatchOptionalMovement(MovementType type) {
+        return switch (type) {
+            case SALE, PRODUCTION_ISSUE, PRODUCTION_RECEIVE, PRODUCTION_SCRAP,
+                 JOB_WORK_OUT, JOB_WORK_IN, ADJUSTMENT -> true;
+            default -> false;
+        };
     }
 }
