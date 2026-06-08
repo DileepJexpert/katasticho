@@ -12,7 +12,7 @@ import java.util.UUID;
 @Repository
 public interface ProductionScrapRepository extends JpaRepository<ProductionScrap, UUID> {
 
-    List<ProductionScrap> findByWorkOrderIdAndIsDeletedFalse(UUID workOrderId);
+    List<ProductionScrap> findByWorkOrderIdAndOrgIdAndIsDeletedFalse(UUID workOrderId, UUID orgId);
 
     Page<ProductionScrap> findByOrgIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID orgId, Pageable pageable);
 }

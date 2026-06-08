@@ -11,7 +11,7 @@ import java.util.UUID;
 @Repository
 public interface JobCardRepository extends JpaRepository<JobCard, UUID> {
 
-    List<JobCard> findByWorkOrderIdAndIsDeletedFalseOrderBySequenceNumberAsc(UUID workOrderId);
+    List<JobCard> findByWorkOrderIdAndOrgIdAndIsDeletedFalseOrderBySequenceNumberAsc(UUID workOrderId, UUID orgId);
 
     Optional<JobCard> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 

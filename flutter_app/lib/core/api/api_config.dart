@@ -666,4 +666,39 @@ class ApiConfig {
   static String manufacturingWorkOrderReceive(String id) => '/api/v1/manufacturing/work-orders/$id/receive';
   static String manufacturingWorkOrderCosts(String id) => '/api/v1/manufacturing/work-orders/$id/costs';
   static String manufacturingWorkOrderCancel(String id) => '/api/v1/manufacturing/work-orders/$id/cancel';
+  static String manufacturingWorkOrderFromSo = '/api/v1/manufacturing/work-orders/from-sales-order';
+  static String manufacturingWorkOrderJobCards(String id) => '/api/v1/manufacturing/work-orders/$id/job-cards';
+  static String manufacturingWorkOrderScrap(String id) => '/api/v1/manufacturing/work-orders/$id/scrap';
+
+  // Manufacturing — Workstations & Operations & Routings
+  static const String manufacturingWorkstations = '/api/v1/manufacturing/workstations';
+  static String manufacturingWorkstationById(String id) => '/api/v1/manufacturing/workstations/$id';
+  static const String manufacturingOperations = '/api/v1/manufacturing/operations';
+  static String manufacturingOperationById(String id) => '/api/v1/manufacturing/operations/$id';
+  static const String manufacturingRoutings = '/api/v1/manufacturing/routings';
+  static String manufacturingRoutingById(String id) => '/api/v1/manufacturing/routings/$id';
+
+  // Manufacturing — Job Cards
+  static String manufacturingJobCardStart(String id) => '/api/v1/manufacturing/job-cards/$id/start';
+  static String manufacturingJobCardComplete(String id) => '/api/v1/manufacturing/job-cards/$id/complete';
+
+  // Manufacturing — Job Work
+  static const String manufacturingJobWork = '/api/v1/manufacturing/job-work';
+  static String manufacturingJobWorkById(String id) => '/api/v1/manufacturing/job-work/$id';
+  static String manufacturingJobWorkSend(String id) => '/api/v1/manufacturing/job-work/$id/send';
+  static String manufacturingJobWorkReceive(String id) => '/api/v1/manufacturing/job-work/$id/receive';
+  static String manufacturingJobWorkCancel(String id) => '/api/v1/manufacturing/job-work/$id/cancel';
+  static const String manufacturingJobWorkGstAlerts = '/api/v1/manufacturing/job-work/gst-alerts';
+
+  // Manufacturing — Quality Control
+  static const String manufacturingQcTemplates = '/api/v1/manufacturing/qc/templates';
+  static String manufacturingQcTemplateById(String id) => '/api/v1/manufacturing/qc/templates/$id';
+  static const String manufacturingQcInspections = '/api/v1/manufacturing/qc/inspections';
+  static String manufacturingQcInspectionById(String id) => '/api/v1/manufacturing/qc/inspections/$id';
+  static String manufacturingQcInspectionResults(String id) => '/api/v1/manufacturing/qc/inspections/$id/results';
+  static String manufacturingQcInspectionFinalize(String id) => '/api/v1/manufacturing/qc/inspections/$id/finalize';
+
+  // Manufacturing — Scrap
+  static const String manufacturingScrap = '/api/v1/manufacturing/scrap';
+  static const String manufacturingScrapReasonCodes = '/api/v1/manufacturing/scrap/reason-codes';
 }

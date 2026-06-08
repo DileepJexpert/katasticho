@@ -528,6 +528,26 @@ const _manufacturingGroup = NavGroup(
         icon: Icons.assignment_outlined,
         activeIcon: Icons.assignment_rounded,
         route: Routes.manufacturingWorkOrders),
+    NavItem(
+        label: 'Routings',
+        icon: Icons.route_outlined,
+        activeIcon: Icons.route_rounded,
+        route: Routes.manufacturingRoutings),
+    NavItem(
+        label: 'Job Work',
+        icon: Icons.handyman_outlined,
+        activeIcon: Icons.handyman_rounded,
+        route: Routes.manufacturingJobWork),
+    NavItem(
+        label: 'Quality Control',
+        icon: Icons.verified_outlined,
+        activeIcon: Icons.verified_rounded,
+        route: Routes.manufacturingQcInspections),
+    NavItem(
+        label: 'Scrap',
+        icon: Icons.delete_sweep_outlined,
+        activeIcon: Icons.delete_sweep_rounded,
+        route: Routes.manufacturingScrap),
   ],
 );
 

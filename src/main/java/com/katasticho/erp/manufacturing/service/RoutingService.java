@@ -177,7 +177,8 @@ public class RoutingService {
 
     @Transactional(readOnly = true)
     public List<JobCard> getJobCardsForWorkOrder(UUID workOrderId) {
-        return jobCardRepository.findByWorkOrderIdAndIsDeletedFalseOrderBySequenceNumberAsc(workOrderId);
+        return jobCardRepository.findByWorkOrderIdAndOrgIdAndIsDeletedFalseOrderBySequenceNumberAsc(
+                workOrderId, TenantContext.getCurrentOrgId());
     }
 
     @Transactional

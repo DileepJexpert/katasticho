@@ -119,7 +119,8 @@ public class ScrapService {
 
     @Transactional(readOnly = true)
     public List<ProductionScrap> getScrapForWorkOrder(UUID workOrderId) {
-        return scrapRepository.findByWorkOrderIdAndIsDeletedFalse(workOrderId);
+        return scrapRepository.findByWorkOrderIdAndOrgIdAndIsDeletedFalse(
+                workOrderId, TenantContext.getCurrentOrgId());
     }
 
     @Transactional(readOnly = true)
