@@ -86,6 +86,8 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
   static const _filters = ['PENDING', 'DEFERRED', 'ACCEPTED', 'ALL'];
 
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _entryController = TextEditingController();
+  bool _entryBusy = false;
   String _selectedStatus = 'PENDING';
   bool _isLoading = true;
   bool _isRefreshing = false;
@@ -110,7 +112,39 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
+    _entryController.dispose();
     super.dispose();
+  }
+
+  Future<void> _quickEntry() async {
+    final text = _entryController.text.trim();
+    if (text.isEmpty || _entryBusy) return;
+    setState(() => _entryBusy = true);
+    try {
+      final data = await ref.read(aiRepositoryProvider).draftEntry(text);
+      if (!mounted) return;
+      if (data['drafted'] == true) {
+        _entryController.clear();
+        final warnings = (data['warnings'] as List?) ?? const [];
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(warnings.isEmpty
+              ? 'Drafted — review and approve below.'
+              : 'Drafted with a note: ${warnings.first}'),
+        ));
+        await _load(reset: true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(data['message']?.toString() ?? 'Could not draft that.'),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Entry failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _entryBusy = false);
+    }
   }
 
   void _onScroll() {
@@ -218,6 +252,26 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
         await _load(reset: true);
         return;
       }
+      // Conversational entries post/delete via the entry endpoints.
+      if (item.suggestionType == 'DRAFT_ENTRY' && action == 'ACCEPT') {
+        final posted = await repo.approveEntryDraft(item.id);
+        if (!mounted) return;
+        final entryNumber = posted['narration']?.toString() ?? '';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(entryNumber.isEmpty ? 'Entry posted.' : 'Posted: $entryNumber')),
+        );
+        await _load(reset: true);
+        return;
+      }
+      if (item.suggestionType == 'DRAFT_ENTRY' && action == 'REJECT') {
+        await repo.rejectEntryDraft(item.id, reason: correctionReason);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Drafted entry discarded.')),
+        );
+        await _load(reset: true);
+        return;
+      }
       await repo.reviewSuggestion(
         item.id,
         action: action,
@@ -250,6 +304,59 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
     );
   }
 
+  Widget _buildQuickEntry() {
+    return KCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.bolt, size: 18, color: KColors.primary),
+              KSpacing.hGapXs,
+              Text('Quick entry', style: KTypography.labelLarge),
+            ],
+          ),
+          KSpacing.vGapXs,
+          Text(
+            'Type what happened — we draft the entry for you to approve.',
+            style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+          ),
+          KSpacing.vGapSm,
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _entryController,
+                  enabled: !_entryBusy,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _quickEntry(),
+                  decoration: const InputDecoration(
+                    hintText: 'e.g. paid 5000 cash for shop rent',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              KSpacing.hGapSm,
+              _entryBusy
+                  ? const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2)),
+                    )
+                  : IconButton.filled(
+                      onPressed: _quickEntry,
+                      icon: const Icon(Icons.send),
+                    ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -277,6 +384,8 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
                 const AiInboxSummary(pending: 0, highPriorityPending: 0),
             isRefreshing: _isRefreshing,
           ),
+          KSpacing.vGapMd,
+          _buildQuickEntry(),
           KSpacing.vGapMd,
           _AiFilterBar(
             selected: _selectedStatus,

@@ -84,6 +84,33 @@ class AiRepository {
     );
   }
 
+  /// Conversational entry: turn a sentence ("paid 5000 cash for shop rent")
+  /// into a DRAFT journal entry + AI Inbox suggestion. Returns the `data`
+  /// payload: `drafted`, `suggestionId`, `voucherType`, `lines`, `warnings`,
+  /// `message`.
+  Future<Map<String, dynamic>> draftEntry(String text) async {
+    final response = await _api.post(ApiConfig.aiEntry, data: {'text': text});
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
+  }
+
+  /// Approve a drafted entry — posts it through the journal gate.
+  Future<Map<String, dynamic>> approveEntryDraft(String suggestionId) async {
+    final response = await _api.post(ApiConfig.aiEntryApprove(suggestionId));
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
+  }
+
+  /// Reject a drafted entry — deletes the DRAFT.
+  Future<void> rejectEntryDraft(String suggestionId, {String? reason}) async {
+    await _api.post(
+      ApiConfig.aiEntryReject(suggestionId),
+      data: reason != null && reason.trim().isNotEmpty
+          ? {'reason': reason.trim()}
+          : null,
+    );
+  }
+
   Future<AiInboxSummary> getSuggestionSummary() async {
     final response = await _api.get(ApiConfig.aiSuggestionsSummary);
     final body = response.data as Map<String, dynamic>;

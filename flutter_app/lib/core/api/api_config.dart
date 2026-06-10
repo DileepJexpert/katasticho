@@ -314,6 +314,13 @@ class ApiConfig {
   static String aiBillDraftReject(String suggestionId) =>
       '/api/v1/ai/bill-drafts/$suggestionId/reject';
 
+  // Conversational entry ("type a sentence, get a drafted transaction")
+  static const String aiEntry = '/api/v1/ai/entry';
+  static String aiEntryApprove(String suggestionId) =>
+      '/api/v1/ai/entry/$suggestionId/approve';
+  static String aiEntryReject(String suggestionId) =>
+      '/api/v1/ai/entry/$suggestionId/reject';
+
   // Banking / reconciliation
   static const String bankingTransactions = '/api/v1/banking/transactions';
   static const String bankingImportCsv =
