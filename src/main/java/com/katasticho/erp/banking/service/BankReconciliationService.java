@@ -1,5 +1,12 @@
 package com.katasticho.erp.banking.service;
 
+import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
+import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
+import com.katasticho.erp.ap.dto.VendorPaymentRequest;
+import com.katasticho.erp.ap.dto.VendorPaymentResponse;
+import com.katasticho.erp.ap.entity.PurchaseBill;
+import com.katasticho.erp.ap.repository.PurchaseBillRepository;
+import com.katasticho.erp.ap.service.VendorPaymentService;
 import com.katasticho.erp.ar.dto.RecordPaymentRequest;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.entity.Payment;
@@ -13,6 +20,7 @@ import com.katasticho.erp.banking.entity.BankTransaction;
 import com.katasticho.erp.banking.entity.PaymentMatch;
 import com.katasticho.erp.banking.repository.BankTransactionRepository;
 import com.katasticho.erp.banking.repository.PaymentMatchRepository;
+import com.katasticho.erp.banking.service.BankStatementParser.ParsedBankRow;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.PagedResponse;
 import com.katasticho.erp.common.exception.BusinessException;
@@ -39,8 +47,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class BankReconciliationService {
 
-    private static final Pattern SPLIT_CSV_PATTERN =
-            Pattern.compile(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
     private static final Pattern UPI_VPA_PATTERN =
             Pattern.compile("(^|[^A-Za-z0-9._-])([A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9._-]{1,64})(?=$|[^A-Za-z0-9._-])");
     private static final Set<String> COMMON_EMAIL_DOMAINS = Set.of(
@@ -51,22 +57,34 @@ public class BankReconciliationService {
     private final BankTransactionRepository bankTransactionRepository;
     private final PaymentMatchRepository paymentMatchRepository;
     private final InvoiceRepository invoiceRepository;
+    private final PurchaseBillRepository purchaseBillRepository;
     private final ContactRepository contactRepository;
     private final PaymentService paymentService;
+    private final VendorPaymentService vendorPaymentService;
+    private final DefaultAccountService defaultAccountService;
+    private final BankStatementParser statementParser;
 
     @Transactional
     public BankTransactionImportResponse importCsv(ImportBankTransactionsRequest request) {
-        UUID orgId = requireOrgId();
-        List<CsvRow> rows = parseCsv(request.csvText());
+        return importRows(statementParser.parseText(request.csvText()));
+    }
 
+    /** Statement file upload (.csv/.xlsx) — header auto-detected, AI fallback for odd formats. */
+    @Transactional
+    public BankTransactionImportResponse importFile(String filename, byte[] bytes) {
+        return importRows(statementParser.parseFile(filename, bytes));
+    }
+
+    private BankTransactionImportResponse importRows(List<ParsedBankRow> rows) {
+        UUID orgId = requireOrgId();
         int skipped = 0;
         List<BankTransactionResponse> imported = new ArrayList<>();
 
-        for (CsvRow row : rows) {
-            if (row.utr() != null
-                    && !row.utr().isBlank()
+        for (ParsedBankRow row : rows) {
+            if (row.reference() != null
+                    && !row.reference().isBlank()
                     && bankTransactionRepository.existsByOrgIdAndUtrAndDirection(
-                            orgId, row.utr(), row.direction())) {
+                            orgId, row.reference(), row.direction())) {
                 skipped++;
                 continue;
             }
@@ -74,11 +92,11 @@ public class BankReconciliationService {
             BankTransaction transaction = bankTransactionRepository.save(
                     BankTransaction.builder()
                             .orgId(orgId)
-                            .transactionDate(row.transactionDate())
-                            .amount(row.amount())
+                            .transactionDate(row.date())
+                            .amount(row.amount().setScale(2, RoundingMode.HALF_UP))
                             .direction(row.direction())
                             .narration(row.narration())
-                            .utr(row.utr())
+                            .utr(row.reference())
                             .payerName(row.payerName())
                             .payerVpa(row.payerVpa())
                             .status("UNMATCHED")
@@ -95,6 +113,22 @@ public class BankReconciliationService {
         }
 
         return new BankTransactionImportResponse(imported.size(), skipped, imported);
+    }
+
+    /** Reconciliation health: counts per status + matched/unmatched value per side. */
+    @Transactional(readOnly = true)
+    public Map<String, Object> summary() {
+        UUID orgId = requireOrgId();
+        Map<String, Object> result = new LinkedHashMap<>();
+        for (String status : List.of("UNMATCHED", "SUGGESTED", "MATCHED", "IGNORED")) {
+            result.put(status.toLowerCase(Locale.ROOT),
+                    bankTransactionRepository.countByOrgIdAndStatus(orgId, status));
+        }
+        result.put("creditUnmatchedTotal", bankTransactionRepository
+                .sumAmountByOrgIdAndDirectionAndStatuses(orgId, "CREDIT", List.of("UNMATCHED", "SUGGESTED")));
+        result.put("debitUnmatchedTotal", bankTransactionRepository
+                .sumAmountByOrgIdAndDirectionAndStatuses(orgId, "DEBIT", List.of("UNMATCHED", "SUGGESTED")));
+        return result;
     }
 
     @Transactional(readOnly = true)
@@ -169,21 +203,41 @@ public class BankReconciliationService {
             );
         }
 
-        RecordPaymentRequest paymentRequest = new RecordPaymentRequest(
-                match.getInvoiceId(),
-                match.getContactId(),
-                transaction.getTransactionDate(),
-                match.getMatchedAmount(),
-                inferPaymentMethod(transaction),
-                firstNonBlank(transaction.getUtr(), transaction.getNarration()),
-                transaction.getPayerVpa(),
-                "Matched from imported bank transaction"
-        );
-
-        Payment payment = paymentService.recordPayment(paymentRequest);
+        UUID createdPaymentId;
+        if ("BILL".equals(match.getMatchType())) {
+            // Money out → record a vendor payment allocated to the matched bill.
+            VendorPaymentResponse vendorPayment = vendorPaymentService.recordPayment(new VendorPaymentRequest(
+                    match.getContactId(),
+                    match.getMatchedAmount(),
+                    inferPaymentMethod(transaction),
+                    transaction.getTransactionDate(),
+                    defaultAccountService.get(orgId, DefaultAccountPurpose.BANK).getId(),
+                    firstNonBlank(transaction.getUtr(), transaction.getNarration()),
+                    null,
+                    null,
+                    "Matched from imported bank transaction",
+                    null,
+                    List.of(new VendorPaymentRequest.AllocationRequest(
+                            match.getBillId(), match.getMatchedAmount()))
+            ));
+            createdPaymentId = vendorPayment.id();
+        } else {
+            // Money in → record an AR payment against the matched invoice.
+            Payment payment = paymentService.recordPayment(new RecordPaymentRequest(
+                    match.getInvoiceId(),
+                    match.getContactId(),
+                    transaction.getTransactionDate(),
+                    match.getMatchedAmount(),
+                    inferPaymentMethod(transaction),
+                    firstNonBlank(transaction.getUtr(), transaction.getNarration()),
+                    transaction.getPayerVpa(),
+                    "Matched from imported bank transaction"
+            ));
+            createdPaymentId = payment.getId();
+        }
 
         match.setMatchStatus("ACCEPTED");
-        match.setPaymentId(payment.getId());
+        match.setPaymentId(createdPaymentId);
         match.setAcceptedAt(Instant.now());
         match.setAcceptedBy(userId);
         paymentMatchRepository.save(match);
@@ -199,7 +253,7 @@ public class BankReconciliationService {
         paymentMatchRepository.saveAll(allMatches);
 
         transaction.setStatus("MATCHED");
-        transaction.setPaymentId(payment.getId());
+        transaction.setPaymentId(createdPaymentId);
         BankTransaction saved = bankTransactionRepository.save(transaction);
         return toResponse(saved, allMatches);
     }
@@ -236,6 +290,9 @@ public class BankReconciliationService {
     }
 
     private List<PaymentMatch> buildMatches(UUID orgId, BankTransaction transaction) {
+        if ("DEBIT".equalsIgnoreCase(transaction.getDirection())) {
+            return buildDebitMatches(orgId, transaction);
+        }
         if (!"CREDIT".equalsIgnoreCase(transaction.getDirection())) {
             return List.of();
         }
@@ -280,6 +337,82 @@ public class BankReconciliationService {
                         .matchStatus("SUGGESTED")
                         .build())
                 .toList();
+    }
+
+    /** Money out: score open purchase bills the debit could be paying. */
+    private List<PaymentMatch> buildDebitMatches(UUID orgId, BankTransaction transaction) {
+        BigDecimal txAmount = transaction.getAmount().setScale(2, RoundingMode.HALF_UP);
+        List<PurchaseBill> openBills = purchaseBillRepository.findOutstandingBillsForBankMatching(
+                orgId, txAmount, PageRequest.of(0, MAX_INVOICES_TO_SCORE));
+        if (openBills.isEmpty()) {
+            return List.of();
+        }
+
+        Set<UUID> contactIds = openBills.stream()
+                .map(PurchaseBill::getContactId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<UUID, Contact> contactMap = contactIds.isEmpty()
+                ? Map.of()
+                : contactRepository.findByOrgIdAndIsDeletedFalseAndIdIn(orgId, contactIds)
+                .stream()
+                .collect(Collectors.toMap(Contact::getId, contact -> contact));
+
+        String narration = normalize(transaction.getNarration());
+
+        return openBills.stream()
+                .map(bill -> scoreBillCandidate(bill, contactMap.get(bill.getContactId()), txAmount, narration))
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(BillCandidate::confidence).reversed())
+                .limit(3)
+                .map(candidate -> PaymentMatch.builder()
+                        .orgId(orgId)
+                        .bankTransactionId(transaction.getId())
+                        .matchType("BILL")
+                        .billId(candidate.bill().getId())
+                        .contactId(candidate.bill().getContactId())
+                        .matchedAmount(candidate.matchedAmount())
+                        .confidence(candidate.confidence())
+                        .matchStatus("SUGGESTED")
+                        .build())
+                .toList();
+    }
+
+    private BillCandidate scoreBillCandidate(
+            PurchaseBill bill,
+            Contact vendor,
+            BigDecimal txAmount,
+            String narration
+    ) {
+        BigDecimal balanceDue = scale(bill.getBalanceDue());
+        BigDecimal matchedAmount = txAmount.min(balanceDue);
+        BigDecimal score = BigDecimal.ZERO;
+
+        if (txAmount.compareTo(balanceDue) == 0) {
+            score = score.add(new BigDecimal("0.55"));
+        } else if (txAmount.compareTo(balanceDue) < 0) {
+            score = score.add(new BigDecimal("0.32"));
+        } else {
+            return null;
+        }
+
+        if (bill.getVendorBillNumber() != null
+                && !normalize(bill.getVendorBillNumber()).isBlank()
+                && narration.contains(normalize(bill.getVendorBillNumber()))) {
+            score = score.add(new BigDecimal("0.35"));
+        }
+        if (vendor != null) {
+            String name = normalize(vendor.getDisplayName());
+            if (!name.isBlank() && narration.contains(name)) {
+                score = score.add(new BigDecimal("0.25"));
+            }
+        }
+
+        score = score.min(BigDecimal.ONE).setScale(4, RoundingMode.HALF_UP);
+        if (score.compareTo(new BigDecimal("0.45")) < 0) {
+            return null;
+        }
+        return new BillCandidate(bill, matchedAmount, score);
     }
 
     private Candidate scoreCandidate(
@@ -357,112 +490,40 @@ public class BankReconciliationService {
                 .stream()
                 .collect(Collectors.toMap(Contact::getId, contact -> contact));
 
+        Map<UUID, PurchaseBill> billMap = matches.stream()
+                .map(PaymentMatch::getBillId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.collectingAndThen(Collectors.toList(), billIds -> {
+                    if (billIds.isEmpty()) {
+                        return Map.of();
+                    }
+                    return purchaseBillRepository.findAllById(billIds).stream()
+                            .filter(bill -> transaction.getOrgId().equals(bill.getOrgId()))
+                            .collect(Collectors.toMap(PurchaseBill::getId, bill -> bill, (left, right) -> left));
+                }));
+
         List<PaymentMatchResponse> matchResponses = matches.stream()
                 .map(match -> {
-                    Invoice invoice = invoiceMap.get(match.getInvoiceId());
                     Contact contact = contactMap.get(match.getContactId());
+                    String documentNumber;
+                    if ("BILL".equals(match.getMatchType())) {
+                        PurchaseBill bill = billMap.get(match.getBillId());
+                        documentNumber = bill != null
+                                ? firstNonBlank(bill.getVendorBillNumber(), bill.getBillNumber())
+                                : null;
+                    } else {
+                        Invoice invoice = invoiceMap.get(match.getInvoiceId());
+                        documentNumber = invoice != null ? invoice.getInvoiceNumber() : null;
+                    }
                     return PaymentMatchResponse.from(
                             match,
-                            invoice != null ? invoice.getInvoiceNumber() : null,
+                            documentNumber,
                             contact != null ? contact.getDisplayName() : null
                     );
                 })
                 .toList();
         return BankTransactionResponse.from(transaction, matchResponses);
-    }
-
-    private List<CsvRow> parseCsv(String csvText) {
-        List<String> lines = csvText.lines()
-                .map(String::trim)
-                .filter(line -> !line.isBlank())
-                .toList();
-        if (lines.size() < 2) {
-            throw new BusinessException(
-                    "CSV must include a header row and at least one transaction row",
-                    "BANK_RECON_INVALID_CSV"
-            );
-        }
-
-        Map<String, Integer> indexMap = headerIndex(lines.getFirst());
-        List<CsvRow> rows = new ArrayList<>();
-        for (int i = 1; i < lines.size(); i++) {
-            String[] cols = splitCsv(lines.get(i));
-            LocalDate date = parseDate(value(cols, indexMap, "date"));
-            BigDecimal rawAmount = new BigDecimal(value(cols, indexMap, "amount").replace(",", "").trim());
-            String direction = Optional.ofNullable(value(cols, indexMap, "direction"))
-                    .map(String::trim)
-                    .filter(s -> !s.isBlank())
-                    .map(String::toUpperCase)
-                    .orElse(rawAmount.signum() >= 0 ? "CREDIT" : "DEBIT");
-            rows.add(new CsvRow(
-                    date,
-                    rawAmount.abs().setScale(2, RoundingMode.HALF_UP),
-                    direction,
-                    value(cols, indexMap, "narration"),
-                    value(cols, indexMap, "utr"),
-                    value(cols, indexMap, "payername"),
-                    value(cols, indexMap, "payervpa")
-            ));
-        }
-        return rows;
-    }
-
-    private Map<String, Integer> headerIndex(String headerLine) {
-        String[] headers = splitCsv(headerLine);
-        Map<String, Integer> indexMap = new HashMap<>();
-        for (int i = 0; i < headers.length; i++) {
-            indexMap.put(normalizeHeader(headers[i]), i);
-        }
-        List<String> required = List.of("date", "amount", "narration");
-        for (String key : required) {
-            if (!indexMap.containsKey(key)) {
-                throw new BusinessException(
-                        "CSV header must include: date, amount, narration",
-                        "BANK_RECON_INVALID_HEADER"
-                );
-            }
-        }
-        return indexMap;
-    }
-
-    private String normalizeHeader(String value) {
-        return value == null ? "" : value.replaceAll("[^A-Za-z]", "").toLowerCase(Locale.ROOT);
-    }
-
-    private String[] splitCsv(String line) {
-        return Arrays.stream(SPLIT_CSV_PATTERN.split(line, -1))
-                .map(this::unquote)
-                .toArray(String[]::new);
-    }
-
-    private String unquote(String value) {
-        String trimmed = value == null ? "" : value.trim();
-        if (trimmed.startsWith("\"") && trimmed.endsWith("\"") && trimmed.length() >= 2) {
-            return trimmed.substring(1, trimmed.length() - 1).replace("\"\"", "\"");
-        }
-        return trimmed;
-    }
-
-    private String value(String[] cols, Map<String, Integer> indexMap, String key) {
-        Integer index = indexMap.get(key);
-        if (index == null || index >= cols.length) {
-            return null;
-        }
-        return cols[index];
-    }
-
-    private LocalDate parseDate(String value) {
-        if (value == null || value.isBlank()) {
-            throw new BusinessException("Transaction date is required", "BANK_RECON_INVALID_ROW");
-        }
-        List<String> patterns = List.of("yyyy-MM-dd", "dd/MM/yyyy", "MM/dd/yyyy");
-        for (String pattern : patterns) {
-            try {
-                return LocalDate.parse(value, java.time.format.DateTimeFormatter.ofPattern(pattern));
-            } catch (Exception ignored) {
-            }
-        }
-        throw new BusinessException("Unsupported date format: " + value, "BANK_RECON_INVALID_ROW");
     }
 
     private String normalize(String value) {
@@ -505,19 +566,15 @@ public class BankReconciliationService {
         return orgId;
     }
 
-    private record CsvRow(
-            LocalDate transactionDate,
-            BigDecimal amount,
-            String direction,
-            String narration,
-            String utr,
-            String payerName,
-            String payerVpa
+    private record Candidate(
+            Invoice invoice,
+            BigDecimal matchedAmount,
+            BigDecimal confidence
     ) {
     }
 
-    private record Candidate(
-            Invoice invoice,
+    private record BillCandidate(
+            PurchaseBill bill,
             BigDecimal matchedAmount,
             BigDecimal confidence
     ) {

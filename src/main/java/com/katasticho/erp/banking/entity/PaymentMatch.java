@@ -26,8 +26,16 @@ public class PaymentMatch {
     @Column(name = "bank_transaction_id", nullable = false)
     private UUID bankTransactionId;
 
+    /** INVOICE (credit/money-in) or BILL (debit/money-out). */
+    @Column(name = "match_type", nullable = false, length = 20)
+    @Builder.Default
+    private String matchType = "INVOICE";
+
     @Column(name = "invoice_id")
     private UUID invoiceId;
+
+    @Column(name = "bill_id")
+    private UUID billId;
 
     @Column(name = "contact_id")
     private UUID contactId;

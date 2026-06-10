@@ -314,6 +314,9 @@ class ApiConfig {
   static const String bankingTransactions = '/api/v1/banking/transactions';
   static const String bankingImportCsv =
       '/api/v1/banking/transactions/import-csv';
+  static const String bankingImportFile =
+      '/api/v1/banking/transactions/import-file';
+  static const String bankingSummary = '/api/v1/banking/summary';
   static String bankingRerunMatch(String id) =>
       '/api/v1/banking/transactions/$id/rerun-match';
   static String bankingIgnoreTransaction(String id) =>

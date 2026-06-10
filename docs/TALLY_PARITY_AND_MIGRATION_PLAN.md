@@ -67,7 +67,7 @@ Legend: ✅ have it · 🟡 partial · ❌ missing (backlog) · ➖ deliberately
 
 | Tally feature | Katasticho | Notes |
 |---|---|---|
-| Bank reconciliation (statement import + smart match) | 🟡 | Banking module exists; **AI statement parsing + auto-match is Phase E — next up** |
+| Bank reconciliation (statement import + smart match) | ✅ | Statement file upload (bank export as-is, header auto-detect + AI fallback), credit→invoice + debit→bill matching, accept records the payment (Phase E, 2026-06-10) |
 | Connected banking (live balance, pay from Tally via Axis/ICICI/SBI/Kotak) | ❌ | Long-term; needs bank partnerships/AA rails |
 | Cheque management | ➖ | Skip |
 | UPI collections | ✅ | UPI QR at POS + contact UPI IDs (Tally has nothing equivalent at POS) |
@@ -103,7 +103,7 @@ Legend: ✅ have it · 🟡 partial · ❌ missing (backlog) · ➖ deliberately
 | AI | ❌ in Tally | ✅ **bill scan→draft→post, AI inbox, NL queries, MCP/Claude** — Tally has nothing here |
 
 **Parity backlog (ordered by how often Tally users will hit the gap):**
-1. Bank statement import + auto-reconciliation (Phase E — already planned next)
+1. ~~Bank statement import + auto-reconciliation~~ ✅ shipped (Phase E, 2026-06-10)
 2. Landed cost on purchases
 3. TCS 206C(1H) + composition (CMP-08)
 4. Cost centres (field exists → UI + report)
@@ -211,7 +211,13 @@ Most SMBs migrate **masters + openings at FY start** and keep Tally read-only fo
 
 ## 4. Sequencing impact on the roadmap
 
-- **Now (this commit):** Tally Master XML importer (Slice 1) + this doc.
-- **Phase E (unchanged, next):** bank statement AI reconciliation — also closes Tally-parity gap #1.
-- **Then:** Tally voucher import (Slice 2) + TB verification (Slice 3) + Tally XML export (P9) as one "CA Bridge" package.
-- **Parity backlog** (§1 ordered list) feeds the normal roadmap; keyboard-parity UX runs as a continuous thread.
+The single execution queue lives in `docs/AI_FIRST_ACCOUNTING_PRODUCT_VISION.md`
+("Master execution queue") — Tally work is items 2, 3, 6 and 7 there:
+
+1. Phase E — bank statement AI reconciliation (also closes Tally-parity gap #1)
+2. Tally Slice 2 — Day Book voucher import
+3. Tally Slice 3 + P9 — TB verification + Tally XML export ("CA Bridge")
+4. Phase B — conversational entry
+5. Phase G — proactive agents
+6. Parity backlog (§1 ordered list), one item at a time
+7. Keyboard-parity UX as a continuous thread

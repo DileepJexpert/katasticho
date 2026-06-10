@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V51** (einvoice). Next new migration = V52.
+- Location: `src/main/resources/db/migration/`. Latest is **V52** (payment_match debit matching). Next new migration = V53.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -303,6 +303,8 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `gst/service/EInvoiceServiceTest.java` — B2B detect + suggestion, disabled/B2C/dupe skip, record IRN, INV-01 JSON shape (6 tests)
 - `tax/service/TdsServiceTest.java` — 194C single/aggregate thresholds, 194Q excess-only, missing rate skip, FY Apr–Mar, 26Q grouping (8 tests)
 - `migration/tally/TallyImportServiceTest.java` — Tally XML parse, subgroup→Sundry Debtors resolution, Dr/Cr sign normalization, duty-ledger skip, item opening stock+GST, rerun dedupe, SKU generation (7 tests)
+- `banking/service/BankStatementParserTest.java` — HDFC-style preamble+split columns, legacy format, month-name dates, AI fallback, Indian amount formats (5 tests)
+- `banking/service/BankReconciliationServiceTest.java` — credit→invoice suggest+accept (regression), debit→bill suggest, accept-bill→vendor payment with allocation (4 tests)
 - `reporting/service/DetailedReportService` — no test file (needs one)
 
 ## Existing Service Files (key ones)
@@ -339,6 +341,8 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `gst/service/EInvoiceService.java` — **e-invoice (IRN)**: `gst.einvoice_enabled` org setting; INVOICE_POSTED handler flags posted B2B invoices (buyer GSTIN) → PENDING + suggestion. IRP INV-01 v1.1 JSON per invoice; record IRN/Ack/signed QR; cancel. V51 `einvoice`. `/api/v1/gst/einvoices`.
 - `tax/service/TdsService.java` — **TDS auto-deduction** on vendor bills via vendor master (tdsApplicable/section/rate) with section thresholds (194C 30k/1L, 194J 30k, 194H 20k, 194I 2.4L, 194A 5k, 194Q 50L excess-only). Base = subtotal (excl GST), FY Apr–Mar. Wired into PurchaseBillService create/update; balanceDue = total − TDS. Form 26Q + register @ `/api/v1/tds/26q|/register`.
 - `migration/tally/TallyImportService.java` — **Tally Masters XML import** (slice 1): GROUP-hierarchy-aware classification (Sundry Debtors→CUSTOMER, Creditors→VENDOR, BS/P&L groups→Account types, Duties & Taxes→skip), stock items→Items with opening stock via `ItemService.createItem`. Tally sign convention (negative=Dr) normalized. Two-phase preview/import, dedupe-safe rerun. `/api/v1/migration/tally/preview|/import` (multipart, OWNER/ADMIN). Flutter: Settings → Migrate from Tally. See `docs/TALLY_PARITY_AND_MIGRATION_PLAN.md`.
+- `banking/service/BankStatementParser.java` — **real bank statement parsing** (Phase E): .csv/.xlsx upload or pasted text, header auto-detected in first 25 rows (preamble-safe), fuzzy columns (Txn/Value Date, Withdrawal/Deposit, Particulars, Chq/Ref/UTR), Indian amounts (`1,15,000.00`, ₹, Cr/Dr), AI fallback via ClaudeApiClient when no header (tokens → ai_usage_log).
+- `banking/service/BankReconciliationService.java` — CREDIT→outstanding invoices AND **DEBIT→open vendor bills** matching (V52: payment_match.match_type/bill_id). Accept records AR payment or **vendor payment** (allocated to bill, paid via default BANK account). `POST /banking/transactions/import-file`, `GET /banking/summary`.
 - **`mcp/`** (TypeScript, not Java) — **MCP server** so Claude Desktop / agents can run the books via the REST API using an API key. Tools: ask, list_bills, list_invoices, list_ai_inbox, draft_bill, approve_bill_draft, reject_bill_draft. `mcp/README.md` has Claude Desktop setup. Drafts-only-until-approved.
 
 ## Doc Files Index

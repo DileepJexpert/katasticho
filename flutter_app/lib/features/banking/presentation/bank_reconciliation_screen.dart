@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -109,6 +110,47 @@ class _BankReconciliationScreenState
     }
   }
 
+  /// Upload the bank's own statement export (.csv/.xlsx) — no reformatting
+  /// needed; the backend finds the header and falls back to AI if it can't.
+  Future<void> _importStatementFile() async {
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv', 'xlsx', 'xls', 'txt'],
+      withData: true,
+    );
+    if (picked == null || picked.files.isEmpty || !mounted) return;
+    final file = picked.files.first;
+    final bytes = file.bytes;
+    if (bytes == null) return;
+
+    setState(() => _isImporting = true);
+    try {
+      final response = await ref
+          .read(bankReconciliationRepositoryProvider)
+          .importFile(bytes.toList(), file.name);
+      final data =
+          Map<String, dynamic>.from((response['data'] as Map?) ?? const {});
+      final imported = (data['imported'] as num?)?.toInt() ?? 0;
+      final skipped = (data['skipped'] as num?)?.toInt() ?? 0;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text('Imported $imported transaction(s), skipped $skipped.')),
+      );
+      await _loadTransactions();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Import failed: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isImporting = false);
+      }
+    }
+  }
+
   Future<void> _acceptMatch(String matchId) async {
     try {
       await ref.read(bankReconciliationRepositoryProvider).acceptMatch(matchId);
@@ -193,6 +235,7 @@ class _BankReconciliationScreenState
               controller: _csvController,
               isImporting: _isImporting,
               onImport: _importCsv,
+              onUploadFile: _importStatementFile,
             ),
             KSpacing.vGapMd,
             _FilterBar(
@@ -372,11 +415,13 @@ class _ImportCard extends StatelessWidget {
   final TextEditingController controller;
   final bool isImporting;
   final VoidCallback onImport;
+  final VoidCallback onUploadFile;
 
   const _ImportCard({
     required this.controller,
     required this.isImporting,
     required this.onImport,
+    required this.onUploadFile,
   });
 
   @override
@@ -384,9 +429,27 @@ class _ImportCard extends StatelessWidget {
     return KCard(
       title: 'Import bank / UPI statement',
       subtitle:
-          'Paste CSV rows with date, amount, direction, narration, utr, payerName, payerVpa.',
+          'Upload your bank\'s statement export as-is (CSV/Excel) — the header is '
+          'detected automatically, with AI fallback for odd formats. Or paste rows below.',
       child: Column(
         children: [
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: isImporting ? null : onUploadFile,
+              icon: isImporting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.upload_file),
+              label: Text(isImporting
+                  ? 'Importing...'
+                  : 'Upload statement file (.csv / .xlsx)'),
+            ),
+          ),
+          KSpacing.vGapMd,
           TextField(
             controller: controller,
             minLines: 5,
@@ -394,7 +457,7 @@ class _ImportCard extends StatelessWidget {
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
               hintText:
-                  'date,amount,direction,narration,utr,payerName,payerVpa',
+                  'Or paste statement rows here (any bank format works)',
             ),
           ),
           KSpacing.vGapMd,
@@ -402,23 +465,18 @@ class _ImportCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'This MVP supports pasted CSV so you can test without bank feed integration.',
+                  'Credits match outstanding invoices; debits match open vendor bills. '
+                  'Accepting a match records the payment automatically.',
                   style: KTypography.bodySmall.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
               KSpacing.hGapSm,
-              FilledButton.icon(
+              OutlinedButton.icon(
                 onPressed: isImporting ? null : onImport,
-                icon: isImporting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.upload_file_outlined),
-                label: Text(isImporting ? 'Importing...' : 'Import'),
+                icon: const Icon(Icons.content_paste_go, size: 18),
+                label: const Text('Import pasted'),
               ),
             ],
           ),
@@ -574,7 +632,7 @@ class _TransactionCard extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '${match['invoiceNumber'] ?? 'Unknown invoice'} • ${match['contactName'] ?? 'Unknown contact'}',
+                                    '${match['matchType'] == 'BILL' ? 'Bill ' : ''}${match['documentNumber'] ?? match['invoiceNumber'] ?? 'Unknown document'} • ${match['contactName'] ?? 'Unknown contact'}',
                                     style: KTypography.labelLarge,
                                   ),
                                   KSpacing.vGapXs,

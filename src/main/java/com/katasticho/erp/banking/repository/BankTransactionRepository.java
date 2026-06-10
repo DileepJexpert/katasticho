@@ -4,7 +4,9 @@ import com.katasticho.erp.banking.entity.BankTransaction;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.time.LocalDate;
 import java.util.List;
@@ -25,4 +27,15 @@ public interface BankTransactionRepository extends JpaRepository<BankTransaction
     boolean existsByOrgIdAndUtrAndDirection(UUID orgId, String utr, String direction);
 
     long countByOrgIdAndStatusAndTransactionDateBefore(UUID orgId, String status, LocalDate date);
+
+    long countByOrgIdAndStatus(UUID orgId, String status);
+
+    @Query("""
+        SELECT COALESCE(SUM(t.amount), 0) FROM BankTransaction t
+        WHERE t.orgId = :orgId
+          AND t.direction = :direction
+          AND t.status IN :statuses
+    """)
+    BigDecimal sumAmountByOrgIdAndDirectionAndStatuses(
+            UUID orgId, String direction, Collection<String> statuses);
 }

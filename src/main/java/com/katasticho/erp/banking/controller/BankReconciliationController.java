@@ -8,13 +8,19 @@ import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
+import com.katasticho.erp.common.exception.BusinessException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -30,6 +36,31 @@ public class BankReconciliationController {
     public ResponseEntity<ApiResponse<BankTransactionImportResponse>> importCsv(
             @Valid @RequestBody ImportBankTransactionsRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(bankReconciliationService.importCsv(request)));
+    }
+
+    /** Upload the bank's statement export (.csv/.xlsx) — header auto-detected, AI fallback. */
+    @PostMapping(value = "/transactions/import-file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<BankTransactionImportResponse>> importFile(
+            @RequestParam("file") MultipartFile file) {
+        try {
+            if (file == null || file.isEmpty()) {
+                throw new BusinessException("Upload your bank's statement export (.csv or .xlsx)",
+                        "BANK_STATEMENT_FILE_REQUIRED", HttpStatus.BAD_REQUEST);
+            }
+            return ResponseEntity.ok(ApiResponse.ok(
+                    bankReconciliationService.importFile(file.getOriginalFilename(), file.getBytes()),
+                    "Statement imported"));
+        } catch (IOException e) {
+            throw new BusinessException("Could not read the uploaded file",
+                    "BANK_STATEMENT_FILE_UNREADABLE", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @GetMapping("/summary")
+    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> summary() {
+        return ResponseEntity.ok(ApiResponse.ok(bankReconciliationService.summary()));
     }
 
     @GetMapping("/transactions")

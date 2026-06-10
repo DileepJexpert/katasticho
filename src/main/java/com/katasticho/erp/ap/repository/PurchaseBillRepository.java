@@ -103,6 +103,18 @@ public interface PurchaseBillRepository extends JpaRepository<PurchaseBill, UUID
     """)
     List<PurchaseBill> findPostedByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
 
+    /** Open bills a debit bank transaction could be paying — bank reconciliation. */
+    @Query("""
+        SELECT b FROM PurchaseBill b
+        WHERE b.orgId = :orgId
+          AND b.isDeleted = false
+          AND b.status IN ('OPEN','PARTIALLY_PAID','OVERDUE')
+          AND b.balanceDue >= :amount
+        ORDER BY b.dueDate ASC
+    """)
+    List<PurchaseBill> findOutstandingBillsForBankMatching(
+            UUID orgId, BigDecimal amount, org.springframework.data.domain.Pageable pageable);
+
     /** Vendor's posted taxable turnover in a range — TDS fiscal-year thresholds. */
     @Query("""
         SELECT COALESCE(SUM(b.subtotal), 0) FROM PurchaseBill b

@@ -1,5 +1,15 @@
 package com.katasticho.erp.banking.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
+import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
+import com.katasticho.erp.accounting.entity.Account;
+import com.katasticho.erp.ai.service.ClaudeApiClient;
+import com.katasticho.erp.ap.dto.VendorPaymentRequest;
+import com.katasticho.erp.ap.dto.VendorPaymentResponse;
+import com.katasticho.erp.ap.entity.PurchaseBill;
+import com.katasticho.erp.ap.repository.PurchaseBillRepository;
+import com.katasticho.erp.ap.service.VendorPaymentService;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.entity.Payment;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
@@ -39,8 +49,12 @@ class BankReconciliationServiceTest {
     @Mock private BankTransactionRepository bankTransactionRepository;
     @Mock private PaymentMatchRepository paymentMatchRepository;
     @Mock private InvoiceRepository invoiceRepository;
+    @Mock private PurchaseBillRepository purchaseBillRepository;
     @Mock private ContactRepository contactRepository;
     @Mock private PaymentService paymentService;
+    @Mock private VendorPaymentService vendorPaymentService;
+    @Mock private DefaultAccountService defaultAccountService;
+    @Mock private ClaudeApiClient claudeApiClient;
 
     private BankReconciliationService service;
     private UUID orgId;
@@ -52,8 +66,12 @@ class BankReconciliationServiceTest {
                 bankTransactionRepository,
                 paymentMatchRepository,
                 invoiceRepository,
+                purchaseBillRepository,
                 contactRepository,
-                paymentService
+                paymentService,
+                vendorPaymentService,
+                defaultAccountService,
+                new BankStatementParser(claudeApiClient, new ObjectMapper())
         );
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
@@ -194,5 +212,144 @@ class BankReconciliationServiceTest {
         assertEquals(invoiceId, captor.getValue().invoiceId());
         assertEquals("UPI", captor.getValue().paymentMethod());
         assertEquals("UTR-789", captor.getValue().referenceNumber());
+    }
+
+    // ── Debit side (vendor bills) — Phase E ─────────────────────────────
+
+    @Test
+    void importCsv_debitTransactionSuggestsOpenBillMatch() {
+        UUID billId = UUID.randomUUID();
+        UUID vendorId = UUID.randomUUID();
+
+        PurchaseBill bill = PurchaseBill.builder()
+                .id(billId)
+                .orgId(orgId)
+                .contactId(vendorId)
+                .billNumber("BILL-2026-0009")
+                .vendorBillNumber("INV-77")
+                .billDate(LocalDate.of(2026, 4, 1))
+                .totalAmount(new BigDecimal("22000.00"))
+                .balanceDue(new BigDecimal("22000.00"))
+                .status("OPEN")
+                .build();
+
+        Contact vendor = Contact.builder().displayName("ABC Pharma Supplies").build();
+        vendor.setId(vendorId);
+
+        when(bankTransactionRepository.existsByOrgIdAndUtrAndDirection(any(), any(), any()))
+                .thenReturn(false);
+        when(purchaseBillRepository.findOutstandingBillsForBankMatching(
+                eq(orgId), eq(new BigDecimal("22000.00")), any(Pageable.class)))
+                .thenReturn(List.of(bill));
+        when(purchaseBillRepository.findAllById(any())).thenReturn(List.of(bill));
+        when(contactRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), any()))
+                .thenReturn(List.of(vendor));
+        when(bankTransactionRepository.save(any(BankTransaction.class))).thenAnswer(inv -> {
+            BankTransaction tx = inv.getArgument(0);
+            if (tx.getId() == null) tx.setId(UUID.randomUUID());
+            if (tx.getCreatedAt() == null) tx.setCreatedAt(Instant.now());
+            return tx;
+        });
+        when(paymentMatchRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        String csv = """
+                date,amount,direction,narration,utr
+                2026-04-05,22000,DEBIT,NEFT-ABC PHARMA SUPPLIES-INV-77,NEFT000123
+                """;
+
+        BankTransactionImportResponse response = service.importCsv(new ImportBankTransactionsRequest(csv));
+
+        assertEquals(1, response.transactions().size());
+        var tx = response.transactions().getFirst();
+        assertEquals("SUGGESTED", tx.status());
+        assertEquals(1, tx.suggestedMatches().size());
+        var match = tx.suggestedMatches().getFirst();
+        assertEquals("BILL", match.matchType());
+        assertEquals(billId, match.billId());
+        assertEquals("INV-77", match.documentNumber());
+        // Exact amount + vendor bill number + vendor name in narration → high confidence.
+        assertTrue(match.confidence().compareTo(new BigDecimal("0.9")) > 0);
+    }
+
+    @Test
+    void acceptMatch_billMatchRecordsVendorPayment() {
+        UUID transactionId = UUID.randomUUID();
+        UUID matchId = UUID.randomUUID();
+        UUID billId = UUID.randomUUID();
+        UUID vendorId = UUID.randomUUID();
+        UUID bankAccountId = UUID.randomUUID();
+        UUID vendorPaymentId = UUID.randomUUID();
+
+        BankTransaction transaction = BankTransaction.builder()
+                .orgId(orgId)
+                .transactionDate(LocalDate.of(2026, 4, 5))
+                .amount(new BigDecimal("22000.00"))
+                .direction("DEBIT")
+                .narration("NEFT-ABC PHARMA")
+                .utr("NEFT000123")
+                .status("SUGGESTED")
+                .build();
+        transaction.setId(transactionId);
+        transaction.setCreatedAt(Instant.now());
+
+        PaymentMatch match = PaymentMatch.builder()
+                .orgId(orgId)
+                .bankTransactionId(transactionId)
+                .matchType("BILL")
+                .billId(billId)
+                .contactId(vendorId)
+                .matchedAmount(new BigDecimal("22000.00"))
+                .confidence(new BigDecimal("0.9500"))
+                .matchStatus("SUGGESTED")
+                .build();
+        match.setId(matchId);
+
+        PurchaseBill bill = PurchaseBill.builder()
+                .id(billId).orgId(orgId).contactId(vendorId)
+                .billNumber("BILL-2026-0009").vendorBillNumber("INV-77")
+                .billDate(LocalDate.of(2026, 4, 1))
+                .totalAmount(new BigDecimal("22000.00"))
+                .balanceDue(new BigDecimal("22000.00"))
+                .status("OPEN").build();
+
+        Contact vendor = Contact.builder().displayName("ABC Pharma Supplies").build();
+        vendor.setId(vendorId);
+
+        Account bankAccount = Account.builder()
+                .code("1020").name("Bank Account").type("ASSET").build();
+        bankAccount.setId(bankAccountId);
+
+        VendorPaymentResponse vendorPayment = mock(VendorPaymentResponse.class);
+        when(vendorPayment.id()).thenReturn(vendorPaymentId);
+
+        when(paymentMatchRepository.findByIdAndOrgId(matchId, orgId)).thenReturn(Optional.of(match));
+        when(bankTransactionRepository.findByIdAndOrgId(transactionId, orgId)).thenReturn(Optional.of(transaction));
+        when(defaultAccountService.get(orgId, DefaultAccountPurpose.BANK)).thenReturn(bankAccount);
+        when(vendorPaymentService.recordPayment(any(VendorPaymentRequest.class))).thenReturn(vendorPayment);
+        when(paymentMatchRepository.findByOrgIdAndBankTransactionIdOrderByConfidenceDesc(orgId, transactionId))
+                .thenReturn(List.of(match));
+        when(purchaseBillRepository.findAllById(any())).thenReturn(List.of(bill));
+        when(contactRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), any()))
+                .thenReturn(List.of(vendor));
+        when(bankTransactionRepository.save(any(BankTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentMatchRepository.save(any(PaymentMatch.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentMatchRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        var response = service.acceptMatch(matchId);
+
+        ArgumentCaptor<VendorPaymentRequest> captor = ArgumentCaptor.forClass(VendorPaymentRequest.class);
+        verify(vendorPaymentService).recordPayment(captor.capture());
+        VendorPaymentRequest req = captor.getValue();
+        assertEquals(vendorId, req.contactId());
+        assertEquals(0, req.amount().compareTo(new BigDecimal("22000.00")));
+        assertEquals(bankAccountId, req.paidThroughId());
+        assertEquals(1, req.allocations().size());
+        assertEquals(billId, req.allocations().getFirst().billId());
+
+        assertEquals("MATCHED", response.status());
+        assertEquals(vendorPaymentId, response.paymentId());
+        assertEquals("ACCEPTED", match.getMatchStatus());
+        assertEquals(vendorPaymentId, match.getPaymentId());
+        verify(paymentService, never()).recordPayment(any());
     }
 }

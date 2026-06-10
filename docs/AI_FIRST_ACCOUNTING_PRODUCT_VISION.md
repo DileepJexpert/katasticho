@@ -246,11 +246,17 @@ Sized so one person + Claude ships each phase. Don't skip ahead — each builds 
 - **DoD met:** "Your GSTR-1 is ready; 3 ITC mismatches need attention" — mismatches land in the AI Inbox with drill-down; e-way mandate enforced proactively.
 - **Follow-ups:** GSP/NIC API integration for direct filing + EWB generation (vs JSON handoff), B2CL section in GSTR-1, 2B auto-fetch via GSP, dedupe suggestions on re-upload, e-invoice/IRN (rest of Phase F).
 
-### Phase E — Bank reconciliation (AI statement parsing)
+### Phase E — Bank reconciliation (AI statement parsing) ✅ DONE (2026-06-10)
 **Goal:** Upload statement → auto-matched → review only exceptions.
-- Extend vision/parse pipeline to bank statements (track tokens in `ai_usage_log`, like Campfire).
-- Auto-match by amount+date+narration → `ai_suggestion` matches; approval workflow on the recon (reuse `ApprovalWorkflowService`).
-- **DoD:** A month's statement reconciles with the human touching only unmatched lines.
+- **Found existing:** `BankReconciliationService` already did CSV-paste import + CREDIT-side invoice matching with confidence scoring + accept→AR-payment. Phase E filled the real gaps:
+- **`BankStatementParser`** — real bank exports (.csv/.xlsx upload or pasted text): header auto-detected anywhere in the first 25 rows (banks put account preambles above it), fuzzy column mapping (Txn/Value Date, Narration/Particulars, Withdrawal/Deposit or single Amount, Chq./Ref/UTR), Indian formats (`1,15,000.00`, `₹`, `Cr/Dr` suffixes, `dd-MMM-yy`). **AI fallback** via `ClaudeApiClient.sendMessage` (strict-JSON extraction) when no header is found — tokens land in `ai_usage_log` automatically (the Campfire pattern). `POST /banking/transactions/import-file`.
+- **DEBIT-side matching** — outgoing transactions now match **open vendor bills** (amount vs balance due, vendor bill number + vendor name in narration). Accepting a BILL match records a **vendor payment** (allocated to the bill, paid through the default BANK account) — mirror of the credit side. V52: `payment_match.match_type` + `bill_id`.
+- **Recon summary** — `GET /banking/summary`: counts per status + unmatched value per side.
+- **Flutter:** statement **file upload** button (bank's export as-is), updated import card copy, bill matches rendered with document numbers.
+- **Design decision:** match review lives in the banking screen's SUGGESTED queue (its own review surface) — no duplicate `ai_suggestion` rows; the approval-workflow tie-in stays optional/deferred.
+- **Tests:** 9 (parser 5: HDFC-style preamble+split columns, legacy format, month-name dates, AI fallback, Indian amounts; service 4: credit regression ×2, debit→bill suggest, accept-bill→vendor payment). **Full suite 471 green.**
+- **DoD met:** a month's statement uploads as-is; credits and debits both auto-match; the human touches only exceptions. (Also closes Tally parity gap #1.)
+- **Follow-ups:** PDF statements via vision router, bank feeds/AA rails (long-term), multi-bank-account tagging on transactions, recon approval workflow.
 
 ### Phase F — e-Invoice (IRN) + e-Way bill + TDS ✅ DONE (2026-06-10)
 **Goal:** Full statutory document generation. (e-Way bills shipped early in Phase D.)
@@ -269,7 +275,21 @@ Sized so one person + Claude ships each phase. Don't skip ahead — each builds 
 - Webhooks + OpenAPI SDK polish.
 - **DoD:** "3 things need you before month close" lands proactively, each with a ready-to-approve action.
 
-**Parked (revisit after A–G):** multi-currency, revenue recognition, multi-entity consolidation, push notifications (P5), Hindi i18n (P3). Tally export (P9) folds into Phase D.
+**Parked (revisit after the queue below):** multi-currency depth, revenue recognition, multi-entity consolidation, push notifications (P5), Hindi i18n (P3).
+
+### Master execution queue (2026-06-10 — work top to bottom)
+
+Status: A ✅ · C ✅ · D ✅ (incl. e-way) · F ✅ (e-invoice + TDS) · Tally slice 1 ✅.
+
+| # | Work item | Why this order | Status |
+|---|-----------|----------------|--------|
+| 1 | **Phase E — AI bank reconciliation** (statement file import + AI parse fallback, debit-side bill matching, recon summary) | Vision Phase E **and** Tally parity gap #1 — one build closed both | ✅ DONE 2026-06-10 |
+| 2 | **Tally slice 2 — Day Book voucher import** (Sales→invoices, Purchase→bills, Receipt/Payment→payments, Journal/Contra→journals) | Completes migration for mid-year switchers; builds directly on slice 1 | TODO |
+| 3 | **Tally slice 3 + P9 — "CA Bridge"** (our TB vs Tally TB verification report + monthly Tally-importable XML export) | Kills the #1 switching objection ("my CA only takes Tally") | TODO |
+| 4 | **Phase B — conversational entry** (command bar everywhere: sentence → drafted txn via `draft_*`; query path already exists) | AI-first front door; reuses Phase A drafting + NlpQueryService | TODO |
+| 5 | **Phase G — proactive agents** (month-close checklist, anomaly sweep, collections reminders w/ drafts) + webhooks/OpenAPI polish | The "system tells you first" promise | TODO |
+| 6 | **Tally parity backlog** (doc §1 order): landed cost → TCS 206C(1H) + composition CMP-08 → cost centres UI → interest on overdue → budgets → FIFO valuation → stock ageing → GSP direct IRP/EWB APIs → WhatsApp docs → ratio analysis → post-dated vouchers | Steady parity grind; each item small and independent | TODO |
+| 7 | **Keyboard-parity UX program** (global command bar `Ctrl+K`, Enter-driven billing, never-touch-the-mouse voucher entry) | Wins the Tally operator, not just the owner — runs as a continuous thread alongside 4 | TODO |
 
 ---
 
