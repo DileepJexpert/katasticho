@@ -32,6 +32,8 @@ import 'widgets/pos_recent_bills.dart';
 import 'widgets/pos_weight_popup.dart';
 import '../../inventory/data/batch_repository.dart';
 import '../../../core/shortcuts/k_shortcuts.dart';
+import '../data/thermal_print_service.dart';
+import 'pos_receipt_settings_screen.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../pricing/data/scheme_repository.dart';
 import '../../../core/auth/auth_state.dart';
@@ -545,7 +547,13 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final action = result['action'] as String;
     final repo = ref.read(posRepositoryProvider);
     if (action == 'print') {
-      await _handlePrint(repo, receiptId);
+      try {
+        final receipt = await repo.getReceipt(receiptId);
+        final data = (receipt['data'] ?? receipt) as Map<String, dynamic>;
+        await _handlePrint(repo, receiptId, data);
+      } catch (e) {
+        if (mounted) _showErrorSnackBar('Print failed: $e');
+      }
     } else if (action == 'whatsapp') {
       try {
         final receipt = await repo.getReceipt(receiptId);
@@ -616,6 +624,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       if (!mounted) return;
 
       HapticFeedback.mediumImpact();
+
+      // Auto-print if enabled
+      final autoReceiptData = response['data'] is Map
+          ? response['data'] as Map<String, dynamic>
+          : response;
+      _autoPrintIfEnabled(repo, autoReceiptData);
 
       // Show success sheet
       final action = await showPosSuccessSheet(
@@ -753,7 +767,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     switch (action) {
       case SuccessAction.print:
-        await _handlePrint(repo, receiptId);
+        await _handlePrint(repo, receiptId, receiptData);
         break;
       case SuccessAction.whatsapp:
         await _handleWhatsApp(repo, receiptId, receiptData, cart);
@@ -1091,15 +1105,50 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     }
   }
 
-  Future<void> _handlePrint(PosRepository repo, String receiptId) async {
-    try {
-      _showInfoSnackBar('Generating receipt...');
-      final pdfBytes = await repo.printReceipt(receiptId);
-      if (!mounted) return;
-      // Use the printing package to send to printer
-      _showInfoSnackBar('Receipt ready (${pdfBytes.length} bytes)');
-    } catch (e) {
-      if (mounted) _showErrorSnackBar('Print failed: $e');
+  void _autoPrintIfEnabled(PosRepository repo, Map<String, dynamic> receiptData) {
+    final printer = ThermalPrintService.instance;
+    printer.autoPrintEnabled.then((enabled) {
+      if (!enabled) return;
+      final id = receiptData['id']?.toString();
+      if (id == null) return;
+      _handlePrint(repo, id, receiptData);
+    });
+  }
+
+  Future<void> _handlePrint(PosRepository repo, String receiptId, Map<String, dynamic> receiptData) async {
+    final printer = ThermalPrintService.instance;
+    if (printer.isConnected || await printer.reconnectSaved()) {
+      try {
+        _showInfoSnackBar('Printing...');
+        final auth = ref.read(authProvider);
+        final settings = ref.read(receiptSettingsProvider);
+        await printer.printReceipt(
+          receipt: receiptData,
+          org: {
+            'name': auth.orgName ?? '',
+          },
+          settings: ReceiptPrintSettings(
+            paperSize: settings.paperSize,
+            showStoreAddress: settings.showStoreAddress,
+            showGstin: settings.showGstin,
+            showHsnCode: settings.showHsnCode,
+            showTaxBreakdown: settings.showTaxBreakdown,
+            footerText: settings.footerText,
+          ),
+        );
+        if (mounted) _showInfoSnackBar('Receipt printed');
+      } catch (e) {
+        if (mounted) _showErrorSnackBar('Print failed: $e');
+      }
+    } else {
+      try {
+        _showInfoSnackBar('Generating receipt...');
+        final pdfBytes = await repo.printReceipt(receiptId);
+        if (!mounted) return;
+        _showInfoSnackBar('Receipt ready (${pdfBytes.length} bytes)');
+      } catch (e) {
+        if (mounted) _showErrorSnackBar('Print failed: $e');
+      }
     }
   }
 
@@ -1338,6 +1387,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 context.push('/pos/receipt-settings');
               case _PosOverflowAction.cashRegister:
                 context.push('/pos/cash-register');
+              case _PosOverflowAction.printerSetup:
+                context.push('/pos/printer-setup');
               case _PosOverflowAction.discount:
                 _showCartDiscount();
               case _PosOverflowAction.notes:
@@ -1379,6 +1430,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               child: ListTile(
                 leading: Icon(Icons.point_of_sale),
                 title: Text('Cash Register'),
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              ),
+            ),
+            const PopupMenuItem(
+              value: _PosOverflowAction.printerSetup,
+              child: ListTile(
+                leading: Icon(Icons.print),
+                title: Text('Printer Setup'),
                 contentPadding: EdgeInsets.zero,
                 dense: true,
               ),
@@ -1581,7 +1641,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       color: Theme.of(context).colorScheme.outlineVariant, fontSize: 10);
 }
 
-enum _PosOverflowAction { clear, settings, discount, notes, cashRegister }
+enum _PosOverflowAction { clear, settings, discount, notes, cashRegister, printerSetup }
 
 /// AppBar title showing "Quick POS" + live session sales summary.
 class _PosSessionTitle extends ConsumerWidget {

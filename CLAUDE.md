@@ -248,10 +248,12 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **~~P6: Cash register / day close~~ (DONE):** V48 migration. CashRegisterService: open day, petty cash expenses, close with variance. 7 endpoints. Flutter: Today + History tabs in CashRegisterScreen, accessible from POS overflow menu.
 - **~~P7: SMS notifications~~ (DONE):** SmsService (Fast2SMS/MSG91, async fire-and-forget, Indian mobile sanitization). Hooked in SalesReceiptService (receipt SMS) and LowStockAlertJob (per-item alert to org owner). GET/PUT `/api/v1/settings/sms`. Flutter: `_SmsSettingsSection` in POS Receipt Settings screen.
 - **P1: Thermal/Bluetooth printer** (TODO, 1-2 days) — ESC/POS receipt printing via Bluetooth or USB.
-- **P3: Hindi i18n** (TODO, 2 days) — Flutter l10n, ARB files, Hindi translations for POS + core screens.
-- **P5: Push notifications Firebase** (TODO, 1-2 days) — FCM setup, server-side token storage, notification triggers.
 - **P2: Offline POS** (TODO, 2-3 days) — Local SQLite queue, sync on reconnect.
-- **P9: Tally export** (TODO, 1-2 days) — XML export in Tally format for CA handoff.
+
+**Parked (not needed now):**
+- P3: Hindi i18n — Flutter l10n, ARB files, Hindi translations for POS + core screens.
+- P5: Push notifications Firebase — FCM setup, server-side token storage, notification triggers.
+- P9: Tally export — XML export in Tally format for CA handoff.
 
 ---
 
