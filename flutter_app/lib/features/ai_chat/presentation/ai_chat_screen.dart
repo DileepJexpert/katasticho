@@ -194,11 +194,35 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
     String? correctionReason,
   }) async {
     try {
-      await ref.read(aiRepositoryProvider).reviewSuggestion(
-            item.id,
-            action: action,
-            correctionReason: correctionReason,
-          );
+      final repo = ref.read(aiRepositoryProvider);
+      // Drafted bills are posted/deleted via the bill-drafting endpoints — the
+      // generic review only flips status and would leave the bill unposted.
+      if (item.suggestionType == 'DRAFT_BILL' && action == 'ACCEPT') {
+        final posted = await repo.approveBillDraft(item.id);
+        if (!mounted) return;
+        final billNumber = posted['billNumber']?.toString() ?? '';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  billNumber.isEmpty ? 'Bill posted.' : 'Bill $billNumber posted.')),
+        );
+        await _load(reset: true);
+        return;
+      }
+      if (item.suggestionType == 'DRAFT_BILL' && action == 'REJECT') {
+        await repo.rejectBillDraft(item.id, reason: correctionReason);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Drafted bill rejected.')),
+        );
+        await _load(reset: true);
+        return;
+      }
+      await repo.reviewSuggestion(
+        item.id,
+        action: action,
+        correctionReason: correctionReason,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Suggestion ${action.toLowerCase()}ed.')),

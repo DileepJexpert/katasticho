@@ -210,12 +210,15 @@ To be API-first like Campfire, do these (small, high-leverage):
 
 Sized so one person + Claude ships each phase. Don't skip ahead — each builds on the last. **Branch:** `claude/erp-requirements-doc-g0o1P` (per `CLAUDE.md`).
 
-### Phase A — "Draft, don't type" for bills (the first true AI-first flow) ⭐ START HERE
+### Phase A — "Draft, don't type" for bills (the first true AI-first flow) ✅ DONE (2026-06-10)
 **Goal:** Prove the inversion on the single highest-pain Indian workflow: purchase bill entry.
-- Wire `BillScanService` → creates an `ai_suggestion` of type `DRAFT_BILL` with full nested lines (vendor matched, HSN→GST inferred).
-- Flutter: "Scan/Upload Bill" becomes a **primary POS-style entry point**, not buried. Result is a **pre-filled review screen**, approve → posts via existing `InvoiceService`/AP path.
-- Learn: on approve/correct, write `ai_pattern` (vendor+HSN→account, vendor→expense account).
-- **Definition of done:** A photographed bill becomes a posted, GST-correct purchase bill with ≤2 taps and zero typed line items.
+- ~~Wire `BillScanService` → creates an `ai_suggestion` of type `DRAFT_BILL` with full nested lines (vendor matched, HSN→GST inferred).~~ **`BillDraftingService` does the drafting in the backend** (not the client): match-or-create vendor, match item→GOODS / unmatched→expense SERVICE line, GST from line or HSN master. Creates a DRAFT `purchase_bill` + `DRAFT_BILL` suggestion.
+- ~~Flutter: "Scan/Upload Bill" → pre-filled review → approve → posts via AP path.~~ **Scan sheet now has a primary "Approve & Post" (2-tap) action** → `POST /ai/bill-drafts` then `…/{id}/approve` (posts via `PurchaseBillService.postBill`). "Edit in form" kept as the secondary path. AI Inbox routes DRAFT_BILL accept/reject to the drafting endpoints.
+- ~~Learn: on approve, write `ai_pattern`.~~ **On approve, records `PURCHASE_LINE_ACCOUNT` patterns** (vendor+HSN→account); drafting reuses them to pre-fill the expense account next time. Best-effort (never blocks posting).
+- **Endpoints:** `POST /api/v1/ai/bill-drafts`, `POST /api/v1/ai/bill-drafts/{suggestionId}/approve`, `.../reject`.
+- **Safety:** AI only creates the DRAFT + suggestion; a human always approves; posting flows through the normal AP path with all its validations. Reject deletes the DRAFT.
+- **Tests:** `BillDraftingServiceTest` (5, green). **Definition of done met:** a photographed bill → posted, GST-correct purchase bill in ≤2 taps, zero typed line items.
+- **Follow-ups:** wire the same `/ai/bill-drafts` to a one-shot scan (image→draft in one call); add API-key auth so the MCP server (Phase C) can call it; richer item auto-matching (HSN/barcode, fuzzy).
 
 ### Phase B — Conversational entry + read (NL is the front door)
 **Goal:** Typing a sentence drafts a transaction; asking a question returns an answer.

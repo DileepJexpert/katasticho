@@ -56,6 +56,34 @@ class AiRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  /// AI-first bill drafting: turn (reviewed) scanned bill data into a DRAFT
+  /// purchase bill + AI Inbox suggestion. Returns the `data` payload with
+  /// `suggestionId`, `billId`, `billNumber`, `vendorCreated`, `warnings`, etc.
+  Future<Map<String, dynamic>> draftBillFromScan(
+      Map<String, dynamic> billData) async {
+    final response = await _api.post(ApiConfig.aiBillDrafts, data: billData);
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
+  }
+
+  /// Approve a drafted bill — posts it through the AP path. Returns the
+  /// posted bill summary (`status` becomes OPEN).
+  Future<Map<String, dynamic>> approveBillDraft(String suggestionId) async {
+    final response = await _api.post(ApiConfig.aiBillDraftApprove(suggestionId));
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
+  }
+
+  /// Reject a drafted bill — deletes the DRAFT.
+  Future<void> rejectBillDraft(String suggestionId, {String? reason}) async {
+    await _api.post(
+      ApiConfig.aiBillDraftReject(suggestionId),
+      data: reason != null && reason.trim().isNotEmpty
+          ? {'reason': reason.trim()}
+          : null,
+    );
+  }
+
   Future<AiInboxSummary> getSuggestionSummary() async {
     final response = await _api.get(ApiConfig.aiSuggestionsSummary);
     final body = response.data as Map<String, dynamic>;

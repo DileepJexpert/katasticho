@@ -89,6 +89,27 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
     final result = await showBillScanSheet(context);
     if (result == null || !mounted) return;
 
+    // AI-first path: the scan was approved & posted directly — no manual form.
+    if (result['posted'] == true) {
+      final billNumber = result['billNumber']?.toString() ?? '';
+      final warnings = (result['warnings'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const <String>[];
+      final base = billNumber.isEmpty ? 'Bill posted' : 'Bill $billNumber posted';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(warnings.isEmpty
+              ? base
+              : '$base — ${warnings.length} note(s) to review'),
+        ),
+      );
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+
     // Populate vendor info immediately
     setState(() {
       _vendorBillNumber =

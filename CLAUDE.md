@@ -294,6 +294,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `manufacturing/service/JobWorkServiceTest.java` — job work lifecycle (16 tests)
 - `manufacturing/service/QualityControlServiceTest.java` — QC templates/inspections (8 tests)
 - `manufacturing/service/ScrapServiceTest.java` — scrap recording (5 tests)
+- `ai/service/BillDraftingServiceTest.java` — AI-first bill drafting: vendor match/create, item→GOODS / unmatched→SERVICE, HSN→GST, approve posts+learns, reject deletes (5 tests)
 - `reporting/service/DetailedReportService` — no test file (needs one)
 
 ## Existing Service Files (key ones)
@@ -321,6 +322,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `manufacturing/service/JobWorkService.java` — job work orders (create, send, receive, cancel, GST deadline alerts)
 - `manufacturing/service/QualityControlService.java` — QC templates, inspections (create, record results, finalize)
 - `manufacturing/service/ScrapService.java` — scrap reason codes, production scrap recording
+- `ai/service/BillDraftingService.java` — **AI-first bill entry** ("draft, don't type"): scanned bill → match-or-create vendor + match item (GOODS) / expense (SERVICE) + HSN→GST → DRAFT purchase_bill + `DRAFT_BILL` suggestion. Approve posts via `PurchaseBillService` + learns `ai_pattern` (vendor+HSN→account); reject deletes draft. Endpoints `/api/v1/ai/bill-drafts[/{id}/approve|/reject]`. See `docs/AI_FIRST_ACCOUNTING_PRODUCT_VISION.md` Phase A.
 
 ## Doc Files Index
 | Doc | Purpose | Read when |

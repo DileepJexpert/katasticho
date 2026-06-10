@@ -272,6 +272,12 @@ class ApiConfig {
   static const String aiScanProductLabel = '/api/v1/ai/scan-product-label';
   static const String aiScanPurchaseInvoice =
       '/api/v1/ai/scan-purchase-invoice';
+  // AI-first bill drafting ("draft, don't type")
+  static const String aiBillDrafts = '/api/v1/ai/bill-drafts';
+  static String aiBillDraftApprove(String suggestionId) =>
+      '/api/v1/ai/bill-drafts/$suggestionId/approve';
+  static String aiBillDraftReject(String suggestionId) =>
+      '/api/v1/ai/bill-drafts/$suggestionId/reject';
 
   // Banking / reconciliation
   static const String bankingTransactions = '/api/v1/banking/transactions';
