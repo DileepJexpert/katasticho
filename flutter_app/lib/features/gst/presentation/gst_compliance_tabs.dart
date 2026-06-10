@@ -351,6 +351,528 @@ class _Gstr2bTabState extends ConsumerState<Gstr2bTab> {
   }
 }
 
+// ── e-Invoice (IRN) Tab ──────────────────────────────────────────────────────
+
+class EInvoicesTab extends ConsumerStatefulWidget {
+  final List<dynamic>? eInvoices;
+  final VoidCallback onChanged;
+
+  const EInvoicesTab(
+      {super.key, required this.eInvoices, required this.onChanged});
+
+  @override
+  ConsumerState<EInvoicesTab> createState() => _EInvoicesTabState();
+}
+
+class _EInvoicesTabState extends ConsumerState<EInvoicesTab> {
+  bool? _enabled;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEnabled();
+  }
+
+  Future<void> _loadEnabled() async {
+    try {
+      final enabled =
+          await ref.read(gstRepositoryProvider).getEInvoiceEnabled();
+      if (mounted) setState(() => _enabled = enabled);
+    } catch (_) {}
+  }
+
+  Future<void> _toggleEnabled(bool value) async {
+    setState(() => _enabled = value);
+    try {
+      await ref.read(gstRepositoryProvider).setEInvoiceEnabled(value);
+      widget.onChanged();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _enabled = !value);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Could not update: $e')));
+    }
+  }
+
+  Future<void> _recordDialog(Map<String, dynamic> row) async {
+    final irnCtrl = TextEditingController();
+    final ackNoCtrl = TextEditingController();
+    final ackDateCtrl = TextEditingController();
+    final qrCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Record IRN — ${row['documentNumber']}'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: irnCtrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'IRN (64-char hash from the IRP)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              KSpacing.vGapMd,
+              TextField(
+                controller: ackNoCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Ack number',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              KSpacing.vGapMd,
+              TextField(
+                controller: ackDateCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Ack date (as on portal)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              KSpacing.vGapMd,
+              TextField(
+                controller: qrCtrl,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Signed QR (optional, paste from response)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Record')),
+        ],
+      ),
+    );
+    if (ok != true || irnCtrl.text.trim().isEmpty || !mounted) return;
+    try {
+      await ref.read(gstRepositoryProvider).recordEInvoice(
+            row['id'].toString(),
+            irn: irnCtrl.text.trim(),
+            ackNumber: ackNoCtrl.text.trim(),
+            ackDate: ackDateCtrl.text.trim(),
+            signedQr: qrCtrl.text.trim(),
+          );
+      widget.onChanged();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Could not record: $e')));
+    }
+  }
+
+  Future<void> _shareIrpJson(Map<String, dynamic> row) async {
+    try {
+      final json = await ref
+          .read(gstRepositoryProvider)
+          .eInvoicePortalJson(row['id'].toString());
+      final pretty = const JsonEncoder.withIndent('  ').convert(json);
+      await Share.share(pretty,
+          subject: 'e-Invoice INV-01 JSON — ${row['documentNumber']}');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Could not build JSON: $e')));
+    }
+  }
+
+  Future<void> _cancelEntry(Map<String, dynamic> row) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel e-invoice entry'),
+        content: Text('Cancel the e-invoice entry for ${row['documentNumber']}? '
+            'If an IRN was generated, cancel it on the IRP within 24 hours too.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Keep')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: KColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cancel entry'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref
+          .read(gstRepositoryProvider)
+          .cancelEInvoice(row['id'].toString());
+      widget.onChanged();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Could not cancel: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = widget.eInvoices ?? const [];
+    return ListView(
+      padding: KSpacing.pagePadding,
+      children: [
+        KCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('e-Invoicing enabled'),
+                subtitle: const Text(
+                    'Turn on if your turnover crosses the e-invoice notification '
+                    'threshold. Posted B2B invoices will then be flagged for IRN.'),
+                value: _enabled ?? false,
+                onChanged: _enabled == null ? null : _toggleEnabled,
+              ),
+            ],
+          ),
+        ),
+        KSpacing.vGapMd,
+        if (rows.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text('No e-invoice entries yet',
+                  style: KTypography.bodyMedium
+                      .copyWith(color: KColors.textHint)),
+            ),
+          )
+        else
+          ...rows.map((raw) {
+            final row = Map<String, dynamic>.from(raw as Map);
+            final status = row['status']?.toString() ?? 'PENDING';
+            final (color, icon) = switch (status) {
+              'GENERATED' => (KColors.success, Icons.verified_outlined),
+              'CANCELLED' => (KColors.textSecondary, Icons.cancel_outlined),
+              _ => (KColors.warning, Icons.pending_actions),
+            };
+            final irn = row['irn']?.toString() ?? '';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: KSpacing.sm),
+              child: KCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(icon, color: color, size: 20),
+                        KSpacing.hGapSm,
+                        Expanded(
+                          child: Text(
+                            '${row['documentNumber']} · ${CurrencyFormatter.formatIndian((row['totalValue'] as num?)?.toDouble() ?? 0)}',
+                            style: KTypography.labelLarge,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(status,
+                              style: KTypography.labelSmall
+                                  .copyWith(color: color)),
+                        ),
+                      ],
+                    ),
+                    KSpacing.vGapXs,
+                    Text(
+                      [
+                        row['documentDate']?.toString() ?? '',
+                        if (irn.isNotEmpty)
+                          'IRN ${irn.length > 16 ? '${irn.substring(0, 16)}…' : irn}',
+                      ].where((s) => s.isNotEmpty).join(' · '),
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.textSecondary),
+                    ),
+                    if (status == 'PENDING') ...[
+                      KSpacing.vGapSm,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _shareIrpJson(row),
+                              icon: const Icon(Icons.data_object, size: 16),
+                              label: const Text('IRP JSON'),
+                            ),
+                          ),
+                          KSpacing.hGapSm,
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: () => _recordDialog(row),
+                              icon: const Icon(Icons.task_alt, size: 16),
+                              label: const Text('Record IRN'),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => _cancelEntry(row),
+                            icon: const Icon(Icons.close, color: KColors.error),
+                            tooltip: 'Cancel entry',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }),
+      ],
+    );
+  }
+}
+
+// ── TDS Tab ──────────────────────────────────────────────────────────────────
+
+class TdsTab extends ConsumerStatefulWidget {
+  const TdsTab({super.key});
+
+  @override
+  ConsumerState<TdsTab> createState() => _TdsTabState();
+}
+
+class _TdsTabState extends ConsumerState<TdsTab> {
+  late int _fy;
+  late int _quarter;
+  Map<String, dynamic>? _data;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _fy = now.month >= 4 ? now.year : now.year - 1;
+    final fyMonth = now.month >= 4 ? now.month - 3 : now.month + 9; // 1..12 in FY
+    _quarter = ((fyMonth - 1) ~/ 3) + 1;
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final data = await ref.read(gstRepositoryProvider).tds26q(_fy, _quarter);
+      if (mounted) setState(() => _data = data);
+    } catch (_) {
+      if (mounted) setState(() => _data = null);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _share26q() async {
+    if (_data == null) return;
+    final pretty = const JsonEncoder.withIndent('  ').convert(_data);
+    await Share.share(pretty, subject: 'Form 26Q data — Q$_quarter FY $_fy');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = _data;
+    final deductees = (data?['deductees'] as List?) ?? const [];
+    return ListView(
+      padding: KSpacing.pagePadding,
+      children: [
+        KCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Form 26Q (TDS on vendor bills)', style: KTypography.h3),
+              KSpacing.vGapSm,
+              Text(
+                'TDS deducts automatically on bills when the vendor master has '
+                'TDS enabled (section + rate), honouring section thresholds. '
+                'This prepares the quarterly deductee-wise data for filing.',
+                style: KTypography.bodySmall
+                    .copyWith(color: KColors.textSecondary),
+              ),
+              KSpacing.vGapMd,
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      value: _fy,
+                      decoration: const InputDecoration(
+                        labelText: 'FY starting',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: List.generate(4, (i) {
+                        final year = DateTime.now().year - i;
+                        return DropdownMenuItem(
+                            value: year,
+                            child: Text('$year-${(year + 1) % 100}'));
+                      }),
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _fy = v);
+                        _load();
+                      },
+                    ),
+                  ),
+                  KSpacing.hGapMd,
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      value: _quarter,
+                      decoration: const InputDecoration(
+                        labelText: 'Quarter',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('Q1 Apr–Jun')),
+                        DropdownMenuItem(value: 2, child: Text('Q2 Jul–Sep')),
+                        DropdownMenuItem(value: 3, child: Text('Q3 Oct–Dec')),
+                        DropdownMenuItem(value: 4, child: Text('Q4 Jan–Mar')),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _quarter = v);
+                        _load();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        KSpacing.vGapMd,
+        if (_loading)
+          const Center(
+              child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator()))
+        else if (data == null)
+          Center(
+              child: Text('No TDS data for this quarter',
+                  style: KTypography.bodyMedium
+                      .copyWith(color: KColors.textHint)))
+        else ...[
+          Row(
+            children: [
+              Expanded(
+                child: KCard(
+                  child: Column(children: [
+                    Text(
+                        CurrencyFormatter.formatIndian(
+                            (data['totalTdsDeducted'] as num?)?.toDouble() ??
+                                0),
+                        style:
+                            KTypography.h2.copyWith(color: KColors.primary)),
+                    Text('TDS deducted',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary)),
+                  ]),
+                ),
+              ),
+              KSpacing.hGapSm,
+              Expanded(
+                child: KCard(
+                  child: Column(children: [
+                    Text('${data['deducteeCount'] ?? 0}',
+                        style: KTypography.h2),
+                    Text('Deductees',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary)),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+          if ((data['warning']?.toString() ?? '').isNotEmpty) ...[
+            KSpacing.vGapSm,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: KColors.warning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber,
+                      color: KColors.warning, size: 18),
+                  KSpacing.hGapSm,
+                  Expanded(
+                    child: Text(data['warning'].toString(),
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.warning)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          KSpacing.vGapSm,
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: deductees.isEmpty ? null : _share26q,
+              icon: const Icon(Icons.ios_share, size: 16),
+              label: const Text('Share 26Q data (JSON)'),
+            ),
+          ),
+          KSpacing.vGapMd,
+          ...deductees.map((raw) {
+            final d = Map<String, dynamic>.from(raw as Map);
+            final pan = d['deducteePan']?.toString() ?? '';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: KSpacing.sm),
+              child: KCard(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(d['deducteeName']?.toString() ?? '',
+                              style: KTypography.labelLarge),
+                          Text(
+                            '${pan.isEmpty ? 'PAN MISSING' : pan} · ${d['section']} · ${d['billCount']} bill(s)',
+                            style: KTypography.bodySmall.copyWith(
+                                color: pan.isEmpty
+                                    ? KColors.error
+                                    : KColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                            CurrencyFormatter.formatIndian(
+                                (d['tdsDeducted'] as num?)?.toDouble() ?? 0),
+                            style: KTypography.labelLarge
+                                .copyWith(color: KColors.primary)),
+                        Text(
+                            'on ${CurrencyFormatter.formatIndian((d['amountPaid'] as num?)?.toDouble() ?? 0)}',
+                            style: KTypography.bodySmall
+                                .copyWith(color: KColors.textSecondary)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ],
+    );
+  }
+}
+
 // ── e-Way Bills Tab ──────────────────────────────────────────────────────────
 
 class EwayBillsTab extends ConsumerStatefulWidget {

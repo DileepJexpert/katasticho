@@ -103,6 +103,18 @@ public interface PurchaseBillRepository extends JpaRepository<PurchaseBill, UUID
     """)
     List<PurchaseBill> findPostedByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
 
+    /** Vendor's posted taxable turnover in a range — TDS fiscal-year thresholds. */
+    @Query("""
+        SELECT COALESCE(SUM(b.subtotal), 0) FROM PurchaseBill b
+        WHERE b.orgId = :orgId
+          AND b.contactId = :contactId
+          AND b.isDeleted = false
+          AND b.status NOT IN ('DRAFT','CANCELLED','VOID')
+          AND b.billDate BETWEEN :from AND :to
+    """)
+    BigDecimal sumPostedSubtotalByOrgAndContactAndDateRange(
+            UUID orgId, UUID contactId, LocalDate from, LocalDate to);
+
     @Query("""
         SELECT COALESCE(SUM(b.totalAmount), 0) FROM PurchaseBill b
         WHERE b.orgId = :orgId

@@ -289,6 +289,25 @@ server.tool(
   },
 );
 
+server.tool(
+  "tds_26q_summary",
+  "Quarterly Form 26Q data: deductee-wise TDS deducted on vendor bills, with " +
+    "PAN and missing-PAN warnings. fy is the financial-year start year " +
+    "(2026 = FY 2026-27); quarters are Q1 Apr-Jun … Q4 Jan-Mar.",
+  {
+    fy: z.number().int().min(2017).describe("FY start year, e.g. 2026 for FY 2026-27."),
+    quarter: z.number().int().min(1).max(4).describe("Quarter 1-4."),
+  },
+  async ({ fy, quarter }) => {
+    try {
+      const body = await client.get("/api/v1/tds/26q", { fy, quarter });
+      return ok(unwrap(body));
+    } catch (e) {
+      return fail(`tds_26q_summary failed: ${(e as Error).message}`);
+    }
+  },
+);
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
 async function main() {

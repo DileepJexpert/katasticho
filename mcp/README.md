@@ -23,6 +23,7 @@ This server wraps the Katasticho REST API as a small, safe set of tools.
 | `gst_compliance_calendar` | What's due: GSTR-1/3B, TDS deposit, 2B reconciliation, pending e-way bills. |
 | `get_gstr3b` | Pre-built GSTR-3B for a month — output tax, ITC, net payable. |
 | `gstr2b_recon_summary` | 2B reconciliation result — matches, mismatches, missing ITC, ITC at risk. |
+| `tds_26q_summary` | Quarterly Form 26Q data — deductee-wise TDS with PAN warnings. |
 
 ## Setup
 

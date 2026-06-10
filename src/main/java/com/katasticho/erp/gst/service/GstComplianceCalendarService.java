@@ -2,6 +2,7 @@ package com.katasticho.erp.gst.service;
 
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.gst.repository.EInvoiceRepository;
 import com.katasticho.erp.gst.repository.EwayBillRepository;
 import com.katasticho.erp.gst.repository.Gstr2bEntryRepository;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class GstComplianceCalendarService {
 
     private final EwayBillRepository ewayBillRepository;
     private final Gstr2bEntryRepository gstr2bEntryRepository;
+    private final EInvoiceRepository eInvoiceRepository;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -60,6 +62,10 @@ public class GstComplianceCalendarService {
                 lastMonth.plusMonths(1).atDay(7), today,
                 "Deposit TDS for " + lastMonth + " via challan ITNS-281."));
 
+        // Form 26Q for the most recently ended quarter (Q1→Jul 31, Q2→Oct 31,
+        // Q3→Jan 31, Q4→May 31).
+        items.add(form26qItem(today));
+
         // 2B reconciliation nudge: the portal generates 2B on the 14th.
         LocalDate twoBDate = lastMonth.plusMonths(1).atDay(14);
         if (!today.isBefore(twoBDate)) {
@@ -71,6 +77,20 @@ public class GstComplianceCalendarService {
                             : "Download GSTR-2B JSON from the portal and upload it here to match your purchase bills.");
             recon.put("done", uploaded > 0);
             items.add(recon);
+        }
+
+        long pendingEinv = eInvoiceRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "PENDING");
+        if (pendingEinv > 0) {
+            Map<String, Object> einv = new LinkedHashMap<>();
+            einv.put("code", "EINVOICE_PENDING");
+            einv.put("title", pendingEinv + " e-invoice(s) pending — IRN required for B2B validity");
+            einv.put("period", YearMonth.from(today).toString());
+            einv.put("dueDate", today);
+            einv.put("daysLeft", 0);
+            einv.put("status", "OVERDUE");
+            einv.put("description",
+                    "Generate the IRN on the IRP (the INV-01 JSON is prepared per invoice) and record it back.");
+            items.add(einv);
         }
 
         long pendingEwb = ewayBillRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "PENDING");
@@ -88,6 +108,34 @@ public class GstComplianceCalendarService {
         }
 
         return items;
+    }
+
+    /** Form 26Q for the most recently ended quarter. FY quarters: Q1 Apr–Jun … Q4 Jan–Mar. */
+    private Map<String, Object> form26qItem(LocalDate today) {
+        int month = today.getMonthValue();
+        int quarter;          // the quarter that just ended
+        int fyStartYear;      // FY the quarter belongs to
+        LocalDate dueDate;
+        if (month >= 7 && month <= 9) {            // Q1 (Apr–Jun) ended
+            quarter = 1; fyStartYear = today.getYear();
+            dueDate = LocalDate.of(today.getYear(), 7, 31);
+        } else if (month >= 10 && month <= 12) {   // Q2 ended
+            quarter = 2; fyStartYear = today.getYear();
+            dueDate = LocalDate.of(today.getYear(), 10, 31);
+        } else if (month >= 1 && month <= 3) {     // Q3 ended (Oct–Dec of prev year)
+            quarter = 3; fyStartYear = today.getYear() - 1;
+            dueDate = LocalDate.of(today.getYear(), 1, 31);
+        } else {                                   // Apr–Jun: Q4 (Jan–Mar) ended
+            quarter = 4; fyStartYear = today.getYear() - 1;
+            dueDate = LocalDate.of(today.getYear(), 5, 31);
+        }
+        String fy = fyStartYear + "-" + ((fyStartYear + 1) % 100);
+        Map<String, Object> m = item("TDS_RETURN_26Q",
+                "File Form 26Q (TDS return) for Q" + quarter + " FY " + fy,
+                YearMonth.from(dueDate), dueDate, today,
+                "Deductee-wise data is prepared under TDS → Form 26Q.");
+        m.put("period", "Q" + quarter + " " + fy);
+        return m;
     }
 
     private Map<String, Object> item(String code, String title, YearMonth period,

@@ -1,6 +1,7 @@
 package com.katasticho.erp.gst.service;
 
 import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.gst.repository.EInvoiceRepository;
 import com.katasticho.erp.gst.repository.EwayBillRepository;
 import com.katasticho.erp.gst.repository.Gstr2bEntryRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -24,6 +25,7 @@ class GstComplianceCalendarServiceTest {
 
     private final EwayBillRepository ewayBillRepository = mock(EwayBillRepository.class);
     private final Gstr2bEntryRepository gstr2bEntryRepository = mock(Gstr2bEntryRepository.class);
+    private final EInvoiceRepository eInvoiceRepository = mock(EInvoiceRepository.class);
 
     private final UUID orgId = UUID.randomUUID();
 
@@ -35,7 +37,8 @@ class GstComplianceCalendarServiceTest {
     private GstComplianceCalendarService serviceAt(String isoInstant) {
         TenantContext.setCurrentOrgId(orgId);
         Clock fixed = Clock.fixed(Instant.parse(isoInstant), ZoneOffset.UTC);
-        return new GstComplianceCalendarService(ewayBillRepository, gstr2bEntryRepository, fixed);
+        return new GstComplianceCalendarService(
+                ewayBillRepository, gstr2bEntryRepository, eInvoiceRepository, fixed);
     }
 
     @Test
@@ -55,8 +58,13 @@ class GstComplianceCalendarServiceTest {
 
         assertThat(byCode(items, "GSTR3B").get("status")).isEqualTo("UPCOMING");
         assertThat(byCode(items, "TDS_DEPOSIT").get("status")).isEqualTo("OVERDUE");
+        // June → Q4 (Jan–Mar) of FY 2025-26 just ended, 26Q was due May 31.
+        Map<String, Object> q26 = byCode(items, "TDS_RETURN_26Q");
+        assertThat(q26.get("period")).isEqualTo("Q4 2025-26");
+        assertThat(q26.get("status")).isEqualTo("OVERDUE");
         assertThat(items).noneMatch(m -> "GSTR2B_RECON".equals(m.get("code")));
         assertThat(items).noneMatch(m -> "EWAY_PENDING".equals(m.get("code")));
+        assertThat(items).noneMatch(m -> "EINVOICE_PENDING".equals(m.get("code")));
     }
 
     @Test
@@ -64,6 +72,7 @@ class GstComplianceCalendarServiceTest {
         GstComplianceCalendarService service = serviceAt("2026-06-15T06:00:00Z");
         when(gstr2bEntryRepository.countByOrgIdAndReturnPeriod(eq(orgId), anyString())).thenReturn(0L);
         when(ewayBillRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "PENDING")).thenReturn(3L);
+        when(eInvoiceRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "PENDING")).thenReturn(2L);
 
         List<Map<String, Object>> items = service.calendar();
 
@@ -73,6 +82,9 @@ class GstComplianceCalendarServiceTest {
         Map<String, Object> ewb = byCode(items, "EWAY_PENDING");
         assertThat(ewb.get("status")).isEqualTo("OVERDUE");
         assertThat(ewb.get("title").toString()).contains("3");
+
+        Map<String, Object> einv = byCode(items, "EINVOICE_PENDING");
+        assertThat(einv.get("title").toString()).contains("2");
     }
 
     private Map<String, Object> byCode(List<Map<String, Object>> items, String code) {

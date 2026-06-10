@@ -95,6 +95,16 @@ class ApiConfig {
       '/api/v1/gst/eway-bills/check-vehicle';
   // Compliance calendar
   static const String gstComplianceCalendar = '/api/v1/gst/compliance-calendar';
+  // e-Invoice (IRN)
+  static const String eInvoices = '/api/v1/gst/einvoices';
+  static String eInvoiceRecord(String id) => '/api/v1/gst/einvoices/$id/record';
+  static String eInvoiceCancel(String id) => '/api/v1/gst/einvoices/$id/cancel';
+  static String eInvoicePortalJson(String id) =>
+      '/api/v1/gst/einvoices/$id/portal-json';
+  static const String eInvoiceSettings = '/api/v1/gst/einvoices/settings';
+  // TDS
+  static const String tdsRegister = '/api/v1/tds/register';
+  static const String tds26q = '/api/v1/tds/26q';
 
   // POS Cash Register
   static const String cashRegisterToday   = '/api/v1/pos/cash-register/today';

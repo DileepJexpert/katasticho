@@ -29,6 +29,7 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
   Map<String, dynamic>? _gstr2bSummary;
   List<dynamic>? _calendar;
   List<dynamic>? _ewayBills;
+  List<dynamic>? _eInvoices;
   bool _isLoading = false;
   String? _error;
   late TabController _tabController;
@@ -39,7 +40,7 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
     final now = DateTime.now();
     _year = now.month == 1 ? now.year - 1 : now.year;
     _month = now.month == 1 ? 12 : now.month - 1;
@@ -68,12 +69,16 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
       // these fail (e.g. nothing uploaded yet).
       List<dynamic>? calendar;
       List<dynamic>? ewayBills;
+      List<dynamic>? eInvoices;
       Map<String, dynamic>? gstr2bSummary;
       try {
         calendar = await repo.getComplianceCalendar();
       } catch (_) {}
       try {
         ewayBills = await repo.listEwayBills();
+      } catch (_) {}
+      try {
+        eInvoices = await repo.listEInvoices();
       } catch (_) {}
       try {
         gstr2bSummary = await repo.getGstr2bSummary(_period);
@@ -84,6 +89,7 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
         _review = (results[2]['data'] ?? results[2]) as Map<String, dynamic>;
         _calendar = calendar;
         _ewayBills = ewayBills;
+        _eInvoices = eInvoices;
         _gstr2bSummary = gstr2bSummary;
       });
     } catch (e) {
@@ -147,7 +153,9 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
             Tab(text: 'GSTR-3B'),
             Tab(text: 'GSTR-1'),
             Tab(text: '2B Recon'),
+            Tab(text: 'e-Invoice'),
             Tab(text: 'e-Way Bills'),
+            Tab(text: 'TDS'),
             Tab(text: 'Review'),
           ],
         ),
@@ -185,10 +193,15 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
                       summary: _gstr2bSummary,
                       onChanged: _loadData,
                     ),
+                    EInvoicesTab(
+                      eInvoices: _eInvoices,
+                      onChanged: _loadData,
+                    ),
                     EwayBillsTab(
                       bills: _ewayBills,
                       onChanged: _loadData,
                     ),
+                    const TdsTab(),
                     _GstReviewTab(
                       data: _review,
                       onReviewed: _loadData,

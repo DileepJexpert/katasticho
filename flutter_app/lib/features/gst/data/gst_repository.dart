@@ -137,6 +137,69 @@ class GstRepository {
     return (body['data'] as List?) ?? const [];
   }
 
+  // ── e-Invoice (IRN) ───────────────────────────────────────────────────
+
+  Future<List<dynamic>> listEInvoices({String? status}) async {
+    final response = await _api.get(ApiConfig.eInvoices,
+        queryParameters: {if (status != null) 'status': status});
+    final body = response.data as Map<String, dynamic>;
+    return (body['data'] as List?) ?? const [];
+  }
+
+  Future<Map<String, dynamic>> recordEInvoice(
+    String id, {
+    required String irn,
+    String? ackNumber,
+    String? ackDate,
+    String? signedQr,
+  }) async {
+    final response = await _api.post(ApiConfig.eInvoiceRecord(id), data: {
+      'irn': irn,
+      if (ackNumber != null && ackNumber.isNotEmpty) 'ackNumber': ackNumber,
+      if (ackDate != null && ackDate.isNotEmpty) 'ackDate': ackDate,
+      if (signedQr != null && signedQr.isNotEmpty) 'signedQr': signedQr,
+    });
+    return _data(response.data);
+  }
+
+  Future<void> cancelEInvoice(String id, {String? reason}) async {
+    await _api.post(ApiConfig.eInvoiceCancel(id),
+        data: reason != null ? {'reason': reason} : null);
+  }
+
+  /// IRP INV-01 JSON for offline-tool / GSP upload.
+  Future<Map<String, dynamic>> eInvoicePortalJson(String id) async {
+    final response = await _api.get(ApiConfig.eInvoicePortalJson(id));
+    return response.data is Map<String, dynamic>
+        ? response.data as Map<String, dynamic>
+        : <String, dynamic>{};
+  }
+
+  Future<bool> getEInvoiceEnabled() async {
+    final response = await _api.get(ApiConfig.eInvoiceSettings);
+    return _data(response.data)['enabled'] == true;
+  }
+
+  Future<void> setEInvoiceEnabled(bool enabled) async {
+    await _api.put(ApiConfig.eInvoiceSettings, data: {'enabled': enabled});
+  }
+
+  // ── TDS ───────────────────────────────────────────────────────────────
+
+  Future<List<dynamic>> tdsRegister(String from, String to) async {
+    final response = await _api
+        .get(ApiConfig.tdsRegister, queryParameters: {'from': from, 'to': to});
+    final body = response.data as Map<String, dynamic>;
+    return (body['data'] as List?) ?? const [];
+  }
+
+  /// Quarterly Form 26Q data. [fy] = FY start year (2026 = FY 2026-27).
+  Future<Map<String, dynamic>> tds26q(int fy, int quarter) async {
+    final response = await _api.get(ApiConfig.tds26q,
+        queryParameters: {'fy': fy, 'quarter': quarter});
+    return _data(response.data);
+  }
+
   Map<String, dynamic> _data(dynamic body) {
     final map = body as Map<String, dynamic>;
     return Map<String, dynamic>.from((map['data'] as Map?) ?? map);

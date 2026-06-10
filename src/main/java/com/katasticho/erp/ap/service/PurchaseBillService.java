@@ -85,6 +85,7 @@ public class PurchaseBillService {
     private final JournalService journalService;
     private final AccountingPostingEngine postingEngine;
     private final TaxEngine taxEngine;
+    private final com.katasticho.erp.tax.service.TdsService tdsService;
     private final CurrencyService currencyService;
     private final InventoryService inventoryService;
     private final DefaultAccountService defaultAccountService;
@@ -249,6 +250,7 @@ public class PurchaseBillService {
         bill.setBaseSubtotal(totalSubtotal.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP));
         bill.setBaseTaxAmount(totalTax.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP));
         bill.setBaseTotal(totalAmount.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP));
+        applyTds(orgId, bill, contact);
 
         bill = billRepository.save(bill);
 
@@ -407,14 +409,35 @@ public class PurchaseBillService {
         return acc.build();
     }
 
+    /**
+     * Auto-deduct TDS when the vendor master says so (tdsApplicable + rate),
+     * honouring section thresholds. The vendor is owed total − TDS; the TDS
+     * itself posts to TDS Payable on bill posting.
+     */
+    private void applyTds(UUID orgId, PurchaseBill bill, Contact vendor) {
+        var tds = tdsService.computeForBill(orgId, vendor, bill.getSubtotal(), bill.getBillDate());
+        if (tds == null) {
+            bill.setTdsAmount(BigDecimal.ZERO);
+            bill.setTdsSection(null);
+            return;
+        }
+        bill.setTdsAmount(tds.amount());
+        bill.setTdsSection(tds.section());
+        bill.setBalanceDue(bill.getTotalAmount().subtract(tds.amount()));
+        log.info("TDS {} on bill for {}: {} ({})",
+                tds.section(), vendor.getDisplayName(), tds.amount().toPlainString(), tds.note());
+    }
+
     // ── Payment status update ───────────────────────────────────
 
     @Transactional
     public void updatePaymentStatus(PurchaseBill bill, BigDecimal paymentAmount) {
         String previousStatus = bill.getStatus();
 
+        BigDecimal tds = bill.getTdsAmount() == null ? BigDecimal.ZERO : bill.getTdsAmount();
         bill.setAmountPaid(bill.getAmountPaid().add(paymentAmount));
-        bill.setBalanceDue(bill.getTotalAmount().subtract(bill.getAmountPaid()));
+        // Vendor is owed total − TDS (the TDS portion is deposited to the government).
+        bill.setBalanceDue(bill.getTotalAmount().subtract(tds).subtract(bill.getAmountPaid()));
 
         if (bill.getBalanceDue().compareTo(BigDecimal.ZERO) <= 0) {
             bill.setStatus("PAID");
@@ -624,6 +647,7 @@ public class PurchaseBillService {
         bill.setBaseSubtotal(totalSubtotal.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP));
         bill.setBaseTaxAmount(totalTax.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP));
         bill.setBaseTotal(totalAmount.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP));
+        applyTds(orgId, bill, contact);
 
         bill = billRepository.save(bill);
 

@@ -252,10 +252,16 @@ Sized so one person + Claude ships each phase. Don't skip ahead — each builds 
 - Auto-match by amount+date+narration → `ai_suggestion` matches; approval workflow on the recon (reuse `ApprovalWorkflowService`).
 - **DoD:** A month's statement reconciles with the human touching only unmatched lines.
 
-### Phase F — e-Invoice (IRN) + e-Way bill + TDS
-**Goal:** Full statutory document generation.
-- IRP/NIC sandbox integration for IRN + signed QR; e-way bill; TDS-by-section on bills + 26Q prep.
-- **DoD:** A B2B invoice gets a valid IRN + QR; TDS auto-deducts and tracks.
+### Phase F — e-Invoice (IRN) + e-Way bill + TDS ✅ DONE (2026-06-10)
+**Goal:** Full statutory document generation. (e-Way bills shipped early in Phase D.)
+- ~~IRP integration for IRN + signed QR.~~ **`EInvoiceService`** + V51 `einvoice` table. When the org enables e-invoicing (`gst.einvoice_enabled`, toggle in the e-Invoice tab), `InvoicePostedEInvoiceHandler` flags every posted **B2B** invoice (buyer has GSTIN) → PENDING row + `EINVOICE_REQUIRED` HIGH suggestion. **IRP INV-01 schema (v1.1) JSON** generated per invoice (TranDtls/DocDtls/Seller/Buyer/ItemList/ValDtls with intra/inter split); record IRN + Ack + signed QR back; cancel lifecycle. Endpoints: `/api/v1/gst/einvoices[/{id}/portal-json|/record|/cancel|/settings]`. (Direct IRP/GSP API call deferred — JSON handoff first, same pattern as e-way.)
+- ~~TDS-by-section on bills + 26Q prep.~~ **`TdsService`** (tax pkg) — **auto-deduction on vendor bills** driven by the vendor master (`tdsApplicable`/`tdsSection`/`tdsRate`), honouring section thresholds: 194C (30k single / 1L FY), 194J (30k), 194H (20k), 194I (2.4L), 194A (5k), **194Q (50L — TDS only on the excess)**. Computed on the taxable value (excl GST, CBDT 23/2017); FY = Apr–Mar; posted-bills aggregate per vendor (new repo sum query). Wired into `PurchaseBillService` create/update; vendor owed total − TDS (`balanceDue` + payment status fixed); posting already credits TDS Payable (2030). **Form 26Q** quarterly deductee-wise data (+missing-PAN warning) and a TDS register at `/api/v1/tds/26q|/register`.
+- **Calendar:** + Form 26Q quarterly deadline (Jul 31/Oct 31/Jan 31/May 31) and pending e-invoice count.
+- **Flutter:** GST Compliance now 8 tabs — adds **e-Invoice** (enable toggle, IRP JSON, record IRN/Ack/QR, cancel) and **TDS** (FY+quarter picker, 26Q summary + deductee list + share JSON, PAN-missing flags).
+- **MCP:** `tds_26q_summary` tool (11 tools total).
+- **Tests:** 14 new (TdsService 8, EInvoiceService 6) + calendar updated. **Full suite 457 green.**
+- **DoD met:** a B2B invoice gets flagged, produces valid INV-01 JSON, and carries its IRN + QR once recorded; TDS auto-deducts by section with thresholds and feeds 26Q.
+- **Follow-ups:** direct GSP/IRP API (auto-IRN), TCS 206C(1H) on sales, 26Q TXT/FVU export format, TDS catch-up on earlier sub-threshold bills when the annual threshold is first crossed, lower-deduction certificates (197).
 
 ### Phase G — Proactive AI (close, anomalies, collections)
 **Goal:** The system tells you what needs attention before you ask.
