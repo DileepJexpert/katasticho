@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V47**. Next new migration = V48.
+- Location: `src/main/resources/db/migration/`. Latest is **V48**. Next new migration = V49.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -239,6 +239,19 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Tests (done):** 53 manufacturing tests (ManufacturingServiceTest 15, RoutingServiceTest 9, JobWorkServiceTest 16, QualityControlServiceTest 8, ScrapServiceTest 5). 417 total tests pass.
 - **Tier 2 priorities (TODO):** BOM versioning, batch traceability in production, WIP journal entries, production reports (cost variance, consumption, WIP valuation), work order enhancements (priority, approval, disassembly), backflush mode.
 - **Tier 3 (DEFERRED):** MRP engine, Gantt scheduling, capacity planning, shop floor mobile, maintenance management, industry-specific (pharma BMR, food FSSAI, garment cut plans).
+
+### Kirana Retail Production Gaps (2026-06-10)
+**Goal:** Make the POS + core flows production-ready for Indian small grocery/pharmacy shops.
+
+- **~~P8: Profit margin on POS~~ (DONE):** PosSearchController strips `purchasePrice` for OPERATOR/ACCOUNTANT roles. OWNER/ADMIN see margin breakdown in payment sheet + margin dot per item.
+- **~~P4: UPI QR code at POS~~ (DONE):** OrgSettings stores `pos.upi_id`/`pos.upi_display_name`. Payment sheet renders scannable QR via `qr_flutter`. POS Receipt Settings has UPI config section.
+- **~~P6: Cash register / day close~~ (DONE):** V48 migration. CashRegisterService: open day, petty cash expenses, close with variance. 7 endpoints. Flutter: Today + History tabs in CashRegisterScreen, accessible from POS overflow menu.
+- **P1: Thermal/Bluetooth printer** (TODO, 1-2 days) — ESC/POS receipt printing via Bluetooth or USB.
+- **P3: Hindi i18n** (TODO, 2 days) — Flutter l10n, ARB files, Hindi translations for POS + core screens.
+- **P7: SMS notifications** (TODO, 1 day) — Fast2SMS/MSG91 integration, receipt SMS, low-stock alerts.
+- **P5: Push notifications Firebase** (TODO, 1-2 days) — FCM setup, server-side token storage, notification triggers.
+- **P2: Offline POS** (TODO, 2-3 days) — Local SQLite queue, sync on reconnect.
+- **P9: Tally export** (TODO, 1-2 days) — XML export in Tally format for CA handoff.
 
 ---
 
