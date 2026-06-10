@@ -170,32 +170,60 @@ public class TallyXmlParser {
 
         String vchNumber = firstNonBlank(childText(v, "VOUCHERNUMBER"),
                 v.getAttribute("VCHKEY"));
-        String partyName = childText(v, "PARTYLEDGERNAME");
+        String partyName = firstNonBlank(childText(v, "PARTYLEDGERNAME"),
+                childText(v, "PARTYNAME"));
         String narration = childText(v, "NARRATION");
 
+        // Tally puts the accounting ledger lines in ALLLEDGERENTRIES.LIST
+        // (voucher mode: Payment/Receipt/Journal/Contra) OR LEDGERENTRIES.LIST
+        // (invoice mode: the party + tax + round-off lines). A single voucher
+        // uses one or the other — prefer ALL* when present.
         List<TallyVoucher.LedgerEntry> entries = new ArrayList<>();
-        NodeList ledgerLists = v.getElementsByTagName("ALLLEDGERENTRIES.LIST");
-        for (int j = 0; j < ledgerLists.getLength(); j++) {
-            Element le = (Element) ledgerLists.item(j);
-            String name = childText(le, "LEDGERNAME");
-            BigDecimal amount = decimal(childText(le, "AMOUNT"));
-            if (name != null && amount != null) {
-                entries.add(new TallyVoucher.LedgerEntry(name, amount));
-            }
+        NodeList primary = v.getElementsByTagName("ALLLEDGERENTRIES.LIST");
+        if (primary.getLength() == 0) {
+            primary = v.getElementsByTagName("LEDGERENTRIES.LIST");
         }
-        // Also check LEDGERENTRIES.LIST (older Tally versions)
-        NodeList altLists = v.getElementsByTagName("LEDGERENTRIES.LIST");
-        for (int j = 0; j < altLists.getLength(); j++) {
-            Element le = (Element) altLists.item(j);
-            String name = childText(le, "LEDGERNAME");
-            BigDecimal amount = decimal(childText(le, "AMOUNT"));
-            if (name != null && amount != null) {
-                entries.add(new TallyVoucher.LedgerEntry(name, amount));
-            }
-        }
+        addLedgerEntries(primary, entries);
+
+        // Invoice-mode vouchers (Sales/Purchase) nest the revenue/purchase
+        // ledger inside each stock line's ACCOUNTINGALLOCATIONS.LIST — it is
+        // NOT in the top-level ledger entries. Collect those too so the
+        // voucher balances.
+        addLedgerEntries(v.getElementsByTagName("ACCOUNTINGALLOCATIONS.LIST"), entries);
 
         if (entries.isEmpty()) return null;
         return new TallyVoucher(vchType.trim(), vchNumber, date, partyName, narration, entries);
+    }
+
+    /**
+     * Read a ledger line from each list element, normalizing Tally's sign
+     * convention to <b>positive = debit, negative = credit</b>.
+     *
+     * <p>Tally writes a debit as a NEGATIVE amount with
+     * {@code <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>}, and a credit as a
+     * POSITIVE amount with {@code No}. We read the direct-child AMOUNT only
+     * (so nested BILLALLOCATIONS/BATCHALLOCATIONS amounts are never double
+     * counted) and flip to a debit-positive convention for downstream posting.
+     */
+    private void addLedgerEntries(NodeList lists, List<TallyVoucher.LedgerEntry> out) {
+        for (int j = 0; j < lists.getLength(); j++) {
+            Element le = (Element) lists.item(j);
+            String name = childText(le, "LEDGERNAME");
+            BigDecimal raw = decimal(childText(le, "AMOUNT"));
+            if (name == null || raw == null) continue;
+
+            String deemedPositive = childText(le, "ISDEEMEDPOSITIVE");
+            BigDecimal normalized;
+            if ("Yes".equalsIgnoreCase(deemedPositive)) {
+                normalized = raw.abs();             // debit
+            } else if ("No".equalsIgnoreCase(deemedPositive)) {
+                normalized = raw.abs().negate();    // credit
+            } else {
+                // No flag — fall back to the raw sign (Tally: negative = debit).
+                normalized = raw.negate();
+            }
+            out.add(new TallyVoucher.LedgerEntry(name, normalized));
+        }
     }
 
     static LocalDate parseDate(String raw) {

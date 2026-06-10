@@ -39,88 +39,140 @@ class TallyVoucherImportServiceTest {
     private final UUID orgId = UUID.randomUUID();
 
     /**
-     * Realistic Tally Day Book export: a Sales voucher (customer debit, sales
-     * credit, CGST + SGST credit), a Receipt voucher (cash debit, customer
-     * credit), a Journal voucher (expense debit, bank credit), and a Purchase
-     * voucher (purchase debit, CGST+SGST debit, vendor credit).
+     * Realistic TallyPrime Day Book export using Tally's <b>real</b> sign
+     * convention (debit = negative AMOUNT + ISDEEMEDPOSITIVE=Yes; credit =
+     * positive + No) and structures:
+     * <ul>
+     *   <li>Sales (invoice mode): party + GST in LEDGERENTRIES.LIST, the
+     *       revenue ledger nested in ALLINVENTORYENTRIES.LIST →
+     *       ACCOUNTINGALLOCATIONS.LIST. BILLALLOCATIONS/BATCHALLOCATIONS
+     *       amounts must NOT be double counted.</li>
+     *   <li>Receipt (voucher mode): ALLLEDGERENTRIES.LIST.</li>
+     *   <li>Journal (voucher mode): ALLLEDGERENTRIES.LIST.</li>
+     *   <li>Purchase (invoice mode): vendor + input GST in LEDGERENTRIES.LIST,
+     *       purchase ledger in ACCOUNTINGALLOCATIONS.LIST.</li>
+     * </ul>
      */
     private static final String DAY_BOOK_XML = """
             <ENVELOPE>
              <HEADER><TALLYREQUEST>Export Data</TALLYREQUEST></HEADER>
              <BODY><IMPORTDATA><REQUESTDATA>
               <TALLYMESSAGE>
-               <VOUCHER VCHTYPE="Sales" DATE="20250401">
+               <VOUCHER VCHTYPE="Sales">
+                <DATE>20250401</DATE>
+                <VOUCHERTYPENAME>Sales</VOUCHERTYPENAME>
                 <VOUCHERNUMBER>S-001</VOUCHERNUMBER>
                 <PARTYLEDGERNAME>MediMart Distributors</PARTYLEDGERNAME>
                 <NARRATION>Goods sold</NARRATION>
-                <ALLLEDGERENTRIES.LIST>
+                <LEDGERENTRIES.LIST>
                  <LEDGERNAME>MediMart Distributors</LEDGERNAME>
-                 <AMOUNT>11200.00</AMOUNT>
-                </ALLLEDGERENTRIES.LIST>
-                <ALLLEDGERENTRIES.LIST>
-                 <LEDGERNAME>Sales A/c</LEDGERNAME>
-                 <AMOUNT>-10000.00</AMOUNT>
-                </ALLLEDGERENTRIES.LIST>
-                <ALLLEDGERENTRIES.LIST>
+                 <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+                 <ISPARTYLEDGER>Yes</ISPARTYLEDGER>
+                 <AMOUNT>-11200.00</AMOUNT>
+                 <BILLALLOCATIONS.LIST>
+                  <NAME>S-001</NAME><BILLTYPE>New Ref</BILLTYPE><AMOUNT>-11200.00</AMOUNT>
+                 </BILLALLOCATIONS.LIST>
+                </LEDGERENTRIES.LIST>
+                <LEDGERENTRIES.LIST>
                  <LEDGERNAME>CGST</LEDGERNAME>
-                 <AMOUNT>-600.00</AMOUNT>
-                </ALLLEDGERENTRIES.LIST>
-                <ALLLEDGERENTRIES.LIST>
+                 <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+                 <AMOUNT>600.00</AMOUNT>
+                </LEDGERENTRIES.LIST>
+                <LEDGERENTRIES.LIST>
                  <LEDGERNAME>SGST</LEDGERNAME>
-                 <AMOUNT>-600.00</AMOUNT>
-                </ALLLEDGERENTRIES.LIST>
+                 <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+                 <AMOUNT>600.00</AMOUNT>
+                </LEDGERENTRIES.LIST>
+                <ALLINVENTORYENTRIES.LIST>
+                 <STOCKITEMNAME>Crocin 500mg</STOCKITEMNAME>
+                 <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+                 <RATE>100.00/Nos</RATE>
+                 <AMOUNT>10000.00</AMOUNT>
+                 <ACTUALQTY>100 Nos</ACTUALQTY>
+                 <BATCHALLOCATIONS.LIST>
+                  <GODOWNNAME>Main Location</GODOWNNAME><BATCHNAME>Primary</BATCHNAME><AMOUNT>10000.00</AMOUNT>
+                 </BATCHALLOCATIONS.LIST>
+                 <ACCOUNTINGALLOCATIONS.LIST>
+                  <LEDGERNAME>Sales A/c</LEDGERNAME>
+                  <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+                  <AMOUNT>10000.00</AMOUNT>
+                 </ACCOUNTINGALLOCATIONS.LIST>
+                </ALLINVENTORYENTRIES.LIST>
                </VOUCHER>
               </TALLYMESSAGE>
               <TALLYMESSAGE>
-               <VOUCHER VCHTYPE="Receipt" DATE="20250405">
+               <VOUCHER VCHTYPE="Receipt">
+                <DATE>20250405</DATE>
+                <VOUCHERTYPENAME>Receipt</VOUCHERTYPENAME>
                 <VOUCHERNUMBER>R-001</VOUCHERNUMBER>
                 <PARTYLEDGERNAME>MediMart Distributors</PARTYLEDGERNAME>
                 <NARRATION>Payment received</NARRATION>
                 <ALLLEDGERENTRIES.LIST>
                  <LEDGERNAME>Cash</LEDGERNAME>
-                 <AMOUNT>11200.00</AMOUNT>
+                 <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+                 <AMOUNT>-11200.00</AMOUNT>
                 </ALLLEDGERENTRIES.LIST>
                 <ALLLEDGERENTRIES.LIST>
                  <LEDGERNAME>MediMart Distributors</LEDGERNAME>
-                 <AMOUNT>-11200.00</AMOUNT>
+                 <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+                 <AMOUNT>11200.00</AMOUNT>
+                 <BILLALLOCATIONS.LIST>
+                  <NAME>S-001</NAME><BILLTYPE>Agst Ref</BILLTYPE><AMOUNT>11200.00</AMOUNT>
+                 </BILLALLOCATIONS.LIST>
                 </ALLLEDGERENTRIES.LIST>
                </VOUCHER>
               </TALLYMESSAGE>
               <TALLYMESSAGE>
-               <VOUCHER VCHTYPE="Journal" DATE="20250410">
+               <VOUCHER VCHTYPE="Journal">
+                <DATE>20250410</DATE>
+                <VOUCHERTYPENAME>Journal</VOUCHERTYPENAME>
                 <VOUCHERNUMBER>J-001</VOUCHERNUMBER>
                 <NARRATION>Shop rent for April</NARRATION>
                 <ALLLEDGERENTRIES.LIST>
                  <LEDGERNAME>Shop Rent</LEDGERNAME>
-                 <AMOUNT>15000.00</AMOUNT>
+                 <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+                 <AMOUNT>-15000.00</AMOUNT>
                 </ALLLEDGERENTRIES.LIST>
                 <ALLLEDGERENTRIES.LIST>
                  <LEDGERNAME>HDFC Bank</LEDGERNAME>
-                 <AMOUNT>-15000.00</AMOUNT>
+                 <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+                 <AMOUNT>15000.00</AMOUNT>
                 </ALLLEDGERENTRIES.LIST>
                </VOUCHER>
               </TALLYMESSAGE>
               <TALLYMESSAGE>
-               <VOUCHER VCHTYPE="Purchase" DATE="20250415">
+               <VOUCHER VCHTYPE="Purchase">
+                <DATE>20250415</DATE>
+                <VOUCHERTYPENAME>Purchase</VOUCHERTYPENAME>
                 <VOUCHERNUMBER>P-001</VOUCHERNUMBER>
                 <PARTYLEDGERNAME>ABC Pharma Supplies</PARTYLEDGERNAME>
                 <NARRATION>Stock purchase</NARRATION>
-                <ALLLEDGERENTRIES.LIST>
-                 <LEDGERNAME>Purchase A/c</LEDGERNAME>
-                 <AMOUNT>20000.00</AMOUNT>
-                </ALLLEDGERENTRIES.LIST>
-                <ALLLEDGERENTRIES.LIST>
-                 <LEDGERNAME>Input CGST</LEDGERNAME>
-                 <AMOUNT>1200.00</AMOUNT>
-                </ALLLEDGERENTRIES.LIST>
-                <ALLLEDGERENTRIES.LIST>
-                 <LEDGERNAME>Input SGST</LEDGERNAME>
-                 <AMOUNT>1200.00</AMOUNT>
-                </ALLLEDGERENTRIES.LIST>
-                <ALLLEDGERENTRIES.LIST>
+                <LEDGERENTRIES.LIST>
                  <LEDGERNAME>ABC Pharma Supplies</LEDGERNAME>
-                 <AMOUNT>-22400.00</AMOUNT>
-                </ALLLEDGERENTRIES.LIST>
+                 <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+                 <ISPARTYLEDGER>Yes</ISPARTYLEDGER>
+                 <AMOUNT>22400.00</AMOUNT>
+                </LEDGERENTRIES.LIST>
+                <LEDGERENTRIES.LIST>
+                 <LEDGERNAME>Input CGST</LEDGERNAME>
+                 <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+                 <AMOUNT>-1200.00</AMOUNT>
+                </LEDGERENTRIES.LIST>
+                <LEDGERENTRIES.LIST>
+                 <LEDGERNAME>Input SGST</LEDGERNAME>
+                 <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+                 <AMOUNT>-1200.00</AMOUNT>
+                </LEDGERENTRIES.LIST>
+                <ALLINVENTORYENTRIES.LIST>
+                 <STOCKITEMNAME>Crocin 500mg</STOCKITEMNAME>
+                 <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+                 <AMOUNT>-20000.00</AMOUNT>
+                 <ACCOUNTINGALLOCATIONS.LIST>
+                  <LEDGERNAME>Purchase A/c</LEDGERNAME>
+                  <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+                  <AMOUNT>-20000.00</AMOUNT>
+                 </ACCOUNTINGALLOCATIONS.LIST>
+                </ALLINVENTORYENTRIES.LIST>
                </VOUCHER>
               </TALLYMESSAGE>
              </REQUESTDATA></IMPORTDATA></BODY>
@@ -203,28 +255,36 @@ class TallyVoucherImportServiceTest {
         ArgumentCaptor<JournalPostRequest> captor = ArgumentCaptor.forClass(JournalPostRequest.class);
         verify(journalService, times(4)).postJournal(captor.capture());
 
-        // First journal = Sales voucher
+        // First journal = Sales voucher. Entry order: party + GST from
+        // LEDGERENTRIES.LIST, then revenue from ACCOUNTINGALLOCATIONS.LIST.
         JournalPostRequest salesJournal = captor.getAllValues().get(0);
         assertThat(salesJournal.effectiveDate().toString()).isEqualTo("2025-04-01");
         assertThat(salesJournal.sourceModule()).isEqualTo("TALLY_IMPORT");
         assertThat(salesJournal.description()).contains("Sales").contains("S-001").contains("MediMart");
         assertThat(salesJournal.lines()).hasSize(4);
 
-        // Customer → AR (1100), debit 11200
+        // Customer (debit, Tally -11200) → AR (1100), debit 11200
         assertThat(salesJournal.lines().get(0).accountCode()).isEqualTo("1100");
         assertThat(salesJournal.lines().get(0).debit()).isEqualByComparingTo("11200");
 
-        // Sales A/c → 4010 (well-known), credit 10000
-        assertThat(salesJournal.lines().get(1).accountCode()).isEqualTo("4010");
-        assertThat(salesJournal.lines().get(1).credit()).isEqualByComparingTo("10000");
+        // CGST (credit, Tally +600) → 2020, credit 600
+        assertThat(salesJournal.lines().get(1).accountCode()).isEqualTo("2020");
+        assertThat(salesJournal.lines().get(1).credit()).isEqualByComparingTo("600");
 
-        // CGST → 2020 (well-known), credit 600
-        assertThat(salesJournal.lines().get(2).accountCode()).isEqualTo("2020");
+        // SGST (credit, Tally +600) → 2021, credit 600
+        assertThat(salesJournal.lines().get(2).accountCode()).isEqualTo("2021");
         assertThat(salesJournal.lines().get(2).credit()).isEqualByComparingTo("600");
 
-        // SGST → 2021 (well-known), credit 600
-        assertThat(salesJournal.lines().get(3).accountCode()).isEqualTo("2021");
-        assertThat(salesJournal.lines().get(3).credit()).isEqualByComparingTo("600");
+        // Sales A/c from ACCOUNTINGALLOCATIONS (credit, Tally +10000) → 4010, credit 10000.
+        // BILLALLOCATIONS (-11200) and BATCHALLOCATIONS (10000) must NOT be counted.
+        assertThat(salesJournal.lines().get(3).accountCode()).isEqualTo("4010");
+        assertThat(salesJournal.lines().get(3).credit()).isEqualByComparingTo("10000");
+
+        // Sanity: balanced (total Dr = total Cr = 11200)
+        assertThat(salesJournal.lines().stream()
+                .map(l -> l.debit().subtract(l.credit()))
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add))
+                .isEqualByComparingTo("0");
     }
 
     @Test
@@ -234,21 +294,24 @@ class TallyVoucherImportServiceTest {
         ArgumentCaptor<JournalPostRequest> captor = ArgumentCaptor.forClass(JournalPostRequest.class);
         verify(journalService, times(4)).postJournal(captor.capture());
 
-        // Fourth journal = Purchase voucher
+        // Fourth journal = Purchase voucher. Entry order: vendor + input GST
+        // from LEDGERENTRIES.LIST, then purchase ledger from ACCOUNTINGALLOCATIONS.LIST.
         JournalPostRequest purchaseJournal = captor.getAllValues().get(3);
         assertThat(purchaseJournal.effectiveDate().toString()).isEqualTo("2025-04-15");
 
-        // Purchase A/c → 5020 (well-known), debit 20000
-        assertThat(purchaseJournal.lines().get(0).accountCode()).isEqualTo("5020");
-        assertThat(purchaseJournal.lines().get(0).debit()).isEqualByComparingTo("20000");
+        // Vendor (credit, Tally +22400) → AP (2010), credit 22400
+        assertThat(purchaseJournal.lines().get(0).accountCode()).isEqualTo("2010");
+        assertThat(purchaseJournal.lines().get(0).credit()).isEqualByComparingTo("22400");
 
-        // Input CGST → 1500, Input SGST → 1500
+        // Input CGST + Input SGST (debit, Tally -1200) → 1500
         assertThat(purchaseJournal.lines().get(1).accountCode()).isEqualTo("1500");
+        assertThat(purchaseJournal.lines().get(1).debit()).isEqualByComparingTo("1200");
         assertThat(purchaseJournal.lines().get(2).accountCode()).isEqualTo("1500");
+        assertThat(purchaseJournal.lines().get(2).debit()).isEqualByComparingTo("1200");
 
-        // Vendor → AP (2010), credit 22400
-        assertThat(purchaseJournal.lines().get(3).accountCode()).isEqualTo("2010");
-        assertThat(purchaseJournal.lines().get(3).credit()).isEqualByComparingTo("22400");
+        // Purchase A/c from ACCOUNTINGALLOCATIONS (debit, Tally -20000) → 5020, debit 20000
+        assertThat(purchaseJournal.lines().get(3).accountCode()).isEqualTo("5020");
+        assertThat(purchaseJournal.lines().get(3).debit()).isEqualByComparingTo("20000");
     }
 
     @Test

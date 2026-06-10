@@ -192,7 +192,13 @@ TallyPrime exports everything we need as XML, natively:
 
 Day Book XML → journal entries. Every `<VOUCHER>` is posted as a journal entry via `JournalService`, regardless of type (Sales, Purchase, Receipt, Payment, Journal, Contra, Debit Note, Credit Note). This is safe: no stock movements, no domain events, no payment allocations — just accounting history that makes the trial balance match Tally's.
 
-**Ledger resolution** (each ALLLEDGERENTRIES.LIST → account code):
+**Verified against TallyPrime's real XML format** (help.tallysolutions.com/sample-xml):
+- **Sign convention (critical):** Tally writes a **debit as a NEGATIVE `<AMOUNT>`** with `<ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>`, and a **credit as POSITIVE** with `No`. The parser normalizes to debit-positive using `ISDEEMEDPOSITIVE` first, falling back to the raw sign.
+- **Container tags:** voucher-mode vouchers (Payment/Receipt/Journal/Contra) use `<ALLLEDGERENTRIES.LIST>`; invoice-mode (Sales/Purchase) put the party + tax + round-off in `<LEDGERENTRIES.LIST>` and the **revenue/purchase ledger nested in `<ALLINVENTORYENTRIES.LIST>` → `<ACCOUNTINGALLOCATIONS.LIST>`** — the parser reads both so invoice vouchers balance.
+- **Double-count traps avoided:** only the *direct-child* `<AMOUNT>` of each ledger list is read, so nested `<BILLALLOCATIONS.LIST>` (bill refs) and `<BATCHALLOCATIONS.LIST>` (stock batches) amounts are never counted.
+- **Date:** `<DATE>YYYYMMDD</DATE>`.
+
+**Ledger resolution** (each ledger line → account code):
 1. Contact lookup by name → customer uses AR (1100), vendor uses AP (2010)
 2. Account lookup by name → code from Slice 1 import or seeded CoA
 3. Well-known Tally names → hardcoded defaults (Cash→1010, Sales A/c→4010, CGST→2020, etc.)
