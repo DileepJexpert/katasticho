@@ -111,6 +111,8 @@ class ApiConfig {
   static const String tallyImport = '/api/v1/migration/tally/import';
   static const String tallyVoucherPreview = '/api/v1/migration/tally/vouchers/preview';
   static const String tallyVoucherImport = '/api/v1/migration/tally/vouchers/import';
+  static const String tallyVerifyTb = '/api/v1/migration/tally/verify-trial-balance';
+  static const String tallyExportVouchers = '/api/v1/migration/tally/export-vouchers';
 
   // POS Cash Register
   static const String cashRegisterToday   = '/api/v1/pos/cash-register/today';

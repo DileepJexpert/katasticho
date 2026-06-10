@@ -279,13 +279,13 @@ Sized so one person + Claude ships each phase. Don't skip ahead — each builds 
 
 ### Master execution queue (2026-06-10 — work top to bottom)
 
-Status: A ✅ · C ✅ · D ✅ (incl. e-way) · F ✅ (e-invoice + TDS) · Tally slice 1 ✅ · E ✅ · Tally slice 2 ✅.
+Status: A ✅ · C ✅ · D ✅ (incl. e-way) · F ✅ (e-invoice + TDS) · Tally slice 1 ✅ · E ✅ · Tally slice 2 ✅ · Tally slice 3 ✅. **Migration complete (slices 1–3).**
 
 | # | Work item | Why this order | Status |
 |---|-----------|----------------|--------|
 | 1 | **Phase E — AI bank reconciliation** (statement file import + AI parse fallback, debit-side bill matching, recon summary) | Vision Phase E **and** Tally parity gap #1 — one build closed both | ✅ DONE 2026-06-10 |
 | 2 | **Tally slice 2 — Day Book voucher import** (all voucher types → journal entries via JournalService; ledger resolution: contact→AR/AP, account→code, well-known→default, bank pattern→1020) | Completes migration for mid-year switchers; builds directly on slice 1 | ✅ DONE 2026-06-10 |
-| 3 | **Tally slice 3 + P9 — "CA Bridge"** (our TB vs Tally TB verification report + monthly Tally-importable XML export) | Kills the #1 switching objection ("my CA only takes Tally") | TODO |
+| 3 | **Tally slice 3 + P9 — "CA Bridge"** (TB verification: upload Tally TB → diff vs our books, MATCHED/MISMATCH/MISSING; + Tally-importable voucher XML export, sign convention mirrored) | Kills the #1 switching objection ("my CA only takes Tally") | ✅ DONE 2026-06-10 |
 | 4 | **Phase B — conversational entry** (command bar everywhere: sentence → drafted txn via `draft_*`; query path already exists) | AI-first front door; reuses Phase A drafting + NlpQueryService | TODO |
 | 5 | **Phase G — proactive agents** (month-close checklist, anomaly sweep, collections reminders w/ drafts) + webhooks/OpenAPI polish | The "system tells you first" promise | TODO |
 | 6 | **Tally parity backlog** (doc §1 order): landed cost → TCS 206C(1H) + composition CMP-08 → cost centres UI → interest on overdue → budgets → FIFO valuation → stock ageing → GSP direct IRP/EWB APIs → WhatsApp docs → ratio analysis → post-dated vouchers | Steady parity grind; each item small and independent | TODO |

@@ -237,6 +237,84 @@ public class TallyXmlParser {
         }
     }
 
+    // ── Trial Balance (report) parsing ─────────────────────────────────
+
+    /**
+     * Parse a Trial Balance exported from Tally (Display → Trial Balance →
+     * Export → XML). Tally's TB report XML lists each ledger as a
+     * {@code <DSPACCNAME><DSPDISPNAME>…</DSPDISPNAME></DSPACCNAME>} block with a
+     * sibling {@code <DSPACCINFO>} holding closing amounts
+     * ({@code <DSPCLDRAMT><DSPCLDRAMTA>…} for debit,
+     * {@code <DSPCLCRAMT><DSPCLCRAMTA>…} for credit).
+     *
+     * <p>Falls back to a Masters-style export (each {@code <LEDGER>} with a
+     * {@code <CLOSINGBALANCE>}, Tally sign: negative = debit) when no report
+     * rows are present, so either export shape verifies.
+     *
+     * <p>Amounts are returned as positive magnitudes in their natural column.
+     */
+    public List<TallyImportDtos.TallyTbLine> parseTrialBalance(byte[] xmlBytes) {
+        Document doc;
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setExpandEntityReferences(false);
+            doc = factory.newDocumentBuilder().parse(new ByteArrayInputStream(xmlBytes));
+        } catch (Exception e) {
+            throw new BusinessException(
+                    "Could not read the Tally Trial Balance XML (" + e.getMessage() + ")",
+                    "TALLY_XML_INVALID", HttpStatus.BAD_REQUEST);
+        }
+
+        List<TallyImportDtos.TallyTbLine> lines = new ArrayList<>();
+
+        // Primary: TB report rows.
+        NodeList accNames = doc.getElementsByTagName("DSPACCNAME");
+        for (int i = 0; i < accNames.getLength(); i++) {
+            Element accName = (Element) accNames.item(i);
+            String name = firstNonBlank(descendantText(accName, "DSPDISPNAME"),
+                    accName.getTextContent());
+            if (name == null || name.isBlank()) continue;
+
+            Node parent = accName.getParentNode();
+            BigDecimal debit = BigDecimal.ZERO, credit = BigDecimal.ZERO;
+            if (parent instanceof Element pe) {
+                BigDecimal d = decimal(descendantText(pe, "DSPCLDRAMTA"));
+                BigDecimal c = decimal(descendantText(pe, "DSPCLCRAMTA"));
+                if (d != null) debit = d.abs();
+                if (c != null) credit = c.abs();
+            }
+            if (debit.signum() != 0 || credit.signum() != 0) {
+                lines.add(new TallyImportDtos.TallyTbLine(name.trim(), debit, credit));
+            }
+        }
+
+        // Fallback: Masters export with closing balances (negative = debit).
+        if (lines.isEmpty()) {
+            NodeList ledgers = doc.getElementsByTagName("LEDGER");
+            for (int i = 0; i < ledgers.getLength(); i++) {
+                Element ledger = (Element) ledgers.item(i);
+                String name = nameOf(ledger);
+                BigDecimal closing = decimal(childText(ledger, "CLOSINGBALANCE"));
+                if (name == null || closing == null || closing.signum() == 0) continue;
+                if (closing.signum() < 0) {
+                    lines.add(new TallyImportDtos.TallyTbLine(name, closing.abs(), BigDecimal.ZERO));
+                } else {
+                    lines.add(new TallyImportDtos.TallyTbLine(name, BigDecimal.ZERO, closing));
+                }
+            }
+        }
+
+        if (lines.isEmpty()) {
+            throw new BusinessException(
+                    "No Trial Balance rows found — export the Trial Balance from Tally as XML "
+                            + "(Display → Trial Balance → Alt+E → XML)",
+                    "TALLY_TB_EMPTY", HttpStatus.BAD_REQUEST);
+        }
+        return lines;
+    }
+
     // ── Element helpers ──────────────────────────────────────────────────
 
     /** Master name: the NAME attribute, falling back to a NAME child element. */

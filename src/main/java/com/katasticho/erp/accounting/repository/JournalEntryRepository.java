@@ -62,5 +62,17 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, UUID
     List<JournalEntry> findByOrgIdAndEffectiveDateBetweenOrderByEffectiveDateDescCreatedAtDesc(
             UUID orgId, LocalDate from, LocalDate to);
 
+    /**
+     * Posted entries with lines eagerly loaded, chronological — for the Tally
+     * XML voucher export ("CA Bridge"). Excludes reversed/reversal noise is the
+     * caller's choice; this returns all POSTED entries in the window.
+     */
+    @Query("SELECT DISTINCT je FROM JournalEntry je LEFT JOIN FETCH je.lines "
+            + "WHERE je.orgId = :orgId AND je.status = 'POSTED' "
+            + "AND je.effectiveDate BETWEEN :from AND :to "
+            + "ORDER BY je.effectiveDate ASC, je.createdAt ASC")
+    List<JournalEntry> findPostedWithLinesInRange(
+            @Param("orgId") UUID orgId, @Param("from") LocalDate from, @Param("to") LocalDate to);
+
     long countByOrgIdAndStatusAndCreatedAtBefore(UUID orgId, String status, java.time.Instant before);
 }

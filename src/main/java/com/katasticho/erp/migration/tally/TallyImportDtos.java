@@ -65,4 +65,48 @@ public final class TallyImportDtos {
             Map<String, Integer> byType,
             List<RowError> errors
     ) {}
+
+    // ── CA Bridge: Trial Balance verification ───────────────────────────
+
+    /** One ledger row parsed from a Tally Trial Balance XML export. */
+    public record TallyTbLine(
+            String ledgerName,
+            java.math.BigDecimal debit,
+            java.math.BigDecimal credit
+    ) {}
+
+    /**
+     * One account compared between our books and Tally's TB.
+     * {@code status}: MATCHED / MISMATCH / MISSING_IN_BOOKS / MISSING_IN_TALLY.
+     */
+    public record TbVerificationLine(
+            String name,
+            java.math.BigDecimal ourBalance,    // signed: + debit, − credit
+            java.math.BigDecimal tallyBalance,  // signed: + debit, − credit
+            java.math.BigDecimal difference,    // our − tally
+            String status
+    ) {}
+
+    public record TbVerificationResult(
+            String asOfDate,
+            int matched,
+            int mismatched,
+            int missingInBooks,   // in Tally, not in our books
+            int missingInTally,   // in our books, not in Tally
+            boolean balancesMatch,
+            java.math.BigDecimal ourTotalDebit,
+            java.math.BigDecimal ourTotalCredit,
+            java.math.BigDecimal tallyTotalDebit,
+            java.math.BigDecimal tallyTotalCredit,
+            List<TbVerificationLine> lines
+    ) {}
+
+    // ── CA Bridge: Tally voucher XML export ─────────────────────────────
+
+    public record TallyExportSummary(
+            String fromDate,
+            String toDate,
+            int voucherCount,
+            Map<String, Integer> byType
+    ) {}
 }

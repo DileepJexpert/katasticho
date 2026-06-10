@@ -214,10 +214,11 @@ Day Book XML → journal entries. Every `<VOUCHER>` is posted as a journal entry
 
 Most SMBs migrate **masters + openings at FY start** and keep Tally read-only for history — Slice 1 already covers that path completely. Slice 2 serves mid-year switchers.
 
-### 3.4 Slice 3 — Trust & the CA loop
+### 3.4 Slice 3 — Trust & the CA loop ("CA Bridge") (DONE — 2026-06-10)
 
-- **Verification report:** our Trial Balance vs Tally's exported TB, side by side, with diffs highlighted — the CA signs off in minutes.
-- **Tally XML export (P9):** monthly vouchers exported in Tally-importable XML so the CA continues filing from Tally. This removes the single biggest switching objection ("my CA only takes Tally").
+- **Verification report:** upload the closing TB exported from Tally (Display → Trial Balance → Alt+E → XML); we diff it against our books account-by-account and classify each as MATCHED / MISMATCH / MISSING_IN_BOOKS / MISSING_IN_TALLY (₹1 tolerance), problems sorted first, plus a grand-total Dr/Cr comparison. The CA signs off in minutes. `POST /api/v1/migration/tally/verify-trial-balance` (multipart + `asOfDate`).
+- **Tally XML export (P9):** posted vouchers for a date range written back as Tally-importable XML (standard `<ENVELOPE>`/`Import Data`/`Vouchers` envelope, one `<VOUCHER>` per journal entry, `<ALLLEDGERENTRIES.LIST>` per line). Sign convention is the mirror of the importer: our debit → NEGATIVE `<AMOUNT>` + `ISDEEMEDPOSITIVE=Yes`; credit → positive + `No`. Source module → closest VCHTYPE (Sales/Purchase/Receipt/Payment/Contra/Journal). Account names become ledger names. `GET /api/v1/migration/tally/export-vouchers?fromDate=&toDate=` returns the XML file. This removes the single biggest switching objection ("my CA only takes Tally").
+- **Implementation:** `TallyXmlParser.parseTrialBalance()` (tolerant: TB report `DSPACCNAME`/`DSPCLDRAMTA`/`DSPCLCRAMTA` rows, falling back to Masters `LEDGER`/`CLOSINGBALANCE`), `TallyCaBridgeService` (verify + export), `JournalEntryRepository.findPostedWithLinesInRange`. Flutter: Step 3 in Tally Import Screen. 7 tests (TallyCaBridgeServiceTest).
 
 ### 3.5 The pitch, in one line
 

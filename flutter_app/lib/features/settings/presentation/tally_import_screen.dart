@@ -32,6 +32,14 @@ class _TallyImportScreenState extends ConsumerState<TallyImportScreen> {
   Map<String, dynamic>? _vPreview;
   Map<String, dynamic>? _vResult;
 
+  // CA Bridge (Slice 3)
+  Map<String, dynamic>? _tbResult;
+  DateTime _tbAsOf = DateTime.now();
+  DateTimeRange _exportRange = DateTimeRange(
+    start: DateTime(DateTime.now().year, DateTime.now().month, 1),
+    end: DateTime.now(),
+  );
+
   bool _busy = false;
   String? _error;
 
@@ -148,6 +156,88 @@ class _TallyImportScreenState extends ConsumerState<TallyImportScreen> {
     return Map<String, dynamic>.from((body['data'] as Map?) ?? body);
   }
 
+  // ── CA Bridge: verify TB ────────────────────────────────────────────
+
+  Future<void> _verifyTrialBalance() async {
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xml'],
+      withData: true,
+    );
+    if (picked == null || picked.files.isEmpty) return;
+    final bytes = picked.files.first.bytes;
+    if (bytes == null || !mounted) return;
+    setState(() { _busy = true; _error = null; _tbResult = null; });
+    try {
+      final form = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes.toList(),
+            filename: picked.files.first.name),
+      });
+      final response = await ref.read(apiClientProvider).post(
+            ApiConfig.tallyVerifyTb,
+            data: form,
+            queryParameters: {'asOfDate': _isoDate(_tbAsOf)},
+          );
+      final body = response.data as Map<String, dynamic>;
+      if (mounted) {
+        setState(() =>
+            _tbResult = Map<String, dynamic>.from((body['data'] as Map?) ?? body));
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = _msg(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  // ── CA Bridge: export vouchers ──────────────────────────────────────
+
+  Future<void> _exportVouchers() async {
+    setState(() { _busy = true; _error = null; });
+    try {
+      final response = await ref.read(apiClientProvider).get(
+            ApiConfig.tallyExportVouchers,
+            queryParameters: {
+              'fromDate': _isoDate(_exportRange.start),
+              'toDate': _isoDate(_exportRange.end),
+            },
+            options: Options(responseType: ResponseType.plain),
+          );
+      final xml = response.data.toString();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Tally XML ready'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: SelectableText(
+                xml.length > 4000 ? '${xml.substring(0, 4000)}\n… (truncated)' : xml,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) setState(() => _error = _msg(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  String _isoDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+
   String _msg(Object e) {
     if (e is DioException) {
       final data = e.response?.data;
@@ -189,6 +279,15 @@ class _TallyImportScreenState extends ConsumerState<TallyImportScreen> {
           ] else if (_vPreview != null) ...[
             KSpacing.vGapMd,
             _buildVoucherPreview(),
+          ],
+          KSpacing.vGapLg,
+          Text('Step 3: CA Bridge — verify & hand back to Tally',
+              style: KTypography.h3),
+          KSpacing.vGapSm,
+          _buildCaBridge(),
+          if (_tbResult != null) ...[
+            KSpacing.vGapMd,
+            _buildTbVerification(),
           ],
           if (_error != null) ...[
             KSpacing.vGapMd,
@@ -513,6 +612,186 @@ class _TallyImportScreenState extends ConsumerState<TallyImportScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ── CA Bridge UI ───────────────────────────────────────────────────
+
+  Widget _buildCaBridge() {
+    return KCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Verify the migration', style: KTypography.labelLarge),
+          KSpacing.vGapXs,
+          Text(
+            'Export the closing Trial Balance from Tally (Display → Trial Balance → '
+            'Alt+E → XML) and upload it. We diff it against your books so your CA '
+            'can sign off in minutes.',
+            style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+          ),
+          KSpacing.vGapSm,
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.calendar_today, size: 16),
+                  label: Text('As of ${_isoDate(_tbAsOf)}'),
+                  onPressed: _busy
+                      ? null
+                      : () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _tbAsOf,
+                            firstDate: DateTime(2015),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) setState(() => _tbAsOf = picked);
+                        },
+                ),
+              ),
+              KSpacing.hGapSm,
+              KButton(
+                label: 'Verify TB',
+                variant: KButtonVariant.outlined,
+                onPressed: _busy ? null : _verifyTrialBalance,
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          Text('Hand back to Tally', style: KTypography.labelLarge),
+          KSpacing.vGapXs,
+          Text(
+            'Export your posted vouchers as Tally-importable XML so your CA keeps '
+            'filing from Tally.',
+            style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+          ),
+          KSpacing.vGapSm,
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.date_range, size: 16),
+                  label: Text(
+                      '${_isoDate(_exportRange.start)} → ${_isoDate(_exportRange.end)}'),
+                  onPressed: _busy
+                      ? null
+                      : () async {
+                          final picked = await showDateRangePicker(
+                            context: context,
+                            initialDateRange: _exportRange,
+                            firstDate: DateTime(2015),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) setState(() => _exportRange = picked);
+                        },
+                ),
+              ),
+              KSpacing.hGapSm,
+              KButton(
+                label: 'Export XML',
+                icon: Icons.download,
+                onPressed: _busy ? null : _exportVouchers,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTbVerification() {
+    final r = _tbResult!;
+    final lines = (r['lines'] as List?) ?? const [];
+    final balancesMatch = r['balancesMatch'] == true;
+    final problems = (r['mismatched'] as num? ?? 0) +
+        (r['missingInBooks'] as num? ?? 0) +
+        (r['missingInTally'] as num? ?? 0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: (problems == 0 ? KColors.success : KColors.warning)
+                .withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(problems == 0 ? Icons.verified : Icons.rule,
+                  color: problems == 0 ? KColors.success : KColors.warning),
+              KSpacing.hGapSm,
+              Expanded(
+                child: Text(
+                  problems == 0
+                      ? 'All accounts reconcile with Tally. Totals ${balancesMatch ? "match" : "differ"}.'
+                      : '$problems account(s) need attention. Totals ${balancesMatch ? "match" : "differ"}.',
+                  style: KTypography.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+        ),
+        KSpacing.vGapSm,
+        Row(
+          children: [
+            _metric('Matched', r['matched'], KColors.success),
+            KSpacing.hGapSm,
+            _metric('Mismatch', r['mismatched'], KColors.error),
+            KSpacing.hGapSm,
+            _metric('In Tally only', r['missingInBooks'], KColors.warning),
+            KSpacing.hGapSm,
+            _metric('In books only', r['missingInTally'], KColors.info),
+          ],
+        ),
+        KSpacing.vGapSm,
+        ...lines.take(60).map((raw) {
+          final l = Map<String, dynamic>.from(raw as Map);
+          final status = l['status']?.toString() ?? '';
+          if (status == 'MATCHED') return const SizedBox.shrink();
+          final color = switch (status) {
+            'MISMATCH' => KColors.error,
+            'MISSING_IN_BOOKS' => KColors.warning,
+            'MISSING_IN_TALLY' => KColors.info,
+            _ => KColors.textSecondary,
+          };
+          return Padding(
+            padding: const EdgeInsets.only(bottom: KSpacing.xs),
+            child: KCard(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l['name']?.toString() ?? '',
+                            style: KTypography.labelLarge),
+                        Text(
+                          'Books: ${l['ourBalance'] ?? '—'}  ·  Tally: ${l['tallyBalance'] ?? '—'}  ·  Δ ${l['difference'] ?? '—'}',
+                          style: KTypography.bodySmall
+                              .copyWith(color: KColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(status.replaceAll('_', ' '),
+                        style: KTypography.labelSmall.copyWith(color: color)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
     );
   }
 
