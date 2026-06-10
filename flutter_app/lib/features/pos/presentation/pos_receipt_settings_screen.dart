@@ -208,6 +208,8 @@ class PosReceiptSettingsScreen extends ConsumerWidget {
           ),
           KSpacing.vGapLg,
           const _UpiSettingsSection(),
+          KSpacing.vGapLg,
+          const _SmsSettingsSection(),
           KSpacing.vGapXl,
         ],
       ),
@@ -333,6 +335,150 @@ class _UpiSettingsSectionState extends ConsumerState<_UpiSettingsSection> {
                 ),
               ],
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SmsSettingsSection extends ConsumerStatefulWidget {
+  const _SmsSettingsSection();
+
+  @override
+  ConsumerState<_SmsSettingsSection> createState() =>
+      _SmsSettingsSectionState();
+}
+
+class _SmsSettingsSectionState extends ConsumerState<_SmsSettingsSection> {
+  final _apiKeyCtrl = TextEditingController();
+  final _senderIdCtrl = TextEditingController();
+  bool _enabled = false;
+  String _provider = 'FAST2SMS';
+  bool _saving = false;
+  bool _prefilled = false;
+
+  @override
+  void dispose() {
+    _apiKeyCtrl.dispose();
+    _senderIdCtrl.dispose();
+    super.dispose();
+  }
+
+  void _prefill(Map<String, String> s) {
+    if (_prefilled) return;
+    _prefilled = true;
+    setState(() {
+      _enabled = s['enabled'] == 'true';
+      _provider = s['provider'] ?? 'FAST2SMS';
+      _apiKeyCtrl.text = s['apiKey'] ?? '';
+      _senderIdCtrl.text = s['senderId'] ?? 'KTSEPR';
+    });
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final client = ref.read(apiClientProvider);
+      await client.put(ApiConfig.smsSettings, data: {
+        'enabled': _enabled.toString(),
+        'provider': _provider,
+        'apiKey': _apiKeyCtrl.text.trim(),
+        'senderId': _senderIdCtrl.text.trim(),
+      });
+      ref.invalidate(smsSettingsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('SMS settings saved')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final role = ref.watch(authProvider).role?.toUpperCase() ?? '';
+    final canEdit = role == 'OWNER' || role == 'ADMIN';
+    final smsAsync = ref.watch(smsSettingsProvider);
+    smsAsync.whenData(_prefill);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('SMS Notifications', style: KTypography.h3),
+        KSpacing.vGapSm,
+        Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Enable SMS Notifications'),
+                  subtitle: const Text('Send receipt SMS to customers'),
+                  value: _enabled,
+                  onChanged: canEdit ? (v) => setState(() => _enabled = v) : null,
+                ),
+                if (_enabled) ...[
+                  KSpacing.vGapSm,
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'SMS Provider',
+                      border: OutlineInputBorder(),
+                    ),
+                    value: _provider,
+                    items: const [
+                      DropdownMenuItem(value: 'FAST2SMS', child: Text('Fast2SMS')),
+                      DropdownMenuItem(value: 'MSG91', child: Text('MSG91')),
+                    ],
+                    onChanged: canEdit
+                        ? (v) => setState(() => _provider = v ?? 'FAST2SMS')
+                        : null,
+                  ),
+                  KSpacing.vGapSm,
+                  KTextField(
+                    label: 'API Key',
+                    hint: 'Provider API key',
+                    controller: _apiKeyCtrl,
+                    enabled: canEdit,
+                    obscureText: true,
+                  ),
+                  if (_provider == 'MSG91') ...[
+                    KSpacing.vGapSm,
+                    KTextField(
+                      label: 'Sender ID',
+                      hint: '6-char alphanumeric (e.g. KTSEPR)',
+                      controller: _senderIdCtrl,
+                      enabled: canEdit,
+                    ),
+                  ],
+                ],
+                if (canEdit) ...[
+                  KSpacing.vGapMd,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.icon(
+                      onPressed: _saving ? null : _save,
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.save_outlined, size: 16),
+                      label: Text(_saving ? 'Saving...' : 'Save SMS Settings'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ],

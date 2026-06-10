@@ -72,4 +72,27 @@ public class OrgSettingsController {
         if (displayName != null) settingsService.set(orgId, "pos.upi_display_name", displayName);
         return ResponseEntity.ok(body);
     }
+
+    @GetMapping("/sms")
+    public ResponseEntity<Map<String, String>> getSmsSettings() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Map<String, String> result = new java.util.HashMap<>();
+        result.put("enabled", settingsService.get(orgId, "sms.enabled", "false"));
+        result.put("provider", settingsService.get(orgId, "sms.provider", "FAST2SMS"));
+        String apiKey = settingsService.get(orgId, "sms.api_key", null);
+        if (apiKey != null) result.put("apiKey", apiKey);
+        result.put("senderId", settingsService.get(orgId, "sms.sender_id", "KTSEPR"));
+        return ResponseEntity.ok(result);
+    }
+
+    @PutMapping("/sms")
+    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    public ResponseEntity<Map<String, String>> updateSmsSettings(@RequestBody Map<String, String> body) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        if (body.containsKey("enabled")) settingsService.set(orgId, "sms.enabled", body.get("enabled"));
+        if (body.containsKey("provider")) settingsService.set(orgId, "sms.provider", body.get("provider"));
+        if (body.containsKey("apiKey")) settingsService.set(orgId, "sms.api_key", body.get("apiKey"));
+        if (body.containsKey("senderId")) settingsService.set(orgId, "sms.sender_id", body.get("senderId"));
+        return ResponseEntity.ok(body);
+    }
 }
