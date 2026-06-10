@@ -20,6 +20,9 @@ This server wraps the Katasticho REST API as a small, safe set of tools.
 | `draft_bill` | Draft a purchase bill from structured data → creates a **DRAFT** + inbox suggestion (does **not** post). |
 | `approve_bill_draft` | Approve a drafted bill → **posts** it (journal + stock) via the normal path. |
 | `reject_bill_draft` | Delete a drafted bill without posting. |
+| `gst_compliance_calendar` | What's due: GSTR-1/3B, TDS deposit, 2B reconciliation, pending e-way bills. |
+| `get_gstr3b` | Pre-built GSTR-3B for a month — output tax, ITC, net payable. |
+| `gstr2b_recon_summary` | 2B reconciliation result — matches, mismatches, missing ITC, ITC at risk. |
 
 ## Setup
 

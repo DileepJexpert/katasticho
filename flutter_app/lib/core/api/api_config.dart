@@ -81,6 +81,20 @@ class ApiConfig {
   static const String gstReviewCenter = '/api/v1/gst/review-center';
   static const String gstr1Export = '/api/v1/gst/gstr1/export';
   static const String gstr3bExport = '/api/v1/gst/gstr3b/export';
+  // GSTR-2B reconciliation
+  static const String gstr2bUpload = '/api/v1/gst/gstr2b/upload';
+  static const String gstr2b = '/api/v1/gst/gstr2b';
+  static const String gstr2bSummary = '/api/v1/gst/gstr2b/summary';
+  // e-Way bills
+  static const String ewayBills = '/api/v1/gst/eway-bills';
+  static String ewayBillRecord(String id) => '/api/v1/gst/eway-bills/$id/record';
+  static String ewayBillCancel(String id) => '/api/v1/gst/eway-bills/$id/cancel';
+  static String ewayBillPortalJson(String id) =>
+      '/api/v1/gst/eway-bills/$id/portal-json';
+  static const String ewayBillCheckVehicle =
+      '/api/v1/gst/eway-bills/check-vehicle';
+  // Compliance calendar
+  static const String gstComplianceCalendar = '/api/v1/gst/compliance-calendar';
 
   // POS Cash Register
   static const String cashRegisterToday   = '/api/v1/pos/cash-register/today';

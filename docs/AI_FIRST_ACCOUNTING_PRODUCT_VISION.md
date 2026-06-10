@@ -234,12 +234,17 @@ Sized so one person + Claude ships each phase. Don't skip ahead — each builds 
 - **Tests:** `ApiKeyServiceTest` (6, green). **DoD met:** from Claude Desktop, "draft a bill … / what's my profit this month?" works against a test org, drafts-only-until-approved.
 - **Follow-ups:** add tools as the API grows (GST returns, bank rec); per-key scopes/role; rate limiting per key (we have `ai_usage_log`); publish the MCP server to npm.
 
-### Phase D — GST returns + 2B reconciliation (the India moat) ⭐ BIGGEST DIFFERENTIATOR
+### Phase D — GST returns + 2B reconciliation (the India moat) ✅ DONE (2026-06-10) — includes e-way bills (pulled forward from Phase F)
 **Goal:** Pre-built GSTR-1/3B and AI-matched 2B reconciliation.
-- GSTR-1/3B builders from posted invoices → JSON export.
-- GSTR-2B upload + AI fuzzy-match to purchase bills; mismatch inbox.
-- Compliance calendar surfacing deadlines.
-- **DoD:** "Your GSTR-1 is ready; 3 ITC mismatches need attention" — with one-tap drill-down.
+- ~~GSTR-1/3B builders~~ **already existed** (`GstService` @ `/api/v1/gst/gstr1|gstr3b` + export). **Enhanced: POS receipts now included** — B2CS + HSN summary in GSTR-1 (per-line tax derived from HSN master, intra/inter from receipt header) and outward supplies in 3B. Material for kirana/retail orgs.
+- ~~GSTR-2B upload + match; mismatch inbox.~~ **`Gstr2bReconService`** — upload portal 2B JSON (official `data.docdata.b2b` shape or simplified `entries[]`), rows matched against posted purchase bills by GSTIN + normalized invoice number (case/punctuation/leading-zero tolerant), value tolerance ₹1. Statuses: MATCHED / VALUE_MISMATCH / NOT_IN_BOOKS; the reverse check lists **suppliers who didn't file (ITC at risk)**. Mismatches create `GSTR2B_VALUE_MISMATCH` / `GSTR2B_MISSING_BILL` AI Inbox suggestions. V50 `gstr2b_entry` table. Endpoints: `POST /gst/gstr2b/upload`, `GET /gst/gstr2b`, `GET /gst/gstr2b/summary`.
+- ~~Compliance calendar.~~ **`GstComplianceCalendarService`** — GSTR-1 (11th), GSTR-3B (20th), TDS deposit (7th), 2B-recon nudge (after the 14th), pending e-way bill count. Status per item: UPCOMING / DUE_SOON / OVERDUE. `GET /gst/compliance-calendar`. Clock-injected (testable).
+- **e-Way bills (user mandate, pulled forward):** **`EwayBillService`** + V50 `eway_bill` table. (1) **Single-document rule:** `InvoicePostedEwayBillHandler` watches INVOICE_POSTED — invoice ≥ threshold (org setting `gst.eway_bill_threshold`, default ₹50,000) auto-creates a PENDING row + `EWAY_BILL_REQUIRED` HIGH suggestion. (2) **Vehicle-aggregate rule:** `POST /gst/eway-bills/check-vehicle` — sub-₹50k documents in one vehicle whose combined value crosses the threshold ALL need EWBs (split bills don't evade it). NIC bulk-upload **portal JSON** generated per invoice (`GET /gst/eway-bills/{id}/portal-json`); record EWB number with validity auto-computed (1 day / 200 km); cancel lifecycle.
+- **Flutter:** GST screen ("GST Compliance") extended 3 → 6 tabs: **Calendar**, GSTR-3B, GSTR-1, **2B Recon** (JSON upload via file picker, summary metrics, supplier-not-filed list, entry list), **e-Way Bills** (record/cancel/portal-JSON/check-vehicle), Review.
+- **MCP:** 3 new tools — `gst_compliance_calendar`, `get_gstr3b`, `gstr2b_recon_summary` (10 tools total).
+- **Tests:** 15 new (Gstr2bRecon 3, EwayBill 8, GstService POS 2, Calendar 2). **Full suite 443 green.**
+- **DoD met:** "Your GSTR-1 is ready; 3 ITC mismatches need attention" — mismatches land in the AI Inbox with drill-down; e-way mandate enforced proactively.
+- **Follow-ups:** GSP/NIC API integration for direct filing + EWB generation (vs JSON handoff), B2CL section in GSTR-1, 2B auto-fetch via GSP, dedupe suggestions on re-upload, e-invoice/IRN (rest of Phase F).
 
 ### Phase E — Bank reconciliation (AI statement parsing)
 **Goal:** Upload statement → auto-matched → review only exceptions.

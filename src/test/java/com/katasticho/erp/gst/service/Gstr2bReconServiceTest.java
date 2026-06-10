@@ -1,0 +1,178 @@
+package com.katasticho.erp.gst.service;
+
+import com.katasticho.erp.ai.entity.AiSuggestion;
+import com.katasticho.erp.ai.service.AiSuggestionService;
+import com.katasticho.erp.ap.entity.PurchaseBill;
+import com.katasticho.erp.ap.repository.PurchaseBillRepository;
+import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.entity.ContactType;
+import com.katasticho.erp.contact.repository.ContactRepository;
+import com.katasticho.erp.gst.entity.Gstr2bEntry;
+import com.katasticho.erp.gst.repository.Gstr2bEntryRepository;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+class Gstr2bReconServiceTest {
+
+    private final Gstr2bEntryRepository entryRepository = mock(Gstr2bEntryRepository.class);
+    private final PurchaseBillRepository purchaseBillRepository = mock(PurchaseBillRepository.class);
+    private final ContactRepository contactRepository = mock(ContactRepository.class);
+    private final AiSuggestionService aiSuggestionService = mock(AiSuggestionService.class);
+
+    private final Gstr2bReconService service = new Gstr2bReconService(
+            entryRepository, purchaseBillRepository, contactRepository, aiSuggestionService);
+
+    private final UUID orgId = UUID.randomUUID();
+    private final UUID vendorId = UUID.randomUUID();
+    private final AtomicReference<List<Gstr2bEntry>> savedRef = new AtomicReference<>(List.of());
+
+    @BeforeEach
+    void setUp() {
+        TenantContext.setCurrentOrgId(orgId);
+        when(entryRepository.saveAll(any())).thenAnswer(inv -> {
+            List<Gstr2bEntry> list = new ArrayList<>();
+            for (Object o : (Iterable<?>) inv.getArgument(0)) {
+                Gstr2bEntry e = (Gstr2bEntry) o;
+                if (e.getId() == null) e.setId(UUID.randomUUID());
+                list.add(e);
+            }
+            savedRef.set(list);
+            return list;
+        });
+        when(entryRepository.findByOrgIdAndReturnPeriodOrderBySupplierGstinAscInvoiceNumberAsc(
+                eq(orgId), anyString())).thenAnswer(inv -> savedRef.get());
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
+    }
+
+    @Test
+    void parsesPortalJsonB2bSection() {
+        Map<String, Object> portal = Map.of("data", Map.of("docdata", Map.of("b2b", List.of(
+                Map.of(
+                        "ctin", "27AABCT1234A1Z5",
+                        "trdnm", "ABC Pharma",
+                        "inv", List.of(Map.of(
+                                "inum", "INV-001",
+                                "dt", "05-05-2026",
+                                "val", 1064,
+                                "itcavl", "Y",
+                                "itms", List.of(Map.of(
+                                        "rt", 12, "txval", 950, "igst", 0, "cgst", 57, "sgst", 57))
+                        ))
+                )))));
+
+        List<Gstr2bEntry> parsed = service.parsePortalJson(orgId, "2026-05", portal);
+
+        assertThat(parsed).hasSize(1);
+        Gstr2bEntry e = parsed.get(0);
+        assertThat(e.getSupplierGstin()).isEqualTo("27AABCT1234A1Z5");
+        assertThat(e.getInvoiceNumber()).isEqualTo("INV-001");
+        assertThat(e.getInvoiceDate()).isEqualTo(LocalDate.of(2026, 5, 5));
+        assertThat(e.getInvoiceValue()).isEqualByComparingTo("1064");
+        assertThat(e.getTaxableValue()).isEqualByComparingTo("950");
+        assertThat(e.getCgst()).isEqualByComparingTo("57");
+        assertThat(e.totalTax()).isEqualByComparingTo("114");
+    }
+
+    @Test
+    void uploadMatchesMismatchesAndFlagsMissing() {
+        Contact vendor = Contact.builder()
+                .contactType(ContactType.VENDOR)
+                .displayName("ABC Pharma")
+                .gstin("27AABCT1234A1Z5")
+                .build();
+        vendor.setId(vendorId);
+        when(contactRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), any()))
+                .thenReturn(List.of(vendor));
+
+        PurchaseBill matchedBill = bill("INV-001", new BigDecimal("1064"));
+        PurchaseBill mismatchBill = bill("INV-003", new BigDecimal("5000"));
+        PurchaseBill unfiledBill = bill("INV-XYZ", new BigDecimal("2000"));
+        when(purchaseBillRepository.findPostedByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(List.of(matchedBill, mismatchBill, unfiledBill));
+
+        Map<String, Object> portal = Map.of("entries", List.of(
+                entry("INV-001", "1064"),   // exact → MATCHED
+                entry("inv 003", "6000"),   // found but value differs → VALUE_MISMATCH
+                entry("INV-002", "750")     // not recorded → NOT_IN_BOOKS
+        ));
+
+        Map<String, Object> summary = service.upload("2026-05", portal);
+
+        assertThat(summary.get("matched")).isEqualTo(1L);
+        assertThat(summary.get("valueMismatch")).isEqualTo(1L);
+        assertThat(summary.get("notInBooks")).isEqualTo(1L);
+
+        List<Gstr2bEntry> saved = savedRef.get();
+        assertThat(saved).extracting(Gstr2bEntry::getMatchStatus)
+                .containsExactlyInAnyOrder("MATCHED", "VALUE_MISMATCH", "NOT_IN_BOOKS");
+
+        // Mismatch + missing each create an inbox suggestion; matched does not.
+        ArgumentCaptor<AiSuggestion> captor = ArgumentCaptor.forClass(AiSuggestion.class);
+        verify(aiSuggestionService, times(2)).createSuggestion(captor.capture());
+        assertThat(captor.getAllValues()).extracting(AiSuggestion::getSuggestionType)
+                .containsExactlyInAnyOrder("GSTR2B_VALUE_MISMATCH", "GSTR2B_MISSING_BILL");
+
+        // The bill whose supplier never filed shows up as ITC at risk.
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> notFiled = (List<Map<String, Object>>) summary.get("supplierNotFiled");
+        assertThat(notFiled).extracting(m -> m.get("vendorBillNumber")).contains("INV-XYZ");
+        assertThat((BigDecimal) summary.get("itcAtRisk")).isPositive();
+    }
+
+    @Test
+    void matchKeyNormalizesNumberAndCase() {
+        assertThat(Gstr2bReconService.matchKey("27X", "INV-001"))
+                .isEqualTo(Gstr2bReconService.matchKey("27x", "inv/001"));
+        assertThat(Gstr2bReconService.matchKey("27X", "0042"))
+                .isEqualTo(Gstr2bReconService.matchKey("27X", "42"));
+    }
+
+    private PurchaseBill bill(String vendorBillNumber, BigDecimal total) {
+        return PurchaseBill.builder()
+                .id(UUID.randomUUID())
+                .contactId(vendorId)
+                .billNumber("BILL-" + vendorBillNumber)
+                .vendorBillNumber(vendorBillNumber)
+                .billDate(LocalDate.of(2026, 5, 10))
+                .totalAmount(total)
+                .taxAmount(new BigDecimal("114"))
+                .status("OPEN")
+                .build();
+    }
+
+    private Map<String, Object> entry(String invoiceNumber, String value) {
+        return Map.of(
+                "supplierGstin", "27AABCT1234A1Z5",
+                "supplierName", "ABC Pharma",
+                "invoiceNumber", invoiceNumber,
+                "invoiceValue", value,
+                "taxableValue", "950",
+                "cgst", "57",
+                "sgst", "57"
+        );
+    }
+}

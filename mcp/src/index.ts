@@ -232,6 +232,63 @@ server.tool(
   },
 );
 
+// ── GST compliance (India) ───────────────────────────────────────────────────
+
+server.tool(
+  "gst_compliance_calendar",
+  "What GST/TDS filings are due, when, and their status (UPCOMING / DUE_SOON / " +
+    "OVERDUE) — GSTR-1, GSTR-3B, TDS deposit, GSTR-2B reconciliation, and any " +
+    "pending e-way bills. Use this to answer \"what's due?\" questions.",
+  {},
+  async () => {
+    try {
+      const body = await client.get("/api/v1/gst/compliance-calendar");
+      return ok(unwrap(body));
+    } catch (e) {
+      return fail(`gst_compliance_calendar failed: ${(e as Error).message}`);
+    }
+  },
+);
+
+server.tool(
+  "get_gstr3b",
+  "Pre-built GSTR-3B for a month: outward taxable supplies, output tax " +
+    "(IGST/CGST/SGST), input tax credit from purchase bills, and net tax payable.",
+  {
+    year: z.number().int().min(2017).describe("Return year, e.g. 2026."),
+    month: z.number().int().min(1).max(12).describe("Return month 1-12."),
+  },
+  async ({ year, month }) => {
+    try {
+      const body = await client.get("/api/v1/gst/gstr3b", { year, month });
+      return ok(unwrap(body));
+    } catch (e) {
+      return fail(`get_gstr3b failed: ${(e as Error).message}`);
+    }
+  },
+);
+
+server.tool(
+  "gstr2b_recon_summary",
+  "GSTR-2B reconciliation result for a period (YYYY-MM): matched bills, value " +
+    "mismatches, supplier invoices missing from books (unclaimed ITC), and " +
+    "suppliers who did not file (ITC at risk).",
+  {
+    period: z
+      .string()
+      .regex(/^\d{4}-\d{2}$/)
+      .describe("Return period as YYYY-MM, e.g. 2026-05."),
+  },
+  async ({ period }) => {
+    try {
+      const body = await client.get("/api/v1/gst/gstr2b/summary", { period });
+      return ok(unwrap(body));
+    } catch (e) {
+      return fail(`gstr2b_recon_summary failed: ${(e as Error).message}`);
+    }
+  },
+);
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
 async function main() {

@@ -53,4 +53,92 @@ class GstRepository {
     );
     return response.data as Map<String, dynamic>;
   }
+
+  // ── GSTR-2B reconciliation ────────────────────────────────────────────
+
+  /// Upload the portal's GSTR-2B JSON; backend parses, matches, returns summary.
+  Future<Map<String, dynamic>> uploadGstr2b(
+      String period, Map<String, dynamic> portalJson) async {
+    final response = await _api.post(
+      ApiConfig.gstr2bUpload,
+      queryParameters: {'period': period},
+      data: portalJson,
+    );
+    return _data(response.data);
+  }
+
+  Future<Map<String, dynamic>> getGstr2bSummary(String period) async {
+    final response = await _api
+        .get(ApiConfig.gstr2bSummary, queryParameters: {'period': period});
+    return _data(response.data);
+  }
+
+  Future<List<dynamic>> listGstr2bEntries(String period) async {
+    final response =
+        await _api.get(ApiConfig.gstr2b, queryParameters: {'period': period});
+    final body = response.data as Map<String, dynamic>;
+    return (body['data'] as List?) ?? const [];
+  }
+
+  // ── e-Way bills ───────────────────────────────────────────────────────
+
+  Future<List<dynamic>> listEwayBills({String? status}) async {
+    final response = await _api.get(ApiConfig.ewayBills,
+        queryParameters: {if (status != null) 'status': status});
+    final body = response.data as Map<String, dynamic>;
+    return (body['data'] as List?) ?? const [];
+  }
+
+  Future<Map<String, dynamic>> recordEwayBill(
+    String id, {
+    required String ewbNumber,
+    String? vehicleNumber,
+  }) async {
+    final response = await _api.post(ApiConfig.ewayBillRecord(id), data: {
+      'ewbNumber': ewbNumber,
+      if (vehicleNumber != null && vehicleNumber.isNotEmpty)
+        'vehicleNumber': vehicleNumber,
+    });
+    return _data(response.data);
+  }
+
+  Future<void> cancelEwayBill(String id, {String? reason}) async {
+    await _api.post(ApiConfig.ewayBillCancel(id),
+        data: reason != null ? {'reason': reason} : null);
+  }
+
+  /// NIC bulk-upload JSON for the document — share/save then upload on the portal.
+  Future<Map<String, dynamic>> ewayBillPortalJson(String id) async {
+    final response = await _api.get(ApiConfig.ewayBillPortalJson(id));
+    return response.data is Map<String, dynamic>
+        ? response.data as Map<String, dynamic>
+        : <String, dynamic>{};
+  }
+
+  /// Vehicle-aggregate rule check: combined value in one vehicle vs threshold.
+  Future<Map<String, dynamic>> checkVehicle({
+    required String vehicleNumber,
+    required String date,
+    double? additionalValue,
+  }) async {
+    final response = await _api.post(ApiConfig.ewayBillCheckVehicle, data: {
+      'vehicleNumber': vehicleNumber,
+      'date': date,
+      if (additionalValue != null) 'additionalValue': additionalValue,
+    });
+    return _data(response.data);
+  }
+
+  // ── Compliance calendar ───────────────────────────────────────────────
+
+  Future<List<dynamic>> getComplianceCalendar() async {
+    final response = await _api.get(ApiConfig.gstComplianceCalendar);
+    final body = response.data as Map<String, dynamic>;
+    return (body['data'] as List?) ?? const [];
+  }
+
+  Map<String, dynamic> _data(dynamic body) {
+    final map = body as Map<String, dynamic>;
+    return Map<String, dynamic>.from((map['data'] as Map?) ?? map);
+  }
 }

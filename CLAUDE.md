@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V49** (api_key auth). Next new migration = V50.
+- Location: `src/main/resources/db/migration/`. Latest is **V50** (gstr2b_entry + eway_bill). Next new migration = V51.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -296,6 +296,10 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `manufacturing/service/ScrapServiceTest.java` — scrap recording (5 tests)
 - `ai/service/BillDraftingServiceTest.java` — AI-first bill drafting: vendor match/create, item→GOODS / unmatched→SERVICE, HSN→GST, approve posts+learns, reject deletes (5 tests)
 - `auth/service/ApiKeyServiceTest.java` — API-key create (hash-only, plaintext once), resolve-by-hash, reject non-kat/revoked, revoke (6 tests)
+- `gst/service/Gstr2bReconServiceTest.java` — portal JSON parse, match/mismatch/missing + suggestions, supplier-not-filed, key normalization (3 tests)
+- `gst/service/EwayBillServiceTest.java` — threshold detect/skip/dupe, vehicle aggregate, validity 1d/200km, NIC portal JSON intra-state split (8 tests)
+- `gst/service/GstServiceTest.java` — POS receipts in GSTR-1 B2CS/HSN + GSTR-3B outward (2 tests)
+- `gst/service/GstComplianceCalendarServiceTest.java` — deadline statuses by fixed clock, 2B nudge, pending EWB row (2 tests)
 - `reporting/service/DetailedReportService` — no test file (needs one)
 
 ## Existing Service Files (key ones)
@@ -325,6 +329,10 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `manufacturing/service/ScrapService.java` — scrap reason codes, production scrap recording
 - `ai/service/BillDraftingService.java` — **AI-first bill entry** ("draft, don't type"): scanned bill → match-or-create vendor + match item (GOODS) / expense (SERVICE) + HSN→GST → DRAFT purchase_bill + `DRAFT_BILL` suggestion. Approve posts via `PurchaseBillService` + learns `ai_pattern` (vendor+HSN→account); reject deletes draft. Endpoints `/api/v1/ai/bill-drafts[/{id}/approve|/reject]`. See `docs/AI_FIRST_ACCOUNTING_PRODUCT_VISION.md` Phase A.
 - `auth/service/ApiKeyService.java` — **API-key auth** for programmatic/MCP access. `kat_<random>` keys, SHA-256 hashed (plaintext shown once), org+user scoped. `ApiKeyAuthenticationFilter` reads `X-API-Key`/`Bearer kat_…` and sets the same `TenantContext`+`ROLE_<role>` as JWT. Endpoints `/api/v1/api-keys` (create/list/revoke, OWNER/ADMIN). V49 migration. See Phase C.
+- `gst/service/GstService.java` — GSTR-1 (B2B/B2CS/CDNR/CDNUR/HSN) + GSTR-3B builders @ `/api/v1/gst/gstr1|gstr3b` (+`/export`). **POS receipts included** in B2CS/HSN/3B outward (per-line tax via HSN master; intra/inter from receipt header IGST).
+- `gst/service/Gstr2bReconService.java` — **GSTR-2B reconciliation**: upload portal JSON → match posted bills by GSTIN+normalized invoice number (₹1 tolerance) → MATCHED/VALUE_MISMATCH/NOT_IN_BOOKS + supplier-not-filed (ITC at risk). Mismatches create AI Inbox suggestions. V50 `gstr2b_entry`. `/api/v1/gst/gstr2b[/upload|/summary]`.
+- `gst/service/EwayBillService.java` — **e-way bills**: INVOICE_POSTED handler auto-flags invoices ≥ `gst.eway_bill_threshold` (default ₹50k) → PENDING row + HIGH suggestion. Vehicle-aggregate rule via `/gst/eway-bills/check-vehicle` (split sub-50k bills in one vehicle). NIC portal JSON per invoice, record EWB (validity 1 day/200km), cancel. V50 `eway_bill`.
+- `gst/service/GstComplianceCalendarService.java` — deadlines (GSTR-1 11th, 3B 20th, TDS 7th, 2B recon nudge after 14th, pending EWBs) with UPCOMING/DUE_SOON/OVERDUE. Clock-injected. `/api/v1/gst/compliance-calendar`.
 - **`mcp/`** (TypeScript, not Java) — **MCP server** so Claude Desktop / agents can run the books via the REST API using an API key. Tools: ask, list_bills, list_invoices, list_ai_inbox, draft_bill, approve_bill_draft, reject_bill_draft. `mcp/README.md` has Claude Desktop setup. Drafts-only-until-approved.
 
 ## Doc Files Index
