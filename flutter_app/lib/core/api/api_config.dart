@@ -82,6 +82,15 @@ class ApiConfig {
   static const String gstr1Export = '/api/v1/gst/gstr1/export';
   static const String gstr3bExport = '/api/v1/gst/gstr3b/export';
 
+  // POS Cash Register
+  static const String cashRegisterToday   = '/api/v1/pos/cash-register/today';
+  static const String cashRegisterOpen    = '/api/v1/pos/cash-register/open';
+  static const String cashRegisterClose   = '/api/v1/pos/cash-register/close';
+  static const String cashRegisterExpense = '/api/v1/pos/cash-register/expense';
+  static const String cashRegisterHistory = '/api/v1/pos/cash-register/history';
+  static String cashRegisterDeleteExpense(String id) => '/api/v1/pos/cash-register/expense/$id';
+  static String cashRegisterByDate(String date) => '/api/v1/pos/cash-register/$date';
+
   // AI Model Settings
   static const String orgSettings = '/api/v1/settings';
   static const String upiSettings = '/api/v1/settings/upi';
@@ -702,4 +711,15 @@ class ApiConfig {
   // Manufacturing — Scrap
   static const String manufacturingScrap = '/api/v1/manufacturing/scrap';
   static const String manufacturingScrapReasonCodes = '/api/v1/manufacturing/scrap/reason-codes';
+
+  // POS — Cash Register / Day Close
+  static const String cashRegister = '/api/v1/pos/cash-register';
+  static String cashRegisterDate(String date) => '/api/v1/pos/cash-register/$date';
+  static const String cashRegisterToday = '/api/v1/pos/cash-register/today';
+  static const String cashRegisterOpen = '/api/v1/pos/cash-register/open';
+  static const String cashRegisterClose = '/api/v1/pos/cash-register/close';
+  static const String cashRegisterExpense = '/api/v1/pos/cash-register/expense';
+  static String cashRegisterDeleteExpense(String id) =>
+      '/api/v1/pos/cash-register/expense/$id';
+  static const String cashRegisterHistory = '/api/v1/pos/cash-register/history';
 }

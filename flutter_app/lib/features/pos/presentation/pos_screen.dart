@@ -1336,6 +1336,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 ref.read(posCartProvider.notifier).clear();
               case _PosOverflowAction.settings:
                 context.push('/pos/receipt-settings');
+              case _PosOverflowAction.cashRegister:
+                context.push('/pos/cash-register');
               case _PosOverflowAction.discount:
                 _showCartDiscount();
               case _PosOverflowAction.notes:
@@ -1372,6 +1374,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   dense: true,
                 ),
               ),
+            const PopupMenuItem(
+              value: _PosOverflowAction.cashRegister,
+              child: ListTile(
+                leading: Icon(Icons.point_of_sale),
+                title: Text('Cash Register'),
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              ),
+            ),
             const PopupMenuItem(
               value: _PosOverflowAction.settings,
               child: ListTile(
@@ -1570,7 +1581,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       color: Theme.of(context).colorScheme.outlineVariant, fontSize: 10);
 }
 
-enum _PosOverflowAction { clear, settings, discount, notes }
+enum _PosOverflowAction { clear, settings, discount, notes, cashRegister }
 
 /// AppBar title showing "Quick POS" + live session sales summary.
 class _PosSessionTitle extends ConsumerWidget {

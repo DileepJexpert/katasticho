@@ -1,5 +1,6 @@
 package com.katasticho.erp.pos.repository;
 
+import com.katasticho.erp.pos.entity.PaymentMode;
 import com.katasticho.erp.pos.entity.SalesReceipt;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -54,6 +55,9 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
 
     @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate = :date AND r.isDeleted = false")
     BigDecimal sumTotalByOrgAndDate(UUID orgId, LocalDate date);
+
+    @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate = :date AND r.paymentMode = :mode AND r.isDeleted = false")
+    BigDecimal sumByOrgDateAndMode(@Param("orgId") UUID orgId, @Param("date") LocalDate date, @Param("mode") PaymentMode mode);
 
     @Query("SELECT COUNT(r) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate = :date AND r.isDeleted = false")
     long countByOrgAndDate(UUID orgId, LocalDate date);
