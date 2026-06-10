@@ -1,6 +1,7 @@
 package com.katasticho.erp.migration.tally;
 
 import java.util.List;
+import java.util.Map;
 
 /** Preview/commit payloads for the Tally master import. */
 public final class TallyImportDtos {
@@ -33,6 +34,35 @@ public final class TallyImportDtos {
             int accountsCreated,
             int itemsCreated,
             int skipped,
+            List<RowError> errors
+    ) {}
+
+    // ── Voucher (Day Book) import ───────────────────────────────────────
+
+    public record VoucherPlan(
+            String voucherType,
+            String voucherNumber,
+            String date,
+            String partyName,
+            String narration,
+            int ledgerEntries,
+            String action,      // JOURNAL / SKIP_UNRESOLVED
+            String detail,
+            List<String> warnings
+    ) {}
+
+    public record VoucherImportPreview(
+            int total,
+            int importable,
+            int skipped,
+            Map<String, Integer> byType,
+            List<VoucherPlan> vouchers
+    ) {}
+
+    public record VoucherImportResult(
+            int journalsCreated,
+            int skipped,
+            Map<String, Integer> byType,
             List<RowError> errors
     ) {}
 }

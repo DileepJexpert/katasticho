@@ -14,6 +14,9 @@ import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -115,6 +118,95 @@ public class TallyXmlParser {
                     "TALLY_XML_EMPTY", HttpStatus.BAD_REQUEST);
         }
         return new TallyMasters(groupParents, ledgers, items);
+    }
+
+    // ── Voucher (Day Book) parsing ─────────────────────────────────────
+
+    private static final DateTimeFormatter TALLY_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
+
+    /**
+     * Parse vouchers from a Tally Day Book XML export.
+     * Each {@code <VOUCHER>} element becomes one {@link TallyVoucher}.
+     */
+    public List<TallyVoucher> parseVouchers(byte[] xmlBytes) {
+        Document doc;
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setExpandEntityReferences(false);
+            doc = factory.newDocumentBuilder().parse(new ByteArrayInputStream(xmlBytes));
+        } catch (Exception e) {
+            throw new BusinessException(
+                    "Could not read the Tally XML file — export the Day Book from Tally as XML and upload that file ("
+                            + e.getMessage() + ")",
+                    "TALLY_XML_INVALID", HttpStatus.BAD_REQUEST);
+        }
+
+        List<TallyVoucher> vouchers = new ArrayList<>();
+        NodeList voucherNodes = doc.getElementsByTagName("VOUCHER");
+        for (int i = 0; i < voucherNodes.getLength(); i++) {
+            Element v = (Element) voucherNodes.item(i);
+            TallyVoucher voucher = parseOneVoucher(v);
+            if (voucher != null) vouchers.add(voucher);
+        }
+
+        if (vouchers.isEmpty()) {
+            throw new BusinessException(
+                    "No vouchers found — make sure you exported the Day Book (not Masters) from Tally as XML",
+                    "TALLY_VOUCHERS_EMPTY", HttpStatus.BAD_REQUEST);
+        }
+        return vouchers;
+    }
+
+    private TallyVoucher parseOneVoucher(Element v) {
+        String vchType = firstNonBlank(v.getAttribute("VCHTYPE"),
+                firstNonBlank(childText(v, "VOUCHERTYPENAME"), childText(v, "VCHTYPE")));
+        if (vchType == null || vchType.isBlank()) return null;
+
+        String dateStr = firstNonBlank(v.getAttribute("DATE"), childText(v, "DATE"));
+        LocalDate date = parseDate(dateStr);
+        if (date == null) return null;
+
+        String vchNumber = firstNonBlank(childText(v, "VOUCHERNUMBER"),
+                v.getAttribute("VCHKEY"));
+        String partyName = childText(v, "PARTYLEDGERNAME");
+        String narration = childText(v, "NARRATION");
+
+        List<TallyVoucher.LedgerEntry> entries = new ArrayList<>();
+        NodeList ledgerLists = v.getElementsByTagName("ALLLEDGERENTRIES.LIST");
+        for (int j = 0; j < ledgerLists.getLength(); j++) {
+            Element le = (Element) ledgerLists.item(j);
+            String name = childText(le, "LEDGERNAME");
+            BigDecimal amount = decimal(childText(le, "AMOUNT"));
+            if (name != null && amount != null) {
+                entries.add(new TallyVoucher.LedgerEntry(name, amount));
+            }
+        }
+        // Also check LEDGERENTRIES.LIST (older Tally versions)
+        NodeList altLists = v.getElementsByTagName("LEDGERENTRIES.LIST");
+        for (int j = 0; j < altLists.getLength(); j++) {
+            Element le = (Element) altLists.item(j);
+            String name = childText(le, "LEDGERNAME");
+            BigDecimal amount = decimal(childText(le, "AMOUNT"));
+            if (name != null && amount != null) {
+                entries.add(new TallyVoucher.LedgerEntry(name, amount));
+            }
+        }
+
+        if (entries.isEmpty()) return null;
+        return new TallyVoucher(vchType.trim(), vchNumber, date, partyName, narration, entries);
+    }
+
+    static LocalDate parseDate(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        String digits = raw.replaceAll("[^0-9]", "");
+        if (digits.length() < 8) return null;
+        try {
+            return LocalDate.parse(digits.substring(0, 8), TALLY_DATE);
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
     // ── Element helpers ──────────────────────────────────────────────────

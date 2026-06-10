@@ -188,14 +188,24 @@ TallyPrime exports everything we need as XML, natively:
 
 **Safety:** two-phase (preview shows every row + what it will become + issues; nothing is written until Import). Dedupe: contacts by GSTIN→name, items by name, accounts by name — re-running the import is safe (existing rows are skipped, reported as such).
 
-### 3.3 Slice 2 — Vouchers / history (NEXT)
+### 3.3 Slice 2 — Vouchers / history (DONE — 2026-06-10)
 
-Day Book XML → transactions. Approach: each `<VOUCHER>` by `VCHTYPE`:
-- `Sales` → posted Invoice (party ledger → contact; inventory entries → lines)
-- `Purchase` → posted Bill
-- `Receipt`/`Payment` → AR/AP payments
-- `Journal`/`Contra` → journal entries
-- Anything unmappable → journal entry against the right ledgers, flagged for review in the AI Inbox.
+Day Book XML → journal entries. Every `<VOUCHER>` is posted as a journal entry via `JournalService`, regardless of type (Sales, Purchase, Receipt, Payment, Journal, Contra, Debit Note, Credit Note). This is safe: no stock movements, no domain events, no payment allocations — just accounting history that makes the trial balance match Tally's.
+
+**Ledger resolution** (each ALLLEDGERENTRIES.LIST → account code):
+1. Contact lookup by name → customer uses AR (1100), vendor uses AP (2010)
+2. Account lookup by name → code from Slice 1 import or seeded CoA
+3. Well-known Tally names → hardcoded defaults (Cash→1010, Sales A/c→4010, CGST→2020, etc.)
+4. Bank pattern match (name contains "bank" and not "charges") → 1020
+5. Unresolvable → voucher skipped with warning in preview
+
+**Implementation:**
+- `TallyXmlParser.parseVouchers()` — parses `<VOUCHER>` elements (VCHTYPE, DATE, PARTYLEDGERNAME, NARRATION, ALLLEDGERENTRIES.LIST)
+- `TallyVoucherImportService` — preview/import, ledger resolution, rounding gap auto-balance (≤₹1)
+- `TallyImportController` — `POST /api/v1/migration/tally/vouchers/preview|/import` (multipart, OWNER/ADMIN)
+- Flutter: Step 2 in Tally Import Screen (pick Day Book XML → preview → import)
+- 8 tests pass (TallyVoucherImportServiceTest)
+
 Most SMBs migrate **masters + openings at FY start** and keep Tally read-only for history — Slice 1 already covers that path completely. Slice 2 serves mid-year switchers.
 
 ### 3.4 Slice 3 — Trust & the CA loop

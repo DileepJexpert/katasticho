@@ -20,10 +20,18 @@ class TallyImportScreen extends ConsumerStatefulWidget {
 }
 
 class _TallyImportScreenState extends ConsumerState<TallyImportScreen> {
+  // Masters (Slice 1)
   List<int>? _fileBytes;
   String? _fileName;
   Map<String, dynamic>? _preview;
   Map<String, dynamic>? _result;
+
+  // Vouchers (Slice 2)
+  List<int>? _vFileBytes;
+  String? _vFileName;
+  Map<String, dynamic>? _vPreview;
+  Map<String, dynamic>? _vResult;
+
   bool _busy = false;
   String? _error;
 
@@ -78,13 +86,64 @@ class _TallyImportScreenState extends ConsumerState<TallyImportScreen> {
     }
   }
 
-  Future<Map<String, dynamic>> _upload(String path) async {
-    final form = FormData.fromMap({
-      'file': MultipartFile.fromBytes(_fileBytes!,
-          filename: _fileName ?? 'Master.xml'),
+  Future<Map<String, dynamic>> _upload(String path) =>
+      _uploadBytes(path, _fileBytes!, _fileName ?? 'Master.xml');
+
+  // ── Voucher (Day Book) ──────────────────────────────────────────────
+
+  Future<void> _pickVoucherFile() async {
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xml'],
+      withData: true,
+    );
+    if (picked == null || picked.files.isEmpty) return;
+    final bytes = picked.files.first.bytes;
+    if (bytes == null || !mounted) return;
+    setState(() {
+      _vFileBytes = bytes.toList();
+      _vFileName = picked.files.first.name;
+      _vPreview = null;
+      _vResult = null;
+      _error = null;
     });
-    final response =
-        await ref.read(apiClientProvider).post(path, data: form);
+    await _runVoucherPreview();
+  }
+
+  Future<void> _runVoucherPreview() async {
+    if (_vFileBytes == null) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      final data = await _uploadBytes(
+          ApiConfig.tallyVoucherPreview, _vFileBytes!, _vFileName ?? 'DayBook.xml');
+      if (mounted) setState(() => _vPreview = data);
+    } catch (e) {
+      if (mounted) setState(() => _error = _msg(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _runVoucherImport() async {
+    if (_vFileBytes == null) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      final data = await _uploadBytes(
+          ApiConfig.tallyVoucherImport, _vFileBytes!, _vFileName ?? 'DayBook.xml');
+      if (mounted) setState(() => _vResult = data);
+    } catch (e) {
+      if (mounted) setState(() => _error = _msg(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<Map<String, dynamic>> _uploadBytes(
+      String path, List<int> bytes, String filename) async {
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    final response = await ref.read(apiClientProvider).post(path, data: form);
     final body = response.data as Map<String, dynamic>;
     return Map<String, dynamic>.from((body['data'] as Map?) ?? body);
   }
@@ -108,7 +167,29 @@ class _TallyImportScreenState extends ConsumerState<TallyImportScreen> {
         children: [
           _buildSteps(),
           KSpacing.vGapMd,
+          Text('Step 1: Masters (ledgers, items, opening balances)',
+              style: KTypography.h3),
+          KSpacing.vGapSm,
           _buildPicker(),
+          if (_result != null) ...[
+            KSpacing.vGapMd,
+            _buildResult(),
+          ] else if (_preview != null) ...[
+            KSpacing.vGapMd,
+            _buildPreview(),
+          ],
+          KSpacing.vGapLg,
+          Text('Step 2: Day Book (transaction history — optional)',
+              style: KTypography.h3),
+          KSpacing.vGapSm,
+          _buildVoucherPicker(),
+          if (_vResult != null) ...[
+            KSpacing.vGapMd,
+            _buildVoucherResult(),
+          ] else if (_vPreview != null) ...[
+            KSpacing.vGapMd,
+            _buildVoucherPreview(),
+          ],
           if (_error != null) ...[
             KSpacing.vGapMd,
             Container(
@@ -121,13 +202,6 @@ class _TallyImportScreenState extends ConsumerState<TallyImportScreen> {
                   style: KTypography.bodySmall.copyWith(color: KColors.error)),
             ),
           ],
-          if (_result != null) ...[
-            KSpacing.vGapMd,
-            _buildResult(),
-          ] else if (_preview != null) ...[
-            KSpacing.vGapMd,
-            _buildPreview(),
-          ],
         ],
       ),
     );
@@ -138,14 +212,14 @@ class _TallyImportScreenState extends ConsumerState<TallyImportScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Switch from Tally in three steps', style: KTypography.h3),
+          Text('Switch from Tally in two exports', style: KTypography.h3),
           KSpacing.vGapSm,
           _step('1',
-              'In TallyPrime: Gateway of Tally → Export → Masters → set Format to XML → Export. You get one Master.xml file.'),
+              'Masters: Gateway of Tally → Export → Masters → XML. Imports ledgers, items, opening balances.'),
           _step('2',
-              'Upload it here. We preview every ledger and stock item: customers, suppliers, accounts, items with opening balances and stock.'),
+              'Day Book (optional): Display → Day Book → set the FY period → Alt+E Export → XML. Imports transaction history as journal entries.'),
           _step('3',
-              'Tap Import. GST/tax ledgers are skipped (Katasticho manages those), and re-running is safe — existing records are never duplicated.'),
+              'Both imports preview before committing, skip duplicates on re-run, and never touch GST/tax accounts.'),
         ],
       ),
     );
@@ -321,6 +395,120 @@ class _TallyImportScreenState extends ConsumerState<TallyImportScreen> {
           KSpacing.vGapSm,
           Text(
             'Next: post your first sale, or scan a purchase bill — AI drafts it for you.',
+            style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Voucher UI ─────────────────────────────────────────────────────
+
+  Widget _buildVoucherPicker() {
+    return KCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.receipt_long, color: KColors.primary),
+              KSpacing.hGapSm,
+              Expanded(
+                child: Text(_vFileName ?? 'No Day Book file selected',
+                    style: KTypography.bodyMedium, overflow: TextOverflow.ellipsis),
+              ),
+              KButton(
+                label: _vFileName == null ? 'Pick Day Book XML' : 'Change file',
+                variant: KButtonVariant.outlined,
+                onPressed: _busy ? null : _pickVoucherFile,
+              ),
+            ],
+          ),
+          if (_busy && _vFileBytes != null) ...[
+            KSpacing.vGapMd,
+            const LinearProgressIndicator(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVoucherPreview() {
+    final p = _vPreview!;
+    final importable = p['importable'] as num? ?? 0;
+    final byType = Map<String, dynamic>.from((p['byType'] as Map?) ?? {});
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            _metric('Total', p['total'], KColors.primary),
+            KSpacing.hGapSm,
+            _metric('Importable', p['importable'], KColors.success),
+            KSpacing.hGapSm,
+            _metric('Skipped', p['skipped'], KColors.warning),
+          ],
+        ),
+        if (byType.isNotEmpty) ...[
+          KSpacing.vGapSm,
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: byType.entries.map((e) => Chip(
+              label: Text('${e.key}: ${e.value}',
+                  style: KTypography.labelSmall),
+              visualDensity: VisualDensity.compact,
+            )).toList(),
+          ),
+        ],
+        KSpacing.vGapSm,
+        SizedBox(
+          width: double.infinity,
+          child: KButton(
+            label: 'Import $importable vouchers as journals',
+            icon: Icons.download_done,
+            isLoading: _busy,
+            onPressed: importable > 0 && !_busy ? _runVoucherImport : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVoucherResult() {
+    final r = _vResult!;
+    final errors = (r['errors'] as List?) ?? const [];
+    return KCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(errors.isEmpty ? Icons.check_circle : Icons.warning_amber,
+                  color: errors.isEmpty ? KColors.success : KColors.warning),
+              KSpacing.hGapSm,
+              Text('Voucher import complete', style: KTypography.h3),
+            ],
+          ),
+          KSpacing.vGapSm,
+          Text(
+            '${r['journalsCreated']} journal entries created'
+            '${(r['skipped'] as num? ?? 0) > 0 ? ' · ${r['skipped']} skipped' : ''}',
+            style: KTypography.bodyMedium,
+          ),
+          if (errors.isNotEmpty) ...[
+            KSpacing.vGapSm,
+            Text('${errors.length} voucher(s) failed:',
+                style: KTypography.labelLarge.copyWith(color: KColors.error)),
+            ...errors.take(20).map((e) {
+              final err = Map<String, dynamic>.from(e as Map);
+              return Text('• ${err['tallyName']}: ${err['error']}',
+                  style: KTypography.bodySmall.copyWith(color: KColors.error));
+            }),
+          ],
+          KSpacing.vGapSm,
+          Text(
+            'Your Tally trial balance should now match. Verify in Reports → Trial Balance.',
             style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
           ),
         ],
