@@ -111,6 +111,14 @@ class AiRepository {
     );
   }
 
+  /// Run the proactive sweep now (collections reminders, month-close checklist,
+  /// anomaly scan). Returns counts: `collections`, `monthClose`, `anomalies`.
+  Future<Map<String, dynamic>> runProactiveSweep() async {
+    final response = await _api.post(ApiConfig.aiProactiveRun);
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
+  }
+
   Future<AiInboxSummary> getSuggestionSummary() async {
     final response = await _api.get(ApiConfig.aiSuggestionsSummary);
     final body = response.data as Map<String, dynamic>;

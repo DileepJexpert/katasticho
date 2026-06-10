@@ -304,6 +304,33 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
     );
   }
 
+  Future<void> _runSweep() async {
+    if (_entryBusy) return;
+    setState(() => _entryBusy = true);
+    try {
+      final r = await ref.read(aiRepositoryProvider).runProactiveSweep();
+      if (!mounted) return;
+      final total = (r['collections'] as num? ?? 0) +
+          (r['monthClose'] as num? ?? 0) +
+          (r['anomalies'] as num? ?? 0);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(total == 0
+            ? 'All clear — nothing new to flag.'
+            : 'Found $total new item(s): '
+                '${r['collections'] ?? 0} collections, '
+                '${r['anomalies'] ?? 0} anomalies.'),
+      ));
+      await _load(reset: true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Sweep failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _entryBusy = false);
+    }
+  }
+
   Widget _buildQuickEntry() {
     return KCard(
       child: Column(
@@ -314,6 +341,12 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
               const Icon(Icons.bolt, size: 18, color: KColors.primary),
               KSpacing.hGapXs,
               Text('Quick entry', style: KTypography.labelLarge),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _entryBusy ? null : _runSweep,
+                icon: const Icon(Icons.radar, size: 16),
+                label: const Text('Run checks'),
+              ),
             ],
           ),
           KSpacing.vGapXs,

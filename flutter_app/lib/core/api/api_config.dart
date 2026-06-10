@@ -314,6 +314,9 @@ class ApiConfig {
   static String aiBillDraftReject(String suggestionId) =>
       '/api/v1/ai/bill-drafts/$suggestionId/reject';
 
+  // Proactive agents (collections, month-close, anomalies)
+  static const String aiProactiveRun = '/api/v1/ai/agents/proactive/run';
+
   // Conversational entry ("type a sentence, get a drafted transaction")
   static const String aiEntry = '/api/v1/ai/entry';
   static String aiEntryApprove(String suggestionId) =>
