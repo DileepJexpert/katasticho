@@ -333,6 +333,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 | `docs/REPORTS_P0_SPECIFICATION.md` | Detailed SQL/DTO specs for all 14 reports | Implementing a report |
 | `docs/PAYROLL_IMPLEMENTATION_SPEC.md` | Full payroll spec: tables, APIs, Flutter screens, accounting | Phase 5 payroll work |
 | `docs/AI_APPROACH_AND_ROADMAP.md` | AI architecture: tables, agents, safety rules, 7 phases | Phase 6 AI work |
+| `docs/AI_FIRST_ACCOUNTING_PRODUCT_VISION.md` | **North-star vision:** AI-first (not "typewriter") accounting for India, Campfire benchmark, MCP server, India moat (GST/TDS/e-invoice), solo-dev roadmap A–G | Strategic direction, AI-first product work |
 | `docs/PARTNER_NETWORK_MODULE_PLAN.md` | B2B ordering: data model, flows, 10 implementation phases | Phase 8 partner network |
 | `docs/WORKFLOW_CONTEXT_HINTS_PLAN.md` | Context hints: resolver, widget, hint text per vertical | Adding workflow hints |
 | `docs/plans/week-2-ap-module.md` | AP module spec (already implemented) | Debugging AP flows |
