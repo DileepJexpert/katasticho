@@ -57,6 +57,10 @@ class _StockReceiptCreateScreenState
   DateTime? _supplierInvoiceDate;
   final _supplierInvoiceNoCtl = TextEditingController();
   final _notesCtl = TextEditingController();
+  final _freightCtl = TextEditingController();
+  final _dutyCtl = TextEditingController();
+  final _insuranceCtl = TextEditingController();
+  final _otherChargesCtl = TextEditingController();
 
   final List<_GrnLine> _lines = [_GrnLine()];
 
@@ -90,7 +94,95 @@ class _StockReceiptCreateScreenState
   void dispose() {
     _supplierInvoiceNoCtl.dispose();
     _notesCtl.dispose();
+    _freightCtl.dispose();
+    _dutyCtl.dispose();
+    _insuranceCtl.dispose();
+    _otherChargesCtl.dispose();
     super.dispose();
+  }
+
+  double _chargeOf(TextEditingController c) =>
+      double.tryParse(c.text.trim()) ?? 0;
+
+  Widget _buildLandedCharges() {
+    final total = _chargeOf(_freightCtl) +
+        _chargeOf(_dutyCtl) +
+        _chargeOf(_insuranceCtl) +
+        _chargeOf(_otherChargesCtl);
+    return KCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.local_shipping_outlined,
+                  size: 18, color: KColors.primary),
+              KSpacing.hGapSm,
+              Text('Landed cost (optional)', style: KTypography.labelLarge),
+            ],
+          ),
+          KSpacing.vGapXs,
+          Text(
+            'Freight, duty, insurance and other charges are spread across the '
+            'items by value, so stock cost reflects what you really paid.',
+            style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+          ),
+          KSpacing.vGapSm,
+          Row(
+            children: [
+              Expanded(
+                child: KTextField(
+                  label: 'Freight',
+                  controller: _freightCtl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              KSpacing.hGapSm,
+              Expanded(
+                child: KTextField(
+                  label: 'Duty',
+                  controller: _dutyCtl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+            ],
+          ),
+          KSpacing.vGapSm,
+          Row(
+            children: [
+              Expanded(
+                child: KTextField(
+                  label: 'Insurance',
+                  controller: _insuranceCtl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              KSpacing.hGapSm,
+              Expanded(
+                child: KTextField(
+                  label: 'Other',
+                  controller: _otherChargesCtl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+            ],
+          ),
+          if (total > 0) ...[
+            KSpacing.vGapSm,
+            Text('Total landed charges: ₹${total.toStringAsFixed(2)}',
+                style: KTypography.labelMedium.copyWith(color: KColors.primary)),
+          ],
+        ],
+      ),
+    );
   }
 
   double get _subtotal => _lines.fold(0, (sum, l) => sum + l.taxableAmount);
@@ -140,6 +232,10 @@ class _StockReceiptCreateScreenState
           'supplierInvoiceDate':
               _supplierInvoiceDate!.toIso8601String().split('T').first,
         if (_notesCtl.text.trim().isNotEmpty) 'notes': _notesCtl.text.trim(),
+        if (_chargeOf(_freightCtl) > 0) 'freightAmount': _chargeOf(_freightCtl),
+        if (_chargeOf(_dutyCtl) > 0) 'dutyAmount': _chargeOf(_dutyCtl),
+        if (_chargeOf(_insuranceCtl) > 0) 'insuranceAmount': _chargeOf(_insuranceCtl),
+        if (_chargeOf(_otherChargesCtl) > 0) 'otherCharges': _chargeOf(_otherChargesCtl),
         'lines': validLines
             .map((l) => {
                   'itemId': l.itemId,
@@ -556,6 +652,8 @@ class _StockReceiptCreateScreenState
             ],
           ),
         ),
+        KSpacing.vGapMd,
+        _buildLandedCharges(),
         KSpacing.vGapMd,
         KTextField(
           label: 'Notes (optional)',

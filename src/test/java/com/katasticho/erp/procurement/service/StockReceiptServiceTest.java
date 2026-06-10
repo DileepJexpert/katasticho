@@ -137,6 +137,7 @@ class StockReceiptServiceTest {
                 "VEND-INV-4521",
                 LocalDate.of(2026, 4, 11),
                 "Monthly stock arrival",
+                null, null, null, null, // no landed-cost charges
                 List.of(
                         new StockReceiptLineRequest(
                                 paracetamol.getId(), null, null,
@@ -351,5 +352,100 @@ class StockReceiptServiceTest {
         verify(inventoryService).reverseMovement(eq(m1Id), contains("wrong batch"));
         verify(inventoryService).reverseMovement(eq(m2Id), contains("wrong batch"));
         verifyNoMoreInteractions(inventoryService);
+    }
+
+    // T-GRN-LC-01: landed charges apportion across lines by value, residue on last
+    @Test
+    void apportionLandedCost_distributesByValueWithResidueOnLastLine() {
+        StockReceipt r = StockReceipt.builder()
+                .freightAmount(new BigDecimal("500"))   // total charges = 500
+                .build();
+        var l1 = com.katasticho.erp.procurement.entity.StockReceiptLine.builder()
+                .lineNumber(1).itemId(paracetamol.getId())
+                .quantity(new BigDecimal("200")).unitPrice(new BigDecimal("10"))
+                .taxableAmount(new BigDecimal("2000")).build();
+        l1.setId(UUID.randomUUID());
+        var l2 = com.katasticho.erp.procurement.entity.StockReceiptLine.builder()
+                .lineNumber(2).itemId(crocin.getId())
+                .quantity(new BigDecimal("100")).unitPrice(new BigDecimal("30"))
+                .taxableAmount(new BigDecimal("3000")).build();
+        l2.setId(UUID.randomUUID());
+        r.addLine(l1);
+        r.addLine(l2);
+
+        var landed = stockReceiptService.apportionLandedCost(r);
+
+        // basis 5000: line1 share = 500*2000/5000 = 200 → +1.00/unit → 11.00
+        assertEquals(0, new BigDecimal("11.0000").compareTo(landed.get(l1.getId())));
+        // line2 (last) absorbs residue 300 → +3.00/unit → 33.00
+        assertEquals(0, new BigDecimal("33.0000").compareTo(landed.get(l2.getId())));
+    }
+
+    // T-GRN-LC-02: no charges → empty map → bare unit price is used unchanged
+    @Test
+    void apportionLandedCost_noCharges_returnsEmpty() {
+        StockReceipt r = StockReceipt.builder().build();
+        var l1 = com.katasticho.erp.procurement.entity.StockReceiptLine.builder()
+                .lineNumber(1).itemId(paracetamol.getId())
+                .quantity(new BigDecimal("10")).unitPrice(new BigDecimal("10"))
+                .taxableAmount(new BigDecimal("100")).build();
+        l1.setId(UUID.randomUUID());
+        r.addLine(l1);
+
+        assertTrue(stockReceiptService.apportionLandedCost(r).isEmpty());
+    }
+
+    // T-GRN-LC-03: receive with charges passes the landed cost into the stock gate
+    @Test
+    void receive_withLandedCharges_postsLandedUnitCost() {
+        StockReceipt draft = StockReceipt.builder()
+                .orgId(orgId).receiptNumber("GRN-2026-000009")
+                .receiptDate(LocalDate.of(2026, 4, 12))
+                .warehouseId(defaultWarehouse.getId()).supplierId(supplier.getId())
+                .status("DRAFT").currency("INR")
+                .freightAmount(new BigDecimal("500"))
+                .build();
+        draft.setId(UUID.randomUUID());
+        var line1 = com.katasticho.erp.procurement.entity.StockReceiptLine.builder()
+                .lineNumber(1).itemId(paracetamol.getId())
+                .quantity(new BigDecimal("200")).unitOfMeasure("STRIP")
+                .unitPrice(new BigDecimal("10")).taxableAmount(new BigDecimal("2000"))
+                .gstRate(new BigDecimal("12")).taxAmount(new BigDecimal("240"))
+                .lineTotal(new BigDecimal("2240")).build();
+        line1.setId(UUID.randomUUID());
+        var line2 = com.katasticho.erp.procurement.entity.StockReceiptLine.builder()
+                .lineNumber(2).itemId(crocin.getId())
+                .quantity(new BigDecimal("100")).unitOfMeasure("STRIP")
+                .unitPrice(new BigDecimal("30")).taxableAmount(new BigDecimal("3000"))
+                .gstRate(new BigDecimal("12")).taxAmount(new BigDecimal("360"))
+                .lineTotal(new BigDecimal("3360")).build();
+        line2.setId(UUID.randomUUID());
+        draft.addLine(line1);
+        draft.addLine(line2);
+
+        when(receiptRepository.findByIdAndOrgIdAndIsDeletedFalse(draft.getId(), orgId))
+                .thenReturn(Optional.of(draft));
+        when(receiptRepository.save(any(StockReceipt.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(paracetamol.getId(), orgId))
+                .thenReturn(Optional.of(paracetamol));
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(crocin.getId(), orgId))
+                .thenReturn(Optional.of(crocin));
+        StockMovement m1 = StockMovement.builder().itemId(paracetamol.getId()).build();
+        m1.setId(UUID.randomUUID());
+        StockMovement m2 = StockMovement.builder().itemId(crocin.getId()).build();
+        m2.setId(UUID.randomUUID());
+        when(inventoryService.recordMovement(any(StockMovementRequest.class)))
+                .thenReturn(m1).thenReturn(m2);
+        when(itemRepository.findAllById(anyIterable())).thenReturn(List.of(paracetamol, crocin));
+
+        stockReceiptService.receive(draft.getId());
+
+        ArgumentCaptor<StockMovementRequest> captor = ArgumentCaptor.forClass(StockMovementRequest.class);
+        verify(inventoryService, times(2)).recordMovement(captor.capture());
+        // Paracetamol landed = 10 + 1 = 11; Crocin landed = 30 + 3 = 33
+        assertEquals(0, new BigDecimal("11.0000").compareTo(captor.getAllValues().get(0).unitCost()));
+        assertEquals(0, new BigDecimal("33.0000").compareTo(captor.getAllValues().get(1).unitCost()));
+        // Line audit cost stored
+        assertEquals(0, new BigDecimal("11.0000").compareTo(line1.getLandedUnitCost()));
     }
 }

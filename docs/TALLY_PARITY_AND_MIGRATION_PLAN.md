@@ -46,7 +46,7 @@ Legend: ✅ have it · 🟡 partial · ❌ missing (backlog) · ➖ deliberately
 | Job work in/out | ✅ | Job work orders with GST ITC-04 alerts |
 | Physical stock verification | ✅ | Stock count with variance posting |
 | Stock valuation methods (FIFO/LIFO/Avg/Std) | 🟡 | Weighted average only; FIFO/others backlog |
-| Additional cost on purchase (landed cost) | ❌ | Backlog — distributors ask for freight/duty loading |
+| Additional cost on purchase (landed cost) | ✅ | GRN header charges (freight/duty/insurance/other) apportioned across lines by value into item stock cost (2026-06-10) |
 | Stock ageing analysis | 🟡 | Near-expiry exists; slow-moving/ageing report backlog |
 
 ### 1.3 GST & statutory (our strongest ground)

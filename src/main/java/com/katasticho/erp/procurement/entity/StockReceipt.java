@@ -68,6 +68,23 @@ public class StockReceipt {
     @Builder.Default
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
+    // Landed cost: additional charges apportioned onto item cost at receive.
+    @Column(name = "freight_amount", nullable = false)
+    @Builder.Default
+    private BigDecimal freightAmount = BigDecimal.ZERO;
+
+    @Column(name = "duty_amount", nullable = false)
+    @Builder.Default
+    private BigDecimal dutyAmount = BigDecimal.ZERO;
+
+    @Column(name = "insurance_amount", nullable = false)
+    @Builder.Default
+    private BigDecimal insuranceAmount = BigDecimal.ZERO;
+
+    @Column(name = "other_charges", nullable = false)
+    @Builder.Default
+    private BigDecimal otherCharges = BigDecimal.ZERO;
+
     @Column(nullable = false, length = 3)
     @Builder.Default
     private String currency = "INR";

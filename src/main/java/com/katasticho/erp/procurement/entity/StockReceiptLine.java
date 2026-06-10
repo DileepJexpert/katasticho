@@ -70,6 +70,10 @@ public class StockReceiptLine {
     @Column(name = "line_total", nullable = false)
     private BigDecimal lineTotal;
 
+    /** Per-unit cost actually applied at receive (unit_price + apportioned landed cost). */
+    @Column(name = "landed_unit_cost")
+    private BigDecimal landedUnitCost;
+
     /** Pharmacy/perishable metadata — kept here until Sprint 26 batch master. */
     @Column(name = "batch_number", length = 50)
     private String batchNumber;

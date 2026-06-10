@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V52** (payment_match debit matching). Next new migration = V53.
+- Location: `src/main/resources/db/migration/`. Latest is **V53** (stock_receipt landed cost). Next new migration = V54.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -318,7 +318,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `sales/service/SalesOrderService.java` — SO CRUD, credit/overdue checks, scheme application
 - `sales/service/DeliveryChallanService.java` — DC CRUD, dispatch (stock deduction)
 - `procurement/service/PurchaseOrderService.java` — PO CRUD, GRN creation
-- `procurement/service/StockReceiptService.java` — GRN receive stock (batch, expiry, rack, cost)
+- `procurement/service/StockReceiptService.java` — GRN receive stock (batch, expiry, rack, cost). **Landed cost (V53):** header charges (freight/duty/insurance/other) apportioned across lines by taxable value (residue on last line) → baked into per-unit `landedUnitCost` passed to the stock gate + item purchase price; GRN posts no journal so zero accounting risk. `apportionLandedCost()` returns empty when no charges (unchanged behaviour).
 - `inventory/service/InventoryService.java` — single stock movement gate
 - `inventory/service/PharmacyMasterService.java` — HSN, manufacturer, rack, substitution, interaction
 - `inventory/service/DrugMasterService.java` — drug/salt search

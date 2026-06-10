@@ -114,6 +114,10 @@ public class StockReceiptService {
                 .status("DRAFT")
                 .currency("INR")
                 .notes(request.notes())
+                .freightAmount(nz(request.freightAmount()))
+                .dutyAmount(nz(request.dutyAmount()))
+                .insuranceAmount(nz(request.insuranceAmount()))
+                .otherCharges(nz(request.otherCharges()))
                 .periodYear(periodYear)
                 .periodMonth(request.receiptDate().getMonthValue())
                 .createdBy(userId)
@@ -218,6 +222,10 @@ public class StockReceiptService {
                     "GRN_NOT_DRAFT", HttpStatus.BAD_REQUEST);
         }
 
+        // Apportion any landed-cost charges (freight/duty/insurance/other) across
+        // lines by taxable value, then add per-unit so stock cost is fully landed.
+        Map<UUID, BigDecimal> landedUnitCostByLine = apportionLandedCost(receipt);
+
         for (StockReceiptLine line : receipt.getLines()) {
             Item item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(line.getItemId(), orgId)
                     .orElseThrow(() -> BusinessException.notFound("Item", line.getItemId()));
@@ -247,12 +255,19 @@ public class StockReceiptService {
                 line.setBatchId(batchId);
             }
 
+            // Landed cost per unit (unit price + apportioned charges); falls back
+            // to the bare unit price when there are no additional charges.
+            BigDecimal landedUnitCost = line.getId() != null
+                    ? landedUnitCostByLine.getOrDefault(line.getId(), line.getUnitPrice())
+                    : line.getUnitPrice();
+            line.setLandedUnitCost(landedUnitCost);
+
             StockMovementRequest req = new StockMovementRequest(
                     line.getItemId(),
                     receipt.getWarehouseId(),
                     MovementType.PURCHASE,
                     line.getQuantity(),                  // POSITIVE — stock IN
-                    line.getUnitPrice(),
+                    landedUnitCost,
                     receipt.getReceiptDate(),
                     ReferenceType.STOCK_RECEIPT,
                     receipt.getId(),
@@ -266,7 +281,7 @@ public class StockReceiptService {
             if (movement != null) {
                 line.setStockMovementId(movement.getId());
             }
-            updateLatestPurchasePrice(item, line.getUnitPrice());
+            updateLatestPurchasePrice(item, landedUnitCost);
         }
 
         receipt.setStatus("RECEIVED");
@@ -369,7 +384,7 @@ public class StockReceiptService {
                         l.getDescription(), l.getHsnCode(),
                         l.getQuantity(), l.getUnitOfMeasure(), l.getUnitPrice(),
                         l.getDiscountPercent(), l.getTaxableAmount(), l.getGstRate(),
-                        l.getTaxAmount(), l.getLineTotal(),
+                        l.getTaxAmount(), l.getLineTotal(), l.getLandedUnitCost(),
                         l.getBatchNumber(), l.getExpiryDate(), l.getManufacturingDate(),
                         l.getStockMovementId()))
                 .toList();
@@ -382,6 +397,7 @@ public class StockReceiptService {
                 supplier != null ? supplier.getGstin() : null,
                 r.getSupplierInvoiceNo(), r.getSupplierInvoiceDate(),
                 r.getStatus(), r.getSubtotal(), r.getTaxAmount(), r.getTotalAmount(),
+                r.getFreightAmount(), r.getDutyAmount(), r.getInsuranceAmount(), r.getOtherCharges(),
                 r.getCurrency(), r.getNotes(), lineResponses,
                 r.getReceivedAt(), r.getCancelledAt(), r.getCancelReason(),
                 r.getCreatedAt());
@@ -413,6 +429,62 @@ public class StockReceiptService {
 
     private static BigDecimal nz(BigDecimal v) {
         return v != null ? v : BigDecimal.ZERO;
+    }
+
+    /**
+     * Apportion header-level landed charges (freight + duty + insurance + other)
+     * across receipt lines by taxable value (falling back to quantity when all
+     * lines are zero-valued), and return each line's landed cost <em>per unit</em>
+     * = unit price + (its share of the charges / its quantity). Rounding residue
+     * goes to the last line so the apportioned shares sum exactly to the charges.
+     *
+     * <p>Returns an empty map when there are no charges — callers then use the
+     * bare unit price, preserving the pre-landed-cost behaviour exactly.
+     */
+    Map<UUID, BigDecimal> apportionLandedCost(StockReceipt receipt) {
+        BigDecimal charges = nz(receipt.getFreightAmount())
+                .add(nz(receipt.getDutyAmount()))
+                .add(nz(receipt.getInsuranceAmount()))
+                .add(nz(receipt.getOtherCharges()));
+        if (charges.signum() <= 0 || receipt.getLines().isEmpty()) {
+            return Map.of();
+        }
+
+        // Basis: taxable value per line; if everything is zero-valued, use quantity.
+        boolean byValue = receipt.getLines().stream()
+                .map(l -> nz(l.getTaxableAmount()))
+                .anyMatch(v -> v.signum() > 0);
+        BigDecimal basis = BigDecimal.ZERO;
+        for (StockReceiptLine l : receipt.getLines()) {
+            basis = basis.add(byValue ? nz(l.getTaxableAmount()) : nz(l.getQuantity()));
+        }
+        if (basis.signum() <= 0) {
+            return Map.of();
+        }
+
+        Map<UUID, BigDecimal> result = new HashMap<>();
+        BigDecimal allocated = BigDecimal.ZERO;
+        int n = receipt.getLines().size();
+        for (int i = 0; i < n; i++) {
+            StockReceiptLine line = receipt.getLines().get(i);
+            BigDecimal weight = byValue ? nz(line.getTaxableAmount()) : nz(line.getQuantity());
+
+            BigDecimal share;
+            if (i == n - 1) {
+                share = charges.subtract(allocated);          // last line absorbs the residue
+            } else {
+                share = charges.multiply(weight).divide(basis, 2, RoundingMode.HALF_UP);
+                allocated = allocated.add(share);
+            }
+
+            BigDecimal qty = nz(line.getQuantity());
+            BigDecimal perUnitAddition = qty.signum() > 0
+                    ? share.divide(qty, 4, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+            result.put(line.getId(), nz(line.getUnitPrice()).add(perUnitAddition)
+                    .setScale(4, RoundingMode.HALF_UP));
+        }
+        return result;
     }
 
     private void updateLatestPurchasePrice(Item item, BigDecimal unitPrice) {
