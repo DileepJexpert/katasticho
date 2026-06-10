@@ -106,6 +106,10 @@ class ApiConfig {
   static const String tdsRegister = '/api/v1/tds/register';
   static const String tds26q = '/api/v1/tds/26q';
 
+  // Tally migration (Masters XML import)
+  static const String tallyImportPreview = '/api/v1/migration/tally/preview';
+  static const String tallyImport = '/api/v1/migration/tally/import';
+
   // POS Cash Register
   static const String cashRegisterToday   = '/api/v1/pos/cash-register/today';
   static const String cashRegisterOpen    = '/api/v1/pos/cash-register/open';

@@ -225,6 +225,12 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push(Routes.apiKeys),
             ),
             _SettingsTile(
+              icon: Icons.swap_horiz,
+              title: 'Migrate from Tally',
+              subtitle: 'Import ledgers, items & opening balances from Tally XML',
+              onTap: () => context.push(Routes.tallyImport),
+            ),
+            _SettingsTile(
               icon: Icons.notifications_outlined,
               title: 'Notifications',
               subtitle: 'Push, email & SMS alerts',

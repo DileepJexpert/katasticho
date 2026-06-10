@@ -302,6 +302,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `gst/service/GstComplianceCalendarServiceTest.java` — deadline statuses by fixed clock, 2B nudge, 26Q quarter, pending EWB + e-invoice rows (2 tests)
 - `gst/service/EInvoiceServiceTest.java` — B2B detect + suggestion, disabled/B2C/dupe skip, record IRN, INV-01 JSON shape (6 tests)
 - `tax/service/TdsServiceTest.java` — 194C single/aggregate thresholds, 194Q excess-only, missing rate skip, FY Apr–Mar, 26Q grouping (8 tests)
+- `migration/tally/TallyImportServiceTest.java` — Tally XML parse, subgroup→Sundry Debtors resolution, Dr/Cr sign normalization, duty-ledger skip, item opening stock+GST, rerun dedupe, SKU generation (7 tests)
 - `reporting/service/DetailedReportService` — no test file (needs one)
 
 ## Existing Service Files (key ones)
@@ -337,6 +338,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `gst/service/GstComplianceCalendarService.java` — deadlines (GSTR-1 11th, 3B 20th, TDS 7th, 26Q quarterly, 2B recon nudge after 14th, pending EWBs + e-invoices) with UPCOMING/DUE_SOON/OVERDUE. Clock-injected. `/api/v1/gst/compliance-calendar`.
 - `gst/service/EInvoiceService.java` — **e-invoice (IRN)**: `gst.einvoice_enabled` org setting; INVOICE_POSTED handler flags posted B2B invoices (buyer GSTIN) → PENDING + suggestion. IRP INV-01 v1.1 JSON per invoice; record IRN/Ack/signed QR; cancel. V51 `einvoice`. `/api/v1/gst/einvoices`.
 - `tax/service/TdsService.java` — **TDS auto-deduction** on vendor bills via vendor master (tdsApplicable/section/rate) with section thresholds (194C 30k/1L, 194J 30k, 194H 20k, 194I 2.4L, 194A 5k, 194Q 50L excess-only). Base = subtotal (excl GST), FY Apr–Mar. Wired into PurchaseBillService create/update; balanceDue = total − TDS. Form 26Q + register @ `/api/v1/tds/26q|/register`.
+- `migration/tally/TallyImportService.java` — **Tally Masters XML import** (slice 1): GROUP-hierarchy-aware classification (Sundry Debtors→CUSTOMER, Creditors→VENDOR, BS/P&L groups→Account types, Duties & Taxes→skip), stock items→Items with opening stock via `ItemService.createItem`. Tally sign convention (negative=Dr) normalized. Two-phase preview/import, dedupe-safe rerun. `/api/v1/migration/tally/preview|/import` (multipart, OWNER/ADMIN). Flutter: Settings → Migrate from Tally. See `docs/TALLY_PARITY_AND_MIGRATION_PLAN.md`.
 - **`mcp/`** (TypeScript, not Java) — **MCP server** so Claude Desktop / agents can run the books via the REST API using an API key. Tools: ask, list_bills, list_invoices, list_ai_inbox, draft_bill, approve_bill_draft, reject_bill_draft. `mcp/README.md` has Claude Desktop setup. Drafts-only-until-approved.
 
 ## Doc Files Index
@@ -351,6 +353,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 | `docs/PAYROLL_IMPLEMENTATION_SPEC.md` | Full payroll spec: tables, APIs, Flutter screens, accounting | Phase 5 payroll work |
 | `docs/AI_APPROACH_AND_ROADMAP.md` | AI architecture: tables, agents, safety rules, 7 phases | Phase 6 AI work |
 | `docs/AI_FIRST_ACCOUNTING_PRODUCT_VISION.md` | **North-star vision:** AI-first (not "typewriter") accounting for India, Campfire benchmark, MCP server, India moat (GST/TDS/e-invoice), solo-dev roadmap A–G | Strategic direction, AI-first product work |
+| `docs/TALLY_PARITY_AND_MIGRATION_PLAN.md` | **Tally battle plan:** full TallyPrime feature matrix vs us (parity backlog §1), workflow strengths/pains, 5 wedges to beat them, Tally XML migration slices 1–3 | Tally parity work, migration importer, competitive positioning |
 | `docs/PARTNER_NETWORK_MODULE_PLAN.md` | B2B ordering: data model, flows, 10 implementation phases | Phase 8 partner network |
 | `docs/WORKFLOW_CONTEXT_HINTS_PLAN.md` | Context hints: resolver, widget, hint text per vertical | Adding workflow hints |
 | `docs/plans/week-2-ap-module.md` | AP module spec (already implemented) | Debugging AP flows |
