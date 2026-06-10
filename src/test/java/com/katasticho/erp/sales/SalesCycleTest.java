@@ -23,6 +23,7 @@ import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.*;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.BranchRepository;
+import com.katasticho.erp.common.cache.CachedDataService;
 import com.katasticho.erp.pricing.service.PriceListService;
 import com.katasticho.erp.sales.dto.*;
 import com.katasticho.erp.sales.entity.*;
@@ -77,6 +78,7 @@ class SalesCycleTest {
     @Mock private PolicyResolverService policyResolverService;
     @Mock private ApprovalWorkflowService approvalWorkflowService;
     @Mock private PriceListService priceListService;
+    @Mock private CachedDataService cachedDataService;
 
     // ── DeliveryChallanService extra mocks ────────────────────────
     @Mock private StockBatchRepository batchRepository;
@@ -124,7 +126,7 @@ class SalesCycleTest {
                 stockBalanceRepository, branchRepository, estimateRepository,
                 invoiceService, invoiceRepository, sequenceRepository,
                 defaultAccountService, taxEngine, commentService, challanRepository,
-                policyResolverService, approvalWorkflowService, priceListService);
+                policyResolverService, approvalWorkflowService, priceListService, cachedDataService);
 
         deliveryChallanService = new DeliveryChallanService(
                 challanRepository, salesOrderRepository, reservationRepository,

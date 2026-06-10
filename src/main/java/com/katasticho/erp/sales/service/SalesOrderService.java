@@ -31,6 +31,8 @@ import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.organisation.BranchRepository;
 import com.katasticho.erp.organisation.Branch;
+import com.katasticho.erp.common.cache.CachedDataService;
+import com.katasticho.erp.common.cache.dto.CachedCustomerOutstanding;
 import com.katasticho.erp.pricing.service.PriceListService;
 import com.katasticho.erp.sales.dto.*;
 import com.katasticho.erp.sales.entity.SalesOrder;
@@ -87,6 +89,7 @@ public class SalesOrderService {
     private final PolicyResolverService policyResolverService;
     private final ApprovalWorkflowService approvalWorkflowService;
     private final PriceListService priceListService;
+    private final CachedDataService cachedDataService;
 
     // ── CREATE ──────────────────────────────────────────────────
 
@@ -823,7 +826,10 @@ public class SalesOrderService {
             return SalesOrderRiskDecision.none();
         }
 
-        BigDecimal outstandingAr = nonNull(contact.getOutstandingAr());
+        BigDecimal outstandingAr = cachedDataService
+                .getCustomerOutstanding(orgId, contact.getId())
+                .map(CachedCustomerOutstanding::outstandingAr)
+                .orElseGet(() -> nonNull(contact.getOutstandingAr()));
         BigDecimal exposure = outstandingAr.add(nonNull(orderTotal));
         if (exposure.compareTo(creditLimit) <= 0) {
             return SalesOrderRiskDecision.none();

@@ -201,6 +201,7 @@ public class PaymentService {
         payment = paymentRepository.save(payment);
 
         invoiceService.updatePaymentStatus(invoice, payment.getAmount());
+        adjustContactOutstandingAr(payment.getContactId(), payment.getAmount().negate());
 
         commentService.addSystemComment("INVOICE", invoice.getId(),
                 "Payment of \u20b9" + payment.getAmount() + " received (" + payment.getPaymentMethod() + ")");
@@ -244,6 +245,7 @@ public class PaymentService {
 
         journalService.reverseEntry(payment.getJournalEntryId());
         invoiceService.updatePaymentStatus(invoice, payment.getAmount().negate());
+        adjustContactOutstandingAr(payment.getContactId(), payment.getAmount());
 
         payment.setStatus(PaymentStatus.VOIDED);
         payment.setVoidReason(reason);
@@ -339,6 +341,15 @@ public class PaymentService {
                 p.getReferenceNumber(), p.getBankAccount(), p.getNotes(),
                 p.getStatus() != null ? p.getStatus().name() : null,
                 p.getJournalEntryId(), p.getPostedAt(), p.getCreatedAt());
+    }
+
+    private void adjustContactOutstandingAr(UUID contactId, BigDecimal delta) {
+        if (contactId == null || delta == null || delta.compareTo(BigDecimal.ZERO) == 0) return;
+        contactRepository.findById(contactId).ifPresent(contact -> {
+            BigDecimal current = contact.getOutstandingAr() != null ? contact.getOutstandingAr() : BigDecimal.ZERO;
+            contact.setOutstandingAr(current.add(delta).max(BigDecimal.ZERO));
+            contactRepository.save(contact);
+        });
     }
 
     private PaymentApprovalDecision evaluateApproval(UUID orgId, Payment payment, Invoice invoice) {

@@ -18,6 +18,7 @@ import com.katasticho.erp.common.workflow.ApprovalWorkflowService;
 import com.katasticho.erp.common.workflow.DocumentStateConfig;
 import com.katasticho.erp.common.workflow.DocumentStateEngine;
 import com.katasticho.erp.common.workflow.WorkflowDefinition;
+import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.organisation.BranchRepository;
@@ -682,6 +683,93 @@ class PaymentServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> paymentService.recordForInvoice(invoice.getId(), req));
         assertEquals("AR_INVOICE_NOT_PAYABLE", ex.getErrorCode());
+    }
+
+    @Test
+    void voidPostedPayment_restoresContactOutstandingAr() {
+        UUID contactId = UUID.randomUUID();
+        UUID invoiceId = UUID.randomUUID();
+
+        Invoice invoice = Invoice.builder()
+                .orgId(orgId).contactId(contactId)
+                .invoiceNumber("INV-2026-000010").status("PAID")
+                .totalAmount(new BigDecimal("1000.00"))
+                .amountPaid(new BigDecimal("1000.00"))
+                .balanceDue(BigDecimal.ZERO)
+                .build();
+        invoice.setId(invoiceId);
+
+        Contact contact = new Contact();
+        contact.setId(contactId);
+        contact.setOutstandingAr(BigDecimal.ZERO);
+
+        JournalEntry journal = JournalEntry.builder().entryNumber("JE-001").build();
+        journal.setId(UUID.randomUUID());
+
+        Payment payment = Payment.builder()
+                .orgId(orgId).contactId(contactId).invoiceId(invoiceId)
+                .paymentNumber("PAY-2026-000010")
+                .paymentDate(LocalDate.of(2026, 5, 1))
+                .amount(new BigDecimal("1000.00"))
+                .currency("INR").paymentMethod("CASH")
+                .status(com.katasticho.erp.ar.entity.PaymentStatus.POSTED)
+                .build();
+        payment.setId(UUID.randomUUID());
+        payment.setJournalEntryId(journal.getId());
+        savedPayments.put(payment.getId(), payment);
+
+        when(invoiceRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
+                .thenReturn(Optional.of(invoice));
+        when(contactRepository.findById(contactId)).thenReturn(Optional.of(contact));
+        when(contactRepository.save(any(Contact.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        paymentService.voidPayment(payment.getId(), "Test void");
+
+        ArgumentCaptor<Contact> contactCaptor = ArgumentCaptor.forClass(Contact.class);
+        verify(contactRepository).save(contactCaptor.capture());
+        assertEquals(0, new BigDecimal("1000.00").compareTo(contactCaptor.getValue().getOutstandingAr()));
+
+        assertEquals(com.katasticho.erp.ar.entity.PaymentStatus.VOIDED, payment.getStatus());
+    }
+
+    @Test
+    void postPayment_decrementsContactOutstandingAr() {
+        UUID contactId = UUID.randomUUID();
+
+        Invoice invoice = Invoice.builder()
+                .orgId(orgId).contactId(contactId)
+                .invoiceNumber("INV-2026-000011").status("SENT")
+                .totalAmount(new BigDecimal("500.00"))
+                .amountPaid(BigDecimal.ZERO)
+                .balanceDue(new BigDecimal("500.00"))
+                .build();
+        invoice.setId(UUID.randomUUID());
+
+        Contact contact = new Contact();
+        contact.setId(contactId);
+        contact.setOutstandingAr(new BigDecimal("500.00"));
+
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoice.getId(), orgId))
+                .thenReturn(Optional.of(invoice));
+        when(invoiceService.computeFiscalYear(any(LocalDate.class), anyInt())).thenReturn(2026);
+        when(invoiceService.generateNumber(eq(orgId), eq("PAY"), anyInt()))
+                .thenReturn("PAY-2026-000011");
+        when(contactRepository.findById(contactId)).thenReturn(Optional.of(contact));
+        when(contactRepository.save(any(Contact.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        JournalEntry mockJournal = JournalEntry.builder().entryNumber("JE-011").build();
+        mockJournal.setId(UUID.randomUUID());
+        when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any()))
+                .thenReturn(mockJournal);
+
+        paymentService.recordPayment(new RecordPaymentRequest(
+                invoice.getId(), contactId, LocalDate.now(),
+                new BigDecimal("500.00"), "CASH", null, null, null));
+
+        ArgumentCaptor<Contact> captor = ArgumentCaptor.forClass(Contact.class);
+        verify(contactRepository).save(captor.capture());
+        assertEquals(0, BigDecimal.ZERO.compareTo(captor.getValue().getOutstandingAr()));
     }
 
     @Test

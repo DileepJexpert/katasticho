@@ -27,6 +27,7 @@ import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.organisation.BranchRepository;
+import com.katasticho.erp.common.cache.CachedDataService;
 import com.katasticho.erp.pricing.service.PriceListService;
 import com.katasticho.erp.sales.dto.SalesOrderResponse;
 import com.katasticho.erp.sales.dto.CreateSalesOrderRequest;
@@ -79,6 +80,7 @@ class SalesOrderServiceTest {
     @Mock private PolicyResolverService policyResolverService;
     @Mock private ApprovalWorkflowService approvalWorkflowService;
     @Mock private PriceListService priceListService;
+    @Mock private CachedDataService cachedDataService;
 
     private SalesOrderService salesOrderService;
 
@@ -98,7 +100,7 @@ class SalesOrderServiceTest {
                 stockBalanceRepository, branchRepository, estimateRepository,
                 invoiceService, invoiceRepository, sequenceRepository,
                 defaultAccountService, taxEngine, commentService, challanRepository,
-                policyResolverService, approvalWorkflowService, priceListService);
+                policyResolverService, approvalWorkflowService, priceListService, cachedDataService);
 
         orgId = UUID.randomUUID();
         contactId = UUID.randomUUID();
