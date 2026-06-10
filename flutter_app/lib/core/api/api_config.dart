@@ -272,6 +272,9 @@ class ApiConfig {
   static const String aiScanProductLabel = '/api/v1/ai/scan-product-label';
   static const String aiScanPurchaseInvoice =
       '/api/v1/ai/scan-purchase-invoice';
+  // API keys (programmatic access / MCP server)
+  static const String apiKeys = '/api/v1/api-keys';
+  static String apiKeyById(String id) => '/api/v1/api-keys/$id';
   // AI-first bill drafting ("draft, don't type")
   static const String aiBillDrafts = '/api/v1/ai/bill-drafts';
   static String aiBillDraftApprove(String suggestionId) =>

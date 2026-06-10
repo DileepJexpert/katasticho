@@ -1,5 +1,6 @@
 package com.katasticho.erp.common.config;
 
+import com.katasticho.erp.auth.filter.ApiKeyAuthenticationFilter;
 import com.katasticho.erp.auth.filter.JwtAuthenticationFilter;
 import com.katasticho.erp.platform.filter.PlatformAdminJwtFilter;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ApiKeyAuthenticationFilter apiKeyAuthenticationFilter;
     private final PlatformAdminJwtFilter platformAdminJwtFilter;
 
     @Value("${app.cors.allowed-origins:*}")
@@ -68,6 +70,9 @@ public class SecurityConfig {
                         })
                 )
                 .addFilterBefore(platformAdminJwtFilter, UsernamePasswordAuthenticationFilter.class)
+                // API-key filter runs before JWT: it authenticates X-API-Key / Bearer kat_…
+                // requests; everything else falls through to the JWT filter untouched.
+                .addFilterBefore(apiKeyAuthenticationFilter, JwtAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

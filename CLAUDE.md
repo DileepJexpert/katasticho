@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V48**. Next new migration = V49.
+- Location: `src/main/resources/db/migration/`. Latest is **V49** (api_key auth). Next new migration = V50.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -295,6 +295,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `manufacturing/service/QualityControlServiceTest.java` — QC templates/inspections (8 tests)
 - `manufacturing/service/ScrapServiceTest.java` — scrap recording (5 tests)
 - `ai/service/BillDraftingServiceTest.java` — AI-first bill drafting: vendor match/create, item→GOODS / unmatched→SERVICE, HSN→GST, approve posts+learns, reject deletes (5 tests)
+- `auth/service/ApiKeyServiceTest.java` — API-key create (hash-only, plaintext once), resolve-by-hash, reject non-kat/revoked, revoke (6 tests)
 - `reporting/service/DetailedReportService` — no test file (needs one)
 
 ## Existing Service Files (key ones)
@@ -323,6 +324,8 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `manufacturing/service/QualityControlService.java` — QC templates, inspections (create, record results, finalize)
 - `manufacturing/service/ScrapService.java` — scrap reason codes, production scrap recording
 - `ai/service/BillDraftingService.java` — **AI-first bill entry** ("draft, don't type"): scanned bill → match-or-create vendor + match item (GOODS) / expense (SERVICE) + HSN→GST → DRAFT purchase_bill + `DRAFT_BILL` suggestion. Approve posts via `PurchaseBillService` + learns `ai_pattern` (vendor+HSN→account); reject deletes draft. Endpoints `/api/v1/ai/bill-drafts[/{id}/approve|/reject]`. See `docs/AI_FIRST_ACCOUNTING_PRODUCT_VISION.md` Phase A.
+- `auth/service/ApiKeyService.java` — **API-key auth** for programmatic/MCP access. `kat_<random>` keys, SHA-256 hashed (plaintext shown once), org+user scoped. `ApiKeyAuthenticationFilter` reads `X-API-Key`/`Bearer kat_…` and sets the same `TenantContext`+`ROLE_<role>` as JWT. Endpoints `/api/v1/api-keys` (create/list/revoke, OWNER/ADMIN). V49 migration. See Phase C.
+- **`mcp/`** (TypeScript, not Java) — **MCP server** so Claude Desktop / agents can run the books via the REST API using an API key. Tools: ask, list_bills, list_invoices, list_ai_inbox, draft_bill, approve_bill_draft, reject_bill_draft. `mcp/README.md` has Claude Desktop setup. Drafts-only-until-approved.
 
 ## Doc Files Index
 | Doc | Purpose | Read when |

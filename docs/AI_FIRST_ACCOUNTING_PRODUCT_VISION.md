@@ -198,7 +198,7 @@ This is what turns Katasticho from "an app" into "an accounting brain that any A
 
 To be API-first like Campfire, do these (small, high-leverage):
 
-1. **API keys** — per-org programmatic credentials (`Authorization: Bearer <key>` or `Token <key>`), scoped, revocable. Needed for MCP + webhooks + integrations. *(New: `api_key` table, auth filter.)*
+1. ~~**API keys** — per-org programmatic credentials, scoped, revocable. Needed for MCP + webhooks + integrations.~~ ✅ **DONE (Phase C):** `X-API-Key: kat_…`, `api_key` table (V49), `ApiKeyAuthenticationFilter`. Manage in Settings → API Keys.
 2. **Stable response envelope** — standardize on a paginated shape (`{count,next,previous,results}` or keep `ApiResponse.ok` but make list endpoints consistently paginated).
 3. **OpenAPI spec** — add springdoc-openapi; auto-generate `/v3/api-docs`. This becomes the contract, the SDK source, and the MCP tool catalog. *(One dependency + annotations we mostly already imply.)*
 4. **`include_deleted` + `last_modified_at` filters** on list endpoints (we already soft-delete via `is_deleted`) — enables incremental sync for integrations.
@@ -226,10 +226,13 @@ Sized so one person + Claude ships each phase. Don't skip ahead — each builds 
 - Flutter AI screen becomes a **command bar available everywhere**, not a separate tab.
 - **DoD:** "Bill ABC Pharma 50 Crocin at 95" drafts a reviewable bill; "cash position this month" returns the number + drivers.
 
-### Phase C — API keys + MCP server (the leverage unlock)
+### Phase C — API keys + MCP server (the leverage unlock) ✅ DONE (2026-06-10)
 **Goal:** Run the books from Claude Desktop / any agent.
-- API-key auth (§8.1), then the MCP server (§7) with the read + draft tool set.
-- **DoD:** From Claude Desktop, "create a bill / what's my P&L" works against a test org, safely (drafts only).
+- ~~API-key auth (§8.1)~~ **`api_key` table (V49), `ApiKey`/`ApiKeyService`/`ApiKeyController`** at `/api/v1/api-keys` (create/list/revoke, Owner/Admin). Keys are `kat_<random>`; only the SHA-256 hash is stored; plaintext shown once. **`ApiKeyAuthenticationFilter`** authenticates `X-API-Key` (or `Authorization: Bearer kat_…`) and sets the **same** `TenantContext` + `ROLE_<role>` as JWT, so `@PreAuthorize`/`@RequiresModule` work unchanged. JWT filter skips API-key requests (no collision). Flutter: **Settings → API Keys** (create/copy-once/revoke).
+- ~~the MCP server (§7)~~ **`mcp/` — a standalone TypeScript MCP server** (`@modelcontextprotocol/sdk`, stdio) that wraps the REST API with the API key. Tools: `ask` (NL→answer+rows), `list_bills`, `list_invoices`, `list_ai_inbox`, `draft_bill`, `approve_bill_draft`, `reject_bill_draft`. README has the Claude Desktop config.
+- **Safety:** the MCP server can only *draft*; posting requires `approve_bill_draft` (reuses Phase A's human-in-the-loop). Key carries org+role; revocable.
+- **Tests:** `ApiKeyServiceTest` (6, green). **DoD met:** from Claude Desktop, "draft a bill … / what's my profit this month?" works against a test org, drafts-only-until-approved.
+- **Follow-ups:** add tools as the API grows (GST returns, bank rec); per-key scopes/role; rate limiting per key (we have `ai_usage_log`); publish the MCP server to npm.
 
 ### Phase D — GST returns + 2B reconciliation (the India moat) ⭐ BIGGEST DIFFERENTIATOR
 **Goal:** Pre-built GSTR-1/3B and AI-matched 2B reconciliation.

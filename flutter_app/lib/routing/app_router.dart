@@ -121,6 +121,7 @@ import '../features/inventory/presentation/reorder_screen.dart';
 import '../features/inventory/presentation/shortbook_screen.dart';
 import '../features/team/presentation/team_screen.dart';
 import '../features/settings/presentation/ai_model_settings_screen.dart';
+import '../features/settings/presentation/api_keys_screen.dart';
 import '../features/settings/presentation/business_policy_settings_screen.dart';
 import '../features/ca_console/presentation/ca_console_screen.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
@@ -286,6 +287,7 @@ class Routes {
   static const inventoryFeatures = '/settings/inventory-features';
   static const teamMembers = '/settings/team';
   static const aiSettings = '/settings/ai';
+  static const apiKeys = '/settings/api-keys';
   // Onboarding wizard
   static const onboardingBusinessType = '/onboarding/business-type';
   static const onboardingIndustry = '/onboarding/industry';
@@ -1515,6 +1517,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.aiSettings,
             builder: (context, state) => const AiModelSettingsScreen(),
+          ),
+          GoRoute(
+            path: Routes.apiKeys,
+            builder: (context, state) => const ApiKeysScreen(),
           ),
         ],
       ),

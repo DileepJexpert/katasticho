@@ -114,10 +114,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
-        return path.startsWith("/api/v1/auth/")
+        if (path.startsWith("/api/v1/auth/")
                 || path.startsWith("/api/platform-admin/")
                 || path.startsWith("/actuator/")
                 || path.startsWith("/v3/api-docs")
-                || path.startsWith("/swagger-ui");
+                || path.startsWith("/swagger-ui")) {
+            return true;
+        }
+        // API-key requests are authenticated by ApiKeyAuthenticationFilter; the JWT
+        // filter must not try to parse "kat_…" as a JWT (it would 401).
+        String apiKeyHeader = request.getHeader("X-API-Key");
+        if (apiKeyHeader != null && !apiKeyHeader.isBlank()) {
+            return true;
+        }
+        String authHeader = request.getHeader("Authorization");
+        return authHeader != null && authHeader.startsWith("Bearer kat_");
     }
 }
