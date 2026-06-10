@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/api/api_client.dart';
+import '../../../core/api/api_config.dart';
+import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../data/pos_providers.dart';
 
 const _prefPrefix = 'receipt_';
 
@@ -202,6 +206,8 @@ class PosReceiptSettingsScreen extends ConsumerWidget {
             onChanged: (v) =>
                 _update(ref, settings.copyWith(footerText: v)),
           ),
+          KSpacing.vGapLg,
+          const _UpiSettingsSection(),
           KSpacing.vGapXl,
         ],
       ),
@@ -210,5 +216,126 @@ class PosReceiptSettingsScreen extends ConsumerWidget {
 
   void _update(WidgetRef ref, ReceiptSettings settings) {
     ref.read(receiptSettingsProvider.notifier).update(settings);
+  }
+}
+
+class _UpiSettingsSection extends ConsumerStatefulWidget {
+  const _UpiSettingsSection();
+
+  @override
+  ConsumerState<_UpiSettingsSection> createState() => _UpiSettingsSectionState();
+}
+
+class _UpiSettingsSectionState extends ConsumerState<_UpiSettingsSection> {
+  final _upiIdCtrl = TextEditingController();
+  final _displayNameCtrl = TextEditingController();
+  bool _loaded = false;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _upiIdCtrl.dispose();
+    _displayNameCtrl.dispose();
+    super.dispose();
+  }
+
+  void _prefill(Map<String, String> settings) {
+    if (!_loaded) {
+      _upiIdCtrl.text = settings['upiId'] ?? '';
+      _displayNameCtrl.text = settings['displayName'] ?? '';
+      _loaded = true;
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final client = ref.read(apiClientProvider);
+      await client.put(ApiConfig.upiSettings, data: {
+        'upiId': _upiIdCtrl.text.trim(),
+        'displayName': _displayNameCtrl.text.trim(),
+      });
+      ref.invalidate(upiSettingsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('UPI settings saved')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to save UPI settings'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final role = authState.role?.toUpperCase() ?? '';
+    final canEdit = role == 'OWNER' || role == 'ADMIN';
+
+    final upiAsync = ref.watch(upiSettingsProvider);
+    upiAsync.whenData(_prefill);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('UPI Payment', style: KTypography.h3),
+        KSpacing.vGapSm,
+        KCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Set your UPI ID to show a scannable QR code in the payment sheet.',
+                style: KTypography.bodySmall
+                    .copyWith(color: Colors.grey.shade600),
+              ),
+              KSpacing.vGapSm,
+              KTextField(
+                label: 'UPI ID',
+                hint: 'yourname@upi',
+                controller: _upiIdCtrl,
+                prefixIcon: Icons.qr_code_2,
+                enabled: canEdit,
+              ),
+              KSpacing.vGapSm,
+              KTextField(
+                label: 'Display Name',
+                hint: 'Store name shown on UPI app',
+                controller: _displayNameCtrl,
+                prefixIcon: Icons.store_outlined,
+                enabled: canEdit,
+              ),
+              if (canEdit) ...[
+                KSpacing.vGapSm,
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _saving ? null : _save,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.save_outlined, size: 16),
+                    label: Text(_saving ? 'Saving...' : 'Save UPI Settings'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

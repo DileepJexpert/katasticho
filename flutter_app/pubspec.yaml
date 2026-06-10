@@ -68,6 +68,9 @@ dependencies:
   # Barcode / QR scanning (POS)
   mobile_scanner: ^5.1.1
 
+  # QR code generation (UPI payment QR at POS)
+  qr_flutter: ^4.1.0
+
   # Geolocation (field sales check-in/out)
   geolocator: ^12.0.0
 

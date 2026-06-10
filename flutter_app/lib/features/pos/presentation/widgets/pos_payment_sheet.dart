@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../data/pos_cart_state.dart';
+import '../../data/pos_providers.dart';
 
 const double _maxTenderAmount = 999999.99;
 const int _maxTenderInputLength = 9;
@@ -53,7 +56,7 @@ Future<Map<String, dynamic>?> showPosPaymentSheet(
   );
 }
 
-class _PaymentSheetContent extends StatefulWidget {
+class _PaymentSheetContent extends ConsumerStatefulWidget {
   final PosCartState cart;
   final String paymentMode;
 
@@ -63,10 +66,11 @@ class _PaymentSheetContent extends StatefulWidget {
   });
 
   @override
-  State<_PaymentSheetContent> createState() => _PaymentSheetContentState();
+  ConsumerState<_PaymentSheetContent> createState() =>
+      _PaymentSheetContentState();
 }
 
-class _PaymentSheetContentState extends State<_PaymentSheetContent> {
+class _PaymentSheetContentState extends ConsumerState<_PaymentSheetContent> {
   late final TextEditingController _amountController;
   late final TextEditingController _referenceController;
   late double _amountReceived;
@@ -305,46 +309,93 @@ class _PaymentSheetContentState extends State<_PaymentSheetContent> {
   }
 
   Widget _buildUpiContent(double total) {
+    final upiAsync = ref.watch(upiSettingsProvider);
+    final upiSettings = upiAsync.valueOrNull ?? {};
+    final upiId = upiSettings['upiId'] ?? '';
+    final displayName = upiSettings['displayName'] ?? '';
+    final hasUpi = upiId.isNotEmpty;
+
+    final amountStr = total.toStringAsFixed(2);
+    final qrData = hasUpi
+        ? 'upi://pay?pa=$upiId&pn=${Uri.encodeComponent(displayName)}&am=$amountStr&cu=INR'
+        : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Amount display
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: KColors.primarySoft,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.qr_code_2, size: 30, color: KColors.primary),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    CurrencyFormatter.formatIndian(total),
-                    style: KTypography.h3.copyWith(
-                      color: KColors.primary,
-                      fontWeight: FontWeight.w800,
+          child: hasUpi
+              ? Column(
+                  children: [
+                    QrImageView(
+                      data: qrData!,
+                      version: QrVersions.auto,
+                      size: 180,
+                      backgroundColor: Colors.white,
+                      errorCorrectionLevel: QrErrorCorrectLevel.M,
                     ),
-                  ),
-                  Text(
-                    'Collect via UPI',
-                    style: KTypography.bodySmall.copyWith(
-                      color: KColors.textSecondary,
+                    const SizedBox(height: 8),
+                    Text(
+                      CurrencyFormatter.formatIndian(total),
+                      style: KTypography.h3.copyWith(
+                        color: KColors.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                    if (displayName.isNotEmpty)
+                      Text(
+                        displayName,
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary),
+                      ),
+                    Text(
+                      upiId,
+                      style: KTypography.labelSmall.copyWith(
+                          color: KColors.textHint, fontSize: 10),
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.qr_code_2, size: 30, color: KColors.primary),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          CurrencyFormatter.formatIndian(total),
+                          style: KTypography.h3.copyWith(
+                            color: KColors.primary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          'Collect via UPI',
+                          style: KTypography.bodySmall
+                              .copyWith(color: KColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
         ),
+        if (!hasUpi) ...[
+          const SizedBox(height: 6),
+          Text(
+            'Set up UPI ID in POS settings to show QR code',
+            style: KTypography.labelSmall
+                .copyWith(color: KColors.textHint, fontSize: 10),
+            textAlign: TextAlign.center,
+          ),
+        ],
         KSpacing.vGapSm,
-
-        // Reference field
         Text('Reference (optional)', style: KTypography.labelMedium),
         KSpacing.vGapSm,
         KTextField(

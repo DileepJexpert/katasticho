@@ -50,4 +50,26 @@ public class OrgSettingsController {
         settingsService.set(orgId, key, value);
         return ResponseEntity.ok(Map.of(key, settingsService.get(orgId, key, "")));
     }
+
+    @GetMapping("/upi")
+    public ResponseEntity<Map<String, String>> getUpiSettings() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        String upiId = settingsService.get(orgId, "pos.upi_id", null);
+        String displayName = settingsService.get(orgId, "pos.upi_display_name", null);
+        Map<String, String> result = new java.util.HashMap<>();
+        if (upiId != null) result.put("upiId", upiId);
+        if (displayName != null) result.put("displayName", displayName);
+        return ResponseEntity.ok(result);
+    }
+
+    @PutMapping("/upi")
+    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    public ResponseEntity<Map<String, String>> updateUpiSettings(@RequestBody Map<String, String> body) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        String upiId = body.get("upiId");
+        String displayName = body.get("displayName");
+        if (upiId != null) settingsService.set(orgId, "pos.upi_id", upiId);
+        if (displayName != null) settingsService.set(orgId, "pos.upi_display_name", displayName);
+        return ResponseEntity.ok(body);
+    }
 }
