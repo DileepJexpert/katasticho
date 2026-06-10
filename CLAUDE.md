@@ -247,8 +247,8 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **~~P4: UPI QR code at POS~~ (DONE):** OrgSettings stores `pos.upi_id`/`pos.upi_display_name`. Payment sheet renders scannable QR via `qr_flutter`. POS Receipt Settings has UPI config section.
 - **~~P6: Cash register / day close~~ (DONE):** V48 migration. CashRegisterService: open day, petty cash expenses, close with variance. 7 endpoints. Flutter: Today + History tabs in CashRegisterScreen, accessible from POS overflow menu.
 - **~~P7: SMS notifications~~ (DONE):** SmsService (Fast2SMS/MSG91, async fire-and-forget, Indian mobile sanitization). Hooked in SalesReceiptService (receipt SMS) and LowStockAlertJob (per-item alert to org owner). GET/PUT `/api/v1/settings/sms`. Flutter: `_SmsSettingsSection` in POS Receipt Settings screen.
-- **P1: Thermal/Bluetooth printer** (TODO, 1-2 days) — ESC/POS receipt printing via Bluetooth or USB.
-- **P2: Offline POS** (TODO, 2-3 days) — Local SQLite queue, sync on reconnect.
+- **~~P1: Thermal/Bluetooth printer~~ (DONE):** ThermalPrintService (ESC/POS via flutter_blue_plus, 58mm/80mm paper, respects ReceiptSettings). PrinterSetupScreen with scan/connect/test/auto-print. POS _handlePrint uses thermal when connected, PDF fallback.
+- **~~P2: Offline POS~~ (DONE):** OfflinePosService with SQLite queue (sqflite). Network errors in _completeSale auto-queue receipt locally. Connectivity listener auto-syncs on reconnect. Sync badge in POS app bar shows pending count + manual Sync Now. Max 5 retries per receipt.
 
 **Parked (not needed now):**
 - P3: Hindi i18n — Flutter l10n, ARB files, Hindi translations for POS + core screens.

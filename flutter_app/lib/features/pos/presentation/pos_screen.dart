@@ -33,6 +33,7 @@ import 'widgets/pos_weight_popup.dart';
 import '../../inventory/data/batch_repository.dart';
 import '../../../core/shortcuts/k_shortcuts.dart';
 import '../data/thermal_print_service.dart';
+import '../data/offline_pos_service.dart';
 import 'pos_receipt_settings_screen.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../pricing/data/scheme_repository.dart';
@@ -615,10 +616,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     final cart = ref.read(posCartProvider);
     final repo = ref.read(posRepositoryProvider);
+    final requestBody = _buildReceiptRequest(cart, paymentResult);
 
     try {
-      // Build receipt request matching CreateSalesReceiptRequest
-      final requestBody = _buildReceiptRequest(cart, paymentResult);
       final response = await repo.createReceipt(requestBody);
 
       if (!mounted) return;
@@ -697,23 +697,56 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       _searchFocusNode.requestFocus();
     } catch (e) {
       if (!mounted) return;
-      final message =
-          e is DioException ? ApiErrorParser.message(e) : e.toString();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: KColors.error,
-          duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-            label: 'Retry',
-            textColor: Colors.white,
-            onPressed: () => _completeSale(paymentResult),
+      if (_isNetworkError(e)) {
+        await _queueOffline(requestBody, cart);
+      } else {
+        final message =
+            e is DioException ? ApiErrorParser.message(e) : e.toString();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: KColors.error,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () => _completeSale(paymentResult),
+            ),
           ),
-        ),
-      );
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  bool _isNetworkError(Object e) {
+    if (e is DioException) {
+      return e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.unknown;
+    }
+    return false;
+  }
+
+  Future<void> _queueOffline(Map<String, dynamic> requestBody, PosCartState cart) async {
+    final offline = OfflinePosService.instance;
+    await offline.queueReceipt(requestBody);
+    if (!mounted) return;
+
+    HapticFeedback.mediumImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Saved offline — will sync when connection returns'),
+        backgroundColor: Color(0xFF4CAF50),
+        duration: Duration(seconds: 3),
+      ),
+    );
+
+    ref.read(posCartProvider.notifier).clear();
+    _searchFocusNode.requestFocus();
   }
 
   Map<String, dynamic> _buildReceiptRequest(
@@ -1371,6 +1404,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           tooltip: 'Hold cart (F4)',
         ),
       _HeldCartsBadge(onTap: _recallCart),
+      const _OfflineSyncBadge(),
     ];
 
     if (narrow) {
@@ -1830,6 +1864,60 @@ class _HeldCartsBadge extends ConsumerWidget {
         icon: const Icon(Icons.inventory_2_outlined, size: 20),
         onPressed: onTap,
         tooltip: 'Recall held cart (F5)',
+      ),
+    );
+  }
+}
+
+class _OfflineSyncBadge extends ConsumerWidget {
+  const _OfflineSyncBadge();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final countAsync = ref.watch(offlinePendingCountProvider);
+    final count = countAsync.valueOrNull ?? 0;
+    if (count == 0) return const SizedBox.shrink();
+
+    final syncAsync = ref.watch(offlineSyncStatusProvider);
+    final syncing = syncAsync.valueOrNull == SyncStatus.syncing;
+
+    return Badge(
+      label: Text('$count'),
+      backgroundColor: syncing ? KColors.primary : KColors.warning,
+      child: IconButton(
+        icon: syncing
+            ? const SizedBox(
+                width: 20, height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.cloud_upload_outlined, size: 20),
+        onPressed: () => _showSyncDialog(context, ref, count),
+        tooltip: '$count receipts pending sync',
+      ),
+    );
+  }
+
+  void _showSyncDialog(BuildContext context, WidgetRef ref, int count) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Offline Receipts'),
+        content: Text('$count receipt(s) saved offline and waiting to sync.\n\n'
+            'They will be uploaded automatically when the connection returns, '
+            'or tap Sync Now to try immediately.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              OfflinePosService.instance.setApiClient(ref.read(apiClientProvider));
+              OfflinePosService.instance.syncPendingReceipts(ref: ref);
+            },
+            child: const Text('Sync Now'),
+          ),
+        ],
       ),
     );
   }
