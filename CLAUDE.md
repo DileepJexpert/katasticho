@@ -246,9 +246,9 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **~~P8: Profit margin on POS~~ (DONE):** PosSearchController strips `purchasePrice` for OPERATOR/ACCOUNTANT roles. OWNER/ADMIN see margin breakdown in payment sheet + margin dot per item.
 - **~~P4: UPI QR code at POS~~ (DONE):** OrgSettings stores `pos.upi_id`/`pos.upi_display_name`. Payment sheet renders scannable QR via `qr_flutter`. POS Receipt Settings has UPI config section.
 - **~~P6: Cash register / day close~~ (DONE):** V48 migration. CashRegisterService: open day, petty cash expenses, close with variance. 7 endpoints. Flutter: Today + History tabs in CashRegisterScreen, accessible from POS overflow menu.
+- **~~P7: SMS notifications~~ (DONE):** SmsService (Fast2SMS/MSG91, async fire-and-forget, Indian mobile sanitization). Hooked in SalesReceiptService (receipt SMS) and LowStockAlertJob (per-item alert to org owner). GET/PUT `/api/v1/settings/sms`. Flutter: `_SmsSettingsSection` in POS Receipt Settings screen.
 - **P1: Thermal/Bluetooth printer** (TODO, 1-2 days) — ESC/POS receipt printing via Bluetooth or USB.
 - **P3: Hindi i18n** (TODO, 2 days) — Flutter l10n, ARB files, Hindi translations for POS + core screens.
-- **P7: SMS notifications** (TODO, 1 day) — Fast2SMS/MSG91 integration, receipt SMS, low-stock alerts.
 - **P5: Push notifications Firebase** (TODO, 1-2 days) — FCM setup, server-side token storage, notification triggers.
 - **P2: Offline POS** (TODO, 2-3 days) — Local SQLite queue, sync on reconnect.
 - **P9: Tally export** (TODO, 1-2 days) — XML export in Tally format for CA handoff.
