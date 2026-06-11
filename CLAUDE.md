@@ -264,11 +264,11 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Command palette expansion (done):** `buildAppCommands()` expanded from ~40 to ~100 commands covering all modules: Sales Orders, Purchase Orders, Delivery Challans, Debit Notes, Chart of Accounts, Journal Entries, Credit Ledger, Bank Recon, Approval Inbox, Stock Counts, Transfer Orders, Picklists, Payroll, Field Sales (beats/routes/vans/executions/dashboard), Partner Network (partners/catalog/supplier search), Manufacturing (work orders/job work/routings/QC), and all create + settings routes.
 - **KKeyboardListWrapper (done):** Reusable Focus wrapper for list screens — J/K or ↑/↓ row navigation, N to create, R to refresh, / to focus search, Enter to open selected, X to toggle selection. Text-field-aware (disables single-key shortcuts when typing).
 - **KKeyboardFormWrapper (done):** Reusable Focus wrapper for stepped create forms — Ctrl+Enter to submit, Ctrl+←→ for step navigation, Esc to cancel.
-- **List screens wired (done):** Invoices, Bills, Sales Orders, Items, Contacts — all wrapped with KKeyboardListWrapper for keyboard navigation.
-- **Form screens wired (done):** Invoice Create, Bill Create, Sales Order Create — all wrapped with KKeyboardFormWrapper for Ctrl+Enter submit and step navigation.
+- **List screens wired (done):** Invoices, Bills, Sales Orders, Items, Contacts, Stock Receipts, Purchase Orders, Delivery Challans, Journal Entries, Credit Notes, Vendor Credits, Estimates, Expenses, Recurring Invoices, Work Orders, Employees — all wrapped with KKeyboardListWrapper for keyboard navigation.
+- **Form screens wired (done):** Invoice Create, Bill Create, Sales Order Create, Delivery Challan Create, Stock Receipt Create, Estimate Create, Expense Create, Credit Note Create, Vendor Credit Create — all wrapped with KKeyboardFormWrapper for Ctrl+Enter submit and step navigation.
 - **ShellScreen global shortcuts (done):** Ctrl+N (context-aware new — detects current route and navigates to create; falls back to command palette), ? (shortcut help overlay). Text-field-aware to avoid conflicts.
 - **POS shortcut help (done):** `?` key in POS opens POS-specific shortcut reference.
-- **TODO:** More list screens (stock receipts, purchase orders, delivery challans, journal entries), more form screens (expense, contact, stock receipt create), shortcut hints on FABs/buttons across the app.
+- **FAB tooltip hints (done):** 30+ list screens show `(N)` keyboard hint on the create FAB tooltip across all modules.
 
 ---
 
