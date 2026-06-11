@@ -134,6 +134,14 @@ public class FinancialReportController {
         return ResponseEntity.ok(ApiResponse.ok(operationalReportService.ratioAnalysis(startDate, endDate)));
     }
 
+    @GetMapping("/budget-variance")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<OperationalReportResponse>> getBudgetVariance(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(ApiResponse.ok(operationalReportService.budgetVariance(startDate, endDate)));
+    }
+
     @GetMapping("/low-stock")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<OperationalReportResponse>> getLowStockAlert() {

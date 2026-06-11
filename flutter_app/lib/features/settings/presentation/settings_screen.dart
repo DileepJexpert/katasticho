@@ -219,6 +219,12 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push(Routes.aiSettings),
             ),
             _SettingsTile(
+              icon: Icons.savings_outlined,
+              title: 'Budgets',
+              subtitle: 'Annual budget per account — drives Budget vs Actual',
+              onTap: () => context.push(Routes.budgets),
+            ),
+            _SettingsTile(
               icon: Icons.key_outlined,
               title: 'API Keys',
               subtitle: 'Connect Claude Desktop, the MCP server & integrations',

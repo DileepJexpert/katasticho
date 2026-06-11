@@ -23,7 +23,7 @@ Legend: ✅ have it · 🟡 partial · ❌ missing (backlog) · ➖ deliberately
 | Bill-wise details (bill references) | Allocate payments against specific invoices | ✅ | Payment allocation against invoices/bills |
 | Outstanding / ageing (receivable & payable) | Who owes what, how old | ✅ | AR/AP ageing reports, contact ledger |
 | Cost centres & cost categories | Tag transactions by department/project | ✅ | Per-line cost centre input on manual journals + Cost Centres report (`/api/v1/reports/cost-centres`, Reports Hub) grouping Dr/Cr/net by centre with an "(untagged)" bucket (2026-06-10). Cost *categories* (parallel hierarchies) deliberately skipped |
-| Budgets & controls | Budget vs actual | ❌ | Backlog (Campfire benchmark has it too) |
+| Budgets & controls | Budget vs actual | ✅ | Annual budget per account per FY (Settings → Budgets, V55) + Budget vs Actual report pro-rated over the viewed window (`/api/v1/reports/budget-variance`, 2026-06-10) |
 | Scenarios (provisional vouchers) | What-if reporting | ➖ | Low usage among SMBs; skip |
 | Multi-currency | Forex ledgers, gain/loss | 🟡 | Currency + exchange rate on documents; no realized gain/loss engine |
 | Interest calculation | Auto interest on overdue | ✅ | "Interest on Overdue" report — simple interest at `ar.interest_rate_pa` (default 18%) per overdue invoice, `/api/v1/reports/overdue-interest` + Reports Hub (2026-06-10). Read-only; raise a debit note manually to actually charge |
@@ -85,7 +85,7 @@ Legend: ✅ have it · 🟡 partial · ❌ missing (backlog) · ➖ deliberately
 | Ratio analysis | ✅ | Ratio Analysis report — current/quick ratio, working capital, receivable days, net margin from TB + P&L (`/api/v1/reports/ratio-analysis`, 2026-06-10) |
 | Funds flow | ➖ | Rarely used |
 | Cost centre reports | ✅ | Cost Centres report in Reports Hub (2026-06-10) |
-| Budget variance | ❌ | With budgets backlog |
+| Budget variance | ✅ | Budget vs Actual in Reports Hub (2026-06-10) |
 | Dashboards | ✅ | Role dashboards + distributor dashboard v2 (better than Tally's new Report Dashboard) |
 
 ### 1.6 Platform & access

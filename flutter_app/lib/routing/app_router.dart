@@ -122,6 +122,7 @@ import '../features/inventory/presentation/shortbook_screen.dart';
 import '../features/team/presentation/team_screen.dart';
 import '../features/settings/presentation/ai_model_settings_screen.dart';
 import '../features/settings/presentation/api_keys_screen.dart';
+import '../features/settings/presentation/budgets_screen.dart';
 import '../features/settings/presentation/tally_import_screen.dart';
 import '../features/settings/presentation/business_policy_settings_screen.dart';
 import '../features/ca_console/presentation/ca_console_screen.dart';
@@ -289,6 +290,7 @@ class Routes {
   static const teamMembers = '/settings/team';
   static const aiSettings = '/settings/ai';
   static const apiKeys = '/settings/api-keys';
+  static const budgets = '/settings/budgets';
   static const tallyImport = '/settings/tally-import';
   // Onboarding wizard
   static const onboardingBusinessType = '/onboarding/business-type';
@@ -1523,6 +1525,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.apiKeys,
             builder: (context, state) => const ApiKeysScreen(),
+          ),
+          GoRoute(
+            path: Routes.budgets,
+            builder: (context, state) => const BudgetsScreen(),
           ),
           GoRoute(
             path: Routes.tallyImport,

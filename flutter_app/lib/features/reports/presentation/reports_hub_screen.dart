@@ -171,6 +171,13 @@ List<_ReportGroupData> _reportGroups(BuildContext context) => [
             onTap: () =>
                 _openOperational(context, 'ratio-analysis', 'Ratio Analysis'),
           ),
+          _ReportLink(
+            icon: Icons.savings_outlined,
+            title: 'Budget vs Actual',
+            color: KColors.success,
+            onTap: () => _openOperational(
+                context, 'budget-variance', 'Budget vs Actual'),
+          ),
         ],
       ),
       _ReportGroupData(

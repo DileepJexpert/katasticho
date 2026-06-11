@@ -56,6 +56,8 @@ class OperationalReportServiceTest {
     @Mock private com.katasticho.erp.organisation.OrgSettingsService orgSettingsService;
     @Mock private FinancialReportService financialReportService;
     @Mock private com.katasticho.erp.accounting.defaults.service.DefaultAccountService defaultAccountService;
+    @Mock private com.katasticho.erp.accounting.repository.BudgetLineRepository budgetLineRepository;
+    @Mock private com.katasticho.erp.accounting.repository.AccountRepository accountRepository;
 
     private OperationalReportService service;
     private UUID orgId;
@@ -78,7 +80,9 @@ class OperationalReportServiceTest {
                 deliveryChallanRepository,
                 orgSettingsService,
                 financialReportService,
-                defaultAccountService);
+                defaultAccountService,
+                budgetLineRepository,
+                accountRepository);
 
         orgId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);
@@ -333,6 +337,43 @@ class OperationalReportServiceTest {
         assertEquals(0, new BigDecimal("20.00").compareTo(values.get("Net profit margin %")));
         // Working capital = 500k − 100k = 400k
         assertEquals(0, new BigDecimal("400000.00").compareTo(values.get("Working capital")));
+    }
+
+    @Test
+    void budgetVariance_proRatesAnnualBudgetOverWindow() {
+        // Window: Apr 2026 (30 days) → FY 2026. Annual rent budget 365000 →
+        // window budget 30/365 × 365000 = 30000. Actual 36000 → over by 6000.
+        LocalDate from = LocalDate.of(2026, 4, 1);
+        LocalDate to = LocalDate.of(2026, 4, 30);
+
+        var rentBudget = com.katasticho.erp.accounting.entity.BudgetLine.builder()
+                .fiscalYear(2026).accountCode("5200")
+                .annualAmount(new BigDecimal("365000")).build();
+        when(budgetLineRepository.findByOrgIdAndFiscalYearAndIsDeletedFalseOrderByAccountCode(orgId, 2026))
+                .thenReturn(List.of(rentBudget));
+
+        when(financialReportService.generateProfitLoss(from, to)).thenReturn(
+                new com.katasticho.erp.accounting.dto.report.ProfitLossResponse(
+                        from, to, "INR", BigDecimal.ZERO, new BigDecimal("36000"),
+                        new BigDecimal("-36000"), List.of(),
+                        List.of(new com.katasticho.erp.accounting.dto.report.ProfitLossResponse.AccountLine(
+                                UUID.randomUUID(), "5200", "Rent Expense", new BigDecimal("36000")))));
+
+        var rent = com.katasticho.erp.accounting.entity.Account.builder()
+                .code("5200").name("Rent Expense").type("EXPENSE").build();
+        when(accountRepository.findByOrgIdAndIsDeletedFalseOrderByCode(orgId))
+                .thenReturn(List.of(rent));
+
+        var report = service.budgetVariance(from, to);
+
+        assertEquals("budget-variance", report.reportKey());
+        var row = report.rows().get(0);
+        assertEquals(0, new BigDecimal("30000.00").compareTo((BigDecimal) row.get("budget")));
+        assertEquals(0, new BigDecimal("36000").compareTo((BigDecimal) row.get("actual")));
+        assertEquals(0, new BigDecimal("6000.00").compareTo((BigDecimal) row.get("variance")));
+        assertEquals(0, new BigDecimal("120.0").compareTo((BigDecimal) row.get("usagePct")));
+        // 1 account over budget
+        assertEquals(0, BigDecimal.ONE.compareTo((BigDecimal) report.metrics().get(2).value()));
     }
 
     private com.katasticho.erp.accounting.dto.report.TrialBalanceResponse.TrialBalanceLine tbLine(

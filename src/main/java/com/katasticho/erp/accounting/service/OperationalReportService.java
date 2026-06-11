@@ -58,6 +58,8 @@ public class OperationalReportService {
     private final com.katasticho.erp.organisation.OrgSettingsService orgSettingsService;
     private final FinancialReportService financialReportService;
     private final com.katasticho.erp.accounting.defaults.service.DefaultAccountService defaultAccountService;
+    private final com.katasticho.erp.accounting.repository.BudgetLineRepository budgetLineRepository;
+    private final com.katasticho.erp.accounting.repository.AccountRepository accountRepository;
 
     public OperationalReportResponse salesRegister(LocalDate startDate, LocalDate endDate) {
         Context ctx = context();
@@ -800,6 +802,66 @@ public class OperationalReportService {
                                 cash.add(ar).add(inventory).subtract(ap), "currency")),
                 columns(col("ratio", "Measure", "text"), col("value", "Value", "number"),
                         col("note", "How to read it", "text")),
+                rows);
+    }
+
+    /**
+     * Budget vs actual: annual budget per account (FY of endDate) pro-rated
+     * over the selected window, compared with the P&L actuals for the window.
+     * Edit budgets under Settings → Budgets.
+     */
+    public OperationalReportResponse budgetVariance(LocalDate startDate, LocalDate endDate) {
+        Context ctx = context();
+        int fiscalYear = endDate.getMonthValue() >= 4 ? endDate.getYear() : endDate.getYear() - 1;
+        long windowDays = Math.max(1, java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1);
+
+        var budgetLines = budgetLineRepository
+                .findByOrgIdAndFiscalYearAndIsDeletedFalseOrderByAccountCode(ctx.orgId(), fiscalYear);
+
+        // Actuals per account from the P&L for the window.
+        var pl = financialReportService.generateProfitLoss(startDate, endDate);
+        Map<String, BigDecimal> actuals = new HashMap<>();
+        pl.revenueAccounts().forEach(a -> actuals.merge(a.accountCode(), nz(a.amount()), BigDecimal::add));
+        pl.expenseAccounts().forEach(a -> actuals.merge(a.accountCode(), nz(a.amount()), BigDecimal::add));
+
+        Map<String, String> names = new HashMap<>();
+        accountRepository.findByOrgIdAndIsDeletedFalseOrderByCode(ctx.orgId())
+                .forEach(a -> names.put(a.getCode(), a.getName()));
+
+        BigDecimal totalBudget = BigDecimal.ZERO, totalActual = BigDecimal.ZERO;
+        int overBudget = 0;
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (var line : budgetLines) {
+            BigDecimal windowBudget = nz(line.getAnnualAmount())
+                    .multiply(BigDecimal.valueOf(windowDays))
+                    .divide(BigDecimal.valueOf(365), 2, java.math.RoundingMode.HALF_UP);
+            BigDecimal actual = nz(actuals.get(line.getAccountCode()));
+            BigDecimal variance = actual.subtract(windowBudget);
+            BigDecimal usagePct = windowBudget.signum() > 0
+                    ? actual.multiply(BigDecimal.valueOf(100)).divide(windowBudget, 1, java.math.RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+            if (variance.signum() > 0) overBudget++;
+            totalBudget = totalBudget.add(windowBudget);
+            totalActual = totalActual.add(actual);
+            rows.add(row("account", names.getOrDefault(line.getAccountCode(), line.getAccountCode()),
+                    "code", line.getAccountCode(),
+                    "budget", windowBudget,
+                    "actual", actual,
+                    "variance", variance,
+                    "usagePct", usagePct));
+        }
+        rows.sort((a, b) -> ((BigDecimal) b.get("variance")).compareTo((BigDecimal) a.get("variance")));
+
+        return response("budget-variance", "Budget vs Actual",
+                "FY " + fiscalYear + "-" + ((fiscalYear + 1) % 100) + " budgets pro-rated over "
+                        + windowDays + " day(s) vs P&L actuals. Edit budgets in Settings → Budgets.",
+                startDate, endDate, ctx.currency(),
+                metrics(metric("budget", "Budget (window)", totalBudget, "currency"),
+                        metric("actual", "Actual", totalActual, "currency"),
+                        metric("over", "Accounts Over Budget", BigDecimal.valueOf(overBudget), "number")),
+                columns(col("account", "Account", "text"), col("code", "Code", "text"),
+                        col("budget", "Budget", "currency"), col("actual", "Actual", "currency"),
+                        col("variance", "Variance", "currency"), col("usagePct", "Used %", "number")),
                 rows);
     }
 
