@@ -223,6 +223,28 @@ class GstRepository {
     return _data(response.data);
   }
 
+  // ── Composition scheme (CMP-08) ──────────────────────────────────────
+
+  Future<Map<String, dynamic>> cmp08(int fy, int quarter) async {
+    final response = await _api.get(ApiConfig.gstCmp08,
+        queryParameters: {'fy': fy, 'quarter': quarter});
+    return _data(response.data);
+  }
+
+  Future<Map<String, dynamic>> compositionSettings() async {
+    final response = await _api.get(ApiConfig.gstCompositionSettings);
+    return _data(response.data);
+  }
+
+  Future<Map<String, dynamic>> updateCompositionSettings(
+      {bool? enabled, String? rate}) async {
+    final response = await _api.put(ApiConfig.gstCompositionSettings, data: {
+      if (enabled != null) 'enabled': enabled,
+      if (rate != null) 'rate': rate,
+    });
+    return _data(response.data);
+  }
+
   Map<String, dynamic> _data(dynamic body) {
     final map = body as Map<String, dynamic>;
     return Map<String, dynamic>.from((map['data'] as Map?) ?? map);

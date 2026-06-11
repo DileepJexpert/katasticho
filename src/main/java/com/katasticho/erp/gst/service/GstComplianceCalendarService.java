@@ -40,6 +40,7 @@ public class GstComplianceCalendarService {
     private final EwayBillRepository ewayBillRepository;
     private final Gstr2bEntryRepository gstr2bEntryRepository;
     private final EInvoiceRepository eInvoiceRepository;
+    private final CompositionService compositionService;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -47,16 +48,24 @@ public class GstComplianceCalendarService {
         UUID orgId = requireOrgId();
         LocalDate today = LocalDate.now(clock);
         YearMonth lastMonth = YearMonth.from(today).minusMonths(1);
+        boolean composition = compositionService.isEnabled(orgId);
 
         List<Map<String, Object>> items = new ArrayList<>();
 
-        items.add(item("GSTR1", "File GSTR-1 (outward supplies)", lastMonth,
-                lastMonth.plusMonths(1).atDay(11), today,
-                "Pre-built from posted invoices — export the JSON from the GST screen and file on the portal."));
+        if (composition) {
+            // Composition dealers file quarterly CMP-08 + annual GSTR-4 instead
+            // of monthly GSTR-1/3B, and have no ITC — so no 2B recon either.
+            items.add(cmp08Item(today));
+            items.add(gstr4Item(today));
+        } else {
+            items.add(item("GSTR1", "File GSTR-1 (outward supplies)", lastMonth,
+                    lastMonth.plusMonths(1).atDay(11), today,
+                    "Pre-built from posted invoices — export the JSON from the GST screen and file on the portal."));
 
-        items.add(item("GSTR3B", "File GSTR-3B (summary return + tax payment)", lastMonth,
-                lastMonth.plusMonths(1).atDay(20), today,
-                "Pre-built with output tax and ITC — review net payable before filing."));
+            items.add(item("GSTR3B", "File GSTR-3B (summary return + tax payment)", lastMonth,
+                    lastMonth.plusMonths(1).atDay(20), today,
+                    "Pre-built with output tax and ITC — review net payable before filing."));
+        }
 
         items.add(item("TDS_DEPOSIT", "Deposit TDS deducted on vendor payments", lastMonth,
                 lastMonth.plusMonths(1).atDay(7), today,
@@ -68,7 +77,7 @@ public class GstComplianceCalendarService {
 
         // 2B reconciliation nudge: the portal generates 2B on the 14th.
         LocalDate twoBDate = lastMonth.plusMonths(1).atDay(14);
-        if (!today.isBefore(twoBDate)) {
+        if (!composition && !today.isBefore(twoBDate)) {
             long uploaded = gstr2bEntryRepository.countByOrgIdAndReturnPeriod(orgId, lastMonth.toString());
             Map<String, Object> recon = item("GSTR2B_RECON", "Reconcile GSTR-2B (input credit)",
                     lastMonth, twoBDate.plusDays(6), today,
@@ -108,6 +117,35 @@ public class GstComplianceCalendarService {
         }
 
         return items;
+    }
+
+    /** CMP-08 for the most recently ended quarter, due the 18th of the next month. */
+    private Map<String, Object> cmp08Item(LocalDate today) {
+        // Quarter that ended most recently (calendar quarters aligned to FY).
+        int month = today.getMonthValue();
+        LocalDate quarterEnd = switch ((month - 1) / 3) {
+            case 0 -> LocalDate.of(today.getYear() - 1, 12, 31);   // Jan–Mar → Oct–Dec ended
+            case 1 -> LocalDate.of(today.getYear(), 3, 31);        // Apr–Jun → Jan–Mar ended
+            case 2 -> LocalDate.of(today.getYear(), 6, 30);        // Jul–Sep → Apr–Jun ended
+            default -> LocalDate.of(today.getYear(), 9, 30);       // Oct–Dec → Jul–Sep ended
+        };
+        LocalDate dueDate = quarterEnd.plusMonths(1).withDayOfMonth(18);
+        Map<String, Object> m = item("CMP08",
+                "File CMP-08 (composition quarterly statement)",
+                YearMonth.from(quarterEnd), dueDate, today,
+                "Flat-rate tax on the quarter's turnover — amounts are prepared under GST → Composition.");
+        m.put("period", "Quarter ending " + quarterEnd);
+        return m;
+    }
+
+    /** Annual GSTR-4 for composition dealers, due 30 April after the FY ends. */
+    private Map<String, Object> gstr4Item(LocalDate today) {
+        int fyEndYear = today.getMonthValue() >= 4 ? today.getYear() : today.getYear() - 1;
+        LocalDate dueDate = LocalDate.of(fyEndYear, 4, 30);
+        String fy = (fyEndYear - 1) + "-" + (fyEndYear % 100);
+        return item("GSTR4", "File GSTR-4 (composition annual return) for FY " + fy,
+                YearMonth.of(fyEndYear, 4), dueDate, today,
+                "Annual summary for composition dealers — due 30 April after the FY.");
     }
 
     /** Form 26Q for the most recently ended quarter. FY quarters: Q1 Apr–Jun … Q4 Jan–Mar. */

@@ -26,6 +26,7 @@ class GstComplianceCalendarServiceTest {
     private final EwayBillRepository ewayBillRepository = mock(EwayBillRepository.class);
     private final Gstr2bEntryRepository gstr2bEntryRepository = mock(Gstr2bEntryRepository.class);
     private final EInvoiceRepository eInvoiceRepository = mock(EInvoiceRepository.class);
+    private final CompositionService compositionService = mock(CompositionService.class);
 
     private final UUID orgId = UUID.randomUUID();
 
@@ -38,7 +39,8 @@ class GstComplianceCalendarServiceTest {
         TenantContext.setCurrentOrgId(orgId);
         Clock fixed = Clock.fixed(Instant.parse(isoInstant), ZoneOffset.UTC);
         return new GstComplianceCalendarService(
-                ewayBillRepository, gstr2bEntryRepository, eInvoiceRepository, fixed);
+                ewayBillRepository, gstr2bEntryRepository, eInvoiceRepository,
+                compositionService, fixed);
     }
 
     @Test
@@ -85,6 +87,34 @@ class GstComplianceCalendarServiceTest {
 
         Map<String, Object> einv = byCode(items, "EINVOICE_PENDING");
         assertThat(einv.get("title").toString()).contains("2");
+    }
+
+    @Test
+    void compositionOrgSwapsMonthlyReturnsForCmp08AndGstr4() {
+        GstComplianceCalendarService service = serviceAt("2026-06-15T06:00:00Z");
+        when(compositionService.isEnabled(orgId)).thenReturn(true);
+        when(ewayBillRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "PENDING")).thenReturn(0L);
+        when(eInvoiceRepository.countByOrgIdAndStatusAndIsDeletedFalse(orgId, "PENDING")).thenReturn(0L);
+
+        List<Map<String, Object>> items = service.calendar();
+
+        // No regular-scheme returns or ITC recon for a composition dealer.
+        assertThat(items).noneMatch(m -> "GSTR1".equals(m.get("code")));
+        assertThat(items).noneMatch(m -> "GSTR3B".equals(m.get("code")));
+        assertThat(items).noneMatch(m -> "GSTR2B_RECON".equals(m.get("code")));
+
+        // June → quarter Jan–Mar ended 31 Mar; CMP-08 was due 18 Apr (overdue).
+        Map<String, Object> cmp = byCode(items, "CMP08");
+        assertThat(cmp.get("period").toString()).contains("2026-03-31");
+        assertThat(cmp.get("dueDate").toString()).isEqualTo("2026-04-18");
+
+        // FY 2025-26 GSTR-4 due 30 Apr 2026.
+        Map<String, Object> gstr4 = byCode(items, "GSTR4");
+        assertThat(gstr4.get("title").toString()).contains("2025-26");
+        assertThat(gstr4.get("dueDate").toString()).isEqualTo("2026-04-30");
+
+        // TDS items remain — composition doesn't change income-tax duties.
+        assertThat(items).anyMatch(m -> "TDS_DEPOSIT".equals(m.get("code")));
     }
 
     private Map<String, Object> byCode(List<Map<String, Object>> items, String code) {

@@ -111,6 +111,10 @@ class ApiConfig {
   static const String tcs27eq = '/api/v1/tcs/27eq';
   static const String tcsSettings = '/api/v1/tcs/settings';
 
+  // GST composition scheme (CMP-08 quarterly + GSTR-4 annual)
+  static const String gstCmp08 = '/api/v1/gst/composition/cmp08';
+  static const String gstCompositionSettings = '/api/v1/gst/composition/settings';
+
   // Tally migration
   static const String tallyImportPreview = '/api/v1/migration/tally/preview';
   static const String tallyImport = '/api/v1/migration/tally/import';
