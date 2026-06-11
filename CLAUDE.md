@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V60** (Supply Chain). Next new migration = V61.
+- Location: `src/main/resources/db/migration/`. Latest is **V63** (Push Token). Next new migration = V64.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -249,7 +249,15 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Batch traceability (done):** `batch_id` and `batch_number` on work_order_line for linking consumed batches to production.
 - **DefaultAccountPurpose extended:** WIP_INVENTORY (1210), MANUFACTURING_OVERHEAD (5030), DIRECT_LABOR (5040), MATERIAL_VARIANCE (5050).
 - **Flutter (done):** Backflush toggle on WO create screen. Repository methods for all Tier 2 APIs (disassembly, BOM versioning, reports).
-- **Tier 3 (DEFERRED):** MRP engine, Gantt scheduling, capacity planning, shop floor mobile, maintenance management, industry-specific (pharma BMR, food FSSAI, garment cut plans).
+#### Tier 3 (COMPLETE — 2026-06-11)
+- **V61 migration (done):** 4 MRP tables (mrp_run, mrp_demand, mrp_supply, planned_order) + warehouse_zone, shipment, shipment_line, batch_trace.
+- **MRP engine (done):** `MrpService` — demand aggregation from SO + forecasts, supply matching (on-hand + open PO + WO), net requirement with safety stock, BOM explosion via queue, planned order generation (PURCHASE/PRODUCTION), convert-to-PO and convert-to-WO.
+- **Warehouse zones (done):** `WarehouseZoneService` — STORAGE/QUARANTINE/STAGING/CROSS_DOCK/RETURNS zone types. CRUD at `/api/v1/inventory/warehouse-zones`.
+- **Batch traceability (done):** `BatchTraceService` — forward (RM→FG) and backward (FG→RM) trace. `/api/v1/inventory/batch-trace`.
+- **Shipment/logistics (done):** `ShipmentService` — DRAFT→IN_TRANSIT→DELIVERED lifecycle, auto-generated SHP numbers. Endpoints on SupplyChainController.
+- **Flutter (done):** MRP run screen, warehouse zone screen, batch trace screen, shipment list screen.
+- **Tests (done):** 10 MRP tests (SO demand, BOM explosion, net deduction, convert-to-PO/WO, etc.).
+- **Still deferred:** Gantt scheduling, shop floor mobile, maintenance management, industry-specific (pharma BMR, food FSSAI, garment cut plans).
 
 ### Kirana Retail Production Gaps (2026-06-10)
 **Goal:** Make the POS + core flows production-ready for Indian small grocery/pharmacy shops.
@@ -261,10 +269,10 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **~~P1: Thermal/Bluetooth printer~~ (DONE):** ThermalPrintService (ESC/POS via flutter_blue_plus, 58mm/80mm paper, respects ReceiptSettings). PrinterSetupScreen with scan/connect/test/auto-print. POS _handlePrint uses thermal when connected, PDF fallback.
 - **~~P2: Offline POS~~ (DONE):** OfflinePosService with SQLite queue (sqflite). Network errors in _completeSale auto-queue receipt locally. Connectivity listener auto-syncs on reconnect. Sync badge in POS app bar shows pending count + manual Sync Now. Max 5 retries per receipt.
 
-**Parked (not needed now):**
-- P3: Hindi i18n — Flutter l10n, ARB files, Hindi translations for POS + core screens.
-- P5: Push notifications Firebase — FCM setup, server-side token storage, notification triggers.
-- P9: Tally export — XML export in Tally format for CA handoff.
+**Previously parked, now DONE:**
+- **~~P3: Hindi i18n~~ (DONE):** `l10n.yaml`, `app_en.arb`, `app_hi.arb` with 69 translated keys. Flutter l10n wired in `main.dart`.
+- **~~P5: Push notifications~~ (DONE):** V63 migration (push_token table). `PushNotificationService` with FCM stub, token registration/management. `PushNotificationController` at `/api/v1/notifications/push`.
+- **~~P9: Tally masters export~~ (DONE):** `TallyCaBridgeService.exportMastersXml()` — accounts, contacts, items as Tally-importable XML. `GET /api/v1/migration/tally/export-masters`.
 
 ### Keyboard-Parity UX Program (COMPLETE — 2026-06-11)
 **Goal:** Never-touch-the-mouse voucher entry and app-wide keyboard navigation.
@@ -293,6 +301,15 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Inventory analytics (done):** Turnover ratio, days-on-hand, COGS analysis per item. Supply chain dashboard with KPIs.
 - **Flutter screens (done):** Dashboard (metrics + quick actions + navigation), Requisition list (with lifecycle actions), Return order list, Alert list (with scan + resolve), Supplier rankings, Inventory analytics (turnover + ABC). Routes and sidebar nav integrated.
 - **Tests (done):** 17 tests in SupplyChainServiceTest — item-supplier CRUD, requisition lifecycle, return order lifecycle, auto-PR, alerts, dashboard.
+- **Advanced forecasting (done — 2026-06-11):** Weighted moving average + seasonal decomposition with trend slope in SupplyChainService (`generateWeightedForecast()`, `generateSeasonalForecast()`, `computeTrendSlope()`).
+
+### Phase 11: Multi-Currency + Consignment/VMI + Integration Connectors (COMPLETE — 2026-06-11)
+**Goal:** Cross-border currency support, vendor-managed inventory, and third-party ERP connectors.
+- **V62 migration (done):** 6 new tables (currency, exchange_rate, consignment_stock, consignment_settlement, integration_config, integration_sync_log) + 30 seeded currencies (INR, USD, EUR, GBP, etc.).
+- **Multi-currency (done):** `com.katasticho.erp.common.currency` — `Currency` (platform-level, no org_id), `ExchangeRate` (org-scoped). `CurrencyManagementService`: rate management (upsert), conversion with latest-rate fallback, list rates. `CurrencyController` at `/api/v1/currencies`. 8 tests pass.
+- **Consignment/VMI (done):** `com.katasticho.erp.inventory.consignment` — `ConsignmentStock`, `ConsignmentSettlement`. `ConsignmentService`: receive (with weighted-average cost blending on top-up), record-sale (deducts stock, creates DRAFT settlement), settle. `ConsignmentController` at `/api/v1/consignment`.
+- **Integration connectors (done):** `com.katasticho.erp.integration` — `IntegrationConfig` (API key stored as SHA-256 hash), `IntegrationSyncLog`. `IntegrationService`: CRUD for TALLY/ZOHO/BUSY/SAP/CUSTOM connectors, test-connection stub, sync with log, sync history. `IntegrationController` at `/api/v1/integrations`.
+- **Flutter screens (done):** Currency management (rates, conversion), integration list (CRUD + sync). Routes and sidebar nav integrated.
 
 ---
 
@@ -353,6 +370,9 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `ai/service/ProactiveAgentServiceTest.java` — collections reminders (one per overdue customer, dedup, priority by days, resilient to reminder-text failure), month-close checklist (prior period open/closed/absent, Jan→Dec rollback), runAll aggregation (8 tests)
 - `banking/service/BankStatementParserTest.java` — HDFC-style preamble+split columns, legacy format, month-name dates, AI fallback, Indian amount formats (5 tests)
 - `banking/service/BankReconciliationServiceTest.java` — credit→invoice suggest+accept (regression), debit→bill suggest, accept-bill→vendor payment with allocation (4 tests)
+- `manufacturing/service/MrpServiceTest.java` — MRP engine: SO demand, BOM explosion, net deduction, convert-to-PO/WO (10 tests)
+- `common/currency/CurrencyServiceTest.java` — multi-currency: list, convert, rate upsert, fallback, zero-rate validation (8 tests)
+- `supplychain/service/SupplyChainServiceTest.java` — item-supplier CRUD, requisition lifecycle, return order, auto-PR, alerts, dashboard (17 tests)
 - `reporting/service/DetailedReportService` — no test file (needs one)
 
 ## Existing Service Files (key ones)
@@ -400,6 +420,15 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `banking/service/BankReconciliationService.java` — CREDIT→outstanding invoices AND **DEBIT→open vendor bills** matching (V52: payment_match.match_type/bill_id). Accept records AR payment or **vendor payment** (allocated to bill, paid via default BANK account). `POST /banking/transactions/import-file`, `GET /banking/summary`.
 - `notification/whatsapp/WhatsAppService.java` + `WhatsAppDocumentService.java` — **WhatsApp document templates** (V58 `whatsapp_message` log). Send invoices/receipts (with PDF) + reminders/statements (text params) over the WhatsApp Business API using approved templates. Mirrors `SmsService` (per-org `org_settings` `whatsapp.*`, native HttpClient, failures recorded not thrown). Two providers: **META** (Cloud API — PDF uploaded as media → template with document header + body params, no public URL needed) and **CUSTOM** (POST normalised JSON incl. base64 doc to `whatsapp.custom_url`). `WhatsAppDocumentService` resolves recipient (contact mobile/phone → E.164 via `toWhatsAppNumber`), renders PDF via existing `InvoicePdfService`/`ReceiptPdfService`, picks the org template, and records a `WhatsAppMessage` row (SENT/FAILED/**SKIPPED** when disabled/no number — never throws). POS receipt auto-send (`whatsapp.auto_send_receipt`) fires after-commit + async so checkout is never blocked. Endpoints: `POST /api/v1/whatsapp/{invoices|receipts}/{id}`, `/{reminders|statements}/{contactId}`, `GET /api/v1/whatsapp/messages`; settings @ `/api/v1/settings/whatsapp` (token write-only/masked). Distinct from the existing wa.me share-link endpoints.
 - **`mcp/`** (TypeScript, not Java) — **MCP server** so Claude Desktop / agents can run the books via the REST API using an API key. Tools: ask, list_bills, list_invoices, list_ai_inbox, draft_bill, approve_bill_draft, reject_bill_draft. `mcp/README.md` has Claude Desktop setup. Drafts-only-until-approved.
+- `manufacturing/service/MrpService.java` — **MRP engine**: `runMrp()` aggregates demand (SO + forecasts), matches supply (on-hand + PO + WO), computes net requirement with safety stock, BOM explosion for composites, generates planned orders (PURCHASE/PRODUCTION). `convertPlannedToPO()` / `convertPlannedToWO()`. Endpoints on ManufacturingController.
+- `inventory/service/WarehouseZoneService.java` — Warehouse zone CRUD (STORAGE/QUARANTINE/STAGING/CROSS_DOCK/RETURNS). `/api/v1/inventory/warehouse-zones`.
+- `inventory/service/BatchTraceService.java` — Forward (RM→FG) and backward (FG→RM) batch traceability. `/api/v1/inventory/batch-trace`.
+- `supplychain/service/ShipmentService.java` — Shipment lifecycle (DRAFT→IN_TRANSIT→DELIVERED/CANCELLED). Auto-generated SHP numbers.
+- `supplychain/service/SupplyChainService.java` — Multi-supplier, demand forecasting (moving avg + weighted + seasonal), ABC classification, safety stock/EOQ, purchase requisitions, return orders, supply chain alerts, supplier performance, inventory analytics.
+- `common/currency/service/CurrencyManagementService.java` — Multi-currency: rate management, conversion, latest-rate fallback. `/api/v1/currencies`.
+- `inventory/consignment/service/ConsignmentService.java` — Consignment/VMI: receive, record-sale, settle. `/api/v1/consignment`.
+- `integration/service/IntegrationService.java` — ERP connector CRUD (Tally/Zoho/Busy/SAP/Custom), sync history. `/api/v1/integrations`.
+- `notification/push/PushNotificationService.java` — FCM stub with token registration/management. `/api/v1/notifications/push`.
 
 ## Doc Files Index
 | Doc | Purpose | Read when |
