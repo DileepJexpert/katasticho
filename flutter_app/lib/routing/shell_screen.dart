@@ -549,6 +549,11 @@ const _manufacturingGroup = NavGroup(
         icon: Icons.delete_sweep_outlined,
         activeIcon: Icons.delete_sweep_rounded,
         route: Routes.manufacturingScrap),
+    NavItem(
+        label: 'MRP Runs',
+        icon: Icons.calculate_outlined,
+        activeIcon: Icons.calculate_rounded,
+        route: Routes.manufacturingMrpRuns),
   ],
 );
 
@@ -567,6 +572,11 @@ const _supplyChainGroup = NavGroup(
         icon: Icons.receipt_long_outlined,
         activeIcon: Icons.receipt_long_rounded,
         route: Routes.supplyChainRequisitions),
+    NavItem(
+        label: 'Shipments',
+        icon: Icons.local_shipping_outlined,
+        activeIcon: Icons.local_shipping_rounded,
+        route: Routes.supplyChainShipments),
     NavItem(
         label: 'Returns',
         icon: Icons.assignment_return_outlined,

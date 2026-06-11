@@ -818,6 +818,70 @@ class ApiConfig {
   static String ewayBillGenerateViaGsp(String id) =>
       '/api/v1/gst/eway-bills/$id/generate-gsp';
 
+  // MRP (Manufacturing Requirements Planning)
+  static const String manufacturingMrpRun = '/api/v1/manufacturing/mrp/run';
+  static const String manufacturingMrpRuns = '/api/v1/manufacturing/mrp/runs';
+  static String manufacturingMrpRunById(String id) =>
+      '/api/v1/manufacturing/mrp/runs/$id';
+  static String manufacturingMrpOrderConvert(String orderId) =>
+      '/api/v1/manufacturing/mrp/planned-orders/$orderId/convert';
+
+  // Shipments (Supply Chain)
+  static const String supplyChainShipments = '/api/v1/supply-chain/shipments';
+  static String supplyChainShipmentById(String id) =>
+      '/api/v1/supply-chain/shipments/$id';
+  static String supplyChainShipmentDispatch(String id) =>
+      '/api/v1/supply-chain/shipments/$id/dispatch';
+  static String supplyChainShipmentDeliver(String id) =>
+      '/api/v1/supply-chain/shipments/$id/deliver';
+  static String supplyChainShipmentCancel(String id) =>
+      '/api/v1/supply-chain/shipments/$id/cancel';
+
+  // Warehouse Zones
+  static const String warehouseZones = '/api/v1/inventory/warehouse-zones';
+  static String warehouseZoneById(String id) =>
+      '/api/v1/inventory/warehouse-zones/$id';
+
+  // Batch Traceability
+  static String batchTraceForward(String batchId) =>
+      '/api/v1/inventory/batch-trace/forward/$batchId';
+  static String batchTraceBackward(String batchId) =>
+      '/api/v1/inventory/batch-trace/backward/$batchId';
+
+  // Currencies
+  static const String currencies = '/api/v1/currencies';
+  static String currencyByCode(String code) => '/api/v1/currencies/$code';
+  static const String currencyRates = '/api/v1/currencies/rates';
+  static const String currencyConvert = '/api/v1/currencies/convert';
+
+  // Consignment
+  static const String consignmentItems = '/api/v1/inventory/consignment/items';
+  static const String consignmentReceipts =
+      '/api/v1/inventory/consignment/receipts';
+  static String consignmentReceiptById(String id) =>
+      '/api/v1/inventory/consignment/receipts/$id';
+  static String consignmentSettle(String id) =>
+      '/api/v1/inventory/consignment/receipts/$id/settle';
+  static String consignmentReturn(String id) =>
+      '/api/v1/inventory/consignment/receipts/$id/return';
+
+  // Integrations
+  static const String integrations = '/api/v1/integrations';
+  static String integrationById(String id) => '/api/v1/integrations/$id';
+  static String integrationTestConnection(String id) =>
+      '/api/v1/integrations/$id/test-connection';
+  static String integrationSync(String id) => '/api/v1/integrations/$id/sync';
+  static String integrationEnable(String id) =>
+      '/api/v1/integrations/$id/enable';
+  static String integrationDisable(String id) =>
+      '/api/v1/integrations/$id/disable';
+
+  // Forecast variants (seasonal + weighted MA)
+  static const String supplyChainForecastGenerateSeasonal =
+      '/api/v1/supply-chain/forecasts/generate-seasonal';
+  static const String supplyChainForecastGenerateWeighted =
+      '/api/v1/supply-chain/forecasts/generate-weighted';
+
   // Supply Chain
   static const String supplyChainItemSuppliers = '/api/v1/supply-chain/item-suppliers';
   static String supplyChainItemSuppliersByItem(String itemId) =>

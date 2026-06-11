@@ -21,6 +21,7 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.sql.Date;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -172,6 +173,172 @@ public class SupplyChainService {
                 TenantContext.getCurrentOrgId(), from, to);
     }
 
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public List<DemandForecast> generateSeasonalForecast(int monthsAhead) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        LocalDate today = LocalDate.now();
+        LocalDate historyStart = today.minusMonths(24).withDayOfMonth(1);
+
+        List<Object[]> salesData = em.createNativeQuery("""
+                SELECT sm.item_id,
+                       DATE_TRUNC('month', sm.movement_date)::date AS month,
+                       ABS(SUM(sm.quantity)) AS qty
+                FROM stock_movement sm
+                WHERE sm.org_id = :orgId
+                  AND sm.movement_type = 'SALE'
+                  AND sm.is_reversal = false AND sm.is_reversed = false
+                  AND sm.movement_date >= :start
+                GROUP BY sm.item_id, DATE_TRUNC('month', sm.movement_date)
+                ORDER BY sm.item_id, month
+                """)
+                .setParameter("orgId", orgId)
+                .setParameter("start", historyStart)
+                .getResultList();
+
+        // Build per-item history: itemId -> list of (monthDate, qty)
+        Map<UUID, List<Object[]>> itemRows = new LinkedHashMap<>();
+        for (Object[] row : salesData) {
+            UUID itemId = (UUID) row[0];
+            itemRows.computeIfAbsent(itemId, k -> new ArrayList<>()).add(row);
+        }
+
+        List<DemandForecast> forecasts = new ArrayList<>();
+
+        for (Map.Entry<UUID, List<Object[]>> entry : itemRows.entrySet()) {
+            UUID itemId = entry.getKey();
+            List<Object[]> rows = entry.getValue();
+
+            if (rows.size() < 6) continue; // Not enough history for seasonal analysis
+
+            // Build monthly totals indexed by calendar month (1-12)
+            Map<Integer, List<BigDecimal>> byCalendarMonth = new HashMap<>();
+            List<BigDecimal> allValues = new ArrayList<>();
+            for (Object[] row : rows) {
+                Date sqlDate = (Date) row[1];
+                LocalDate monthDate = sqlDate.toLocalDate();
+                BigDecimal qty = (BigDecimal) row[2];
+                int calMonth = monthDate.getMonthValue();
+                byCalendarMonth.computeIfAbsent(calMonth, k -> new ArrayList<>()).add(qty);
+                allValues.add(qty);
+            }
+
+            BigDecimal overallAvg = movingAverage(allValues);
+            if (overallAvg.compareTo(BigDecimal.ZERO) == 0) continue;
+
+            // Compute seasonal index per calendar month
+            Map<Integer, BigDecimal> seasonalIndex = new HashMap<>();
+            for (int m = 1; m <= 12; m++) {
+                List<BigDecimal> monthVals = byCalendarMonth.getOrDefault(m, List.of(overallAvg));
+                BigDecimal monthAvg = movingAverage(monthVals);
+                BigDecimal idx = monthAvg.divide(overallAvg, 4, RoundingMode.HALF_UP);
+                seasonalIndex.put(m, idx);
+            }
+
+            // Simple trend: linear regression slope over the monthly totals
+            List<BigDecimal> totals = rows.stream()
+                    .map(r -> (BigDecimal) r[2])
+                    .collect(Collectors.toList());
+            BigDecimal trend = computeTrendSlope(totals);
+
+            // Confidence based on coefficient of variation
+            BigDecimal confidence = computeConfidence(allValues);
+
+            for (int offset = 1; offset <= monthsAhead; offset++) {
+                LocalDate targetMonth = today.plusMonths(offset).withDayOfMonth(1);
+                int calMonth = targetMonth.getMonthValue();
+                BigDecimal idx = seasonalIndex.getOrDefault(calMonth, BigDecimal.ONE);
+                BigDecimal base = overallAvg.add(trend.multiply(BigDecimal.valueOf(offset)));
+                BigDecimal forecastQty = base.multiply(idx)
+                        .max(BigDecimal.ZERO)
+                        .setScale(4, RoundingMode.HALF_UP);
+
+                DemandForecast f = DemandForecast.builder()
+                        .itemId(itemId)
+                        .forecastMonth(targetMonth)
+                        .forecastQty(forecastQty)
+                        .method("SEASONAL")
+                        .confidence(confidence)
+                        .build();
+                forecasts.add(forecastRepo.save(f));
+            }
+        }
+        return forecasts;
+    }
+
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public List<DemandForecast> generateWeightedForecast(int monthsAhead, int historyMonths) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        LocalDate today = LocalDate.now();
+        LocalDate historyStart = today.minusMonths(historyMonths).withDayOfMonth(1);
+
+        List<Object[]> salesData = em.createNativeQuery("""
+                SELECT sm.item_id, DATE_TRUNC('month', sm.movement_date)::date AS month,
+                       ABS(SUM(sm.quantity)) AS qty
+                FROM stock_movement sm
+                WHERE sm.org_id = :orgId
+                  AND sm.movement_type = 'SALE'
+                  AND sm.is_reversal = false AND sm.is_reversed = false
+                  AND sm.movement_date >= :start
+                GROUP BY sm.item_id, DATE_TRUNC('month', sm.movement_date)
+                ORDER BY sm.item_id, month
+                """)
+                .setParameter("orgId", orgId)
+                .setParameter("start", historyStart)
+                .getResultList();
+
+        Map<UUID, List<BigDecimal>> itemHistory = new LinkedHashMap<>();
+        for (Object[] row : salesData) {
+            UUID itemId = (UUID) row[0];
+            BigDecimal qty = (BigDecimal) row[2];
+            itemHistory.computeIfAbsent(itemId, k -> new ArrayList<>()).add(qty);
+        }
+
+        List<DemandForecast> forecasts = new ArrayList<>();
+
+        for (Map.Entry<UUID, List<BigDecimal>> entry : itemHistory.entrySet()) {
+            UUID itemId = entry.getKey();
+            List<BigDecimal> history = entry.getValue();
+
+            // Assign weights: most recent = 3x, second most recent = 2x, rest = 1x
+            int n = history.size();
+            BigDecimal weightedSum = BigDecimal.ZERO;
+            BigDecimal totalWeight = BigDecimal.ZERO;
+            for (int i = 0; i < n; i++) {
+                BigDecimal weight;
+                if (i == n - 1) {
+                    weight = new BigDecimal("3");
+                } else if (i == n - 2) {
+                    weight = new BigDecimal("2");
+                } else {
+                    weight = BigDecimal.ONE;
+                }
+                weightedSum = weightedSum.add(history.get(i).multiply(weight));
+                totalWeight = totalWeight.add(weight);
+            }
+
+            BigDecimal weightedAvg = totalWeight.compareTo(BigDecimal.ZERO) == 0
+                    ? BigDecimal.ZERO
+                    : weightedSum.divide(totalWeight, 4, RoundingMode.HALF_UP);
+
+            BigDecimal confidence = computeConfidence(history);
+
+            for (int m = 1; m <= monthsAhead; m++) {
+                LocalDate month = today.plusMonths(m).withDayOfMonth(1);
+                DemandForecast f = DemandForecast.builder()
+                        .itemId(itemId)
+                        .forecastMonth(month)
+                        .forecastQty(weightedAvg)
+                        .method("WEIGHTED_MA")
+                        .confidence(confidence)
+                        .build();
+                forecasts.add(forecastRepo.save(f));
+            }
+        }
+        return forecasts;
+    }
+
     private BigDecimal movingAverage(List<BigDecimal> values) {
         if (values.isEmpty()) return BigDecimal.ZERO;
         BigDecimal sum = values.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -191,6 +358,30 @@ public class SupplyChainService {
         BigDecimal confidence = BigDecimal.ONE.subtract(cv).multiply(new BigDecimal("100"))
                 .max(BigDecimal.TEN).min(new BigDecimal("99"));
         return confidence.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal computeTrendSlope(List<BigDecimal> values) {
+        int n = values.size();
+        if (n < 2) return BigDecimal.ZERO;
+        // Simple linear regression: slope = (n*Σxy - Σx*Σy) / (n*Σx² - (Σx)²)
+        // where x = 1..n (month index), y = quantity
+        BigDecimal sumX = BigDecimal.ZERO;
+        BigDecimal sumY = BigDecimal.ZERO;
+        BigDecimal sumXY = BigDecimal.ZERO;
+        BigDecimal sumX2 = BigDecimal.ZERO;
+        for (int i = 0; i < n; i++) {
+            BigDecimal x = BigDecimal.valueOf(i + 1);
+            BigDecimal y = values.get(i);
+            sumX = sumX.add(x);
+            sumY = sumY.add(y);
+            sumXY = sumXY.add(x.multiply(y));
+            sumX2 = sumX2.add(x.multiply(x));
+        }
+        BigDecimal nBig = BigDecimal.valueOf(n);
+        BigDecimal numerator = nBig.multiply(sumXY).subtract(sumX.multiply(sumY));
+        BigDecimal denominator = nBig.multiply(sumX2).subtract(sumX.multiply(sumX));
+        if (denominator.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
+        return numerator.divide(denominator, 4, RoundingMode.HALF_UP);
     }
 
     // ──────────────────────────────────────────────

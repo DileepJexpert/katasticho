@@ -178,6 +178,62 @@ class SupplyChainRepository {
     return res.data['data'] as Map<String, dynamic>;
   }
 
+  // ── Shipments ──
+
+  Future<List<dynamic>> listShipments({String? status, String? type}) async {
+    String url = ApiConfig.supplyChainShipments;
+    final params = <String>[];
+    if (status != null) params.add('status=$status');
+    if (type != null) params.add('type=$type');
+    if (params.isNotEmpty) url += '?${params.join('&')}';
+    final res = await _api.get(url);
+    final data = res.data['data'];
+    if (data is List) return data;
+    if (data is Map) {
+      final content = data['content'];
+      if (content is List) return content;
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> getShipment(String id) async {
+    final res = await _api.get(ApiConfig.supplyChainShipmentById(id));
+    return res.data['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  Future<Map<String, dynamic>> dispatchShipment(String id) async {
+    final res = await _api.post(ApiConfig.supplyChainShipmentDispatch(id));
+    return res.data['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  Future<Map<String, dynamic>> deliverShipment(String id) async {
+    final res = await _api.post(ApiConfig.supplyChainShipmentDeliver(id));
+    return res.data['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  Future<Map<String, dynamic>> cancelShipment(String id) async {
+    final res = await _api.post(ApiConfig.supplyChainShipmentCancel(id));
+    return res.data['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  // ── Advanced Forecasting ──
+
+  Future<List<dynamic>> generateSeasonalForecast({int monthsAhead = 3}) async {
+    final res = await _api.post(
+      '${ApiConfig.supplyChainForecastGenerateSeasonal}?monthsAhead=$monthsAhead',
+    );
+    return res.data['data'] as List<dynamic>? ?? [];
+  }
+
+  Future<List<dynamic>> generateWeightedForecast(
+      {int monthsAhead = 3, int historyMonths = 6}) async {
+    final res = await _api.post(
+      '${ApiConfig.supplyChainForecastGenerateWeighted}'
+      '?monthsAhead=$monthsAhead&historyMonths=$historyMonths',
+    );
+    return res.data['data'] as List<dynamic>? ?? [];
+  }
+
   // ── Analytics ──
 
   Future<List<dynamic>> getInventoryTurnover({int months = 12}) async {

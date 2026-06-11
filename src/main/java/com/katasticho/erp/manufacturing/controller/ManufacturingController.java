@@ -31,6 +31,7 @@ public class ManufacturingController {
     private final JobWorkService jobWorkService;
     private final QualityControlService qcService;
     private final ScrapService scrapService;
+    private final MrpService mrpService;
 
     @PostMapping("/work-orders")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
@@ -489,5 +490,39 @@ public class ManufacturingController {
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getConsumptionReport(
             @RequestParam(required = false) UUID finishedGoodId) {
         return ResponseEntity.ok(ApiResponse.ok(service.getConsumptionReport(finishedGoodId)));
+    }
+
+    // ── MRP ──────────────────────────────────────────────────────────────────
+
+    @PostMapping("/mrp/run")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<MrpRun>> runMrp(@RequestBody(required = false) Map<String, Object> body) {
+        int horizonDays = body != null && body.containsKey("horizonDays")
+                ? Integer.parseInt(body.get("horizonDays").toString()) : 90;
+        return ResponseEntity.ok(ApiResponse.ok(mrpService.runMrp(horizonDays), "MRP run completed"));
+    }
+
+    @GetMapping("/mrp/runs")
+    public ResponseEntity<ApiResponse<List<MrpRun>>> listMrpRuns() {
+        return ResponseEntity.ok(ApiResponse.ok(mrpService.listMrpRuns()));
+    }
+
+    @GetMapping("/mrp/runs/{id}")
+    public ResponseEntity<ApiResponse<MrpRun>> getMrpRun(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(mrpService.getMrpRun(id)));
+    }
+
+    @PostMapping("/mrp/planned-orders/{id}/convert-po")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<PlannedOrder>> convertPlannedToPO(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                mrpService.convertPlannedToPO(id), "Converted planned order to Purchase Order"));
+    }
+
+    @PostMapping("/mrp/planned-orders/{id}/convert-wo")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<PlannedOrder>> convertPlannedToWO(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                mrpService.convertPlannedToWO(id), "Converted planned order to Work Order"));
     }
 }

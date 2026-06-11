@@ -2,6 +2,7 @@ package com.katasticho.erp.supplychain.controller;
 
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.supplychain.entity.*;
+import com.katasticho.erp.supplychain.service.ShipmentService;
 import com.katasticho.erp.supplychain.service.SupplyChainService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -10,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +24,7 @@ import java.util.UUID;
 public class SupplyChainController {
 
     private final SupplyChainService service;
+    private final ShipmentService shipmentService;
 
     // ── Item-Supplier ──
 
@@ -66,6 +69,19 @@ public class SupplyChainController {
             @RequestParam(defaultValue = "3") int monthsAhead,
             @RequestParam(defaultValue = "6") int historyMonths) {
         return ApiResponse.ok(service.generateForecast(monthsAhead, historyMonths));
+    }
+
+    @PostMapping("/forecasts/generate-seasonal")
+    public ApiResponse<List<DemandForecast>> generateSeasonalForecast(
+            @RequestParam(defaultValue = "3") int monthsAhead) {
+        return ApiResponse.ok(service.generateSeasonalForecast(monthsAhead));
+    }
+
+    @PostMapping("/forecasts/generate-weighted")
+    public ApiResponse<List<DemandForecast>> generateWeightedForecast(
+            @RequestParam(defaultValue = "3") int monthsAhead,
+            @RequestParam(defaultValue = "6") int historyMonths) {
+        return ApiResponse.ok(service.generateWeightedForecast(monthsAhead, historyMonths));
     }
 
     @GetMapping("/forecasts/by-item/{itemId}")
@@ -272,5 +288,59 @@ public class SupplyChainController {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ApiResponse<Map<String, Object>> getDashboard() {
         return ApiResponse.ok(service.getSupplyChainDashboard());
+    }
+
+    // ── Shipments ─────────────────────────────────────────────────────────────
+
+    @PostMapping("/shipments")
+    public ApiResponse<Shipment> createShipment(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> lines = (List<Map<String, Object>>) body.get("lines");
+        return ApiResponse.ok(shipmentService.createShipment(
+                (String) body.get("shipmentType"),
+                body.get("originWarehouseId") != null
+                        ? UUID.fromString((String) body.get("originWarehouseId")) : null,
+                body.get("destinationWarehouseId") != null
+                        ? UUID.fromString((String) body.get("destinationWarehouseId")) : null,
+                (String) body.get("carrier"),
+                (String) body.get("vehicleNumber"),
+                body.get("estimatedDeparture") != null
+                        ? Instant.parse((String) body.get("estimatedDeparture")) : null,
+                body.get("estimatedArrival") != null
+                        ? Instant.parse((String) body.get("estimatedArrival")) : null,
+                body.get("freightCost") != null
+                        ? new BigDecimal(body.get("freightCost").toString()) : BigDecimal.ZERO,
+                (String) body.get("notes"),
+                lines
+        ));
+    }
+
+    @GetMapping("/shipments")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ApiResponse<List<Shipment>> listShipments(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String type) {
+        return ApiResponse.ok(shipmentService.listShipments(status, type));
+    }
+
+    @GetMapping("/shipments/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ApiResponse<Shipment> getShipment(@PathVariable UUID id) {
+        return ApiResponse.ok(shipmentService.getShipment(id));
+    }
+
+    @PostMapping("/shipments/{id}/dispatch")
+    public ApiResponse<Shipment> dispatchShipment(@PathVariable UUID id) {
+        return ApiResponse.ok(shipmentService.dispatchShipment(id));
+    }
+
+    @PostMapping("/shipments/{id}/deliver")
+    public ApiResponse<Shipment> deliverShipment(@PathVariable UUID id) {
+        return ApiResponse.ok(shipmentService.deliverShipment(id));
+    }
+
+    @PostMapping("/shipments/{id}/cancel")
+    public ApiResponse<Shipment> cancelShipment(@PathVariable UUID id) {
+        return ApiResponse.ok(shipmentService.cancelShipment(id));
     }
 }

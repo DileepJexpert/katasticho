@@ -1,0 +1,210 @@
+{
+  "@@locale": "en",
+
+  "dashboard": "Dashboard",
+  "@dashboard": { "description": "Navigation label for dashboard" },
+
+  "salesOrders": "Sales Orders",
+  "@salesOrders": { "description": "Navigation label for sales orders" },
+
+  "purchases": "Purchases",
+  "@purchases": { "description": "Navigation label for purchases" },
+
+  "inventory": "Inventory",
+  "@inventory": { "description": "Navigation label for inventory" },
+
+  "accounting": "Accounting",
+  "@accounting": { "description": "Navigation label for accounting" },
+
+  "reports": "Reports",
+  "@reports": { "description": "Navigation label for reports" },
+
+  "settings": "Settings",
+  "@settings": { "description": "Navigation label for settings" },
+
+  "contacts": "Contacts",
+  "@contacts": { "description": "Navigation label for contacts" },
+
+  "items": "Items",
+  "@items": { "description": "Navigation label for items" },
+
+  "pos": "POS",
+  "@pos": { "description": "Navigation label for point of sale" },
+
+  "create": "Create",
+  "@create": { "description": "Action button to create a new record" },
+
+  "save": "Save",
+  "@save": { "description": "Action button to save changes" },
+
+  "cancel": "Cancel",
+  "@cancel": { "description": "Action button to cancel" },
+
+  "delete": "Delete",
+  "@delete": { "description": "Action button to delete a record" },
+
+  "edit": "Edit",
+  "@edit": { "description": "Action button to edit a record" },
+
+  "submit": "Submit",
+  "@submit": { "description": "Action button to submit a form" },
+
+  "approve": "Approve",
+  "@approve": { "description": "Action button to approve" },
+
+  "reject": "Reject",
+  "@reject": { "description": "Action button to reject" },
+
+  "search": "Search",
+  "@search": { "description": "Action button or hint for search" },
+
+  "refresh": "Refresh",
+  "@refresh": { "description": "Action button to refresh data" },
+
+  "print": "Print",
+  "@print": { "description": "Action button to print" },
+
+  "export": "Export",
+  "@export": { "description": "Action button to export data" },
+
+  "close": "Close",
+  "@close": { "description": "Action button to close a dialog or screen" },
+
+  "back": "Back",
+  "@back": { "description": "Action button to go back" },
+
+  "next": "Next",
+  "@next": { "description": "Action button to go to next step" },
+
+  "previous": "Previous",
+  "@previous": { "description": "Action button to go to previous step" },
+
+  "confirm": "Confirm",
+  "@confirm": { "description": "Action button to confirm an action" },
+
+  "retry": "Retry",
+  "@retry": { "description": "Action button to retry a failed operation" },
+
+  "draft": "Draft",
+  "@draft": { "description": "Status label for draft records" },
+
+  "sent": "Sent",
+  "@sent": { "description": "Status label for sent records" },
+
+  "paid": "Paid",
+  "@paid": { "description": "Status label for paid records" },
+
+  "overdue": "Overdue",
+  "@overdue": { "description": "Status label for overdue records" },
+
+  "pending": "Pending",
+  "@pending": { "description": "Status label for pending records" },
+
+  "approved": "Approved",
+  "@approved": { "description": "Status label for approved records" },
+
+  "rejected": "Rejected",
+  "@rejected": { "description": "Status label for rejected records" },
+
+  "completed": "Completed",
+  "@completed": { "description": "Status label for completed records" },
+
+  "cancelled": "Cancelled",
+  "@cancelled": { "description": "Status label for cancelled records" },
+
+  "posted": "Posted",
+  "@posted": { "description": "Status label for posted journal entries" },
+
+  "voided": "Voided",
+  "@voided": { "description": "Status label for voided records" },
+
+  "inProgress": "In Progress",
+  "@inProgress": { "description": "Status label for records in progress" },
+
+  "addToCart": "Add to Cart",
+  "@addToCart": { "description": "POS action to add item to cart" },
+
+  "checkout": "Checkout",
+  "@checkout": { "description": "POS action to proceed to checkout" },
+
+  "payment": "Payment",
+  "@payment": { "description": "POS label for payment section" },
+
+  "receipt": "Receipt",
+  "@receipt": { "description": "POS label for receipt" },
+
+  "customer": "Customer",
+  "@customer": { "description": "POS label for customer field" },
+
+  "discount": "Discount",
+  "@discount": { "description": "POS label for discount" },
+
+  "total": "Total",
+  "@total": { "description": "POS label for total amount" },
+
+  "subtotal": "Subtotal",
+  "@subtotal": { "description": "POS label for subtotal amount" },
+
+  "tax": "Tax",
+  "@tax": { "description": "POS label for tax amount" },
+
+  "change": "Change",
+  "@change": { "description": "POS label for change returned to customer" },
+
+  "quantity": "Quantity",
+  "@quantity": { "description": "POS label for item quantity" },
+
+  "price": "Price",
+  "@price": { "description": "POS label for item price" },
+
+  "cart": "Cart",
+  "@cart": { "description": "POS label for shopping cart" },
+
+  "emptyCart": "Cart is empty",
+  "@emptyCart": { "description": "POS message when cart has no items" },
+
+  "searchItems": "Search items",
+  "@searchItems": { "description": "POS hint text for item search field" },
+
+  "loading": "Loading...",
+  "@loading": { "description": "Common loading indicator label" },
+
+  "error": "Error",
+  "@error": { "description": "Common error label" },
+
+  "noData": "No data",
+  "@noData": { "description": "Common message when there is no data to display" },
+
+  "yes": "Yes",
+  "@yes": { "description": "Common affirmative response" },
+
+  "no": "No",
+  "@no": { "description": "Common negative response" },
+
+  "ok": "OK",
+  "@ok": { "description": "Common confirmation button label" },
+
+  "appName": "Katasticho ERP",
+  "@appName": { "description": "Name of the application" },
+
+  "selectDate": "Select date",
+  "@selectDate": { "description": "Common label for date picker button" },
+
+  "from": "From",
+  "@from": { "description": "Common label for date range start" },
+
+  "to": "To",
+  "@to": { "description": "Common label for date range end" },
+
+  "amount": "Amount",
+  "@amount": { "description": "Common label for monetary amount field" },
+
+  "description": "Description",
+  "@description": { "description": "Common label for description field" },
+
+  "notes": "Notes",
+  "@notes": { "description": "Common label for notes field" },
+
+  "date": "Date",
+  "@date": { "description": "Common label for date field" }
+}

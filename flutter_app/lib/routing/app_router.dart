@@ -178,6 +178,12 @@ import '../features/supply_chain/presentation/return_order_list_screen.dart';
 import '../features/supply_chain/presentation/alert_list_screen.dart';
 import '../features/supply_chain/presentation/supplier_rankings_screen.dart';
 import '../features/supply_chain/presentation/turnover_screen.dart';
+import '../features/supply_chain/presentation/shipment_list_screen.dart';
+import '../features/manufacturing/presentation/mrp_run_screen.dart';
+import '../features/inventory/presentation/warehouse_zone_screen.dart';
+import '../features/inventory/presentation/batch_trace_screen.dart';
+import '../features/currency/presentation/currency_screen.dart';
+import '../features/integrations/presentation/integration_list_screen.dart';
 import '../features/workflow/presentation/workflow_settings_screen.dart';
 import 'shell_screen.dart';
 
@@ -384,6 +390,20 @@ class Routes {
   static const supplyChainAlerts = '/supply-chain/alerts';
   static const supplyChainSupplierRankings = '/supply-chain/supplier-rankings';
   static const supplyChainTurnover = '/supply-chain/turnover';
+  static const supplyChainShipments = '/supply-chain/shipments';
+
+  // Manufacturing — MRP
+  static const manufacturingMrpRuns = '/manufacturing/mrp-runs';
+
+  // Inventory additions
+  static const warehouseZones = '/inventory/warehouse-zones';
+  static const batchTrace = '/inventory/batch-trace';
+
+  // Currency
+  static const currencies = '/currencies';
+
+  // Integrations
+  static const integrations = '/settings/integrations';
 
   static const platformAdmin = '/platform-admin';
   static const platformAdminLogin = '/platform-admin/login';
@@ -1223,6 +1243,46 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.supplyChainTurnover,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: InventoryTurnoverScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.supplyChainShipments,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ShipmentListScreen(),
+            ),
+          ),
+          // Manufacturing — MRP
+          GoRoute(
+            path: Routes.manufacturingMrpRuns,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: MrpRunScreen(),
+            ),
+          ),
+          // Inventory additions
+          GoRoute(
+            path: Routes.warehouseZones,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: WarehouseZoneScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.batchTrace,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: BatchTraceScreen(),
+            ),
+          ),
+          // Currency
+          GoRoute(
+            path: Routes.currencies,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: CurrencyScreen(),
+            ),
+          ),
+          // Integrations
+          GoRoute(
+            path: Routes.integrations,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: IntegrationListScreen(),
             ),
           ),
           // Pharma — Drug Licenses & Compliance
