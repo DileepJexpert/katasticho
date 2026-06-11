@@ -256,6 +256,20 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - P5: Push notifications Firebase — FCM setup, server-side token storage, notification triggers.
 - P9: Tally export — XML export in Tally format for CA handoff.
 
+### Keyboard-Parity UX Program (IN PROGRESS — 2026-06-11)
+**Goal:** Never-touch-the-mouse voucher entry and app-wide keyboard navigation.
+
+- **KShortcuts registry (done):** Central shortcut catalogue expanded — global (Ctrl+K palette, Ctrl+N context-new, ? help, / search), list (J/K navigate, N create, R refresh, Enter open, X select), form (Ctrl+Enter submit, Ctrl+←→ step nav, Esc cancel), POS (F1-F7, Ctrl+F, Ctrl+Enter).
+- **KShortcutHelpOverlay (done):** `?` key opens context-aware shortcut reference overlay (global, list, form, POS sections shown as appropriate). Esc/? to dismiss.
+- **Command palette expansion (done):** `buildAppCommands()` expanded from ~40 to ~100 commands covering all modules: Sales Orders, Purchase Orders, Delivery Challans, Debit Notes, Chart of Accounts, Journal Entries, Credit Ledger, Bank Recon, Approval Inbox, Stock Counts, Transfer Orders, Picklists, Payroll, Field Sales (beats/routes/vans/executions/dashboard), Partner Network (partners/catalog/supplier search), Manufacturing (work orders/job work/routings/QC), and all create + settings routes.
+- **KKeyboardListWrapper (done):** Reusable Focus wrapper for list screens — J/K or ↑/↓ row navigation, N to create, R to refresh, / to focus search, Enter to open selected, X to toggle selection. Text-field-aware (disables single-key shortcuts when typing).
+- **KKeyboardFormWrapper (done):** Reusable Focus wrapper for stepped create forms — Ctrl+Enter to submit, Ctrl+←→ for step navigation, Esc to cancel.
+- **List screens wired (done):** Invoices, Bills, Sales Orders, Items, Contacts — all wrapped with KKeyboardListWrapper for keyboard navigation.
+- **Form screens wired (done):** Invoice Create, Bill Create, Sales Order Create — all wrapped with KKeyboardFormWrapper for Ctrl+Enter submit and step navigation.
+- **ShellScreen global shortcuts (done):** Ctrl+N (context-aware new — detects current route and navigates to create; falls back to command palette), ? (shortcut help overlay). Text-field-aware to avoid conflicts.
+- **POS shortcut help (done):** `?` key in POS opens POS-specific shortcut reference.
+- **TODO:** More list screens (stock receipts, purchase orders, delivery challans, journal entries), more form screens (expense, contact, stock receipt create), shortcut hints on FABs/buttons across the app.
+
 ---
 
 ## Key Architecture Decisions (from docs)
