@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V57** (FIFO cost lots). Next new migration = V58.
+- Location: `src/main/resources/db/migration/`. Latest is **V58** (WhatsApp message log). Next new migration = V59.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -288,6 +288,8 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `common/workflow/ApprovalWorkflowServiceTest.java` — workflow engine
 - `accounting/service/JournalServiceTest.java` — journal posting
 - `inventory/service/FifoCostingServiceTest.java` — FIFO cost lots: setting detection, oldest-first draw-down w/ blended cost, lazy opening-lot seed, fallback when lots dry, receipt lot open, reversal restore (6 tests)
+- `notification/whatsapp/WhatsAppServiceTest.java` — phone normalisation to E.164, not-configured/no-recipient → fail-result-without-throwing (3 tests)
+- `notification/whatsapp/WhatsAppDocumentServiceTest.java` — disabled/no-number → SKIPPED w/o provider call, enabled → SENT with template + 3 params (3 tests)
 - `inventory/service/StockCountServiceTest.java` — physical stock count (6 tests)
 - `inventory/service/TransferOrderServiceTest.java` — transfer orders (7 tests)
 - `inventory/service/PicklistServiceTest.java` — picklist generation (8 tests)
@@ -358,6 +360,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `migration/tally/TallyCaBridgeService.java` — **Tally "CA Bridge"** (slice 3): (1) **TB verification** — `verifyTrialBalance()` parses an uploaded Tally Trial Balance XML (`TallyXmlParser.parseTrialBalance()`: TB report `DSPACCNAME`/`DSPCLDRAMTA`/`DSPCLCRAMTA`, fallback to Masters `LEDGER`/`CLOSINGBALANCE`) and diffs vs our `FinancialReportService.generateTrialBalance()` by normalized name → MATCHED/MISMATCH/MISSING_IN_BOOKS/MISSING_IN_TALLY (₹1 tol), problems sorted first, grand-total Dr/Cr compare. (2) **Tally XML export** — `exportVouchersXml()` writes posted journals in a date range as Tally-importable XML (`Import Data`/`Vouchers` envelope, one `<VOUCHER>` per entry, `<ALLLEDGERENTRIES.LIST>` per line); sign mirrors importer (our debit→negative AMOUNT+`ISDEEMEDPOSITIVE=Yes`), source module→VCHTYPE, account name→ledger name, XML-escaped. `POST /api/v1/migration/tally/verify-trial-balance` (multipart + asOfDate), `GET /api/v1/migration/tally/export-vouchers?fromDate=&toDate=` (XML download). Flutter: Step 3 in Tally Import Screen.
 - `banking/service/BankStatementParser.java` — **real bank statement parsing** (Phase E): .csv/.xlsx upload or pasted text, header auto-detected in first 25 rows (preamble-safe), fuzzy columns (Txn/Value Date, Withdrawal/Deposit, Particulars, Chq/Ref/UTR), Indian amounts (`1,15,000.00`, ₹, Cr/Dr), AI fallback via ClaudeApiClient when no header (tokens → ai_usage_log).
 - `banking/service/BankReconciliationService.java` — CREDIT→outstanding invoices AND **DEBIT→open vendor bills** matching (V52: payment_match.match_type/bill_id). Accept records AR payment or **vendor payment** (allocated to bill, paid via default BANK account). `POST /banking/transactions/import-file`, `GET /banking/summary`.
+- `notification/whatsapp/WhatsAppService.java` + `WhatsAppDocumentService.java` — **WhatsApp document templates** (V58 `whatsapp_message` log). Send invoices/receipts (with PDF) + reminders/statements (text params) over the WhatsApp Business API using approved templates. Mirrors `SmsService` (per-org `org_settings` `whatsapp.*`, native HttpClient, failures recorded not thrown). Two providers: **META** (Cloud API — PDF uploaded as media → template with document header + body params, no public URL needed) and **CUSTOM** (POST normalised JSON incl. base64 doc to `whatsapp.custom_url`). `WhatsAppDocumentService` resolves recipient (contact mobile/phone → E.164 via `toWhatsAppNumber`), renders PDF via existing `InvoicePdfService`/`ReceiptPdfService`, picks the org template, and records a `WhatsAppMessage` row (SENT/FAILED/**SKIPPED** when disabled/no number — never throws). POS receipt auto-send (`whatsapp.auto_send_receipt`) fires after-commit + async so checkout is never blocked. Endpoints: `POST /api/v1/whatsapp/{invoices|receipts}/{id}`, `/{reminders|statements}/{contactId}`, `GET /api/v1/whatsapp/messages`; settings @ `/api/v1/settings/whatsapp` (token write-only/masked). Distinct from the existing wa.me share-link endpoints.
 - **`mcp/`** (TypeScript, not Java) — **MCP server** so Claude Desktop / agents can run the books via the REST API using an API key. Tools: ask, list_bills, list_invoices, list_ai_inbox, draft_bill, approve_bill_draft, reject_bill_draft. `mcp/README.md` has Claude Desktop setup. Drafts-only-until-approved.
 
 ## Doc Files Index

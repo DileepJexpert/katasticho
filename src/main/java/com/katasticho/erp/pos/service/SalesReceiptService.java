@@ -94,6 +94,7 @@ public class SalesReceiptService {
     private final DocumentSnapshotService documentSnapshotService;
     private final ContactLedgerService contactLedgerService;
     private final SmsService smsService;
+    private final com.katasticho.erp.notification.whatsapp.WhatsAppDocumentService whatsAppDocumentService;
 
     @Transactional
     public SalesReceiptResponse create(CreateSalesReceiptRequest request) {
@@ -306,6 +307,7 @@ public class SalesReceiptService {
                 smsService.sendReceiptSms(orgId, phone, receiptNumber, smsTotal, orgName);
             });
         }
+        whatsAppDocumentService.autoSendReceipt(orgId, receipt.getId());
 
         return response;
     }

@@ -95,4 +95,48 @@ public class OrgSettingsController {
         if (body.containsKey("senderId")) settingsService.set(orgId, "sms.sender_id", body.get("senderId"));
         return ResponseEntity.ok(body);
     }
+
+    @GetMapping("/whatsapp")
+    public ResponseEntity<Map<String, String>> getWhatsAppSettings() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Map<String, String> result = new java.util.HashMap<>();
+        result.put("enabled", settingsService.get(orgId, "whatsapp.enabled", "false"));
+        result.put("provider", settingsService.get(orgId, "whatsapp.provider", "META"));
+        result.put("phoneNumberId", settingsService.get(orgId, "whatsapp.phone_number_id", ""));
+        result.put("customUrl", settingsService.get(orgId, "whatsapp.custom_url", ""));
+        result.put("lang", settingsService.get(orgId, "whatsapp.lang", "en"));
+        result.put("autoSendReceipt", settingsService.get(orgId, "whatsapp.auto_send_receipt", "false"));
+        result.put("templateInvoice", settingsService.get(orgId, "whatsapp.template_invoice", ""));
+        result.put("templateReceipt", settingsService.get(orgId, "whatsapp.template_receipt", ""));
+        result.put("templateReminder", settingsService.get(orgId, "whatsapp.template_reminder", ""));
+        result.put("templateStatement", settingsService.get(orgId, "whatsapp.template_statement", ""));
+        // The access token is write-only: report whether one is set, never echo it.
+        result.put("apiKeySet", settingsService.get(orgId, "whatsapp.api_key", "").isBlank() ? "false" : "true");
+        return ResponseEntity.ok(result);
+    }
+
+    @PutMapping("/whatsapp")
+    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    public ResponseEntity<Map<String, String>> updateWhatsAppSettings(@RequestBody Map<String, String> body) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        setIf(orgId, body, "enabled", "whatsapp.enabled");
+        setIf(orgId, body, "provider", "whatsapp.provider");
+        setIf(orgId, body, "phoneNumberId", "whatsapp.phone_number_id");
+        setIf(orgId, body, "customUrl", "whatsapp.custom_url");
+        setIf(orgId, body, "lang", "whatsapp.lang");
+        setIf(orgId, body, "autoSendReceipt", "whatsapp.auto_send_receipt");
+        setIf(orgId, body, "templateInvoice", "whatsapp.template_invoice");
+        setIf(orgId, body, "templateReceipt", "whatsapp.template_receipt");
+        setIf(orgId, body, "templateReminder", "whatsapp.template_reminder");
+        setIf(orgId, body, "templateStatement", "whatsapp.template_statement");
+        // Only overwrite the token when a non-blank value is supplied.
+        if (body.get("apiKey") != null && !body.get("apiKey").isBlank()) {
+            settingsService.set(orgId, "whatsapp.api_key", body.get("apiKey").trim());
+        }
+        return ResponseEntity.ok(getWhatsAppSettings().getBody());
+    }
+
+    private void setIf(UUID orgId, Map<String, String> body, String field, String key) {
+        if (body.containsKey(field)) settingsService.set(orgId, key, body.get(field));
+    }
 }
