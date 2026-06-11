@@ -47,7 +47,7 @@ Legend: ✅ have it · 🟡 partial · ❌ missing (backlog) · ➖ deliberately
 | Physical stock verification | ✅ | Stock count with variance posting |
 | Stock valuation methods (FIFO/LIFO/Avg/Std) | 🟡 | Weighted average only; FIFO/others backlog |
 | Additional cost on purchase (landed cost) | ✅ | GRN header charges (freight/duty/insurance/other) apportioned across lines by value into item stock cost (2026-06-10) |
-| Stock ageing analysis | 🟡 | Near-expiry exists; slow-moving/ageing report backlog |
+| Stock ageing analysis | ✅ | Stock Ageing report — FIFO allocation of on-hand to receipt-age buckets (0–30/31–60/61–90/90+), 90+ value metric for dead stock (`/api/v1/reports/stock-ageing`, 2026-06-10) |
 
 ### 1.3 GST & statutory (our strongest ground)
 
@@ -82,7 +82,7 @@ Legend: ✅ have it · 🟡 partial · ❌ missing (backlog) · ➖ deliberately
 | Stock Summary | ✅ | Stock summary/movements |
 | Bills receivable/payable (ageing) | ✅ | |
 | GST reports | ✅ | + compliance calendar (Tally has none) |
-| Ratio analysis | ❌ | Backlog (small) |
+| Ratio analysis | ✅ | Ratio Analysis report — current/quick ratio, working capital, receivable days, net margin from TB + P&L (`/api/v1/reports/ratio-analysis`, 2026-06-10) |
 | Funds flow | ➖ | Rarely used |
 | Cost centre reports | ✅ | Cost Centres report in Reports Hub (2026-06-10) |
 | Budget variance | ❌ | With budgets backlog |

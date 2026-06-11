@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -53,6 +54,8 @@ class OperationalReportServiceTest {
     @Mock private SalesOrderRepository salesOrderRepository;
     @Mock private DeliveryChallanRepository deliveryChallanRepository;
     @Mock private com.katasticho.erp.organisation.OrgSettingsService orgSettingsService;
+    @Mock private FinancialReportService financialReportService;
+    @Mock private com.katasticho.erp.accounting.defaults.service.DefaultAccountService defaultAccountService;
 
     private OperationalReportService service;
     private UUID orgId;
@@ -73,7 +76,9 @@ class OperationalReportServiceTest {
                 stockBatchRepository,
                 salesOrderRepository,
                 deliveryChallanRepository,
-                orgSettingsService);
+                orgSettingsService,
+                financialReportService,
+                defaultAccountService);
 
         orgId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);
@@ -242,6 +247,101 @@ class OperationalReportServiceTest {
         assertEquals("Slow Payer & Co", report.rows().get(0).get("customer"));
         assertEquals(0, new BigDecimal("1800.00").compareTo(
                 (BigDecimal) report.metrics().get(2).value()));
+    }
+
+    @Test
+    void stockAgeing_allocatesOnHandToNewestReceiptsFifo() {
+        UUID itemId = UUID.randomUUID();
+        var item = com.katasticho.erp.inventory.entity.Item.builder()
+                .name("Crocin 500mg").sku("CROCIN").build();
+        item.setId(itemId);
+
+        var balance = new com.katasticho.erp.inventory.entity.StockBalance();
+        balance.setItemId(itemId);
+        balance.setWarehouseId(UUID.randomUUID());
+        balance.setQuantityOnHand(new BigDecimal("100"));
+        balance.setAverageCost(new BigDecimal("10"));
+
+        // Receipts newest-first: 60 @ 10 days old, 80 @ 120 days old.
+        var recent = com.katasticho.erp.inventory.entity.StockMovement.builder()
+                .itemId(itemId).quantity(new BigDecimal("60"))
+                .movementDate(LocalDate.now().minusDays(10)).build();
+        var old = com.katasticho.erp.inventory.entity.StockMovement.builder()
+                .itemId(itemId).quantity(new BigDecimal("80"))
+                .movementDate(LocalDate.now().minusDays(120)).build();
+
+        when(stockBalanceRepository.findByOrgIdOrderByLastMovementAtDesc(orgId))
+                .thenReturn(List.of(balance));
+        when(stockMovementRepository.findIncomingByOrgNewestFirst(orgId))
+                .thenReturn(List.of(recent, old));
+        when(itemRepository.findAllById(anyCollection())).thenReturn(List.of(item));
+
+        var report = service.stockAgeing();
+
+        assertEquals("stock-ageing", report.reportKey());
+        var row = report.rows().get(0);
+        // FIFO: 60 of 100 on hand are the 10-day receipt, remaining 40 from the 120-day one.
+        assertEquals(0, new BigDecimal("60").compareTo((BigDecimal) row.get("d0_30")));
+        assertEquals(0, new BigDecimal("40").compareTo((BigDecimal) row.get("d90_plus")));
+        assertEquals(0, new BigDecimal("1000.00").compareTo((BigDecimal) row.get("value")));
+        // Value 90+: 40 × avg cost 10 = 400.
+        assertEquals(0, new BigDecimal("400.00").compareTo(
+                (BigDecimal) report.metrics().get(1).value()));
+    }
+
+    @Test
+    void ratioAnalysis_computesLiquidityAndMarginFromTbAndPl() {
+        LocalDate from = LocalDate.of(2026, 4, 1);
+        LocalDate to = LocalDate.of(2026, 4, 30);
+
+        when(defaultAccountService.getCode(eq(orgId), any())).thenAnswer(inv ->
+                switch (inv.getArgument(1, com.katasticho.erp.accounting.defaults.DefaultAccountPurpose.class)) {
+                    case CASH -> "1010";
+                    case BANK -> "1020";
+                    case AR -> "1100";
+                    case INVENTORY_ASSET -> "1200";
+                    case AP -> "2010";
+                    default -> "0000";
+                });
+
+        var tb = new com.katasticho.erp.accounting.dto.report.TrialBalanceResponse(
+                to, "INR", BigDecimal.ZERO, BigDecimal.ZERO, true, List.of(
+                tbLine("1010", new BigDecimal("50000")),
+                tbLine("1020", new BigDecimal("150000")),
+                tbLine("1100", new BigDecimal("100000")),
+                tbLine("1200", new BigDecimal("200000")),
+                tbLine("2010", new BigDecimal("-100000"))));   // AP credit-normal
+        when(financialReportService.generateTrialBalance(to)).thenReturn(tb);
+        when(financialReportService.generateProfitLoss(from, to)).thenReturn(
+                new com.katasticho.erp.accounting.dto.report.ProfitLossResponse(
+                        from, to, "INR",
+                        new BigDecimal("300000"), new BigDecimal("240000"), new BigDecimal("60000"),
+                        List.of(), List.of()));
+
+        var report = service.ratioAnalysis(from, to);
+
+        assertEquals("ratio-analysis", report.reportKey());
+        java.util.Map<String, BigDecimal> values = report.rows().stream().collect(
+                java.util.stream.Collectors.toMap(
+                        r -> (String) r.get("ratio"), r -> (BigDecimal) r.get("value")));
+        // (50k+150k+100k+200k) / 100k = 5.00 ; quick = 300k/100k = 3.00
+        assertEquals(0, new BigDecimal("5.00").compareTo(values.get("Current ratio")));
+        assertEquals(0, new BigDecimal("3.00").compareTo(values.get("Quick ratio")));
+        // AR days = 100k / 300k × 30 = 10
+        assertEquals(0, new BigDecimal("10").compareTo(values.get("Receivable days")));
+        // margin = 60k/300k = 20%
+        assertEquals(0, new BigDecimal("20.00").compareTo(values.get("Net profit margin %")));
+        // Working capital = 500k − 100k = 400k
+        assertEquals(0, new BigDecimal("400000.00").compareTo(values.get("Working capital")));
+    }
+
+    private com.katasticho.erp.accounting.dto.report.TrialBalanceResponse.TrialBalanceLine tbLine(
+            String code, BigDecimal balance) {
+        return new com.katasticho.erp.accounting.dto.report.TrialBalanceResponse.TrialBalanceLine(
+                UUID.randomUUID(), code, code, "ASSET",
+                balance.signum() >= 0 ? balance : BigDecimal.ZERO,
+                balance.signum() < 0 ? balance.negate() : BigDecimal.ZERO,
+                balance);
     }
 
     private SalesOrder salesOrder(

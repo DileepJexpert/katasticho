@@ -164,6 +164,13 @@ List<_ReportGroupData> _reportGroups(BuildContext context) => [
             onTap: () =>
                 _openOperational(context, 'cost-centres', 'Cost Centres'),
           ),
+          _ReportLink(
+            icon: Icons.speed_outlined,
+            title: 'Ratio Analysis',
+            color: KColors.info,
+            onTap: () =>
+                _openOperational(context, 'ratio-analysis', 'Ratio Analysis'),
+          ),
         ],
       ),
       _ReportGroupData(
@@ -254,6 +261,17 @@ List<_ReportGroupData> _reportGroups(BuildContext context) => [
       _ReportGroupData(
         title: 'Inventory',
         reports: [
+          _ReportLink(
+            icon: Icons.hourglass_bottom_outlined,
+            title: 'Stock Ageing',
+            color: KColors.warning,
+            onTap: () => _openOperational(
+              context,
+              'stock-ageing',
+              'Stock Ageing',
+              dateRange: false,
+            ),
+          ),
           _ReportLink(
             icon: Icons.inventory_2_outlined,
             title: 'Stock Summary',

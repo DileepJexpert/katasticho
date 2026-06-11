@@ -28,6 +28,21 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, UU
     List<StockMovement> findByReferenceTypeAndReferenceId(ReferenceType referenceType, UUID referenceId);
 
     /**
+     * All incoming (positive, non-reversal) movements for the org, newest
+     * first per item — feeds the stock-ageing report's FIFO allocation
+     * (what's left on hand is assumed to be the most recent receipts).
+     */
+    @Query("""
+        SELECT m FROM StockMovement m
+        WHERE m.orgId = :orgId
+          AND m.quantity > 0
+          AND m.reversal = false
+          AND m.reversed = false
+        ORDER BY m.itemId, m.movementDate DESC, m.createdAt DESC
+    """)
+    List<StockMovement> findIncomingByOrgNewestFirst(@Param("orgId") UUID orgId);
+
+    /**
      * Canonical on-hand from the ledger. SUM of signed quantities up to and
      * including the given date. Returns 0 if no rows.
      */

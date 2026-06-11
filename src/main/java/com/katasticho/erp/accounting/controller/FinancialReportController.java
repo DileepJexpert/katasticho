@@ -120,6 +120,20 @@ public class FinancialReportController {
         return ResponseEntity.ok(ApiResponse.ok(operationalReportService.overdueInterest()));
     }
 
+    @GetMapping("/stock-ageing")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<OperationalReportResponse>> getStockAgeing() {
+        return ResponseEntity.ok(ApiResponse.ok(operationalReportService.stockAgeing()));
+    }
+
+    @GetMapping("/ratio-analysis")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<OperationalReportResponse>> getRatioAnalysis(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(ApiResponse.ok(operationalReportService.ratioAnalysis(startDate, endDate)));
+    }
+
     @GetMapping("/low-stock")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<OperationalReportResponse>> getLowStockAlert() {
