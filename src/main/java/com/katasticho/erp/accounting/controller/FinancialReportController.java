@@ -114,6 +114,12 @@ public class FinancialReportController {
         return ResponseEntity.ok(ApiResponse.ok(operationalReportService.costCentres(startDate, endDate)));
     }
 
+    @GetMapping("/overdue-interest")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<OperationalReportResponse>> getOverdueInterest() {
+        return ResponseEntity.ok(ApiResponse.ok(operationalReportService.overdueInterest()));
+    }
+
     @GetMapping("/low-stock")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<OperationalReportResponse>> getLowStockAlert() {

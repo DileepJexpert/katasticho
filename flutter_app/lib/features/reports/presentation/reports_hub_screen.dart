@@ -192,6 +192,17 @@ List<_ReportGroupData> _reportGroups(BuildContext context) => [
             ),
           ),
           _ReportLink(
+            icon: Icons.percent_outlined,
+            title: 'Interest on Overdue',
+            color: KColors.error,
+            onTap: () => _openOperational(
+              context,
+              'overdue-interest',
+              'Interest on Overdue',
+              dateRange: false,
+            ),
+          ),
+          _ReportLink(
             icon: Icons.point_of_sale_outlined,
             title: 'Daily Sales',
             color: KColors.success,

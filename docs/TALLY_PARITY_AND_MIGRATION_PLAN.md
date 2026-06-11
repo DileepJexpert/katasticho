@@ -26,7 +26,7 @@ Legend: ✅ have it · 🟡 partial · ❌ missing (backlog) · ➖ deliberately
 | Budgets & controls | Budget vs actual | ❌ | Backlog (Campfire benchmark has it too) |
 | Scenarios (provisional vouchers) | What-if reporting | ➖ | Low usage among SMBs; skip |
 | Multi-currency | Forex ledgers, gain/loss | 🟡 | Currency + exchange rate on documents; no realized gain/loss engine |
-| Interest calculation | Auto interest on overdue | ❌ | Backlog — useful for distributor credit control |
+| Interest calculation | Auto interest on overdue | ✅ | "Interest on Overdue" report — simple interest at `ar.interest_rate_pa` (default 18%) per overdue invoice, `/api/v1/reports/overdue-interest` + Reports Hub (2026-06-10). Read-only; raise a debit note manually to actually charge |
 | Post-dated vouchers / cheques | Future-dated entries | ❌ | Backlog (small) |
 | Edit Log (audit trail, MCA-mandated) | Who changed what, immutably | ✅ | Audit log + append-only stock ledger + journal reversal pattern (stronger than Tally's) |
 | Cheque printing | Print on bank cheque layouts | ➖ | UPI/NEFT era; revisit only if asked |

@@ -52,6 +52,7 @@ class OperationalReportServiceTest {
     @Mock private StockBatchRepository stockBatchRepository;
     @Mock private SalesOrderRepository salesOrderRepository;
     @Mock private DeliveryChallanRepository deliveryChallanRepository;
+    @Mock private com.katasticho.erp.organisation.OrgSettingsService orgSettingsService;
 
     private OperationalReportService service;
     private UUID orgId;
@@ -71,7 +72,8 @@ class OperationalReportServiceTest {
                 warehouseRepository,
                 stockBatchRepository,
                 salesOrderRepository,
-                deliveryChallanRepository);
+                deliveryChallanRepository,
+                orgSettingsService);
 
         orgId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);
@@ -208,6 +210,38 @@ class OperationalReportServiceTest {
         // 2 tagged centres; tagged Dr+Cr = 5000 + 3000.
         assertEquals(new BigDecimal("2"), report.metrics().get(0).value());
         assertEquals(new BigDecimal("8000"), report.metrics().get(1).value());
+    }
+
+    @Test
+    void overdueInterest_computesSimpleInterestPerInvoice() {
+        when(orgSettingsService.get(orgId, "ar.interest_rate_pa", "18")).thenReturn("18");
+
+        UUID customerId = UUID.randomUUID();
+        Contact customer = new Contact();
+        customer.setId(customerId);
+        customer.setDisplayName("Slow Payer & Co");
+
+        com.katasticho.erp.ar.entity.Invoice inv = com.katasticho.erp.ar.entity.Invoice.builder()
+                .contactId(customerId).invoiceNumber("INV-77")
+                .invoiceDate(LocalDate.now().minusDays(130))
+                .dueDate(LocalDate.now().minusDays(100))     // 100 days late
+                .balanceDue(new BigDecimal("36500"))
+                .status("OVERDUE").build();
+        when(invoiceRepository.findOverdueInvoices(eq(orgId), eq(LocalDate.now())))
+                .thenReturn(List.of(inv));
+        when(contactRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), anyCollection()))
+                .thenReturn(List.of(customer));
+
+        var report = service.overdueInterest();
+
+        assertEquals("overdue-interest", report.reportKey());
+        assertEquals(1, report.rows().size());
+        // 36500 × 18% × 100/365 days = 1800.00
+        assertEquals(0, new BigDecimal("1800.00").compareTo(
+                (BigDecimal) report.rows().get(0).get("interest")));
+        assertEquals("Slow Payer & Co", report.rows().get(0).get("customer"));
+        assertEquals(0, new BigDecimal("1800.00").compareTo(
+                (BigDecimal) report.metrics().get(2).value()));
     }
 
     private SalesOrder salesOrder(

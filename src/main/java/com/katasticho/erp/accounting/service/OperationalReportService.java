@@ -55,6 +55,7 @@ public class OperationalReportService {
     private final StockBatchRepository stockBatchRepository;
     private final SalesOrderRepository salesOrderRepository;
     private final DeliveryChallanRepository deliveryChallanRepository;
+    private final com.katasticho.erp.organisation.OrgSettingsService orgSettingsService;
 
     public OperationalReportResponse salesRegister(LocalDate startDate, LocalDate endDate) {
         Context ctx = context();
@@ -583,6 +584,62 @@ public class OperationalReportService {
                 columns(col("centre", "Cost Centre", "text"),
                         col("debit", "Debit", "currency"), col("credit", "Credit", "currency"),
                         col("net", "Net (Dr−Cr)", "currency"), col("lineCount", "Lines", "number")),
+                rows);
+    }
+
+    /**
+     * Interest on overdue receivables (Tally's "interest calculation"):
+     * simple interest at {@code ar.interest_rate_pa} (default 18% p.a.) on
+     * each overdue invoice's balance for the days past due. Read-only — use
+     * it for negotiation/collections; raise a debit note manually if you
+     * actually charge it.
+     */
+    public OperationalReportResponse overdueInterest() {
+        Context ctx = context();
+        LocalDate today = LocalDate.now();
+
+        BigDecimal ratePa;
+        try {
+            ratePa = new BigDecimal(orgSettingsService.get(ctx.orgId(), "ar.interest_rate_pa", "18"));
+        } catch (NumberFormatException e) {
+            ratePa = new BigDecimal("18");
+        }
+
+        List<Invoice> overdue = invoiceRepository.findOverdueInvoices(ctx.orgId(), today);
+        Map<UUID, String> names = contactNames(ctx.orgId(),
+                overdue.stream().map(Invoice::getContactId).collect(Collectors.toSet()));
+
+        BigDecimal totalInterest = BigDecimal.ZERO;
+        BigDecimal totalOverdue = BigDecimal.ZERO;
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Invoice inv : overdue) {
+            long days = java.time.temporal.ChronoUnit.DAYS.between(inv.getDueDate(), today);
+            if (days <= 0) continue;
+            BigDecimal balance = nz(inv.getBalanceDue());
+            BigDecimal interest = balance.multiply(ratePa)
+                    .multiply(BigDecimal.valueOf(days))
+                    .divide(BigDecimal.valueOf(36500), 2, java.math.RoundingMode.HALF_UP);
+            totalInterest = totalInterest.add(interest);
+            totalOverdue = totalOverdue.add(balance);
+            rows.add(row("customer", names.getOrDefault(inv.getContactId(), ""),
+                    "invoiceNumber", inv.getInvoiceNumber(),
+                    "dueDate", inv.getDueDate(),
+                    "daysOverdue", BigDecimal.valueOf(days),
+                    "balanceDue", balance,
+                    "interest", interest));
+        }
+        rows.sort((a, b) -> ((BigDecimal) b.get("interest")).compareTo((BigDecimal) a.get("interest")));
+
+        return response("overdue-interest", "Interest on Overdue",
+                "Simple interest at " + ratePa.toPlainString() + "% p.a. on overdue invoice balances "
+                        + "(set ar.interest_rate_pa in org settings).",
+                today, today, ctx.currency(),
+                metrics(metric("invoices", "Overdue Invoices", BigDecimal.valueOf(rows.size()), "number"),
+                        metric("overdue", "Overdue Balance", totalOverdue, "currency"),
+                        metric("interest", "Accrued Interest", totalInterest, "currency")),
+                columns(col("customer", "Customer", "text"), col("invoiceNumber", "Invoice", "text"),
+                        col("dueDate", "Due Date", "date"), col("daysOverdue", "Days Late", "number"),
+                        col("balanceDue", "Balance Due", "currency"), col("interest", "Interest", "currency")),
                 rows);
     }
 
