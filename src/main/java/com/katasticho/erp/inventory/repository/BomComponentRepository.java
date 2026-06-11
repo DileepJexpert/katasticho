@@ -4,6 +4,8 @@ import com.katasticho.erp.inventory.entity.BomComponent;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.data.jpa.repository.Query;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,4 +37,11 @@ public interface BomComponentRepository extends JpaRepository<BomComponent, UUID
      * {@code BOM_DUPLICATE_CHILD} error first. */
     boolean existsByOrgIdAndParentItemIdAndChildItemIdAndIsDeletedFalse(
             UUID orgId, UUID parentItemId, UUID childItemId);
+
+    @Query("SELECT COALESCE(MAX(b.version), 0) FROM BomComponent b " +
+           "WHERE b.orgId = :orgId AND b.parentItemId = :parentItemId AND b.isDeleted = false")
+    int findMaxVersion(UUID orgId, UUID parentItemId);
+
+    List<BomComponent> findByOrgIdAndParentItemIdAndVersionAndIsDeletedFalseOrderByCreatedAtAsc(
+            UUID orgId, UUID parentItemId, int version);
 }

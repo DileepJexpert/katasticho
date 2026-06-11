@@ -1,5 +1,8 @@
 package com.katasticho.erp.manufacturing.service;
 
+import com.katasticho.erp.accounting.entity.JournalEntry;
+import com.katasticho.erp.accounting.posting.ManufacturingWipPostingRule;
+import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.inventory.entity.BomComponent;
@@ -11,6 +14,7 @@ import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.manufacturing.entity.WorkOrder;
+import com.katasticho.erp.manufacturing.repository.ProductionCostSummaryRepository;
 import com.katasticho.erp.manufacturing.repository.WorkOrderLineRepository;
 import com.katasticho.erp.manufacturing.repository.WorkOrderRepository;
 import com.katasticho.erp.sales.entity.SalesOrder;
@@ -42,6 +46,9 @@ class ManufacturingServiceTest {
     @Mock private InventoryService inventoryService;
     @Mock private SalesOrderRepository salesOrderRepo;
     @Mock private WarehouseRepository warehouseRepo;
+    @Mock private JournalService journalService;
+    @Mock private ManufacturingWipPostingRule wipPostingRule;
+    @Mock private ProductionCostSummaryRepository costSummaryRepo;
 
     private ManufacturingService service;
 
@@ -55,7 +62,7 @@ class ManufacturingServiceTest {
     void setUp() {
         service = new ManufacturingService(
                 workOrderRepo, workOrderLineRepo, bomComponentRepo, itemRepo, inventoryService,
-                salesOrderRepo, warehouseRepo);
+                salesOrderRepo, warehouseRepo, journalService, wipPostingRule, costSummaryRepo);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
@@ -108,6 +115,7 @@ class ManufacturingServiceTest {
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
         when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
                 .thenReturn(List.of(bom));
+        when(bomComponentRepo.findMaxVersion(orgId, fgItemId)).thenReturn(1);
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId)).thenReturn(Optional.of(rm));
         when(workOrderRepo.findMaxWorkOrderNumber(orgId)).thenReturn(0);
         when(workOrderRepo.save(any())).thenAnswer(inv -> {
@@ -167,7 +175,7 @@ class ManufacturingServiceTest {
     }
 
     @Test
-    void issueToProduction_draftOrder_deductsStock() {
+    void issueToProduction_draftOrder_deductsStockAndPostsWipJournal() {
         WorkOrder wo = createTestWorkOrder("DRAFT");
 
         when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
@@ -175,12 +183,27 @@ class ManufacturingServiceTest {
         when(inventoryService.recordMovement(any())).thenReturn(null);
         when(workOrderRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
+        JournalEntry mockEntry = new JournalEntry();
+        mockEntry.setId(UUID.randomUUID());
+        mockEntry.setEntryNumber("JE-2026-000001");
+        when(wipPostingRule.generate(any())).thenReturn(
+                new com.katasticho.erp.accounting.dto.JournalPostRequest(
+                        java.time.LocalDate.now(), "WIP", "MANUFACTURING", wo.getId(),
+                        List.of(new com.katasticho.erp.accounting.dto.JournalLineRequest(
+                                "1210", BigDecimal.valueOf(1500), BigDecimal.ZERO, "WIP", null, null),
+                                new com.katasticho.erp.accounting.dto.JournalLineRequest(
+                                "1200", BigDecimal.ZERO, BigDecimal.valueOf(1500), "RM", null, null)),
+                        true));
+        when(journalService.postJournal(any())).thenReturn(mockEntry);
+
         WorkOrder result = service.issueToProduction(wo.getId());
 
         assertEquals("IN_PROGRESS", result.getStatus());
         assertNotNull(result.getActualStartDate());
         assertEquals("ISSUED", result.getLines().get(0).getStatus());
+        assertNotNull(result.getWipJournalEntryId());
         verify(inventoryService, times(1)).recordMovement(any());
+        verify(journalService, times(1)).postJournal(any());
     }
 
     @Test
@@ -196,7 +219,7 @@ class ManufacturingServiceTest {
     }
 
     @Test
-    void receiveFinishedGoods_fullQuantity_completesOrder() {
+    void receiveFinishedGoods_fullQuantity_completesOrderAndBuildsCostSummary() {
         WorkOrder wo = createTestWorkOrder("IN_PROGRESS");
 
         when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
@@ -204,12 +227,27 @@ class ManufacturingServiceTest {
         when(inventoryService.recordMovement(any())).thenReturn(null);
         when(workOrderRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
+        JournalEntry mockEntry = new JournalEntry();
+        mockEntry.setId(UUID.randomUUID());
+        when(wipPostingRule.generate(any())).thenReturn(
+                new com.katasticho.erp.accounting.dto.JournalPostRequest(
+                        java.time.LocalDate.now(), "Completion", "MANUFACTURING", wo.getId(),
+                        List.of(new com.katasticho.erp.accounting.dto.JournalLineRequest(
+                                "1200", BigDecimal.valueOf(1500), BigDecimal.ZERO, "FG", null, null),
+                                new com.katasticho.erp.accounting.dto.JournalLineRequest(
+                                "1210", BigDecimal.ZERO, BigDecimal.valueOf(1500), "WIP", null, null)),
+                        true));
+        when(journalService.postJournal(any())).thenReturn(mockEntry);
+        when(costSummaryRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
         WorkOrder result = service.receiveFinishedGoods(wo.getId(), BigDecimal.TEN);
 
         assertEquals("COMPLETED", result.getStatus());
         assertEquals(0, BigDecimal.TEN.compareTo(result.getQuantityProduced()));
         assertNotNull(result.getActualEndDate());
+        assertNotNull(result.getJournalEntryId());
         verify(inventoryService).recordMovement(any());
+        verify(costSummaryRepo).save(any());
     }
 
     @Test
@@ -240,9 +278,11 @@ class ManufacturingServiceTest {
     }
 
     @Test
-    void cancelWorkOrder_inProgress_reversesStock() {
+    void cancelWorkOrder_inProgress_reversesStockAndJournal() {
         WorkOrder wo = createTestWorkOrder("IN_PROGRESS");
         wo.getLines().get(0).setIssuedQty(BigDecimal.valueOf(30));
+        UUID wipJournalId = UUID.randomUUID();
+        wo.setWipJournalEntryId(wipJournalId);
 
         when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
                 .thenReturn(Optional.of(wo));
@@ -254,6 +294,7 @@ class ManufacturingServiceTest {
         assertEquals("CANCELLED", result.getStatus());
         assertEquals("CANCELLED", result.getLines().get(0).getStatus());
         verify(inventoryService, times(1)).recordMovement(any());
+        verify(journalService, times(1)).reverseEntry(wipJournalId);
     }
 
     @Test
@@ -326,6 +367,7 @@ class ManufacturingServiceTest {
                 .thenReturn(Optional.of(rm));
         when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
                 .thenReturn(List.of(bom));
+        when(bomComponentRepo.findMaxVersion(orgId, fgItemId)).thenReturn(1);
         when(workOrderRepo.findMaxWorkOrderNumber(orgId)).thenReturn(0);
         when(workOrderRepo.save(any())).thenAnswer(inv -> {
             WorkOrder wo = inv.getArgument(0);
@@ -402,6 +444,125 @@ class ManufacturingServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> service.createWorkOrdersFromSalesOrder(soId, null));
         assertEquals("MFG_SO_NO_COMPOSITE_ITEMS", ex.getErrorCode());
+    }
+
+    // ── Tier 2: Backflush ────────────────────────────────────────────
+
+    @Test
+    void issueToProduction_backflushMode_doesNotDeductStock() {
+        WorkOrder wo = createTestWorkOrder("DRAFT");
+        wo.setBackflushMode(true);
+
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(wo));
+        when(workOrderRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        WorkOrder result = service.issueToProduction(wo.getId());
+
+        assertEquals("IN_PROGRESS", result.getStatus());
+        verify(inventoryService, never()).recordMovement(any());
+        assertEquals("PENDING", result.getLines().get(0).getStatus());
+    }
+
+    @Test
+    void receiveFinishedGoods_backflushMode_deductsProportionalStock() {
+        WorkOrder wo = createTestWorkOrder("IN_PROGRESS");
+        wo.setBackflushMode(true);
+
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(wo));
+        when(inventoryService.recordMovement(any())).thenReturn(null);
+        when(workOrderRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        JournalEntry mockEntry = new JournalEntry();
+        mockEntry.setId(UUID.randomUUID());
+        when(wipPostingRule.generate(any())).thenReturn(
+                new com.katasticho.erp.accounting.dto.JournalPostRequest(
+                        java.time.LocalDate.now(), "Completion", "MANUFACTURING", wo.getId(),
+                        List.of(new com.katasticho.erp.accounting.dto.JournalLineRequest(
+                                "1200", BigDecimal.valueOf(1500), BigDecimal.ZERO, "FG", null, null),
+                                new com.katasticho.erp.accounting.dto.JournalLineRequest(
+                                "1210", BigDecimal.ZERO, BigDecimal.valueOf(1500), "WIP", null, null)),
+                        true));
+        when(journalService.postJournal(any())).thenReturn(mockEntry);
+        when(costSummaryRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        WorkOrder result = service.receiveFinishedGoods(wo.getId(), BigDecimal.TEN);
+
+        assertEquals("COMPLETED", result.getStatus());
+        // backflush issue (1 call) + FG receipt (1 call) = 2 total
+        verify(inventoryService, times(2)).recordMovement(any());
+    }
+
+    // ── Tier 2: Disassembly ──────────────────────────────────────────
+
+    @Test
+    void executeDisassembly_reversesStockCorrectly() {
+        WorkOrder wo = createTestWorkOrder("DRAFT");
+        wo.setDisassembly(true);
+
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(wo));
+        when(inventoryService.recordMovement(any())).thenReturn(null);
+        when(workOrderRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        WorkOrder result = service.executeDisassembly(wo.getId());
+
+        assertEquals("COMPLETED", result.getStatus());
+        // 1 FG consumption + 1 component recovery = 2
+        verify(inventoryService, times(2)).recordMovement(any());
+    }
+
+    @Test
+    void executeDisassembly_notDisassemblyOrder_throws() {
+        WorkOrder wo = createTestWorkOrder("DRAFT");
+        wo.setDisassembly(false);
+
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(wo));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.executeDisassembly(wo.getId()));
+        assertEquals("MFG_NOT_DISASSEMBLY", ex.getErrorCode());
+    }
+
+    // ── Tier 2: BOM Versioning ───────────────────────────────────────
+
+    @Test
+    void createBomVersion_createsNewVersionFromCurrent() {
+        Item fg = buildCompositeItem();
+        BomComponent comp = buildBomComponent();
+        comp.setId(UUID.randomUUID());
+
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
+        when(bomComponentRepo.findMaxVersion(orgId, fgItemId)).thenReturn(1);
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+                .thenReturn(List.of(comp));
+        when(bomComponentRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        int newVersion = service.createBomVersion(fgItemId, "Updated quantities");
+
+        assertEquals(2, newVersion);
+        // 1 save for closing old comp + 1 save for new comp = 2
+        verify(bomComponentRepo, times(2)).save(any());
+    }
+
+    // ── Tier 2: WIP Valuation Report ─────────────────────────────────
+
+    @Test
+    void getWipValuation_sumsInProgressOrders() {
+        WorkOrder wo1 = createTestWorkOrder("IN_PROGRESS");
+        WorkOrder wo2 = createTestWorkOrder("IN_PROGRESS");
+        wo2.setRawMaterialCost(BigDecimal.valueOf(3000));
+        wo2.setDirectLaborCost(BigDecimal.valueOf(500));
+
+        when(workOrderRepo.findByOrgIdAndStatusInAndIsDeletedFalse(orgId, List.of("IN_PROGRESS")))
+                .thenReturn(List.of(wo1, wo2));
+
+        var result = service.getWipValuation();
+
+        assertNotNull(result.get("totalWipValue"));
+        assertEquals(2, result.get("wipOrderCount"));
     }
 
     private WorkOrder createTestWorkOrder(String status) {

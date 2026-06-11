@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -42,4 +43,17 @@ public class BomComponent extends BaseEntity {
 
     @Column(nullable = false)
     private BigDecimal quantity;
+
+    @Builder.Default
+    @Column(name = "version")
+    private Integer version = 1;
+
+    @Column(name = "effective_from")
+    private LocalDate effectiveFrom;
+
+    @Column(name = "effective_to")
+    private LocalDate effectiveTo;
+
+    @Column(name = "change_notes")
+    private String changeNotes;
 }

@@ -237,8 +237,18 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Scrap/Waste (done):** Reason codes, production scrap recording with PRODUCTION_SCRAP stock movements, WO scrap totals.
 - **SO→WO Automation (done):** `createWorkOrdersFromSalesOrder()` finds composite items in confirmed SO, creates linked draft WOs.
 - **Flutter screens (done):** Work order list/create/detail with lifecycle actions. Routes and sidebar nav integrated, gated by `canUseManufacturing`.
-- **Tests (done):** 53 manufacturing tests (ManufacturingServiceTest 15, RoutingServiceTest 9, JobWorkServiceTest 16, QualityControlServiceTest 8, ScrapServiceTest 5). 417 total tests pass.
-- **Tier 2 priorities (TODO):** BOM versioning, batch traceability in production, WIP journal entries, production reports (cost variance, consumption, WIP valuation), work order enhancements (priority, approval, disassembly), backflush mode.
+- **Tests (done):** 59 manufacturing tests (ManufacturingServiceTest 21, RoutingServiceTest 9, JobWorkServiceTest 16, QualityControlServiceTest 8, ScrapServiceTest 5). 556 total tests pass.
+
+#### Tier 2 (COMPLETE — 2026-06-11)
+- **V59 migration (done):** BOM versioning columns (version, effective_from/to, change_notes on bom_component), WO enhancements (journal_entry_id, wip_journal_entry_id, backflush_mode, bom_version, approval_status, is_disassembly), batch traceability (batch_id/batch_number on work_order_line), WIP/Manufacturing CoA accounts (1210 WIP, 5030 Mfg Overhead, 5040 Direct Labor, 5050 Material Variance), production_cost_summary table.
+- **WIP journal entries (done):** `ManufacturingWipPostingRule` implements `PostingRuleStrategy`. Issue to production: DR WIP (1210) / CR Inventory (1200) + Labor (5040) + Overhead (5030). Completion: DR Inventory (1200) / CR WIP (1210). Variance posted to Material Variance (5050). Cancel reverses WIP journal via `journalService.reverseEntry()`.
+- **Backflush mode (done):** `backflushMode` flag on work order. When true, `issueToProduction()` skips material issue; `receiveFinishedGoods()` auto-issues proportional materials on each FG receipt. Ratio = quantityReceived / quantityToProduce.
+- **BOM versioning (done):** `createBomVersion(parentItemId, changeNotes)` snapshots current BOM, closes effective dates, creates new version. WO creation can target a specific BOM version. `GET /bom/{id}/version/{n}`, `GET /bom/{id}/latest-version`.
+- **Disassembly orders (done):** `createDisassemblyOrder()` creates a WO with `isDisassembly=true`. `executeDisassembly()` consumes FG and recovers components in one step. `POST /work-orders/disassembly`, `POST /work-orders/{id}/disassemble`.
+- **Production reports (done):** Cost variance report (planned vs actual RM/labor/overhead, yield %). WIP valuation report (sum of all IN_PROGRESS WO costs). Consumption report (total RM consumed per item across completed WOs). `ProductionCostSummary` built automatically on WO completion.
+- **Batch traceability (done):** `batch_id` and `batch_number` on work_order_line for linking consumed batches to production.
+- **DefaultAccountPurpose extended:** WIP_INVENTORY (1210), MANUFACTURING_OVERHEAD (5030), DIRECT_LABOR (5040), MATERIAL_VARIANCE (5050).
+- **Flutter (done):** Backflush toggle on WO create screen. Repository methods for all Tier 2 APIs (disassembly, BOM versioning, reports).
 - **Tier 3 (DEFERRED):** MRP engine, Gantt scheduling, capacity planning, shop floor mobile, maintenance management, industry-specific (pharma BMR, food FSSAI, garment cut plans).
 
 ### Kirana Retail Production Gaps (2026-06-10)

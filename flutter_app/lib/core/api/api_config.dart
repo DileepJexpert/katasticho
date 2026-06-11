@@ -776,6 +776,20 @@ class ApiConfig {
   static const String manufacturingScrap = '/api/v1/manufacturing/scrap';
   static const String manufacturingScrapReasonCodes = '/api/v1/manufacturing/scrap/reason-codes';
 
+  // Manufacturing — Tier 2: Disassembly, BOM Versioning, Reports
+  static const String manufacturingDisassembly = '/api/v1/manufacturing/work-orders/disassembly';
+  static String manufacturingDisassemble(String id) => '/api/v1/manufacturing/work-orders/$id/disassemble';
+  static String manufacturingBomVersion(String itemId) => '/api/v1/manufacturing/bom/$itemId/version';
+  static String manufacturingBomVersionGet(String itemId, int version) =>
+      '/api/v1/manufacturing/bom/$itemId/version/$version';
+  static String manufacturingBomLatestVersion(String itemId) =>
+      '/api/v1/manufacturing/bom/$itemId/latest-version';
+  static const String manufacturingCostVariance = '/api/v1/manufacturing/reports/cost-variance';
+  static String manufacturingCostVarianceById(String woId) =>
+      '/api/v1/manufacturing/reports/cost-variance/$woId';
+  static const String manufacturingWipValuation = '/api/v1/manufacturing/reports/wip-valuation';
+  static const String manufacturingConsumption = '/api/v1/manufacturing/reports/consumption';
+
   // POS — Cash Register / Day Close
   static const String cashRegister = '/api/v1/pos/cash-register';
   static String cashRegisterDate(String date) => '/api/v1/pos/cash-register/$date';

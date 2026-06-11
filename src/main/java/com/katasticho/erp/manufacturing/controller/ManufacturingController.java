@@ -3,6 +3,7 @@ package com.katasticho.erp.manufacturing.controller;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
+import com.katasticho.erp.inventory.entity.BomComponent;
 import com.katasticho.erp.manufacturing.entity.*;
 import com.katasticho.erp.manufacturing.service.*;
 import lombok.RequiredArgsConstructor;
@@ -46,10 +47,14 @@ public class ManufacturingController {
         BigDecimal overhead = body.get("overheadCost") != null
                 ? new BigDecimal(body.get("overheadCost").toString()) : null;
         String notes = (String) body.get("notes");
+        boolean backflush = Boolean.TRUE.equals(body.get("backflushMode"));
+        Integer bomVersion = body.get("bomVersion") != null
+                ? Integer.parseInt(body.get("bomVersion").toString()) : null;
 
         return ResponseEntity.ok(ApiResponse.ok(
                 service.createWorkOrder(finishedGoodId, warehouseId, qty,
-                        plannedStart, plannedEnd, laborCost, overhead, notes),
+                        plannedStart, plannedEnd, laborCost, overhead, notes,
+                        backflush, bomVersion, false),
                 "Work order created"));
     }
 
@@ -414,5 +419,75 @@ public class ManufacturingController {
     @GetMapping("/work-orders/{id}/scrap")
     public ResponseEntity<ApiResponse<List<ProductionScrap>>> getScrapForWorkOrder(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(scrapService.getScrapForWorkOrder(id)));
+    }
+
+    // ── Disassembly ──────────────────────────────────────────────────
+
+    @PostMapping("/work-orders/disassembly")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<WorkOrder>> createDisassemblyOrder(@RequestBody Map<String, Object> body) {
+        UUID finishedGoodId = UUID.fromString((String) body.get("finishedGoodId"));
+        UUID warehouseId = UUID.fromString((String) body.get("warehouseId"));
+        BigDecimal qty = new BigDecimal(body.get("quantity").toString());
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.createDisassemblyOrder(finishedGoodId, warehouseId, qty,
+                        (String) body.get("notes")),
+                "Disassembly order created"));
+    }
+
+    @PostMapping("/work-orders/{id}/disassemble")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<WorkOrder>> executeDisassembly(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.executeDisassembly(id), "Disassembly executed"));
+    }
+
+    // ── BOM Versioning ───────────────────────────────────────────────
+
+    @PostMapping("/bom/{parentItemId}/version")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> createBomVersion(
+            @PathVariable UUID parentItemId,
+            @RequestBody Map<String, Object> body) {
+        int version = service.createBomVersion(parentItemId, (String) body.get("changeNotes"));
+        return ResponseEntity.ok(ApiResponse.ok(
+                Map.of("version", version, "parentItemId", parentItemId),
+                "BOM version " + version + " created"));
+    }
+
+    @GetMapping("/bom/{parentItemId}/version/{version}")
+    public ResponseEntity<ApiResponse<List<BomComponent>>> getBomVersion(
+            @PathVariable UUID parentItemId, @PathVariable int version) {
+        return ResponseEntity.ok(ApiResponse.ok(service.getBomVersion(parentItemId, version)));
+    }
+
+    @GetMapping("/bom/{parentItemId}/latest-version")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getLatestBomVersion(
+            @PathVariable UUID parentItemId) {
+        int version = service.getLatestBomVersion(parentItemId);
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("version", version)));
+    }
+
+    // ── Production Reports ───────────────────────────────────────────
+
+    @GetMapping("/reports/cost-variance")
+    public ResponseEntity<ApiResponse<Page<ProductionCostSummary>>> listCostVariances(Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(service.listCostVariances(pageable)));
+    }
+
+    @GetMapping("/reports/cost-variance/{workOrderId}")
+    public ResponseEntity<ApiResponse<ProductionCostSummary>> getCostVariance(@PathVariable UUID workOrderId) {
+        return ResponseEntity.ok(ApiResponse.ok(service.getCostVariance(workOrderId)));
+    }
+
+    @GetMapping("/reports/wip-valuation")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getWipValuation() {
+        return ResponseEntity.ok(ApiResponse.ok(service.getWipValuation()));
+    }
+
+    @GetMapping("/reports/consumption")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getConsumptionReport(
+            @RequestParam(required = false) UUID finishedGoodId) {
+        return ResponseEntity.ok(ApiResponse.ok(service.getConsumptionReport(finishedGoodId)));
     }
 }

@@ -47,7 +47,13 @@ public enum DefaultAccountPurpose {
 
     // ── Withholding (TDS) / collection (TCS) ──────────────────
     TDS_PAYABLE         ("2030", "TDS Payable"),
-    TCS_PAYABLE         ("2031", "TCS Payable");   // seeded by V54 for existing orgs
+    TCS_PAYABLE         ("2031", "TCS Payable"),
+
+    // ── Manufacturing ────────────────────────────────────────
+    WIP_INVENTORY       ("1210", "Work-In-Progress"),
+    MANUFACTURING_OVERHEAD ("5030", "Manufacturing Overhead"),
+    DIRECT_LABOR        ("5040", "Direct Labor"),
+    MATERIAL_VARIANCE   ("5050", "Material Variance");
 
     private final String defaultCode;
     private final String label;
