@@ -786,4 +786,21 @@ class ApiConfig {
   static String cashRegisterDeleteExpense(String id) =>
       '/api/v1/pos/cash-register/expense/$id';
   static const String cashRegisterHistory = '/api/v1/pos/cash-register/history';
+
+  // WhatsApp document templates
+  static const String whatsappSettings = '/api/v1/settings/whatsapp';
+  static const String whatsappMessages = '/api/v1/whatsapp/messages';
+  static String whatsappSendInvoice(String id) => '/api/v1/whatsapp/invoices/$id';
+  static String whatsappSendReceipt(String id) => '/api/v1/whatsapp/receipts/$id';
+  static String whatsappSendReminder(String contactId) =>
+      '/api/v1/whatsapp/reminders/$contactId';
+  static String whatsappSendStatement(String contactId) =>
+      '/api/v1/whatsapp/statements/$contactId';
+
+  // GSP direct e-invoice / e-way bill generation
+  static const String gspSettings = '/api/v1/gst/gsp-settings';
+  static String einvoiceGenerateViaGsp(String id) =>
+      '/api/v1/gst/einvoices/$id/generate-gsp';
+  static String ewayBillGenerateViaGsp(String id) =>
+      '/api/v1/gst/eway-bills/$id/generate-gsp';
 }

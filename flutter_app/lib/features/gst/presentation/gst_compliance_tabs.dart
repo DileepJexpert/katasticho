@@ -517,6 +517,24 @@ class _EInvoicesTabState extends ConsumerState<EInvoicesTab> {
     }
   }
 
+  Future<void> _generateViaGsp(Map<String, dynamic> row) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+        const SnackBar(content: Text('Generating IRN via GSP...')));
+    try {
+      await ref
+          .read(gstRepositoryProvider)
+          .generateEInvoiceViaGsp(row['id'].toString());
+      if (!mounted) return;
+      messenger.showSnackBar(
+          const SnackBar(content: Text('IRN generated via GSP')));
+      widget.onChanged();
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('GSP: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final rows = widget.eInvoices ?? const [];
@@ -616,6 +634,11 @@ class _EInvoicesTabState extends ConsumerState<EInvoicesTab> {
                               icon: const Icon(Icons.task_alt, size: 16),
                               label: const Text('Record IRN'),
                             ),
+                          ),
+                          IconButton(
+                            onPressed: () => _generateViaGsp(row),
+                            icon: const Icon(Icons.bolt, color: KColors.primary),
+                            tooltip: 'Generate via GSP',
                           ),
                           IconButton(
                             onPressed: () => _cancelEntry(row),
@@ -991,6 +1014,24 @@ class _EwayBillsTabState extends ConsumerState<EwayBillsTab> {
     }
   }
 
+  Future<void> _generateViaGsp(Map<String, dynamic> bill) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+        const SnackBar(content: Text('Generating e-way bill via GSP...')));
+    try {
+      await ref
+          .read(gstRepositoryProvider)
+          .generateEwayBillViaGsp(bill['id'].toString());
+      if (!mounted) return;
+      messenger.showSnackBar(
+          const SnackBar(content: Text('e-Way bill generated via GSP')));
+      widget.onChanged();
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('GSP: $e')));
+    }
+  }
+
   Future<void> _checkVehicleDialog() async {
     final vehicleCtrl = TextEditingController();
     final valueCtrl = TextEditingController();
@@ -1191,6 +1232,11 @@ class _EwayBillsTabState extends ConsumerState<EwayBillsTab> {
                               icon: const Icon(Icons.task_alt, size: 16),
                               label: const Text('Record EWB'),
                             ),
+                          ),
+                          IconButton(
+                            onPressed: () => _generateViaGsp(bill),
+                            icon: const Icon(Icons.bolt, color: KColors.primary),
+                            tooltip: 'Generate via GSP',
                           ),
                           IconButton(
                             onPressed: () => _cancelEntry(bill),

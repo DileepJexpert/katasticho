@@ -38,6 +38,18 @@ final smsSettingsProvider =
   }
 });
 
+final whatsappSettingsProvider =
+    FutureProvider.autoDispose<Map<String, String>>((ref) async {
+  final client = ref.watch(apiClientProvider);
+  try {
+    final response = await client.get(ApiConfig.whatsappSettings);
+    final data = response.data as Map<String, dynamic>? ?? {};
+    return data.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+  } catch (_) {
+    return {};
+  }
+});
+
 /// Fetches item details for all favourite item IDs.
 final posFavouriteItemsProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {

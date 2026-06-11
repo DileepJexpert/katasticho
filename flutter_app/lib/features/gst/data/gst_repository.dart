@@ -167,6 +167,18 @@ class GstRepository {
         data: reason != null ? {'reason': reason} : null);
   }
 
+  /// One-click IRN generation via the configured GSP.
+  Future<Map<String, dynamic>> generateEInvoiceViaGsp(String id) async {
+    final response = await _api.post(ApiConfig.einvoiceGenerateViaGsp(id));
+    return _data(response.data);
+  }
+
+  /// One-click e-way bill generation via the configured GSP.
+  Future<Map<String, dynamic>> generateEwayBillViaGsp(String id) async {
+    final response = await _api.post(ApiConfig.ewayBillGenerateViaGsp(id));
+    return _data(response.data);
+  }
+
   /// IRP INV-01 JSON for offline-tool / GSP upload.
   Future<Map<String, dynamic>> eInvoicePortalJson(String id) async {
     final response = await _api.get(ApiConfig.eInvoicePortalJson(id));
