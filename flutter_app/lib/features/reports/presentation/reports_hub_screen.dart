@@ -291,6 +291,17 @@ List<_ReportGroupData> _reportGroups(BuildContext context) => [
             ),
           ),
           _ReportLink(
+            icon: Icons.layers_outlined,
+            title: 'FIFO Valuation',
+            color: KColors.primary,
+            onTap: () => _openOperational(
+              context,
+              'fifo-valuation',
+              'FIFO Valuation',
+              dateRange: false,
+            ),
+          ),
+          _ReportLink(
             icon: Icons.swap_vert_outlined,
             title: 'Stock Movement',
             color: KColors.accent,

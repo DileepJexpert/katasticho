@@ -10,7 +10,12 @@ import com.katasticho.erp.ar.entity.TaxLineItem;
 import com.katasticho.erp.ar.repository.TaxLineItemRepository;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.inventory.entity.Item;
+import com.katasticho.erp.inventory.entity.ReferenceType;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.StockMovementRepository;
+import com.katasticho.erp.inventory.service.FifoCostingService;
+import com.katasticho.erp.sales.entity.DeliveryChallan;
+import com.katasticho.erp.sales.repository.DeliveryChallanRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -33,6 +38,9 @@ public class SalesInvoicePostingRule implements PostingRuleStrategy {
     private final DefaultAccountService defaultAccountService;
     private final TaxLineItemRepository taxLineItemRepository;
     private final ItemRepository itemRepository;
+    private final FifoCostingService fifoCostingService;
+    private final DeliveryChallanRepository deliveryChallanRepository;
+    private final StockMovementRepository stockMovementRepository;
 
     @Override
     public boolean supports(String sourceType) {
@@ -107,17 +115,23 @@ public class SalesInvoicePostingRule implements PostingRuleStrategy {
             return;
         }
 
-        var items = itemRepository.findAllById(itemIds).stream()
-                .collect(Collectors.toMap(Item::getId, item -> item));
-        BigDecimal totalCost = BigDecimal.ZERO;
-        for (InvoiceLine line : invoiceLines) {
-            if (line.getItemId() == null) continue;
-            Item item = items.get(line.getItemId());
-            if (item == null || !item.isTrackInventory()) continue;
-            if (item.getPurchasePrice() == null || item.getPurchasePrice().compareTo(BigDecimal.ZERO) <= 0) continue;
-            totalCost = totalCost.add(item.getPurchasePrice()
-                    .multiply(line.getQuantity())
-                    .setScale(2, RoundingMode.HALF_UP));
+        BigDecimal totalCost = fifoCogs(invoice);
+
+        // FIFO unavailable (weighted-average org, or no dispatched movements to
+        // attribute) → fall back to item purchase price × quantity, the basis
+        // used before FIFO and for non-distributor flows.
+        if (totalCost.compareTo(BigDecimal.ZERO) <= 0) {
+            var items = itemRepository.findAllById(itemIds).stream()
+                    .collect(Collectors.toMap(Item::getId, item -> item));
+            for (InvoiceLine line : invoiceLines) {
+                if (line.getItemId() == null) continue;
+                Item item = items.get(line.getItemId());
+                if (item == null || !item.isTrackInventory()) continue;
+                if (item.getPurchasePrice() == null || item.getPurchasePrice().compareTo(BigDecimal.ZERO) <= 0) continue;
+                totalCost = totalCost.add(item.getPurchasePrice()
+                        .multiply(line.getQuantity())
+                        .setScale(2, RoundingMode.HALF_UP));
+            }
         }
         if (totalCost.compareTo(BigDecimal.ZERO) <= 0) {
             return;
@@ -143,6 +157,30 @@ public class SalesInvoicePostingRule implements PostingRuleStrategy {
                 BigDecimal.ZERO, totalCost,
                 "Inventory: " + invoice.getInvoiceNumber(),
                 null, null));
+    }
+
+    /**
+     * FIFO cost-of-goods for an invoice: the actual recorded cost of the SALE
+     * stock movements its goods were dispatched on. Goods leave at delivery
+     * challan dispatch (the only stock-deduction step), so we attribute through
+     * the invoice's sales order to its challans and sum their movement cost.
+     * Returns 0 for weighted-average orgs or when no dispatched movements exist
+     * (e.g. a direct invoice with no challan), letting the caller fall back.
+     */
+    private BigDecimal fifoCogs(Invoice invoice) {
+        UUID orgId = invoice.getOrgId();
+        if (!fifoCostingService.isFifo(orgId) || invoice.getSalesOrderId() == null) {
+            return BigDecimal.ZERO;
+        }
+        List<DeliveryChallan> challans = deliveryChallanRepository
+                .findBySalesOrderIdAndOrgIdAndIsDeletedFalse(invoice.getSalesOrderId(), orgId);
+        if (challans.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        List<UUID> challanIds = challans.stream().map(DeliveryChallan::getId).collect(Collectors.toList());
+        BigDecimal cost = stockMovementRepository
+                .sumSaleCostByReferences(orgId, ReferenceType.DELIVERY_CHALLAN, challanIds);
+        return cost != null ? cost : BigDecimal.ZERO;
     }
 
     private void requireTaxGlAccount(TaxLineItem tli) {

@@ -54,6 +54,7 @@ class OperationalReportServiceTest {
     @Mock private SalesOrderRepository salesOrderRepository;
     @Mock private DeliveryChallanRepository deliveryChallanRepository;
     @Mock private com.katasticho.erp.organisation.OrgSettingsService orgSettingsService;
+    @Mock private com.katasticho.erp.inventory.service.FifoCostingService fifoCostingService;
     @Mock private FinancialReportService financialReportService;
     @Mock private com.katasticho.erp.accounting.defaults.service.DefaultAccountService defaultAccountService;
     @Mock private com.katasticho.erp.accounting.repository.BudgetLineRepository budgetLineRepository;
@@ -79,6 +80,7 @@ class OperationalReportServiceTest {
                 salesOrderRepository,
                 deliveryChallanRepository,
                 orgSettingsService,
+                fifoCostingService,
                 financialReportService,
                 defaultAccountService,
                 budgetLineRepository,

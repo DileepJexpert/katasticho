@@ -56,6 +56,7 @@ public class OperationalReportService {
     private final SalesOrderRepository salesOrderRepository;
     private final DeliveryChallanRepository deliveryChallanRepository;
     private final com.katasticho.erp.organisation.OrgSettingsService orgSettingsService;
+    private final com.katasticho.erp.inventory.service.FifoCostingService fifoCostingService;
     private final FinancialReportService financialReportService;
     private final com.katasticho.erp.accounting.defaults.service.DefaultAccountService defaultAccountService;
     private final com.katasticho.erp.accounting.repository.BudgetLineRepository budgetLineRepository;
@@ -231,6 +232,13 @@ public class OperationalReportService {
         Map<UUID, List<StockBalance>> balancesByItem = balances.stream()
                 .collect(Collectors.groupingBy(StockBalance::getItemId));
 
+        // FIFO orgs value on-hand at the remaining cost-lot value rather than
+        // the weighted-average. Where a lot doesn't exist yet (stock that
+        // predates FIFO tracking), we fall back to the average so nothing reads
+        // as zero.
+        boolean fifo = fifoCostingService.isFifo(ctx.orgId());
+        Map<String, BigDecimal> fifoValue = fifo ? fifoValueByItemWarehouse(ctx.orgId()) : Map.of();
+
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Item item : trackableItems) {
             List<StockBalance> itemBalances = balancesByItem.getOrDefault(item.getId(), List.of());
@@ -253,7 +261,9 @@ public class OperationalReportService {
 
             for (StockBalance b : itemBalances) {
                     Warehouse wh = warehouses.get(b.getWarehouseId());
-                    BigDecimal stockValue = nz(b.getQuantityOnHand()).multiply(nz(b.getAverageCost()));
+                    BigDecimal avgValue = nz(b.getQuantityOnHand()).multiply(nz(b.getAverageCost()));
+                    BigDecimal fifoVal = fifo ? fifoValue.get(b.getItemId() + ":" + b.getWarehouseId()) : null;
+                    BigDecimal stockValue = fifoVal != null ? fifoVal : avgValue;
                     BigDecimal reorderLevel = nz(item.getReorderLevel());
                     rows.add(row(
                             "sku", item.getSku(),
@@ -285,6 +295,60 @@ public class OperationalReportService {
                         col("averageCost", "Avg Cost", "currency"), col("stockValue", "Value", "currency"),
                         col("reorderLevel", "Reorder", "number"), col("lowStock", "Low Stock", "text")),
                 rows);
+    }
+
+    /**
+     * FIFO valuation: every open cost lot with its age and remaining value.
+     * The closing inventory on the balance sheet equals the sum of these.
+     */
+    public OperationalReportResponse fifoValuation() {
+        Context ctx = context();
+        var lots = fifoCostingService.openLots(ctx.orgId());
+        Map<UUID, Item> items = itemMap(ctx.orgId(), lots.stream().map(l -> l.getItemId()).toList());
+        Map<UUID, Warehouse> warehouses = warehouseMap(lots.stream().map(l -> l.getWarehouseId()).toList());
+        LocalDate today = LocalDate.now();
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        BigDecimal totalValue = BigDecimal.ZERO;
+        for (var lot : lots) {
+            Item item = items.get(lot.getItemId());
+            Warehouse wh = warehouses.get(lot.getWarehouseId());
+            BigDecimal lotValue = lot.getRemainingQty().multiply(lot.getUnitCost());
+            totalValue = totalValue.add(lotValue);
+            long ageDays = java.time.temporal.ChronoUnit.DAYS.between(lot.getReceivedDate(), today);
+            rows.add(row(
+                    "sku", item == null ? "--" : item.getSku(),
+                    "item", item == null ? "Unknown" : item.getName(),
+                    "warehouse", wh == null ? "Unknown" : wh.getName(),
+                    "received", lot.getReceivedDate(),
+                    "ageDays", BigDecimal.valueOf(ageDays),
+                    "remainingQty", nz(lot.getRemainingQty()),
+                    "unitCost", nz(lot.getUnitCost()),
+                    "lotValue", lotValue,
+                    "opening", lot.getSourceMovementId() == null ? "Yes" : "No"
+            ));
+        }
+
+        return response("fifo-valuation", "FIFO Valuation",
+                "Open FIFO cost lots — remaining quantity valued at its receipt cost.",
+                today, today, ctx.currency(),
+                metrics(metric("lots", "Open Lots", BigDecimal.valueOf(rows.size()), "number"),
+                        metric("value", "Inventory Value", totalValue, "currency")),
+                columns(col("sku", "SKU", "text"), col("item", "Item", "text"),
+                        col("warehouse", "Warehouse", "text"), col("received", "Received", "date"),
+                        col("ageDays", "Age (days)", "number"), col("remainingQty", "Qty Left", "number"),
+                        col("unitCost", "Unit Cost", "currency"), col("lotValue", "Lot Value", "currency"),
+                        col("opening", "Opening", "text")),
+                rows);
+    }
+
+    private Map<String, BigDecimal> fifoValueByItemWarehouse(UUID orgId) {
+        Map<String, BigDecimal> m = new HashMap<>();
+        for (var lot : fifoCostingService.openLots(orgId)) {
+            m.merge(lot.getItemId() + ":" + lot.getWarehouseId(),
+                    lot.getRemainingQty().multiply(lot.getUnitCost()), BigDecimal::add);
+        }
+        return m;
     }
 
     public OperationalReportResponse stockMovement(LocalDate startDate, LocalDate endDate) {

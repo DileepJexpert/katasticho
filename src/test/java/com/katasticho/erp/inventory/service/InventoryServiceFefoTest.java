@@ -69,6 +69,7 @@ class InventoryServiceFefoTest {
     @Mock private StockBalanceRepository stockBalanceRepository;
     @Mock private BomComponentRepository bomComponentRepository;
     @Mock private BatchService batchService;
+    @Mock private FifoCostingService fifoCostingService;
     @Mock private AuditService auditService;
     @Mock private com.katasticho.erp.common.cache.CacheInvalidationService cacheInvalidationService;
     @Mock private com.katasticho.erp.common.snapshot.DocumentSnapshotService documentSnapshotService;
@@ -83,8 +84,11 @@ class InventoryServiceFefoTest {
     void setUp() {
         inventoryService = new InventoryService(
                 itemRepository, warehouseRepository, stockMovementRepository,
-                stockBalanceRepository, bomComponentRepository, batchService, auditService,
-                cacheInvalidationService, documentSnapshotService);
+                stockBalanceRepository, bomComponentRepository, batchService, fifoCostingService,
+                auditService, cacheInvalidationService, documentSnapshotService);
+
+        // These tests exercise the weighted-average path; FIFO stays off.
+        lenient().when(fifoCostingService.isFifo(any(UUID.class))).thenReturn(false);
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();

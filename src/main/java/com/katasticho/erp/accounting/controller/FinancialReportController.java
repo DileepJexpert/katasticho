@@ -162,6 +162,12 @@ public class FinancialReportController {
         return ResponseEntity.ok(ApiResponse.ok(operationalReportService.stockSummary()));
     }
 
+    @GetMapping("/fifo-valuation")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<OperationalReportResponse>> getFifoValuation() {
+        return ResponseEntity.ok(ApiResponse.ok(operationalReportService.fifoValuation()));
+    }
+
     @GetMapping("/stock-movement")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<OperationalReportResponse>> getStockMovement(

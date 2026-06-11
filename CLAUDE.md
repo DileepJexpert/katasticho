@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V56** (post-dated journals). Next new migration = V57.
+- Location: `src/main/resources/db/migration/`. Latest is **V57** (FIFO cost lots). Next new migration = V58.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -43,6 +43,7 @@ cd flutter_app && flutter test
 - **HSN → GST mapping:** 3004 = 12% (standard medicines), 2106 = 18% (supplements), 3002 = 5% (vaccines).
 - **Payment lifecycle:** DRAFT → {POSTED | PENDING_APPROVAL}; PENDING_APPROVAL → {POSTED | VOIDED}.
 - **Approval workflows:** seeded but `active=false` by default — nothing triggers until an admin activates.
+- **Inventory costing (V57):** org setting `inventory.valuation_method` (`FIFO` default | `WEIGHTED_AVERAGE`) is now *honored*. FIFO uses `cost_lot`/`cost_lot_consumption`: each receipt opens a lot; each issue draws lots oldest-first and bakes the blended FIFO cost into the immutable `stock_movement.unit_cost`/`total_cost` (computed before the row is built). Valuation = Σ(remaining_qty × unit_cost) of active lots. Pre-FIFO stock is lazily seeded as an opening lot from the weighted-average balance on first issue. Reversals close (receipt) or restore (issue) lots. COGS posting (`SalesInvoicePostingRule`) reads the actual dispatched-movement cost via SO→challans→SALE movements when FIFO; else falls back to `item.purchasePrice` (= weighted-average path, byte-for-byte unchanged). Report: `/api/v1/reports/fifo-valuation`; `stock-summary` values FIFO orgs at lot value. Engine: `inventory/service/FifoCostingService.java`.
 
 ## Git / Workflow
 - Active feature branch: `claude/erp-requirements-doc-g0o1P`. Develop, commit, push here. Do NOT push elsewhere without permission.
@@ -286,6 +287,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `procurement/service/StockReceiptServiceTest.java` — GRN receive stock
 - `common/workflow/ApprovalWorkflowServiceTest.java` — workflow engine
 - `accounting/service/JournalServiceTest.java` — journal posting
+- `inventory/service/FifoCostingServiceTest.java` — FIFO cost lots: setting detection, oldest-first draw-down w/ blended cost, lazy opening-lot seed, fallback when lots dry, receipt lot open, reversal restore (6 tests)
 - `inventory/service/StockCountServiceTest.java` — physical stock count (6 tests)
 - `inventory/service/TransferOrderServiceTest.java` — transfer orders (7 tests)
 - `inventory/service/PicklistServiceTest.java` — picklist generation (8 tests)

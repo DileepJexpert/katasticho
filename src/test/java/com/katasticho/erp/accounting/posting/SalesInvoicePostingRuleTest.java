@@ -37,6 +37,12 @@ class SalesInvoicePostingRuleTest {
     private TaxLineItemRepository taxLineItemRepository;
     @Mock
     private ItemRepository itemRepository;
+    @Mock
+    private com.katasticho.erp.inventory.service.FifoCostingService fifoCostingService;
+    @Mock
+    private com.katasticho.erp.sales.repository.DeliveryChallanRepository deliveryChallanRepository;
+    @Mock
+    private com.katasticho.erp.inventory.repository.StockMovementRepository stockMovementRepository;
 
     @InjectMocks
     private SalesInvoicePostingRule rule;

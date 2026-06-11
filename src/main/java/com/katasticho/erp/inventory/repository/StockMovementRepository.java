@@ -93,4 +93,25 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, UU
 
     List<StockMovement> findByOrgIdAndMovementDateBetweenOrderByMovementDateDescCreatedAtDesc(
             UUID orgId, LocalDate from, LocalDate to);
+
+    /**
+     * Actual recorded cost of the SALE movements attributable to the given
+     * references (e.g. an invoice's delivery challans). Under FIFO each such
+     * movement's total_cost is the true cost-of-goods for the units it
+     * dispatched, so summing them gives FIFO COGS for the invoice. Returns 0
+     * when there are no matching movements.
+     */
+    @Query("""
+        SELECT COALESCE(SUM(ABS(m.totalCost)), 0)
+        FROM StockMovement m
+        WHERE m.orgId = :orgId
+          AND m.referenceType = :refType
+          AND m.referenceId IN :refIds
+          AND m.movementType = 'SALE'
+          AND m.reversal = false
+          AND m.reversed = false
+    """)
+    BigDecimal sumSaleCostByReferences(@Param("orgId") UUID orgId,
+                                       @Param("refType") ReferenceType refType,
+                                       @Param("refIds") List<UUID> refIds);
 }
