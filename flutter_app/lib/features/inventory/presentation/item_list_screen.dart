@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../routing/app_router.dart';
@@ -17,8 +18,15 @@ class ItemListScreen extends ConsumerStatefulWidget {
 }
 
 class _ItemListScreenState extends ConsumerState<ItemListScreen> {
+  List<Map<String, dynamic>> _currentItems = const [];
   String? _searchQuery;
   final Set<String> _selectedIds = {};
+
+  void _openAtIndex(int index) {
+    if (index < 0 || index >= _currentItems.length) return;
+    final id = _currentItems[index]['id']?.toString();
+    if (id != null) context.go('/items/$id');
+  }
 
   void _toggleSelect(String id) => setState(() {
         _selectedIds.contains(id)
@@ -79,7 +87,12 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
     final itemsAsync = ref.watch(itemListProvider(_searchQuery));
     final inSelection = _selectedIds.isNotEmpty;
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: _currentItems.length,
+      onNew: () => context.go(Routes.itemCreate),
+      onRefresh: () => ref.invalidate(itemListProvider),
+      onOpen: _openAtIndex,
+      child: Scaffold(
       body: Column(
         children: [
           KListPageHeader(
@@ -153,6 +166,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
                     .whereType<Map>()
                     .map((item) => item.cast<String, dynamic>())
                     .toList();
+                _currentItems = itemMaps;
 
                 return KResponsiveEntityList<Map<String, dynamic>>(
                   items: itemMaps,
@@ -184,6 +198,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
               icon: const Icon(Icons.add),
               label: const Text('Add Item'),
             ),
+    ),
     );
   }
 }

@@ -13,6 +13,7 @@ import '../core/theme/k_spacing.dart';
 import '../core/widgets/k_assistant_fab.dart';
 import '../core/widgets/k_command_palette.dart';
 import '../core/widgets/k_quick_create_menu.dart';
+import '../core/widgets/k_shortcut_help_overlay.dart';
 import '../core/widgets/k_top_bar.dart';
 import '../core/widgets/theme_mode_switcher.dart';
 import '../features/auth/data/auth_repository.dart';
@@ -621,10 +622,75 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
 
   bool _handleKey(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
-    if (event.logicalKey != LogicalKeyboardKey.keyK) return false;
-    if (!KShortcuts.isControlOrMetaPressed()) return false;
-    KCommandPalette.show(context, commands: buildAppCommands());
-    return true;
+
+    final hasModifier = KShortcuts.isControlOrMetaPressed();
+
+    if (hasModifier && event.logicalKey == LogicalKeyboardKey.keyK) {
+      KCommandPalette.show(context, commands: buildAppCommands());
+      return true;
+    }
+
+    if (hasModifier && event.logicalKey == LogicalKeyboardKey.keyN) {
+      _contextAwareNew();
+      return true;
+    }
+
+    if (!hasModifier && !_isTextFieldFocused() &&
+        event.logicalKey == LogicalKeyboardKey.question) {
+      KShortcutHelpOverlay.show(context, showListShortcuts: true);
+      return true;
+    }
+
+    return false;
+  }
+
+  void _contextAwareNew() {
+    final location = GoRouterState.of(context).uri.toString();
+    String? createRoute;
+    if (location.startsWith('/invoices')) {
+      createRoute = Routes.invoiceCreate;
+    } else if (location.startsWith('/bills')) {
+      createRoute = Routes.billCreate;
+    } else if (location.startsWith('/sales-orders')) {
+      createRoute = Routes.salesOrderCreate;
+    } else if (location.startsWith('/purchase-orders')) {
+      createRoute = Routes.purchaseOrderCreate;
+    } else if (location.startsWith('/delivery-challans')) {
+      createRoute = Routes.deliveryChallanCreate;
+    } else if (location.startsWith('/estimates')) {
+      createRoute = Routes.estimateCreate;
+    } else if (location.startsWith('/expenses')) {
+      createRoute = Routes.expenseCreate;
+    } else if (location.startsWith('/contacts')) {
+      createRoute = Routes.contactCreate;
+    } else if (location.startsWith('/items')) {
+      createRoute = Routes.itemCreate;
+    } else if (location.startsWith('/credit-notes')) {
+      createRoute = Routes.creditNoteCreate;
+    } else if (location.startsWith('/vendor-credits')) {
+      createRoute = Routes.vendorCreditCreate;
+    } else if (location.startsWith('/stock-receipts')) {
+      createRoute = Routes.stockReceiptCreate;
+    } else if (location.startsWith('/accounting/journal-entries')) {
+      createRoute = Routes.journalEntryCreate;
+    } else if (location.startsWith('/payroll/employees')) {
+      createRoute = Routes.payrollEmployeeCreate;
+    } else if (location.startsWith('/manufacturing/work-orders')) {
+      createRoute = Routes.manufacturingWorkOrderCreate;
+    }
+    if (createRoute != null) {
+      context.go(createRoute);
+    } else {
+      KCommandPalette.show(context, commands: buildAppCommands());
+    }
+  }
+
+  bool _isTextFieldFocused() {
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus == null) return false;
+    final ctx = focus.context;
+    if (ctx == null) return false;
+    return ctx.widget is EditableText;
   }
 
   @override

@@ -5,6 +5,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/contact_repository.dart';
@@ -23,9 +24,16 @@ class ContactListScreen extends ConsumerStatefulWidget {
 }
 
 class _ContactListScreenState extends ConsumerState<ContactListScreen> {
+  List<Map<String, dynamic>> _currentContacts = const [];
   String? _selectedType;
   String _searchQuery = '';
   final Set<String> _selectedIds = {};
+
+  void _openAtIndex(int index) {
+    if (index < 0 || index >= _currentContacts.length) return;
+    final id = _currentContacts[index]['id']?.toString();
+    if (id != null) context.go('/contacts/$id');
+  }
 
   void _toggleSelect(String id) {
     setState(() {
@@ -94,7 +102,12 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
   @override
   Widget build(BuildContext context) {
     final inSelection = _selectedIds.isNotEmpty;
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: _currentContacts.length,
+      onNew: () => context.go(Routes.contactCreate),
+      onRefresh: () => ref.invalidate(contactListProvider(_selectedType)),
+      onOpen: _openAtIndex,
+      child: Scaffold(
       body: Column(
         children: [
           KListPageHeader(
@@ -133,6 +146,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
               selectedIds: _selectedIds,
               inSelection: inSelection,
               onToggleSelect: _toggleSelect,
+              onItemsLoaded: (items) => _currentContacts = items,
             ),
           ),
         ],
@@ -144,6 +158,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
               icon: const Icon(Icons.person_add),
               label: const Text('Add Contact'),
             ),
+    ),
     );
   }
 }
@@ -154,6 +169,7 @@ class _ContactTabBody extends ConsumerWidget {
   final Set<String> selectedIds;
   final bool inSelection;
   final ValueChanged<String> onToggleSelect;
+  final ValueChanged<List<Map<String, dynamic>>> onItemsLoaded;
 
   const _ContactTabBody({
     required this.type,
@@ -161,6 +177,7 @@ class _ContactTabBody extends ConsumerWidget {
     required this.selectedIds,
     required this.inSelection,
     required this.onToggleSelect,
+    required this.onItemsLoaded,
   });
 
   @override
@@ -212,6 +229,7 @@ class _ContactTabBody extends ConsumerWidget {
             .whereType<Map>()
             .map((contact) => contact.cast<String, dynamic>())
             .toList();
+        onItemsLoaded(contactMaps);
 
         return KResponsiveEntityList<Map<String, dynamic>>(
           items: contactMaps,

@@ -7,8 +7,31 @@ import 'package:flutter/services.dart';
 class KShortcuts {
   const KShortcuts._();
 
+  // ── Global ────────────────────────────────────────────────────
   static const commandPalette = 'Ctrl/Cmd K';
+  static const shortcutHelp = '?';
+  static const globalNew = 'Ctrl/Cmd N';
+  static const globalSave = 'Ctrl/Cmd S';
+  static const globalSearch = '/';
+  static const globalEscape = 'Esc';
 
+  // ── List screens ──────────────────────────────────────────────
+  static const listNew = 'N';
+  static const listSearch = '/';
+  static const listRefresh = 'R';
+  static const listUp = '↑ / K';
+  static const listDown = '↓ / J';
+  static const listOpen = 'Enter';
+  static const listSelect = 'X';
+  static const listSelectAll = 'Ctrl/Cmd A';
+
+  // ── Form screens ──────────────────────────────────────────────
+  static const formSubmit = 'Ctrl/Cmd Enter';
+  static const formNextStep = 'Ctrl/Cmd →';
+  static const formPrevStep = 'Ctrl/Cmd ←';
+  static const formCancel = 'Esc';
+
+  // ── POS ───────────────────────────────────────────────────────
   static const posSearch = 'Ctrl/Cmd F';
   static const posCompleteCurrent = 'Ctrl/Cmd Enter';
   static const posClearCart = 'Ctrl/Cmd Delete';
@@ -27,5 +50,11 @@ class KShortcuts {
         pressed.contains(LogicalKeyboardKey.controlRight) ||
         pressed.contains(LogicalKeyboardKey.metaLeft) ||
         pressed.contains(LogicalKeyboardKey.metaRight);
+  }
+
+  static bool isShiftPressed() {
+    final pressed = HardwareKeyboard.instance.logicalKeysPressed;
+    return pressed.contains(LogicalKeyboardKey.shiftLeft) ||
+        pressed.contains(LogicalKeyboardKey.shiftRight);
   }
 }

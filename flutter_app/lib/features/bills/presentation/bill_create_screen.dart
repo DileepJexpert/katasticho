@@ -15,6 +15,7 @@ import '../../contacts/data/contact_repository.dart';
 import '../../inventory/data/item_repository.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../data/bill_repository.dart';
 import 'bill_scan_sheet.dart';
 
@@ -478,9 +479,27 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
     }
   }
 
+  void _nextStep() {
+    if (_currentStep >= 2) return;
+    if (_currentStep == 0 && _selectedContactId == null) {
+      setState(() => _errorMessage = 'Please select a vendor');
+      return;
+    }
+    setState(() => _currentStep++);
+  }
+
+  void _prevStep() {
+    if (_currentStep > 0) setState(() => _currentStep--);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _currentStep == 2 ? _handleSubmit : _nextStep,
+      onNextStep: _nextStep,
+      onPrevStep: _prevStep,
+      onCancel: () => context.go(Routes.bills),
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Create Bill'),
         leading: IconButton(
@@ -602,14 +621,7 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
                     if (_currentStep < 2)
                       KButton(
                         label: 'Next',
-                        onPressed: () {
-                          if (_currentStep == 0 && _selectedContactId == null) {
-                            setState(
-                                () => _errorMessage = 'Please select a vendor');
-                            return;
-                          }
-                          setState(() => _currentStep++);
-                        },
+                        onPressed: _nextStep,
                       )
                     else
                       KButton(
@@ -625,7 +637,7 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _stepConnector() {
