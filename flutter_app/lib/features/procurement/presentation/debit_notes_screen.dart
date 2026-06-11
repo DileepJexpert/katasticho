@@ -106,6 +106,7 @@ class _DebitNotesScreenState extends ConsumerState<DebitNotesScreen> {
         onPressed: () => context.go(Routes.debitNoteCreate),
         icon: const Icon(Icons.add),
         label: const Text('New Debit Note'),
+        tooltip: 'New Debit Note (N)',
       ),
     );
   }

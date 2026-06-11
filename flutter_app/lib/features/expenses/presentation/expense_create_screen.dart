@@ -14,6 +14,7 @@ import '../../tax_groups/data/tax_group_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/expense_repository.dart';
 import 'expense_list_screen.dart' show kExpenseCategories;
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 
 /// Lightweight provider to pull the chart of accounts once per screen open.
 final _accountsFutureProvider =
@@ -71,7 +72,10 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen>
   Widget build(BuildContext context) {
     final accountsAsync = ref.watch(_accountsFutureProvider);
 
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _submit,
+      onCancel: () => context.pop(),
+      child: Scaffold(
       appBar: AppBar(title: const Text('Record Expense')),
       body: accountsAsync.when(
         loading: () => const KLoading(),
@@ -259,6 +263,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen>
           );
         },
       ),
+    ),
     );
   }
 

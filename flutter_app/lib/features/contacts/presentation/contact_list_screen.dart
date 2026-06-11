@@ -157,6 +157,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
               onPressed: () => context.push('/contacts/create'),
               icon: const Icon(Icons.person_add),
               label: const Text('Add Contact'),
+              tooltip: 'Add Contact (N)',
             ),
     ),
     );

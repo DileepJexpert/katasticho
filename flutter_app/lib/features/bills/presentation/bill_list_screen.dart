@@ -315,6 +315,7 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
               onPressed: () => context.go(Routes.billCreate),
               icon: const Icon(Icons.add),
               label: const Text('New Bill'),
+              tooltip: 'New Bill (N)',
             ),
     ),
     );

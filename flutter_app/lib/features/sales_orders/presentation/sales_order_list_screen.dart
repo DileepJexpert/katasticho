@@ -220,6 +220,7 @@ class _SalesOrderListScreenState extends ConsumerState<SalesOrderListScreen> {
               onPressed: () => context.go(Routes.salesOrderCreate),
               icon: const Icon(Icons.add),
               label: const Text('New Order'),
+              tooltip: 'New Order (N)',
             ),
     ),
     );

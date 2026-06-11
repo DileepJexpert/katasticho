@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/estimate_repository.dart';
 
@@ -26,6 +27,13 @@ class EstimateListScreen extends ConsumerStatefulWidget {
 class _EstimateListScreenState extends ConsumerState<EstimateListScreen> {
   String? _status;
   final Set<String> _selectedIds = {};
+  List<Map<String, dynamic>> _currentEstimates = const [];
+
+  void _openAtIndex(int index) {
+    if (index < 0 || index >= _currentEstimates.length) return;
+    final id = _currentEstimates[index]['id']?.toString();
+    if (id != null) context.push('/estimates/$id');
+  }
 
   void _toggleSelect(String id) => setState(() {
         _selectedIds.contains(id)
@@ -126,7 +134,12 @@ class _EstimateListScreenState extends ConsumerState<EstimateListScreen> {
     final asyncEstimates = ref.watch(estimateListProvider(filters));
     final inSelection = _selectedIds.isNotEmpty;
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: _currentEstimates.length,
+      onNew: () => context.push('/estimates/create'),
+      onRefresh: () => ref.invalidate(estimateListProvider(filters)),
+      onOpen: _openAtIndex,
+      child: Scaffold(
       body: Column(
         children: [
           KListPageHeader(
@@ -182,6 +195,7 @@ class _EstimateListScreenState extends ConsumerState<EstimateListScreen> {
                     .whereType<Map>()
                     .map((estimate) => estimate.cast<String, dynamic>())
                     .toList();
+                _currentEstimates = estimateMaps;
 
                 return KResponsiveEntityList<Map<String, dynamic>>(
                   items: estimateMaps,
@@ -214,8 +228,9 @@ class _EstimateListScreenState extends ConsumerState<EstimateListScreen> {
               onPressed: () => context.push('/estimates/create'),
               icon: const Icon(Icons.add),
               label: const Text('New Estimate'),
+              tooltip: 'New Estimate (N)',
             ),
-    );
+    ));
   }
 }
 

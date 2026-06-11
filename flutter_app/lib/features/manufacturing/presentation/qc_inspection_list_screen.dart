@@ -156,6 +156,7 @@ class _QcInspectionListScreenState
         onPressed: () => _showCreateSheet(context),
         icon: const Icon(Icons.add),
         label: const Text('New Inspection'),
+        tooltip: 'New Inspection (N)',
       ),
     );
   }

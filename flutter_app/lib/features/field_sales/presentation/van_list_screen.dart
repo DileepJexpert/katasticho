@@ -227,6 +227,7 @@ class _VanListScreenState extends ConsumerState<VanListScreen> {
         onPressed: _showCreateDialog,
         icon: const Icon(Icons.add),
         label: const Text('New Van'),
+        tooltip: 'New Van (N)',
       ),
     );
   }

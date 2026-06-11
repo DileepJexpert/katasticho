@@ -105,6 +105,7 @@ class _TransferOrderListScreenState
         },
         icon: const Icon(Icons.add),
         label: const Text('New Transfer'),
+        tooltip: 'New Transfer (N)',
       ),
     );
   }

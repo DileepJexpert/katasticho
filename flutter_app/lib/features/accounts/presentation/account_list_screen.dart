@@ -62,6 +62,7 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
         onPressed: () => context.push('/accounts/create'),
         icon: const Icon(Icons.add),
         label: const Text('Add Account'),
+        tooltip: 'Add Account (N)',
       ),
     );
   }

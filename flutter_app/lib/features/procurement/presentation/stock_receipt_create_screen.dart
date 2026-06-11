@@ -14,6 +14,7 @@ import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../data/stock_receipt_repository.dart';
 import 'supplier_picker_sheet.dart';
 
@@ -189,6 +190,22 @@ class _StockReceiptCreateScreenState
   double get _totalTax => _lines.fold(0, (sum, l) => sum + l.taxAmount);
   double get _grandTotal => _subtotal + _totalTax;
 
+  void _nextStep() {
+    if (_currentStep == 0 && _supplier == null) {
+      setState(() => _errorMessage = 'Please select a supplier');
+      return;
+    }
+    if (_currentStep < 2) {
+      setState(() => _currentStep++);
+    } else {
+      _submit();
+    }
+  }
+
+  void _prevStep() {
+    if (_currentStep > 0) setState(() => _currentStep--);
+  }
+
   Future<void> _pickSupplier() async {
     final picked = await showSupplierPicker(context);
     if (picked != null) {
@@ -289,7 +306,12 @@ class _StockReceiptCreateScreenState
       businessType: auth.businessType,
       industryCode: auth.industryCode,
     );
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _currentStep == 2 ? _submit : _nextStep,
+      onNextStep: _nextStep,
+      onPrevStep: _prevStep,
+      onCancel: () => context.go(Routes.stockReceipts),
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('New Goods Receipt'),
         leading: IconButton(
@@ -388,20 +410,13 @@ class _StockReceiptCreateScreenState
                       child: KButton(
                         label: 'Back',
                         variant: KButtonVariant.outlined,
-                        onPressed: () => setState(() => _currentStep--),
+                        onPressed: _prevStep,
                       ),
                     ),
                   if (_currentStep < 2)
                     KButton(
                       label: 'Next',
-                      onPressed: () {
-                        if (_currentStep == 0 && _supplier == null) {
-                          setState(
-                              () => _errorMessage = 'Please select a supplier');
-                          return;
-                        }
-                        setState(() => _currentStep++);
-                      },
+                      onPressed: _nextStep,
                     )
                   else
                     KButton(
@@ -416,7 +431,7 @@ class _StockReceiptCreateScreenState
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _stepConnector() {

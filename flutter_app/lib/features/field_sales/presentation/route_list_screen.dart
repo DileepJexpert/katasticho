@@ -263,6 +263,7 @@ class _RouteListScreenState extends ConsumerState<RouteListScreen> {
         onPressed: _showCreateRouteDialog,
         icon: const Icon(Icons.add),
         label: const Text('New Route'),
+        tooltip: 'New Route (N)',
       ),
     );
   }

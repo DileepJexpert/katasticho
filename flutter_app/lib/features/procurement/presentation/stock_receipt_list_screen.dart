@@ -8,6 +8,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../data/stock_receipt_repository.dart';
 
 const _receiptTabs = [
@@ -29,12 +30,24 @@ class _StockReceiptListScreenState
     extends ConsumerState<StockReceiptListScreen> {
   String? _status;
   String _search = '';
+  List<Map<String, dynamic>> _currentReceipts = const [];
+
+  void _openAtIndex(int index) {
+    if (index < 0 || index >= _currentReceipts.length) return;
+    final id = _currentReceipts[index]['id']?.toString();
+    if (id != null) context.go('/stock-receipts/$id');
+  }
 
   @override
   Widget build(BuildContext context) {
     final receiptsAsync = ref.watch(stockReceiptListProvider(null));
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: _currentReceipts.length,
+      onNew: () => context.go(Routes.stockReceiptCreate),
+      onRefresh: () => ref.invalidate(stockReceiptListProvider(null)),
+      onOpen: _openAtIndex,
+      child: Scaffold(
       body: Column(
         children: [
           KListPageHeader(
@@ -88,6 +101,8 @@ class _StockReceiptListScreenState
                   return haystack.contains(_search);
                 }).toList();
 
+                _currentReceipts = receiptMaps;
+
                 if (receiptMaps.isEmpty) {
                   return KEmptyState(
                     icon: Icons.local_shipping_outlined,
@@ -120,7 +135,7 @@ class _StockReceiptListScreenState
         icon: const Icon(Icons.add),
         label: const Text('New Receipt'),
       ),
-    );
+    ));
   }
 }
 

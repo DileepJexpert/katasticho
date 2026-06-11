@@ -185,6 +185,7 @@ class _ApiKeysScreenState extends ConsumerState<ApiKeysScreen> {
         onPressed: _createKey,
         icon: const Icon(Icons.add),
         label: const Text('Create key'),
+        tooltip: 'Create key (N)',
       ),
       body: RefreshIndicator(
         onRefresh: _load,

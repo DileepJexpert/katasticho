@@ -8,6 +8,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../data/credit_note_providers.dart';
 
 const _statusTabs = [
@@ -28,12 +29,24 @@ class CreditNoteListScreen extends ConsumerStatefulWidget {
 
 class _CreditNoteListScreenState extends ConsumerState<CreditNoteListScreen> {
   String? _status;
+  List<Map<String, dynamic>> _currentCreditNotes = const [];
+
+  void _openAtIndex(int index) {
+    if (index < 0 || index >= _currentCreditNotes.length) return;
+    final id = _currentCreditNotes[index]['id']?.toString();
+    if (id != null) context.go('/credit-notes/$id');
+  }
 
   @override
   Widget build(BuildContext context) {
     final creditNotesAsync = ref.watch(creditNoteListProvider);
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: _currentCreditNotes.length,
+      onNew: () => context.go(Routes.creditNoteCreate),
+      onRefresh: () => ref.invalidate(creditNoteListProvider),
+      onOpen: _openAtIndex,
+      child: Scaffold(
       body: Column(
         children: [
           KListPageHeader(
@@ -87,6 +100,7 @@ class _CreditNoteListScreenState extends ConsumerState<CreditNoteListScreen> {
                 }
 
                 final creditNoteMaps = creditNotes.cast<Map<String, dynamic>>();
+                _currentCreditNotes = creditNoteMaps;
 
                 return KResponsiveEntityList<Map<String, dynamic>>(
                   items: creditNoteMaps,
@@ -105,7 +119,7 @@ class _CreditNoteListScreenState extends ConsumerState<CreditNoteListScreen> {
         icon: const Icon(Icons.add),
         label: const Text('New Credit Note'),
       ),
-    );
+    ));
   }
 }
 

@@ -144,6 +144,7 @@ class _JobWorkListScreenState extends ConsumerState<JobWorkListScreen> {
         onPressed: () => context.go('/manufacturing/job-work/new'),
         icon: const Icon(Icons.add),
         label: const Text('New Job Work Order'),
+        tooltip: 'New Job Work Order (N)',
       ),
     );
   }

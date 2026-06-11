@@ -12,6 +12,7 @@ import '../../contacts/data/contact_repository.dart';
 import '../../tax_groups/data/tax_group_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/estimate_repository.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 
 /// Local draft model for a single line item on the create form.
 class _LineDraft {
@@ -91,7 +92,10 @@ class _EstimateCreateScreenState extends ConsumerState<EstimateCreateScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _submit,
+      onCancel: () => context.pop(),
+      child: Scaffold(
       appBar: AppBar(title: const Text('New Estimate')),
       body: Form(
         key: _formKey,
@@ -222,6 +226,7 @@ class _EstimateCreateScreenState extends ConsumerState<EstimateCreateScreen>
           ],
         ),
       ),
+    ),
     );
   }
 

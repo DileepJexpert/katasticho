@@ -14,6 +14,7 @@ import '../../../routing/app_router.dart';
 import '../../contacts/data/contact_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/vendor_credit_repository.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 
 class VendorCreditCreateScreen extends ConsumerStatefulWidget {
   const VendorCreditCreateScreen({super.key});
@@ -165,9 +166,27 @@ class _VendorCreditCreateScreenState
     }
   }
 
+  void _nextStep() {
+    if (_currentStep >= 2) return;
+    if (_currentStep == 0 && _selectedContactId == null) {
+      setState(() => _errorMessage = 'Please select a vendor');
+      return;
+    }
+    setState(() => _currentStep++);
+  }
+
+  void _prevStep() {
+    if (_currentStep > 0) setState(() => _currentStep--);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _currentStep == 2 ? _handleSubmit : _nextStep,
+      onNextStep: _nextStep,
+      onPrevStep: _prevStep,
+      onCancel: () => context.go(Routes.vendorCredits),
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Create Vendor Credit'),
         leading: IconButton(
@@ -275,15 +294,7 @@ class _VendorCreditCreateScreenState
                     if (_currentStep < 2)
                       KButton(
                         label: 'Next',
-                        onPressed: () {
-                          if (_currentStep == 0 &&
-                              _selectedContactId == null) {
-                            setState(() => _errorMessage =
-                                'Please select a vendor');
-                            return;
-                          }
-                          setState(() => _currentStep++);
-                        },
+                        onPressed: _nextStep,
                       )
                     else
                       KButton(
@@ -299,6 +310,7 @@ class _VendorCreditCreateScreenState
           ],
         ),
       ),
+    ),
     );
   }
 

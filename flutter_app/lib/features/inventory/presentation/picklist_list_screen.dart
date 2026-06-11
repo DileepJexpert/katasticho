@@ -352,6 +352,7 @@ class _PicklistListScreenState extends ConsumerState<PicklistListScreen> {
         onPressed: _actionInProgress ? null : _createPicklist,
         icon: const Icon(Icons.add),
         label: const Text('New Picklist'),
+        tooltip: 'New Picklist (N)',
       ),
     );
   }

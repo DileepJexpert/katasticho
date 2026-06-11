@@ -60,6 +60,7 @@ class BranchesScreen extends ConsumerWidget {
         onPressed: () => _openCreateSheet(context, ref),
         icon: const Icon(Icons.add_business_outlined),
         label: const Text('Add Branch'),
+        tooltip: 'Add Branch (N)',
       ),
     );
   }

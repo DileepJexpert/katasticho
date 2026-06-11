@@ -104,6 +104,7 @@ class _StockCountListScreenState extends ConsumerState<StockCountListScreen> {
         },
         icon: const Icon(Icons.add),
         label: const Text('New Count'),
+        tooltip: 'New Count (N)',
       ),
     );
   }

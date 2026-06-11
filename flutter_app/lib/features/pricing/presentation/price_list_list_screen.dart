@@ -56,6 +56,7 @@ class PriceListListScreen extends ConsumerWidget {
         onPressed: () => context.go('/price-lists/create'),
         icon: const Icon(Icons.add),
         label: const Text('New List'),
+        tooltip: 'New List (N)',
       ),
     );
   }

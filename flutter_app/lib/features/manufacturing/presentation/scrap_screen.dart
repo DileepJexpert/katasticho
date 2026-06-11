@@ -67,11 +67,13 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
               onPressed: () => _showAddReasonCodeSheet(context),
               icon: const Icon(Icons.add),
               label: const Text('Add Reason Code'),
+              tooltip: 'Add Reason Code (N)',
             )
           : FloatingActionButton.extended(
               onPressed: () => _showRecordScrapDialog(context),
               icon: const Icon(Icons.warning_amber_rounded),
               label: const Text('Record Scrap'),
+              tooltip: 'Record Scrap (N)',
             ),
     );
   }

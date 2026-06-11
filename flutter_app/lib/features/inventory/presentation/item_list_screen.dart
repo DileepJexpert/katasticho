@@ -197,6 +197,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
               onPressed: () => context.go(Routes.itemCreate),
               icon: const Icon(Icons.add),
               label: const Text('Add Item'),
+              tooltip: 'Add Item (N)',
             ),
     ),
     );

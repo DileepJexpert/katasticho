@@ -6,6 +6,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../data/delivery_challan_providers.dart';
 import '../data/delivery_challan_repository.dart';
 
@@ -28,6 +29,13 @@ class DeliveryChallanListScreen extends ConsumerStatefulWidget {
 class _DeliveryChallanListScreenState
     extends ConsumerState<DeliveryChallanListScreen> {
   final Set<String> _selectedIds = {};
+  List<Map<String, dynamic>> _currentChallans = const [];
+
+  void _openAtIndex(int index) {
+    if (index < 0 || index >= _currentChallans.length) return;
+    final id = _currentChallans[index]['id']?.toString();
+    if (id != null) context.push('/delivery-challans/$id');
+  }
 
   void _toggleSelect(String id) => setState(() {
         _selectedIds.contains(id)
@@ -90,7 +98,12 @@ class _DeliveryChallanListScreenState
     final challansAsync = ref.watch(deliveryChallanListProvider);
     final inSelection = _selectedIds.isNotEmpty;
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: _currentChallans.length,
+      onNew: () => context.go('/delivery-challans/create'),
+      onRefresh: () => ref.invalidate(deliveryChallanListProvider),
+      onOpen: _openAtIndex,
+      child: Scaffold(
       body: Column(
         children: [
           KListPageHeader(
@@ -174,6 +187,7 @@ class _DeliveryChallanListScreenState
                     .whereType<Map>()
                     .map((challan) => challan.cast<String, dynamic>())
                     .toList();
+                _currentChallans = challanMaps;
 
                 return KResponsiveEntityList<Map<String, dynamic>>(
                   items: challanMaps,
@@ -207,7 +221,7 @@ class _DeliveryChallanListScreenState
               icon: const Icon(Icons.add),
               label: const Text('New Challan'),
             ),
-    );
+    ));
   }
 }
 
