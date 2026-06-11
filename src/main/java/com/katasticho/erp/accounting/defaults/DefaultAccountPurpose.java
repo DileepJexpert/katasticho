@@ -45,8 +45,9 @@ public enum DefaultAccountPurpose {
     // ── Opening Balance ───────────────────────────────────────
     OPENING_BALANCE_EQUITY ("3040", "Opening Balance Equity"),
 
-    // ── Withholding (TDS) ─────────────────────────────────────
-    TDS_PAYABLE         ("2030", "TDS Payable");
+    // ── Withholding (TDS) / collection (TCS) ──────────────────
+    TDS_PAYABLE         ("2030", "TDS Payable"),
+    TCS_PAYABLE         ("2031", "TCS Payable");   // seeded by V54 for existing orgs
 
     private final String defaultCode;
     private final String label;

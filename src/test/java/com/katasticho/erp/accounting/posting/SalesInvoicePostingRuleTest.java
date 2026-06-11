@@ -242,6 +242,34 @@ class SalesInvoicePostingRuleTest {
     }
 
     @Test
+    void tcsInvoicePostsBalancedTcsPayableCredit() {
+        UUID orgId = UUID.randomUUID();
+        UUID invoiceId = UUID.randomUUID();
+        Invoice invoice = invoice(orgId, invoiceId, null);
+        // TCS 206C(1H): ₹21 on top → AR debits 21021, TCS Payable credits 21.
+        invoice.setTcsAmount(new BigDecimal("21.00"));
+        invoice.setTotalAmount(new BigDecimal("21021.00"));
+
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR)).thenReturn("1100");
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.TCS_PAYABLE)).thenReturn("2031");
+        when(taxLineItemRepository.findBySourceTypeAndSourceId("INVOICE", invoiceId))
+                .thenReturn(List.of(tax("2020", "CGST", "500.00"), tax("2021", "SGST", "500.00")));
+
+        JournalPostRequest request = rule.generate(PostingContext.salesInvoice(invoice));
+
+        assertLine(request.lines().get(0), "1100", "21021.00", "0");
+        assertThat(request.lines())
+                .anyMatch(l -> l.accountCode().equals("2031")
+                        && l.credit().compareTo(new BigDecimal("21.00")) == 0);
+
+        BigDecimal debit = request.lines().stream()
+                .map(JournalLineRequest::debit).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal credit = request.lines().stream()
+                .map(JournalLineRequest::credit).reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(debit).isEqualByComparingTo(credit);
+    }
+
+    @Test
     void failsWhenTaxAccountMappingIsMissing() {
         UUID orgId = UUID.randomUUID();
         UUID invoiceId = UUID.randomUUID();

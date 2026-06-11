@@ -200,6 +200,29 @@ class GstRepository {
     return _data(response.data);
   }
 
+  // ── TCS 206C(1H) ─────────────────────────────────────────────────────
+
+  /// Quarterly Form 27EQ data (collectee-wise TCS summary).
+  Future<Map<String, dynamic>> tcs27eq(int fy, int quarter) async {
+    final response = await _api.get(ApiConfig.tcs27eq,
+        queryParameters: {'fy': fy, 'quarter': quarter});
+    return _data(response.data);
+  }
+
+  Future<Map<String, dynamic>> tcsSettings() async {
+    final response = await _api.get(ApiConfig.tcsSettings);
+    return _data(response.data);
+  }
+
+  Future<Map<String, dynamic>> updateTcsSettings(
+      {bool? enabled, String? rate}) async {
+    final response = await _api.put(ApiConfig.tcsSettings, data: {
+      if (enabled != null) 'enabled': enabled,
+      if (rate != null) 'rate': rate,
+    });
+    return _data(response.data);
+  }
+
   Map<String, dynamic> _data(dynamic body) {
     final map = body as Map<String, dynamic>;
     return Map<String, dynamic>.from((map['data'] as Map?) ?? map);

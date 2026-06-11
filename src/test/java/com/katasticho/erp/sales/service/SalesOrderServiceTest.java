@@ -951,6 +951,7 @@ class SalesOrderServiceTest {
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
+                BigDecimal.ZERO,
                 "INR",
                 null,
                 false,

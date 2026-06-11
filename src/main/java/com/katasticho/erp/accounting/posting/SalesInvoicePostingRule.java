@@ -64,6 +64,17 @@ public class SalesInvoicePostingRule implements PostingRuleStrategy {
         }
 
         appendTaxPayableLines(lines, invoice);
+
+        // TCS 206C(1H): collected from the buyer (already in totalAmount → AR
+        // debit), owed to the government until deposited.
+        if (invoice.getTcsAmount() != null && invoice.getTcsAmount().signum() > 0) {
+            lines.add(new JournalLineRequest(
+                    defaultAccountService.getCode(orgId, DefaultAccountPurpose.TCS_PAYABLE),
+                    BigDecimal.ZERO, invoice.getTcsAmount(),
+                    "TCS 206C(1H): " + invoice.getInvoiceNumber(),
+                    null, null));
+        }
+
         appendCogs(lines, invoice);
 
         return new JournalPostRequest(

@@ -52,6 +52,10 @@ public class Invoice {
     @Column(name = "tax_amount")
     @Builder.Default
     private BigDecimal taxAmount = BigDecimal.ZERO;
+    /** TCS u/s 206C(1H) collected on top of subtotal + GST (included in totalAmount). */
+    @Column(name = "tcs_amount")
+    @Builder.Default
+    private BigDecimal tcsAmount = BigDecimal.ZERO;
     @Column(name = "total_amount")
     @Builder.Default
     private BigDecimal totalAmount = BigDecimal.ZERO;

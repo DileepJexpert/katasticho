@@ -59,7 +59,7 @@ Legend: ✅ have it · 🟡 partial · ❌ missing (backlog) · ➖ deliberately
 | e-Invoice (IRN) | 🟡 | INV-01 JSON + record IRN/QR; Tally calls IRP **directly** — GSP/IRP API integration is our gap |
 | e-Way bill | 🟡 | Auto-detect ≥₹50k + **vehicle-aggregate rule** (Tally doesn't check aggregates!) + NIC JSON; direct API is the gap |
 | TDS | ✅ | Auto-deduct by section with thresholds + 26Q prep (Tally needs manual nature-of-payment setup per ledger) |
-| TCS 206C(1H) | ❌ | Backlog |
+| TCS 206C(1H) | ✅ | Auto-collected on invoices past ₹50L/buyer/FY (excess-only, org toggle `tax.tcs_enabled`), CR TCS Payable 2031, register + Form 27EQ @ `/api/v1/tcs` (2026-06-10) |
 | Composition scheme (CMP-08) | ❌ | Backlog — many kiranas are composition dealers |
 | Payroll statutory (PF/ESI/PT) | ✅ | Full payroll module with journal posting |
 

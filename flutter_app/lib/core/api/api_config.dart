@@ -106,6 +106,11 @@ class ApiConfig {
   static const String tdsRegister = '/api/v1/tds/register';
   static const String tds26q = '/api/v1/tds/26q';
 
+  // TCS 206C(1H) (auto-collected on invoices past ₹50L/buyer/FY)
+  static const String tcsRegister = '/api/v1/tcs/register';
+  static const String tcs27eq = '/api/v1/tcs/27eq';
+  static const String tcsSettings = '/api/v1/tcs/settings';
+
   // Tally migration
   static const String tallyImportPreview = '/api/v1/migration/tally/preview';
   static const String tallyImport = '/api/v1/migration/tally/import';

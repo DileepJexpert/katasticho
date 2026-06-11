@@ -1209,3 +1209,276 @@ class _EwayBillsTabState extends ConsumerState<EwayBillsTab> {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// TCS 206C(1H) tab — settings toggle + quarterly Form 27EQ
+// ─────────────────────────────────────────────────────────────────────────
+
+class TcsTab extends ConsumerStatefulWidget {
+  const TcsTab({super.key});
+
+  @override
+  ConsumerState<TcsTab> createState() => _TcsTabState();
+}
+
+class _TcsTabState extends ConsumerState<TcsTab> {
+  late int _fy;
+  late int _quarter;
+  Map<String, dynamic>? _data;
+  Map<String, dynamic>? _settings;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _fy = now.month >= 4 ? now.year : now.year - 1;
+    final fyMonth = now.month >= 4 ? now.month - 3 : now.month + 9;
+    _quarter = ((fyMonth - 1) ~/ 3) + 1;
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final repo = ref.read(gstRepositoryProvider);
+      final results = await Future.wait([
+        repo.tcs27eq(_fy, _quarter),
+        repo.tcsSettings(),
+      ]);
+      if (mounted) {
+        setState(() {
+          _data = results[0];
+          _settings = results[1];
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _data = null);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _toggleEnabled(bool value) async {
+    try {
+      final updated = await ref
+          .read(gstRepositoryProvider)
+          .updateTcsSettings(enabled: value);
+      if (mounted) setState(() => _settings = updated);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not update: $e')));
+      }
+    }
+  }
+
+  Future<void> _share27eq() async {
+    if (_data == null) return;
+    final pretty = const JsonEncoder.withIndent('  ').convert(_data);
+    await Share.share(pretty, subject: 'Form 27EQ data — Q$_quarter FY $_fy');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = _data;
+    final collectees = (data?['collectees'] as List?) ?? const [];
+    final enabled = _settings?['enabled'] == true;
+    return ListView(
+      padding: KSpacing.pagePadding,
+      children: [
+        KCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('TCS 206C(1H) on sales', style: KTypography.h3),
+              KSpacing.vGapSm,
+              Text(
+                'If your turnover exceeds ₹10 crore, you must collect '
+                '${_settings?['rate'] ?? '0.1'}% TCS from each buyer whose '
+                'purchases cross ₹50 lakh in a financial year. When enabled, '
+                'invoices add it automatically on the amount above ₹50 lakh.',
+                style: KTypography.bodySmall
+                    .copyWith(color: KColors.textSecondary),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text('Collect TCS on invoices',
+                    style: KTypography.labelLarge),
+                value: enabled,
+                onChanged: _loading ? null : _toggleEnabled,
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      value: _fy,
+                      decoration: const InputDecoration(
+                        labelText: 'FY starting',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: List.generate(4, (i) {
+                        final year = DateTime.now().year - i;
+                        return DropdownMenuItem(
+                            value: year,
+                            child: Text('$year-${(year + 1) % 100}'));
+                      }),
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _fy = v);
+                        _load();
+                      },
+                    ),
+                  ),
+                  KSpacing.hGapMd,
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      value: _quarter,
+                      decoration: const InputDecoration(
+                        labelText: 'Quarter',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('Q1 Apr–Jun')),
+                        DropdownMenuItem(value: 2, child: Text('Q2 Jul–Sep')),
+                        DropdownMenuItem(value: 3, child: Text('Q3 Oct–Dec')),
+                        DropdownMenuItem(value: 4, child: Text('Q4 Jan–Mar')),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _quarter = v);
+                        _load();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        KSpacing.vGapMd,
+        if (_loading)
+          const Center(
+              child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator()))
+        else if (data == null)
+          Center(
+              child: Text('No TCS data for this quarter',
+                  style: KTypography.bodyMedium
+                      .copyWith(color: KColors.textHint)))
+        else ...[
+          Row(
+            children: [
+              Expanded(
+                child: KCard(
+                  child: Column(children: [
+                    Text(
+                        CurrencyFormatter.formatIndian(
+                            (data['totalTcsCollected'] as num?)?.toDouble() ??
+                                0),
+                        style:
+                            KTypography.h2.copyWith(color: KColors.primary)),
+                    Text('TCS collected',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary)),
+                  ]),
+                ),
+              ),
+              KSpacing.hGapSm,
+              Expanded(
+                child: KCard(
+                  child: Column(children: [
+                    Text('${data['collecteeCount'] ?? 0}',
+                        style: KTypography.h2),
+                    Text('Buyers',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary)),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+          if ((data['warning']?.toString() ?? '').isNotEmpty) ...[
+            KSpacing.vGapSm,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: KColors.warning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber,
+                      color: KColors.warning, size: 18),
+                  KSpacing.hGapSm,
+                  Expanded(
+                    child: Text(data['warning'].toString(),
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.warning)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          KSpacing.vGapSm,
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: collectees.isEmpty ? null : _share27eq,
+              icon: const Icon(Icons.ios_share, size: 16),
+              label: const Text('Share 27EQ data (JSON)'),
+            ),
+          ),
+          KSpacing.vGapMd,
+          ...collectees.map((raw) {
+            final c = Map<String, dynamic>.from(raw as Map);
+            final pan = c['collecteePan']?.toString() ?? '';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: KSpacing.sm),
+              child: KCard(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(c['collecteeName']?.toString() ?? '',
+                              style: KTypography.labelLarge),
+                          Text(
+                            '${pan.isEmpty ? 'PAN MISSING' : pan} · 206C(1H) · ${c['invoiceCount']} invoice(s)',
+                            style: KTypography.bodySmall.copyWith(
+                                color: pan.isEmpty
+                                    ? KColors.error
+                                    : KColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                            CurrencyFormatter.formatIndian(
+                                (c['tcsCollected'] as num?)?.toDouble() ?? 0),
+                            style: KTypography.labelLarge
+                                .copyWith(color: KColors.primary)),
+                        Text(
+                            'on ${CurrencyFormatter.formatIndian((c['amountReceived'] as num?)?.toDouble() ?? 0)}',
+                            style: KTypography.bodySmall
+                                .copyWith(color: KColors.textSecondary)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ],
+    );
+  }
+}

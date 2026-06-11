@@ -40,7 +40,7 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 8, vsync: this);
+    _tabController = TabController(length: 9, vsync: this);
     final now = DateTime.now();
     _year = now.month == 1 ? now.year - 1 : now.year;
     _month = now.month == 1 ? 12 : now.month - 1;
@@ -156,6 +156,7 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
             Tab(text: 'e-Invoice'),
             Tab(text: 'e-Way Bills'),
             Tab(text: 'TDS'),
+            Tab(text: 'TCS'),
             Tab(text: 'Review'),
           ],
         ),
@@ -202,6 +203,7 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
                       onChanged: _loadData,
                     ),
                     const TdsTab(),
+                    const TcsTab(),
                     _GstReviewTab(
                       data: _review,
                       onReviewed: _loadData,
