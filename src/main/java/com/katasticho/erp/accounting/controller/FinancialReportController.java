@@ -106,6 +106,14 @@ public class FinancialReportController {
         return ResponseEntity.ok(ApiResponse.ok(operationalReportService.journalRegister(startDate, endDate)));
     }
 
+    @GetMapping("/cost-centres")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<OperationalReportResponse>> getCostCentres(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(ApiResponse.ok(operationalReportService.costCentres(startDate, endDate)));
+    }
+
     @GetMapping("/low-stock")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<OperationalReportResponse>> getLowStockAlert() {

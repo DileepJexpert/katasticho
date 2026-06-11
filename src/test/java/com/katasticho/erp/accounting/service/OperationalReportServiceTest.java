@@ -177,6 +177,39 @@ class OperationalReportServiceTest {
                 .value());
     }
 
+    @Test
+    void costCentres_groupsTaggedLinesAndBucketsUntagged() {
+        var entry = com.katasticho.erp.accounting.entity.JournalEntry.builder()
+                .orgId(orgId).entryNumber("JV-1").status("POSTED")
+                .effectiveDate(LocalDate.of(2026, 6, 1)).build();
+        entry.getLines().add(com.katasticho.erp.accounting.entity.JournalLine.builder()
+                .accountId(UUID.randomUUID()).costCentre("Mumbai")
+                .baseDebit(new BigDecimal("5000")).baseCredit(BigDecimal.ZERO).build());
+        entry.getLines().add(com.katasticho.erp.accounting.entity.JournalLine.builder()
+                .accountId(UUID.randomUUID()).costCentre("Pune")
+                .baseDebit(BigDecimal.ZERO).baseCredit(new BigDecimal("3000")).build());
+        entry.getLines().add(com.katasticho.erp.accounting.entity.JournalLine.builder()
+                .accountId(UUID.randomUUID())   // untagged
+                .baseDebit(BigDecimal.ZERO).baseCredit(new BigDecimal("2000")).build());
+
+        when(journalEntryRepository.findPostedWithLinesInRange(
+                eq(orgId), eq(LocalDate.of(2026, 6, 1)), eq(LocalDate.of(2026, 6, 30))))
+                .thenReturn(List.of(entry));
+
+        var report = service.costCentres(LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30));
+
+        assertEquals("cost-centres", report.reportKey());
+        assertEquals(3, report.rows().size());
+        // Alphabetical tagged centres first, untagged last.
+        assertEquals("Mumbai", report.rows().get(0).get("centre"));
+        assertEquals(new BigDecimal("5000"), report.rows().get(0).get("debit"));
+        assertEquals("Pune", report.rows().get(1).get("centre"));
+        assertEquals("(untagged)", report.rows().get(2).get("centre"));
+        // 2 tagged centres; tagged Dr+Cr = 5000 + 3000.
+        assertEquals(new BigDecimal("2"), report.metrics().get(0).value());
+        assertEquals(new BigDecimal("8000"), report.metrics().get(1).value());
+    }
+
     private SalesOrder salesOrder(
             UUID customerId,
             String number,

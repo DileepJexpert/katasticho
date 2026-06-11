@@ -17,11 +17,13 @@ class _JournalLine {
   final TextEditingController debitController;
   final TextEditingController creditController;
   final TextEditingController descriptionController;
+  final TextEditingController costCentreController;
 
   _JournalLine()
       : debitController = TextEditingController(),
         creditController = TextEditingController(),
-        descriptionController = TextEditingController();
+        descriptionController = TextEditingController(),
+        costCentreController = TextEditingController();
 
   double get debit => double.tryParse(debitController.text) ?? 0.0;
   double get credit => double.tryParse(creditController.text) ?? 0.0;
@@ -30,6 +32,7 @@ class _JournalLine {
     debitController.dispose();
     creditController.dispose();
     descriptionController.dispose();
+    costCentreController.dispose();
   }
 }
 
@@ -122,6 +125,8 @@ class _JournalCreateScreenState extends ConsumerState<JournalCreateScreen>
                 'debit': l.debit,
                 'credit': l.credit,
                 'description': l.descriptionController.text.trim(),
+                if (l.costCentreController.text.trim().isNotEmpty)
+                  'costCentre': l.costCentreController.text.trim(),
               })
           .toList(),
     };
@@ -453,18 +458,41 @@ class _JournalLineCard extends StatelessWidget {
           ),
           KSpacing.vGapSm,
 
-          // Line description
-          TextFormField(
-            controller: line.descriptionController,
-            decoration: const InputDecoration(
-              labelText: 'Description',
-              hintText: 'Line description (optional)',
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 11,
+          // Line description + cost centre
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: TextFormField(
+                  controller: line.descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    hintText: 'Line description (optional)',
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 11,
+                    ),
+                  ),
+                ),
               ),
-            ),
+              KSpacing.hGapSm,
+              Expanded(
+                flex: 2,
+                child: TextFormField(
+                  controller: line.costCentreController,
+                  decoration: const InputDecoration(
+                    labelText: 'Cost centre',
+                    hintText: 'e.g. Mumbai branch',
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 11,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

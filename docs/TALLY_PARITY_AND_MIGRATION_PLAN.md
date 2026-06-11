@@ -22,7 +22,7 @@ Legend: ✅ have it · 🟡 partial · ❌ missing (backlog) · ➖ deliberately
 | Delivery Note / Receipt Note | Goods movement docs | ✅ | Delivery challan (dispatch deducts stock), GRN |
 | Bill-wise details (bill references) | Allocate payments against specific invoices | ✅ | Payment allocation against invoices/bills |
 | Outstanding / ageing (receivable & payable) | Who owes what, how old | ✅ | AR/AP ageing reports, contact ledger |
-| Cost centres & cost categories | Tag transactions by department/project | 🟡 | `costCentre` field exists on journal lines; no UI/reports yet |
+| Cost centres & cost categories | Tag transactions by department/project | ✅ | Per-line cost centre input on manual journals + Cost Centres report (`/api/v1/reports/cost-centres`, Reports Hub) grouping Dr/Cr/net by centre with an "(untagged)" bucket (2026-06-10). Cost *categories* (parallel hierarchies) deliberately skipped |
 | Budgets & controls | Budget vs actual | ❌ | Backlog (Campfire benchmark has it too) |
 | Scenarios (provisional vouchers) | What-if reporting | ➖ | Low usage among SMBs; skip |
 | Multi-currency | Forex ledgers, gain/loss | 🟡 | Currency + exchange rate on documents; no realized gain/loss engine |
@@ -84,7 +84,7 @@ Legend: ✅ have it · 🟡 partial · ❌ missing (backlog) · ➖ deliberately
 | GST reports | ✅ | + compliance calendar (Tally has none) |
 | Ratio analysis | ❌ | Backlog (small) |
 | Funds flow | ➖ | Rarely used |
-| Cost centre reports | ❌ | With cost centres backlog |
+| Cost centre reports | ✅ | Cost Centres report in Reports Hub (2026-06-10) |
 | Budget variance | ❌ | With budgets backlog |
 | Dashboards | ✅ | Role dashboards + distributor dashboard v2 (better than Tally's new Report Dashboard) |
 

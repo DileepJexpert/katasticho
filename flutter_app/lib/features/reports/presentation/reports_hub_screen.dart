@@ -157,6 +157,13 @@ List<_ReportGroupData> _reportGroups(BuildContext context) => [
             onTap: () => _openOperational(
                 context, 'journal-register', 'Journal Register'),
           ),
+          _ReportLink(
+            icon: Icons.workspaces_outlined,
+            title: 'Cost Centres',
+            color: KColors.warning,
+            onTap: () =>
+                _openOperational(context, 'cost-centres', 'Cost Centres'),
+          ),
         ],
       ),
       _ReportGroupData(

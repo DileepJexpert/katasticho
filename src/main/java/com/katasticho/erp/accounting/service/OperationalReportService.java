@@ -529,6 +529,63 @@ public class OperationalReportService {
                 rows);
     }
 
+    /**
+     * Cost-centre summary: every journal line tagged with a cost centre,
+     * grouped by centre with debit/credit/net totals. Untagged lines are
+     * summarised in one "(untagged)" row so the report always reconciles to
+     * the journal register.
+     */
+    public OperationalReportResponse costCentres(LocalDate startDate, LocalDate endDate) {
+        Context ctx = context();
+        List<JournalEntry> entries = journalEntryRepository
+                .findPostedWithLinesInRange(ctx.orgId(), startDate, endDate);
+
+        record Totals(BigDecimal[] debitCredit, int[] lineCount) {}
+        Map<String, Totals> byCentre = new TreeMap<>();
+        Function<String, Totals> bucket = key -> byCentre.computeIfAbsent(key,
+                k -> new Totals(new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO}, new int[]{0}));
+
+        BigDecimal taggedAmount = BigDecimal.ZERO;
+        for (JournalEntry je : entries) {
+            for (var line : je.getLines()) {
+                String centre = line.getCostCentre();
+                boolean tagged = centre != null && !centre.isBlank();
+                Totals t = bucket.apply(tagged ? centre.trim() : "(untagged)");
+                t.debitCredit()[0] = t.debitCredit()[0].add(nz(line.getBaseDebit()));
+                t.debitCredit()[1] = t.debitCredit()[1].add(nz(line.getBaseCredit()));
+                t.lineCount()[0]++;
+                if (tagged) {
+                    taggedAmount = taggedAmount.add(nz(line.getBaseDebit())).add(nz(line.getBaseCredit()));
+                }
+            }
+        }
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map.Entry<String, Totals> e : byCentre.entrySet()) {
+            BigDecimal debit = e.getValue().debitCredit()[0];
+            BigDecimal credit = e.getValue().debitCredit()[1];
+            rows.add(row("centre", e.getKey(),
+                    "debit", debit,
+                    "credit", credit,
+                    "net", debit.subtract(credit),
+                    "lineCount", BigDecimal.valueOf(e.getValue().lineCount()[0])));
+        }
+        // Untagged last, tagged centres alphabetical.
+        rows.sort(Comparator.comparing(r -> "(untagged)".equals(r.get("centre")) ? "￿" : (String) r.get("centre")));
+
+        long taggedCentres = byCentre.keySet().stream().filter(k -> !"(untagged)".equals(k)).count();
+
+        return response("cost-centres", "Cost Centres",
+                "Journal activity grouped by cost centre — tag lines on manual journals to use this.",
+                startDate, endDate, ctx.currency(),
+                metrics(metric("centres", "Cost Centres", BigDecimal.valueOf(taggedCentres), "number"),
+                        metric("tagged", "Tagged Amount (Dr+Cr)", taggedAmount, "currency")),
+                columns(col("centre", "Cost Centre", "text"),
+                        col("debit", "Debit", "currency"), col("credit", "Credit", "currency"),
+                        col("net", "Net (Dr−Cr)", "currency"), col("lineCount", "Lines", "number")),
+                rows);
+    }
+
     public OperationalReportResponse lowStockAlert() {
         Context ctx = context();
         List<Item> items = itemRepository.findByOrgIdAndIsDeletedFalseAndTrackInventoryTrue(ctx.orgId())
