@@ -50,6 +50,7 @@ public class EInvoiceService {
     private final OrganisationRepository organisationRepository;
     private final OrgSettingsService orgSettingsService;
     private final AiSuggestionService aiSuggestionService;
+    private final GspClient gspClient;
 
     // ── Auto-detection (INVOICE_POSTED handler path — explicit orgId) ────
 
@@ -124,6 +125,35 @@ public class EInvoiceService {
         row.setStatus("GENERATED");
         row.setGeneratedAt(Instant.now());
         return eInvoiceRepository.save(row);
+    }
+
+    /**
+     * One-click IRN: when the org has a GSP configured, POST the INV-01 payload
+     * directly to the aggregator and record the IRN it returns. Falls back to a
+     * clear error (not silent) when no GSP is configured so the manual
+     * download-JSON flow stays the explicit alternative.
+     */
+    @Transactional
+    public EInvoice generateViaGsp(UUID id) {
+        UUID orgId = requireOrgId();
+        if (!gspClient.isConfigured(orgId)) {
+            throw new BusinessException(
+                    "No GSP configured. Set up gst.gsp_* settings, or use Download JSON to file manually.",
+                    "GSP_NOT_CONFIGURED", HttpStatus.BAD_REQUEST);
+        }
+        Map<String, Object> payload = portalJson(id);
+        Map<String, Object> resp = gspClient.generateEInvoice(orgId, payload);
+
+        String irn = firstNonBlank(resp, "Irn", "irn", "IRN");
+        if (isBlank(irn)) {
+            throw new BusinessException(
+                    "GSP did not return an IRN: " + firstNonBlank(resp, "ErrorMessage", "error", "message", "status"),
+                    "GSP_NO_IRN", HttpStatus.BAD_GATEWAY);
+        }
+        return recordGenerated(id, irn,
+                firstNonBlank(resp, "AckNo", "ackNo", "AckNumber"),
+                firstNonBlank(resp, "AckDt", "ackDt", "AckDate"),
+                firstNonBlank(resp, "SignedQRCode", "signedQRCode", "signedQr", "SignedQr"));
     }
 
     /** Record cancellation (IRN cancel on the portal is allowed within 24h). */
@@ -328,6 +358,29 @@ public class EInvoiceService {
 
     private static boolean isBlank(String s) {
         return s == null || s.isBlank();
+    }
+
+    /**
+     * First non-blank value among the given keys, looked up on the response map
+     * and one level inside common wrapper objects (data / result / response) —
+     * GSP aggregators differ on casing and nesting.
+     */
+    @SuppressWarnings("unchecked")
+    static String firstNonBlank(Map<String, Object> resp, String... keys) {
+        if (resp == null) return null;
+        List<Map<String, Object>> scopes = new ArrayList<>();
+        scopes.add(resp);
+        for (String wrap : new String[]{"data", "result", "response", "Data", "Result"}) {
+            Object inner = resp.get(wrap);
+            if (inner instanceof Map<?, ?> m) scopes.add((Map<String, Object>) m);
+        }
+        for (Map<String, Object> scope : scopes) {
+            for (String k : keys) {
+                Object v = scope.get(k);
+                if (v != null && !String.valueOf(v).isBlank()) return String.valueOf(v);
+            }
+        }
+        return null;
     }
 
     private UUID requireOrgId() {

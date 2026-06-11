@@ -39,10 +39,11 @@ class EInvoiceServiceTest {
     private final OrganisationRepository organisationRepository = mock(OrganisationRepository.class);
     private final OrgSettingsService orgSettingsService = mock(OrgSettingsService.class);
     private final AiSuggestionService aiSuggestionService = mock(AiSuggestionService.class);
+    private final GspClient gspClient = mock(GspClient.class);
 
     private final EInvoiceService service = new EInvoiceService(
             eInvoiceRepository, invoiceRepository, contactRepository,
-            organisationRepository, orgSettingsService, aiSuggestionService);
+            organisationRepository, orgSettingsService, aiSuggestionService, gspClient);
 
     private final UUID orgId = UUID.randomUUID();
     private final UUID invoiceId = UUID.randomUUID();
@@ -181,6 +182,56 @@ class EInvoiceServiceTest {
         // Buyer state matches seller default ("") → buyer "27" differs → IGST? Seller
         // state is blank (no org), so the split falls back to intra-state CGST/SGST.
         assertThat(((java.util.List<Map<String, Object>>) json.get("ItemList"))).hasSize(1);
+    }
+
+    @Test
+    void generateViaGspRecordsIrnFromAggregatorResponse() {
+        UUID id = UUID.randomUUID();
+        EInvoice row = EInvoice.builder()
+                .invoiceId(invoiceId).documentNumber("INV-9")
+                .documentDate(LocalDate.of(2026, 6, 1))
+                .totalValue(new BigDecimal("56000")).build();
+        row.setId(id);
+        row.setOrgId(orgId);
+        when(eInvoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId))
+                .thenReturn(Optional.of(row));
+        Invoice invoice = invoice();
+        invoice.getLines().add(InvoiceLine.builder()
+                .invoice(invoice).lineNumber(1).description("Crocin 500mg")
+                .hsnCode("3004").quantity(new BigDecimal("100"))
+                .unitPrice(new BigDecimal("500"))
+                .taxableAmount(new BigDecimal("50000")).gstRate(new BigDecimal("12"))
+                .taxAmount(new BigDecimal("6000")).lineTotal(new BigDecimal("56000"))
+                .itemId(UUID.randomUUID()).build());
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
+                .thenReturn(Optional.of(invoice));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(buyerId, orgId))
+                .thenReturn(Optional.of(registeredBuyer()));
+
+        when(gspClient.isConfigured(orgId)).thenReturn(true);
+        // Aggregator response nests results under "data" with mixed casing.
+        when(gspClient.generateEInvoice(eq(orgId), any())).thenReturn(Map.of(
+                "data", Map.of(
+                        "Irn", "abc123irnxyz",
+                        "AckNo", "112010012345678",
+                        "AckDt", "2026-06-10 11:30:00",
+                        "SignedQRCode", "signed.qr.payload")));
+
+        EInvoice result = service.generateViaGsp(id);
+
+        assertThat(result.getStatus()).isEqualTo("GENERATED");
+        assertThat(result.getIrn()).isEqualTo("abc123irnxyz");
+        assertThat(result.getAckNumber()).isEqualTo("112010012345678");
+        assertThat(result.getSignedQr()).isEqualTo("signed.qr.payload");
+    }
+
+    @Test
+    void generateViaGspWithoutGspConfiguredThrows() {
+        UUID id = UUID.randomUUID();
+        when(gspClient.isConfigured(orgId)).thenReturn(false);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.generateViaGsp(id))
+                .hasMessageContaining("No GSP configured");
+        verify(gspClient, never()).generateEInvoice(any(), any());
     }
 
     private Invoice invoice() {

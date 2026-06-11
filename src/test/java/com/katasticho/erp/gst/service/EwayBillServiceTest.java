@@ -45,10 +45,11 @@ class EwayBillServiceTest {
     private final OrganisationRepository organisationRepository = mock(OrganisationRepository.class);
     private final OrgSettingsService orgSettingsService = mock(OrgSettingsService.class);
     private final AiSuggestionService aiSuggestionService = mock(AiSuggestionService.class);
+    private final GspClient gspClient = mock(GspClient.class);
 
     private final EwayBillService service = new EwayBillService(
             ewayBillRepository, invoiceRepository, deliveryChallanRepository,
-            contactRepository, organisationRepository, orgSettingsService, aiSuggestionService);
+            contactRepository, organisationRepository, orgSettingsService, aiSuggestionService, gspClient);
 
     private final UUID orgId = UUID.randomUUID();
 

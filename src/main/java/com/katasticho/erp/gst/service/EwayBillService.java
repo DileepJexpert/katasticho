@@ -66,6 +66,7 @@ public class EwayBillService {
     private final OrganisationRepository organisationRepository;
     private final OrgSettingsService orgSettingsService;
     private final AiSuggestionService aiSuggestionService;
+    private final GspClient gspClient;
 
     // ── Auto-detection (INVOICE_POSTED handler path — explicit orgId) ────
 
@@ -207,6 +208,32 @@ public class EwayBillService {
         ewb.setGeneratedAt(now);
         ewb.setValidUntil(req.validUntil() != null ? req.validUntil() : computeValidity(now, ewb.getDistanceKm()));
         return EwayBillResponse.from(ewayBillRepository.save(ewb));
+    }
+
+    /**
+     * One-click EWB: when the org has a GSP configured, POST the NIC payload
+     * directly and record the e-way bill number returned. Errors loudly when no
+     * GSP is configured so the manual portal-upload flow stays explicit.
+     */
+    @Transactional
+    public EwayBillResponse generateViaGsp(UUID id) {
+        UUID orgId = requireOrgId();
+        if (!gspClient.isConfigured(orgId)) {
+            throw new BusinessException(
+                    "No GSP configured. Set up gst.gsp_* settings, or use Download JSON to file manually.",
+                    "GSP_NOT_CONFIGURED", HttpStatus.BAD_REQUEST);
+        }
+        Map<String, Object> payload = portalJson(id);
+        Map<String, Object> resp = gspClient.generateEwayBill(orgId, payload);
+
+        String ewbNo = EInvoiceService.firstNonBlank(resp, "ewayBillNo", "EwbNo", "ewbNo", "ewayBillNumber");
+        if (ewbNo == null || ewbNo.isBlank()) {
+            throw new BusinessException(
+                    "GSP did not return an e-way bill number: "
+                            + EInvoiceService.firstNonBlank(resp, "errorMessage", "error", "message", "status"),
+                    "GSP_NO_EWB", HttpStatus.BAD_GATEWAY);
+        }
+        return recordGenerated(id, new RecordEwbRequest(ewbNo.trim(), null, null));
     }
 
     @Transactional

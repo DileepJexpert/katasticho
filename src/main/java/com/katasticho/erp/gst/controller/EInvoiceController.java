@@ -60,6 +60,14 @@ public class EInvoiceController {
                 .body(json);
     }
 
+    /** One-click: generate the IRN directly via the configured GSP. */
+    @PostMapping("/{id}/generate-gsp")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<EInvoice>> generateViaGsp(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                eInvoiceService.generateViaGsp(id), "IRN generated via GSP"));
+    }
+
     /** Record the IRN + Ack + signed QR obtained from the IRP. */
     @PostMapping("/{id}/record")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")

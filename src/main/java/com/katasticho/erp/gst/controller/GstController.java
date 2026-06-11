@@ -146,6 +146,14 @@ public class GstController {
                 ewayBillService.recordGenerated(id, request), "e-Way bill recorded"));
     }
 
+    /** One-click: generate the e-way bill directly via the configured GSP. */
+    @PostMapping("/eway-bills/{id}/generate-gsp")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<EwayBillResponse>> generateEwayBillViaGsp(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                ewayBillService.generateViaGsp(id), "e-Way bill generated via GSP"));
+    }
+
     @PostMapping("/eway-bills/{id}/cancel")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<EwayBillResponse>> cancelEwayBill(
