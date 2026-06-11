@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../../../routing/app_router.dart';
 import '../data/manufacturing_repository.dart';
 
@@ -96,7 +97,10 @@ class _WorkOrderCreateScreenState extends ConsumerState<WorkOrderCreateScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _submit,
+      onCancel: () => context.pop(),
+      child: Scaffold(
       appBar: AppBar(title: const Text('New Work Order')),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -245,7 +249,7 @@ class _WorkOrderCreateScreenState extends ConsumerState<WorkOrderCreateScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   Future<void> _submit() async {

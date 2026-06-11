@@ -125,6 +125,7 @@ class _PurchaseOrderListScreenState
         onPressed: () => context.go(Routes.purchaseOrderCreate),
         icon: const Icon(Icons.add),
         label: const Text('New PO'),
+        tooltip: 'New PO (N)',
       ),
     ));
   }

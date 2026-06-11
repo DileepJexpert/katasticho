@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/account_repository.dart';
 
@@ -44,25 +45,40 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          KListPageHeader(
-            title: 'Chart of Accounts',
-            searchHint: 'Search by name or code…',
-            tabs: _accountTabs,
-            selectedTab: _selectedType,
-            onTabChanged: (v) => setState(() => _selectedType = v),
-            onSearchChanged: (q) => setState(() => _searchQuery = q),
-          ),
-          Expanded(child: _buildBody()),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/accounts/create'),
-        icon: const Icon(Icons.add),
-        label: const Text('Add Account'),
-        tooltip: 'Add Account (N)',
+    return KKeyboardListWrapper(
+      itemCount: () {
+        final async = ref.read(accountsProvider);
+        return async.valueOrNull?.where((a) => !a.isDeleted).length ?? 0;
+      },
+      onNew: () => context.push('/accounts/create'),
+      onRefresh: () => ref.invalidate(accountsProvider),
+      onOpen: (index) {
+        final async = ref.read(accountsProvider);
+        final all = async.valueOrNull?.where((a) => !a.isDeleted).toList();
+        if (all != null && index < all.length) {
+          context.push('/accounts/${all[index].id}');
+        }
+      },
+      child: Scaffold(
+        body: Column(
+          children: [
+            KListPageHeader(
+              title: 'Chart of Accounts',
+              searchHint: 'Search by name or code…',
+              tabs: _accountTabs,
+              selectedTab: _selectedType,
+              onTabChanged: (v) => setState(() => _selectedType = v),
+              onSearchChanged: (q) => setState(() => _searchQuery = q),
+            ),
+            Expanded(child: _buildBody()),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => context.push('/accounts/create'),
+          icon: const Icon(Icons.add),
+          label: const Text('Add Account'),
+          tooltip: 'Add Account (N)',
+        ),
       ),
     );
   }

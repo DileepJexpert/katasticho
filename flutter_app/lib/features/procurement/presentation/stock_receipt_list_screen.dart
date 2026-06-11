@@ -134,6 +134,7 @@ class _StockReceiptListScreenState
         onPressed: () => context.go(Routes.stockReceiptCreate),
         icon: const Icon(Icons.add),
         label: const Text('New Receipt'),
+        tooltip: 'New Receipt (N)',
       ),
     ));
   }

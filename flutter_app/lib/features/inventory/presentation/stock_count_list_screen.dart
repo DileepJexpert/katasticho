@@ -8,6 +8,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 
@@ -80,31 +81,46 @@ class _StockCountListScreenState extends ConsumerState<StockCountListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          KListPageHeader(
-            title: 'Stock Counts',
-            searchHint: 'Search count number, warehouse...',
-            tabs: _statusTabs,
-            selectedTab: _status,
-            onTabChanged: (value) => setState(() => _status = value),
-            onSearchChanged: (value) =>
-                setState(() => _search = value.trim().toLowerCase()),
-          ),
-          Expanded(
-            child: _buildBody(),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          await context.push(Routes.stockCountCreate);
-          _fetchCounts();
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('New Count'),
-        tooltip: 'New Count (N)',
+    return KKeyboardListWrapper(
+      itemCount: () => _filteredCounts.length,
+      onNew: () async {
+        await context.push(Routes.stockCountCreate);
+        _fetchCounts();
+      },
+      onRefresh: () => _fetchCounts(),
+      onOpen: (index) {
+        final filtered = _filteredCounts;
+        if (index >= 0 && index < filtered.length) {
+          final id = filtered[index]['id']?.toString();
+          if (id != null) context.push('/inventory/stock-counts/$id');
+        }
+      },
+      child: Scaffold(
+        body: Column(
+          children: [
+            KListPageHeader(
+              title: 'Stock Counts',
+              searchHint: 'Search count number, warehouse...',
+              tabs: _statusTabs,
+              selectedTab: _status,
+              onTabChanged: (value) => setState(() => _status = value),
+              onSearchChanged: (value) =>
+                  setState(() => _search = value.trim().toLowerCase()),
+            ),
+            Expanded(
+              child: _buildBody(),
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () async {
+            await context.push(Routes.stockCountCreate);
+            _fetchCounts();
+          },
+          icon: const Icon(Icons.add),
+          label: const Text('New Count'),
+          tooltip: 'New Count (N)',
+        ),
       ),
     );
   }

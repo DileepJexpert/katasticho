@@ -8,6 +8,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 
@@ -83,29 +84,44 @@ class _TransferOrderListScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          KListPageHeader(
-            title: 'Transfer Orders',
-            searchHint: 'Search transfer number, warehouse...',
-            tabs: _statusTabs,
-            selectedTab: _status,
-            onTabChanged: (value) => setState(() => _status = value),
-            onSearchChanged: (value) =>
-                setState(() => _search = value.trim().toLowerCase()),
-          ),
-          Expanded(child: _buildBody()),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          await context.push(Routes.transferOrderCreate);
-          _fetchOrders();
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('New Transfer'),
-        tooltip: 'New Transfer (N)',
+    return KKeyboardListWrapper(
+      itemCount: () => _filteredOrders.length,
+      onNew: () async {
+        await context.push(Routes.transferOrderCreate);
+        _fetchOrders();
+      },
+      onRefresh: () => _fetchOrders(),
+      onOpen: (index) {
+        final filtered = _filteredOrders;
+        if (index >= 0 && index < filtered.length) {
+          final id = filtered[index]['id']?.toString();
+          if (id != null) context.push('/inventory/transfer-orders/$id');
+        }
+      },
+      child: Scaffold(
+        body: Column(
+          children: [
+            KListPageHeader(
+              title: 'Transfer Orders',
+              searchHint: 'Search transfer number, warehouse...',
+              tabs: _statusTabs,
+              selectedTab: _status,
+              onTabChanged: (value) => setState(() => _status = value),
+              onSearchChanged: (value) =>
+                  setState(() => _search = value.trim().toLowerCase()),
+            ),
+            Expanded(child: _buildBody()),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () async {
+            await context.push(Routes.transferOrderCreate);
+            _fetchOrders();
+          },
+          icon: const Icon(Icons.add),
+          label: const Text('New Transfer'),
+          tooltip: 'New Transfer (N)',
+        ),
       ),
     );
   }

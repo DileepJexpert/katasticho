@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/routing_repository.dart';
 
@@ -31,44 +32,53 @@ class _RoutingListScreenState extends ConsumerState<RoutingListScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          const KListPageHeader(
-            title: 'Routings & Workstations',
-            subtitle: 'Define production routings and manage workstations.',
-          ),
-          TabBar(
-            controller: _tabController,
-            tabs: const [
-              Tab(text: 'Routings'),
-              Tab(text: 'Workstations'),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
+    return KKeyboardListWrapper(
+      itemCount: () => 0,
+      onNew: () => _tabController.index == 0
+          ? context.go('/manufacturing/routings/create')
+          : _showAddWorkstationSheet(context),
+      onRefresh: () => _tabController.index == 0
+          ? ref.invalidate(routingsProvider)
+          : ref.invalidate(workstationsProvider),
+      child: Scaffold(
+        body: Column(
+          children: [
+            const KListPageHeader(
+              title: 'Routings & Workstations',
+              subtitle: 'Define production routings and manage workstations.',
+            ),
+            TabBar(
               controller: _tabController,
-              children: const [
-                _RoutingsTab(),
-                _WorkstationsTab(),
+              tabs: const [
+                Tab(text: 'Routings'),
+                Tab(text: 'Workstations'),
               ],
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: _tabController.index == 0
-          ? FloatingActionButton.extended(
-              onPressed: () => context.go('/manufacturing/routings/create'),
-              icon: const Icon(Icons.add),
-              label: const Text('New Routing'),
-              tooltip: 'New Routing (N)',
-            )
-          : FloatingActionButton.extended(
-              onPressed: () => _showAddWorkstationSheet(context),
-              icon: const Icon(Icons.add),
-              label: const Text('Add Workstation'),
-              tooltip: 'Add Workstation (N)',
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: const [
+                  _RoutingsTab(),
+                  _WorkstationsTab(),
+                ],
+              ),
             ),
+          ],
+        ),
+        floatingActionButton: _tabController.index == 0
+            ? FloatingActionButton.extended(
+                onPressed: () => context.go('/manufacturing/routings/create'),
+                icon: const Icon(Icons.add),
+                label: const Text('New Routing'),
+                tooltip: 'New Routing (N)',
+              )
+            : FloatingActionButton.extended(
+                onPressed: () => _showAddWorkstationSheet(context),
+                icon: const Icon(Icons.add),
+                label: const Text('Add Workstation'),
+                tooltip: 'Add Workstation (N)',
+              ),
+      ),
     );
   }
 

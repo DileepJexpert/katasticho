@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../data/scheme_repository.dart';
@@ -14,67 +15,72 @@ class SchemeListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final schemesAsync = ref.watch(schemesProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scheme Management'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'Add Scheme',
-            onPressed: () => _showCreateSheet(context, ref),
-          ),
-        ],
-      ),
-      body: schemesAsync.when(
-        loading: () => const KLoading(),
-        error: (err, _) => KErrorView(
-          message: 'Failed to load schemes: $err',
-          onRetry: () => ref.invalidate(schemesProvider),
+    return KKeyboardListWrapper(
+      itemCount: () => schemesAsync.valueOrNull?.length ?? 0,
+      onNew: () => _showCreateSheet(context, ref),
+      onRefresh: () => ref.invalidate(schemesProvider),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Scheme Management'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: 'Add Scheme (N)',
+              onPressed: () => _showCreateSheet(context, ref),
+            ),
+          ],
         ),
-        data: (schemes) {
-          if (schemes.isEmpty) {
-            return KEmptyState(
-              icon: Icons.local_offer_outlined,
-              title: 'No schemes yet',
-              subtitle: 'Add pharma schemes like 10+2 or 15% off',
-              actionLabel: 'Add Scheme',
-              onAction: () => _showCreateSheet(context, ref),
-            );
-          }
-          return ListView.separated(
-            padding: KSpacing.pagePadding,
-            itemCount: schemes.length,
-            separatorBuilder: (_, __) => KSpacing.vGapSm,
-            itemBuilder: (context, i) =>
-                _SchemeCard(scheme: schemes[i], onDelete: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text('Delete Scheme'),
-                  content: Text(
-                      'Delete "${schemes[i]['name']}"? This cannot be undone.'),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancel')),
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: KColors.error),
-                      child: const Text('Delete'),
-                    ),
-                  ],
-                ),
+        body: schemesAsync.when(
+          loading: () => const KLoading(),
+          error: (err, _) => KErrorView(
+            message: 'Failed to load schemes: $err',
+            onRetry: () => ref.invalidate(schemesProvider),
+          ),
+          data: (schemes) {
+            if (schemes.isEmpty) {
+              return KEmptyState(
+                icon: Icons.local_offer_outlined,
+                title: 'No schemes yet',
+                subtitle: 'Add pharma schemes like 10+2 or 15% off',
+                actionLabel: 'Add Scheme',
+                onAction: () => _showCreateSheet(context, ref),
               );
-              if (confirmed == true) {
-                await ref
-                    .read(schemeRepositoryProvider)
-                    .deleteScheme(schemes[i]['id'].toString());
-                ref.invalidate(schemesProvider);
-              }
-            }),
-          );
-        },
+            }
+            return ListView.separated(
+              padding: KSpacing.pagePadding,
+              itemCount: schemes.length,
+              separatorBuilder: (_, __) => KSpacing.vGapSm,
+              itemBuilder: (context, i) =>
+                  _SchemeCard(scheme: schemes[i], onDelete: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Delete Scheme'),
+                    content: Text(
+                        'Delete "${schemes[i]['name']}"? This cannot be undone.'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel')),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: KColors.error),
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed == true) {
+                  await ref
+                      .read(schemeRepositoryProvider)
+                      .deleteScheme(schemes[i]['id'].toString());
+                  ref.invalidate(schemesProvider);
+                }
+              }),
+            );
+          },
+        ),
       ),
     );
   }

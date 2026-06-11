@@ -220,6 +220,7 @@ class _DeliveryChallanListScreenState
               onPressed: () => context.go('/delivery-challans/create'),
               icon: const Icon(Icons.add),
               label: const Text('New Challan'),
+              tooltip: 'New Challan (N)',
             ),
     ));
   }

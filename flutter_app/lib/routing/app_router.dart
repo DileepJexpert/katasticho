@@ -172,6 +172,12 @@ import '../features/manufacturing/presentation/job_card_list_screen.dart';
 import '../features/manufacturing/presentation/qc_inspection_list_screen.dart';
 import '../features/manufacturing/presentation/qc_inspection_detail_screen.dart';
 import '../features/manufacturing/presentation/scrap_screen.dart';
+import '../features/supply_chain/presentation/supply_chain_dashboard_screen.dart';
+import '../features/supply_chain/presentation/requisition_list_screen.dart';
+import '../features/supply_chain/presentation/return_order_list_screen.dart';
+import '../features/supply_chain/presentation/alert_list_screen.dart';
+import '../features/supply_chain/presentation/supplier_rankings_screen.dart';
+import '../features/supply_chain/presentation/turnover_screen.dart';
 import '../features/workflow/presentation/workflow_settings_screen.dart';
 import 'shell_screen.dart';
 
@@ -370,6 +376,14 @@ class Routes {
   static const manufacturingQcInspections = '/manufacturing/qc/inspections';
   static const manufacturingQcInspectionDetail = '/manufacturing/qc/inspections/:id';
   static const manufacturingScrap = '/manufacturing/scrap';
+
+  // Supply Chain
+  static const supplyChainDashboard = '/supply-chain';
+  static const supplyChainRequisitions = '/supply-chain/requisitions';
+  static const supplyChainReturns = '/supply-chain/returns';
+  static const supplyChainAlerts = '/supply-chain/alerts';
+  static const supplyChainSupplierRankings = '/supply-chain/supplier-rankings';
+  static const supplyChainTurnover = '/supply-chain/turnover';
 
   static const platformAdmin = '/platform-admin';
   static const platformAdminLogin = '/platform-admin/login';
@@ -1172,6 +1186,43 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.manufacturingScrap,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: ScrapScreen(),
+            ),
+          ),
+          // Supply Chain
+          GoRoute(
+            path: Routes.supplyChainDashboard,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SupplyChainDashboardScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.supplyChainRequisitions,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RequisitionListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.supplyChainReturns,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ReturnOrderListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.supplyChainAlerts,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SupplyChainAlertListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.supplyChainSupplierRankings,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SupplierRankingsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.supplyChainTurnover,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: InventoryTurnoverScreen(),
             ),
           ),
           // Pharma — Drug Licenses & Compliance

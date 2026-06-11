@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/form_error_handler.dart';
 import '../../contacts/data/contact_repository.dart';
@@ -99,9 +100,12 @@ class _RecurringInvoiceCreateScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('New Recurring Invoice')),
-      body: Form(
+    return KKeyboardFormWrapper(
+      onSubmit: _submit,
+      onCancel: () => context.pop(),
+      child: Scaffold(
+        appBar: AppBar(title: const Text('New Recurring Invoice')),
+        body: Form(
         key: _formKey,
         child: ListView(
           padding: KSpacing.pagePadding,
@@ -269,6 +273,7 @@ class _RecurringInvoiceCreateScreenState
             KSpacing.vGapMd,
           ],
         ),
+      ),
       ),
     );
   }

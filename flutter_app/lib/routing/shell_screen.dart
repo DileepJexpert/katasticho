@@ -552,6 +552,44 @@ const _manufacturingGroup = NavGroup(
   ],
 );
 
+const _supplyChainGroup = NavGroup(
+  label: 'Supply Chain',
+  icon: Icons.hub_outlined,
+  activeIcon: Icons.hub_rounded,
+  children: [
+    NavItem(
+        label: 'Dashboard',
+        icon: Icons.dashboard_outlined,
+        activeIcon: Icons.dashboard_rounded,
+        route: Routes.supplyChainDashboard),
+    NavItem(
+        label: 'Requisitions',
+        icon: Icons.receipt_long_outlined,
+        activeIcon: Icons.receipt_long_rounded,
+        route: Routes.supplyChainRequisitions),
+    NavItem(
+        label: 'Returns',
+        icon: Icons.assignment_return_outlined,
+        activeIcon: Icons.assignment_return_rounded,
+        route: Routes.supplyChainReturns),
+    NavItem(
+        label: 'Alerts',
+        icon: Icons.notifications_active_outlined,
+        activeIcon: Icons.notifications_active_rounded,
+        route: Routes.supplyChainAlerts),
+    NavItem(
+        label: 'Supplier Rankings',
+        icon: Icons.leaderboard_outlined,
+        activeIcon: Icons.leaderboard_rounded,
+        route: Routes.supplyChainSupplierRankings),
+    NavItem(
+        label: 'Analytics',
+        icon: Icons.analytics_outlined,
+        activeIcon: Icons.analytics_rounded,
+        route: Routes.supplyChainTurnover),
+  ],
+);
+
 /// All groups for route-matching.
 const _allGroups = [
   _salesGroup,
@@ -563,6 +601,7 @@ const _allGroups = [
   _fieldSalesGroup,
   _partnerNetworkGroup,
   _manufacturingGroup,
+  _supplyChainGroup,
 ];
 
 /// Flat list of every route across top-level items and groups (for active-state matching).
@@ -691,6 +730,20 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
       createRoute = Routes.payrollEmployeeCreate;
     } else if (location.startsWith('/manufacturing/work-orders')) {
       createRoute = Routes.manufacturingWorkOrderCreate;
+    } else if (location.startsWith('/accounts') || location.startsWith('/chart-of-accounts')) {
+      createRoute = Routes.accountCreate;
+    } else if (location.startsWith('/item-groups')) {
+      createRoute = Routes.itemGroupCreate;
+    } else if (location.startsWith('/inventory/transfer-orders')) {
+      createRoute = Routes.transferOrderCreate;
+    } else if (location.startsWith('/inventory/stock-counts')) {
+      createRoute = Routes.stockCountCreate;
+    } else if (location.startsWith('/price-lists')) {
+      createRoute = Routes.priceListCreate;
+    } else if (location.startsWith('/manufacturing/routings')) {
+      createRoute = Routes.manufacturingRoutingCreate;
+    } else if (location.startsWith('/manufacturing/job-work')) {
+      createRoute = Routes.manufacturingJobWorkCreate;
     }
     if (createRoute != null) {
       context.go(createRoute);
@@ -1059,6 +1112,7 @@ List<Widget> _buildSidebarSections({
   final fieldSalesGroup = _visibleGroup(_fieldSalesGroup, capabilities);
   final partnerNetworkGroup = _visibleGroup(_partnerNetworkGroup, capabilities);
   final manufacturingGroup = _visibleGroup(_manufacturingGroup, capabilities);
+  final supplyChainGroup = _visibleGroup(_supplyChainGroup, capabilities);
 
   return [
     _SidebarNavItem(item: _dashboardNavItem, collapsed: collapsed),
@@ -1091,6 +1145,8 @@ List<Widget> _buildSidebarSections({
       _SidebarNavGroup(group: partnerNetworkGroup, collapsed: collapsed),
     if (!isViewer && manufacturingGroup != null)
       _SidebarNavGroup(group: manufacturingGroup, collapsed: collapsed),
+    if (canAccounting && supplyChainGroup != null)
+      _SidebarNavGroup(group: supplyChainGroup, collapsed: collapsed),
     KSpacing.vGapSm,
     if (!isOperator && !isViewer)
       _SidebarNavItem(item: _contactsNavItem, collapsed: collapsed),

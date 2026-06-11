@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../routing/app_router.dart';
@@ -155,16 +156,19 @@ class _PurchaseOrderCreateScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('New Purchase Order'),
-        leading: IconButton(
-          tooltip: 'Back to purchase orders',
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go(Routes.purchaseOrders),
+    return KKeyboardFormWrapper(
+      onSubmit: _submit,
+      onCancel: () => context.go(Routes.purchaseOrders),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('New Purchase Order'),
+          leading: IconButton(
+            tooltip: 'Back to purchase orders',
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.go(Routes.purchaseOrders),
+          ),
         ),
-      ),
-      body: Column(
+        body: Column(
         children: [
           if (_errorMessage != null)
             Padding(
@@ -353,6 +357,7 @@ class _PurchaseOrderCreateScreenState
             ),
           ),
         ],
+      ),
       ),
     );
   }

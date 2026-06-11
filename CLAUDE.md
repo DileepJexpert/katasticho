@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V58** (WhatsApp message log). Next new migration = V59.
+- Location: `src/main/resources/db/migration/`. Latest is **V60** (Supply Chain). Next new migration = V61.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -266,19 +266,33 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - P5: Push notifications Firebase — FCM setup, server-side token storage, notification triggers.
 - P9: Tally export — XML export in Tally format for CA handoff.
 
-### Keyboard-Parity UX Program (IN PROGRESS — 2026-06-11)
+### Keyboard-Parity UX Program (COMPLETE — 2026-06-11)
 **Goal:** Never-touch-the-mouse voucher entry and app-wide keyboard navigation.
 
-- **KShortcuts registry (done):** Central shortcut catalogue expanded — global (Ctrl+K palette, Ctrl+N context-new, ? help, / search), list (J/K navigate, N create, R refresh, Enter open, X select), form (Ctrl+Enter submit, Ctrl+←→ step nav, Esc cancel), POS (F1-F7, Ctrl+F, Ctrl+Enter).
-- **KShortcutHelpOverlay (done):** `?` key opens context-aware shortcut reference overlay (global, list, form, POS sections shown as appropriate). Esc/? to dismiss.
-- **Command palette expansion (done):** `buildAppCommands()` expanded from ~40 to ~100 commands covering all modules: Sales Orders, Purchase Orders, Delivery Challans, Debit Notes, Chart of Accounts, Journal Entries, Credit Ledger, Bank Recon, Approval Inbox, Stock Counts, Transfer Orders, Picklists, Payroll, Field Sales (beats/routes/vans/executions/dashboard), Partner Network (partners/catalog/supplier search), Manufacturing (work orders/job work/routings/QC), and all create + settings routes.
-- **KKeyboardListWrapper (done):** Reusable Focus wrapper for list screens — J/K or ↑/↓ row navigation, N to create, R to refresh, / to focus search, Enter to open selected, X to toggle selection. Text-field-aware (disables single-key shortcuts when typing).
-- **KKeyboardFormWrapper (done):** Reusable Focus wrapper for stepped create forms — Ctrl+Enter to submit, Ctrl+←→ for step navigation, Esc to cancel.
-- **List screens wired (done):** Invoices, Bills, Sales Orders, Items, Contacts, Stock Receipts, Purchase Orders, Delivery Challans, Journal Entries, Credit Notes, Vendor Credits, Estimates, Expenses, Recurring Invoices, Work Orders, Employees — all wrapped with KKeyboardListWrapper for keyboard navigation.
-- **Form screens wired (done):** Invoice Create, Bill Create, Sales Order Create, Delivery Challan Create, Stock Receipt Create, Estimate Create, Expense Create, Credit Note Create, Vendor Credit Create — all wrapped with KKeyboardFormWrapper for Ctrl+Enter submit and step navigation.
-- **ShellScreen global shortcuts (done):** Ctrl+N (context-aware new — detects current route and navigates to create; falls back to command palette), ? (shortcut help overlay). Text-field-aware to avoid conflicts.
+- **KShortcuts registry (done):** Central shortcut catalogue — global (Ctrl+K palette, Ctrl+N context-new, ? help, / search), list (J/K navigate, N create, R refresh, Enter open, X select), form (Ctrl+Enter submit, Ctrl+←→ step nav, Esc cancel), POS (F1-F7, Ctrl+F, Ctrl+Enter).
+- **KShortcutHelpOverlay (done):** `?` key opens context-aware shortcut reference overlay.
+- **Command palette expansion (done):** 100+ commands covering all modules.
+- **KKeyboardListWrapper (done):** All list screens wrapped — Invoices, Bills, Sales Orders, Items, Contacts, Stock Receipts, Purchase Orders, Delivery Challans, Journal Entries, Credit Notes, Vendor Credits, Estimates, Expenses, Recurring Invoices, Work Orders, Employees, Accounts, Vendor Payments, Schemes, Price Lists, Item Groups, Stock Counts, Transfer Orders, Picklists, Beats, Routes, Vans, Routings, Job Cards, Job Work, QC Inspections, Partners, Catalog, Payroll Runs.
+- **KKeyboardFormWrapper (done):** All create forms wrapped — Invoice, Bill, SO, DC, Stock Receipt, Estimate, Expense, Credit Note, Vendor Credit, Journal, Purchase Order, Recurring Invoice, Contact, Account, Item, Item Group, Price List, Stock Count, Transfer Order, Work Order, Routing, Job Work.
+- **ShellScreen global shortcuts (done):** Ctrl+N (context-aware new for all routes), ? (shortcut help overlay).
 - **POS shortcut help (done):** `?` key in POS opens POS-specific shortcut reference.
-- **FAB tooltip hints (done):** 30+ list screens show `(N)` keyboard hint on the create FAB tooltip across all modules.
+- **FAB tooltip hints (done):** 40+ list screens show `(N)` keyboard hint on the create FAB tooltip.
+
+### Phase 10: Supply Chain Module (COMPLETE — 2026-06-11)
+**Goal:** Transform ERP into a supply chain product with demand planning, supplier intelligence, and inventory optimization.
+- **V60 migration (done):** 8 new tables (item_supplier, supplier_performance, demand_forecast, purchase_requisition, purchase_requisition_line, return_order, return_order_line, reorder_policy, supply_chain_alert) + supplier enhancements (lead_time_days, quality/delivery/overall_rating) + 15 indexes.
+- **Backend (done):** `com.katasticho.erp.supplychain` — 8 entities, 7 repositories, SupplyChainService (500+ lines), SupplyChainController (40+ endpoints at `/api/v1/supply-chain`). ModuleCode.SUPPLY_CHAIN added.
+- **Multi-supplier sourcing (done):** Item↔Supplier mapping with lead time, min order qty, unit price, preferred flag. CRUD + set-preferred endpoint.
+- **Demand forecasting (done):** Moving average forecast from sales history. Configurable history window and forecast horizon. Confidence scoring based on coefficient of variation.
+- **ABC classification (done):** Automatic A/B/C categorization based on 12-month consumption value (80/15/5 split). Stored in reorder_policy with abc_class field.
+- **Safety stock & EOQ (done):** Statistical safety stock (Z=1.65 for 95% service level × σ × √L). Economic Order Quantity. Reorder point = avg demand × lead time + safety stock.
+- **Purchase requisition workflow (done):** DRAFT → SUBMITTED → APPROVED/REJECTED. Auto-create from low stock alerts. Manual and automated creation.
+- **Return order management (done):** DRAFT → APPROVED → PROCESSED (or CANCELLED). Support for PURCHASE_RETURN and SALES_RETURN types. Reason codes, restock flags, condition tracking.
+- **Supply chain alerts (done):** Stockout risk detection (below safety stock), low stock alerts. Alert scan, resolve workflow.
+- **Supplier performance (done):** Scorecard calculation from PO/GRN data (orders, qty, quality rate, on-time rate). Supplier rankings.
+- **Inventory analytics (done):** Turnover ratio, days-on-hand, COGS analysis per item. Supply chain dashboard with KPIs.
+- **Flutter screens (done):** Dashboard (metrics + quick actions + navigation), Requisition list (with lifecycle actions), Return order list, Alert list (with scan + resolve), Supplier rankings, Inventory analytics (turnover + ABC). Routes and sidebar nav integrated.
+- **Tests (done):** 17 tests in SupplyChainServiceTest — item-supplier CRUD, requisition lifecycle, return order lifecycle, auto-PR, alerts, dashboard.
 
 ---
 

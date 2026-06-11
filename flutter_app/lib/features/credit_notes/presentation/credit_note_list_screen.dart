@@ -118,6 +118,7 @@ class _CreditNoteListScreenState extends ConsumerState<CreditNoteListScreen> {
         onPressed: () => context.go(Routes.creditNoteCreate),
         icon: const Icon(Icons.add),
         label: const Text('New Credit Note'),
+        tooltip: 'New Credit Note (N)',
       ),
     ));
   }

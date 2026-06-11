@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
@@ -32,14 +33,17 @@ class PaymentListScreen extends ConsumerWidget {
       );
     }
 
-    return ListView.separated(
-      padding: KSpacing.pagePadding,
-      itemCount: paymentList.length,
-      separatorBuilder: (_, __) => KSpacing.vGapSm,
-      itemBuilder: (context, index) {
-        final payment = paymentList[index];
-        return _PaymentCard(payment: payment);
-      },
+    return KKeyboardListWrapper(
+      itemCount: () => paymentList.length,
+      child: ListView.separated(
+        padding: KSpacing.pagePadding,
+        itemCount: paymentList.length,
+        separatorBuilder: (_, __) => KSpacing.vGapSm,
+        itemBuilder: (context, index) {
+          final payment = paymentList[index];
+          return _PaymentCard(payment: payment);
+        },
+      ),
     );
   }
 }

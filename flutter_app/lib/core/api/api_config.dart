@@ -817,4 +817,50 @@ class ApiConfig {
       '/api/v1/gst/einvoices/$id/generate-gsp';
   static String ewayBillGenerateViaGsp(String id) =>
       '/api/v1/gst/eway-bills/$id/generate-gsp';
+
+  // Supply Chain
+  static const String supplyChainItemSuppliers = '/api/v1/supply-chain/item-suppliers';
+  static String supplyChainItemSuppliersByItem(String itemId) =>
+      '/api/v1/supply-chain/item-suppliers/by-item/$itemId';
+  static String supplyChainItemSuppliersBySupplier(String supplierId) =>
+      '/api/v1/supply-chain/item-suppliers/by-supplier/$supplierId';
+  static String supplyChainSetPreferred(String itemId, String supplierId) =>
+      '/api/v1/supply-chain/item-suppliers/$itemId/preferred/$supplierId';
+  static const String supplyChainForecastGenerate = '/api/v1/supply-chain/forecasts/generate';
+  static String supplyChainForecastsByItem(String itemId) =>
+      '/api/v1/supply-chain/forecasts/by-item/$itemId';
+  static const String supplyChainForecasts = '/api/v1/supply-chain/forecasts';
+  static const String supplyChainAbcRun = '/api/v1/supply-chain/abc/run';
+  static const String supplyChainReorderPolicies = '/api/v1/supply-chain/reorder-policies';
+  static String supplyChainAbcClass(String cls) => '/api/v1/supply-chain/abc/$cls';
+  static String supplyChainReorderParams(String itemId) =>
+      '/api/v1/supply-chain/reorder-params/$itemId';
+  static const String supplyChainRequisitions = '/api/v1/supply-chain/requisitions';
+  static const String supplyChainRequisitionsAuto = '/api/v1/supply-chain/requisitions/auto';
+  static String supplyChainRequisition(String id) => '/api/v1/supply-chain/requisitions/$id';
+  static String supplyChainRequisitionSubmit(String id) =>
+      '/api/v1/supply-chain/requisitions/$id/submit';
+  static String supplyChainRequisitionApprove(String id) =>
+      '/api/v1/supply-chain/requisitions/$id/approve';
+  static String supplyChainRequisitionReject(String id) =>
+      '/api/v1/supply-chain/requisitions/$id/reject';
+  static const String supplyChainReturns = '/api/v1/supply-chain/returns';
+  static String supplyChainReturn(String id) => '/api/v1/supply-chain/returns/$id';
+  static String supplyChainReturnApprove(String id) =>
+      '/api/v1/supply-chain/returns/$id/approve';
+  static String supplyChainReturnProcess(String id) =>
+      '/api/v1/supply-chain/returns/$id/process';
+  static String supplyChainReturnCancel(String id) =>
+      '/api/v1/supply-chain/returns/$id/cancel';
+  static const String supplyChainAlerts = '/api/v1/supply-chain/alerts';
+  static String supplyChainAlertResolve(String id) =>
+      '/api/v1/supply-chain/alerts/$id/resolve';
+  static const String supplyChainAlertScan = '/api/v1/supply-chain/alerts/scan';
+  static String supplyChainSupplierPerformance(String supplierId) =>
+      '/api/v1/supply-chain/supplier-performance/$supplierId';
+  static const String supplyChainSupplierRankings = '/api/v1/supply-chain/supplier-rankings';
+  static String supplyChainSupplierPerformanceCalc(String supplierId) =>
+      '/api/v1/supply-chain/supplier-performance/$supplierId/calculate';
+  static const String supplyChainTurnover = '/api/v1/supply-chain/analytics/turnover';
+  static const String supplyChainDashboard = '/api/v1/supply-chain/dashboard';
 }
