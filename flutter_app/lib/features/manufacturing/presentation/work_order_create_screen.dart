@@ -34,6 +34,7 @@ class _WorkOrderCreateScreenState extends ConsumerState<WorkOrderCreateScreen> {
   List<Map<String, dynamic>> _itemResults = [];
   List<Map<String, dynamic>> _warehouseResults = [];
   bool _submitting = false;
+  bool _backflushMode = false;
 
   @override
   void initState() {
@@ -220,6 +221,14 @@ class _WorkOrderCreateScreenState extends ConsumerState<WorkOrderCreateScreen> {
           ),
 
           const SizedBox(height: 16),
+          SwitchListTile(
+            title: const Text('Backflush Mode'),
+            subtitle: const Text('Auto-issue materials on FG receipt instead of upfront'),
+            value: _backflushMode,
+            onChanged: (v) => setState(() => _backflushMode = v),
+          ),
+
+          const SizedBox(height: 16),
           KTextField(
             controller: _notesCtl,
             label: 'Notes',
@@ -270,6 +279,7 @@ class _WorkOrderCreateScreenState extends ConsumerState<WorkOrderCreateScreen> {
         directLaborCost: double.tryParse(_laborCtl.text.trim()),
         overheadCost: double.tryParse(_overheadCtl.text.trim()),
         notes: _notesCtl.text.trim().isEmpty ? null : _notesCtl.text.trim(),
+        backflushMode: _backflushMode,
       );
 
       ref.invalidate(workOrdersProvider(null));

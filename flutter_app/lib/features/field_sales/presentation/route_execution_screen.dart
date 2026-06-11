@@ -366,6 +366,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         onPressed: _showCreateDialog,
         icon: const Icon(Icons.add),
         label: const Text('New Execution'),
+        tooltip: 'New Execution (N)',
       ),
     );
   }

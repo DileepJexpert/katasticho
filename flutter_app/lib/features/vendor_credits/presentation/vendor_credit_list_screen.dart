@@ -7,6 +7,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/vendor_credit_dto.dart';
 import '../data/vendor_credit_providers.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import 'widgets/vendor_credit_card.dart';
 
 const _statusTabs = [
@@ -17,15 +18,35 @@ const _statusTabs = [
   KListTab(label: 'Void', value: 'VOID'),
 ];
 
-class VendorCreditListScreen extends ConsumerWidget {
+class VendorCreditListScreen extends ConsumerStatefulWidget {
   const VendorCreditListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VendorCreditListScreen> createState() =>
+      _VendorCreditListScreenState();
+}
+
+class _VendorCreditListScreenState
+    extends ConsumerState<VendorCreditListScreen> {
+  List<Map<String, dynamic>> _currentCredits = const [];
+
+  void _openAtIndex(int index) {
+    if (index < 0 || index >= _currentCredits.length) return;
+    final id = _currentCredits[index]['id']?.toString();
+    if (id != null) context.go('/vendor-credits/$id');
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final filter = ref.watch(vendorCreditFilterProvider);
     final creditsAsync = ref.watch(vendorCreditListProvider);
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: () => _currentCredits.length,
+      onNew: () => context.go(Routes.vendorCreditCreate),
+      onRefresh: () => ref.invalidate(vendorCreditListProvider),
+      onOpen: _openAtIndex,
+      child: Scaffold(
       body: Column(
         children: [
           KListPageHeader(
@@ -77,6 +98,7 @@ class VendorCreditListScreen extends ConsumerWidget {
                 }
 
                 final creditMaps = credits.cast<Map<String, dynamic>>();
+                _currentCredits = creditMaps;
 
                 return KResponsiveEntityList<Map<String, dynamic>>(
                   items: creditMaps,
@@ -97,7 +119,7 @@ class VendorCreditListScreen extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('New Credit'),
       ),
-    );
+    ));
   }
 }
 

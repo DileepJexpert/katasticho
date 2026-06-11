@@ -116,6 +116,32 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     """)
     BigDecimal sumRevenueByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
 
+    /** Posted (non-draft, non-cancelled) invoice turnover in a range — CMP-08 etc. */
+    @Query("""
+        SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.isDeleted = false
+          AND i.status NOT IN ('DRAFT','CANCELLED')
+          AND i.invoiceDate BETWEEN :from AND :to
+    """)
+    BigDecimal sumPostedTotalByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
+
+    /**
+     * FY-aggregate sale consideration (incl. GST, excl. TCS already collected)
+     * to one buyer — drives the TCS 206C(1H) ₹50 lakh threshold. Drafts are
+     * excluded so the invoice being created never double-counts itself.
+     */
+    @Query("""
+        SELECT COALESCE(SUM(i.totalAmount - i.tcsAmount), 0) FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.contactId = :contactId
+          AND i.isDeleted = false
+          AND i.status NOT IN ('DRAFT','CANCELLED')
+          AND i.invoiceDate BETWEEN :from AND :to
+    """)
+    BigDecimal sumPostedConsiderationByOrgAndContactAndDateRange(
+            UUID orgId, UUID contactId, LocalDate from, LocalDate to);
+
     /** Total invoiced revenue for an org/branch within a date range. */
     @Query("""
         SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i

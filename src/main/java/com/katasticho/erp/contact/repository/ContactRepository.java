@@ -64,4 +64,12 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
     boolean existsByOrgIdAndGstinAndIsDeletedFalse(UUID orgId, String gstin);
 
     boolean existsByOrgIdAndGstinAndIdNotAndIsDeletedFalse(UUID orgId, String gstin, UUID id);
+
+    /** Resolve a contact by GSTIN — used by AI bill drafting to match a scanned
+     * vendor to an existing contact (any type) before creating a new one. */
+    Optional<Contact> findFirstByOrgIdAndGstinIgnoreCaseAndIsDeletedFalse(UUID orgId, String gstin);
+
+    /** Resolve a contact by exact display name (case-insensitive) when the
+     * scanned bill has no GSTIN to match on. */
+    Optional<Contact> findFirstByOrgIdAndDisplayNameIgnoreCaseAndIsDeletedFalse(UUID orgId, String displayName);
 }

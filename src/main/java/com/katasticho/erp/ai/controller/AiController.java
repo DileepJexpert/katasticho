@@ -13,6 +13,7 @@ import com.katasticho.erp.ai.service.AiSuggestionService;
 import com.katasticho.erp.ai.service.BillScanService;
 import com.katasticho.erp.ai.service.ItemScanService;
 import com.katasticho.erp.ai.service.NlpQueryService;
+import com.katasticho.erp.ai.service.ProactiveAgentService;
 import com.katasticho.erp.ai.service.RuleBasedAiAgentService;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
@@ -38,6 +39,7 @@ public class AiController {
     private final ItemScanService itemScanService;
     private final AiSuggestionService aiSuggestionService;
     private final RuleBasedAiAgentService ruleBasedAiAgentService;
+    private final ProactiveAgentService proactiveAgentService;
 
     @GetMapping("/suggestions")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
@@ -72,6 +74,13 @@ public class AiController {
     public ResponseEntity<ApiResponse<AiAgentRunResponse>> runRuleChecks(
             @RequestParam(required = false) Integer days) {
         return ResponseEntity.ok(ApiResponse.ok(ruleBasedAiAgentService.runRuleChecks(days)));
+    }
+
+    /** Run the proactive sweep now (collections, month-close, anomalies). */
+    @PostMapping("/agents/proactive/run")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<ProactiveAgentService.ProactiveRunResult>> runProactive() {
+        return ResponseEntity.ok(ApiResponse.ok(proactiveAgentService.runAll()));
     }
 
     /**

@@ -6,6 +6,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../data/journal_repository.dart';
 
 const _sourceTabs = [
@@ -17,15 +18,33 @@ const _sourceTabs = [
   KListTab(label: 'Payment', value: 'PAYMENT'),
 ];
 
-class JournalListScreen extends ConsumerWidget {
+class JournalListScreen extends ConsumerStatefulWidget {
   const JournalListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<JournalListScreen> createState() => _JournalListScreenState();
+}
+
+class _JournalListScreenState extends ConsumerState<JournalListScreen> {
+  List<Map<String, dynamic>> _currentJournals = const [];
+
+  void _openAtIndex(int index) {
+    if (index < 0 || index >= _currentJournals.length) return;
+    final id = _currentJournals[index]['id']?.toString();
+    if (id != null) context.push('/accounting/journal-entries/$id');
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final filter = ref.watch(journalFilterProvider);
     final journalsAsync = ref.watch(journalListProvider);
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: () => _currentJournals.length,
+      onNew: () => context.push('/accounting/journal-entries/create'),
+      onRefresh: () => ref.invalidate(journalListProvider),
+      onOpen: _openAtIndex,
+      child: Scaffold(
       body: Column(
         children: [
           KListPageHeader(
@@ -83,6 +102,7 @@ class JournalListScreen extends ConsumerWidget {
                     .whereType<Map>()
                     .map((journal) => journal.cast<String, dynamic>())
                     .toList();
+                _currentJournals = journalMaps;
 
                 return KResponsiveEntityList<Map<String, dynamic>>(
                   items: journalMaps,
@@ -102,7 +122,7 @@ class JournalListScreen extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('Manual Journal'),
       ),
-    );
+    ));
   }
 }
 

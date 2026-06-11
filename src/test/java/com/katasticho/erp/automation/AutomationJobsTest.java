@@ -27,6 +27,7 @@ import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.StockMovementRepository;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
+import com.katasticho.erp.notification.sms.SmsService;
 import com.katasticho.erp.pos.repository.SalesReceiptRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,6 +64,7 @@ class AutomationJobsTest {
     @Mock private ContactRepository contactRepository;
     @Mock private AppUserRepository userRepository;
     @Mock private NotificationService notificationService;
+    @Mock private SmsService smsService;
     @Mock private NotificationRepository notificationRepository;
     @Mock private PaymentRepository paymentRepository;
     @Mock private SalesReceiptRepository salesReceiptRepository;
@@ -86,7 +88,7 @@ class AutomationJobsTest {
         expiryAlertJob = new ExpiryAlertJob(
                 orgRepository, batchRepository, batchBalanceRepository, itemRepository, userRepository, notificationService);
         lowStockAlertJob = new LowStockAlertJob(
-                orgRepository, stockBalanceRepository, itemRepository, contactRepository, userRepository, notificationService);
+                orgRepository, stockBalanceRepository, itemRepository, contactRepository, userRepository, notificationService, smsService);
         dailySummaryJob = new DailySalesSummaryJob(
                 orgRepository, invoiceRepository, paymentRepository, salesReceiptRepository,
                 expenseRepository, vendorPaymentRepository, stockMovementRepository,

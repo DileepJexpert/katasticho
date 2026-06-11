@@ -68,6 +68,7 @@ class _JobCardListScreenState extends ConsumerState<JobCardListScreen> {
                 onPressed: _showCreateJobCardsDialog,
                 icon: const Icon(Icons.post_add),
                 label: const Text('Create Job Cards'),
+                tooltip: 'Create Job Cards (N)',
               )
             : null,
         orElse: () => null,

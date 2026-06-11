@@ -95,7 +95,9 @@ import '../features/delivery_challans/presentation/delivery_challan_list_screen.
 import '../features/delivery_challans/presentation/delivery_challan_create_screen.dart';
 import '../features/delivery_challans/presentation/delivery_challan_detail_screen.dart';
 import '../features/delivery_challans/presentation/delivery_challan_pdf_screen.dart';
+import '../features/pos/presentation/cash_register_screen.dart';
 import '../features/pos/presentation/pos_receipt_settings_screen.dart';
+import '../features/pos/presentation/printer_setup_screen.dart';
 import '../features/pos/presentation/sales_receipt_list_screen.dart';
 import '../features/pos/presentation/sales_receipt_detail_screen.dart';
 import '../features/credit_ledger/presentation/credit_ledger_screen.dart';
@@ -119,6 +121,9 @@ import '../features/inventory/presentation/reorder_screen.dart';
 import '../features/inventory/presentation/shortbook_screen.dart';
 import '../features/team/presentation/team_screen.dart';
 import '../features/settings/presentation/ai_model_settings_screen.dart';
+import '../features/settings/presentation/api_keys_screen.dart';
+import '../features/settings/presentation/budgets_screen.dart';
+import '../features/settings/presentation/tally_import_screen.dart';
 import '../features/settings/presentation/business_policy_settings_screen.dart';
 import '../features/ca_console/presentation/ca_console_screen.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
@@ -259,6 +264,8 @@ class Routes {
   static const salesReceipts = '/sales-receipts';
   static const salesReceiptDetail = '/sales-receipts/:id';
   static const receiptSettings = '/pos/receipt-settings';
+  static const cashRegister = '/pos/cash-register';
+  static const printerSetup = '/pos/printer-setup';
   static const aiChat = '/ai-chat';
   static const bankReconciliation = '/banking/reconciliation';
   static const gst = '/gst';
@@ -283,6 +290,9 @@ class Routes {
   static const inventoryFeatures = '/settings/inventory-features';
   static const teamMembers = '/settings/team';
   static const aiSettings = '/settings/ai';
+  static const apiKeys = '/settings/api-keys';
+  static const budgets = '/settings/budgets';
+  static const tallyImport = '/settings/tally-import';
   // Onboarding wizard
   static const onboardingBusinessType = '/onboarding/business-type';
   static const onboardingIndustry = '/onboarding/industry';
@@ -854,6 +864,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.receiptSettings,
             builder: (context, state) => const PosReceiptSettingsScreen(),
+          ),
+          // Cash Register / Day Close
+          GoRoute(
+            path: Routes.cashRegister,
+            builder: (context, state) => const CashRegisterScreen(),
+          ),
+          // Thermal Printer Setup
+          GoRoute(
+            path: Routes.printerSetup,
+            builder: (context, state) => const PrinterSetupScreen(),
           ),
           // F8: Recurring Invoices
           GoRoute(
@@ -1506,6 +1526,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.aiSettings,
             builder: (context, state) => const AiModelSettingsScreen(),
+          ),
+          GoRoute(
+            path: Routes.apiKeys,
+            builder: (context, state) => const ApiKeysScreen(),
+          ),
+          GoRoute(
+            path: Routes.budgets,
+            builder: (context, state) => const BudgetsScreen(),
+          ),
+          GoRoute(
+            path: Routes.tallyImport,
+            builder: (context, state) => const TallyImportScreen(),
           ),
         ],
       ),

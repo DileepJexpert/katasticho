@@ -5,6 +5,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
@@ -133,13 +134,26 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
     return '$verb $success, $fail failed';
   }
 
+  List<Map<String, dynamic>> _currentInvoices = const [];
+
+  void _openAtIndex(int index) {
+    if (index < 0 || index >= _currentInvoices.length) return;
+    final id = _currentInvoices[index]['id']?.toString();
+    if (id != null) context.go('/invoices/$id');
+  }
+
   @override
   Widget build(BuildContext context) {
     final filter = ref.watch(invoiceFilterProvider);
     final invoicesAsync = ref.watch(invoiceListProvider);
     final inSelection = _selectedIds.isNotEmpty;
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: () => _currentInvoices.length,
+      onNew: () => context.go(Routes.invoiceCreate),
+      onRefresh: () => ref.invalidate(invoiceListProvider),
+      onOpen: _openAtIndex,
+      child: Scaffold(
       body: Column(
         children: [
           KListPageHeader(
@@ -224,6 +238,7 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
                 }
 
                 final invoiceMaps = invoices.cast<Map<String, dynamic>>();
+                _currentInvoices = invoiceMaps;
 
                 return KResponsiveEntityList<Map<String, dynamic>>(
                   items: invoiceMaps,
@@ -254,8 +269,9 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
               onPressed: () => context.go(Routes.invoiceCreate),
               icon: const Icon(Icons.add),
               label: const Text('New Invoice'),
+              tooltip: 'New Invoice (N)',
             ),
-    );
+    ));
   }
 }
 

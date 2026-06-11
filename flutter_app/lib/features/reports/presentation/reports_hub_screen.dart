@@ -157,6 +157,27 @@ List<_ReportGroupData> _reportGroups(BuildContext context) => [
             onTap: () => _openOperational(
                 context, 'journal-register', 'Journal Register'),
           ),
+          _ReportLink(
+            icon: Icons.workspaces_outlined,
+            title: 'Cost Centres',
+            color: KColors.warning,
+            onTap: () =>
+                _openOperational(context, 'cost-centres', 'Cost Centres'),
+          ),
+          _ReportLink(
+            icon: Icons.speed_outlined,
+            title: 'Ratio Analysis',
+            color: KColors.info,
+            onTap: () =>
+                _openOperational(context, 'ratio-analysis', 'Ratio Analysis'),
+          ),
+          _ReportLink(
+            icon: Icons.savings_outlined,
+            title: 'Budget vs Actual',
+            color: KColors.success,
+            onTap: () => _openOperational(
+                context, 'budget-variance', 'Budget vs Actual'),
+          ),
         ],
       ),
       _ReportGroupData(
@@ -181,6 +202,17 @@ List<_ReportGroupData> _reportGroups(BuildContext context) => [
               context,
               'challan-not-invoiced',
               'Challan Not Invoiced',
+              dateRange: false,
+            ),
+          ),
+          _ReportLink(
+            icon: Icons.percent_outlined,
+            title: 'Interest on Overdue',
+            color: KColors.error,
+            onTap: () => _openOperational(
+              context,
+              'overdue-interest',
+              'Interest on Overdue',
               dateRange: false,
             ),
           ),
@@ -237,6 +269,17 @@ List<_ReportGroupData> _reportGroups(BuildContext context) => [
         title: 'Inventory',
         reports: [
           _ReportLink(
+            icon: Icons.hourglass_bottom_outlined,
+            title: 'Stock Ageing',
+            color: KColors.warning,
+            onTap: () => _openOperational(
+              context,
+              'stock-ageing',
+              'Stock Ageing',
+              dateRange: false,
+            ),
+          ),
+          _ReportLink(
             icon: Icons.inventory_2_outlined,
             title: 'Stock Summary',
             color: KColors.secondary,
@@ -244,6 +287,17 @@ List<_ReportGroupData> _reportGroups(BuildContext context) => [
               context,
               'stock-summary',
               'Stock Summary',
+              dateRange: false,
+            ),
+          ),
+          _ReportLink(
+            icon: Icons.layers_outlined,
+            title: 'FIFO Valuation',
+            color: KColors.primary,
+            onTap: () => _openOperational(
+              context,
+              'fifo-valuation',
+              'FIFO Valuation',
               dateRange: false,
             ),
           ),

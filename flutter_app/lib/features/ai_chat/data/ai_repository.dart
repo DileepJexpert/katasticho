@@ -56,6 +56,69 @@ class AiRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  /// AI-first bill drafting: turn (reviewed) scanned bill data into a DRAFT
+  /// purchase bill + AI Inbox suggestion. Returns the `data` payload with
+  /// `suggestionId`, `billId`, `billNumber`, `vendorCreated`, `warnings`, etc.
+  Future<Map<String, dynamic>> draftBillFromScan(
+      Map<String, dynamic> billData) async {
+    final response = await _api.post(ApiConfig.aiBillDrafts, data: billData);
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
+  }
+
+  /// Approve a drafted bill — posts it through the AP path. Returns the
+  /// posted bill summary (`status` becomes OPEN).
+  Future<Map<String, dynamic>> approveBillDraft(String suggestionId) async {
+    final response = await _api.post(ApiConfig.aiBillDraftApprove(suggestionId));
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
+  }
+
+  /// Reject a drafted bill — deletes the DRAFT.
+  Future<void> rejectBillDraft(String suggestionId, {String? reason}) async {
+    await _api.post(
+      ApiConfig.aiBillDraftReject(suggestionId),
+      data: reason != null && reason.trim().isNotEmpty
+          ? {'reason': reason.trim()}
+          : null,
+    );
+  }
+
+  /// Conversational entry: turn a sentence ("paid 5000 cash for shop rent")
+  /// into a DRAFT journal entry + AI Inbox suggestion. Returns the `data`
+  /// payload: `drafted`, `suggestionId`, `voucherType`, `lines`, `warnings`,
+  /// `message`.
+  Future<Map<String, dynamic>> draftEntry(String text) async {
+    final response = await _api.post(ApiConfig.aiEntry, data: {'text': text});
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
+  }
+
+  /// Approve a drafted entry — posts it through the journal gate.
+  Future<Map<String, dynamic>> approveEntryDraft(String suggestionId) async {
+    final response = await _api.post(ApiConfig.aiEntryApprove(suggestionId));
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
+  }
+
+  /// Reject a drafted entry — deletes the DRAFT.
+  Future<void> rejectEntryDraft(String suggestionId, {String? reason}) async {
+    await _api.post(
+      ApiConfig.aiEntryReject(suggestionId),
+      data: reason != null && reason.trim().isNotEmpty
+          ? {'reason': reason.trim()}
+          : null,
+    );
+  }
+
+  /// Run the proactive sweep now (collections reminders, month-close checklist,
+  /// anomaly scan). Returns counts: `collections`, `monthClose`, `anomalies`.
+  Future<Map<String, dynamic>> runProactiveSweep() async {
+    final response = await _api.post(ApiConfig.aiProactiveRun);
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
+  }
+
   Future<AiInboxSummary> getSuggestionSummary() async {
     final response = await _api.get(ApiConfig.aiSuggestionsSummary);
     final body = response.data as Map<String, dynamic>;

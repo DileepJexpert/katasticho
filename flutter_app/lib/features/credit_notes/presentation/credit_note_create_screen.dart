@@ -15,6 +15,7 @@ import '../../invoices/data/invoice_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/credit_note_repository.dart';
 import '../data/credit_note_providers.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 
 class CreditNoteCreateScreen extends ConsumerStatefulWidget {
   const CreditNoteCreateScreen({super.key});
@@ -61,6 +62,9 @@ class _CreditNoteCreateScreenState extends ConsumerState<CreditNoteCreateScreen>
   double get _grandTotal => _subtotal + _taxTotal;
 
   Future<void> _submit() async {
+    // Guard: Ctrl+Enter can invoke this directly while a submit is in
+    // flight; without this check a second press creates a duplicate document.
+    if (_isSubmitting) return;
     clearServerErrors();
     if (!_formKey.currentState!.validate()) return;
     if (_selectedContactId == null) {
@@ -230,7 +234,10 @@ class _CreditNoteCreateScreenState extends ConsumerState<CreditNoteCreateScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _submit,
+      onCancel: () => context.go(Routes.creditNotes),
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('New Credit Note'),
       ),
@@ -366,6 +373,7 @@ class _CreditNoteCreateScreenState extends ConsumerState<CreditNoteCreateScreen>
           ],
         ),
       ),
+    ),
     );
   }
 

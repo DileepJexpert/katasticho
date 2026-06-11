@@ -219,6 +219,24 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push(Routes.aiSettings),
             ),
             _SettingsTile(
+              icon: Icons.savings_outlined,
+              title: 'Budgets',
+              subtitle: 'Annual budget per account — drives Budget vs Actual',
+              onTap: () => context.push(Routes.budgets),
+            ),
+            _SettingsTile(
+              icon: Icons.key_outlined,
+              title: 'API Keys',
+              subtitle: 'Connect Claude Desktop, the MCP server & integrations',
+              onTap: () => context.push(Routes.apiKeys),
+            ),
+            _SettingsTile(
+              icon: Icons.swap_horiz,
+              title: 'Migrate from Tally',
+              subtitle: 'Import ledgers, items & opening balances from Tally XML',
+              onTap: () => context.push(Routes.tallyImport),
+            ),
+            _SettingsTile(
               icon: Icons.notifications_outlined,
               title: 'Notifications',
               subtitle: 'Push, email & SMS alerts',

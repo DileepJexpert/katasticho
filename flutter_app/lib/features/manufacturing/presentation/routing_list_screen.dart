@@ -61,11 +61,13 @@ class _RoutingListScreenState extends ConsumerState<RoutingListScreen>
               onPressed: () => context.go('/manufacturing/routings/create'),
               icon: const Icon(Icons.add),
               label: const Text('New Routing'),
+              tooltip: 'New Routing (N)',
             )
           : FloatingActionButton.extended(
               onPressed: () => _showAddWorkstationSheet(context),
               icon: const Icon(Icons.add),
               label: const Text('Add Workstation'),
+              tooltip: 'Add Workstation (N)',
             ),
     );
   }

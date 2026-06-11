@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/manufacturing_repository.dart';
@@ -15,13 +16,25 @@ class WorkOrderListScreen extends ConsumerStatefulWidget {
 
 class _WorkOrderListScreenState extends ConsumerState<WorkOrderListScreen> {
   String? _statusFilter;
+  List<dynamic> _currentOrders = const [];
+
+  void _openAtIndex(int index) {
+    if (index < 0 || index >= _currentOrders.length) return;
+    final id = (_currentOrders[index] as Map?)?['id']?.toString();
+    if (id != null) context.go('/manufacturing/work-orders/$id');
+  }
 
   @override
   Widget build(BuildContext context) {
     final ordersAsync = ref.watch(workOrdersProvider(_statusFilter));
     final theme = Theme.of(context);
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: () => _currentOrders.length,
+      onNew: () => context.go(Routes.manufacturingWorkOrderCreate),
+      onRefresh: () => ref.invalidate(workOrdersProvider(_statusFilter)),
+      onOpen: _openAtIndex,
+      child: Scaffold(
       body: Column(
         children: [
           const KListPageHeader(
@@ -55,6 +68,7 @@ class _WorkOrderListScreenState extends ConsumerState<WorkOrderListScreen> {
                 onRetry: () => ref.invalidate(workOrdersProvider(_statusFilter)),
               ),
               data: (orders) {
+                _currentOrders = orders;
                 if (orders.isEmpty) {
                   return const KEmptyState(
                     icon: Icons.precision_manufacturing_outlined,
@@ -85,8 +99,9 @@ class _WorkOrderListScreenState extends ConsumerState<WorkOrderListScreen> {
         onPressed: () => context.go(Routes.manufacturingWorkOrderCreate),
         icon: const Icon(Icons.add),
         label: const Text('New Work Order'),
+        tooltip: 'New Work Order (N)',
       ),
-    );
+    ));
   }
 
   void _setFilter(String? status) {

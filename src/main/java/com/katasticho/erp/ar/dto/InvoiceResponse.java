@@ -16,6 +16,7 @@ public record InvoiceResponse(
         String status,
         BigDecimal subtotal,
         BigDecimal taxAmount,
+        BigDecimal tcsAmount,
         BigDecimal totalAmount,
         BigDecimal amountPaid,
         BigDecimal balanceDue,

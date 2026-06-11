@@ -5,6 +5,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/expense_repository.dart';
 
@@ -32,6 +33,13 @@ class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
   DateTime? _from;
   DateTime? _to;
   String? _category;
+  List<Map<String, dynamic>> _currentExpenses = const [];
+
+  void _openAtIndex(int index) {
+    if (index < 0 || index >= _currentExpenses.length) return;
+    final id = _currentExpenses[index]['id']?.toString();
+    if (id != null) context.push('/expenses/$id');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +50,12 @@ class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
     );
     final asyncExpenses = ref.watch(expenseListProvider(filters));
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: () => _currentExpenses.length,
+      onNew: () => context.push('/expenses/create'),
+      onRefresh: () => ref.invalidate(expenseListProvider(filters)),
+      onOpen: _openAtIndex,
+      child: Scaffold(
       body: Column(
         children: [
           KListPageHeader(
@@ -102,6 +115,7 @@ class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
                     .whereType<Map>()
                     .map((expense) => expense.cast<String, dynamic>())
                     .toList();
+                _currentExpenses = expenseMaps;
 
                 return KResponsiveEntityList<Map<String, dynamic>>(
                   items: expenseMaps,
@@ -121,8 +135,9 @@ class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
         onPressed: () => context.push('/expenses/create'),
         icon: const Icon(Icons.add),
         label: const Text('Record Expense'),
+        tooltip: 'Record Expense (N)',
       ),
-    );
+    ));
   }
 
   Future<void> _openFilterSheet() async {

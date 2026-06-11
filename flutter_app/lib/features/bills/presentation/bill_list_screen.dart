@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/currency_formatter.dart';
@@ -32,7 +33,14 @@ class BillListScreen extends ConsumerStatefulWidget {
 }
 
 class _BillListScreenState extends ConsumerState<BillListScreen> {
+  List<Map<String, dynamic>> _currentBills = const [];
   final Set<String> _selectedIds = {};
+
+  void _openAtIndex(int index) {
+    if (index < 0 || index >= _currentBills.length) return;
+    final id = _currentBills[index]['id']?.toString();
+    if (id != null) context.go('/bills/$id');
+  }
 
   void _toggleSelect(String id) => setState(() {
         _selectedIds.contains(id)
@@ -197,7 +205,12 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
     final billsAsync = ref.watch(billListProvider);
     final inSelection = _selectedIds.isNotEmpty;
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: () => _currentBills.length,
+      onNew: () => context.go(Routes.billCreate),
+      onRefresh: () => ref.invalidate(billListProvider),
+      onOpen: _openAtIndex,
+      child: Scaffold(
       body: Column(
         children: [
           KListPageHeader(
@@ -271,6 +284,7 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
                 }
 
                 final billMaps = bills.cast<Map<String, dynamic>>();
+                _currentBills = billMaps;
 
                 return KResponsiveEntityList<Map<String, dynamic>>(
                   items: billMaps,
@@ -301,7 +315,9 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
               onPressed: () => context.go(Routes.billCreate),
               icon: const Icon(Icons.add),
               label: const Text('New Bill'),
+              tooltip: 'New Bill (N)',
             ),
+    ),
     );
   }
 }

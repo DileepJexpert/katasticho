@@ -1,5 +1,6 @@
 package com.katasticho.erp.inventory.repository;
 
+import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.ReferenceType;
 import com.katasticho.erp.inventory.entity.StockMovement;
 import org.springframework.data.domain.Page;
@@ -26,6 +27,21 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, UU
     Page<StockMovement> findByOrgIdOrderByMovementDateDescCreatedAtDesc(UUID orgId, Pageable pageable);
 
     List<StockMovement> findByReferenceTypeAndReferenceId(ReferenceType referenceType, UUID referenceId);
+
+    /**
+     * All incoming (positive, non-reversal) movements for the org, newest
+     * first per item — feeds the stock-ageing report's FIFO allocation
+     * (what's left on hand is assumed to be the most recent receipts).
+     */
+    @Query("""
+        SELECT m FROM StockMovement m
+        WHERE m.orgId = :orgId
+          AND m.quantity > 0
+          AND m.reversal = false
+          AND m.reversed = false
+        ORDER BY m.itemId, m.movementDate DESC, m.createdAt DESC
+    """)
+    List<StockMovement> findIncomingByOrgNewestFirst(@Param("orgId") UUID orgId);
 
     /**
      * Canonical on-hand from the ledger. SUM of signed quantities up to and
@@ -78,4 +94,57 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, UU
 
     List<StockMovement> findByOrgIdAndMovementDateBetweenOrderByMovementDateDescCreatedAtDesc(
             UUID orgId, LocalDate from, LocalDate to);
+
+    /**
+     * Per-item recorded cost and quantity of outgoing movements attributable
+     * to the given references (e.g. an invoice's delivery challans, or a
+     * transfer order's TRANSFER_OUT legs). Under FIFO each movement's
+     * total_cost is the true cost of the units it moved, so cost/qty per item
+     * gives the blended per-unit cost that a caller can prorate by its own
+     * quantities — never attributing more than its share even when several
+     * documents draw on the same dispatched goods.
+     */
+    @Query("""
+        SELECT m.itemId AS itemId,
+               COALESCE(SUM(ABS(m.totalCost)), 0) AS totalCost,
+               COALESCE(SUM(ABS(m.quantity)), 0) AS totalQty
+        FROM StockMovement m
+        WHERE m.orgId = :orgId
+          AND m.referenceType = :refType
+          AND m.referenceId IN :refIds
+          AND m.movementType = :movementType
+          AND m.reversal = false
+          AND m.reversed = false
+        GROUP BY m.itemId
+    """)
+    List<ItemCostRow> sumCostAndQtyByReferences(@Param("orgId") UUID orgId,
+                                                @Param("refType") ReferenceType refType,
+                                                @Param("refIds") List<UUID> refIds,
+                                                @Param("movementType") MovementType movementType);
+
+    interface ItemCostRow {
+        UUID getItemId();
+        BigDecimal getTotalCost();
+        BigDecimal getTotalQty();
+    }
+
+    /**
+     * Original (non-reversal, not-yet-reversed) movements posted against a
+     * document — e.g. a purchase bill's PURCHASE rows — so a void can reverse
+     * each one through {@code InventoryService.reverseMovement} and keep the
+     * FIFO lot ledger consistent.
+     */
+    @Query("""
+        SELECT m FROM StockMovement m
+        WHERE m.orgId = :orgId
+          AND m.referenceType = :refType
+          AND m.referenceId = :refId
+          AND m.movementType = :movementType
+          AND m.reversal = false
+          AND m.reversed = false
+    """)
+    List<StockMovement> findOriginalsByReference(@Param("orgId") UUID orgId,
+                                                 @Param("refType") ReferenceType refType,
+                                                 @Param("refId") UUID refId,
+                                                 @Param("movementType") MovementType movementType);
 }

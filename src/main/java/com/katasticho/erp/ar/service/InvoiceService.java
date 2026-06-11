@@ -82,6 +82,7 @@ public class InvoiceService {
     private final CacheInvalidationService cacheInvalidationService;
     private final DocumentSnapshotService documentSnapshotService;
     private final DomainEventPublisher domainEventPublisher;
+    private final com.katasticho.erp.tax.service.TcsService tcsService;
 
     /**
      * Create a DRAFT invoice with tax calculation via TaxEngine.
@@ -271,6 +272,18 @@ public class InvoiceService {
                     "AR_INVOICE_TOTAL_NOT_POSITIVE",
                     HttpStatus.BAD_REQUEST);
         }
+
+        // TCS 206C(1H): collected from the buyer on top of subtotal + GST once
+        // the FY consideration crosses ₹50 lakh (org setting tax.tcs_enabled).
+        BigDecimal tcsAmount = BigDecimal.ZERO;
+        var tcs = tcsService.computeForInvoice(orgId, contact.getId(), totalAmount, request.invoiceDate());
+        if (tcs != null) {
+            tcsAmount = tcs.amount();
+            totalAmount = totalAmount.add(tcsAmount);
+            log.info("TCS {} on invoice for {} ({})", tcsAmount, contact.getDisplayName(), tcs.note());
+        }
+        invoice.setTcsAmount(tcsAmount.setScale(2, RoundingMode.HALF_UP));
+
         invoice.setSubtotal(totalSubtotal.setScale(2, RoundingMode.HALF_UP));
         invoice.setTaxAmount(totalTax.setScale(2, RoundingMode.HALF_UP));
         invoice.setTotalAmount(totalAmount.setScale(2, RoundingMode.HALF_UP));
@@ -340,15 +353,19 @@ public class InvoiceService {
             inventoryService.validateStockForInvoice(invoice);
         }
 
-        // Post journal via the accounting posting engine
-        JournalEntry journalEntry = postingEngine.postSalesInvoice(invoice);
-
-        // Deduct stock for any itemised lines (free-text lines are silently
-        // skipped). Skip when invoice originates from a Sales Order — stock
-        // was already deducted on delivery challan dispatch (PGI).
+        // Deduct stock BEFORE posting the journal — same transaction, so a
+        // posting failure rolls the movements back. Order matters for FIFO
+        // orgs: the posting rule reads the SALE movements' recorded cost to
+        // book COGS at the true lot cost; posting first would leave COGS on
+        // the purchase-price fallback while the lots drained at FIFO cost.
+        // Skip when the invoice originates from a Sales Order — stock was
+        // already deducted on delivery challan dispatch (PGI).
         if (!skipStockMovement && invoice.getSalesOrderId() == null) {
             inventoryService.deductStockForInvoice(invoice);
         }
+
+        // Post journal via the accounting posting engine
+        JournalEntry journalEntry = postingEngine.postSalesInvoice(invoice);
 
         // Update invoice status
         invoice.setStatus("SENT");
@@ -578,7 +595,7 @@ public class InvoiceService {
                 inv.getId(), inv.getContactId(),
                 contact != null ? contact.getDisplayName() : null,
                 inv.getInvoiceNumber(), inv.getInvoiceDate(), inv.getDueDate(),
-                inv.getStatus(), inv.getSubtotal(), inv.getTaxAmount(),
+                inv.getStatus(), inv.getSubtotal(), inv.getTaxAmount(), inv.getTcsAmount(),
                 inv.getTotalAmount(), inv.getAmountPaid(), inv.getBalanceDue(),
                 inv.getCurrency(), inv.getPlaceOfSupply(), inv.isReverseCharge(),
                 inv.getJournalEntryId(), inv.getNotes(), inv.getTermsAndConditions(),

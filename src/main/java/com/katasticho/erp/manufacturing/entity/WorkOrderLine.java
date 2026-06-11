@@ -46,4 +46,10 @@ public class WorkOrderLine extends BaseEntity {
     @Column(length = 20)
     @Builder.Default
     private String status = "PENDING";
+
+    @Column(name = "batch_id")
+    private UUID batchId;
+
+    @Column(name = "batch_number", length = 50)
+    private String batchNumber;
 }

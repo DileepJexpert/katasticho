@@ -55,6 +55,12 @@ public class OperationalReportService {
     private final StockBatchRepository stockBatchRepository;
     private final SalesOrderRepository salesOrderRepository;
     private final DeliveryChallanRepository deliveryChallanRepository;
+    private final com.katasticho.erp.organisation.OrgSettingsService orgSettingsService;
+    private final com.katasticho.erp.inventory.service.FifoCostingService fifoCostingService;
+    private final FinancialReportService financialReportService;
+    private final com.katasticho.erp.accounting.defaults.service.DefaultAccountService defaultAccountService;
+    private final com.katasticho.erp.accounting.repository.BudgetLineRepository budgetLineRepository;
+    private final com.katasticho.erp.accounting.repository.AccountRepository accountRepository;
 
     public OperationalReportResponse salesRegister(LocalDate startDate, LocalDate endDate) {
         Context ctx = context();
@@ -226,6 +232,13 @@ public class OperationalReportService {
         Map<UUID, List<StockBalance>> balancesByItem = balances.stream()
                 .collect(Collectors.groupingBy(StockBalance::getItemId));
 
+        // FIFO orgs value on-hand at the remaining cost-lot value rather than
+        // the weighted-average. Where a lot doesn't exist yet (stock that
+        // predates FIFO tracking), we fall back to the average so nothing reads
+        // as zero.
+        boolean fifo = fifoCostingService.isFifo(ctx.orgId());
+        Map<String, BigDecimal> fifoValue = fifo ? fifoValueByItemWarehouse(ctx.orgId()) : Map.of();
+
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Item item : trackableItems) {
             List<StockBalance> itemBalances = balancesByItem.getOrDefault(item.getId(), List.of());
@@ -248,7 +261,9 @@ public class OperationalReportService {
 
             for (StockBalance b : itemBalances) {
                     Warehouse wh = warehouses.get(b.getWarehouseId());
-                    BigDecimal stockValue = nz(b.getQuantityOnHand()).multiply(nz(b.getAverageCost()));
+                    BigDecimal avgValue = nz(b.getQuantityOnHand()).multiply(nz(b.getAverageCost()));
+                    BigDecimal fifoVal = fifo ? fifoValue.get(b.getItemId() + ":" + b.getWarehouseId()) : null;
+                    BigDecimal stockValue = fifoVal != null ? fifoVal : avgValue;
                     BigDecimal reorderLevel = nz(item.getReorderLevel());
                     rows.add(row(
                             "sku", item.getSku(),
@@ -280,6 +295,60 @@ public class OperationalReportService {
                         col("averageCost", "Avg Cost", "currency"), col("stockValue", "Value", "currency"),
                         col("reorderLevel", "Reorder", "number"), col("lowStock", "Low Stock", "text")),
                 rows);
+    }
+
+    /**
+     * FIFO valuation: every open cost lot with its age and remaining value.
+     * The closing inventory on the balance sheet equals the sum of these.
+     */
+    public OperationalReportResponse fifoValuation() {
+        Context ctx = context();
+        var lots = fifoCostingService.openLots(ctx.orgId());
+        Map<UUID, Item> items = itemMap(ctx.orgId(), lots.stream().map(l -> l.getItemId()).toList());
+        Map<UUID, Warehouse> warehouses = warehouseMap(lots.stream().map(l -> l.getWarehouseId()).toList());
+        LocalDate today = LocalDate.now();
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        BigDecimal totalValue = BigDecimal.ZERO;
+        for (var lot : lots) {
+            Item item = items.get(lot.getItemId());
+            Warehouse wh = warehouses.get(lot.getWarehouseId());
+            BigDecimal lotValue = lot.getRemainingQty().multiply(lot.getUnitCost());
+            totalValue = totalValue.add(lotValue);
+            long ageDays = java.time.temporal.ChronoUnit.DAYS.between(lot.getReceivedDate(), today);
+            rows.add(row(
+                    "sku", item == null ? "--" : item.getSku(),
+                    "item", item == null ? "Unknown" : item.getName(),
+                    "warehouse", wh == null ? "Unknown" : wh.getName(),
+                    "received", lot.getReceivedDate(),
+                    "ageDays", BigDecimal.valueOf(ageDays),
+                    "remainingQty", nz(lot.getRemainingQty()),
+                    "unitCost", nz(lot.getUnitCost()),
+                    "lotValue", lotValue,
+                    "opening", lot.getSourceMovementId() == null ? "Yes" : "No"
+            ));
+        }
+
+        return response("fifo-valuation", "FIFO Valuation",
+                "Open FIFO cost lots — remaining quantity valued at its receipt cost.",
+                today, today, ctx.currency(),
+                metrics(metric("lots", "Open Lots", BigDecimal.valueOf(rows.size()), "number"),
+                        metric("value", "Inventory Value", totalValue, "currency")),
+                columns(col("sku", "SKU", "text"), col("item", "Item", "text"),
+                        col("warehouse", "Warehouse", "text"), col("received", "Received", "date"),
+                        col("ageDays", "Age (days)", "number"), col("remainingQty", "Qty Left", "number"),
+                        col("unitCost", "Unit Cost", "currency"), col("lotValue", "Lot Value", "currency"),
+                        col("opening", "Opening", "text")),
+                rows);
+    }
+
+    private Map<String, BigDecimal> fifoValueByItemWarehouse(UUID orgId) {
+        Map<String, BigDecimal> m = new HashMap<>();
+        for (var lot : fifoCostingService.openLots(orgId)) {
+            m.merge(lot.getItemId() + ":" + lot.getWarehouseId(),
+                    lot.getRemainingQty().multiply(lot.getUnitCost()), BigDecimal::add);
+        }
+        return m;
     }
 
     public OperationalReportResponse stockMovement(LocalDate startDate, LocalDate endDate) {
@@ -527,6 +596,345 @@ public class OperationalReportService {
                         col("debit", "Debit", "currency"), col("credit", "Credit", "currency"),
                         col("status", "Status", "status"), col("lineCount", "Lines", "number")),
                 rows);
+    }
+
+    /**
+     * Cost-centre summary: every journal line tagged with a cost centre,
+     * grouped by centre with debit/credit/net totals. Untagged lines are
+     * summarised in one "(untagged)" row so the report always reconciles to
+     * the journal register.
+     */
+    public OperationalReportResponse costCentres(LocalDate startDate, LocalDate endDate) {
+        Context ctx = context();
+        List<JournalEntry> entries = journalEntryRepository
+                .findPostedWithLinesInRange(ctx.orgId(), startDate, endDate);
+
+        record Totals(BigDecimal[] debitCredit, int[] lineCount) {}
+        Map<String, Totals> byCentre = new TreeMap<>();
+        Function<String, Totals> bucket = key -> byCentre.computeIfAbsent(key,
+                k -> new Totals(new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO}, new int[]{0}));
+
+        BigDecimal taggedAmount = BigDecimal.ZERO;
+        for (JournalEntry je : entries) {
+            for (var line : je.getLines()) {
+                String centre = line.getCostCentre();
+                boolean tagged = centre != null && !centre.isBlank();
+                Totals t = bucket.apply(tagged ? centre.trim() : "(untagged)");
+                t.debitCredit()[0] = t.debitCredit()[0].add(nz(line.getBaseDebit()));
+                t.debitCredit()[1] = t.debitCredit()[1].add(nz(line.getBaseCredit()));
+                t.lineCount()[0]++;
+                if (tagged) {
+                    taggedAmount = taggedAmount.add(nz(line.getBaseDebit())).add(nz(line.getBaseCredit()));
+                }
+            }
+        }
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map.Entry<String, Totals> e : byCentre.entrySet()) {
+            BigDecimal debit = e.getValue().debitCredit()[0];
+            BigDecimal credit = e.getValue().debitCredit()[1];
+            rows.add(row("centre", e.getKey(),
+                    "debit", debit,
+                    "credit", credit,
+                    "net", debit.subtract(credit),
+                    "lineCount", BigDecimal.valueOf(e.getValue().lineCount()[0])));
+        }
+        // Untagged last, tagged centres alphabetical.
+        rows.sort(Comparator.comparing(r -> "(untagged)".equals(r.get("centre")) ? "￿" : (String) r.get("centre")));
+
+        long taggedCentres = byCentre.keySet().stream().filter(k -> !"(untagged)".equals(k)).count();
+
+        return response("cost-centres", "Cost Centres",
+                "Journal activity grouped by cost centre — tag lines on manual journals to use this.",
+                startDate, endDate, ctx.currency(),
+                metrics(metric("centres", "Cost Centres", BigDecimal.valueOf(taggedCentres), "number"),
+                        metric("tagged", "Tagged Amount (Dr+Cr)", taggedAmount, "currency")),
+                columns(col("centre", "Cost Centre", "text"),
+                        col("debit", "Debit", "currency"), col("credit", "Credit", "currency"),
+                        col("net", "Net (Dr−Cr)", "currency"), col("lineCount", "Lines", "number")),
+                rows);
+    }
+
+    /**
+     * Interest on overdue receivables (Tally's "interest calculation"):
+     * simple interest at {@code ar.interest_rate_pa} (default 18% p.a.) on
+     * each overdue invoice's balance for the days past due. Read-only — use
+     * it for negotiation/collections; raise a debit note manually if you
+     * actually charge it.
+     */
+    public OperationalReportResponse overdueInterest() {
+        Context ctx = context();
+        LocalDate today = LocalDate.now();
+
+        BigDecimal ratePa;
+        try {
+            ratePa = new BigDecimal(orgSettingsService.get(ctx.orgId(), "ar.interest_rate_pa", "18"));
+        } catch (NumberFormatException e) {
+            ratePa = new BigDecimal("18");
+        }
+
+        List<Invoice> overdue = invoiceRepository.findOverdueInvoices(ctx.orgId(), today);
+        Map<UUID, String> names = contactNames(ctx.orgId(),
+                overdue.stream().map(Invoice::getContactId).collect(Collectors.toSet()));
+
+        BigDecimal totalInterest = BigDecimal.ZERO;
+        BigDecimal totalOverdue = BigDecimal.ZERO;
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Invoice inv : overdue) {
+            long days = java.time.temporal.ChronoUnit.DAYS.between(inv.getDueDate(), today);
+            if (days <= 0) continue;
+            BigDecimal balance = nz(inv.getBalanceDue());
+            BigDecimal interest = balance.multiply(ratePa)
+                    .multiply(BigDecimal.valueOf(days))
+                    .divide(BigDecimal.valueOf(36500), 2, java.math.RoundingMode.HALF_UP);
+            totalInterest = totalInterest.add(interest);
+            totalOverdue = totalOverdue.add(balance);
+            rows.add(row("customer", names.getOrDefault(inv.getContactId(), ""),
+                    "invoiceNumber", inv.getInvoiceNumber(),
+                    "dueDate", inv.getDueDate(),
+                    "daysOverdue", BigDecimal.valueOf(days),
+                    "balanceDue", balance,
+                    "interest", interest));
+        }
+        rows.sort((a, b) -> ((BigDecimal) b.get("interest")).compareTo((BigDecimal) a.get("interest")));
+
+        return response("overdue-interest", "Interest on Overdue",
+                "Simple interest at " + ratePa.toPlainString() + "% p.a. on overdue invoice balances "
+                        + "(set ar.interest_rate_pa in org settings).",
+                today, today, ctx.currency(),
+                metrics(metric("invoices", "Overdue Invoices", BigDecimal.valueOf(rows.size()), "number"),
+                        metric("overdue", "Overdue Balance", totalOverdue, "currency"),
+                        metric("interest", "Accrued Interest", totalInterest, "currency")),
+                columns(col("customer", "Customer", "text"), col("invoiceNumber", "Invoice", "text"),
+                        col("dueDate", "Due Date", "date"), col("daysOverdue", "Days Late", "number"),
+                        col("balanceDue", "Balance Due", "currency"), col("interest", "Interest", "currency")),
+                rows);
+    }
+
+    /**
+     * Stock ageing: on-hand quantity allocated to age buckets by FIFO
+     * assumption — what remains in stock is the most recent receipts, so each
+     * item's on-hand qty is matched against its incoming movements newest
+     * first and bucketed by receipt age (0–30 / 31–60 / 61–90 / 90+ days).
+     * Values use the weighted-average cost from the balance cache.
+     */
+    public OperationalReportResponse stockAgeing() {
+        Context ctx = context();
+        LocalDate today = LocalDate.now();
+
+        // On-hand + weighted cost per item (aggregated across warehouses).
+        Map<UUID, BigDecimal[]> qtyValueByItem = new LinkedHashMap<>();   // [qty, value]
+        for (StockBalance b : stockBalanceRepository.findByOrgIdOrderByLastMovementAtDesc(ctx.orgId())) {
+            if (nz(b.getQuantityOnHand()).signum() <= 0) continue;
+            BigDecimal[] acc = qtyValueByItem.computeIfAbsent(b.getItemId(),
+                    k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+            acc[0] = acc[0].add(b.getQuantityOnHand());
+            acc[1] = acc[1].add(b.getQuantityOnHand().multiply(nz(b.getAverageCost())));
+        }
+        if (qtyValueByItem.isEmpty()) {
+            return response("stock-ageing", "Stock Ageing",
+                    "How old your stock is (FIFO assumption: what's left is the newest receipts).",
+                    today, today, ctx.currency(),
+                    metrics(metric("value", "Total Stock Value", BigDecimal.ZERO, "currency")),
+                    ageingColumns(), List.of());
+        }
+
+        // Incoming movements newest-first, grouped per item.
+        Map<UUID, List<StockMovement>> receiptsByItem = new HashMap<>();
+        for (StockMovement m : stockMovementRepository.findIncomingByOrgNewestFirst(ctx.orgId())) {
+            receiptsByItem.computeIfAbsent(m.getItemId(), k -> new ArrayList<>()).add(m);
+        }
+
+        Map<UUID, Item> items = itemRepository.findAllById(qtyValueByItem.keySet()).stream()
+                .collect(Collectors.toMap(Item::getId, Function.identity()));
+
+        BigDecimal totalValue = BigDecimal.ZERO;
+        BigDecimal valueOver90 = BigDecimal.ZERO;
+        List<Map<String, Object>> rows = new ArrayList<>();
+
+        for (Map.Entry<UUID, BigDecimal[]> e : qtyValueByItem.entrySet()) {
+            UUID itemId = e.getKey();
+            BigDecimal onHand = e.getValue()[0];
+            BigDecimal value = e.getValue()[1].setScale(2, java.math.RoundingMode.HALF_UP);
+            BigDecimal avgCost = onHand.signum() > 0
+                    ? value.divide(onHand, 4, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO;
+
+            // FIFO allocation of on-hand against receipts, newest first.
+            BigDecimal[] buckets = new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO};
+            BigDecimal remaining = onHand;
+            for (StockMovement m : receiptsByItem.getOrDefault(itemId, List.of())) {
+                if (remaining.signum() <= 0) break;
+                BigDecimal take = remaining.min(m.getQuantity());
+                long age = java.time.temporal.ChronoUnit.DAYS.between(m.getMovementDate(), today);
+                int idx = age <= 30 ? 0 : age <= 60 ? 1 : age <= 90 ? 2 : 3;
+                buckets[idx] = buckets[idx].add(take);
+                remaining = remaining.subtract(take);
+            }
+            // No receipt history (opening stock etc.) → oldest bucket.
+            if (remaining.signum() > 0) buckets[3] = buckets[3].add(remaining);
+
+            Item item = items.get(itemId);
+            totalValue = totalValue.add(value);
+            valueOver90 = valueOver90.add(buckets[3].multiply(avgCost));
+            rows.add(row("item", item != null ? item.getName() : "?",
+                    "sku", item != null ? item.getSku() : "",
+                    "onHand", onHand,
+                    "value", value,
+                    "d0_30", buckets[0],
+                    "d31_60", buckets[1],
+                    "d61_90", buckets[2],
+                    "d90_plus", buckets[3]));
+        }
+        rows.sort((a, b) -> ((BigDecimal) b.get("d90_plus")).compareTo((BigDecimal) a.get("d90_plus")));
+
+        return response("stock-ageing", "Stock Ageing",
+                "How old your stock is (FIFO assumption: what's left is the newest receipts). "
+                        + "Big 90+ buckets = dead stock candidates.",
+                today, today, ctx.currency(),
+                metrics(metric("value", "Total Stock Value", totalValue, "currency"),
+                        metric("over90", "Value 90+ Days", valueOver90.setScale(2, java.math.RoundingMode.HALF_UP), "currency"),
+                        metric("items", "Items In Stock", BigDecimal.valueOf(rows.size()), "number")),
+                ageingColumns(), rows);
+    }
+
+    private List<OperationalReportResponse.ColumnDef> ageingColumns() {
+        return columns(col("item", "Item", "text"), col("sku", "SKU", "text"),
+                col("onHand", "On Hand", "number"), col("value", "Value", "currency"),
+                col("d0_30", "0–30d", "number"), col("d31_60", "31–60d", "number"),
+                col("d61_90", "61–90d", "number"), col("d90_plus", "90+d", "number"));
+    }
+
+    /**
+     * Ratio analysis (Tally's gateway panel): liquidity and efficiency ratios
+     * from the trial balance (as of endDate) + P&L for the period. Balance
+     * codes resolve through the org's default-account mapping, so renamed
+     * charts still work.
+     */
+    public OperationalReportResponse ratioAnalysis(LocalDate startDate, LocalDate endDate) {
+        Context ctx = context();
+        var tb = financialReportService.generateTrialBalance(endDate);
+        var pl = financialReportService.generateProfitLoss(startDate, endDate);
+        long periodDays = Math.max(1, java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1);
+
+        Map<String, BigDecimal> byCode = new HashMap<>();
+        for (var line : tb.lines()) {
+            byCode.merge(line.accountCode(), line.balance(), BigDecimal::add);
+        }
+        Function<com.katasticho.erp.accounting.defaults.DefaultAccountPurpose, BigDecimal> bal = purpose -> {
+            try {
+                return nz(byCode.get(defaultAccountService.getCode(ctx.orgId(), purpose)));
+            } catch (Exception e) {
+                return BigDecimal.ZERO;
+            }
+        };
+
+        BigDecimal cash = bal.apply(com.katasticho.erp.accounting.defaults.DefaultAccountPurpose.CASH)
+                .add(bal.apply(com.katasticho.erp.accounting.defaults.DefaultAccountPurpose.BANK));
+        BigDecimal ar = bal.apply(com.katasticho.erp.accounting.defaults.DefaultAccountPurpose.AR);
+        BigDecimal inventory = bal.apply(com.katasticho.erp.accounting.defaults.DefaultAccountPurpose.INVENTORY_ASSET);
+        BigDecimal ap = bal.apply(com.katasticho.erp.accounting.defaults.DefaultAccountPurpose.AP).negate(); // credit-normal
+
+        BigDecimal revenue = nz(pl.totalRevenue());
+        BigDecimal netProfit = nz(pl.netProfit());
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        rows.add(ratioRow("Cash & bank", cash, "On hand + at bank as of " + endDate));
+        rows.add(ratioRow("Receivables (AR)", ar, "What customers owe you"));
+        rows.add(ratioRow("Payables (AP)", ap, "What you owe suppliers"));
+        rows.add(ratioRow("Inventory value", inventory, "Stock asset balance"));
+        rows.add(ratioRow("Working capital", cash.add(ar).add(inventory).subtract(ap),
+                "Cash + AR + inventory − AP"));
+        rows.add(ratioRow("Current ratio", divide(cash.add(ar).add(inventory), ap),
+                "(Cash + AR + inventory) ÷ AP — above 1.5 is comfortable"));
+        rows.add(ratioRow("Quick ratio", divide(cash.add(ar), ap),
+                "(Cash + AR) ÷ AP — can you pay suppliers without selling stock?"));
+        rows.add(ratioRow("Receivable days", revenue.signum() > 0
+                        ? ar.multiply(BigDecimal.valueOf(periodDays)).divide(revenue, 0, java.math.RoundingMode.HALF_UP)
+                        : BigDecimal.ZERO,
+                "How long customers take to pay (AR ÷ period revenue × " + periodDays + "d)"));
+        rows.add(ratioRow("Net profit margin %", revenue.signum() > 0
+                        ? netProfit.multiply(BigDecimal.valueOf(100)).divide(revenue, 2, java.math.RoundingMode.HALF_UP)
+                        : BigDecimal.ZERO,
+                "Net profit ÷ revenue for the period"));
+
+        return response("ratio-analysis", "Ratio Analysis",
+                "Key health numbers — balances as of " + endDate + ", profit for the period.",
+                startDate, endDate, ctx.currency(),
+                metrics(metric("revenue", "Revenue", revenue, "currency"),
+                        metric("netProfit", "Net Profit", netProfit, "currency"),
+                        metric("workingCapital", "Working Capital",
+                                cash.add(ar).add(inventory).subtract(ap), "currency")),
+                columns(col("ratio", "Measure", "text"), col("value", "Value", "number"),
+                        col("note", "How to read it", "text")),
+                rows);
+    }
+
+    /**
+     * Budget vs actual: annual budget per account (FY of endDate) pro-rated
+     * over the selected window, compared with the P&L actuals for the window.
+     * Edit budgets under Settings → Budgets.
+     */
+    public OperationalReportResponse budgetVariance(LocalDate startDate, LocalDate endDate) {
+        Context ctx = context();
+        int fiscalYear = endDate.getMonthValue() >= 4 ? endDate.getYear() : endDate.getYear() - 1;
+        long windowDays = Math.max(1, java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1);
+
+        var budgetLines = budgetLineRepository
+                .findByOrgIdAndFiscalYearAndIsDeletedFalseOrderByAccountCode(ctx.orgId(), fiscalYear);
+
+        // Actuals per account from the P&L for the window.
+        var pl = financialReportService.generateProfitLoss(startDate, endDate);
+        Map<String, BigDecimal> actuals = new HashMap<>();
+        pl.revenueAccounts().forEach(a -> actuals.merge(a.accountCode(), nz(a.amount()), BigDecimal::add));
+        pl.expenseAccounts().forEach(a -> actuals.merge(a.accountCode(), nz(a.amount()), BigDecimal::add));
+
+        Map<String, String> names = new HashMap<>();
+        accountRepository.findByOrgIdAndIsDeletedFalseOrderByCode(ctx.orgId())
+                .forEach(a -> names.put(a.getCode(), a.getName()));
+
+        BigDecimal totalBudget = BigDecimal.ZERO, totalActual = BigDecimal.ZERO;
+        int overBudget = 0;
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (var line : budgetLines) {
+            BigDecimal windowBudget = nz(line.getAnnualAmount())
+                    .multiply(BigDecimal.valueOf(windowDays))
+                    .divide(BigDecimal.valueOf(365), 2, java.math.RoundingMode.HALF_UP);
+            BigDecimal actual = nz(actuals.get(line.getAccountCode()));
+            BigDecimal variance = actual.subtract(windowBudget);
+            BigDecimal usagePct = windowBudget.signum() > 0
+                    ? actual.multiply(BigDecimal.valueOf(100)).divide(windowBudget, 1, java.math.RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+            if (variance.signum() > 0) overBudget++;
+            totalBudget = totalBudget.add(windowBudget);
+            totalActual = totalActual.add(actual);
+            rows.add(row("account", names.getOrDefault(line.getAccountCode(), line.getAccountCode()),
+                    "code", line.getAccountCode(),
+                    "budget", windowBudget,
+                    "actual", actual,
+                    "variance", variance,
+                    "usagePct", usagePct));
+        }
+        rows.sort((a, b) -> ((BigDecimal) b.get("variance")).compareTo((BigDecimal) a.get("variance")));
+
+        return response("budget-variance", "Budget vs Actual",
+                "FY " + fiscalYear + "-" + ((fiscalYear + 1) % 100) + " budgets pro-rated over "
+                        + windowDays + " day(s) vs P&L actuals. Edit budgets in Settings → Budgets.",
+                startDate, endDate, ctx.currency(),
+                metrics(metric("budget", "Budget (window)", totalBudget, "currency"),
+                        metric("actual", "Actual", totalActual, "currency"),
+                        metric("over", "Accounts Over Budget", BigDecimal.valueOf(overBudget), "number")),
+                columns(col("account", "Account", "text"), col("code", "Code", "text"),
+                        col("budget", "Budget", "currency"), col("actual", "Actual", "currency"),
+                        col("variance", "Variance", "currency"), col("usagePct", "Used %", "number")),
+                rows);
+    }
+
+    private Map<String, Object> ratioRow(String name, BigDecimal value, String note) {
+        return row("ratio", name, "value", value.setScale(2, java.math.RoundingMode.HALF_UP), "note", note);
+    }
+
+    private static BigDecimal divide(BigDecimal a, BigDecimal b) {
+        return b.signum() == 0 ? BigDecimal.ZERO : a.divide(b, 2, java.math.RoundingMode.HALF_UP);
     }
 
     public OperationalReportResponse lowStockAlert() {

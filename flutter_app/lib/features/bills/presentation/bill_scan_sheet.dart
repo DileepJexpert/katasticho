@@ -48,6 +48,7 @@ class _BillScanSheetState extends ConsumerState<_BillScanSheet> {
   String? _error;
   String? _previewPath;
   double _confidence = 0;
+  bool _posting = false;
 
   // Editable fields
   late TextEditingController _vendorNameCtrl;
@@ -194,6 +195,74 @@ class _BillScanSheetState extends ConsumerState<_BillScanSheet> {
       'confidence': _confidence,
     };
   }
+
+  /// "Draft, don't type": send the (reviewed) scan to the backend, which drafts
+  /// a DRAFT bill, then approve it to post — all in one tap. Pops with a
+  /// `{'posted': true, ...}` result so the caller skips the manual form.
+  Future<void> _approveAndPost() async {
+    if (_posting) return;
+    setState(() => _posting = true);
+    try {
+      final aiRepo = ref.read(aiRepositoryProvider);
+      final draft = await aiRepo.draftBillFromScan(_buildDraftPayload());
+      final suggestionId = draft['suggestionId']?.toString();
+      if (suggestionId == null || suggestionId.isEmpty) {
+        throw Exception('Draft did not return a suggestion');
+      }
+      final posted = await aiRepo.approveBillDraft(suggestionId);
+      if (!mounted) return;
+      Navigator.pop(context, {
+        'posted': true,
+        'billId':
+            posted['billId']?.toString() ?? draft['billId']?.toString(),
+        'billNumber': posted['billNumber']?.toString() ??
+            draft['billNumber']?.toString(),
+        'status': posted['status']?.toString(),
+        'vendorCreated': draft['vendorCreated'] == true,
+        'warnings': (draft['warnings'] as List?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const <String>[],
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _posting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Could not post bill: ${e.toString().replaceAll('Exception: ', '')}'),
+        ),
+      );
+    }
+  }
+
+  Map<String, dynamic> _buildDraftPayload() {
+    final gstin = _vendorGstinCtrl.text.trim();
+    return {
+      'vendorName': _vendorNameCtrl.text.trim(),
+      if (gstin.isNotEmpty) 'vendorGstin': gstin,
+      // First two GSTIN digits are the GST state code (place of supply).
+      if (gstin.length >= 2) 'vendorStateCode': gstin.substring(0, 2),
+      'invoiceNumber': _invoiceNumberCtrl.text.trim(),
+      if (_billDate != null) 'billDate': _isoDate(_billDate!),
+      if (_dueDate != null) 'dueDate': _isoDate(_dueDate!),
+      'confidence': _confidence,
+      'lines': _lineItems
+          .where((l) => l.descriptionCtrl.text.trim().isNotEmpty)
+          .map((l) => {
+                'description': l.descriptionCtrl.text.trim(),
+                if (l.hsnCodeCtrl.text.trim().isNotEmpty)
+                  'hsnCode': l.hsnCodeCtrl.text.trim(),
+                'quantity': l.quantity,
+                'unitPrice': l.unitPrice,
+                'gstRate': l.gstRate,
+              })
+          .toList(),
+    };
+  }
+
+  String _isoDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
@@ -717,24 +786,41 @@ class _BillScanSheetState extends ConsumerState<_BillScanSheet> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
+          SizedBox(
+            width: double.infinity,
             child: KButton(
-              label: 'Rescan',
-              variant: KButtonVariant.outlined,
-              icon: Icons.refresh,
-              onPressed: () => _resetToPhase(_Phase.picker),
+              label: _posting ? 'Posting…' : 'Approve & Post',
+              icon: Icons.task_alt,
+              isLoading: _posting,
+              onPressed: _approveAndPost,
             ),
           ),
-          KSpacing.hGapMd,
-          Expanded(
-            flex: 2,
-            child: KButton(
-              label: 'Use Scanned Data',
-              icon: Icons.check,
-              onPressed: () => Navigator.pop(context, _buildReturnValue()),
-            ),
+          KSpacing.vGapSm,
+          Row(
+            children: [
+              Expanded(
+                child: KButton(
+                  label: 'Rescan',
+                  variant: KButtonVariant.outlined,
+                  icon: Icons.refresh,
+                  onPressed: _posting ? null : () => _resetToPhase(_Phase.picker),
+                ),
+              ),
+              KSpacing.hGapMd,
+              Expanded(
+                child: KButton(
+                  label: 'Edit in form',
+                  variant: KButtonVariant.outlined,
+                  icon: Icons.edit_outlined,
+                  onPressed: _posting
+                      ? null
+                      : () => Navigator.pop(context, _buildReturnValue()),
+                ),
+              ),
+            ],
           ),
         ],
       ),

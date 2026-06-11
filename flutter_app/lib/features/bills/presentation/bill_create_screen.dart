@@ -15,6 +15,7 @@ import '../../contacts/data/contact_repository.dart';
 import '../../inventory/data/item_repository.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../data/bill_repository.dart';
 import 'bill_scan_sheet.dart';
 
@@ -88,6 +89,27 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
   Future<void> _scanBill() async {
     final result = await showBillScanSheet(context);
     if (result == null || !mounted) return;
+
+    // AI-first path: the scan was approved & posted directly — no manual form.
+    if (result['posted'] == true) {
+      final billNumber = result['billNumber']?.toString() ?? '';
+      final warnings = (result['warnings'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const <String>[];
+      final base = billNumber.isEmpty ? 'Bill posted' : 'Bill $billNumber posted';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(warnings.isEmpty
+              ? base
+              : '$base — ${warnings.length} note(s) to review'),
+        ),
+      );
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      return;
+    }
 
     // Populate vendor info immediately
     setState(() {
@@ -375,6 +397,9 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
   double get _grandTotal => _subtotal + _totalTax;
 
   Future<void> _handleSubmit() async {
+    // Guard: Ctrl+Enter can invoke this directly while a submit is in
+    // flight; without this check a second press creates a duplicate document.
+    if (_isSubmitting) return;
     final validLines = _lineItems
         .where((l) => l.description.isNotEmpty || l.unitPrice > 0)
         .toList();
@@ -457,9 +482,27 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
     }
   }
 
+  void _nextStep() {
+    if (_currentStep >= 2) return;
+    if (_currentStep == 0 && _selectedContactId == null) {
+      setState(() => _errorMessage = 'Please select a vendor');
+      return;
+    }
+    setState(() => _currentStep++);
+  }
+
+  void _prevStep() {
+    if (_currentStep > 0) setState(() => _currentStep--);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _currentStep == 2 ? _handleSubmit : _nextStep,
+      onNextStep: _nextStep,
+      onPrevStep: _prevStep,
+      onCancel: () => context.go(Routes.bills),
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Create Bill'),
         leading: IconButton(
@@ -581,14 +624,7 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
                     if (_currentStep < 2)
                       KButton(
                         label: 'Next',
-                        onPressed: () {
-                          if (_currentStep == 0 && _selectedContactId == null) {
-                            setState(
-                                () => _errorMessage = 'Please select a vendor');
-                            return;
-                          }
-                          setState(() => _currentStep++);
-                        },
+                        onPressed: _nextStep,
                       )
                     else
                       KButton(
@@ -604,7 +640,7 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _stepConnector() {

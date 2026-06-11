@@ -68,6 +68,17 @@ dependencies:
   # Barcode / QR scanning (POS)
   mobile_scanner: ^5.1.1
 
+  # QR code generation (UPI payment QR at POS)
+  qr_flutter: ^4.1.0
+
+  # Thermal printer (ESC/POS via Bluetooth)
+  flutter_blue_plus: ^1.32.0
+  esc_pos_utils: ^1.1.0
+
+  # Offline POS — local receipt queue
+  sqflite: ^2.3.0
+  path: ^1.9.0
+
   # Geolocation (field sales check-in/out)
   geolocator: ^12.0.0
 

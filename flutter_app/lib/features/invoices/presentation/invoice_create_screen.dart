@@ -16,6 +16,7 @@ import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../pricing/data/price_list_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../data/invoice_repository.dart';
 
 class InvoiceCreateScreen extends ConsumerStatefulWidget {
@@ -97,6 +98,9 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
   double get _grandTotal => _subtotal + _totalTax;
 
   Future<void> _handleSubmit() async {
+    // Guard: Ctrl+Enter can invoke this directly while a submit is in
+    // flight; without this check a second press creates a duplicate document.
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) {
       setState(() {
         _currentStep = 1;
@@ -165,9 +169,27 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
     }
   }
 
+  void _nextStep() {
+    if (_currentStep >= 2) return;
+    if (_currentStep == 0 && _selectedContactId == null) {
+      setState(() => _errorMessage = 'Please select a customer');
+      return;
+    }
+    setState(() => _currentStep++);
+  }
+
+  void _prevStep() {
+    if (_currentStep > 0) setState(() => _currentStep--);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _currentStep == 2 ? _handleSubmit : _nextStep,
+      onNextStep: _nextStep,
+      onPrevStep: _prevStep,
+      onCancel: () => context.go(Routes.invoices),
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Create Invoice'),
         leading: IconButton(
@@ -283,14 +305,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
                     if (_currentStep < 2)
                       KButton(
                         label: 'Next',
-                        onPressed: () {
-                          if (_currentStep == 0 && _selectedContactId == null) {
-                            setState(() =>
-                                _errorMessage = 'Please select a customer');
-                            return;
-                          }
-                          setState(() => _currentStep++);
-                        },
+                        onPressed: _nextStep,
                       )
                     else
                       KButton(
@@ -306,7 +321,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _stepConnector() {

@@ -9,6 +9,7 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../data/gst_repository.dart';
+import 'gst_compliance_tabs.dart';
 
 class GstDashboardScreen extends ConsumerStatefulWidget {
   const GstDashboardScreen({super.key});
@@ -25,14 +26,21 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
   Map<String, dynamic>? _gstr1;
   Map<String, dynamic>? _gstr3b;
   Map<String, dynamic>? _review;
+  Map<String, dynamic>? _gstr2bSummary;
+  List<dynamic>? _calendar;
+  List<dynamic>? _ewayBills;
+  List<dynamic>? _eInvoices;
   bool _isLoading = false;
   String? _error;
   late TabController _tabController;
 
+  String get _period =>
+      '${_year.toString().padLeft(4, '0')}-${_month.toString().padLeft(2, '0')}';
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 9, vsync: this);
     final now = DateTime.now();
     _year = now.month == 1 ? now.year - 1 : now.year;
     _month = now.month == 1 ? 12 : now.month - 1;
@@ -57,10 +65,32 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
         repo.getGstr3b(year: _year, month: _month),
         repo.getReviewCenter(status: 'PENDING'),
       ]);
+      // Compliance extras load best-effort — the returns must render even if
+      // these fail (e.g. nothing uploaded yet).
+      List<dynamic>? calendar;
+      List<dynamic>? ewayBills;
+      List<dynamic>? eInvoices;
+      Map<String, dynamic>? gstr2bSummary;
+      try {
+        calendar = await repo.getComplianceCalendar();
+      } catch (_) {}
+      try {
+        ewayBills = await repo.listEwayBills();
+      } catch (_) {}
+      try {
+        eInvoices = await repo.listEInvoices();
+      } catch (_) {}
+      try {
+        gstr2bSummary = await repo.getGstr2bSummary(_period);
+      } catch (_) {}
       setState(() {
         _gstr1 = (results[0]['data'] ?? results[0]) as Map<String, dynamic>;
         _gstr3b = (results[1]['data'] ?? results[1]) as Map<String, dynamic>;
         _review = (results[2]['data'] ?? results[2]) as Map<String, dynamic>;
+        _calendar = calendar;
+        _ewayBills = ewayBills;
+        _eInvoices = eInvoices;
+        _gstr2bSummary = gstr2bSummary;
       });
     } catch (e) {
       setState(() => _error = 'Failed to load GST data');
@@ -114,12 +144,19 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('GST Returns'),
+        title: const Text('GST Compliance'),
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
           tabs: const [
+            Tab(text: 'Calendar'),
             Tab(text: 'GSTR-3B'),
             Tab(text: 'GSTR-1'),
+            Tab(text: '2B Recon'),
+            Tab(text: 'e-Invoice'),
+            Tab(text: 'e-Way Bills'),
+            Tab(text: 'TDS'),
+            Tab(text: 'TCS'),
             Tab(text: 'Review'),
           ],
         ),
@@ -140,6 +177,7 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
+                    GstCalendarTab(items: _calendar),
                     _Gstr3bTab(
                       data: _gstr3b,
                       onExport: () => _exportJson('GSTR-3B'),
@@ -151,6 +189,21 @@ class _GstDashboardScreenState extends ConsumerState<GstDashboardScreen>
                       year: _year,
                       onExport: () => _exportJson('GSTR-1'),
                     ),
+                    Gstr2bTab(
+                      period: _period,
+                      summary: _gstr2bSummary,
+                      onChanged: _loadData,
+                    ),
+                    EInvoicesTab(
+                      eInvoices: _eInvoices,
+                      onChanged: _loadData,
+                    ),
+                    EwayBillsTab(
+                      bills: _ewayBills,
+                      onChanged: _loadData,
+                    ),
+                    const TdsTab(),
+                    const TcsTab(),
                     _GstReviewTab(
                       data: _review,
                       onReviewed: _loadData,

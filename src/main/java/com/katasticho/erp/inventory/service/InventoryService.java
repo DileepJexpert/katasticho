@@ -56,6 +56,7 @@ public class InventoryService {
     private final StockBalanceRepository stockBalanceRepository;
     private final BomComponentRepository bomComponentRepository;
     private final BatchService batchService;
+    private final FifoCostingService fifoCostingService;
     private final AuditService auditService;
     private final CacheInvalidationService cacheInvalidationService;
     private final DocumentSnapshotService documentSnapshotService;
@@ -116,10 +117,47 @@ public class InventoryService {
                     "INV_BATCH_NOT_ALLOWED", HttpStatus.BAD_REQUEST);
         }
 
-        // Step 4: cost
-        BigDecimal rawCost = request.unitCost() != null ? request.unitCost() : item.getPurchasePrice();
-        BigDecimal unitCost = (rawCost != null ? rawCost : BigDecimal.ZERO).setScale(4, RoundingMode.HALF_UP);
-        BigDecimal totalCost = unitCost.multiply(qty.abs()).setScale(2, RoundingMode.HALF_UP);
+        // Step 4: cost. FIFO orgs cost an outgoing movement by drawing down
+        // cost lots oldest-first; everything else (incoming movements, the
+        // weighted-average path, and reversals which carry the original cost)
+        // keeps the simple unit_cost × qty basis. The FIFO cost is computed
+        // BEFORE the row is built so the immutable ledger stores it directly.
+        boolean fifo = fifoCostingService.isFifo(orgId);
+        boolean outgoing = qty.signum() < 0;
+        FifoCostingService.FifoCost fifoPlan = null;
+        BigDecimal unitCost;
+        BigDecimal totalCost;
+        if (fifo && outgoing && request.movementType() != MovementType.REVERSAL) {
+            StockBalance bal = stockBalanceRepository
+                    .findByOrgIdAndItemIdAndWarehouseId(orgId, item.getId(), warehouse.getId())
+                    .orElse(null);
+            BigDecimal onHandBefore = bal != null ? bal.getQuantityOnHand() : BigDecimal.ZERO;
+            BigDecimal avgCost = bal != null ? bal.getAverageCost() : BigDecimal.ZERO;
+            BigDecimal fallback = request.unitCost() != null ? request.unitCost()
+                    : (item.getPurchasePrice() != null ? item.getPurchasePrice() : BigDecimal.ZERO);
+            fifoPlan = fifoCostingService.consume(orgId, item.getId(), warehouse.getId(),
+                    qty.abs(), fallback, onHandBefore, avgCost, request.movementDate());
+            unitCost = fifoPlan.unitCost();
+            totalCost = fifoPlan.totalCost();
+        } else {
+            if (fifo && !outgoing && request.movementType() != MovementType.REVERSAL) {
+                // First FIFO receipt over pre-existing stock: seed the opening
+                // lot from the weighted-average balance BEFORE this receipt
+                // opens its own lot, so the pre-FIFO on-hand is never stranded
+                // outside the lot ledger (a receipt arriving before the first
+                // issue would otherwise suppress lazy seeding forever).
+                StockBalance bal = stockBalanceRepository
+                        .findByOrgIdAndItemIdAndWarehouseId(orgId, item.getId(), warehouse.getId())
+                        .orElse(null);
+                if (bal != null && bal.getQuantityOnHand().signum() > 0) {
+                    fifoCostingService.seedOpeningLotIfNeeded(orgId, item.getId(), warehouse.getId(),
+                            bal.getQuantityOnHand(), bal.getAverageCost(), request.movementDate());
+                }
+            }
+            BigDecimal rawCost = request.unitCost() != null ? request.unitCost() : item.getPurchasePrice();
+            unitCost = (rawCost != null ? rawCost : BigDecimal.ZERO).setScale(4, RoundingMode.HALF_UP);
+            totalCost = unitCost.multiply(qty.abs()).setScale(2, RoundingMode.HALF_UP);
+        }
 
         // Step 5: persist immutable ledger row
         StockMovement movement = StockMovement.builder()
@@ -153,6 +191,18 @@ public class InventoryService {
         // the whole movement rolls back.
         if (request.batchId() != null) {
             batchService.applyDelta(request.batchId(), warehouse.getId(), qty);
+        }
+
+        // Step 6c: FIFO cost-lot bookkeeping (same transaction). An incoming
+        // movement opens a lot; an outgoing one records which lots it drew from
+        // (the draw-down itself happened in step 4). Reversals are handled in
+        // reverseMovement so they restore the exact lots.
+        if (fifo && request.movementType() != MovementType.REVERSAL) {
+            if (outgoing) {
+                fifoCostingService.recordConsumption(movement.getId(), fifoPlan);
+            } else {
+                fifoCostingService.recordReceipt(movement);
+            }
         }
 
         // Step 7: audit
@@ -230,6 +280,16 @@ public class InventoryService {
         // Fan out to the per-batch balance if the original was batch-tracked.
         if (original.getBatchId() != null) {
             batchService.applyDelta(original.getBatchId(), original.getWarehouseId(), reversedQty);
+        }
+
+        // FIFO: undo the lot effect of the original movement. A reversed receipt
+        // closes its lot; a reversed issue restores the lots it consumed.
+        if (fifoCostingService.isFifo(orgId)) {
+            if (original.getQuantity().signum() > 0) {
+                fifoCostingService.reverseReceipt(original.getId());
+            } else {
+                fifoCostingService.reverseConsumption(original.getId());
+            }
         }
 
         auditService.log("STOCK_MOVEMENT", reversal.getId(), "REVERSE", null,

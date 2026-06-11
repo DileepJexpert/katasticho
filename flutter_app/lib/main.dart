@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/config/env_config.dart';
 import 'core/theme/k_theme.dart';
 import 'core/theme/theme_mode_controller.dart';
+import 'features/pos/data/offline_pos_service.dart';
 import 'routing/app_router.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  OfflinePosService.instance.init();
 
   // Log environment at startup (only in debug/profile mode)
   if (kDebugMode) {

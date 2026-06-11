@@ -156,6 +156,7 @@ class _PayrollRunListScreenState extends ConsumerState<PayrollRunListScreen> {
         onPressed: _showCreateDialog,
         icon: const Icon(Icons.add),
         label: const Text('New Run'),
+        tooltip: 'New Run (N)',
       ),
     );
   }

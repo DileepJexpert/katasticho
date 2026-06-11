@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
@@ -36,6 +37,23 @@ class BankReconciliationRepository {
       data: {'csvText': csvText},
     );
     return response.data as Map<String, dynamic>;
+  }
+
+  /// Upload the bank's statement export (.csv/.xlsx). The backend detects the
+  /// header automatically and falls back to AI for odd formats.
+  Future<Map<String, dynamic>> importFile(
+      List<int> bytes, String filename) async {
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    final response = await _api.post(ApiConfig.bankingImportFile, data: form);
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> summary() async {
+    final response = await _api.get(ApiConfig.bankingSummary);
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? body);
   }
 
   Future<Map<String, dynamic>> rerunMatch(String transactionId) async {

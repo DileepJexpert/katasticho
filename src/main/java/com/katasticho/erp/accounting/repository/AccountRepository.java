@@ -16,6 +16,9 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
 
     Optional<Account> findByOrgIdAndCodeAndIsDeletedFalse(UUID orgId, String code);
 
+    /** Name match for migration imports (Tally ledgers have no codes). */
+    Optional<Account> findFirstByOrgIdAndNameIgnoreCaseAndIsDeletedFalse(UUID orgId, String name);
+
     Optional<Account> findByOrgIdAndIdAndIsDeletedFalse(UUID orgId, UUID id);
 
     boolean existsByOrgIdAndCodeAndIsDeletedFalse(UUID orgId, String code);

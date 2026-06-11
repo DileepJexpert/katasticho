@@ -49,6 +49,8 @@ class ManufacturingRepository {
     double? directLaborCost,
     double? overheadCost,
     String? notes,
+    bool backflushMode = false,
+    int? bomVersion,
   }) async {
     final res = await _api.post(ApiConfig.manufacturingWorkOrders, data: {
       'finishedGoodId': finishedGoodId,
@@ -59,6 +61,8 @@ class ManufacturingRepository {
       if (directLaborCost != null) 'directLaborCost': directLaborCost,
       if (overheadCost != null) 'overheadCost': overheadCost,
       if (notes != null) 'notes': notes,
+      if (backflushMode) 'backflushMode': true,
+      if (bomVersion != null) 'bomVersion': bomVersion,
     });
     return _unwrap(res);
   }
@@ -149,6 +153,79 @@ class ManufacturingRepository {
     final res = await _api.get(
       '/api/v1/manufacturing/job-work/gst-alerts',
       queryParameters: {'daysBeforeDeadline': daysBeforeDeadline},
+    );
+    return _unwrapList(res);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tier 2: Disassembly
+  // ---------------------------------------------------------------------------
+
+  Future<Map<String, dynamic>> createDisassemblyOrder({
+    required String finishedGoodId,
+    required String warehouseId,
+    required double quantity,
+    String? notes,
+  }) async {
+    final res = await _api.post(ApiConfig.manufacturingDisassembly, data: {
+      'finishedGoodId': finishedGoodId,
+      'warehouseId': warehouseId,
+      'quantity': quantity,
+      if (notes != null) 'notes': notes,
+    });
+    return _unwrap(res);
+  }
+
+  Future<Map<String, dynamic>> executeDisassembly(String id) async {
+    final res = await _api.post(ApiConfig.manufacturingDisassemble(id));
+    return _unwrap(res);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tier 2: BOM Versioning
+  // ---------------------------------------------------------------------------
+
+  Future<Map<String, dynamic>> createBomVersion(String parentItemId, {String? changeNotes}) async {
+    final res = await _api.post(ApiConfig.manufacturingBomVersion(parentItemId), data: {
+      if (changeNotes != null) 'changeNotes': changeNotes,
+    });
+    return _unwrap(res);
+  }
+
+  Future<List<Map<String, dynamic>>> getBomVersion(String parentItemId, int version) async {
+    final res = await _api.get(ApiConfig.manufacturingBomVersionGet(parentItemId, version));
+    return _unwrapList(res);
+  }
+
+  Future<int> getLatestBomVersion(String parentItemId) async {
+    final res = await _api.get(ApiConfig.manufacturingBomLatestVersion(parentItemId));
+    final data = _unwrap(res);
+    return data['version'] as int? ?? 1;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tier 2: Production Reports
+  // ---------------------------------------------------------------------------
+
+  Future<List<Map<String, dynamic>>> listCostVariances() async {
+    final res = await _api.get(ApiConfig.manufacturingCostVariance);
+    return _unwrapList(res);
+  }
+
+  Future<Map<String, dynamic>> getCostVariance(String workOrderId) async {
+    final res = await _api.get(ApiConfig.manufacturingCostVarianceById(workOrderId));
+    return _unwrap(res);
+  }
+
+  Future<Map<String, dynamic>> getWipValuation() async {
+    final res = await _api.get(ApiConfig.manufacturingWipValuation);
+    return _unwrap(res);
+  }
+
+  Future<List<Map<String, dynamic>>> getConsumptionReport({String? finishedGoodId}) async {
+    final res = await _api.get(
+      ApiConfig.manufacturingConsumption,
+      queryParameters: {if (finishedGoodId != null) 'finishedGoodId': finishedGoodId},
     );
     return _unwrapList(res);
   }

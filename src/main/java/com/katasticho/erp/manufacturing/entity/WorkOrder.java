@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -90,6 +91,33 @@ public class WorkOrder extends BaseEntity {
     private BigDecimal scrapCost = BigDecimal.ZERO;
 
     private String notes;
+
+    @Column(name = "journal_entry_id")
+    private UUID journalEntryId;
+
+    @Column(name = "wip_journal_entry_id")
+    private UUID wipJournalEntryId;
+
+    @Column(name = "backflush_mode")
+    @Builder.Default
+    private boolean backflushMode = false;
+
+    @Column(name = "bom_version")
+    private Integer bomVersion;
+
+    @Column(name = "approval_status", length = 20)
+    @Builder.Default
+    private String approvalStatus = "NONE";
+
+    @Column(name = "approved_by")
+    private UUID approvedBy;
+
+    @Column(name = "approved_at")
+    private Instant approvedAt;
+
+    @Column(name = "is_disassembly")
+    @Builder.Default
+    private boolean disassembly = false;
 
     @OneToMany(mappedBy = "workOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

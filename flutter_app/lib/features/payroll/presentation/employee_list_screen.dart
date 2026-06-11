@@ -7,6 +7,7 @@ import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 
 const _statusTabs = [
@@ -77,9 +78,24 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     }).toList();
   }
 
+  void _openAtIndex(int index) {
+    final filtered = _filteredEmployees;
+    if (index < 0 || index >= filtered.length) return;
+    final id = filtered[index]['id']?.toString();
+    if (id != null) context.push('/payroll/employees/$id');
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: () => _filteredEmployees.length,
+      onNew: () async {
+        await context.push('/payroll/employees/create');
+        _fetchEmployees();
+      },
+      onRefresh: _fetchEmployees,
+      onOpen: _openAtIndex,
+      child: Scaffold(
       body: Column(
         children: [
           KListPageHeader(
@@ -103,8 +119,9 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
         },
         icon: const Icon(Icons.add),
         label: const Text('Add Employee'),
+        tooltip: 'Add Employee (N)',
       ),
-    );
+    ));
   }
 
   Widget _buildBody() {

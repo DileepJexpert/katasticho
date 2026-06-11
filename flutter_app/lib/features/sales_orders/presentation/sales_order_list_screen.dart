@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
@@ -31,7 +32,14 @@ class SalesOrderListScreen extends ConsumerStatefulWidget {
 }
 
 class _SalesOrderListScreenState extends ConsumerState<SalesOrderListScreen> {
+  List<Map<String, dynamic>> _currentOrders = const [];
   final Set<String> _selectedIds = {};
+
+  void _openAtIndex(int index) {
+    if (index < 0 || index >= _currentOrders.length) return;
+    final id = _currentOrders[index]['id']?.toString();
+    if (id != null) context.go('/sales-orders/$id');
+  }
 
   void _toggleSelect(String id) => setState(() {
         _selectedIds.contains(id)
@@ -93,7 +101,12 @@ class _SalesOrderListScreenState extends ConsumerState<SalesOrderListScreen> {
     final ordersAsync = ref.watch(salesOrderListProvider);
     final inSelection = _selectedIds.isNotEmpty;
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: () => _currentOrders.length,
+      onNew: () => context.go(Routes.salesOrderCreate),
+      onRefresh: () => ref.invalidate(salesOrderListProvider),
+      onOpen: _openAtIndex,
+      child: Scaffold(
       body: Column(
         children: [
           KListPageHeader(
@@ -175,6 +188,7 @@ class _SalesOrderListScreenState extends ConsumerState<SalesOrderListScreen> {
                     .whereType<Map>()
                     .map((order) => order.cast<String, dynamic>())
                     .toList();
+                _currentOrders = orderMaps;
 
                 return KResponsiveEntityList<Map<String, dynamic>>(
                   items: orderMaps,
@@ -206,7 +220,9 @@ class _SalesOrderListScreenState extends ConsumerState<SalesOrderListScreen> {
               onPressed: () => context.go(Routes.salesOrderCreate),
               icon: const Icon(Icons.add),
               label: const Text('New Order'),
+              tooltip: 'New Order (N)',
             ),
+    ),
     );
   }
 }

@@ -29,6 +29,7 @@ public class TransferOrderService {
     private final ItemRepository itemRepository;
     private final StockBalanceRepository stockBalanceRepository;
     private final StockBatchRepository batchRepository;
+    private final StockMovementRepository stockMovementRepository;
     private final InventoryService inventoryService;
 
     @Transactional
@@ -145,6 +146,20 @@ public class TransferOrderService {
                     "TO_NOT_IN_TRANSIT", HttpStatus.BAD_REQUEST);
         }
 
+        // Carry the cost the TRANSFER_OUT legs recorded at ship time. Under
+        // FIFO the out leg drained lots at the true blended cost; receiving at
+        // any other basis (e.g. latest purchase price) would create or destroy
+        // inventory value on a pure warehouse move.
+        Map<UUID, BigDecimal> shippedUnitCost = new HashMap<>();
+        for (StockMovementRepository.ItemCostRow row : stockMovementRepository
+                .sumCostAndQtyByReferences(orgId, ReferenceType.STOCK_TRANSFER,
+                        List.of(to.getId()), MovementType.TRANSFER_OUT)) {
+            if (row.getTotalQty() != null && row.getTotalQty().signum() > 0) {
+                shippedUnitCost.put(row.getItemId(),
+                        row.getTotalCost().divide(row.getTotalQty(), 4, java.math.RoundingMode.HALF_UP));
+            }
+        }
+
         for (TransferOrderLine line : to.getLines()) {
             BigDecimal qty = line.getQuantity();
 
@@ -153,7 +168,7 @@ public class TransferOrderService {
                     to.getToWarehouseId(),
                     MovementType.TRANSFER_IN,
                     qty,
-                    null,
+                    shippedUnitCost.get(line.getItemId()),
                     LocalDate.now(),
                     ReferenceType.STOCK_TRANSFER,
                     to.getId(),

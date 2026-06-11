@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/api/api_client.dart';
+import '../../../core/api/api_config.dart';
+import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../data/pos_providers.dart';
 
 const _prefPrefix = 'receipt_';
 
@@ -202,6 +206,12 @@ class PosReceiptSettingsScreen extends ConsumerWidget {
             onChanged: (v) =>
                 _update(ref, settings.copyWith(footerText: v)),
           ),
+          KSpacing.vGapLg,
+          const _UpiSettingsSection(),
+          KSpacing.vGapLg,
+          const _SmsSettingsSection(),
+          KSpacing.vGapLg,
+          const _WhatsAppSettingsSection(),
           KSpacing.vGapXl,
         ],
       ),
@@ -210,5 +220,491 @@ class PosReceiptSettingsScreen extends ConsumerWidget {
 
   void _update(WidgetRef ref, ReceiptSettings settings) {
     ref.read(receiptSettingsProvider.notifier).update(settings);
+  }
+}
+
+class _UpiSettingsSection extends ConsumerStatefulWidget {
+  const _UpiSettingsSection();
+
+  @override
+  ConsumerState<_UpiSettingsSection> createState() => _UpiSettingsSectionState();
+}
+
+class _UpiSettingsSectionState extends ConsumerState<_UpiSettingsSection> {
+  final _upiIdCtrl = TextEditingController();
+  final _displayNameCtrl = TextEditingController();
+  bool _loaded = false;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _upiIdCtrl.dispose();
+    _displayNameCtrl.dispose();
+    super.dispose();
+  }
+
+  void _prefill(Map<String, String> settings) {
+    if (!_loaded) {
+      _upiIdCtrl.text = settings['upiId'] ?? '';
+      _displayNameCtrl.text = settings['displayName'] ?? '';
+      _loaded = true;
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final client = ref.read(apiClientProvider);
+      await client.put(ApiConfig.upiSettings, data: {
+        'upiId': _upiIdCtrl.text.trim(),
+        'displayName': _displayNameCtrl.text.trim(),
+      });
+      ref.invalidate(upiSettingsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('UPI settings saved')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to save UPI settings'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final role = authState.role?.toUpperCase() ?? '';
+    final canEdit = role == 'OWNER' || role == 'ADMIN';
+
+    final upiAsync = ref.watch(upiSettingsProvider);
+    upiAsync.whenData(_prefill);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('UPI Payment', style: KTypography.h3),
+        KSpacing.vGapSm,
+        KCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Set your UPI ID to show a scannable QR code in the payment sheet.',
+                style: KTypography.bodySmall
+                    .copyWith(color: Colors.grey.shade600),
+              ),
+              KSpacing.vGapSm,
+              KTextField(
+                label: 'UPI ID',
+                hint: 'yourname@upi',
+                controller: _upiIdCtrl,
+                prefixIcon: Icons.qr_code_2,
+                enabled: canEdit,
+              ),
+              KSpacing.vGapSm,
+              KTextField(
+                label: 'Display Name',
+                hint: 'Store name shown on UPI app',
+                controller: _displayNameCtrl,
+                prefixIcon: Icons.store_outlined,
+                enabled: canEdit,
+              ),
+              if (canEdit) ...[
+                KSpacing.vGapSm,
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _saving ? null : _save,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.save_outlined, size: 16),
+                    label: Text(_saving ? 'Saving...' : 'Save UPI Settings'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WhatsAppSettingsSection extends ConsumerStatefulWidget {
+  const _WhatsAppSettingsSection();
+
+  @override
+  ConsumerState<_WhatsAppSettingsSection> createState() =>
+      _WhatsAppSettingsSectionState();
+}
+
+class _WhatsAppSettingsSectionState
+    extends ConsumerState<_WhatsAppSettingsSection> {
+  final _apiKeyCtrl = TextEditingController();
+  final _phoneIdCtrl = TextEditingController();
+  final _customUrlCtrl = TextEditingController();
+  final _langCtrl = TextEditingController(text: 'en');
+  final _tplInvoiceCtrl = TextEditingController();
+  final _tplReceiptCtrl = TextEditingController();
+  final _tplReminderCtrl = TextEditingController();
+  bool _enabled = false;
+  bool _autoSendReceipt = false;
+  String _provider = 'META';
+  bool _saving = false;
+  bool _prefilled = false;
+
+  @override
+  void dispose() {
+    _apiKeyCtrl.dispose();
+    _phoneIdCtrl.dispose();
+    _customUrlCtrl.dispose();
+    _langCtrl.dispose();
+    _tplInvoiceCtrl.dispose();
+    _tplReceiptCtrl.dispose();
+    _tplReminderCtrl.dispose();
+    super.dispose();
+  }
+
+  void _prefill(Map<String, String> s) {
+    if (_prefilled) return;
+    _prefilled = true;
+    setState(() {
+      _enabled = s['enabled'] == 'true';
+      _autoSendReceipt = s['autoSendReceipt'] == 'true';
+      _provider = s['provider'] ?? 'META';
+      _phoneIdCtrl.text = s['phoneNumberId'] ?? '';
+      _customUrlCtrl.text = s['customUrl'] ?? '';
+      _langCtrl.text = s['lang'] ?? 'en';
+      _tplInvoiceCtrl.text = s['templateInvoice'] ?? '';
+      _tplReceiptCtrl.text = s['templateReceipt'] ?? '';
+      _tplReminderCtrl.text = s['templateReminder'] ?? '';
+      // apiKey is write-only; leave the field blank (apiKeySet tells if one exists)
+    });
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final client = ref.read(apiClientProvider);
+      final data = <String, String>{
+        'enabled': _enabled.toString(),
+        'autoSendReceipt': _autoSendReceipt.toString(),
+        'provider': _provider,
+        'phoneNumberId': _phoneIdCtrl.text.trim(),
+        'customUrl': _customUrlCtrl.text.trim(),
+        'lang': _langCtrl.text.trim(),
+        'templateInvoice': _tplInvoiceCtrl.text.trim(),
+        'templateReceipt': _tplReceiptCtrl.text.trim(),
+        'templateReminder': _tplReminderCtrl.text.trim(),
+      };
+      if (_apiKeyCtrl.text.trim().isNotEmpty) {
+        data['apiKey'] = _apiKeyCtrl.text.trim();
+      }
+      await client.put(ApiConfig.whatsappSettings, data: data);
+      ref.invalidate(whatsappSettingsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('WhatsApp settings saved')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final role = ref.watch(authProvider).role?.toUpperCase() ?? '';
+    final canEdit = role == 'OWNER' || role == 'ADMIN';
+    final waAsync = ref.watch(whatsappSettingsProvider);
+    waAsync.whenData(_prefill);
+    final keySet = waAsync.asData?.value['apiKeySet'] == 'true';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('WhatsApp Documents', style: KTypography.h3),
+        KSpacing.vGapSm,
+        Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Enable WhatsApp Sending'),
+                  subtitle: const Text(
+                      'Send invoices, receipts & reminders via WhatsApp Business API'),
+                  value: _enabled,
+                  onChanged: canEdit ? (v) => setState(() => _enabled = v) : null,
+                ),
+                if (_enabled) ...[
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Auto-send POS receipt'),
+                    subtitle:
+                        const Text('Send each receipt automatically after sale'),
+                    value: _autoSendReceipt,
+                    onChanged: canEdit
+                        ? (v) => setState(() => _autoSendReceipt = v)
+                        : null,
+                  ),
+                  KSpacing.vGapSm,
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Provider',
+                      border: OutlineInputBorder(),
+                    ),
+                    value: _provider,
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'META', child: Text('Meta Cloud API')),
+                      DropdownMenuItem(
+                          value: 'CUSTOM', child: Text('Custom aggregator')),
+                    ],
+                    onChanged: canEdit
+                        ? (v) => setState(() => _provider = v ?? 'META')
+                        : null,
+                  ),
+                  KSpacing.vGapSm,
+                  KTextField(
+                    label: keySet ? 'Access Token (set — leave blank to keep)' : 'Access Token / API Key',
+                    hint: 'Provider access token',
+                    controller: _apiKeyCtrl,
+                    enabled: canEdit,
+                    obscureText: true,
+                  ),
+                  if (_provider == 'META') ...[
+                    KSpacing.vGapSm,
+                    KTextField(
+                      label: 'Phone Number ID',
+                      hint: 'WhatsApp Cloud API phone number id',
+                      controller: _phoneIdCtrl,
+                      enabled: canEdit,
+                    ),
+                  ] else ...[
+                    KSpacing.vGapSm,
+                    KTextField(
+                      label: 'Webhook URL',
+                      hint: 'https://aggregator.example.com/send',
+                      controller: _customUrlCtrl,
+                      enabled: canEdit,
+                    ),
+                  ],
+                  KSpacing.vGapSm,
+                  KTextField(
+                    label: 'Template Language',
+                    hint: 'en',
+                    controller: _langCtrl,
+                    enabled: canEdit,
+                  ),
+                  KSpacing.vGapSm,
+                  KTextField(
+                    label: 'Invoice Template Name',
+                    hint: 'invoice_document',
+                    controller: _tplInvoiceCtrl,
+                    enabled: canEdit,
+                  ),
+                  KSpacing.vGapSm,
+                  KTextField(
+                    label: 'Receipt Template Name',
+                    hint: 'receipt_document',
+                    controller: _tplReceiptCtrl,
+                    enabled: canEdit,
+                  ),
+                  KSpacing.vGapSm,
+                  KTextField(
+                    label: 'Reminder Template Name',
+                    hint: 'payment_reminder',
+                    controller: _tplReminderCtrl,
+                    enabled: canEdit,
+                  ),
+                ],
+                if (canEdit) ...[
+                  KSpacing.vGapMd,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.icon(
+                      onPressed: _saving ? null : _save,
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.save_outlined, size: 16),
+                      label: Text(_saving ? 'Saving...' : 'Save WhatsApp Settings'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SmsSettingsSection extends ConsumerStatefulWidget {
+  const _SmsSettingsSection();
+
+  @override
+  ConsumerState<_SmsSettingsSection> createState() =>
+      _SmsSettingsSectionState();
+}
+
+class _SmsSettingsSectionState extends ConsumerState<_SmsSettingsSection> {
+  final _apiKeyCtrl = TextEditingController();
+  final _senderIdCtrl = TextEditingController();
+  bool _enabled = false;
+  String _provider = 'FAST2SMS';
+  bool _saving = false;
+  bool _prefilled = false;
+
+  @override
+  void dispose() {
+    _apiKeyCtrl.dispose();
+    _senderIdCtrl.dispose();
+    super.dispose();
+  }
+
+  void _prefill(Map<String, String> s) {
+    if (_prefilled) return;
+    _prefilled = true;
+    setState(() {
+      _enabled = s['enabled'] == 'true';
+      _provider = s['provider'] ?? 'FAST2SMS';
+      _apiKeyCtrl.text = s['apiKey'] ?? '';
+      _senderIdCtrl.text = s['senderId'] ?? 'KTSEPR';
+    });
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final client = ref.read(apiClientProvider);
+      await client.put(ApiConfig.smsSettings, data: {
+        'enabled': _enabled.toString(),
+        'provider': _provider,
+        'apiKey': _apiKeyCtrl.text.trim(),
+        'senderId': _senderIdCtrl.text.trim(),
+      });
+      ref.invalidate(smsSettingsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('SMS settings saved')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final role = ref.watch(authProvider).role?.toUpperCase() ?? '';
+    final canEdit = role == 'OWNER' || role == 'ADMIN';
+    final smsAsync = ref.watch(smsSettingsProvider);
+    smsAsync.whenData(_prefill);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('SMS Notifications', style: KTypography.h3),
+        KSpacing.vGapSm,
+        Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Enable SMS Notifications'),
+                  subtitle: const Text('Send receipt SMS to customers'),
+                  value: _enabled,
+                  onChanged: canEdit ? (v) => setState(() => _enabled = v) : null,
+                ),
+                if (_enabled) ...[
+                  KSpacing.vGapSm,
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'SMS Provider',
+                      border: OutlineInputBorder(),
+                    ),
+                    value: _provider,
+                    items: const [
+                      DropdownMenuItem(value: 'FAST2SMS', child: Text('Fast2SMS')),
+                      DropdownMenuItem(value: 'MSG91', child: Text('MSG91')),
+                    ],
+                    onChanged: canEdit
+                        ? (v) => setState(() => _provider = v ?? 'FAST2SMS')
+                        : null,
+                  ),
+                  KSpacing.vGapSm,
+                  KTextField(
+                    label: 'API Key',
+                    hint: 'Provider API key',
+                    controller: _apiKeyCtrl,
+                    enabled: canEdit,
+                    obscureText: true,
+                  ),
+                  if (_provider == 'MSG91') ...[
+                    KSpacing.vGapSm,
+                    KTextField(
+                      label: 'Sender ID',
+                      hint: '6-char alphanumeric (e.g. KTSEPR)',
+                      controller: _senderIdCtrl,
+                      enabled: canEdit,
+                    ),
+                  ],
+                ],
+                if (canEdit) ...[
+                  KSpacing.vGapMd,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.icon(
+                      onPressed: _saving ? null : _save,
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.save_outlined, size: 16),
+                      label: Text(_saving ? 'Saving...' : 'Save SMS Settings'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

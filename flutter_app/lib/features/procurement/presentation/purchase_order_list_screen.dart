@@ -8,6 +8,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../data/purchase_order_repository.dart';
 
 const _poTabs = [
@@ -31,12 +32,24 @@ class _PurchaseOrderListScreenState
     extends ConsumerState<PurchaseOrderListScreen> {
   String? _status;
   String _search = '';
+  List<Map<String, dynamic>> _currentPurchaseOrders = const [];
+
+  void _openAtIndex(int index) {
+    if (index < 0 || index >= _currentPurchaseOrders.length) return;
+    final id = _currentPurchaseOrders[index]['id']?.toString();
+    if (id != null) context.go('/purchase-orders/$id');
+  }
 
   @override
   Widget build(BuildContext context) {
     final posAsync = ref.watch(purchaseOrdersProvider);
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: () => _currentPurchaseOrders.length,
+      onNew: () => context.go(Routes.purchaseOrderCreate),
+      onRefresh: () => ref.invalidate(purchaseOrdersProvider),
+      onOpen: _openAtIndex,
+      child: Scaffold(
       body: Column(
         children: [
           KListPageHeader(
@@ -82,6 +95,8 @@ class _PurchaseOrderListScreenState
                   return haystack.contains(_search);
                 }).toList();
 
+                _currentPurchaseOrders = poMaps;
+
                 if (poMaps.isEmpty) {
                   return KEmptyState(
                     icon: Icons.shopping_cart_outlined,
@@ -111,7 +126,7 @@ class _PurchaseOrderListScreenState
         icon: const Icon(Icons.add),
         label: const Text('New PO'),
       ),
-    );
+    ));
   }
 }
 

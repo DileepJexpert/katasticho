@@ -8,7 +8,12 @@ import java.util.UUID;
 
 public record PaymentMatchResponse(
         UUID id,
+        String matchType,        // INVOICE (money in) or BILL (money out)
         UUID invoiceId,
+        UUID billId,
+        /** Invoice number or vendor bill number, depending on matchType. */
+        String documentNumber,
+        /** Kept for older clients — same as documentNumber for invoice matches. */
         String invoiceNumber,
         UUID contactId,
         String contactName,
@@ -20,13 +25,17 @@ public record PaymentMatchResponse(
 ) {
     public static PaymentMatchResponse from(
             PaymentMatch match,
-            String invoiceNumber,
+            String documentNumber,
             String contactName
     ) {
+        boolean isInvoice = !"BILL".equals(match.getMatchType());
         return new PaymentMatchResponse(
                 match.getId(),
+                match.getMatchType(),
                 match.getInvoiceId(),
-                invoiceNumber,
+                match.getBillId(),
+                documentNumber,
+                isInvoice ? documentNumber : null,
                 match.getContactId(),
                 contactName,
                 match.getMatchedAmount(),

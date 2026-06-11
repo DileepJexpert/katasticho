@@ -42,6 +42,7 @@ class PartnerListScreen extends ConsumerWidget {
           onPressed: () => _showRequestDialog(context, ref),
           icon: const Icon(Icons.handshake),
           label: const Text('Request Partnership'),
+          tooltip: 'Request Partnership (N)',
         ),
       ),
     );

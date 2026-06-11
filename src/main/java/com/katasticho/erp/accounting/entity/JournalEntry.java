@@ -84,6 +84,11 @@ public class JournalEntry {
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
+    /** Post-dated voucher: stays DRAFT until effectiveDate, then auto-posts. */
+    @Column(name = "is_post_dated", nullable = false)
+    @Builder.Default
+    private boolean postDated = false;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     @Builder.Default

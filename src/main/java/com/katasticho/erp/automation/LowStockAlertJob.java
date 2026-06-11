@@ -4,6 +4,7 @@ import com.katasticho.erp.auth.entity.AppUser;
 import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.common.service.NotificationService;
 import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.notification.sms.SmsService;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.entity.StockBalance;
@@ -33,6 +34,7 @@ public class LowStockAlertJob {
     private final ContactRepository contactRepository;
     private final AppUserRepository userRepository;
     private final NotificationService notificationService;
+    private final SmsService smsService;
 
     @Scheduled(cron = "${app.automation.low-stock-alert.cron:0 0 8 * * *}")
     @Transactional(readOnly = true)
@@ -79,6 +81,15 @@ public class LowStockAlertJob {
 
             notificationService.send(org.getId(), admin.getId(), title, message,
                     "WARNING", "LOW_STOCK_ALERT", null, null, metadata);
+
+            if (admin.getPhone() != null && !admin.getPhone().isBlank()) {
+                for (StockBalance sb : lowStock) {
+                    Item item = itemRepository.findById(sb.getItemId()).orElse(null);
+                    if (item == null || item.getReorderLevel().signum() <= 0) continue;
+                    smsService.sendLowStockAlert(org.getId(), admin.getPhone(),
+                            item.getName(), sb.getQuantityOnHand().doubleValue());
+                }
+            }
         }
 
         if (itemCount > 0) {

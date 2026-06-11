@@ -66,6 +66,7 @@ class ItemGroupListScreen extends ConsumerWidget {
         onPressed: () => context.push('/item-groups/create'),
         icon: const Icon(Icons.add),
         label: const Text('New Group'),
+        tooltip: 'New Group (N)',
       ),
     );
   }

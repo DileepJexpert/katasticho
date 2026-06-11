@@ -73,6 +73,7 @@ class InvoicePdfServiceTest {
                 "SENT",
                 new BigDecimal("100.00"),
                 new BigDecimal("5.00"),
+                BigDecimal.ZERO,
                 new BigDecimal("105.00"),
                 BigDecimal.ZERO,
                 new BigDecimal("105.00"),

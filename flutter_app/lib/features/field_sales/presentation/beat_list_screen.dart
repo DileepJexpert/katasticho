@@ -270,6 +270,7 @@ class _BeatListScreenState extends ConsumerState<BeatListScreen> {
         onPressed: _showCreateBeatDialog,
         icon: const Icon(Icons.add),
         label: const Text('New Beat'),
+        tooltip: 'New Beat (N)',
       ),
     );
   }

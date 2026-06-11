@@ -130,6 +130,7 @@ class PriceListDetailScreen extends ConsumerWidget {
         onPressed: () => _showAddTierSheet(context, ref),
         icon: const Icon(Icons.add),
         label: const Text('Add Tier'),
+        tooltip: 'Add Tier (N)',
       ),
     );
   }

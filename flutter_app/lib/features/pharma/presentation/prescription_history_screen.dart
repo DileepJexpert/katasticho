@@ -47,6 +47,7 @@ class PrescriptionHistoryScreen extends ConsumerWidget {
         onPressed: () => _openAddScreen(context, ref),
         icon: const Icon(Icons.add),
         label: const Text('Add Prescription'),
+        tooltip: 'Add Prescription (N)',
       ),
       body: asyncPrescriptions.when(
         loading: () => const KLoading(),

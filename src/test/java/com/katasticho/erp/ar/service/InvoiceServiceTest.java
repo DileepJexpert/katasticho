@@ -72,6 +72,7 @@ class InvoiceServiceTest {
     @Mock private com.katasticho.erp.common.cache.CacheInvalidationService cacheInvalidationService;
     @Mock private com.katasticho.erp.common.snapshot.DocumentSnapshotService documentSnapshotService;
     @Mock private com.katasticho.erp.common.event.DomainEventPublisher domainEventPublisher;
+    @Mock private com.katasticho.erp.tax.service.TcsService tcsService;
 
     private InvoiceService invoiceService;
     private UUID orgId;
@@ -89,7 +90,7 @@ class InvoiceServiceTest {
                 auditService, inventoryService, priceListService, commentService,
                 documentEmailService,
                 itemRepository, stockBatchRepository, cacheInvalidationService,
-                documentSnapshotService, domainEventPublisher);
+                documentSnapshotService, domainEventPublisher, tcsService);
 
         TransactionSynchronizationManager.initSynchronization();
 

@@ -31,6 +31,7 @@ class TransferOrderServiceTest {
     @Mock private ItemRepository itemRepository;
     @Mock private StockBalanceRepository stockBalanceRepository;
     @Mock private StockBatchRepository batchRepository;
+    @Mock private StockMovementRepository stockMovementRepository;
     @Mock private InventoryService inventoryService;
 
     private TransferOrderService service;
@@ -50,7 +51,7 @@ class TransferOrderServiceTest {
         service = new TransferOrderService(
                 transferOrderRepository, warehouseRepository,
                 itemRepository, stockBalanceRepository,
-                batchRepository, inventoryService);
+                batchRepository, stockMovementRepository, inventoryService);
     }
 
     @AfterEach

@@ -81,9 +81,61 @@ class ApiConfig {
   static const String gstReviewCenter = '/api/v1/gst/review-center';
   static const String gstr1Export = '/api/v1/gst/gstr1/export';
   static const String gstr3bExport = '/api/v1/gst/gstr3b/export';
+  // GSTR-2B reconciliation
+  static const String gstr2bUpload = '/api/v1/gst/gstr2b/upload';
+  static const String gstr2b = '/api/v1/gst/gstr2b';
+  static const String gstr2bSummary = '/api/v1/gst/gstr2b/summary';
+  // e-Way bills
+  static const String ewayBills = '/api/v1/gst/eway-bills';
+  static String ewayBillRecord(String id) => '/api/v1/gst/eway-bills/$id/record';
+  static String ewayBillCancel(String id) => '/api/v1/gst/eway-bills/$id/cancel';
+  static String ewayBillPortalJson(String id) =>
+      '/api/v1/gst/eway-bills/$id/portal-json';
+  static const String ewayBillCheckVehicle =
+      '/api/v1/gst/eway-bills/check-vehicle';
+  // Compliance calendar
+  static const String gstComplianceCalendar = '/api/v1/gst/compliance-calendar';
+  // e-Invoice (IRN)
+  static const String eInvoices = '/api/v1/gst/einvoices';
+  static String eInvoiceRecord(String id) => '/api/v1/gst/einvoices/$id/record';
+  static String eInvoiceCancel(String id) => '/api/v1/gst/einvoices/$id/cancel';
+  static String eInvoicePortalJson(String id) =>
+      '/api/v1/gst/einvoices/$id/portal-json';
+  static const String eInvoiceSettings = '/api/v1/gst/einvoices/settings';
+  // TDS
+  static const String tdsRegister = '/api/v1/tds/register';
+  static const String tds26q = '/api/v1/tds/26q';
+
+  // TCS 206C(1H) (auto-collected on invoices past ₹50L/buyer/FY)
+  static const String tcsRegister = '/api/v1/tcs/register';
+  static const String tcs27eq = '/api/v1/tcs/27eq';
+  static const String tcsSettings = '/api/v1/tcs/settings';
+
+  // GST composition scheme (CMP-08 quarterly + GSTR-4 annual)
+  static const String gstCmp08 = '/api/v1/gst/composition/cmp08';
+  static const String gstCompositionSettings = '/api/v1/gst/composition/settings';
+
+  // Tally migration
+  static const String tallyImportPreview = '/api/v1/migration/tally/preview';
+  static const String tallyImport = '/api/v1/migration/tally/import';
+  static const String tallyVoucherPreview = '/api/v1/migration/tally/vouchers/preview';
+  static const String tallyVoucherImport = '/api/v1/migration/tally/vouchers/import';
+  static const String tallyVerifyTb = '/api/v1/migration/tally/verify-trial-balance';
+  static const String tallyExportVouchers = '/api/v1/migration/tally/export-vouchers';
+
+  // POS Cash Register
+  static const String cashRegisterToday   = '/api/v1/pos/cash-register/today';
+  static const String cashRegisterOpen    = '/api/v1/pos/cash-register/open';
+  static const String cashRegisterClose   = '/api/v1/pos/cash-register/close';
+  static const String cashRegisterExpense = '/api/v1/pos/cash-register/expense';
+  static const String cashRegisterHistory = '/api/v1/pos/cash-register/history';
+  static String cashRegisterDeleteExpense(String id) => '/api/v1/pos/cash-register/expense/$id';
+  static String cashRegisterByDate(String date) => '/api/v1/pos/cash-register/$date';
 
   // AI Model Settings
   static const String orgSettings = '/api/v1/settings';
+  static const String upiSettings = '/api/v1/settings/upi';
+  static const String smsSettings = '/api/v1/settings/sms';
   static const String aiSettings = '/api/v1/settings/ai';
   static const String aiSettingsTest = '/api/v1/settings/ai/test';
 
@@ -261,11 +313,33 @@ class ApiConfig {
   static const String aiScanProductLabel = '/api/v1/ai/scan-product-label';
   static const String aiScanPurchaseInvoice =
       '/api/v1/ai/scan-purchase-invoice';
+  // API keys (programmatic access / MCP server)
+  static const String apiKeys = '/api/v1/api-keys';
+  static String apiKeyById(String id) => '/api/v1/api-keys/$id';
+  // AI-first bill drafting ("draft, don't type")
+  static const String aiBillDrafts = '/api/v1/ai/bill-drafts';
+  static String aiBillDraftApprove(String suggestionId) =>
+      '/api/v1/ai/bill-drafts/$suggestionId/approve';
+  static String aiBillDraftReject(String suggestionId) =>
+      '/api/v1/ai/bill-drafts/$suggestionId/reject';
+
+  // Proactive agents (collections, month-close, anomalies)
+  static const String aiProactiveRun = '/api/v1/ai/agents/proactive/run';
+
+  // Conversational entry ("type a sentence, get a drafted transaction")
+  static const String aiEntry = '/api/v1/ai/entry';
+  static String aiEntryApprove(String suggestionId) =>
+      '/api/v1/ai/entry/$suggestionId/approve';
+  static String aiEntryReject(String suggestionId) =>
+      '/api/v1/ai/entry/$suggestionId/reject';
 
   // Banking / reconciliation
   static const String bankingTransactions = '/api/v1/banking/transactions';
   static const String bankingImportCsv =
       '/api/v1/banking/transactions/import-csv';
+  static const String bankingImportFile =
+      '/api/v1/banking/transactions/import-file';
+  static const String bankingSummary = '/api/v1/banking/summary';
   static String bankingRerunMatch(String id) =>
       '/api/v1/banking/transactions/$id/rerun-match';
   static String bankingIgnoreTransaction(String id) =>
@@ -701,4 +775,46 @@ class ApiConfig {
   // Manufacturing — Scrap
   static const String manufacturingScrap = '/api/v1/manufacturing/scrap';
   static const String manufacturingScrapReasonCodes = '/api/v1/manufacturing/scrap/reason-codes';
+
+  // Manufacturing — Tier 2: Disassembly, BOM Versioning, Reports
+  static const String manufacturingDisassembly = '/api/v1/manufacturing/work-orders/disassembly';
+  static String manufacturingDisassemble(String id) => '/api/v1/manufacturing/work-orders/$id/disassemble';
+  static String manufacturingBomVersion(String itemId) => '/api/v1/manufacturing/bom/$itemId/version';
+  static String manufacturingBomVersionGet(String itemId, int version) =>
+      '/api/v1/manufacturing/bom/$itemId/version/$version';
+  static String manufacturingBomLatestVersion(String itemId) =>
+      '/api/v1/manufacturing/bom/$itemId/latest-version';
+  static const String manufacturingCostVariance = '/api/v1/manufacturing/reports/cost-variance';
+  static String manufacturingCostVarianceById(String woId) =>
+      '/api/v1/manufacturing/reports/cost-variance/$woId';
+  static const String manufacturingWipValuation = '/api/v1/manufacturing/reports/wip-valuation';
+  static const String manufacturingConsumption = '/api/v1/manufacturing/reports/consumption';
+
+  // POS — Cash Register / Day Close
+  static const String cashRegister = '/api/v1/pos/cash-register';
+  static String cashRegisterDate(String date) => '/api/v1/pos/cash-register/$date';
+  static const String cashRegisterToday = '/api/v1/pos/cash-register/today';
+  static const String cashRegisterOpen = '/api/v1/pos/cash-register/open';
+  static const String cashRegisterClose = '/api/v1/pos/cash-register/close';
+  static const String cashRegisterExpense = '/api/v1/pos/cash-register/expense';
+  static String cashRegisterDeleteExpense(String id) =>
+      '/api/v1/pos/cash-register/expense/$id';
+  static const String cashRegisterHistory = '/api/v1/pos/cash-register/history';
+
+  // WhatsApp document templates
+  static const String whatsappSettings = '/api/v1/settings/whatsapp';
+  static const String whatsappMessages = '/api/v1/whatsapp/messages';
+  static String whatsappSendInvoice(String id) => '/api/v1/whatsapp/invoices/$id';
+  static String whatsappSendReceipt(String id) => '/api/v1/whatsapp/receipts/$id';
+  static String whatsappSendReminder(String contactId) =>
+      '/api/v1/whatsapp/reminders/$contactId';
+  static String whatsappSendStatement(String contactId) =>
+      '/api/v1/whatsapp/statements/$contactId';
+
+  // GSP direct e-invoice / e-way bill generation
+  static const String gspSettings = '/api/v1/gst/gsp-settings';
+  static String einvoiceGenerateViaGsp(String id) =>
+      '/api/v1/gst/einvoices/$id/generate-gsp';
+  static String ewayBillGenerateViaGsp(String id) =>
+      '/api/v1/gst/eway-bills/$id/generate-gsp';
 }

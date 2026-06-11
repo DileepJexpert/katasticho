@@ -12,6 +12,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/workflow/workflow_hint_resolver.dart';
 import '../../sales_orders/data/sales_order_repository.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../data/delivery_challan_providers.dart';
 import '../data/delivery_challan_repository.dart';
 
@@ -235,7 +236,12 @@ class _DeliveryChallanCreateScreenState
       businessType: auth.businessType,
       industryCode: auth.industryCode,
     );
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _currentStep == 2 ? _submit : _nextStep,
+      onNextStep: _nextStep,
+      onPrevStep: _prevStep,
+      onCancel: () => context.go('/delivery-challans'),
+      child: Scaffold(
       appBar: AppBar(title: const Text('New Delivery Challan')),
       body: Column(
         children: [
@@ -265,7 +271,7 @@ class _DeliveryChallanCreateScreenState
         ],
       ),
       bottomNavigationBar: _buildBottomBar(),
-    );
+    ));
   }
 
   // ── Step 0: Select Sales Order ─────────────────────────────

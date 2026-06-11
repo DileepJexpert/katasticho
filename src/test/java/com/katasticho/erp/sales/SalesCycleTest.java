@@ -749,6 +749,7 @@ class SalesCycleTest {
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
+                BigDecimal.ZERO,
                 "INR",
                 null,
                 false,

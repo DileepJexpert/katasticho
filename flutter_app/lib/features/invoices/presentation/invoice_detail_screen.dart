@@ -39,6 +39,8 @@ class InvoiceDetailScreen extends ConsumerWidget {
               const PopupMenuItem(
                   value: 'share', child: Text('Share via WhatsApp')),
               const PopupMenuItem(
+                  value: 'wa_send', child: Text('Send via WhatsApp (PDF)')),
+              const PopupMenuItem(
                   value: 'reminder', child: Text('Send Payment Reminder')),
               const PopupMenuItem(value: 'pdf', child: Text('Download PDF')),
               const PopupMenuItem(
@@ -177,6 +179,28 @@ class InvoiceDetailScreen extends ConsumerWidget {
                 )
                 .then((r) => r.data as Map<String, dynamic>),
           );
+        }
+        break;
+      case 'wa_send':
+        if (context.mounted) {
+          final api = ref.read(apiClientProvider);
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.showSnackBar(
+              const SnackBar(content: Text('Sending invoice via WhatsApp...')));
+          try {
+            final res = await api.post(ApiConfig.whatsappSendInvoice(invoiceId));
+            final body = res.data as Map<String, dynamic>;
+            final row = (body['data'] ?? body) as Map<String, dynamic>;
+            final status = row['status'] as String? ?? 'DONE';
+            final err = row['errorMessage'] as String?;
+            messenger.showSnackBar(SnackBar(
+                content: Text(status == 'SENT'
+                    ? 'Invoice sent on WhatsApp'
+                    : 'WhatsApp $status${err != null ? ': $err' : ''}')));
+          } catch (e) {
+            messenger
+                .showSnackBar(SnackBar(content: Text('WhatsApp send failed: $e')));
+          }
         }
         break;
       case 'reminder':

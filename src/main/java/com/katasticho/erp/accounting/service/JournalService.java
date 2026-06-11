@@ -116,6 +116,7 @@ public class JournalService {
                 .sourceModule(request.sourceModule())
                 .sourceId(request.sourceId())
                 .status("DRAFT")
+                .postDated(request.postDated())
                 .periodYear(periodYear)
                 .periodMonth(periodMonth)
                 .createdBy(userId)
@@ -147,8 +148,10 @@ public class JournalService {
         // Step 10: Persist
         entry = journalEntryRepository.save(entry);
 
-        // Auto-post if requested and no approval needed
-        if (request.autoPost()) {
+        // Auto-post if requested and no approval needed. Post-dated vouchers
+        // always stay DRAFT — the daily PostDatedJournalJob posts them when
+        // their effective date arrives.
+        if (request.autoPost() && !request.postDated()) {
             entry.setStatus("POSTED");
             entry = journalEntryRepository.save(entry);
         }

@@ -255,6 +255,7 @@ class _RackLocationsScreenState extends ConsumerState<RackLocationsScreen> {
               onPressed: _openCreateSheet,
               icon: const Icon(Icons.add),
               label: const Text('Add Rack'),
+              tooltip: 'Add Rack (N)',
             ),
     );
   }

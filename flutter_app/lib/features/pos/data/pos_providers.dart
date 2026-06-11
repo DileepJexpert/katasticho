@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/api/api_config.dart';
+import '../../../core/api/api_client.dart';
 import 'pos_favourites.dart';
 import 'pos_repository.dart';
 
@@ -8,6 +10,44 @@ final posSearchProvider = FutureProvider.autoDispose
   if (query == null || query.trim().isEmpty) return [];
   final repo = ref.watch(posRepositoryProvider);
   return repo.posSearch(query: query.trim());
+});
+
+/// Fetches UPI payment settings (upiId, displayName) from org settings.
+final upiSettingsProvider =
+    FutureProvider.autoDispose<Map<String, String>>((ref) async {
+  final client = ref.watch(apiClientProvider);
+  try {
+    final response = await client.get(ApiConfig.upiSettings);
+    final data = response.data as Map<String, dynamic>? ?? {};
+    return data.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+  } catch (_) {
+    return {};
+  }
+});
+
+/// Fetches SMS notification settings from org settings.
+final smsSettingsProvider =
+    FutureProvider.autoDispose<Map<String, String>>((ref) async {
+  final client = ref.watch(apiClientProvider);
+  try {
+    final response = await client.get(ApiConfig.smsSettings);
+    final data = response.data as Map<String, dynamic>? ?? {};
+    return data.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+  } catch (_) {
+    return {};
+  }
+});
+
+final whatsappSettingsProvider =
+    FutureProvider.autoDispose<Map<String, String>>((ref) async {
+  final client = ref.watch(apiClientProvider);
+  try {
+    final response = await client.get(ApiConfig.whatsappSettings);
+    final data = response.data as Map<String, dynamic>? ?? {};
+    return data.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+  } catch (_) {
+    return {};
+  }
 });
 
 /// Fetches item details for all favourite item IDs.

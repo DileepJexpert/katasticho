@@ -15,6 +15,7 @@ import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../pricing/data/scheme_repository.dart';
 import '../../settings/data/org_settings_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../data/sales_order_providers.dart';
 import '../data/sales_order_repository.dart';
 
@@ -113,6 +114,9 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
   double get _grandTotal => _subtotal + _totalTax;
 
   Future<void> _handleSubmit() async {
+    // Guard: Ctrl+Enter can invoke this directly while a submit is in
+    // flight; without this check a second press creates a duplicate document.
+    if (_isSubmitting) return;
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -234,9 +238,27 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
     }
   }
 
+  void _nextStep() {
+    if (_currentStep >= 2) return;
+    if (_currentStep == 0 && _selectedContactId == null) {
+      setState(() => _errorMessage = 'Please select a customer');
+      return;
+    }
+    setState(() => _currentStep++);
+  }
+
+  void _prevStep() {
+    if (_currentStep > 0) setState(() => _currentStep--);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _currentStep == 2 ? _handleSubmit : _nextStep,
+      onNextStep: _nextStep,
+      onPrevStep: _prevStep,
+      onCancel: () => context.go(Routes.salesOrders),
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Create Sales Order'),
         leading: IconButton(
@@ -318,14 +340,7 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
                     if (_currentStep < 2)
                       KButton(
                         label: 'Next',
-                        onPressed: () {
-                          if (_currentStep == 0 && _selectedContactId == null) {
-                            setState(() =>
-                                _errorMessage = 'Please select a customer');
-                            return;
-                          }
-                          setState(() => _currentStep++);
-                        },
+                        onPressed: _nextStep,
                       )
                     else
                       KButton(
@@ -341,7 +356,7 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
           ],
         ),
       ),
-    );
+    ));
   }
 
   Future<void> _openAddCustomerSheet() async {

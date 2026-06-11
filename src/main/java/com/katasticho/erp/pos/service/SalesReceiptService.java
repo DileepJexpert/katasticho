@@ -38,6 +38,7 @@ import com.katasticho.erp.pos.entity.PaymentMode;
 import com.katasticho.erp.pos.entity.SalesReceipt;
 import com.katasticho.erp.pos.entity.SalesReceiptLine;
 import com.katasticho.erp.pos.repository.SalesReceiptRepository;
+import com.katasticho.erp.notification.sms.SmsService;
 import com.katasticho.erp.tax.TaxEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -92,6 +93,8 @@ public class SalesReceiptService {
     private final OrganisationRepository organisationRepository;
     private final DocumentSnapshotService documentSnapshotService;
     private final ContactLedgerService contactLedgerService;
+    private final SmsService smsService;
+    private final com.katasticho.erp.notification.whatsapp.WhatsAppDocumentService whatsAppDocumentService;
 
     @Transactional
     public SalesReceiptResponse create(CreateSalesReceiptRequest request) {
@@ -293,6 +296,19 @@ public class SalesReceiptService {
 
         SalesReceiptResponse response = toResponse(receipt);
         documentSnapshotService.createSnapshot("SALES_RECEIPT", receipt.getId(), receipt.getReceiptNumber(), response);
+
+        final UUID smsContactId = receipt.getContactId();
+        final BigDecimal smsTotal = receipt.getTotal();
+        final String orgName = org.getName();
+        if (smsContactId != null) {
+            contactRepository.findById(smsContactId).ifPresent(contact -> {
+                String phone = (contact.getMobile() != null && !contact.getMobile().isBlank())
+                        ? contact.getMobile() : contact.getPhone();
+                smsService.sendReceiptSms(orgId, phone, receiptNumber, smsTotal, orgName);
+            });
+        }
+        whatsAppDocumentService.autoSendReceipt(orgId, receipt.getId());
+
         return response;
     }
 
