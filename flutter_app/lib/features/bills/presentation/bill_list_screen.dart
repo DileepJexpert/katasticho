@@ -206,7 +206,7 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
     final inSelection = _selectedIds.isNotEmpty;
 
     return KKeyboardListWrapper(
-      itemCount: _currentBills.length,
+      itemCount: () => _currentBills.length,
       onNew: () => context.go(Routes.billCreate),
       onRefresh: () => ref.invalidate(billListProvider),
       onOpen: _openAtIndex,

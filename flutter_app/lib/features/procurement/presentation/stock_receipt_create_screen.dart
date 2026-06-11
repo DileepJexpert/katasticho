@@ -191,15 +191,15 @@ class _StockReceiptCreateScreenState
   double get _grandTotal => _subtotal + _totalTax;
 
   void _nextStep() {
+    // Pure step-advance: on the review step this is a no-op so that the
+    // Ctrl+→ "next step" shortcut can never silently submit the GRN —
+    // submitting is Ctrl+Enter / the Save Draft button only.
+    if (_currentStep >= 2) return;
     if (_currentStep == 0 && _supplier == null) {
       setState(() => _errorMessage = 'Please select a supplier');
       return;
     }
-    if (_currentStep < 2) {
-      setState(() => _currentStep++);
-    } else {
-      _submit();
-    }
+    setState(() => _currentStep++);
   }
 
   void _prevStep() {
@@ -214,6 +214,9 @@ class _StockReceiptCreateScreenState
   }
 
   Future<void> _submit() async {
+    // Guard: Ctrl+Enter can invoke this directly while a submit is in
+    // flight; without this check a second press creates a duplicate document.
+    if (_isSubmitting) return;
     if (_supplier == null) {
       setState(() => _errorMessage = 'Please select a supplier');
       return;

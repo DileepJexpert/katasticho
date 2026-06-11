@@ -149,7 +149,7 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
     final inSelection = _selectedIds.isNotEmpty;
 
     return KKeyboardListWrapper(
-      itemCount: _currentInvoices.length,
+      itemCount: () => _currentInvoices.length,
       onNew: () => context.go(Routes.invoiceCreate),
       onRefresh: () => ref.invalidate(invoiceListProvider),
       onOpen: _openAtIndex,

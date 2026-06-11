@@ -114,6 +114,9 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
   double get _grandTotal => _subtotal + _totalTax;
 
   Future<void> _handleSubmit() async {
+    // Guard: Ctrl+Enter can invoke this directly while a submit is in
+    // flight; without this check a second press creates a duplicate document.
+    if (_isSubmitting) return;
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;

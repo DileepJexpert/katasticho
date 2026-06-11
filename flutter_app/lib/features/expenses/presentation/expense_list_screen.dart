@@ -51,7 +51,7 @@ class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
     final asyncExpenses = ref.watch(expenseListProvider(filters));
 
     return KKeyboardListWrapper(
-      itemCount: _currentExpenses.length,
+      itemCount: () => _currentExpenses.length,
       onNew: () => context.push('/expenses/create'),
       onRefresh: () => ref.invalidate(expenseListProvider(filters)),
       onOpen: _openAtIndex,

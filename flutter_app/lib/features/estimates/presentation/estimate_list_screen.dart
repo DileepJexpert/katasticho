@@ -135,7 +135,7 @@ class _EstimateListScreenState extends ConsumerState<EstimateListScreen> {
     final inSelection = _selectedIds.isNotEmpty;
 
     return KKeyboardListWrapper(
-      itemCount: _currentEstimates.length,
+      itemCount: () => _currentEstimates.length,
       onNew: () => context.push('/estimates/create'),
       onRefresh: () => ref.invalidate(estimateListProvider(filters)),
       onOpen: _openAtIndex,

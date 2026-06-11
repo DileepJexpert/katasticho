@@ -102,7 +102,7 @@ class _SalesOrderListScreenState extends ConsumerState<SalesOrderListScreen> {
     final inSelection = _selectedIds.isNotEmpty;
 
     return KKeyboardListWrapper(
-      itemCount: _currentOrders.length,
+      itemCount: () => _currentOrders.length,
       onNew: () => context.go(Routes.salesOrderCreate),
       onRefresh: () => ref.invalidate(salesOrderListProvider),
       onOpen: _openAtIndex,

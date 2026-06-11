@@ -88,7 +88,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
     final inSelection = _selectedIds.isNotEmpty;
 
     return KKeyboardListWrapper(
-      itemCount: _currentItems.length,
+      itemCount: () => _currentItems.length,
       onNew: () => context.go(Routes.itemCreate),
       onRefresh: () => ref.invalidate(itemListProvider),
       onOpen: _openAtIndex,

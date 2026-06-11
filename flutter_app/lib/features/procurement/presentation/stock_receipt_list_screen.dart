@@ -43,7 +43,7 @@ class _StockReceiptListScreenState
     final receiptsAsync = ref.watch(stockReceiptListProvider(null));
 
     return KKeyboardListWrapper(
-      itemCount: _currentReceipts.length,
+      itemCount: () => _currentReceipts.length,
       onNew: () => context.go(Routes.stockReceiptCreate),
       onRefresh: () => ref.invalidate(stockReceiptListProvider(null)),
       onOpen: _openAtIndex,

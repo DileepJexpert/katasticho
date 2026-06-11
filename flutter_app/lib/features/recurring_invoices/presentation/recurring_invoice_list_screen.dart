@@ -42,7 +42,7 @@ class _RecurringInvoiceListScreenState
     final asyncTemplates = ref.watch(recurringInvoiceListProvider(filters));
 
     return KKeyboardListWrapper(
-      itemCount: _currentTemplates.length,
+      itemCount: () => _currentTemplates.length,
       onNew: () => context.push('/recurring-invoices/create'),
       onRefresh: () => ref.invalidate(recurringInvoiceListProvider(filters)),
       onOpen: _openAtIndex,

@@ -635,9 +635,23 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
       return true;
     }
 
-    if (!hasModifier && !_isTextFieldFocused() &&
-        event.logicalKey == LogicalKeyboardKey.question) {
-      KShortcutHelpOverlay.show(context, showListShortcuts: true);
+    // `?` opens context-aware shortcut help. Centralized here (rather than in
+    // per-screen Focus handlers) because HardwareKeyboard handlers do NOT
+    // consume events from the focus tree — a second per-screen handler would
+    // stack a second dialog on the same keypress. The overlay's own Focus
+    // handles `?`-to-dismiss while `isOpen` makes this a no-op.
+    if (!hasModifier &&
+        !KShortcutHelpOverlay.isOpen &&
+        !_isTextFieldFocused() &&
+        KShortcutHelpOverlay.isHelpKey(event)) {
+      final location = GoRouterState.of(context).uri.toString();
+      final isPos = location.startsWith(Routes.pos);
+      KShortcutHelpOverlay.show(
+        context,
+        showPosShortcuts: isPos,
+        showListShortcuts: !isPos,
+        showFormShortcuts: !isPos,
+      );
       return true;
     }
 

@@ -22,7 +22,35 @@ class KShortcutHelpOverlay extends StatelessWidget {
     this.showFormShortcuts = false,
   });
 
+  /// True while a help overlay is on screen — lets the global `?` handler
+  /// skip re-opening (so `?` toggles instead of stacking dialogs).
+  static bool isOpen = false;
+
+  /// `?` is `Shift+/` on desktop keymaps: embedders report the logical key as
+  /// `slash` with shift held, so matching `question` alone only works on web.
+  static bool isHelpKey(KeyEvent event) {
+    return event.logicalKey == LogicalKeyboardKey.question ||
+        (event.logicalKey == LogicalKeyboardKey.slash &&
+            HardwareKeyboard.instance.isShiftPressed);
+  }
+
   static Future<void> show(
+    BuildContext context, {
+    bool showPosShortcuts = false,
+    bool showListShortcuts = false,
+    bool showFormShortcuts = false,
+  }) {
+    if (isOpen) return Future.value();
+    isOpen = true;
+    return _show(
+      context,
+      showPosShortcuts: showPosShortcuts,
+      showListShortcuts: showListShortcuts,
+      showFormShortcuts: showFormShortcuts,
+    ).whenComplete(() => isOpen = false);
+  }
+
+  static Future<void> _show(
     BuildContext context, {
     bool showPosShortcuts = false,
     bool showListShortcuts = false,
@@ -119,7 +147,7 @@ class KShortcutHelpOverlay extends StatelessWidget {
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.escape ||
-                event.logicalKey == LogicalKeyboardKey.question)) {
+                KShortcutHelpOverlay.isHelpKey(event))) {
           Navigator.of(context).pop();
           return KeyEventResult.handled;
         }

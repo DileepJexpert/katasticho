@@ -87,9 +87,8 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filteredEmployees;
     return KKeyboardListWrapper(
-      itemCount: filtered.length,
+      itemCount: () => _filteredEmployees.length,
       onNew: () async {
         await context.push('/payroll/employees/create');
         _fetchEmployees();

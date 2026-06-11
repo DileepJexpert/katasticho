@@ -297,6 +297,9 @@ class _EstimateCreateScreenState extends ConsumerState<EstimateCreateScreen>
   }
 
   Future<void> _submit() async {
+    // Guard: Ctrl+Enter can invoke this directly while a submit is in
+    // flight; without this check a second press creates a duplicate document.
+    if (_submitting) return;
     if (!_formKey.currentState!.validate()) return;
     if (_contactId == null) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -7,7 +7,11 @@ typedef KeyboardListOpenCallback = void Function(int index);
 
 class KKeyboardListWrapper extends StatefulWidget {
   final Widget child;
-  final int itemCount;
+
+  /// Read lazily at each keypress so navigation works even when the list is
+  /// loaded inside an async builder during the same build pass (a plain int
+  /// would be stale until the next rebuild).
+  final int Function() itemCount;
   final KeyboardListCallback? onNew;
   final KeyboardListCallback? onRefresh;
   final KeyboardListCallback? onSearchFocus;
@@ -44,9 +48,9 @@ class KKeyboardListWrapperState extends State<KKeyboardListWrapper> {
   }
 
   void _move(int delta) {
-    if (widget.itemCount == 0) return;
-    final next = (_selectedIndex + delta).clamp(0, widget.itemCount - 1);
-    selectedIndex = next;
+    final count = widget.itemCount();
+    if (count == 0) return;
+    selectedIndex = (_selectedIndex + delta).clamp(0, count - 1);
   }
 
   KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
@@ -57,6 +61,7 @@ class KKeyboardListWrapperState extends State<KKeyboardListWrapper> {
 
     final key = event.logicalKey;
     final hasModifier = KShortcuts.isControlOrMetaPressed();
+    final isRepeat = event is KeyRepeatEvent;
 
     if (key == LogicalKeyboardKey.arrowDown || key == LogicalKeyboardKey.keyJ) {
       _move(1);
@@ -66,28 +71,37 @@ class KKeyboardListWrapperState extends State<KKeyboardListWrapper> {
       _move(-1);
       return KeyEventResult.handled;
     }
+
+    // Action keys fire once per press — holding Enter must not stack detail
+    // routes, and holding R must not hammer the API.
+    if (isRepeat) return KeyEventResult.ignored;
+
     if ((key == LogicalKeyboardKey.enter ||
             key == LogicalKeyboardKey.numpadEnter) &&
         !hasModifier) {
-      if (_selectedIndex >= 0 && widget.onOpen != null) {
+      final count = widget.itemCount();
+      if (_selectedIndex >= 0 && _selectedIndex < count && widget.onOpen != null) {
         widget.onOpen!(_selectedIndex);
         return KeyEventResult.handled;
       }
     }
-    if (key == LogicalKeyboardKey.keyN && !hasModifier) {
-      widget.onNew?.call();
+    if (key == LogicalKeyboardKey.keyN && !hasModifier && widget.onNew != null) {
+      widget.onNew!();
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.keyR && !hasModifier) {
-      widget.onRefresh?.call();
+    if (key == LogicalKeyboardKey.keyR && !hasModifier && widget.onRefresh != null) {
+      widget.onRefresh!();
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.slash && !hasModifier) {
-      widget.onSearchFocus?.call();
+    if (key == LogicalKeyboardKey.slash &&
+        !hasModifier &&
+        !KShortcuts.isShiftPressed() &&
+        widget.onSearchFocus != null) {
+      widget.onSearchFocus!();
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.keyX && !hasModifier) {
-      widget.onToggleSelect?.call();
+    if (key == LogicalKeyboardKey.keyX && !hasModifier && widget.onToggleSelect != null) {
+      widget.onToggleSelect!();
       return KeyEventResult.handled;
     }
 

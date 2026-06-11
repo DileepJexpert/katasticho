@@ -62,6 +62,9 @@ class _CreditNoteCreateScreenState extends ConsumerState<CreditNoteCreateScreen>
   double get _grandTotal => _subtotal + _taxTotal;
 
   Future<void> _submit() async {
+    // Guard: Ctrl+Enter can invoke this directly while a submit is in
+    // flight; without this check a second press creates a duplicate document.
+    if (_isSubmitting) return;
     clearServerErrors();
     if (!_formKey.currentState!.validate()) return;
     if (_selectedContactId == null) {

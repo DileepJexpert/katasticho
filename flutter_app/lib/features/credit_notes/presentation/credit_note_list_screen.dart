@@ -42,7 +42,7 @@ class _CreditNoteListScreenState extends ConsumerState<CreditNoteListScreen> {
     final creditNotesAsync = ref.watch(creditNoteListProvider);
 
     return KKeyboardListWrapper(
-      itemCount: _currentCreditNotes.length,
+      itemCount: () => _currentCreditNotes.length,
       onNew: () => context.go(Routes.creditNoteCreate),
       onRefresh: () => ref.invalidate(creditNoteListProvider),
       onOpen: _openAtIndex,

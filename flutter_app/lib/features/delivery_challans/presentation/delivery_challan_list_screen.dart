@@ -99,7 +99,7 @@ class _DeliveryChallanListScreenState
     final inSelection = _selectedIds.isNotEmpty;
 
     return KKeyboardListWrapper(
-      itemCount: _currentChallans.length,
+      itemCount: () => _currentChallans.length,
       onNew: () => context.go('/delivery-challans/create'),
       onRefresh: () => ref.invalidate(deliveryChallanListProvider),
       onOpen: _openAtIndex,

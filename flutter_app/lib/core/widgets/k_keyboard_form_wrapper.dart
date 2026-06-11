@@ -39,12 +39,23 @@ class KKeyboardFormWrapper extends StatelessWidget {
       onPrevStep?.call();
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.escape && !hasModifier) {
+    // Esc cancels the form — but never while the user is typing in a field
+    // (Esc there is habitually used to dismiss autocomplete/IME popups, and
+    // navigating away would silently discard everything entered).
+    if (key == LogicalKeyboardKey.escape &&
+        !hasModifier &&
+        !_isTextFieldFocused()) {
       onCancel?.call();
       return KeyEventResult.handled;
     }
 
     return KeyEventResult.ignored;
+  }
+
+  bool _isTextFieldFocused() {
+    final focus = FocusManager.instance.primaryFocus;
+    final ctx = focus?.context;
+    return ctx != null && ctx.widget is EditableText;
   }
 
   @override

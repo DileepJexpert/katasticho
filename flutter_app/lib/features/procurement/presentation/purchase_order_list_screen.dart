@@ -45,7 +45,7 @@ class _PurchaseOrderListScreenState
     final posAsync = ref.watch(purchaseOrdersProvider);
 
     return KKeyboardListWrapper(
-      itemCount: _currentPurchaseOrders.length,
+      itemCount: () => _currentPurchaseOrders.length,
       onNew: () => context.go(Routes.purchaseOrderCreate),
       onRefresh: () => ref.invalidate(purchaseOrdersProvider),
       onOpen: _openAtIndex,

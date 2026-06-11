@@ -103,7 +103,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
   Widget build(BuildContext context) {
     final inSelection = _selectedIds.isNotEmpty;
     return KKeyboardListWrapper(
-      itemCount: _currentContacts.length,
+      itemCount: () => _currentContacts.length,
       onNew: () => context.go(Routes.contactCreate),
       onRefresh: () => ref.invalidate(contactListProvider(_selectedType)),
       onOpen: _openAtIndex,

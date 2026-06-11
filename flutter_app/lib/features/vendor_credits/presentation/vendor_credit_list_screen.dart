@@ -42,7 +42,7 @@ class _VendorCreditListScreenState
     final creditsAsync = ref.watch(vendorCreditListProvider);
 
     return KKeyboardListWrapper(
-      itemCount: _currentCredits.length,
+      itemCount: () => _currentCredits.length,
       onNew: () => context.go(Routes.vendorCreditCreate),
       onRefresh: () => ref.invalidate(vendorCreditListProvider),
       onOpen: _openAtIndex,

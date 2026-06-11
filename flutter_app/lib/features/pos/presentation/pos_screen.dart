@@ -32,7 +32,6 @@ import 'widgets/pos_recent_bills.dart';
 import 'widgets/pos_weight_popup.dart';
 import '../../inventory/data/batch_repository.dart';
 import '../../../core/shortcuts/k_shortcuts.dart';
-import '../../../core/widgets/k_shortcut_help_overlay.dart';
 import '../data/thermal_print_service.dart';
 import '../data/offline_pos_service.dart';
 import 'pos_receipt_settings_screen.dart';
@@ -1347,21 +1346,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       }
     }
 
-    if (event.logicalKey == LogicalKeyboardKey.question && !hasModifier) {
-      if (!_isTextFieldActive()) {
-        KShortcutHelpOverlay.show(context, showPosShortcuts: true);
-        return KeyEventResult.handled;
-      }
-    }
+    // `?` (shortcut help) is handled globally by ShellScreen, which detects
+    // the POS route and shows the POS-specific reference — handling it here
+    // too would stack a second dialog on the same keypress.
 
     return KeyEventResult.ignored;
-  }
-
-  bool _isTextFieldActive() {
-    final focus = FocusManager.instance.primaryFocus;
-    if (focus == null) return false;
-    final ctx = focus.context;
-    return ctx != null && ctx.widget is EditableText;
   }
 
   // ── AppBar actions ───────────────────────────────────────────

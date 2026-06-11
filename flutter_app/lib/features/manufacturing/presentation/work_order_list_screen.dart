@@ -30,7 +30,7 @@ class _WorkOrderListScreenState extends ConsumerState<WorkOrderListScreen> {
     final theme = Theme.of(context);
 
     return KKeyboardListWrapper(
-      itemCount: _currentOrders.length,
+      itemCount: () => _currentOrders.length,
       onNew: () => context.go(Routes.manufacturingWorkOrderCreate),
       onRefresh: () => ref.invalidate(workOrdersProvider(_statusFilter)),
       onOpen: _openAtIndex,

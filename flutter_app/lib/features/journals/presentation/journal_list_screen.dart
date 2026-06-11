@@ -40,7 +40,7 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
     final journalsAsync = ref.watch(journalListProvider);
 
     return KKeyboardListWrapper(
-      itemCount: _currentJournals.length,
+      itemCount: () => _currentJournals.length,
       onNew: () => context.push('/accounting/journal-entries/create'),
       onRefresh: () => ref.invalidate(journalListProvider),
       onOpen: _openAtIndex,
