@@ -150,6 +150,37 @@ class JournalServiceTest {
         assertTrue(result.getEntryNumber().startsWith("JE-"));
     }
 
+    // Post-dated voucher stays DRAFT even with autoPost — the daily job posts it later.
+    @Test
+    void postDatedEntryStaysDraftDespiteAutoPost() {
+        var org = Organisation.builder().name("Test").build();
+        org.setId(orgId);
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(orgId, "1010")).thenReturn(Optional.of(cashAccount));
+        when(accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(orgId, "4010")).thenReturn(Optional.of(revenueAccount));
+        Query mockQuery = mock(Query.class);
+        when(entityManager.createNativeQuery(anyString())).thenReturn(mockQuery);
+        when(mockQuery.setParameter(anyString(), any())).thenReturn(mockQuery);
+        when(mockQuery.getSingleResult()).thenReturn(1L);
+        when(journalEntryRepository.save(any(JournalEntry.class))).thenAnswer(inv -> {
+            JournalEntry entry = inv.getArgument(0);
+            if (entry.getId() == null) entry.setId(UUID.randomUUID());
+            return entry;
+        });
+
+        var request = new JournalPostRequest(
+                LocalDate.now().plusDays(15), "Post-dated rent cheque", "MANUAL", null,
+                List.of(
+                        new JournalLineRequest("1010", new BigDecimal("5000"), BigDecimal.ZERO, null, null, null),
+                        new JournalLineRequest("4010", BigDecimal.ZERO, new BigDecimal("5000"), null, null, null)
+                ), true, true);   // autoPost requested, but postDated wins
+
+        JournalEntry result = journalService.postJournal(request);
+
+        assertEquals("DRAFT", result.getStatus());
+        assertTrue(result.isPostDated());
+    }
+
     // T-ACCT-02: POSTED entry rejects direct status change (tested via reverseEntry flow)
     @Test
     void shouldNotReverseAlreadyReversedEntry() {

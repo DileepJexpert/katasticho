@@ -25,8 +25,17 @@ public record JournalPostRequest(
         @Valid
         List<JournalLineRequest> lines,
 
-        boolean autoPost
+        boolean autoPost,
+
+        /** Post-dated voucher: stays DRAFT until effectiveDate, then auto-posts (daily job). */
+        boolean postDated
 ) {
+    /** Compact constructor for the common (non-post-dated) case. */
+    public JournalPostRequest(LocalDate effectiveDate, String description, String sourceModule,
+                              UUID sourceId, List<JournalLineRequest> lines, boolean autoPost) {
+        this(effectiveDate, description, sourceModule, sourceId, lines, autoPost, false);
+    }
+
     public JournalPostRequest {
         if (lines == null) lines = List.of();
     }

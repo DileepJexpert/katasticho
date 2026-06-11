@@ -52,6 +52,7 @@ class _JournalCreateScreenState extends ConsumerState<JournalCreateScreen>
   final _descriptionController = TextEditingController();
   final List<_JournalLine> _lines = [];
   bool _submitting = false;
+  bool _postDated = false;
 
   @override
   void initState() {
@@ -118,6 +119,7 @@ class _JournalCreateScreenState extends ConsumerState<JournalCreateScreen>
       'description': _descriptionController.text.trim(),
       'sourceModule': 'MANUAL',
       'autoPost': autoPost,
+      'postDated': _postDated,
       'lines': _lines
           .where((l) => l.account != null)
           .map((l) => {
@@ -196,6 +198,23 @@ class _JournalCreateScreenState extends ConsumerState<JournalCreateScreen>
             value: _effectiveDate,
             onChanged: (d) => setState(() => _effectiveDate = d),
           ),
+          if (_effectiveDate != null &&
+              _effectiveDate!.isAfter(DateTime.now())) ...[
+            KSpacing.vGapSm,
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: Text('Post-dated voucher', style: KTypography.labelLarge),
+              subtitle: Text(
+                'Stays draft and posts automatically on the effective date.',
+                style: KTypography.bodySmall
+                    .copyWith(color: KColors.textSecondary),
+              ),
+              value: _postDated,
+              onChanged: (v) => setState(() => _postDated = v ?? false),
+            ),
+          ],
           KSpacing.vGapMd,
 
           // Reference

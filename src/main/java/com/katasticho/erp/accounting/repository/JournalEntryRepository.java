@@ -75,4 +75,8 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, UUID
             @Param("orgId") UUID orgId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 
     long countByOrgIdAndStatusAndCreatedAtBefore(UUID orgId, String status, java.time.Instant before);
+
+    /** Post-dated DRAFT vouchers whose date has arrived — the daily job posts them. */
+    List<JournalEntry> findByStatusAndPostDatedTrueAndEffectiveDateLessThanEqual(
+            String status, LocalDate asOfDate);
 }
