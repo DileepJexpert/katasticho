@@ -122,14 +122,6 @@ class _ZoneCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final zoneType = zone['zoneType'] as String? ?? 'STORAGE';
-    final color = switch (zoneType) {
-      'STORAGE' => KColors.info,
-      'QUARANTINE' => KColors.warning,
-      'DISPATCH' => KColors.success,
-      'RECEIVING' => Colors.purple,
-      'RETURNS' => KColors.error,
-      _ => KColors.neutral,
-    };
 
     return Card(
       margin: const EdgeInsets.only(bottom: KSpacing.sm),
@@ -139,7 +131,7 @@ class _ZoneCard extends StatelessWidget {
           children: [
             Text(zone['name'] as String? ?? '', style: KTypography.titleSmall),
             const SizedBox(width: KSpacing.sm),
-            KStatusChip(label: zoneType, color: color),
+            KStatusChip(status: zoneType),
           ],
         ),
         subtitle: Column(

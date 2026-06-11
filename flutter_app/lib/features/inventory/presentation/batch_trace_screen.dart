@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 import '../data/inventory_repository.dart';
 
 final _forwardTraceProvider =
@@ -197,13 +197,6 @@ class _TraceNode extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final movementType = movement['movementType'] as String? ?? '';
-    final color = switch (movementType) {
-      'PURCHASE' || 'PURCHASE_RETURN' => KColors.success,
-      'SALE' || 'SALES_RETURN' => KColors.info,
-      'TRANSFER_IN' || 'TRANSFER_OUT' => Colors.purple,
-      'ADJUSTMENT' => KColors.warning,
-      _ => KColors.neutral,
-    };
 
     return IntrinsicHeight(
       child: Row(
@@ -215,7 +208,7 @@ class _TraceNode extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 12,
-                  backgroundColor: color,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   child: Text(
                     '${index + 1}',
                     style: const TextStyle(color: Colors.white, fontSize: 10),
@@ -242,7 +235,7 @@ class _TraceNode extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        KStatusChip(label: movementType, color: color),
+                        KStatusChip(status: movementType),
                         const Spacer(),
                         Text(
                           movement['movementDate'] as String? ?? '',

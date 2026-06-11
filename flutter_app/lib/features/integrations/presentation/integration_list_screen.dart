@@ -80,20 +80,6 @@ class _IntegrationCardState extends State<_IntegrationCard> {
     final syncStatus = integration['lastSyncStatus'] as String?;
     final isEnabled = integration['enabled'] as bool? ?? false;
 
-    final statusColor = switch (status) {
-      'ACTIVE' => KColors.success,
-      'ERROR' => KColors.error,
-      'INACTIVE' => KColors.neutral,
-      _ => KColors.neutral,
-    };
-
-    final syncColor = switch (syncStatus) {
-      'SUCCESS' => KColors.success,
-      'FAILED' => KColors.error,
-      'IN_PROGRESS' => KColors.info,
-      _ => KColors.neutral,
-    };
-
     return Card(
       margin: const EdgeInsets.only(bottom: KSpacing.sm),
       child: Padding(
@@ -133,11 +119,10 @@ class _IntegrationCardState extends State<_IntegrationCard> {
             const SizedBox(height: KSpacing.sm),
             Row(
               children: [
-                KStatusChip(label: status, color: statusColor),
+                KStatusChip(status: status),
                 if (syncStatus != null) ...[
                   const SizedBox(width: KSpacing.xs),
-                  KStatusChip(
-                      label: 'Last Sync: $syncStatus', color: syncColor),
+                  KStatusChip(status: syncStatus),
                 ],
               ],
             ),

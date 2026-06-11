@@ -80,13 +80,6 @@ class _ShipmentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = shipment['status'] as String? ?? 'DRAFT';
-    final color = switch (status) {
-      'DRAFT' => KColors.neutral,
-      'IN_TRANSIT' => KColors.info,
-      'DELIVERED' => KColors.success,
-      'CANCELLED' => KColors.error,
-      _ => KColors.neutral,
-    };
     final carrier = shipment['carrier'] as String? ?? '';
     final vehicleNumber = shipment['vehicleNumber'] as String? ?? '';
     final shipmentNumber = shipment['shipmentNumber'] as String? ?? 'SHP-???';
@@ -100,7 +93,7 @@ class _ShipmentCard extends StatelessWidget {
             Expanded(
               child: Text(shipmentNumber, style: KTypography.titleSmall),
             ),
-            KStatusChip(label: status, color: color),
+            KStatusChip(status: status),
           ],
         ),
         subtitle: Column(

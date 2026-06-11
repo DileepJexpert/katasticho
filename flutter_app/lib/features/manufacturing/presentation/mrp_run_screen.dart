@@ -115,12 +115,6 @@ class _MrpRunCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = run['status'] as String? ?? 'COMPLETED';
-    final color = switch (status) {
-      'IN_PROGRESS' => KColors.info,
-      'COMPLETED' => KColors.success,
-      'FAILED' => KColors.error,
-      _ => KColors.neutral,
-    };
     final runNumber = run['runNumber'] as String? ?? 'MRP-???';
     final plannedOrders = run['plannedOrderCount'] as int? ?? 0;
     final runDate = run['createdAt'] as String? ?? '';
@@ -133,7 +127,7 @@ class _MrpRunCard extends StatelessWidget {
           children: [
             Text(runNumber, style: KTypography.titleSmall),
             const SizedBox(width: KSpacing.sm),
-            KStatusChip(label: status, color: color),
+            KStatusChip(status: status),
           ],
         ),
         subtitle: Text('$plannedOrders planned orders • $runDate'),
