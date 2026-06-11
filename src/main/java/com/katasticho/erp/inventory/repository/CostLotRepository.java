@@ -1,7 +1,9 @@
 package com.katasticho.erp.inventory.repository;
 
 import com.katasticho.erp.inventory.entity.CostLot;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -13,7 +15,12 @@ import java.util.UUID;
 @Repository
 public interface CostLotRepository extends JpaRepository<CostLot, UUID> {
 
-    /** Active lots for an item×warehouse in FIFO order (oldest first). */
+    /**
+     * Active lots for an item×warehouse in FIFO order (oldest first).
+     * Row-locked so two concurrent issues serialize their draw-downs instead
+     * of both consuming the same lot units.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT l FROM CostLot l
             WHERE l.orgId = :orgId

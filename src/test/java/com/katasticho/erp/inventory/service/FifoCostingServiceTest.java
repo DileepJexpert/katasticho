@@ -7,6 +7,7 @@ import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.StockMovement;
 import com.katasticho.erp.inventory.repository.CostLotConsumptionRepository;
 import com.katasticho.erp.inventory.repository.CostLotRepository;
+import com.katasticho.erp.inventory.repository.StockMovementRepository;
 import com.katasticho.erp.organisation.OrgSettingsService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +40,7 @@ class FifoCostingServiceTest {
 
     @Mock private CostLotRepository costLotRepository;
     @Mock private CostLotConsumptionRepository consumptionRepository;
+    @Mock private StockMovementRepository stockMovementRepository;
     @Mock private OrgSettingsService orgSettingsService;
 
     private FifoCostingService service;
@@ -48,7 +50,8 @@ class FifoCostingServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new FifoCostingService(costLotRepository, consumptionRepository, orgSettingsService);
+        service = new FifoCostingService(costLotRepository, consumptionRepository,
+                stockMovementRepository, orgSettingsService);
         orgId = UUID.randomUUID();
         itemId = UUID.randomUUID();
         warehouseId = UUID.randomUUID();
@@ -169,6 +172,81 @@ class FifoCostingServiceTest {
         assertEquals(0, new BigDecimal("5").compareTo(lot.getRemainingQty()));
         assertTrue(lot.isActive());
         verify(consumptionRepository).deleteByMovementId(movementId);
+    }
+
+    @Test
+    void reverseReceipt_zeroesAndClosesLot() {
+        UUID sourceMovementId = UUID.randomUUID();
+        CostLot lot = lot(new BigDecimal("6"), new BigDecimal("8"), LocalDate.of(2026, 1, 1));
+        lot.setOriginalQty(new BigDecimal("10")); // partly consumed already
+        lot.setSourceMovementId(sourceMovementId);
+        when(costLotRepository.findBySourceMovementId(sourceMovementId)).thenReturn(Optional.of(lot));
+
+        service.reverseReceipt(sourceMovementId);
+
+        assertEquals(0, BigDecimal.ZERO.compareTo(lot.getRemainingQty()));
+        assertFalse(lot.isActive());
+        verify(costLotRepository).save(lot);
+    }
+
+    @Test
+    void reverseConsumption_doesNotResurrectLotWhoseReceiptWasReversed() {
+        // receipt → issue → reverse receipt → reverse issue: the lot was closed
+        // by the receipt reversal; restoring the issue's draw would re-inject
+        // phantom quantity over zero physical stock.
+        UUID movementId = UUID.randomUUID();
+        UUID lotId = UUID.randomUUID();
+        UUID sourceMovementId = UUID.randomUUID();
+        CostLotConsumption row = CostLotConsumption.builder()
+                .orgId(orgId).lotId(lotId).movementId(movementId)
+                .qty(new BigDecimal("4")).unitCost(new BigDecimal("8")).build();
+        when(consumptionRepository.findByMovementId(movementId)).thenReturn(List.of(row));
+
+        CostLot lot = lot(new BigDecimal("0"), new BigDecimal("8"), LocalDate.of(2026, 1, 1));
+        lot.setActive(false);
+        lot.setId(lotId);
+        lot.setSourceMovementId(sourceMovementId);
+        when(costLotRepository.findById(lotId)).thenReturn(Optional.of(lot));
+
+        StockMovement reversedReceipt = StockMovement.builder()
+                .orgId(orgId).itemId(itemId).warehouseId(warehouseId)
+                .movementType(MovementType.PURCHASE)
+                .quantity(new BigDecimal("10"))
+                .build();
+        reversedReceipt.setId(sourceMovementId);
+        reversedReceipt.setReversed(true);
+        when(stockMovementRepository.findById(sourceMovementId)).thenReturn(Optional.of(reversedReceipt));
+
+        service.reverseConsumption(movementId);
+
+        assertEquals(0, BigDecimal.ZERO.compareTo(lot.getRemainingQty()), "no phantom restore");
+        assertFalse(lot.isActive());
+        verify(costLotRepository, never()).save(lot);
+        verify(consumptionRepository).deleteByMovementId(movementId);
+    }
+
+    @Test
+    void seedOpeningLotIfNeeded_seedsOnlyWhenNoLotsAndStockExists() {
+        // No lots + on-hand 30 → seeds an opening lot at the average cost.
+        when(costLotRepository.findOpenLots(orgId, itemId, warehouseId)).thenReturn(List.of());
+
+        service.seedOpeningLotIfNeeded(orgId, itemId, warehouseId,
+                new BigDecimal("30"), new BigDecimal("6"), LocalDate.of(2026, 3, 1));
+
+        ArgumentCaptor<CostLot> captor = ArgumentCaptor.forClass(CostLot.class);
+        verify(costLotRepository).save(captor.capture());
+        CostLot seeded = captor.getValue();
+        assertNull(seeded.getSourceMovementId());
+        assertEquals(0, new BigDecimal("30").compareTo(seeded.getRemainingQty()));
+        assertEquals(0, new BigDecimal("6.0000").compareTo(seeded.getUnitCost()));
+
+        // Lots already exist → no second opening lot.
+        reset(costLotRepository);
+        when(costLotRepository.findOpenLots(orgId, itemId, warehouseId))
+                .thenReturn(List.of(lot(new BigDecimal("30"), new BigDecimal("6"), LocalDate.of(2026, 3, 1))));
+        service.seedOpeningLotIfNeeded(orgId, itemId, warehouseId,
+                new BigDecimal("30"), new BigDecimal("6"), LocalDate.of(2026, 3, 2));
+        verify(costLotRepository, never()).save(any(CostLot.class));
     }
 
     private CostLot lot(BigDecimal remaining, BigDecimal cost, LocalDate received) {

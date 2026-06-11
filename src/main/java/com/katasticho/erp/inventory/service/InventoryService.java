@@ -140,6 +140,20 @@ public class InventoryService {
             unitCost = fifoPlan.unitCost();
             totalCost = fifoPlan.totalCost();
         } else {
+            if (fifo && !outgoing && request.movementType() != MovementType.REVERSAL) {
+                // First FIFO receipt over pre-existing stock: seed the opening
+                // lot from the weighted-average balance BEFORE this receipt
+                // opens its own lot, so the pre-FIFO on-hand is never stranded
+                // outside the lot ledger (a receipt arriving before the first
+                // issue would otherwise suppress lazy seeding forever).
+                StockBalance bal = stockBalanceRepository
+                        .findByOrgIdAndItemIdAndWarehouseId(orgId, item.getId(), warehouse.getId())
+                        .orElse(null);
+                if (bal != null && bal.getQuantityOnHand().signum() > 0) {
+                    fifoCostingService.seedOpeningLotIfNeeded(orgId, item.getId(), warehouse.getId(),
+                            bal.getQuantityOnHand(), bal.getAverageCost(), request.movementDate());
+                }
+            }
             BigDecimal rawCost = request.unitCost() != null ? request.unitCost() : item.getPurchasePrice();
             unitCost = (rawCost != null ? rawCost : BigDecimal.ZERO).setScale(4, RoundingMode.HALF_UP);
             totalCost = unitCost.multiply(qty.abs()).setScale(2, RoundingMode.HALF_UP);

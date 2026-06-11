@@ -29,7 +29,9 @@ import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.inventory.dto.StockMovementRequest;
 import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.ReferenceType;
+import com.katasticho.erp.inventory.entity.StockMovement;
 import com.katasticho.erp.inventory.service.InventoryService;
+import com.katasticho.erp.inventory.repository.StockMovementRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.organisation.Branch;
@@ -88,6 +90,7 @@ public class PurchaseBillService {
     private final com.katasticho.erp.tax.service.TdsService tdsService;
     private final CurrencyService currencyService;
     private final InventoryService inventoryService;
+    private final StockMovementRepository stockMovementRepository;
     private final DefaultAccountService defaultAccountService;
     private final CommentService commentService;
     private final DocumentSnapshotService documentSnapshotService;
@@ -356,7 +359,8 @@ public class PurchaseBillService {
             journalService.reverseEntry(bill.getJournalEntryId());
         }
 
-        // Reverse stock movements: REVERSAL with negative quantity
+        // Reverse the bill's PURCHASE movements via the stock gate's reversal
+        // path (marks originals reversed; closes FIFO cost lots).
         reverseStockForBill(bill);
 
         // Reduce vendor's outstanding AP
@@ -726,40 +730,19 @@ public class PurchaseBillService {
         }
     }
 
+    /**
+     * Reverse each PURCHASE movement the bill posted through the stock gate's
+     * own reversal path. Going through {@code reverseMovement} (instead of
+     * recording fresh negative REVERSAL rows) marks the originals as reversed
+     * and — critically for FIFO orgs — closes the cost lots those receipts
+     * opened, so a voided bill can't leave phantom inventory value behind.
+     */
     private void reverseStockForBill(PurchaseBill bill) {
-        UUID orgId = bill.getOrgId();
-        Warehouse defaultWarehouse = warehouseRepository
-                .findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
-                .orElse(null);
-
-        if (defaultWarehouse == null) {
-            return;
-        }
-
-        for (PurchaseBillLine line : bill.getLines()) {
-            if (line.getItemId() == null) {
-                continue;
-            }
-
-            BigDecimal stockQty = line.getBaseQuantity() != null
-                    ? line.getBaseQuantity() : line.getQuantity();
-            BigDecimal unitCost = line.getUnitPrice();
-            if (line.getUnitConversionFactor() != null
-                    && line.getUnitConversionFactor().compareTo(BigDecimal.ONE) > 0) {
-                unitCost = line.getUnitPrice().divide(
-                        line.getUnitConversionFactor(), 4, RoundingMode.HALF_UP);
-            }
-            inventoryService.recordMovement(new StockMovementRequest(
-                    line.getItemId(),
-                    defaultWarehouse.getId(),
-                    MovementType.REVERSAL,
-                    stockQty.negate(),
-                    unitCost,
-                    bill.getBillDate(),
-                    ReferenceType.BILL,
-                    bill.getId(),
-                    bill.getBillNumber(),
-                    "Void reversal: " + bill.getBillNumber()));
+        List<StockMovement> originals = stockMovementRepository.findOriginalsByReference(
+                bill.getOrgId(), ReferenceType.BILL, bill.getId(), MovementType.PURCHASE);
+        for (StockMovement movement : originals) {
+            inventoryService.reverseMovement(movement.getId(),
+                    "Bill void: " + bill.getBillNumber());
         }
     }
 

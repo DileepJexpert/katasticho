@@ -6,6 +6,7 @@ import com.katasticho.erp.inventory.entity.CostLotConsumption;
 import com.katasticho.erp.inventory.entity.StockMovement;
 import com.katasticho.erp.inventory.repository.CostLotConsumptionRepository;
 import com.katasticho.erp.inventory.repository.CostLotRepository;
+import com.katasticho.erp.inventory.repository.StockMovementRepository;
 import com.katasticho.erp.organisation.OrgSettingsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +48,7 @@ public class FifoCostingService {
 
     private final CostLotRepository costLotRepository;
     private final CostLotConsumptionRepository consumptionRepository;
+    private final StockMovementRepository stockMovementRepository;
     private final OrgSettingsService orgSettingsService;
 
     /** Blended FIFO cost of an issue plus the per-lot draws that produced it. */
@@ -97,23 +99,17 @@ public class FifoCostingService {
     public FifoCost consume(UUID orgId, UUID itemId, UUID warehouseId, BigDecimal qtyAbs,
                             BigDecimal fallbackUnitCost, BigDecimal onHandBefore, BigDecimal avgCost,
                             java.time.LocalDate movementDate) {
+        // findOpenLots takes a PESSIMISTIC_WRITE lock so two concurrent issues
+        // of the same item×warehouse serialize instead of double-drawing lots.
         List<CostLot> lots = costLotRepository.findOpenLots(orgId, itemId, warehouseId);
 
         // Lazy opening lot: FIFO turned on over pre-existing stock with no lots.
-        if (lots.isEmpty() && onHandBefore != null && onHandBefore.signum() > 0) {
-            BigDecimal seedCost = (avgCost != null && avgCost.signum() > 0) ? avgCost
-                    : (fallbackUnitCost != null ? fallbackUnitCost : BigDecimal.ZERO);
-            CostLot opening = CostLot.builder()
-                    .orgId(orgId).itemId(itemId).warehouseId(warehouseId)
-                    .sourceMovementId(null)
-                    .receivedDate(movementDate)
-                    .originalQty(onHandBefore)
-                    .remainingQty(onHandBefore)
-                    .unitCost(seedCost.setScale(4, RoundingMode.HALF_UP))
-                    .active(true)
-                    .createdBy(TenantContext.getCurrentUserId())
-                    .build();
-            lots = new ArrayList<>(List.of(costLotRepository.save(opening)));
+        if (lots.isEmpty()) {
+            CostLot opening = seedOpeningLot(orgId, itemId, warehouseId,
+                    onHandBefore, avgCost, fallbackUnitCost, movementDate);
+            if (opening != null) {
+                lots = new ArrayList<>(List.of(opening));
+            }
         }
 
         BigDecimal remaining = qtyAbs;
@@ -144,6 +140,55 @@ public class FifoCostingService {
                 ? totalCost.divide(qtyAbs, 4, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
         return new FifoCost(unitCost, totalCost, allocations);
+    }
+
+    /**
+     * Seed an opening lot from the pre-FIFO weighted-average balance when an
+     * item×warehouse has stock but no lot history. Called from {@link #consume}
+     * (first issue) and from the stock gate before the first FIFO receipt, so
+     * a receipt arriving before any issue can't strand the pre-existing
+     * on-hand outside the lot ledger forever. Returns null when there is
+     * nothing to seed.
+     */
+    @Transactional
+    public CostLot seedOpeningLot(UUID orgId, UUID itemId, UUID warehouseId,
+                                  BigDecimal onHandBefore, BigDecimal avgCost,
+                                  BigDecimal fallbackUnitCost,
+                                  java.time.LocalDate movementDate) {
+        if (onHandBefore == null || onHandBefore.signum() <= 0) {
+            return null;
+        }
+        BigDecimal seedCost = (avgCost != null && avgCost.signum() > 0) ? avgCost
+                : (fallbackUnitCost != null ? fallbackUnitCost : BigDecimal.ZERO);
+        CostLot opening = CostLot.builder()
+                .orgId(orgId).itemId(itemId).warehouseId(warehouseId)
+                .sourceMovementId(null)
+                .receivedDate(movementDate)
+                .originalQty(onHandBefore)
+                .remainingQty(onHandBefore)
+                .unitCost(seedCost.setScale(4, RoundingMode.HALF_UP))
+                .active(true)
+                .createdBy(TenantContext.getCurrentUserId())
+                .build();
+        log.info("Seeded FIFO opening lot for item {} warehouse {}: {} @ {}",
+                itemId, warehouseId, onHandBefore, seedCost);
+        return costLotRepository.save(opening);
+    }
+
+    /**
+     * Seed an opening lot before the first FIFO receipt if pre-FIFO stock
+     * exists and no lots do. No-op otherwise.
+     */
+    @Transactional
+    public void seedOpeningLotIfNeeded(UUID orgId, UUID itemId, UUID warehouseId,
+                                       BigDecimal onHandBefore, BigDecimal avgCost,
+                                       java.time.LocalDate movementDate) {
+        if (onHandBefore == null || onHandBefore.signum() <= 0) {
+            return;
+        }
+        if (costLotRepository.findOpenLots(orgId, itemId, warehouseId).isEmpty()) {
+            seedOpeningLot(orgId, itemId, warehouseId, onHandBefore, avgCost, null, movementDate);
+        }
     }
 
     /** Persist the per-lot draws now that the movement id is known. */
@@ -180,12 +225,31 @@ public class FifoCostingService {
         });
     }
 
-    /** Restore the lots an issue consumed when that issue is reversed. */
+    /**
+     * Restore the lots an issue consumed when that issue is reversed.
+     *
+     * <p>A lot whose backing receipt has itself been reversed is NOT restored:
+     * the goods it represented no longer exist, so resurrecting it would
+     * re-inject phantom quantity/value into the ledger (receipt → issue →
+     * reverse receipt → reverse issue would otherwise leave a live lot over
+     * zero physical stock).
+     */
     @Transactional
     public void reverseConsumption(UUID movementId) {
         List<CostLotConsumption> rows = consumptionRepository.findByMovementId(movementId);
         for (CostLotConsumption row : rows) {
             costLotRepository.findById(row.getLotId()).ifPresent(lot -> {
+                if (lot.getSourceMovementId() != null) {
+                    boolean receiptReversed = stockMovementRepository
+                            .findById(lot.getSourceMovementId())
+                            .map(StockMovement::isReversed)
+                            .orElse(false);
+                    if (receiptReversed) {
+                        log.warn("Not restoring {} units to lot {} — its source receipt {} was reversed",
+                                row.getQty(), lot.getId(), lot.getSourceMovementId());
+                        return;
+                    }
+                }
                 lot.setRemainingQty(lot.getRemainingQty().add(row.getQty()).setScale(4, RoundingMode.HALF_UP));
                 lot.setActive(true);
                 costLotRepository.save(lot);

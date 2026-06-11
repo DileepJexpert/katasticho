@@ -10,6 +10,7 @@ import com.katasticho.erp.ar.entity.TaxLineItem;
 import com.katasticho.erp.ar.repository.TaxLineItemRepository;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.inventory.entity.Item;
+import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.ReferenceType;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockMovementRepository;
@@ -24,7 +25,9 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -115,23 +118,33 @@ public class SalesInvoicePostingRule implements PostingRuleStrategy {
             return;
         }
 
-        BigDecimal totalCost = fifoCogs(invoice);
+        // Per-item blended FIFO unit cost of the dispatched goods. Each
+        // invoice line is costed at (its OWN quantity × that unit cost), so a
+        // partial invoice takes only its share and a second invoice on the
+        // same SO can never re-count cost the first already booked.
+        Map<UUID, BigDecimal> fifoUnitCost = fifoUnitCosts(invoice);
 
-        // FIFO unavailable (weighted-average org, or no dispatched movements to
-        // attribute) → fall back to item purchase price × quantity, the basis
-        // used before FIFO and for non-distributor flows.
-        if (totalCost.compareTo(BigDecimal.ZERO) <= 0) {
-            var items = itemRepository.findAllById(itemIds).stream()
-                    .collect(Collectors.toMap(Item::getId, item -> item));
-            for (InvoiceLine line : invoiceLines) {
-                if (line.getItemId() == null) continue;
-                Item item = items.get(line.getItemId());
-                if (item == null || !item.isTrackInventory()) continue;
-                if (item.getPurchasePrice() == null || item.getPurchasePrice().compareTo(BigDecimal.ZERO) <= 0) continue;
-                totalCost = totalCost.add(item.getPurchasePrice()
-                        .multiply(line.getQuantity())
-                        .setScale(2, RoundingMode.HALF_UP));
+        var items = itemRepository.findAllById(itemIds).stream()
+                .collect(Collectors.toMap(Item::getId, item -> item));
+
+        BigDecimal totalCost = BigDecimal.ZERO;
+        for (InvoiceLine line : invoiceLines) {
+            if (line.getItemId() == null) continue;
+            BigDecimal unit = fifoUnitCost.get(line.getItemId());
+            if (unit != null) {
+                totalCost = totalCost.add(unit.multiply(line.getQuantity()))
+                        .setScale(2, RoundingMode.HALF_UP);
+                continue;
             }
+            // No dispatched movement for this item (weighted-average org, or
+            // FIFO with no attributable movement) → purchase-price fallback,
+            // the basis used before FIFO and for non-distributor flows.
+            Item item = items.get(line.getItemId());
+            if (item == null || !item.isTrackInventory()) continue;
+            if (item.getPurchasePrice() == null || item.getPurchasePrice().compareTo(BigDecimal.ZERO) <= 0) continue;
+            totalCost = totalCost.add(item.getPurchasePrice()
+                    .multiply(line.getQuantity())
+                    .setScale(2, RoundingMode.HALF_UP));
         }
         if (totalCost.compareTo(BigDecimal.ZERO) <= 0) {
             return;
@@ -160,27 +173,43 @@ public class SalesInvoicePostingRule implements PostingRuleStrategy {
     }
 
     /**
-     * FIFO cost-of-goods for an invoice: the actual recorded cost of the SALE
-     * stock movements its goods were dispatched on. Goods leave at delivery
-     * challan dispatch (the only stock-deduction step), so we attribute through
-     * the invoice's sales order to its challans and sum their movement cost.
-     * Returns 0 for weighted-average orgs or when no dispatched movements exist
-     * (e.g. a direct invoice with no challan), letting the caller fall back.
+     * Per-item blended FIFO unit cost of the goods this invoice bills for,
+     * derived from the actual recorded cost of their SALE stock movements.
+     * SO-path invoices attribute through the SO's delivery challans (goods
+     * leave at DC dispatch); direct invoices attribute through their own SALE
+     * movements (stock is deducted before the journal posts). Returns an empty
+     * map for weighted-average orgs or when nothing is attributable, letting
+     * the caller fall back to purchase price. Composite items move stock as
+     * their BOM children, so the parent line falls back — same as the
+     * weighted-average basis.
      */
-    private BigDecimal fifoCogs(Invoice invoice) {
+    private Map<UUID, BigDecimal> fifoUnitCosts(Invoice invoice) {
         UUID orgId = invoice.getOrgId();
-        if (!fifoCostingService.isFifo(orgId) || invoice.getSalesOrderId() == null) {
-            return BigDecimal.ZERO;
+        if (!fifoCostingService.isFifo(orgId)) {
+            return Map.of();
         }
-        List<DeliveryChallan> challans = deliveryChallanRepository
-                .findBySalesOrderIdAndOrgIdAndIsDeletedFalse(invoice.getSalesOrderId(), orgId);
-        if (challans.isEmpty()) {
-            return BigDecimal.ZERO;
+        List<UUID> refIds;
+        ReferenceType refType;
+        if (invoice.getSalesOrderId() != null) {
+            List<DeliveryChallan> challans = deliveryChallanRepository
+                    .findBySalesOrderIdAndOrgIdAndIsDeletedFalse(invoice.getSalesOrderId(), orgId);
+            if (challans.isEmpty()) {
+                return Map.of();
+            }
+            refType = ReferenceType.DELIVERY_CHALLAN;
+            refIds = challans.stream().map(DeliveryChallan::getId).collect(Collectors.toList());
+        } else {
+            refType = ReferenceType.INVOICE;
+            refIds = List.of(invoice.getId());
         }
-        List<UUID> challanIds = challans.stream().map(DeliveryChallan::getId).collect(Collectors.toList());
-        BigDecimal cost = stockMovementRepository
-                .sumSaleCostByReferences(orgId, ReferenceType.DELIVERY_CHALLAN, challanIds);
-        return cost != null ? cost : BigDecimal.ZERO;
+        Map<UUID, BigDecimal> unitCosts = new HashMap<>();
+        for (StockMovementRepository.ItemCostRow row : stockMovementRepository
+                .sumCostAndQtyByReferences(orgId, refType, refIds, MovementType.SALE)) {
+            if (row.getTotalQty() == null || row.getTotalQty().signum() <= 0) continue;
+            unitCosts.put(row.getItemId(),
+                    row.getTotalCost().divide(row.getTotalQty(), 4, RoundingMode.HALF_UP));
+        }
+        return unitCosts;
     }
 
     private void requireTaxGlAccount(TaxLineItem tli) {

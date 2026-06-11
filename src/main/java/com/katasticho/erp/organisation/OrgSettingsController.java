@@ -17,18 +17,45 @@ public class OrgSettingsController {
 
     private final OrgSettingsService settingsService;
 
+    /**
+     * Settings whose values are long-lived credentials (provider bearer
+     * tokens, API keys). They are write-only through the API: reads mask them
+     * so a VIEWER/OPERATOR session — or a leaked response body — can never
+     * exfiltrate them. The dedicated settings endpoints (sms/whatsapp/gsp)
+     * already mask; this guards the generic map and by-key reads too.
+     */
+    private static final String MASKED = "********";
+
+    private static boolean isSecretKey(String key) {
+        String k = key.toLowerCase();
+        return k.contains("token") || k.contains("api_key")
+                || k.contains("apikey") || k.contains("secret")
+                || k.contains("password");
+    }
+
+    private static Map<String, String> maskSecrets(Map<String, String> settings) {
+        Map<String, String> safe = new java.util.HashMap<>();
+        settings.forEach((k, v) -> safe.put(k,
+                isSecretKey(k) && v != null && !v.isBlank() ? MASKED : v));
+        return safe;
+    }
+
     @GetMapping
     public ResponseEntity<Map<String, String>> getAll() {
         UUID orgId = TenantContext.getCurrentOrgId();
-        return ResponseEntity.ok(settingsService.getAll(orgId));
+        return ResponseEntity.ok(maskSecrets(settingsService.getAll(orgId)));
     }
 
     @PutMapping
     @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
     public ResponseEntity<Map<String, String>> updateAll(@RequestBody Map<String, String> settings) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        settingsService.setBulk(orgId, settings);
-        return ResponseEntity.ok(settingsService.getAll(orgId));
+        // Drop masked placeholders so a read-modify-write of the full map
+        // can't overwrite a real credential with "********".
+        Map<String, String> writable = new java.util.HashMap<>(settings);
+        writable.entrySet().removeIf(e -> MASKED.equals(e.getValue()));
+        settingsService.setBulk(orgId, writable);
+        return ResponseEntity.ok(maskSecrets(settingsService.getAll(orgId)));
     }
 
     @GetMapping("/{key}")
@@ -36,6 +63,7 @@ public class OrgSettingsController {
         UUID orgId = TenantContext.getCurrentOrgId();
         String value = settingsService.get(orgId, key, null);
         if (value == null) return ResponseEntity.notFound().build();
+        if (isSecretKey(key) && !value.isBlank()) value = "********";
         return ResponseEntity.ok(Map.of(key, value));
     }
 
@@ -47,8 +75,12 @@ public class OrgSettingsController {
         UUID orgId = TenantContext.getCurrentOrgId();
         String value = body.get("value");
         if (value == null) value = body.get(key);
-        settingsService.set(orgId, key, value);
-        return ResponseEntity.ok(Map.of(key, settingsService.get(orgId, key, "")));
+        if (!MASKED.equals(value)) {
+            settingsService.set(orgId, key, value);
+        }
+        String stored = settingsService.get(orgId, key, "");
+        if (isSecretKey(key) && !stored.isBlank()) stored = MASKED;
+        return ResponseEntity.ok(Map.of(key, stored));
     }
 
     @GetMapping("/upi")

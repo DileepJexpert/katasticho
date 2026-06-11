@@ -276,6 +276,123 @@ class SalesInvoicePostingRuleTest {
     }
 
     @Test
+    void fifoCogsProratesByInvoicedQuantityNotWholeDispatch() {
+        // SO dispatched 100 units at a blended FIFO cost of ₹8,000 (₹80/unit).
+        // This invoice bills only 40 of them → COGS must be 40 × 80 = ₹3,200,
+        // NOT the full ₹8,000 — and a second invoice for the remaining 60
+        // takes 60 × 80 = ₹4,800, so the SO's cost is never double-booked.
+        UUID orgId = UUID.randomUUID();
+        UUID invoiceId = UUID.randomUUID();
+        UUID salesOrderId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        UUID challanId = UUID.randomUUID();
+
+        Invoice invoice = Invoice.builder()
+                .id(invoiceId)
+                .orgId(orgId)
+                .invoiceNumber("INV-PART")
+                .invoiceDate(LocalDate.of(2026, 6, 1))
+                .totalAmount(new BigDecimal("4000.00"))
+                .salesOrderId(salesOrderId)
+                .build();
+        invoice.setLines(List.of(InvoiceLine.builder()
+                .description("Rice 40kg")
+                .quantity(new BigDecimal("40.00"))
+                .taxableAmount(new BigDecimal("4000.00"))
+                .lineTotal(new BigDecimal("4000.00"))
+                .accountCode("4010")
+                .itemId(itemId)
+                .build()));
+
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR)).thenReturn("1100");
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.COGS)).thenReturn("5010");
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.INVENTORY_ASSET)).thenReturn("1200");
+        when(taxLineItemRepository.findBySourceTypeAndSourceId("INVOICE", invoiceId)).thenReturn(List.of());
+
+        Item item = Item.builder()
+                .name("Rice").sku("RICE")
+                .purchasePrice(new BigDecimal("100.00")) // fallback would give 4000 — must NOT be used
+                .trackInventory(true)
+                .build();
+        item.setId(itemId);
+        when(itemRepository.findAllById(any())).thenReturn(List.of(item));
+
+        when(fifoCostingService.isFifo(orgId)).thenReturn(true);
+        com.katasticho.erp.sales.entity.DeliveryChallan challan =
+                com.katasticho.erp.sales.entity.DeliveryChallan.builder().build();
+        challan.setId(challanId);
+        when(deliveryChallanRepository.findBySalesOrderIdAndOrgIdAndIsDeletedFalse(salesOrderId, orgId))
+                .thenReturn(List.of(challan));
+        when(stockMovementRepository.sumCostAndQtyByReferences(
+                orgId, com.katasticho.erp.inventory.entity.ReferenceType.DELIVERY_CHALLAN,
+                List.of(challanId), com.katasticho.erp.inventory.entity.MovementType.SALE))
+                .thenReturn(List.of(costRow(itemId, "8000.00", "100.00")));
+
+        JournalPostRequest request = rule.generate(PostingContext.salesInvoice(invoice));
+
+        assertThat(request.lines())
+                .anyMatch(l -> l.accountCode().equals("5010")
+                        && l.debit().compareTo(new BigDecimal("3200.00")) == 0);
+        assertThat(request.lines())
+                .anyMatch(l -> l.accountCode().equals("1200")
+                        && l.credit().compareTo(new BigDecimal("3200.00")) == 0);
+
+        BigDecimal debit = request.lines().stream()
+                .map(JournalLineRequest::debit).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal credit = request.lines().stream()
+                .map(JournalLineRequest::credit).reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(debit).isEqualByComparingTo(credit);
+    }
+
+    @Test
+    void fifoCogsForDirectInvoiceUsesItsOwnSaleMovements() {
+        // No SO: stock is deducted (before posting) with INVOICE-referenced
+        // SALE movements; COGS must read their recorded FIFO cost, not the
+        // purchase-price fallback.
+        UUID orgId = UUID.randomUUID();
+        UUID invoiceId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        Invoice invoice = invoice(orgId, invoiceId, itemId); // qty 100
+
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR)).thenReturn("1100");
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.COGS)).thenReturn("5010");
+        when(defaultAccountService.getCode(orgId, DefaultAccountPurpose.INVENTORY_ASSET)).thenReturn("1200");
+        when(taxLineItemRepository.findBySourceTypeAndSourceId("INVOICE", invoiceId)).thenReturn(List.of());
+
+        Item item = Item.builder()
+                .name("Rice").sku("RICE")
+                .purchasePrice(new BigDecimal("100.00")) // fallback 10000 — must NOT be used
+                .trackInventory(true)
+                .build();
+        item.setId(itemId);
+        when(itemRepository.findAllById(any())).thenReturn(List.of(item));
+
+        when(fifoCostingService.isFifo(orgId)).thenReturn(true);
+        when(stockMovementRepository.sumCostAndQtyByReferences(
+                orgId, com.katasticho.erp.inventory.entity.ReferenceType.INVOICE,
+                List.of(invoiceId), com.katasticho.erp.inventory.entity.MovementType.SALE))
+                .thenReturn(List.of(costRow(itemId, "7500.00", "100.00"))); // FIFO ₹75/unit
+
+        JournalPostRequest request = rule.generate(PostingContext.salesInvoice(invoice));
+
+        assertThat(request.lines())
+                .anyMatch(l -> l.accountCode().equals("5010")
+                        && l.debit().compareTo(new BigDecimal("7500.00")) == 0);
+        assertThat(request.lines())
+                .anyMatch(l -> l.accountCode().equals("1200")
+                        && l.credit().compareTo(new BigDecimal("7500.00")) == 0);
+    }
+
+    private com.katasticho.erp.inventory.repository.StockMovementRepository.ItemCostRow costRow(
+            UUID itemId, String totalCost, String totalQty) {
+        return new com.katasticho.erp.inventory.repository.StockMovementRepository.ItemCostRow() {
+            @Override public UUID getItemId() { return itemId; }
+            @Override public BigDecimal getTotalCost() { return new BigDecimal(totalCost); }
+            @Override public BigDecimal getTotalQty() { return new BigDecimal(totalQty); }
+        };
+    }
+
+    @Test
     void failsWhenTaxAccountMappingIsMissing() {
         UUID orgId = UUID.randomUUID();
         UUID invoiceId = UUID.randomUUID();

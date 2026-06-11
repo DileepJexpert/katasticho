@@ -353,15 +353,19 @@ public class InvoiceService {
             inventoryService.validateStockForInvoice(invoice);
         }
 
-        // Post journal via the accounting posting engine
-        JournalEntry journalEntry = postingEngine.postSalesInvoice(invoice);
-
-        // Deduct stock for any itemised lines (free-text lines are silently
-        // skipped). Skip when invoice originates from a Sales Order — stock
-        // was already deducted on delivery challan dispatch (PGI).
+        // Deduct stock BEFORE posting the journal — same transaction, so a
+        // posting failure rolls the movements back. Order matters for FIFO
+        // orgs: the posting rule reads the SALE movements' recorded cost to
+        // book COGS at the true lot cost; posting first would leave COGS on
+        // the purchase-price fallback while the lots drained at FIFO cost.
+        // Skip when the invoice originates from a Sales Order — stock was
+        // already deducted on delivery challan dispatch (PGI).
         if (!skipStockMovement && invoice.getSalesOrderId() == null) {
             inventoryService.deductStockForInvoice(invoice);
         }
+
+        // Post journal via the accounting posting engine
+        JournalEntry journalEntry = postingEngine.postSalesInvoice(invoice);
 
         // Update invoice status
         invoice.setStatus("SENT");
