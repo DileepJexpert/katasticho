@@ -192,7 +192,8 @@ public class PaymentService {
 
         JournalEntry journalEntry = postingEngine.postPaymentReceived(
                 orgId, payment.getPaymentNumber(), invoice.getInvoiceNumber(),
-                payment.getPaymentDate(), payment.getAmount(), payment.getPaymentMethod());
+                payment.getPaymentDate(), payment.getAmount(), payment.getPaymentMethod(),
+                invoice.getExchangeRate(), payment.getExchangeRate());
 
         payment.setJournalEntryId(journalEntry.getId());
         payment.setStatus(PaymentStatus.POSTED);

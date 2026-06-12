@@ -10,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -37,6 +38,19 @@ public class PharmacyMasterController {
     @GetMapping("/hsn/{code}")
     public ResponseEntity<ApiResponse<HsnGstMasterResponse>> hsnByCode(@PathVariable String code) {
         return ResponseEntity.ok(ApiResponse.ok(service.getHsn(code)));
+    }
+
+    @PostMapping("/hsn")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','PLATFORM_ADMIN')")
+    public ResponseEntity<ApiResponse<HsnGstMasterResponse>> upsertHsn(
+            @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(ApiResponse.ok(service.upsertHsn(
+                (String) body.get("hsnCode"),
+                (String) body.get("description"),
+                (String) body.get("category"),
+                body.get("gstRate") != null
+                        ? new java.math.BigDecimal(body.get("gstRate").toString()) : null),
+                "HSN saved"));
     }
 
     @GetMapping("/rack-locations")

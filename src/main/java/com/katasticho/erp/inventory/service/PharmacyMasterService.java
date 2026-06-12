@@ -47,6 +47,45 @@ public class PharmacyMasterService {
                 .toList();
     }
 
+    /**
+     * Adds an HSN code to the platform master. hsn_gst_master is shared
+     * across all orgs (rates are statutory facts, not org preferences):
+     * any OWNER/ADMIN may ADD a missing code so they can self-serve, but
+     * changing an EXISTING row is restricted to PLATFORM_ADMIN so one org
+     * can't silently change rates for everyone.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public HsnGstMasterResponse upsertHsn(String hsnCode, String description,
+                                          String category, java.math.BigDecimal gstRate) {
+        if (hsnCode == null || hsnCode.isBlank()) {
+            throw new BusinessException("HSN code is required", "HSN_CODE_REQUIRED",
+                    org.springframework.http.HttpStatus.BAD_REQUEST);
+        }
+        if (gstRate == null || gstRate.signum() < 0 || gstRate.compareTo(new java.math.BigDecimal("100")) > 0) {
+            throw new BusinessException("GST rate must be between 0 and 100", "HSN_RATE_INVALID",
+                    org.springframework.http.HttpStatus.BAD_REQUEST);
+        }
+        String code = hsnCode.trim();
+
+        HsnGstMaster row = hsnRepository.findByHsnCodeAndActiveTrue(code).orElse(null);
+        if (row != null) {
+            String role = com.katasticho.erp.common.context.TenantContext.getCurrentRole();
+            if (!"PLATFORM_ADMIN".equals(role)) {
+                throw new BusinessException(
+                        "HSN " + code + " already exists in the shared master; only a platform admin can change it",
+                        "HSN_PLATFORM_ROW_READONLY", org.springframework.http.HttpStatus.FORBIDDEN);
+            }
+        } else {
+            row = new HsnGstMaster();
+            row.setHsnCode(code);
+        }
+        row.setDescription(description != null && !description.isBlank() ? description.trim() : code);
+        row.setCategory(category);
+        row.setGstRate(gstRate);
+        row.setActive(true);
+        return toHsn(hsnRepository.save(row));
+    }
+
     public HsnGstMasterResponse getHsn(String code) {
         return hsnRepository.findByHsnCodeAndActiveTrue(code)
                 .map(this::toHsn)

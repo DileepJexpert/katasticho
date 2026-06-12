@@ -36,6 +36,7 @@ class PosCatalogServiceTest {
     @Mock private ItemRepository itemRepo;
     @Mock private ItemService itemService;
     @Mock private PosSearchService posSearchService;
+    @Mock private com.katasticho.erp.organisation.OrgSettingsService orgSettingsService;
 
     private PosCatalogService service;
 
@@ -43,7 +44,10 @@ class PosCatalogServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PosCatalogService(drugMasterRepo, itemRepo, itemService, posSearchService);
+        service = new PosCatalogService(drugMasterRepo, itemRepo, itemService, posSearchService,
+                orgSettingsService);
+        lenient().when(orgSettingsService.get(eq(orgId),
+                eq("pos.catalog_quick_add_track_batches"), eq("false"))).thenReturn("false");
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(UUID.randomUUID());
     }
@@ -123,6 +127,26 @@ class PosCatalogServiceTest {
 
         verify(itemService, never()).createItem(any());
         assertEquals("DOLO-650-TABLET", res.sku());
+    }
+
+    @Test
+    void createFromDrug_batchTrackSetting_enablesBatchesWithOpeningBatch() {
+        DrugMaster d = drug();
+        when(drugMasterRepo.findById(d.getId())).thenReturn(Optional.of(d));
+        when(itemRepo.findFirstByOrgIdAndNameIgnoreCaseAndIsDeletedFalse(orgId, "Dolo 650 Tablet"))
+                .thenReturn(Optional.empty());
+        when(itemRepo.existsByOrgIdAndSkuAndIsDeletedFalse(eq(orgId), anyString())).thenReturn(false);
+        when(orgSettingsService.get(orgId, "pos.catalog_quick_add_track_batches", "false"))
+                .thenReturn("true");
+        when(posSearchService.search(eq(orgId), anyString(), any(), anyInt()))
+                .thenReturn(List.of(result("Dolo 650 Tablet", "DOLO-650-TABLET")));
+
+        service.createItemFromDrug(d.getId(), null, new BigDecimal("10"));
+
+        ArgumentCaptor<CreateItemRequest> captor = ArgumentCaptor.forClass(CreateItemRequest.class);
+        verify(itemService).createItem(captor.capture());
+        assertEquals(Boolean.TRUE, captor.getValue().trackBatches());
+        assertEquals("OPENING", captor.getValue().openingBatchNumber());
     }
 
     @Test

@@ -112,26 +112,53 @@ public class AccountingPostingEngine {
 
     // ── Payment Received ───────────────────────────────────────
 
+    /** Forex Gain/Loss account from the seeded CoA template (all industries). */
+    private static final String FOREX_GAIN_LOSS_CODE = "5500";
+
+    /**
+     * Payment-received journal with realized forex gain/loss.
+     *
+     * The AR was booked at the invoice's exchange rate; cash arrives at the
+     * payment-date rate. Both legs post in base currency and the difference
+     * goes to Forex Gain/Loss (5500): credit = gain, debit = loss. When both
+     * rates are 1 (the INR-only path) the journal is identical to before.
+     */
     public JournalEntry postPaymentReceived(UUID orgId,
                                              String paymentNumber,
                                              String invoiceNumber,
                                              java.time.LocalDate paymentDate,
                                              BigDecimal amount,
-                                             String paymentMethod) {
+                                             String paymentMethod,
+                                             BigDecimal invoiceExchangeRate,
+                                             BigDecimal paymentExchangeRate) {
         String debitCode = resolvePaymentMethodAccount(orgId, paymentMethod);
 
-        List<JournalLineRequest> lines = List.of(
-                new JournalLineRequest(
-                        debitCode,
-                        amount, BigDecimal.ZERO,
-                        "Payment " + paymentNumber + " received",
-                        null, null),
-                new JournalLineRequest(
-                        defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR),
-                        BigDecimal.ZERO, amount,
-                        "AR cleared: " + invoiceNumber,
-                        null, null)
-        );
+        BigDecimal invRate = invoiceExchangeRate != null ? invoiceExchangeRate : BigDecimal.ONE;
+        BigDecimal payRate = paymentExchangeRate != null ? paymentExchangeRate : BigDecimal.ONE;
+        BigDecimal baseReceived = amount.multiply(payRate).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal baseArCleared = amount.multiply(invRate).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal forexDiff = baseReceived.subtract(baseArCleared);
+
+        List<JournalLineRequest> lines = new ArrayList<>();
+        lines.add(new JournalLineRequest(
+                debitCode,
+                baseReceived, BigDecimal.ZERO,
+                "Payment " + paymentNumber + " received",
+                null, null));
+        lines.add(new JournalLineRequest(
+                defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR),
+                BigDecimal.ZERO, baseArCleared,
+                "AR cleared: " + invoiceNumber,
+                null, null));
+        if (forexDiff.signum() > 0) {
+            lines.add(new JournalLineRequest(FOREX_GAIN_LOSS_CODE,
+                    BigDecimal.ZERO, forexDiff,
+                    "Realized forex gain on " + invoiceNumber, null, null));
+        } else if (forexDiff.signum() < 0) {
+            lines.add(new JournalLineRequest(FOREX_GAIN_LOSS_CODE,
+                    forexDiff.negate(), BigDecimal.ZERO,
+                    "Realized forex loss on " + invoiceNumber, null, null));
+        }
 
         return journalService.postJournal(new JournalPostRequest(
                 paymentDate,

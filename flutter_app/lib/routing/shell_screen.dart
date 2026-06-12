@@ -268,6 +268,11 @@ const _inventoryGroup = NavGroup(
         activeIcon: Icons.grid_view_rounded,
         route: Routes.rackLocations),
     NavItem(
+        label: 'HSN / GST Rates',
+        icon: Icons.percent_outlined,
+        activeIcon: Icons.percent_rounded,
+        route: Routes.hsnMaster),
+    NavItem(
         label: 'Stock Counts',
         icon: Icons.fact_check_outlined,
         activeIcon: Icons.fact_check_rounded,

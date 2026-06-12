@@ -600,6 +600,7 @@ class ApiConfig {
       '/api/v1/pharmacy-masters/manufacturers/search';
   static const String hsnGstMasterSearch =
       '/api/v1/pharmacy-masters/hsn/search';
+  static const String pharmacyHsnUpsert = '/api/v1/pharmacy-masters/hsn';
   static String hsnGstByCode(String code) =>
       '/api/v1/pharmacy-masters/hsn/$code';
   static const String rackLocations = '/api/v1/pharmacy-masters/rack-locations';

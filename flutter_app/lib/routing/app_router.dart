@@ -66,6 +66,7 @@ import '../features/inventory/presentation/item_group_create_screen.dart';
 import '../features/inventory/presentation/item_group_detail_screen.dart';
 import '../features/inventory/presentation/generate_variants_screen.dart';
 import '../features/inventory/presentation/rack_locations_screen.dart';
+import '../features/inventory/presentation/hsn_master_screen.dart';
 import '../features/procurement/presentation/stock_receipt_list_screen.dart';
 import '../features/procurement/presentation/stock_receipt_create_screen.dart';
 import '../features/procurement/presentation/stock_receipt_detail_screen.dart';
@@ -223,6 +224,7 @@ class Routes {
   static const itemCreate = '/items/create';
   static const itemImport = '/items/import';
   static const rackLocations = '/inventory/rack-locations';
+  static const hsnMaster = '/inventory/hsn-codes';
   static const itemDetail = '/items/:id';
   static const itemGroups = '/item-groups';
   static const itemGroupCreate = '/item-groups/create';
@@ -955,6 +957,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.rackLocations,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: RackLocationsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.hsnMaster,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: HsnMasterScreen(),
             ),
           ),
           GoRoute(

@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. **Squashed 2026-06-12** (old V1-V71 chain deleted; DB is recreated from scratch): `V1__baseline_schema.sql` (full schema, CREATE-only, generated via pg_dump after applying the historical chain to PostgreSQL 16 and diff-verified identical) + `V2__seed_reference_data.sql` (drug/salt/manufacturer/HSN masters — deduped, post-GST-2.0 rates — substitutions, interactions, coa_template, currency, ai_model_registry) + `V3__seed_drug_master_extended.sql` (Marg-style preloaded medicine catalog: ~22.5k branded products from the open A-Z Indian medicine dataset, top-3 brands per salt composition with marquee-house preference, MRP/pack/manufacturer/composition, all HSN 3004 @ 5%). **Next new migration = V4.**
+- Location: `src/main/resources/db/migration/`. **Squashed 2026-06-12** (old V1-V71 chain deleted; DB is recreated from scratch): `V1__baseline_schema.sql` (full schema, CREATE-only, generated via pg_dump after applying the historical chain to PostgreSQL 16 and diff-verified identical) + `V2__seed_reference_data.sql` (drug/salt/manufacturer/HSN masters — deduped, post-GST-2.0 rates — substitutions, interactions, coa_template, currency, ai_model_registry) + `V3__seed_drug_master_extended.sql` (Marg-style preloaded medicine catalog: ~22.5k branded products from the open A-Z Indian medicine dataset, top-3 brands per salt composition with marquee-house preference, MRP/pack/manufacturer/composition, all HSN 3004 @ 5%). `V4__drug_schedule_h1_and_exempt_drugs.sql` (Schedule H1 overlay + 36 nil-rated lifesaving drugs). **Next new migration = V5.**
 - Latent fresh-install bugs fixed during the squash: old V59 inserted into non-existent `account.system` (→ `is_system`); old V62's org-scoped `exchange_rate` collided with the V1 platform-level table (V62 shape kept — matches the JPA entity); old V62's currency-column DO-block guards checked the wrong column. The old chain only ever worked on incrementally-migrated DBs.
 - V-number references in the phase notes below (V42, V67, ...) are historical — those files now live only in git history (pre-squash commit).
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
@@ -492,20 +492,16 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 3. Fresh-DB boot smoke: start backend against empty DB (Redis up), register org, confirm V1→V3 Flyway + per-org CoA seeding, bill one POS sale.
 4. ~~DetailedReportService has no test~~ — stale note: DetailedReportServiceTest.java exists.
 
-### B. Tally "CA pack" (highest-value dev block)
-1. Cost centre P&L report (journal_line.cost_centre column + DTO exist; needs report + journal-form field + hub entry).
-2. Budgets + variance (new `budget` table, CRUD, variance report, simple ERP entry screen).
-3. Interest on overdue receivables (org setting `ar.overdue_interest_rate_pa`, report; later: one-click debit-note draft).
-4. Stock ageing report (0-30/31-60/61-90/90+ from cost_lot received dates; WA orgs fall back to item last-receipt).
-5. Ratio analysis (current/quick ratio, debtor/creditor days, inventory turnover — from TB + registers).
-6. Realized forex gain/loss on settlement (posting in Payment/VendorPayment when doc currency ≠ INR).
-(Post-dated vouchers already exist — old V56.)
+### B. Tally "CA pack"
+**Discovery 2026-06-12: items 1-5 were ALREADY IMPLEMENTED in the old chain (undocumented):** `OperationalReportService.costCentres()/overdueInterest()/stockAgeing()/ratioAnalysis()/budgetVariance()`, `BudgetService` (+ `budget_line` table in baseline), endpoints on FinancialReportController, hub entries in reports_hub_screen, journal form has costCentre, budgets screen @ `/settings/budgets`. Tests: BudgetServiceTest + OperationalReportServiceTest.
+1. ~~Cost centre P&L~~ DONE · 2. ~~Budgets + variance~~ DONE · 3. ~~Interest on overdue~~ DONE (debit-note draft still optional) · 4. ~~Stock ageing~~ DONE · 5. ~~Ratio analysis~~ DONE · Post-dated vouchers DONE (old V56).
+6. ~~Realized forex gain/loss~~ AR side DONE (2026-06-12): `AccountingPostingEngine.postPaymentReceived` now posts base amounts (amount × rate) with the invoice-vs-payment rate difference to Forex Gain/Loss 5500 (CR = gain, DR = loss); INR path byte-identical. Tests: PaymentForexPostingTest (4). **AP side still pending** — vendor payments allocate across multiple bills, needs per-bill rate weighting.
 
 ### C. Pharma/catalog follow-ups
-1. HSN master CRUD/import screen (currently read-only, 10 seed rows; unknown HSN on a POS line reports 0% in GSTR figures — grocery orgs especially need to add codes).
-2. Schedule H/H1/X overlay on drug_master (source had no schedule data; all 22.9k rows default GENERAL).
-3. Seed the 33 GST-exempt lifesaving drugs (items/reference at gst_rate 0, identified by drug name not HSN).
-4. Org setting: auto batch-track items created via POS catalog quick-add.
+1. ~~HSN master CRUD~~ DONE (2026-06-12): `PharmacyMasterService.upsertHsn` — OWNER/ADMIN may ADD missing codes (rates are statutory facts, shared platform table); editing an EXISTING row needs PLATFORM_ADMIN (`HSN_PLATFORM_ROW_READONLY`). `POST /api/v1/pharmacy-masters/hsn`; ERP `HsnMasterScreen` @ `/inventory/hsn-codes` (sidebar + palette).
+2. ~~Schedule H1 overlay~~ DONE: V4 migration flags the 46 notified Schedule H1 substances by salt-name match → drug_schedule='H1' + prescription_required (1,723 products incl. combinations on fresh DB). Full Schedule H (500+ substances) still default GENERAL.
+3. ~~36 GST-exempt lifesaving drugs~~ DONE: V4 seeds the 56th-Council nil-rated list (33 from 12% + 3 from 5%) as drug_master rows @ gst_rate 0.
+4. ~~Org setting batch-track quick-adds~~ DONE: `pos.catalog_quick_add_track_batches` (default false); when on, opening qty books into an auto 'OPENING' batch.
 5. Optional: merge official Jan Aushadhi / NLEM lists (gov sites bot-gated — needs one manual browser download).
 
 ### D. Field force leftovers

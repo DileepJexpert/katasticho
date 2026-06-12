@@ -126,7 +126,7 @@ class PaymentServiceTest {
         JournalEntry mockJournal = JournalEntry.builder()
                 .entryNumber("JE-2026-000002").status("POSTED").build();
         mockJournal.setId(UUID.randomUUID());
-        when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any()))
+        when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(mockJournal);
         var request = new RecordPaymentRequest(
                 invoice.getId(),
@@ -150,7 +150,8 @@ class PaymentServiceTest {
 
         verify(postingEngine).postPaymentReceived(
                 eq(orgId), eq("PAY-2026-000001"), eq("INV-2026-000001"),
-                eq(LocalDate.of(2026, 4, 15)), eq(new BigDecimal("5000")), eq("BANK_TRANSFER"));
+                eq(LocalDate.of(2026, 4, 15)), eq(new BigDecimal("5000")), eq("BANK_TRANSFER"),
+                any(), any());
 
         verify(invoiceService).updatePaymentStatus(invoice, new BigDecimal("5000"));
     }
@@ -227,7 +228,7 @@ class PaymentServiceTest {
 
         JournalEntry mockJournal = JournalEntry.builder().entryNumber("JE-2026-000003").build();
         mockJournal.setId(UUID.randomUUID());
-        when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any()))
+        when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(mockJournal);
         var request = new RecordPaymentRequest(
                 invoice.getId(),
@@ -240,7 +241,7 @@ class PaymentServiceTest {
 
         verify(postingEngine).postPaymentReceived(
                 eq(orgId), eq("PAY-2026-000002"), eq("INV-2026-000001"),
-                any(LocalDate.class), eq(new BigDecimal("500")), eq("UPI"));
+                any(LocalDate.class), eq(new BigDecimal("500")), eq("UPI"), any(), any());
     }
 
     // ── recordForInvoice tests ──────────────────────────────────────────
@@ -264,7 +265,7 @@ class PaymentServiceTest {
                 .thenReturn("PAY-2026-000001");
         JournalEntry je = JournalEntry.builder().entryNumber("JE-001").build();
         je.setId(UUID.randomUUID());
-        when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any()))
+        when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(je);
         var req = new RecordPaymentForInvoiceRequest(
                 new BigDecimal("500"), "BANK_TRANSFER",
@@ -308,7 +309,7 @@ class PaymentServiceTest {
 
         assertEquals("AR_PAYMENT_EXCEEDS_BALANCE", ex.getErrorCode());
         verify(paymentRepository, never()).save(any(Payment.class));
-        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any());
+        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -332,7 +333,7 @@ class PaymentServiceTest {
                 () -> paymentService.postPayment(payment.getId()));
 
         assertEquals("AR_PAYMENT_ALREADY_POSTED", ex.getErrorCode());
-        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any());
+        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any(), any(), any());
         verify(invoiceService, never()).updatePaymentStatus(any(), any());
     }
 
@@ -383,7 +384,7 @@ class PaymentServiceTest {
         assertNull(result.getJournalEntryId());
         assertNull(result.getPostedAt());
 
-        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any());
+        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any(), any(), any());
         verify(invoiceService, never()).updatePaymentStatus(any(), any());
         verify(approvalWorkflowService).requestApproval(
                 eq(orgId),
@@ -441,7 +442,7 @@ class PaymentServiceTest {
         assertNull(result.getJournalEntryId());
         assertNull(result.getPostedAt());
 
-        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any());
+        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any(), any(), any());
         verify(invoiceService, never()).updatePaymentStatus(any(), any());
         verify(approvalWorkflowService).requestApproval(
                 eq(orgId),
@@ -483,7 +484,7 @@ class PaymentServiceTest {
                 .thenReturn(Optional.of(invoice));
         JournalEntry journal = JournalEntry.builder().entryNumber("JE-PAY-PENDING").status("POSTED").build();
         journal.setId(UUID.randomUUID());
-        when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any()))
+        when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(journal);
 
         Payment result = paymentService.postPayment(payment.getId());
@@ -496,7 +497,8 @@ class PaymentServiceTest {
                 eq(orgId), eq("PAYMENT"), eq("PENDING_APPROVAL"), eq("POSTED"));
         verify(postingEngine).postPaymentReceived(
                 eq(orgId), eq("PAY-PENDING"), eq("INV-2026-000011"),
-                eq(payment.getPaymentDate()), eq(new BigDecimal("5000")), eq("BANK_TRANSFER"));
+                eq(payment.getPaymentDate()), eq(new BigDecimal("5000")), eq("BANK_TRANSFER"),
+                any(), any());
         verify(invoiceService).updatePaymentStatus(invoice, new BigDecimal("5000"));
     }
 
@@ -536,7 +538,7 @@ class PaymentServiceTest {
         assertEquals("AR_PAYMENT_EXCEEDS_BALANCE", ex.getErrorCode());
         verify(documentStateEngine).validateTransition(
                 eq(orgId), eq("PAYMENT"), eq("PENDING_APPROVAL"), eq("POSTED"));
-        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any());
+        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any(), any(), any());
         verify(invoiceService, never()).updatePaymentStatus(any(), any());
     }
 
@@ -611,7 +613,7 @@ class PaymentServiceTest {
 
         verify(documentStateEngine).validateTransition(
                 eq(orgId), eq("PAYMENT"), eq("PENDING_APPROVAL"), eq("VOIDED"));
-        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any());
+        verify(postingEngine, never()).postPaymentReceived(any(), any(), any(), any(), any(), any(), any(), any());
         verify(invoiceRepository, never()).findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId);
         verify(invoiceService, never()).updatePaymentStatus(any(), any());
     }
@@ -760,7 +762,7 @@ class PaymentServiceTest {
 
         JournalEntry mockJournal = JournalEntry.builder().entryNumber("JE-011").build();
         mockJournal.setId(UUID.randomUUID());
-        when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any()))
+        when(postingEngine.postPaymentReceived(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(mockJournal);
 
         paymentService.recordPayment(new RecordPaymentRequest(

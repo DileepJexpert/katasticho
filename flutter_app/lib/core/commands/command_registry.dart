@@ -324,6 +324,13 @@ List<KCommand> buildAppCommands() {
       keywords: ['samples', 'promo', 'ta', 'da', 'allowance'],
     ),
     KCommand(
+      label: 'HSN / GST Rates',
+      icon: Icons.percent_rounded,
+      section: 'Navigate',
+      route: Routes.hsnMaster,
+      keywords: ['hsn', 'gst rate', 'tax'],
+    ),
+    KCommand(
       label: 'Field Coverage Reports',
       icon: Icons.insights,
       section: 'Navigate',

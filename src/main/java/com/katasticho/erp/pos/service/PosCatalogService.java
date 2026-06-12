@@ -38,6 +38,7 @@ public class PosCatalogService {
     private final ItemRepository itemRepository;
     private final ItemService itemService;
     private final PosSearchService posSearchService;
+    private final com.katasticho.erp.organisation.OrgSettingsService orgSettingsService;
 
     @Transactional
     public PosSearchResult createItemFromDrug(UUID drugId, UUID warehouseId,
@@ -55,7 +56,9 @@ public class PosCatalogService {
             sku = existing.get().getSku();
         } else {
             sku = uniqueSku(orgId, name);
-            itemService.createItem(buildRequest(sku, drug, openingStock, warehouseId));
+            boolean trackBatches = Boolean.parseBoolean(orgSettingsService.get(
+                    orgId, "pos.catalog_quick_add_track_batches", "false"));
+            itemService.createItem(buildRequest(sku, drug, openingStock, warehouseId, trackBatches));
             log.info("POS catalog quick-add: created item '{}' (sku {}) from drug {} for org {}",
                     name, sku, drugId, orgId);
         }
@@ -71,7 +74,8 @@ public class PosCatalogService {
     }
 
     private CreateItemRequest buildRequest(String sku, DrugMaster drug,
-                                           java.math.BigDecimal openingStock, UUID warehouseId) {
+                                           java.math.BigDecimal openingStock, UUID warehouseId,
+                                           boolean trackBatches) {
         return new CreateItemRequest(
                 sku,
                 drug.getBrandName().trim(),
@@ -86,7 +90,7 @@ public class PosCatalogService {
                 drug.getMrp(),                         // mrp
                 drug.getGstRate(),
                 true,                                  // trackInventory
-                false,                                 // trackBatches (enable later from item master)
+                trackBatches,                          // org setting pos.catalog_quick_add_track_batches
                 null, null,                            // reorderLevel, reorderQuantity
                 null,                                  // barcode
                 truncate(drug.getManufacturer(), 100), // manufacturer
@@ -102,7 +106,9 @@ public class PosCatalogService {
                 null, null, null,                      // account codes
                 openingStock,                          // openingStock (qty on shelf, billable now)
                 warehouseId,                           // openingWarehouseId (null = org default)
-                null, null, null,                      // opening batch fields
+                // Batch-tracked quick-adds need a batch for the opening qty
+                trackBatches && openingStock != null ? "OPENING" : null,
+                null, null,                            // opening mfg/expiry dates
                 null, null, null,                      // purchase UoM fields
                 null,                                  // secondaryUnits
                 null,                                  // groupId
