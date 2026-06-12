@@ -1392,7 +1392,7 @@ CREATE TABLE public.drug_master (
     salt_composition text,
     manufacturer character varying(255),
     hsn_code character varying(10) DEFAULT '3004'::character varying,
-    gst_rate numeric(5,2) DEFAULT 12,
+    gst_rate numeric(5,2) DEFAULT 5,
     drug_schedule character varying(10) DEFAULT 'GENERAL'::character varying,
     dosage_form character varying(50),
     pack_size character varying(50),
