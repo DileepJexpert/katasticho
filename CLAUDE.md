@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V70** (journal source_module HOSPITAL). Next new migration = V71. **Fresh-DB integrity restored 2026-06-12:** duplicate V48 renumbered to V68 (pos_cash_register, IF NOT EXISTS guards), V59 `system`→`is_system` typo, V62 legacy exchange_rate replacement + per-column currency ALTERs, V69 backfills created_by on V61/V62 tables. A brand-new database now migrates V1→V70 cleanly (verified).
+- Location: `src/main/resources/db/migration/`. **Re-baselined 2026-06-12:** the old V1..V70 history is squashed into `V1__baseline_schema.sql` (full schema from the migrated DB) + `V2__reference_data.sql` (platform seeds: drug/salt/manufacturer/HSN masters, substitutions, interactions, currencies, CoA templates, AI model registry). Next new migration = **V3**. Databases created before the re-baseline must be dropped and recreated.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
