@@ -274,9 +274,10 @@ public class FieldSalesController {
     // Van Stock Transfer endpoints
     // ══════════════════════════════════════════════════════════════
 
+    // OPERATOR may request a load (creates DRAFT only — stock moves at confirm, which stays OWNER/ADMIN)
     @SuppressWarnings("unchecked")
     @PostMapping("/van-transfers/load")
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR')")
     public ResponseEntity<ApiResponse<VanStockTransfer>> createVanLoad(
             @RequestBody Map<String, Object> body) {
         UUID vanId = UUID.fromString((String) body.get("vanId"));
@@ -293,9 +294,10 @@ public class FieldSalesController {
                 service.confirmVanLoad(id), "Van load confirmed"));
     }
 
+    // OPERATOR may initiate a return (creates DRAFT only — stock moves at confirm, which stays OWNER/ADMIN)
     @SuppressWarnings("unchecked")
     @PostMapping("/van-transfers/return")
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR')")
     public ResponseEntity<ApiResponse<VanStockTransfer>> createVanReturn(
             @RequestBody Map<String, Object> body) {
         UUID vanId = UUID.fromString((String) body.get("vanId"));
