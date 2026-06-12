@@ -1414,14 +1414,23 @@ INSERT INTO public.generic_substitution VALUES
 -- Data for Name: hsn_gst_master; Type: TABLE DATA; Schema: public; Owner: -
 --
 
+-- GST rates per Notification 9/2025-Central Tax (Rate), effective 2025-09-22
+-- (GST 2.0: 12% slab abolished; chapter 30 + most medical devices -> 5%).
+-- 2106 kept at the 18% default: standard supplements are 18%, only
+-- medicinal nutraceuticals qualify for 5% - override per item when needed.
+-- The 33 notified lifesaving drugs are exempt BY DRUG NAME, not by HSN:
+-- model those as items with gst_rate = 0 overriding this master.
 INSERT INTO public.hsn_gst_master VALUES
-	('ab4d311c-1b06-4a25-8cbc-f63c79705748', '3002', 'Human blood, vaccines, toxins and cultures', 'PHARMA', 5.00, true, '2026-06-12 15:36:21.716257+00'),
-	('5a85ff5d-209b-4e83-9dfe-55b10b120ecf', '3003', 'Medicaments not put up for retail sale', 'PHARMA', 12.00, true, '2026-06-12 15:36:21.716257+00'),
-	('25608268-1426-4835-8b1a-a7fb285b75bf', '3004', 'Medicaments put up for retail sale', 'PHARMA', 12.00, true, '2026-06-12 15:36:21.716257+00'),
-	('af3500e0-472c-423b-8fa0-940884461551', '3005', 'Wadding, gauze, bandages and similar medical articles', 'PHARMA', 12.00, true, '2026-06-12 15:36:21.716257+00'),
-	('262ef23f-adb1-49e1-9b48-673c13058661', '3006', 'Pharmaceutical goods specified in note 4', 'PHARMA', 12.00, true, '2026-06-12 15:36:21.716257+00'),
-	('f087928f-5680-4f1b-b9da-54e083229bac', '2106', 'Food preparations and supplements', 'SUPPLEMENT', 18.00, true, '2026-06-12 15:36:21.716257+00'),
-	('7d7e11ec-164b-4a21-9e96-88c7b9637508', '9018', 'Medical instruments and appliances', 'MEDICAL_DEVICE', 12.00, true, '2026-06-12 15:36:21.716257+00');
+	('96c804ff-c0bc-4d26-9209-58d6ccbe321d', '3001', 'Glands, organs and extracts for organo-therapeutic uses', 'PHARMA', 5.00, true, '2026-06-12 17:05:00+00'),
+	('b527fc5e-40db-4f45-a6cc-13aac2059f66', '3002', 'Human blood, vaccines, antisera, toxins and cultures', 'PHARMA', 5.00, true, '2026-06-12 17:05:00+00'),
+	('614838f2-3c22-4401-90a7-f29b291dc16e', '3003', 'Medicaments not put up for retail sale', 'PHARMA', 5.00, true, '2026-06-12 17:05:00+00'),
+	('aebaf136-5fe4-4568-80d5-b70c3ad3e334', '3004', 'Medicaments put up for retail sale', 'PHARMA', 5.00, true, '2026-06-12 17:05:00+00'),
+	('3592732f-2af8-41f9-882f-597774474217', '3005', 'Wadding, gauze, bandages and similar medical articles', 'PHARMA', 5.00, true, '2026-06-12 17:05:00+00'),
+	('6b6db851-aaf5-422b-a0ee-3b3cc7f549f0', '3006', 'Pharmaceutical goods (sutures, diagnostic reagents etc.)', 'PHARMA', 5.00, true, '2026-06-12 17:05:00+00'),
+	('a2ac3e9c-8b0c-41a5-91a7-c3a3c6994e62', '2106', 'Food supplements / nutraceuticals (medicinal nutraceuticals may qualify for 5%)', 'SUPPLEMENT', 18.00, true, '2026-06-12 17:05:00+00'),
+	('687f63cc-521e-4f7e-88c9-a4ca1af04622', '9018', 'Medical, surgical, dental or veterinary instruments and appliances', 'MEDICAL_DEVICE', 5.00, true, '2026-06-12 17:05:00+00'),
+	('f564102e-cb8c-44ef-b2ab-0a618edb0c6c', '9019', 'Mechano-therapy, massage and oxygen therapy apparatus', 'MEDICAL_DEVICE', 5.00, true, '2026-06-12 17:05:00+00'),
+	('e9ea8da9-af89-47a6-8d74-2964d9964ae2', '9021', 'Orthopaedic appliances, splints and artificial body parts', 'MEDICAL_DEVICE', 5.00, true, '2026-06-12 17:05:00+00');
 
 --
 -- Data for Name: industry_template; Type: TABLE DATA; Schema: public; Owner: -
