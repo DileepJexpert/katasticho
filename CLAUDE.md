@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V70** (allowance claimed vs GPS km). Next new migration = V71.
+- Location: `src/main/resources/db/migration/`. Latest is **V71** (attendance + leave). Next new migration = V72.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -241,6 +241,14 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Field app:** DCR screen renamed "Daily Report", neutral metrics (Visits/Orders/Samples; Dr/Ch row only when >0), TA/DA card w/ one-tap Claim (hidden until org configures rates), "My sample stock" card. Labels de-pharma'd (Tour Plan, Daily Report).
 - **Allowance modes (V70):** org setting `field_sales.allowance_mode` = `FLEXIBLE` (default — GPS km prefilled, salesperson may adjust e.g. to deduct personal detours) | `GPS` (strict, requested km ignored) | `MANUAL` (km required, `FS_ALLOWANCE_KM_REQUIRED`). Claim stores `distance_km` (claimed) + `gps_distance_km` (reference); expense description shows "X km claimed (GPS Y km)" when they differ so approvers see variance. ERP rate card has mode dropdown; field app claim dialog prefills GPS km (editable) or asks for km in MANUAL.
 - **Tests:** FieldAllowanceServiceTest (8) + FieldSampleServiceTest (5). 676 total pass.
+
+#### Field Force Pack — Phase 3 + real FCM push (2026-06-12)
+- **Real FCM (HTTP v1):** `notification/push/FcmClient` — service-account JSON via `app.push.fcm.service-account-file|-json` property; OAuth2 assertion signed locally with jjwt RS256 (no Firebase Admin SDK), access token cached (expiry−5min, synchronized refresh). `PushNotificationService.dispatchToToken` sends for real when configured (stub log otherwise); 404/UNREGISTERED responses auto-deactivate the stale token. Activates daily-report reminders + all wired pushes.
+- **`FieldCoverageService`** (read-only analytics): `deviationReport(month, salesperson)` — tour-plan entries vs route executions day-by-day → AS_PLANNED / MISSED / UNPLANNED_WORK / WORKED_ON_NON_FIELD_DAY / NO_PLAN (future days skipped); `frequencyCompliance(month, salesperson?)` — contacts with `visits_per_month` vs COMPLETED visits (JPQL join visit→execution; two queries, no null-UUID param), worst-gaps-first; `teamDashboard(from,to)` — per salesperson: route days, visits planned/completed/%, orders, collections, GPS km, DCRs submitted. Endpoints `GET /api/v1/mr/reports/deviation|frequency-compliance|team-dashboard` (OWNER/ADMIN).
+- **Attendance + leave (V71, new `com.katasticho.erp.attendance` pkg, NOT module-gated):** `field_attendance` (one row/user/day, GPS-stamped punch in/out, unique index) + `leave_request` (PENDING→APPROVED/REJECTED/CANCELLED, overlap check `LEAVE_OVERLAPS`, self-approval blocked). `AttendanceService` + `AttendanceController` @ `/api/v1/attendance`: punch-in|punch-out|today|me|team(date, OWNER/ADMIN), leave apply|me|cancel|pending|approve|reject. Codes: ATT_ALREADY_PUNCHED_IN/OUT, ATT_NOT_PUNCHED_IN.
+- **ERP Flutter:** `FieldCoverageScreen` (`/field-sales/coverage`, tabs Team/Deviation/Frequency — team row tap drills into deviation), `AttendanceScreen` (`/field-sales/attendance`, team punches by date + pending-leave approve/reject). Sidebar + palette wired.
+- **Field app:** attendance card on Today dashboard (GPS punch in/out, on-duty status, leave-apply dialog w/ date range + type).
+- **Tests:** AttendanceServiceTest (8) + FieldCoverageServiceTest (3). 687 total pass.
 
 ### Phase 8: Partner Network (B2B Ordering) (COMPLETE — 2026-06-06)
 **Goal:** Connected B2B trade network within the same product.
@@ -465,7 +473,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `common/currency/service/CurrencyManagementService.java` — Multi-currency: rate management, conversion, latest-rate fallback. `/api/v1/currencies`.
 - `inventory/consignment/service/ConsignmentService.java` — Consignment/VMI: receive, record-sale, settle. `/api/v1/consignment`.
 - `integration/service/IntegrationService.java` — ERP connector CRUD (Tally/Zoho/Busy/SAP/Custom), sync history. `/api/v1/integrations`.
-- `notification/push/PushNotificationService.java` — FCM stub with token registration/management. `/api/v1/notifications/push`.
+- `notification/push/PushNotificationService.java` + `FcmClient.java` — real FCM HTTP v1 (service-account via `app.push.fcm.*`, locally-signed OAuth2, stale-token auto-deactivate); stub logging until configured. `/api/v1/notifications/push`.
 
 ## Doc Files Index
 | Doc | Purpose | Read when |

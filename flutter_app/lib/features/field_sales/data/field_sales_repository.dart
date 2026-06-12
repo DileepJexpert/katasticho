@@ -316,6 +316,51 @@ class FieldSalesRepository {
     );
   }
 
+  // -- Coverage reports --
+  Future<List<Map<String, dynamic>>> teamDashboard(
+      String from, String to) async {
+    final response = await _api.get(
+        '${ApiConfig.mrTeamDashboard}?from=$from&to=$to');
+    return _asList(response.data['data'] ?? response.data);
+  }
+
+  Future<Map<String, dynamic>> deviationReport(
+      String month, String salespersonId) async {
+    final response = await _api.get(
+        '${ApiConfig.mrDeviationReport}?month=$month&salespersonId=$salespersonId');
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> frequencyCompliance(String month,
+      {String? salespersonId}) async {
+    final query = salespersonId != null
+        ? '?month=$month&salespersonId=$salespersonId'
+        : '?month=$month';
+    final response =
+        await _api.get('${ApiConfig.mrFrequencyCompliance}$query');
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  // -- Attendance + leave (manager) --
+  Future<List<Map<String, dynamic>>> teamAttendance(String date) async {
+    final response = await _api.get('${ApiConfig.attendanceTeam}?date=$date');
+    return _asList(response.data['data'] ?? response.data);
+  }
+
+  Future<List<Map<String, dynamic>>> pendingLeaves() async {
+    final response = await _api.get(ApiConfig.attendanceLeavePending);
+    return _asList(response.data['data'] ?? response.data);
+  }
+
+  Future<void> approveLeave(String id) async {
+    await _api.post(ApiConfig.attendanceLeaveApprove(id));
+  }
+
+  Future<void> rejectLeave(String id, String reason) async {
+    await _api.post(ApiConfig.attendanceLeaveReject(id),
+        data: {'reason': reason});
+  }
+
   List<Map<String, dynamic>> _asList(dynamic data) {
     final content = data is Map ? (data['content'] as List?) ?? [] : data;
     return (content as List)

@@ -4,6 +4,7 @@ import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.fieldsales.entity.*;
+import com.katasticho.erp.fieldsales.service.FieldCoverageService;
 import com.katasticho.erp.fieldsales.service.MrReportingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ import java.util.*;
 public class MrReportingController {
 
     private final MrReportingService service;
+    private final FieldCoverageService coverageService;
 
     // ══════════════════════════════════════════════════════════════
     // Tour Plan (MTP)
@@ -166,6 +168,34 @@ public class MrReportingController {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<DcrReport>> approveDcr(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.approveDcr(id), "DCR approved"));
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Coverage reports (all verticals)
+    // ══════════════════════════════════════════════════════════════
+
+    @GetMapping("/reports/deviation")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> deviationReport(
+            @RequestParam LocalDate month, @RequestParam UUID salespersonId) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                coverageService.deviationReport(month, salespersonId)));
+    }
+
+    @GetMapping("/reports/frequency-compliance")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> frequencyCompliance(
+            @RequestParam LocalDate month,
+            @RequestParam(required = false) UUID salespersonId) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                coverageService.frequencyCompliance(month, salespersonId)));
+    }
+
+    @GetMapping("/reports/team-dashboard")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> teamDashboard(
+            @RequestParam LocalDate from, @RequestParam LocalDate to) {
+        return ResponseEntity.ok(ApiResponse.ok(coverageService.teamDashboard(from, to)));
     }
 
     @PostMapping("/dcr/{id}/reject")

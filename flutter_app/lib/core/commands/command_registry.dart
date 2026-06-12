@@ -323,6 +323,20 @@ List<KCommand> buildAppCommands() {
       route: Routes.fieldSalesSamples,
       keywords: ['samples', 'promo', 'ta', 'da', 'allowance'],
     ),
+    KCommand(
+      label: 'Field Coverage Reports',
+      icon: Icons.insights,
+      section: 'Navigate',
+      route: Routes.fieldSalesCoverage,
+      keywords: ['deviation', 'frequency', 'team', 'tour plan'],
+    ),
+    KCommand(
+      label: 'Attendance & Leave',
+      icon: Icons.badge,
+      section: 'Navigate',
+      route: Routes.fieldSalesAttendance,
+      keywords: ['punch', 'leave', 'hr'],
+    ),
 
     // ── Partner Network ────────────────────────────────────────────
     KCommand(

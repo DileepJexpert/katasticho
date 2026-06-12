@@ -15,17 +15,14 @@ import java.util.UUID;
  * Push notification service — token registry + dispatch stub.
  *
  * <h3>How to enable Firebase Cloud Messaging</h3>
- * <ol>
- *   <li>Add the Firebase Admin SDK dependency to pom.xml:
- *       {@code com.google.firebase:firebase-admin:9.x}</li>
- *   <li>Place the service-account JSON at a path referenced by
- *       {@code GOOGLE_APPLICATION_CREDENTIALS} or load via
- *       {@code FirebaseOptions.builder().setCredentials(GoogleCredentials.fromStream(...))}</li>
- *   <li>Initialise {@code FirebaseApp.initializeApp(options)} in an
- *       {@code @PostConstruct} or {@code @Bean}.</li>
- *   <li>Replace the comment block in {@link #dispatchToToken} below with a
- *       real {@code FirebaseMessaging.getInstance().send(Message.builder()...)} call.</li>
- * </ol>
+ * Set ONE of these properties (see {@link FcmClient}):
+ * <pre>
+ *   app.push.fcm.service-account-file=/path/to/service-account.json
+ *   app.push.fcm.service-account-json={...}   # e.g. via env var
+ * </pre>
+ * Delivery uses the FCM HTTP v1 API with a locally-signed OAuth2 assertion —
+ * no Firebase Admin SDK dependency. Stale device tokens (UNREGISTERED) are
+ * deactivated automatically.
  *
  * Until FCM is configured this service fully manages the token registry and
  * logs dispatch attempts without throwing.
@@ -36,6 +33,7 @@ import java.util.UUID;
 public class PushNotificationService {
 
     private final PushTokenRepository pushTokenRepository;
+    private final FcmClient fcmClient;
 
     // ── Token registry ──────────────────────────────────────────────────────
 
@@ -120,26 +118,19 @@ public class PushNotificationService {
 
     // ── Internal ────────────────────────────────────────────────────────────
 
-    /**
-     * Placeholder — replace this method body with a real FCM send call once
-     * the Firebase Admin SDK dependency is on the classpath and configured.
-     *
-     * Example (pseudo-code):
-     * <pre>{@code
-     *   Message msg = Message.builder()
-     *       .setToken(token.getDeviceToken())
-     *       .setNotification(Notification.builder().setTitle(title).setBody(body).build())
-     *       .putAllData(data != null ? data : Map.of())
-     *       .build();
-     *   String messageId = FirebaseMessaging.getInstance().send(msg);
-     *   log.debug("FCM sent messageId={} token={}", messageId, token.getDeviceToken());
-     * }</pre>
-     */
     private void dispatchToToken(PushToken token, String title, String body,
                                   Map<String, String> data) {
-        // TODO: integrate Firebase Admin SDK here
-        log.info("push-notification[STUB] platform={} title='{}' body='{}' data={}",
-                token.getPlatform(), title, body, data);
+        if (!fcmClient.isConfigured()) {
+            log.info("push-notification[STUB] platform={} title='{}' body='{}' data={}",
+                    token.getPlatform(), title, body, data);
+            return;
+        }
+        FcmClient.SendResult result = fcmClient.send(token.getDeviceToken(), title, body, data);
+        if (result == FcmClient.SendResult.UNREGISTERED) {
+            token.setActive(false);
+            pushTokenRepository.save(token);
+            log.info("Deactivated stale push token {} for user {}", token.getId(), token.getUserId());
+        }
     }
 
     private static String normalize(String platform) {

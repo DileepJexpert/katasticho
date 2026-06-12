@@ -72,4 +72,6 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
     /** Resolve a contact by exact display name (case-insensitive) when the
      * scanned bill has no GSTIN to match on. */
     Optional<Contact> findFirstByOrgIdAndDisplayNameIgnoreCaseAndIsDeletedFalse(UUID orgId, String displayName);
+
+    java.util.List<Contact> findByOrgIdAndVisitsPerMonthGreaterThanAndIsDeletedFalse(UUID orgId, Integer minVisits);
 }

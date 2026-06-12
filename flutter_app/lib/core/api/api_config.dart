@@ -730,6 +730,20 @@ class ApiConfig {
   static String fieldSamplesTransactions(String salespersonId) =>
       '/api/v1/field-sales/samples/transactions/$salespersonId';
 
+  // Coverage reports
+  static const String mrTeamDashboard = '/api/v1/mr/reports/team-dashboard';
+  static const String mrDeviationReport = '/api/v1/mr/reports/deviation';
+  static const String mrFrequencyCompliance =
+      '/api/v1/mr/reports/frequency-compliance';
+
+  // Attendance + leave
+  static const String attendanceTeam = '/api/v1/attendance/team';
+  static const String attendanceLeavePending = '/api/v1/attendance/leave/pending';
+  static String attendanceLeaveApprove(String id) =>
+      '/api/v1/attendance/leave/$id/approve';
+  static String attendanceLeaveReject(String id) =>
+      '/api/v1/attendance/leave/$id/reject';
+
   // Partner Network
   static const String partnerNetworkPartners = '/api/v1/partner-network/partners';
   static const String partnerNetworkPartnersPending = '/api/v1/partner-network/partners/pending';
