@@ -34,7 +34,7 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- Seed these accounts for existing orgs that have the TRADING CoA
-INSERT INTO account (id, org_id, code, name, type, sub_type, level, system, is_deleted, created_at, updated_at)
+INSERT INTO account (id, org_id, code, name, type, sub_type, level, is_system, is_deleted, created_at, updated_at)
 SELECT gen_random_uuid(), a.org_id, t.code, t.name, t.type, t.sub_type, t.level, TRUE, FALSE, NOW(), NOW()
 FROM coa_template t
 CROSS JOIN (SELECT DISTINCT org_id FROM account WHERE is_deleted = FALSE) a

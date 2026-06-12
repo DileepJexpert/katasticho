@@ -1,7 +1,7 @@
--- V48: POS Cash Register / Day Close
+-- V68 (renumbered from duplicate V48): POS Cash Register / Day Close
 -- Tracks daily register opening, cash sales, expenses, and closing balance.
 
-CREATE TABLE pos_cash_register (
+CREATE TABLE IF NOT EXISTS pos_cash_register (
     id              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id          UUID          NOT NULL,
     branch_id       UUID,
@@ -18,7 +18,7 @@ CREATE TABLE pos_cash_register (
     UNIQUE (org_id, register_date)
 );
 
-CREATE TABLE pos_cash_expense (
+CREATE TABLE IF NOT EXISTS pos_cash_expense (
     id           UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id       UUID          NOT NULL,
     register_id  UUID          NOT NULL REFERENCES pos_cash_register(id) ON DELETE CASCADE,
@@ -29,5 +29,5 @@ CREATE TABLE pos_cash_expense (
     created_at   TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_pos_cash_register_org_date ON pos_cash_register(org_id, register_date);
-CREATE INDEX idx_pos_cash_expense_register  ON pos_cash_expense(register_id);
+CREATE INDEX IF NOT EXISTS idx_pos_cash_register_org_date ON pos_cash_register(org_id, register_date);
+CREATE INDEX IF NOT EXISTS idx_pos_cash_expense_register  ON pos_cash_expense(register_id);

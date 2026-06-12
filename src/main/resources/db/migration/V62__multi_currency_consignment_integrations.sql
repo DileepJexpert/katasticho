@@ -30,6 +30,19 @@ INSERT INTO currency (code, name, symbol, decimal_places, is_active) VALUES
 ON CONFLICT (code) DO NOTHING;
 
 -- Org-scoped exchange rates
+-- V1 shipped a legacy exchange_rate table (no org_id / is_deleted / effective_date).
+-- It never matched the ExchangeRate entity and holds no org-scoped data — replace it.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'exchange_rate' AND table_schema = current_schema())
+       AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'exchange_rate' AND column_name = 'org_id'
+                 AND table_schema = current_schema()) THEN
+        DROP TABLE exchange_rate;
+    END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS exchange_rate (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id          UUID        NOT NULL,
@@ -47,30 +60,14 @@ CREATE TABLE IF NOT EXISTS exchange_rate (
 
 CREATE INDEX idx_exchange_rate_org_pair_date ON exchange_rate(org_id, from_currency, to_currency, effective_date DESC) WHERE NOT is_deleted;
 
--- Add currency columns to transactional tables (safe ALTER IF NOT EXISTS via DO block)
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sales_order' AND column_name='currency_code') THEN
-        ALTER TABLE sales_order ADD COLUMN currency_code VARCHAR(3) NOT NULL DEFAULT 'INR';
-        ALTER TABLE sales_order ADD COLUMN exchange_rate  NUMERIC(15,6) NOT NULL DEFAULT 1;
-    END IF;
-END $$;
-
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='purchase_orders' AND column_name='currency_code') THEN
-        ALTER TABLE purchase_orders ADD COLUMN currency_code VARCHAR(3) NOT NULL DEFAULT 'INR';
-        ALTER TABLE purchase_orders ADD COLUMN exchange_rate  NUMERIC(15,6) NOT NULL DEFAULT 1;
-    END IF;
-END $$;
-
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='invoice' AND column_name='currency_code') THEN
-        ALTER TABLE invoice ADD COLUMN currency_code VARCHAR(3) NOT NULL DEFAULT 'INR';
-        ALTER TABLE invoice ADD COLUMN exchange_rate  NUMERIC(15,6) NOT NULL DEFAULT 1;
-    END IF;
-END $$;
+-- Add currency columns to transactional tables. Guarded per column: some
+-- tables (e.g. invoice from V1) already have exchange_rate but not currency_code.
+ALTER TABLE sales_order     ADD COLUMN IF NOT EXISTS currency_code VARCHAR(3)    NOT NULL DEFAULT 'INR';
+ALTER TABLE sales_order     ADD COLUMN IF NOT EXISTS exchange_rate NUMERIC(15,6) NOT NULL DEFAULT 1;
+ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS currency_code VARCHAR(3)    NOT NULL DEFAULT 'INR';
+ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS exchange_rate NUMERIC(15,6) NOT NULL DEFAULT 1;
+ALTER TABLE invoice         ADD COLUMN IF NOT EXISTS currency_code VARCHAR(3)    NOT NULL DEFAULT 'INR';
+ALTER TABLE invoice         ADD COLUMN IF NOT EXISTS exchange_rate NUMERIC(15,6) NOT NULL DEFAULT 1;
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- SECTION 2: CONSIGNMENT / VMI (Vendor Managed Inventory)

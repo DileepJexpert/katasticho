@@ -72,13 +72,18 @@ public class SecurityConfig {
                         })
                 )
                 .addFilterBefore(platformAdminJwtFilter, UsernamePasswordAuthenticationFilter.class)
+                // JWT must be registered BEFORE anything anchors on its class —
+                // addFilterBefore(x, JwtAuthenticationFilter.class) throws
+                // "does not have a registered order" otherwise.
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 // API-key filter runs before JWT: it authenticates X-API-Key / Bearer kat_…
                 // requests; everything else falls through to the JWT filter untouched.
                 .addFilterBefore(apiKeyAuthenticationFilter, JwtAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                // Idempotency runs after auth (needs TenantContext org). Commands with
-                // an Idempotency-Key header are replayed on retry instead of re-executed.
-                .addFilterAfter(idempotencyFilter, JwtAuthenticationFilter.class);
+                // Idempotency runs after the auth filters (needs TenantContext org):
+                // registered last at this anchor, so it sits between the JWT filter and
+                // UsernamePasswordAuthenticationFilter. Commands with an Idempotency-Key
+                // header are replayed on retry instead of re-executed.
+                .addFilterBefore(idempotencyFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
