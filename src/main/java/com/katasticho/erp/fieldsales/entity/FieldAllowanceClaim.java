@@ -31,9 +31,15 @@ public class FieldAllowanceClaim {
     @Column(name = "claim_date", nullable = false)
     private LocalDate claimDate;
 
+    /** Km the salesperson actually claimed (may differ from GPS in FLEXIBLE/MANUAL modes). */
     @Column(name = "distance_km", nullable = false)
     @Builder.Default
     private BigDecimal distanceKm = BigDecimal.ZERO;
+
+    /** Km recorded by the GPS trail that day — reference for approvers. */
+    @Column(name = "gps_distance_km", nullable = false)
+    @Builder.Default
+    private BigDecimal gpsDistanceKm = BigDecimal.ZERO;
 
     @Column(name = "ta_amount", nullable = false)
     @Builder.Default

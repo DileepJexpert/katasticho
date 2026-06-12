@@ -506,8 +506,10 @@ public class FieldSalesController {
             @RequestBody(required = false) Map<String, Object> body) {
         LocalDate date = body != null && body.get("date") != null
                 ? LocalDate.parse(body.get("date").toString()) : LocalDate.now();
+        BigDecimal km = body != null && body.get("km") != null
+                ? new BigDecimal(body.get("km").toString()) : null;
         return ResponseEntity.ok(ApiResponse.ok(
-                allowanceService.claim(date), "Allowance claimed"));
+                allowanceService.claim(date, km), "Allowance claimed"));
     }
 
     @GetMapping("/allowance/claims/me")

@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V69** (field samples + allowance). Next new migration = V70.
+- Location: `src/main/resources/db/migration/`. Latest is **V70** (allowance claimed vs GPS km). Next new migration = V71.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -232,14 +232,15 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 
 #### Field Force Pack — Phase 2, vertical-neutral (2026-06-12)
 **Direction shift:** field app features are for ALL verticals (FMCG/distribution/pharma) — pharma-only naming avoided; doctor/chemist split stays dormant unless contacts are classified.
-- **V70 next.** V69: `field_sample_txn` (ISSUE/RETURN register per salesperson) + `field_allowance_claim` (one per salesperson/day, unique index, expense-backed).
+- V69: `field_sample_txn` (ISSUE/RETURN register per salesperson) + `field_allowance_claim` (one per salesperson/day, unique index, expense-backed).
 - **`FieldAllowanceService`:** TA = day's GPS trail km (haversine over `field_location_ping`, UTC day) × org setting `field_sales.ta_per_km`; DA = `field_sales.da_per_day` only on days with movement. `claim()` → dedupe by claim row → creates real expense (Travel & Conveyance 5240 / Cash 1010, mode CASH) via ExpenseService → claim row stores expense_id. Codes: FS_ALLOWANCE_ALREADY_CLAIMED / FS_ALLOWANCE_NOTHING_TO_CLAIM / FS_ALLOWANCE_ACCOUNT_MISSING.
 - **`FieldSampleService`:** balance per product = issued − returned (register, JPQL sum) − distributed (native query: visit_product_log→field_visit→route_execution by salesperson), name-normalized merge; un-issued-but-distributed products show negative balance.
 - **`DailyReportReminderJob`** (automation, cron `app.automation.daily-report-reminder.cron` default 18:30): per active org (opt-out `field_sales.daily_report_reminder=false`), salespeople with a route execution today but no SUBMITTED/APPROVED dcr_report get a push (`PushNotificationService.sendToUser`).
 - **Endpoints (FieldSalesController):** `GET /allowance/me`, `POST /allowance/claim`, `GET /allowance/claims/me` (field roles); `POST /samples/issue|return`, `GET /samples/balance/{id}`, `GET /samples/transactions/{id}` (OWNER/ADMIN); `GET /samples/balance/me`.
 - **ERP Flutter:** `FieldSamplesScreen` (`/field-sales/samples`, sidebar "Samples & TA/DA" + palette) — TA/DA rate config card (read/write `/api/v1/settings`), salesperson picker (`/api/v1/org/users`), balance table (issued/returned/distributed/balance, negative red), issue/return dialogs, txn history.
 - **Field app:** DCR screen renamed "Daily Report", neutral metrics (Visits/Orders/Samples; Dr/Ch row only when >0), TA/DA card w/ one-tap Claim (hidden until org configures rates), "My sample stock" card. Labels de-pharma'd (Tour Plan, Daily Report).
-- **Tests:** FieldAllowanceServiceTest (5) + FieldSampleServiceTest (5). 673 total pass.
+- **Allowance modes (V70):** org setting `field_sales.allowance_mode` = `FLEXIBLE` (default — GPS km prefilled, salesperson may adjust e.g. to deduct personal detours) | `GPS` (strict, requested km ignored) | `MANUAL` (km required, `FS_ALLOWANCE_KM_REQUIRED`). Claim stores `distance_km` (claimed) + `gps_distance_km` (reference); expense description shows "X km claimed (GPS Y km)" when they differ so approvers see variance. ERP rate card has mode dropdown; field app claim dialog prefills GPS km (editable) or asks for km in MANUAL.
+- **Tests:** FieldAllowanceServiceTest (8) + FieldSampleServiceTest (5). 676 total pass.
 
 ### Phase 8: Partner Network (B2B Ordering) (COMPLETE — 2026-06-06)
 **Goal:** Connected B2B trade network within the same product.

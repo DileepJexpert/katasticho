@@ -24,6 +24,7 @@ class _FieldSamplesScreenState extends ConsumerState<FieldSamplesScreen> {
 
   final _taPerKmCtrl = TextEditingController();
   final _daPerDayCtrl = TextEditingController();
+  String _allowanceMode = 'FLEXIBLE';
 
   Dio get _dio => ref.read(apiClientProvider).dio;
 
@@ -60,6 +61,8 @@ class _FieldSamplesScreenState extends ConsumerState<FieldSamplesScreen> {
               settings['field_sales.ta_per_km']?.toString() ?? '';
           _daPerDayCtrl.text =
               settings['field_sales.da_per_day']?.toString() ?? '';
+          _allowanceMode =
+              settings['field_sales.allowance_mode']?.toString() ?? 'FLEXIBLE';
         });
       }
     } catch (e) {
@@ -95,6 +98,7 @@ class _FieldSamplesScreenState extends ConsumerState<FieldSamplesScreen> {
             _taPerKmCtrl.text.trim().isEmpty ? '0' : _taPerKmCtrl.text.trim(),
         'field_sales.da_per_day':
             _daPerDayCtrl.text.trim().isEmpty ? '0' : _daPerDayCtrl.text.trim(),
+        'field_sales.allowance_mode': _allowanceMode,
       });
       _toast('Allowance rates saved');
     } catch (e) {
@@ -189,6 +193,32 @@ class _FieldSamplesScreenState extends ConsumerState<FieldSamplesScreen> {
                           'the field app. Daily allowance applies on days with '
                           'field movement. Set 0 to disable.',
                           style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: _allowanceMode,
+                          decoration: const InputDecoration(
+                            labelText: 'Distance claiming mode',
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'FLEXIBLE',
+                              child: Text(
+                                  'Flexible — GPS km prefilled, salesperson may adjust'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'GPS',
+                              child: Text(
+                                  'GPS strict — claim exactly the tracked distance'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'MANUAL',
+                              child: Text(
+                                  'Manual — salesperson enters km themselves'),
+                            ),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _allowanceMode = v ?? 'FLEXIBLE'),
                         ),
                         const SizedBox(height: 12),
                         Row(

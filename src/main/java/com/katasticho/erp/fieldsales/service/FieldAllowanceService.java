@@ -43,6 +43,8 @@ public class FieldAllowanceService {
 
     static final String SETTING_TA_PER_KM = "field_sales.ta_per_km";
     static final String SETTING_DA_PER_DAY = "field_sales.da_per_day";
+    /** GPS (strict, claim = tracked km) | FLEXIBLE (tracked km, adjustable) | MANUAL (salesperson enters km). */
+    static final String SETTING_MODE = "field_sales.allowance_mode";
     private static final String TRAVEL_EXPENSE_CODE = "5240";
     private static final String CASH_CODE = "1010";
 
@@ -64,6 +66,7 @@ public class FieldAllowanceService {
         BigDecimal taAmount = distanceKm.multiply(taPerKm).setScale(2, RoundingMode.HALF_UP);
         // DA applies only on days with actual field movement (any GPS trail)
         BigDecimal daAmount = distanceKm.signum() > 0 ? daPerDay : BigDecimal.ZERO;
+        String mode = mode(orgId);
 
         FieldAllowanceClaim existing = claimRepository
                 .findByOrgIdAndSalespersonIdAndClaimDate(orgId, userId, date).orElse(null);
@@ -75,15 +78,26 @@ public class FieldAllowanceService {
         result.put("taAmount", taAmount);
         result.put("daAmount", daAmount);
         result.put("totalAmount", taAmount.add(daAmount));
+        result.put("mode", mode);
+        result.put("kmEditable", !"GPS".equals(mode));
         result.put("configured", taPerKm.signum() > 0 || daPerDay.signum() > 0);
         result.put("claimed", existing != null);
+        result.put("claimedKm", existing != null ? existing.getDistanceKm() : null);
         result.put("expenseId", existing != null ? existing.getExpenseId() : null);
         return result;
     }
 
-    /** Claims the day's allowance: creates the expense and records the claim. */
+    /**
+     * Claims the day's allowance: creates the expense and records the claim.
+     *
+     * The claimed distance depends on the org's allowance mode:
+     * GPS uses the tracked km as-is; FLEXIBLE lets the salesperson adjust
+     * it (e.g. deduct a personal detour) with the GPS km kept as reference;
+     * MANUAL requires the salesperson to enter km themselves. The expense
+     * description always carries both figures so approvers see variances.
+     */
     @Transactional
-    public FieldAllowanceClaim claim(LocalDate date) {
+    public FieldAllowanceClaim claim(LocalDate date, BigDecimal requestedKm) {
         UUID orgId = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
 
@@ -93,7 +107,8 @@ public class FieldAllowanceService {
                             "FS_ALLOWANCE_ALREADY_CLAIMED", HttpStatus.CONFLICT);
                 });
 
-        BigDecimal distanceKm = travelledKm(orgId, userId, date);
+        BigDecimal gpsKm = travelledKm(orgId, userId, date);
+        BigDecimal distanceKm = resolveClaimedKm(mode(orgId), gpsKm, requestedKm);
         BigDecimal taPerKm = setting(orgId, SETTING_TA_PER_KM);
         BigDecimal daPerDay = setting(orgId, SETTING_DA_PER_DAY);
         BigDecimal taAmount = distanceKm.multiply(taPerKm).setScale(2, RoundingMode.HALF_UP);
@@ -119,9 +134,12 @@ public class FieldAllowanceService {
                         "Cash account (" + CASH_CODE + ") not found",
                         "FS_ALLOWANCE_ACCOUNT_MISSING", HttpStatus.BAD_REQUEST));
 
+        String kmNote = distanceKm.compareTo(gpsKm) == 0
+                ? distanceKm + " km"
+                : distanceKm + " km claimed (GPS " + gpsKm + " km)";
         ExpenseResponse expense = expenseService.createExpense(new CreateExpenseRequest(
                 date, travel.getId(), "Field Allowance",
-                "TA/DA " + date + " — " + distanceKm + " km"
+                "TA/DA " + date + " — " + kmNote
                         + " (TA " + taAmount + " + DA " + daAmount + ")",
                 total, BigDecimal.ZERO, "INR", null,
                 "CASH", cash.getId(),
@@ -129,13 +147,39 @@ public class FieldAllowanceService {
 
         FieldAllowanceClaim claim = claimRepository.save(FieldAllowanceClaim.builder()
                 .orgId(orgId).salespersonId(userId).claimDate(date)
-                .distanceKm(distanceKm)
+                .distanceKm(distanceKm).gpsDistanceKm(gpsKm)
                 .taAmount(taAmount).daAmount(daAmount).totalAmount(total)
                 .expenseId(expense.id())
                 .build());
-        log.info("Allowance claimed for {} by {}: {} km, total {} (expense {})",
-                date, userId, distanceKm, total, expense.id());
+        log.info("Allowance claimed for {} by {}: {} km (GPS {}), total {} (expense {})",
+                date, userId, distanceKm, gpsKm, total, expense.id());
         return claim;
+    }
+
+    /** Effective claimed km for the org's mode; never negative, 2dp. */
+    private BigDecimal resolveClaimedKm(String mode, BigDecimal gpsKm, BigDecimal requestedKm) {
+        BigDecimal km = switch (mode) {
+            case "GPS" -> gpsKm;
+            case "MANUAL" -> {
+                if (requestedKm == null) {
+                    throw new BusinessException(
+                            "Distance in km is required — this organisation uses manual allowance entry",
+                            "FS_ALLOWANCE_KM_REQUIRED", HttpStatus.BAD_REQUEST);
+                }
+                yield requestedKm;
+            }
+            // FLEXIBLE: salesperson may adjust (e.g. deduct personal travel); defaults to GPS
+            default -> requestedKm != null ? requestedKm : gpsKm;
+        };
+        if (km.signum() < 0) {
+            throw new BusinessException("Distance cannot be negative",
+                    "FS_ALLOWANCE_KM_INVALID", HttpStatus.BAD_REQUEST);
+        }
+        return km.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private String mode(UUID orgId) {
+        return orgSettingsService.get(orgId, SETTING_MODE, "FLEXIBLE").toUpperCase();
     }
 
     @Transactional(readOnly = true)
