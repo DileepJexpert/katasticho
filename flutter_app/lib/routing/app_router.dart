@@ -154,6 +154,7 @@ import '../features/field_sales/presentation/mr_approvals_screen.dart';
 import '../features/field_sales/presentation/field_samples_screen.dart';
 import '../features/field_sales/presentation/field_coverage_screen.dart';
 import '../features/field_sales/presentation/attendance_screen.dart';
+import '../features/field_sales/presentation/detail_aids_screen.dart';
 import '../features/field_sales/presentation/route_list_screen.dart';
 import '../features/field_sales/presentation/van_list_screen.dart';
 import '../features/field_sales/presentation/route_execution_screen.dart';
@@ -373,6 +374,7 @@ class Routes {
   static const fieldSalesSamples = '/field-sales/samples';
   static const fieldSalesCoverage = '/field-sales/coverage';
   static const fieldSalesAttendance = '/field-sales/attendance';
+  static const fieldSalesDetailAids = '/field-sales/detail-aids';
 
   // Partner Network (B2B)
   static const partnerNetworkPartners = '/partner-network/partners';
@@ -1139,6 +1141,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.fieldSalesAttendance,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: AttendanceScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesDetailAids,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DetailAidsScreen(),
             ),
           ),
           // Partner Network (B2B)

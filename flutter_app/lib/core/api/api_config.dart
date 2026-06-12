@@ -725,6 +725,13 @@ class ApiConfig {
   static String mrDcrApprove(String id) => '/api/v1/mr/dcr/$id/approve';
   static String mrDcrReject(String id) => '/api/v1/mr/dcr/$id/reject';
 
+  // Detail aids (e-detailing)
+  static const String mrDetailAids = '/api/v1/mr/detail-aids';
+  static const String mrDetailAidsManage = '/api/v1/mr/detail-aids/manage';
+  static String mrDetailAidById(String id) => '/api/v1/mr/detail-aids/$id';
+  static String mrVisitDetailAids(String visitId) =>
+      '/api/v1/mr/visits/$visitId/detail-aids';
+
   // Field samples + allowance (all verticals)
   static const String fieldSamplesIssue = '/api/v1/field-sales/samples/issue';
   static const String fieldSamplesReturn = '/api/v1/field-sales/samples/return';

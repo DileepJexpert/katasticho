@@ -4,6 +4,7 @@ import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.fieldsales.entity.*;
+import com.katasticho.erp.fieldsales.service.DetailAidService;
 import com.katasticho.erp.fieldsales.service.FieldCoverageService;
 import com.katasticho.erp.fieldsales.service.MrReportingService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class MrReportingController {
 
     private final MrReportingService service;
     private final FieldCoverageService coverageService;
+    private final DetailAidService detailAidService;
 
     // ══════════════════════════════════════════════════════════════
     // Tour Plan (MTP)
@@ -168,6 +170,65 @@ public class MrReportingController {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<DcrReport>> approveDcr(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.approveDcr(id), "DCR approved"));
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Detail aids (e-detailing, all verticals)
+    // ══════════════════════════════════════════════════════════════
+
+    @GetMapping("/detail-aids")
+    public ResponseEntity<ApiResponse<List<DetailAid>>> activeDetailAids() {
+        return ResponseEntity.ok(ApiResponse.ok(detailAidService.activeAids()));
+    }
+
+    @GetMapping("/detail-aids/manage")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> manageDetailAids() {
+        return ResponseEntity.ok(ApiResponse.ok(detailAidService.listWithUsage()));
+    }
+
+    @PostMapping("/detail-aids")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<DetailAid>> createDetailAid(@RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(ApiResponse.ok(detailAidService.create(
+                (String) body.get("name"), (String) body.get("description"),
+                (String) body.get("mediaUrl"), (String) body.get("mediaType"),
+                (String) body.get("productName")), "Detail aid created"));
+    }
+
+    @PutMapping("/detail-aids/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<DetailAid>> updateDetailAid(
+            @PathVariable UUID id, @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(ApiResponse.ok(detailAidService.update(id,
+                (String) body.get("name"), (String) body.get("description"),
+                (String) body.get("mediaUrl"), (String) body.get("mediaType"),
+                (String) body.get("productName"),
+                body.get("active") != null ? Boolean.valueOf(body.get("active").toString()) : null),
+                "Detail aid updated"));
+    }
+
+    @DeleteMapping("/detail-aids/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteDetailAid(@PathVariable UUID id) {
+        detailAidService.delete(id);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Detail aid removed"));
+    }
+
+    @PutMapping("/visits/{visitId}/detail-aids")
+    public ResponseEntity<ApiResponse<List<VisitDetailAidLog>>> logVisitDetailAids(
+            @PathVariable UUID visitId, @RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<String> raw = (List<String>) body.get("aidIds");
+        List<UUID> aidIds = raw != null ? raw.stream().map(UUID::fromString).toList() : List.of();
+        return ResponseEntity.ok(ApiResponse.ok(
+                detailAidService.logShown(visitId, aidIds), "Detail aids logged"));
+    }
+
+    @GetMapping("/visits/{visitId}/detail-aids")
+    public ResponseEntity<ApiResponse<List<VisitDetailAidLog>>> getVisitDetailAids(
+            @PathVariable UUID visitId) {
+        return ResponseEntity.ok(ApiResponse.ok(detailAidService.visitLog(visitId)));
     }
 
     // ══════════════════════════════════════════════════════════════

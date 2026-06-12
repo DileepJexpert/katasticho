@@ -344,6 +344,13 @@ List<KCommand> buildAppCommands() {
       route: Routes.fieldSalesAttendance,
       keywords: ['punch', 'leave', 'hr'],
     ),
+    KCommand(
+      label: 'Detail Aids (E-detailing)',
+      icon: Icons.auto_stories,
+      section: 'Navigate',
+      route: Routes.fieldSalesDetailAids,
+      keywords: ['brochure', 'visual aid', 'edetailing'],
+    ),
 
     // ── Partner Network ────────────────────────────────────────────
     KCommand(
