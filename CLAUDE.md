@@ -65,7 +65,7 @@ cd flutter_app && flutter test
 
 ### ~~BUG-2: No posted-payment reversal path~~ — FIXED (2026-06-04, Codex)
 - `voidPayment()` now handles POSTED payments: reverses journal via `journalService.reverseEntry()`, restores invoice balance via `updatePaymentStatus(amount.negate())`, adds pessimistic locking on invoice. 17 tests pass.
-- **Residual concern:** contact.outstandingAr may not be restored on void — verify in integration test.
+- ~~Residual concern~~ resolved: `voidPayment` calls `adjustContactOutstandingAr(+amount)`; covered by PaymentServiceTest assertion (2026-06-12).
 
 ### ~~BUG-3: Self-approval gap in workflows~~ — FIXED (2026-06-04, Codex)
 - `ensureRequesterCannotApproveOwnRequest()` added at `ApprovalWorkflowService.java:211-217`. Throws `WORKFLOW_SELF_APPROVAL_FORBIDDEN` when `request.getRequestedBy().equals(currentUserId)`. Also improved `ensureApproverCanDecide()` to prioritize user-specific steps over role fallback. 6 tests pass.
@@ -425,7 +425,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `manufacturing/service/MrpServiceTest.java` — MRP engine: SO demand, BOM explosion, net deduction, convert-to-PO/WO (10 tests)
 - `common/currency/CurrencyServiceTest.java` — multi-currency: list, convert, rate upsert, fallback, zero-rate validation (8 tests)
 - `supplychain/service/SupplyChainServiceTest.java` — item-supplier CRUD, requisition lifecycle, return order, auto-PR, alerts, dashboard (17 tests)
-- `reporting/service/DetailedReportService` — no test file (needs one)
+- `reporting/service/DetailedReportServiceTest.java` — sales register line-level tax joins (exists; old 'needs one' note was stale)
 
 ## Existing Service Files (key ones)
 - `ar/service/PaymentService.java` — payment recording, posting, voiding
@@ -481,6 +481,45 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `inventory/consignment/service/ConsignmentService.java` — Consignment/VMI: receive, record-sale, settle. `/api/v1/consignment`.
 - `integration/service/IntegrationService.java` — ERP connector CRUD (Tally/Zoho/Busy/SAP/Custom), sync history. `/api/v1/integrations`.
 - `notification/push/PushNotificationService.java` + `FcmClient.java` — real FCM HTTP v1 (service-account via `app.push.fcm.*`, locally-signed OAuth2, stale-token auto-deactivate); stub logging until configured. `/api/v1/notifications/push`.
+
+---
+
+## PENDING BACKLOG (2026-06-12 — work top to bottom, update as items ship)
+
+### A. Verification debt (FIRST)
+1. ~~BUG-2 residual~~ — RESOLVED in code: `PaymentService.voidPayment` line ~248 calls `adjustContactOutstandingAr(+amount)`; test assertion added to PaymentServiceTest.
+2. `flutter analyze` + `flutter test` on BOTH apps — recent screens were written without an SDK in the cloud env (POS catalog section, Coverage, Attendance, Samples, MR Approvals, Live Tracking; field app Tour Plan/Daily Report/detailing/punch card). MUST run locally before building.
+3. Fresh-DB boot smoke: start backend against empty DB (Redis up), register org, confirm V1→V3 Flyway + per-org CoA seeding, bill one POS sale.
+4. ~~DetailedReportService has no test~~ — stale note: DetailedReportServiceTest.java exists.
+
+### B. Tally "CA pack" (highest-value dev block)
+1. Cost centre P&L report (journal_line.cost_centre column + DTO exist; needs report + journal-form field + hub entry).
+2. Budgets + variance (new `budget` table, CRUD, variance report, simple ERP entry screen).
+3. Interest on overdue receivables (org setting `ar.overdue_interest_rate_pa`, report; later: one-click debit-note draft).
+4. Stock ageing report (0-30/31-60/61-90/90+ from cost_lot received dates; WA orgs fall back to item last-receipt).
+5. Ratio analysis (current/quick ratio, debtor/creditor days, inventory turnover — from TB + registers).
+6. Realized forex gain/loss on settlement (posting in Payment/VendorPayment when doc currency ≠ INR).
+(Post-dated vouchers already exist — old V56.)
+
+### C. Pharma/catalog follow-ups
+1. HSN master CRUD/import screen (currently read-only, 10 seed rows; unknown HSN on a POS line reports 0% in GSTR figures — grocery orgs especially need to add codes).
+2. Schedule H/H1/X overlay on drug_master (source had no schedule data; all 22.9k rows default GENERAL).
+3. Seed the 33 GST-exempt lifesaving drugs (items/reference at gst_rate 0, identified by drug name not HSN).
+4. Org setting: auto batch-track items created via POS catalog quick-add.
+5. Optional: merge official Jan Aushadhi / NLEM lists (gov sites bot-gated — needs one manual browser download).
+
+### D. Field force leftovers
+1. E-detailing (brochures/visual aids shown in-visit, tracked per product) — last Phase-3 item.
+2. Attendance → payroll LOP integration.
+3. True background GPS in field app (current tracking is foreground Timer only).
+
+### E. Deployment-day config checklist (no code)
+FCM service-account (`app.push.fcm.service-account-file`) · SMS provider keys · WhatsApp Business token · GSP creds (e-invoice/EWB one-click) · Redis.
+
+### F. Bigger tracks (later)
+Manufacturing tracker 43/101 remaining (Gantt, shop-floor mobile, maintenance, pharma BMR/FSSAI) · GST polish (B2CL in GSTR-1, 2B auto-fetch via GSP, re-upload dedupe) · POS catalog: full 254k source list importer.
+
+---
 
 ## Doc Files Index
 | Doc | Purpose | Read when |
