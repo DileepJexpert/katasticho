@@ -89,6 +89,10 @@ public class ContactService {
                 .bankIfsc(req.bankIfsc())
                 .upiId(req.upiId())
                 .notes(req.notes())
+                .medicalCategory(req.medicalCategory())
+                .specialty(req.specialty())
+                .mrClass(req.mrClass())
+                .visitsPerMonth(req.visitsPerMonth())
                 .build();
 
         contact = contactRepository.save(contact);
@@ -157,6 +161,10 @@ public class ContactService {
         contact.setBankIfsc(req.bankIfsc());
         contact.setUpiId(req.upiId());
         contact.setNotes(req.notes());
+        contact.setMedicalCategory(req.medicalCategory());
+        contact.setSpecialty(req.specialty());
+        contact.setMrClass(req.mrClass());
+        contact.setVisitsPerMonth(req.visitsPerMonth());
 
         contact = contactRepository.save(contact);
         auditService.log("CONTACT", contact.getId(), "UPDATE", null, null);
@@ -272,6 +280,7 @@ public class ContactService {
                 c.isTdsApplicable(), c.getTdsSection(), c.getTdsRate(),
                 c.getBankName(), c.getBankAccountNo(), c.getBankIfsc(), c.getUpiId(),
                 c.isActive(), c.getNotes(), c.getCreatedAt(),
+                c.getMedicalCategory(), c.getSpecialty(), c.getMrClass(), c.getVisitsPerMonth(),
                 c.getPersons().stream()
                         .filter(p -> !p.isDeleted())
                         .map(this::toPersonResponse)

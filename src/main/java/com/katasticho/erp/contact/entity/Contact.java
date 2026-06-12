@@ -64,6 +64,19 @@ public class Contact extends BaseEntity {
     @Column(name = "msme_registration_no", length = 50)
     private String msmeRegistrationNo;
 
+    // Pharma MR classification (null for non-pharma orgs)
+    @Column(name = "medical_category", length = 20)
+    private String medicalCategory;   // DOCTOR / CHEMIST / STOCKIST / HOSPITAL
+
+    @Column(length = 100)
+    private String specialty;
+
+    @Column(name = "mr_class", length = 5)
+    private String mrClass;           // A / B / C visit-priority class
+
+    @Column(name = "visits_per_month")
+    private Integer visitsPerMonth;
+
     // Contact channels
     @Column(length = 255)
     private String email;

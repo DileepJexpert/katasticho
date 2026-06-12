@@ -251,4 +251,44 @@ class FieldSalesRepository {
         await _api.get(ApiConfig.fieldSalesLocationTrail(executionId));
     return (response.data['data'] ?? response.data) as Map<String, dynamic>;
   }
+
+  // -- MR approvals (tour plans + DCR) --
+  Future<List<Map<String, dynamic>>> pendingTourPlans() async {
+    final response = await _api.get(ApiConfig.mrTourPlansPending);
+    return _asList(response.data['data'] ?? response.data);
+  }
+
+  Future<Map<String, dynamic>> getTourPlan(String id) async {
+    final response = await _api.get(ApiConfig.mrTourPlanById(id));
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  Future<void> approveTourPlan(String id) async {
+    await _api.post(ApiConfig.mrTourPlanApprove(id));
+  }
+
+  Future<void> rejectTourPlan(String id, String reason) async {
+    await _api.post(ApiConfig.mrTourPlanReject(id), data: {'reason': reason});
+  }
+
+  Future<List<Map<String, dynamic>>> pendingDcrs() async {
+    final response = await _api.get(ApiConfig.mrDcrPending);
+    return _asList(response.data['data'] ?? response.data);
+  }
+
+  Future<void> approveDcr(String id) async {
+    await _api.post(ApiConfig.mrDcrApprove(id));
+  }
+
+  Future<void> rejectDcr(String id, String reason) async {
+    await _api.post(ApiConfig.mrDcrReject(id), data: {'reason': reason});
+  }
+
+  List<Map<String, dynamic>> _asList(dynamic data) {
+    final content = data is Map ? (data['content'] as List?) ?? [] : data;
+    return (content as List)
+        .whereType<Map>()
+        .map((e) => e.cast<String, dynamic>())
+        .toList();
+  }
 }

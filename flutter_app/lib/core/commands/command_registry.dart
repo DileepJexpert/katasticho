@@ -309,6 +309,13 @@ List<KCommand> buildAppCommands() {
       route: Routes.fieldSalesLiveTracking,
       keywords: ['gps', 'location', 'salesman', 'map'],
     ),
+    KCommand(
+      label: 'MR Approvals',
+      icon: Icons.fact_check,
+      section: 'Navigate',
+      route: Routes.fieldSalesMrApprovals,
+      keywords: ['tour plan', 'dcr', 'mtp', 'medical rep'],
+    ),
 
     // ── Partner Network ────────────────────────────────────────────
     KCommand(

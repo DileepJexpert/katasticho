@@ -70,5 +70,11 @@ public record CreateContactRequest(
         String bankIfsc,
         String upiId,
 
-        String notes
+        String notes,
+
+        // Pharma MR classification
+        String medicalCategory,
+        String specialty,
+        String mrClass,
+        Integer visitsPerMonth
 ) {}

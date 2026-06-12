@@ -45,6 +45,12 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
   final _creditLimitCtrl = TextEditingController(text: '0');
   int _paymentTermsDays = 30;
 
+  // Pharma MR profile
+  String? _medicalCategory;
+  String? _mrClass;
+  final _specialtyCtrl = TextEditingController();
+  final _visitsPerMonthCtrl = TextEditingController();
+
   bool _loading = false;
   bool _isEdit = false;
 
@@ -75,6 +81,8 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
     _billPostalCtrl.dispose();
     _billCountryCtrl.dispose();
     _creditLimitCtrl.dispose();
+    _specialtyCtrl.dispose();
+    _visitsPerMonthCtrl.dispose();
     super.dispose();
   }
 
@@ -103,6 +111,11 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
       _creditLimitCtrl.text =
           (c['creditLimit'] as num?)?.toString() ?? '0';
       _paymentTermsDays = (c['paymentTermsDays'] as num?)?.toInt() ?? 30;
+      _medicalCategory = c['medicalCategory'] as String?;
+      _mrClass = c['mrClass'] as String?;
+      _specialtyCtrl.text = c['specialty'] as String? ?? '';
+      _visitsPerMonthCtrl.text =
+          (c['visitsPerMonth'] as num?)?.toString() ?? '';
     });
   }
 
@@ -339,6 +352,59 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
                 ]),
               ],
             ),
+
+            KCollapsibleSection(
+              title: 'MR Profile (Doctor / Chemist)',
+              icon: Icons.medical_services_outlined,
+              children: [
+                KCompactRow(children: [
+                  DropdownButtonFormField<String?>(
+                    value: _medicalCategory,
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      prefixIcon: Icon(Icons.medical_services_outlined),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: null, child: Text('None')),
+                      DropdownMenuItem(value: 'DOCTOR', child: Text('Doctor')),
+                      DropdownMenuItem(value: 'CHEMIST', child: Text('Chemist')),
+                      DropdownMenuItem(
+                          value: 'STOCKIST', child: Text('Stockist')),
+                      DropdownMenuItem(
+                          value: 'HOSPITAL', child: Text('Hospital')),
+                    ],
+                    onChanged: (v) => setState(() => _medicalCategory = v),
+                  ),
+                  DropdownButtonFormField<String?>(
+                    value: _mrClass,
+                    decoration: const InputDecoration(
+                      labelText: 'Class',
+                      prefixIcon: Icon(Icons.star_outline),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: null, child: Text('None')),
+                      DropdownMenuItem(value: 'A', child: Text('A')),
+                      DropdownMenuItem(value: 'B', child: Text('B')),
+                      DropdownMenuItem(value: 'C', child: Text('C')),
+                    ],
+                    onChanged: (v) => setState(() => _mrClass = v),
+                  ),
+                ]),
+                KSpacing.vGapSm,
+                KCompactRow(children: [
+                  KTextField(
+                    label: 'Specialty',
+                    controller: _specialtyCtrl,
+                    hint: 'e.g. Cardiologist',
+                  ),
+                  KTextField(
+                    label: 'Visits / Month',
+                    controller: _visitsPerMonthCtrl,
+                    keyboardType: TextInputType.number,
+                  ),
+                ]),
+              ],
+            ),
             KSpacing.vGapMd,
           ],
         ),
@@ -380,6 +446,12 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
           _billCountryCtrl.text.trim().isEmpty ? 'IN' : _billCountryCtrl.text.trim(),
       'creditLimit': double.tryParse(_creditLimitCtrl.text) ?? 0.0,
       'paymentTermsDays': _paymentTermsDays,
+      if (_medicalCategory != null) 'medicalCategory': _medicalCategory,
+      if (_mrClass != null) 'mrClass': _mrClass,
+      if (_specialtyCtrl.text.isNotEmpty)
+        'specialty': _specialtyCtrl.text.trim(),
+      if (_visitsPerMonthCtrl.text.isNotEmpty)
+        'visitsPerMonth': int.tryParse(_visitsPerMonthCtrl.text),
     };
 
     try {

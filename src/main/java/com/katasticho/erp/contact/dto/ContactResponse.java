@@ -64,5 +64,12 @@ public record ContactResponse(
         boolean active,
         String notes,
         Instant createdAt,
+
+        // Pharma MR classification
+        String medicalCategory,
+        String specialty,
+        String mrClass,
+        Integer visitsPerMonth,
+
         List<ContactPersonResponse> persons
 ) {}

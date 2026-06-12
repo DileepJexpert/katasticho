@@ -86,6 +86,10 @@ public class FieldVisit {
     @Column(name = "photo_url")
     private String photoUrl;
 
+    /** Manager who worked jointly with the MR on this visit. */
+    @Column(name = "joint_visit_user_id")
+    private UUID jointVisitUserId;
+
     @Column(name = "is_deleted", nullable = false)
     @Builder.Default
     private boolean isDeleted = false;

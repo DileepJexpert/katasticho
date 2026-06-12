@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V67** (field location tracking). Next new migration = V68.
+- Location: `src/main/resources/db/migration/`. Latest is **V68** (MR tour plan + DCR). Next new migration = V69.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -219,6 +219,16 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **ERP Flutter:** `LiveTrackingScreen` (`/field-sales/live-tracking`) — 30s auto-refresh list, stale (>15min) highlighting, open-in-Google-Maps, trail bottom sheet (distance + ping count). Sidebar + command palette wired.
 - **Field app (katasticho-mr-salesman-app):** `LocationPingTracker` (3-min foreground Timer while execution IN_PROGRESS, auto start/stop from visits screen `_syncPingTracker`), pings queue offline as `LOCATION_PING` on network failure, geofence warning snackbar after check-in.
 - **Tests:** FieldTrackingServiceTest (7) + 3 geofence tests in FieldSalesServiceTest. 647 total pass.
+
+#### Pharma MR Pack — Phase 1 (2026-06-12)
+**Goal:** MR-reporting parity with CBO ERP-style SFA (doctor masters, MTP, DCR). Phases 2-3 pending: samples/gift stock, TA/DA auto-calc, DCR nudges, hierarchy dashboards, coverage/deviation reports, e-detailing.
+- **V68 migration:** contact MR columns (`medical_category` DOCTOR/CHEMIST/STOCKIST/HOSPITAL, `specialty`, `mr_class` A/B/C, `visits_per_month`), `tour_plan` + `tour_plan_entry` (MTP, unique org+salesperson+month partial index), `dcr_report` (one per salesperson/day, unique partial index), `visit_product_log` (detailing/samples/gifts per visit), `field_visit.joint_visit_user_id`.
+- **`MrReportingService`** (`fieldsales/service/`): tour plan lifecycle DRAFT→SUBMITTED→APPROVED/REJECTED (owner-only edits in DRAFT/REJECTED, entries must fall in plan month, empty-plan submit blocked, self-approval blocked `MR_SELF_APPROVAL_FORBIDDEN`); `logVisitProducts` (replace-style, post-check-in only, ownership via execution salesperson); `buildDcr` (create-or-refresh DRAFT from day's visits: doctor/chemist split via contact.medicalCategory, POB=Σ orderValue, samples from product logs); `submitDcr` (rebuilds first; FIELD_WORK needs ≥1 visit, LEAVE/MEETING/OFFICE don't); approve/reject mirror day-close.
+- **`MrReportingController`** @ `/api/v1/mr` (FIELD_SALES module): tour-plans CRUD+lifecycle, `/tour-plans/pending` + `/dcr/pending` + approve/reject (OWNER/ADMIN), `/dcr/build|submit|me`, `PUT/GET /visits/{id}/products`, `POST /visits/{id}/joint-visit`.
+- **Contact DTOs:** medicalCategory/specialty/mrClass/visitsPerMonth appended to CreateContactRequest + ContactResponse (single construction site in ContactService.toResponse).
+- **ERP Flutter:** contact form "MR Profile" collapsible section; `MrApprovalsScreen` (`/field-sales/mr-approvals`, tabs: Tour Plans w/ entries bottom sheet, DCRs w/ summary line; approve/reject w/ reason dialog). Sidebar + command palette wired.
+- **Field app:** app-bar MTP + DCR buttons. `TourPlanScreen` (+detail: add/remove day entries, activity types, submit, rejection banner), `DcrScreen` (today's summary metrics, work type, remarks, submit, history), "Detail" button on IN_PROGRESS/COMPLETED visits → `_DetailingSheet` (products + samples + gifts → PUT products).
+- **Tests:** MrReportingServiceTest (16). 663 total pass.
 
 ### Phase 8: Partner Network (B2B Ordering) (COMPLETE — 2026-06-06)
 **Goal:** Connected B2B trade network within the same product.

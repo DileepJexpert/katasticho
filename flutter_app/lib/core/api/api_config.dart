@@ -710,6 +710,18 @@ class ApiConfig {
   static String fieldSalesLocationTrail(String executionId) =>
       '/api/v1/field-sales/locations/trail/$executionId';
 
+  // MR Reporting (tour plans + DCR)
+  static const String mrTourPlans = '/api/v1/mr/tour-plans';
+  static const String mrTourPlansPending = '/api/v1/mr/tour-plans/pending';
+  static String mrTourPlanById(String id) => '/api/v1/mr/tour-plans/$id';
+  static String mrTourPlanApprove(String id) =>
+      '/api/v1/mr/tour-plans/$id/approve';
+  static String mrTourPlanReject(String id) =>
+      '/api/v1/mr/tour-plans/$id/reject';
+  static const String mrDcrPending = '/api/v1/mr/dcr/pending';
+  static String mrDcrApprove(String id) => '/api/v1/mr/dcr/$id/approve';
+  static String mrDcrReject(String id) => '/api/v1/mr/dcr/$id/reject';
+
   // Partner Network
   static const String partnerNetworkPartners = '/api/v1/partner-network/partners';
   static const String partnerNetworkPartnersPending = '/api/v1/partner-network/partners/pending';

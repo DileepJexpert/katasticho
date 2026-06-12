@@ -149,6 +149,7 @@ import '../features/payroll/presentation/payroll_run_detail_screen.dart';
 import '../features/payroll/presentation/payroll_settings_screen.dart';
 import '../features/field_sales/presentation/beat_list_screen.dart';
 import '../features/field_sales/presentation/live_tracking_screen.dart';
+import '../features/field_sales/presentation/mr_approvals_screen.dart';
 import '../features/field_sales/presentation/route_list_screen.dart';
 import '../features/field_sales/presentation/van_list_screen.dart';
 import '../features/field_sales/presentation/route_execution_screen.dart';
@@ -363,6 +364,7 @@ class Routes {
   static const fieldSalesDayClose = '/field-sales/day-close';
   static const fieldSalesDashboard = '/field-sales/dashboard';
   static const fieldSalesLiveTracking = '/field-sales/live-tracking';
+  static const fieldSalesMrApprovals = '/field-sales/mr-approvals';
 
   // Partner Network (B2B)
   static const partnerNetworkPartners = '/partner-network/partners';
@@ -1099,6 +1101,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.fieldSalesLiveTracking,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: LiveTrackingScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesMrApprovals,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: MrApprovalsScreen(),
             ),
           ),
           // Partner Network (B2B)
