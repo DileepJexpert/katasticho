@@ -70,6 +70,8 @@ class MrpServiceTest {
     @Mock private JournalService journalService;
     @Mock private ManufacturingWipPostingRule wipPostingRule;
     @Mock private ProductionCostSummaryRepository costSummaryRepo;
+    @Mock private com.katasticho.erp.inventory.repository.BomAlternateRepository bomAlternateRepo;
+    @Mock private com.katasticho.erp.inventory.repository.BomCoProductRepository bomCoProductRepo;
 
     // ── PurchaseOrderService (used for convertPlannedToPO) ───────────────────
     @Mock private PurchaseOrderService purchaseOrderService;
@@ -88,7 +90,8 @@ class MrpServiceTest {
     void setUp() {
         manufacturingService = new ManufacturingService(
                 workOrderRepo, workOrderLineRepo, bomComponentRepo, itemRepo, inventoryService,
-                salesOrderRepo, warehouseRepo, journalService, wipPostingRule, costSummaryRepo);
+                salesOrderRepo, warehouseRepo, journalService, wipPostingRule, costSummaryRepo,
+                bomAlternateRepo, bomCoProductRepo);
 
         mrpService = new MrpService(
                 mrpRunRepo, mrpDemandRepo, mrpSupplyRepo, plannedOrderRepo,
@@ -324,6 +327,50 @@ class MrpServiceTest {
 
         assertTrue(hasSoDemand, "Should create SO demand for FG");
         assertTrue(hasExplosionDemand, "Should create explosion demand for RM component");
+    }
+
+    /**
+     * Test 3b: Phantom composites get NO PRODUCTION planned order — their
+     * components become demand directly (and roll up to PURCHASE orders).
+     */
+    @Test
+    void runMrp_phantomComposite_skipsProductionOrderAndExplodesComponents() {
+        Item phantomFg = compositeItem();
+        phantomFg.setPhantom(true);
+        Item rm = purchasedItem();
+        SalesOrder so = openSO(fgItemId, BigDecimal.valueOf(5));
+        BomComponent bom = bomLine(fgItemId, rmItemId, BigDecimal.valueOf(2));
+
+        MrpRun run = savedRun();
+        when(mrpRunRepo.save(any())).thenReturn(run);
+        when(salesOrderRepo.findPendingDispatch(orgId)).thenReturn(List.of(so));
+        when(forecastRepo.findByOrgIdAndForecastMonthBetweenAndIsDeletedFalseOrderByForecastMonth(
+                any(), any(), any())).thenReturn(List.of());
+        when(stockBalanceRepo.findByOrgIdOrderByLastMovementAtDesc(orgId)).thenReturn(List.of());
+        when(workOrderRepo.findByOrgIdAndStatusInAndIsDeletedFalse(any(), any())).thenReturn(List.of());
+
+        when(reorderPolicyRepo.findByOrgIdAndItemIdAndWarehouseIdIsNullAndIsDeletedFalse(any(), any()))
+                .thenReturn(Optional.empty());
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(phantomFg));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId)).thenReturn(Optional.of(rm));
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+                .thenReturn(List.of(bom));
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, rmItemId))
+                .thenReturn(List.of());
+        when(itemSupplierRepo.findByOrgIdAndItemIdAndPreferredTrueAndIsDeletedFalse(orgId, rmItemId))
+                .thenReturn(Optional.empty());
+        when(mrpDemandRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(plannedOrderRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        mrpService.runMrp(90);
+
+        // No PRODUCTION planned order for the phantom itself
+        verify(plannedOrderRepo, never()).save(argThat(p -> fgItemId.equals(p.getItemId())));
+        // Components became demand directly: 5 × 2 = 10 RM → PURCHASE order
+        verify(plannedOrderRepo, atLeastOnce()).save(argThat(p ->
+                "PURCHASE".equals(p.getOrderType())
+                        && rmItemId.equals(p.getItemId())
+                        && BigDecimal.TEN.compareTo(p.getPlannedQty()) == 0));
     }
 
     /**
