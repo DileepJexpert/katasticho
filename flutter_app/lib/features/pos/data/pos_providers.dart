@@ -4,6 +4,15 @@ import '../../../core/api/api_client.dart';
 import 'pos_favourites.dart';
 import 'pos_repository.dart';
 
+/// Drug-master catalog fallback for POS — medicines not yet in the org's
+/// item master. Only fetched when the catalog section is actually built.
+final posCatalogSearchProvider = FutureProvider.autoDispose
+    .family<List<Map<String, dynamic>>, String>((ref, query) async {
+  if (query.trim().length < 2) return [];
+  final repo = ref.watch(posRepositoryProvider);
+  return repo.catalogSearch(query: query.trim());
+});
+
 /// POS search results — re-fetches when query changes.
 final posSearchProvider = FutureProvider.autoDispose
     .family<List<Map<String, dynamic>>, String?>((ref, query) async {

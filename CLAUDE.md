@@ -305,6 +305,12 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **V66 WO enhancements:** priority (URGENT/HIGH/NORMAL/LOW, URGENT-first default sort, `?priority=` filter), `WorkOrderWorkflowHandler` (mirrors SO pattern, WORK_ORDER workflow seeded `active=false`, PENDING_APPROVAL blocks issue), `POST /work-orders/{id}/clone` (fresh DRAFT, passes approval gate), yield via existing `ProductionCostSummary.yieldPercentage`, `GET /reports/production-summary` (status counts, completion/on-time %, avg yield, scrap by reason).
 - **Tests:** 629 total pass (39 new: 14 BOM/mfg, 9 QC, 14 WO enhancements, 2 WO workflow handler).
 
+### POS Catalog Quick-Add — Marg parity (2026-06-12)
+- **`PosCatalogService.createItemFromDrug(drugId, warehouseId, openingStock)`** — one tap at the counter creates an org item from a `drug_master` row (name/HSN/GST/MRP/composition/manufacturer/schedule/pack prefilled, salePrice=MRP, trackBatches=false, optional opening stock via ItemService OPENING movement so it's billable immediately) and returns it as a `PosSearchResult` via exact-SKU search. Idempotent by item name (double-tap safe); SKU slug from brand + random suffix on collision. Endpoint `POST /api/v1/items/from-drug/{drugId}?opening_stock=&branch_id=` (OPERATOR allowed by design).
+- **POS Flutter:** search results < 5 → "From medicine catalog" section (drug-master search via `posCatalogSearchProvider`, fetched only when the section renders); tap → qty-on-shelf dialog (autofocus, Enter submits) → create+add to cart, current search invalidated.
+- **Seller speed:** debounce 300→200ms; stale-while-loading (last results shown dimmed instead of shimmer flicker between keystrokes); Enter-to-add-top-result now awaits the in-flight request (`.future`) instead of no-oping during loading.
+- **Tests:** PosCatalogServiceTest (3 — field mapping incl. openingStock, idempotency, SKU collision). 690 total pass.
+
 ### Kirana Retail Production Gaps (2026-06-10)
 **Goal:** Make the POS + core flows production-ready for Indian small grocery/pharmacy shops.
 

@@ -5,6 +5,7 @@ import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.pos.dto.PosSearchResult;
+import com.katasticho.erp.pos.service.PosCatalogService;
 import com.katasticho.erp.pos.service.PosSearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ import java.util.UUID;
 public class PosSearchController {
 
     private final PosSearchService posSearchService;
+    private final PosCatalogService posCatalogService;
 
     /**
      * Fast POS item search — optimized for counter billing speed.
@@ -49,6 +51,23 @@ public class PosSearchController {
             )).toList();
         }
         return ResponseEntity.ok(ApiResponse.ok(results));
+    }
+
+    /**
+     * Marg-style catalog quick-add: create an org item from a drug-master
+     * entry and return it as a billable POS search result. OPERATOR allowed
+     * by design - the counter seller is exactly who hits an uncatalogued
+     * medicine mid-bill. Cost price is not involved (purchase price is null).
+     */
+    @PostMapping("/from-drug/{drugId}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<PosSearchResult>> createFromDrug(
+            @PathVariable UUID drugId,
+            @RequestParam(name = "branch_id", required = false) UUID branchId,
+            @RequestParam(name = "opening_stock", required = false) java.math.BigDecimal openingStock) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                posCatalogService.createItemFromDrug(drugId, branchId, openingStock),
+                "Item added from catalog"));
     }
 
     private boolean canSeeCostPrice(Authentication auth) {

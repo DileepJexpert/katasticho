@@ -16,6 +16,7 @@ import '../data/pos_held_carts.dart';
 import '../data/pos_recent_transactions.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_repository.dart';
+import '../data/pos_repository.dart';
 import '../data/sales_receipt_providers.dart';
 import 'widgets/pos_search_bar.dart';
 import 'widgets/pos_item_search_result.dart';
@@ -61,6 +62,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   final _searchFocusNode = FocusNode();
   String? _searchQuery;
   Timer? _debounce;
+  // Last successful search results — shown dimmed while the next
+  // keystroke's request loads, so the list never flickers to a shimmer.
+  List<Map<String, dynamic>> _lastResults = [];
   bool _isSubmitting = false;
   bool _showRecentPanel = false;
 
@@ -80,7 +84,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   void _onSearchChanged(String value) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
+    _debounce = Timer(const Duration(milliseconds: 200), () {
       final q = value.trim();
       setState(() {
         _searchQuery = q.length < 2 ? null : q;
@@ -100,12 +104,13 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     setState(() {
       _searchQuery = q;
     });
-    final searchAsync = ref.read(posSearchProvider(q));
-    searchAsync.whenData((results) {
-      if (results.isNotEmpty) {
+    // Await the future so Enter works even while the request is in flight
+    // (previously a loading state made Enter a no-op).
+    ref.read(posSearchProvider(q).future).then((results) {
+      if (mounted && results.isNotEmpty) {
         _addToCart(results.first);
       }
-    });
+    }).catchError((_) {});
   }
 
   // ── Cart operations ──────────────────────────────────────────
@@ -1594,29 +1599,109 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   Widget _buildSearchResults(
       AsyncValue<List<Map<String, dynamic>>> searchAsync) {
     return searchAsync.when(
-      loading: () => const KShimmerList(),
+      loading: () => _lastResults.isEmpty
+          ? const KShimmerList()
+          : Opacity(opacity: 0.5, child: _resultsList(_lastResults)),
       error: (err, _) => KErrorView(message: 'Search failed: $err'),
       data: (results) {
-        if (results.isEmpty) {
-          return const KEmptyState(
-            icon: Icons.search_off,
-            title: 'No items found',
-            subtitle: 'Try a different search term',
-          );
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.only(bottom: 8),
-          itemCount: results.length,
-          separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
-          itemBuilder: (context, index) {
-            return PosItemSearchResult(
-              item: results[index],
-              onTap: () => _addToCart(results[index]),
-            );
-          },
-        );
+        _lastResults = results;
+        return _resultsList(results);
       },
     );
+  }
+
+  Widget _resultsList(List<Map<String, dynamic>> results) {
+    final query = _searchQuery;
+    // Marg-style fallback: when the org's own items don't cover the
+    // search, offer the platform medicine catalog below.
+    final showCatalog = query != null && results.length < 5;
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 8),
+      children: [
+        for (var i = 0; i < results.length; i++) ...[
+          if (i > 0) const Divider(height: 1, indent: 72),
+          PosItemSearchResult(
+            item: results[i],
+            onTap: () => _addToCart(results[i]),
+          ),
+        ],
+        if (results.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 4),
+            child: Text(
+              'Not in your items',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: Theme.of(context).colorScheme.outline),
+            ),
+          ),
+        if (showCatalog)
+          _PosCatalogSection(query: query, onAdd: _addFromCatalog),
+      ],
+    );
+  }
+
+  /// One-tap add from the medicine catalog: asks the qty on shelf
+  /// (recorded as opening stock so the item is billable immediately),
+  /// creates the org item, and drops it straight into the cart.
+  Future<void> _addFromCatalog(Map<String, dynamic> drug) async {
+    final qtyController = TextEditingController(text: '1');
+    final qty = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(drug['brandName']?.toString() ?? 'Add from catalog'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if ((drug['saltComposition'] ?? '').toString().isNotEmpty)
+              Text(drug['saltComposition'].toString(),
+                  style: Theme.of(ctx).textTheme.bodySmall),
+            if ((drug['manufacturer'] ?? '').toString().isNotEmpty)
+              Text(drug['manufacturer'].toString(),
+                  style: Theme.of(ctx).textTheme.bodySmall),
+            const SizedBox(height: 12),
+            TextField(
+              controller: qtyController,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Qty in stock (opening)',
+                helperText: 'Will be saved to your items with this stock',
+              ),
+              onSubmitted: (v) =>
+                  Navigator.pop(ctx, double.tryParse(v) ?? 1.0),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(
+                ctx, double.tryParse(qtyController.text) ?? 1.0),
+            child: const Text('Add & bill'),
+          ),
+        ],
+      ),
+    );
+    if (qty == null) return;
+
+    try {
+      final item = await ref
+          .read(posRepositoryProvider)
+          .createItemFromDrug(drug['id'].toString(), openingStock: qty);
+      if (!mounted) return;
+      // Refresh the current search so the new item shows as an org item.
+      if (_searchQuery != null) {
+        ref.invalidate(posSearchProvider(_searchQuery));
+      }
+      _addToCart(item);
+    } catch (e) {
+      _showErrorSnackBar('Could not add from catalog: $e');
+    }
   }
 
   Widget _buildCartView(PosCartState cart) {
@@ -1923,6 +2008,86 @@ class _OfflineSyncBadge extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// "From medicine catalog" section under POS search results: platform
+/// drug-master matches the org hasn't stocked yet. Tapping one creates
+/// the item (with opening stock) and bills it immediately.
+class _PosCatalogSection extends ConsumerWidget {
+  const _PosCatalogSection({required this.query, required this.onAdd});
+
+  final String query;
+  final Future<void> Function(Map<String, dynamic> drug) onAdd;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final catalogAsync = ref.watch(posCatalogSearchProvider(query));
+    return catalogAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(
+            child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2))),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (drugs) {
+        if (drugs.isEmpty) return const SizedBox.shrink();
+        final theme = Theme.of(context);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Row(
+                children: [
+                  Icon(Icons.auto_stories_outlined,
+                      size: 16, color: theme.colorScheme.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'From medicine catalog — tap to add & bill',
+                    style: theme.textTheme.labelMedium
+                        ?.copyWith(color: theme.colorScheme.primary),
+                  ),
+                ],
+              ),
+            ),
+            for (final drug in drugs)
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.medication_outlined),
+                title: Text(drug['brandName']?.toString() ?? ''),
+                subtitle: Text(
+                  [
+                    drug['saltComposition'],
+                    drug['manufacturer'],
+                  ]
+                      .where((x) =>
+                          x != null && x.toString().trim().isNotEmpty)
+                      .join(' • '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (drug['mrp'] != null)
+                      Text('₹${drug['mrp']}',
+                          style: theme.textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 8),
+                    Icon(Icons.add_circle_outline,
+                        color: theme.colorScheme.primary),
+                  ],
+                ),
+                onTap: () => onAdd(drug),
+              ),
+          ],
+        );
+      },
     );
   }
 }

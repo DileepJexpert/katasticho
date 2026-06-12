@@ -515,6 +515,8 @@ class ApiConfig {
   static String customerPurchaseHistory(String contactId) =>
       '/api/v1/sales-receipts/customer/$contactId/history';
   static const String posSearch = '/api/v1/items/pos-search';
+  static String posCreateFromDrug(String drugId) =>
+      '/api/v1/items/from-drug/$drugId';
 
   // Sales Orders
   static const String salesOrders = '/api/v1/sales-orders';

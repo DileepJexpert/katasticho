@@ -29,6 +29,37 @@ class PosRepository {
     return (data['data'] as List?)?.cast<Map<String, dynamic>>() ?? [];
   }
 
+  /// Drug-master catalog search (platform-wide, ~23k medicines) — used as
+  /// the POS fallback when the org's own item master has no match.
+  Future<List<Map<String, dynamic>>> catalogSearch({
+    required String query,
+    int limit = 10,
+  }) async {
+    final response = await _api.get(ApiConfig.drugMasterSearch,
+        queryParameters: {'q': query, 'limit': limit});
+    final data = response.data as Map<String, dynamic>;
+    return (data['data'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+  }
+
+  /// One-tap "add from catalog": creates the org item from a drug-master
+  /// entry (with optional opening stock so it is billable immediately) and
+  /// returns it shaped exactly like a posSearch result.
+  Future<Map<String, dynamic>> createItemFromDrug(
+    String drugId, {
+    double? openingStock,
+    String? branchId,
+  }) async {
+    final response = await _api.post(
+      ApiConfig.posCreateFromDrug(drugId),
+      queryParameters: {
+        if (openingStock != null) 'opening_stock': openingStock,
+        if (branchId != null) 'branch_id': branchId,
+      },
+    );
+    final data = response.data as Map<String, dynamic>;
+    return (data['data'] as Map?)?.cast<String, dynamic>() ?? {};
+  }
+
   /// Create a sales receipt (immediate POS transaction).
   Future<Map<String, dynamic>> createReceipt(
       Map<String, dynamic> data) async {
