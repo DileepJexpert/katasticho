@@ -27,9 +27,10 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V71** (attendance + leave). Next new migration = V72.
+- Location: `src/main/resources/db/migration/`. **Squashed 2026-06-12** (old V1-V71 chain deleted; DB is recreated from scratch): `V1__baseline_schema.sql` (full schema, CREATE-only, generated via pg_dump after applying the historical chain to PostgreSQL 16 and diff-verified identical) + `V2__seed_reference_data.sql` (drug/salt/manufacturer/HSN masters, substitutions, interactions, coa_template, currency, ai_model_registry). **Next new migration = V3.**
+- Latent fresh-install bugs fixed during the squash: old V59 inserted into non-existent `account.system` (→ `is_system`); old V62's org-scoped `exchange_rate` collided with the V1 platform-level table (V62 shape kept — matches the JPA entity); old V62's currency-column DO-block guards checked the wrong column. The old chain only ever worked on incrementally-migrated DBs.
+- V-number references in the phase notes below (V42, V67, ...) are historical — those files now live only in git history (pre-squash commit).
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
-- Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
 ## Flutter / API Conventions
 - **Dio baseUrl = `http://localhost:8080` with NO `/api/v1` prefix** → every API path string must include `/api/v1/...`.
