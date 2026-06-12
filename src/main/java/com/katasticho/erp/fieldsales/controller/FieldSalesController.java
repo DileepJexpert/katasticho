@@ -430,7 +430,8 @@ public class FieldSalesController {
     public ResponseEntity<ApiResponse<FieldVisit>> recordVisitOrder(
             @PathVariable UUID id,
             @RequestBody Map<String, Object> body) {
-        UUID salesOrderId = UUID.fromString((String) body.get("salesOrderId"));
+        String rawSoId = (String) body.get("salesOrderId");
+        UUID salesOrderId = (rawSoId == null || rawSoId.isBlank()) ? null : UUID.fromString(rawSoId);
         BigDecimal orderValue = new BigDecimal(body.get("orderValue").toString());
         return ResponseEntity.ok(ApiResponse.ok(
                 service.recordVisitOrder(id, salesOrderId, orderValue), "Order recorded"));
