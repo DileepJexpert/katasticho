@@ -215,7 +215,128 @@ class BomServiceTest {
         assertEquals(0, new BigDecimal("3").compareTo(saved.getQuantity()));
     }
 
+    // ── Phantom BOMs ─────────────────────────────────────────────────────
+
+    @Test
+    void addComponent_phantomCompositeChild_allowed() {
+        UUID parentId = UUID.randomUUID();
+        UUID childId = UUID.randomUUID();
+
+        Item parent = item("KIT", ItemType.COMPOSITE, false);
+        parent.setId(parentId);
+        Item phantomChild = item("PH-SUB", ItemType.COMPOSITE, false);
+        phantomChild.setId(childId);
+        phantomChild.setPhantom(true);
+
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(parentId, orgId))
+                .thenReturn(Optional.of(parent));
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(childId, orgId))
+                .thenReturn(Optional.of(phantomChild));
+        when(bomRepository.existsByOrgIdAndParentItemIdAndChildItemIdAndIsDeletedFalse(
+                orgId, parentId, childId)).thenReturn(false);
+        when(bomRepository.save(any(BomComponent.class)))
+                .thenAnswer(inv -> {
+                    BomComponent row = inv.getArgument(0);
+                    row.setId(UUID.randomUUID());
+                    return row;
+                });
+
+        BomComponent saved = service.addComponent(parentId,
+                new BomComponentRequest(childId, new BigDecimal("2")));
+
+        assertNotNull(saved.getId());
+        assertEquals(childId, saved.getChildItemId());
+    }
+
+    @Test
+    void explode_phantomChild_flattensThroughWithScaledQuantities() {
+        UUID parentId  = UUID.randomUUID();
+        UUID rm1Id     = UUID.randomUUID();
+        UUID phantomId = UUID.randomUUID();
+        UUID rm2Id     = UUID.randomUUID();
+
+        Item rm1 = item("RM-1", ItemType.GOODS, false);
+        rm1.setId(rm1Id);
+        Item phantom = item("PH-SUB", ItemType.COMPOSITE, false);
+        phantom.setId(phantomId);
+        phantom.setPhantom(true);
+        Item rm2 = item("RM-2", ItemType.GOODS, false);
+        rm2.setId(rm2Id);
+
+        BomComponent rowRm1 = component(parentId, rm1Id, new BigDecimal("2"));
+        BomComponent rowPhantom = component(parentId, phantomId, new BigDecimal("3"));
+        BomComponent rowRm2 = component(phantomId, rm2Id, new BigDecimal("4"));
+        rowRm2.setScrapPercent(new BigDecimal("5"));
+
+        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentId))
+                .thenReturn(java.util.List.of(rowRm1, rowPhantom));
+        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, phantomId))
+                .thenReturn(java.util.List.of(rowRm2));
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(rm1Id, orgId))
+                .thenReturn(Optional.of(rm1));
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(phantomId, orgId))
+                .thenReturn(Optional.of(phantom));
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(rm2Id, orgId))
+                .thenReturn(Optional.of(rm2));
+
+        java.util.List<BomComponent> result = service.explode(orgId, parentId);
+
+        assertEquals(2, result.size());
+        // Direct (non-phantom) child returned untouched
+        assertEquals(rm1Id, result.get(0).getChildItemId());
+        assertEquals(0, new BigDecimal("2").compareTo(result.get(0).getQuantity()));
+        // Phantom flattened: 3 phantom units × 4 rm2 each = 12, re-parented onto the root
+        assertEquals(rm2Id, result.get(1).getChildItemId());
+        assertEquals(parentId, result.get(1).getParentItemId());
+        assertEquals(0, new BigDecimal("12").compareTo(result.get(1).getQuantity()));
+        // Scrap percent of the flattened row carried through
+        assertEquals(0, new BigDecimal("5").compareTo(result.get(1).getScrapPercent()));
+        // The phantom itself never appears
+        assertTrue(result.stream().noneMatch(r -> phantomId.equals(r.getChildItemId())));
+    }
+
+    @Test
+    void explode_phantomCycle_throws() {
+        UUID parentId   = UUID.randomUUID();
+        UUID phantomAId = UUID.randomUUID();
+        UUID phantomBId = UUID.randomUUID();
+
+        Item phantomA = item("PH-A", ItemType.COMPOSITE, false);
+        phantomA.setId(phantomAId);
+        phantomA.setPhantom(true);
+        Item phantomB = item("PH-B", ItemType.COMPOSITE, false);
+        phantomB.setId(phantomBId);
+        phantomB.setPhantom(true);
+
+        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentId))
+                .thenReturn(java.util.List.of(component(parentId, phantomAId, BigDecimal.ONE)));
+        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, phantomAId))
+                .thenReturn(java.util.List.of(component(phantomAId, phantomBId, BigDecimal.ONE)));
+        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, phantomBId))
+                .thenReturn(java.util.List.of(component(phantomBId, phantomAId, BigDecimal.ONE)));
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(phantomAId, orgId))
+                .thenReturn(Optional.of(phantomA));
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(phantomBId, orgId))
+                .thenReturn(Optional.of(phantomB));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.explode(orgId, parentId));
+        assertEquals("BOM_PHANTOM_CYCLE", ex.getErrorCode());
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────
+
+    private BomComponent component(UUID parentId, UUID childId, BigDecimal qty) {
+        BomComponent row = BomComponent.builder()
+                .parentItemId(parentId)
+                .childItemId(childId)
+                .quantity(qty)
+                .build();
+        row.setId(UUID.randomUUID());
+        row.setOrgId(orgId);
+        return row;
+    }
+
 
     private Item item(String sku, ItemType type, boolean batch) {
         Item item = Item.builder()

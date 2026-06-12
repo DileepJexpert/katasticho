@@ -9,6 +9,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 
 const _statusTabs = [
@@ -135,28 +136,40 @@ class _PayrollRunListScreenState extends ConsumerState<PayrollRunListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          KListPageHeader(
-            title: 'Payroll Runs',
-            searchHint: 'Search run number, period...',
-            tabs: _statusTabs,
-            selectedTab: _status,
-            onTabChanged: (value) => setState(() => _status = value),
-            onSearchChanged: (value) =>
-                setState(() => _search = value.trim().toLowerCase()),
-          ),
-          Expanded(
-            child: _buildBody(),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('New Run'),
-        tooltip: 'New Run (N)',
+    return KKeyboardListWrapper(
+      itemCount: () => _filteredRuns.length,
+      onNew: _showCreateDialog,
+      onRefresh: _fetchRuns,
+      onOpen: (index) {
+        final filtered = _filteredRuns;
+        if (index < filtered.length) {
+          final id = filtered[index]['id']?.toString();
+          if (id != null) context.push('/payroll/runs/$id');
+        }
+      },
+      child: Scaffold(
+        body: Column(
+          children: [
+            KListPageHeader(
+              title: 'Payroll Runs',
+              searchHint: 'Search run number, period...',
+              tabs: _statusTabs,
+              selectedTab: _status,
+              onTabChanged: (value) => setState(() => _status = value),
+              onSearchChanged: (value) =>
+                  setState(() => _search = value.trim().toLowerCase()),
+            ),
+            Expanded(
+              child: _buildBody(),
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: _showCreateDialog,
+          icon: const Icon(Icons.add),
+          label: const Text('New Run'),
+          tooltip: 'New Run (N)',
+        ),
       ),
     );
   }

@@ -182,6 +182,19 @@ public class Item extends BaseEntity {
     private boolean active = true;
 
     /**
+     * Phantom BOM flag — only meaningful for {@code itemType =
+     * COMPOSITE}. A phantom sub-assembly is never stocked or produced
+     * on its own: BOM explosion ({@code BomService.explode} and the MRP
+     * engine) flattens through it, pulling in the phantom's own
+     * components (scaled by the phantom line quantity) instead of
+     * listing the phantom itself. Default FALSE keeps every existing
+     * composite on the v1 single-level path.
+     */
+    @Column(name = "is_phantom", nullable = false)
+    @Builder.Default
+    private boolean phantom = false;
+
+    /**
      * Optional FK to {@link ItemGroup}. When non-NULL this item is one
      * variant of the group (e.g. "Cotton Tee — Red, M") and
      * {@link #variantAttributes} carries the size/colour/etc. that

@@ -9,6 +9,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import 'item_picker_sheet.dart';
 
 class TransferOrderCreateScreen extends ConsumerStatefulWidget {
@@ -185,7 +186,10 @@ class _TransferOrderCreateScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _submit,
+      onCancel: () => context.pop(),
+      child: Scaffold(
       appBar: AppBar(title: const Text('New Transfer Order')),
       body: _loadingWarehouses
           ? const KLoading(message: 'Loading warehouses...')
@@ -293,7 +297,7 @@ class _TransferOrderCreateScreenState
                 ],
               ),
             ),
-    );
+    ));
   }
 }
 

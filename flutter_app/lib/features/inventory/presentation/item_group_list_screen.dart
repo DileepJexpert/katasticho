@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/item_group_repository.dart';
 
@@ -14,59 +15,81 @@ class ItemGroupListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final groupsAsync = ref.watch(itemGroupListProvider);
 
-    return Scaffold(
-      body: Column(
-        children: [
-          const KListPageHeader(title: 'Item Groups'),
-          Expanded(
-            child: groupsAsync.when(
-              loading: () => const KShimmerList(),
-              error: (err, st) {
-                debugPrint('[ItemGroupListScreen] ERROR: $err\n$st');
-                return KErrorView(
-                  message: 'Failed to load item groups',
-                  onRetry: () => ref.invalidate(itemGroupListProvider),
-                );
-              },
-              data: (data) {
-                final content = data['data'];
-                final groups = content is List
-                    ? content
-                    : (content is Map ? (content['content'] as List?) ?? [] : []);
-
-                if (groups.isEmpty) {
-                  return KEmptyState(
-                    icon: Icons.category_outlined,
-                    title: 'No item groups yet',
-                    subtitle:
-                        'Group similar items (e.g. T-Shirt) and let the matrix tool mint every size + colour variant in one click.',
-                    actionLabel: 'Create Group',
-                    onAction: () => context.push('/item-groups/create'),
+    return KKeyboardListWrapper(
+      itemCount: () => groupsAsync.valueOrNull != null
+          ? ((groupsAsync.valueOrNull!['data'] is List
+                  ? groupsAsync.valueOrNull!['data'] as List
+                  : (groupsAsync.valueOrNull!['data'] is Map
+                      ? (groupsAsync.valueOrNull!['data']['content'] as List?) ?? []
+                      : [])) as List)
+              .length
+          : 0,
+      onNew: () => context.push('/item-groups/create'),
+      onRefresh: () => ref.invalidate(itemGroupListProvider),
+      onOpen: (index) {
+        final data = groupsAsync.valueOrNull?['data'];
+        final groups = data is List
+            ? data
+            : (data is Map ? (data['content'] as List?) ?? [] : []);
+        if (index >= 0 && index < groups.length) {
+          final id = (groups[index] as Map?)?['id']?.toString();
+          if (id != null) context.push('/item-groups/$id');
+        }
+      },
+      child: Scaffold(
+        body: Column(
+          children: [
+            const KListPageHeader(title: 'Item Groups'),
+            Expanded(
+              child: groupsAsync.when(
+                loading: () => const KShimmerList(),
+                error: (err, st) {
+                  debugPrint('[ItemGroupListScreen] ERROR: $err\n$st');
+                  return KErrorView(
+                    message: 'Failed to load item groups',
+                    onRetry: () => ref.invalidate(itemGroupListProvider),
                   );
-                }
+                },
+                data: (data) {
+                  final content = data['data'];
+                  final groups = content is List
+                      ? content
+                      : (content is Map ? (content['content'] as List?) ?? [] : []);
 
-                final groupMaps = groups
-                    .whereType<Map>()
-                    .map((group) => group.cast<String, dynamic>())
-                    .toList();
+                  if (groups.isEmpty) {
+                    return KEmptyState(
+                      icon: Icons.category_outlined,
+                      title: 'No item groups yet',
+                      subtitle:
+                          'Group similar items (e.g. T-Shirt) and let the matrix tool mint every size + colour variant in one click.',
+                      actionLabel: 'Create Group',
+                      onAction: () => context.push('/item-groups/create'),
+                    );
+                  }
 
-                return KResponsiveEntityList<Map<String, dynamic>>(
-                  items: groupMaps,
-                  onRefresh: () async => ref.invalidate(itemGroupListProvider),
-                  mobileItemBuilder: (context, group) =>
-                      _GroupCard(group: group),
-                  tableBuilder: (context) => _GroupTable(groups: groupMaps),
-                );
-              },
+                  final groupMaps = groups
+                      .whereType<Map>()
+                      .map((group) => group.cast<String, dynamic>())
+                      .toList();
+
+                  return KResponsiveEntityList<Map<String, dynamic>>(
+                    items: groupMaps,
+                    onRefresh: () async => ref.invalidate(itemGroupListProvider),
+                    mobileItemBuilder: (context, group) =>
+                        _GroupCard(group: group),
+                    tableBuilder: (context) => _GroupTable(groups: groupMaps),
+                  );
+                },
+              ),
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/item-groups/create'),
-        icon: const Icon(Icons.add),
-        label: const Text('New Group'),
-        tooltip: 'New Group (N)',
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => context.push('/item-groups/create'),
+          icon: const Icon(Icons.add),
+          label: const Text('New Group'),
+          tooltip: 'New Group (N)',
+        ),
       ),
     );
   }

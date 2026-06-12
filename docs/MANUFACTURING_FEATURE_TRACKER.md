@@ -1,7 +1,7 @@
 # Manufacturing Module — Feature Tracker
 
 Gap analysis based on Zoho, ERPNext, Odoo, SAP B1, NetSuite, Katana, MRPeasy, Cin7, Fishbowl, InFlow.
-Current coverage: **30 / 114 features (26%)**. Target: Tier 1 + Tier 2 = competitive for Indian SMBs.
+Current coverage: **58 / 101 features (57%)** as of 2026-06-12. Target: Tier 1 + Tier 2 = competitive for Indian SMBs.
 
 ---
 
@@ -54,9 +54,9 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 | 19 | IPQC — In-process quality control (checkpoints between operations) | DONE | inspectionType=IN_PROCESS, referenceType=WORK_ORDER |
 | 20 | OQC — Outgoing quality control (final inspection before shipment) | DONE | inspectionType=OUTGOING |
 | 21 | Inspection results recording (measured values, pass/fail, inspector) | DONE | `QcInspection`, `QcInspectionResult`, `recordResults()` + `finalizeInspection()` |
-| 22 | Accept/reject/hold decision workflow | TODO | Quarantine stock on hold |
-| 23 | Non-conformance reports (NCR) with reason codes | TODO | |
-| 24 | Certificate of Analysis (CoA) generation per batch | TODO | Critical for pharma |
+| 22 | Accept/reject/hold decision workflow | DONE | `recordDisposition()` — ACCEPT/REJECT/HOLD with qty split, reject records ADJUSTMENT movement, hold references QUARANTINE zone (V65) |
+| 23 | Non-conformance reports (NCR) with reason codes | DONE | `non_conformance_report` table, NCR-xxxxx numbering, OPEN→IN_PROGRESS→CLOSED, auto-created on reject disposition (V65) |
+| 24 | Certificate of Analysis (CoA) generation per batch | DONE | `GET /qc-inspections/{id}/coa` — structured JSON: params spec-vs-measured, overall result, disposition (V65) |
 | 25 | Batch-wise QC (track QC per production batch) | DONE | batchId field on QcInspection for per-batch tracking |
 
 ### 1.4 Scrap & Waste Management
@@ -66,9 +66,9 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 | 26 | Scrap recording during production (qty + reason code) | DONE | `ScrapService.recordScrap()` with PRODUCTION_SCRAP movement + WO totals |
 | 27 | Scrap reason codes (material defect, machine error, operator, tooling) | DONE | `ScrapReasonCode` entity, CRUD in `ScrapService` |
 | 28 | Scrap stock location / scrap accounting | DONE | PRODUCTION_SCRAP stock movement type, scrapQty/scrapCost on WorkOrder |
-| 29 | Yield tracking (input vs output ratio, actual vs expected) | TODO | |
-| 30 | BOM scrap/yield percentage (e.g., issue 105% for 5% expected waste) | TODO | Field on `bom_component` |
-| 31 | Material variance reporting (planned vs actual consumption) | TODO | |
+| 29 | Yield tracking (input vs output ratio, actual vs expected) | DONE | `ProductionCostSummary.yieldPercentage` (V59) + averageYieldPercent in production summary report |
+| 30 | BOM scrap/yield percentage (e.g., issue 105% for 5% expected waste) | DONE | `scrap_percent` on `bom_component`, issue inflates by (1 + scrap%/100) (V64) |
+| 31 | Material variance reporting (planned vs actual consumption) | DONE | Cost variance report + Material Variance account 5050 (V59, Tier 2) |
 
 ### 1.5 Production Plan from Sales Orders
 
@@ -87,11 +87,11 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
 | 35 | Multi-level BOM (nested sub-assemblies) | DONE | BomService already supports explosion |
-| 36 | BOM versioning / revision control (Rev A, B, C with effectivity dates) | TODO | |
-| 37 | Alternate/substitute materials in BOM | TODO | |
-| 38 | Phantom/kit BOM (explode but don't create sub-WOs) | TODO | |
-| 39 | Co-products / by-products in BOM | TODO | Multiple outputs from one production run |
-| 40 | BOM cost roll-up through all levels | TODO | Recursive cost calculation |
+| 36 | BOM versioning / revision control (Rev A, B, C with effectivity dates) | DONE | `createBomVersion()` snapshots BOM, closes effectivity dates (V59, Tier 2) |
+| 37 | Alternate/substitute materials in BOM | DONE | `bom_alternate` table + DRAFT-only WO line substitution with repricing (V64) |
+| 38 | Phantom/kit BOM (explode but don't create sub-WOs) | DONE | `item.is_phantom`, explode() flattens recursively w/ cycle guard; MRP skips PRODUCTION order (V64) |
+| 39 | Co-products / by-products in BOM | DONE | `bom_co_product` table, cost allocation % split on FG receipt, Σ ≤ 100% guard (V64) |
+| 40 | BOM cost roll-up through all levels | DONE | `GET /bom/{itemId}/cost-rollup` recursive tree w/ scrap inflation (V64) |
 | 41 | BOM comparison (diff between versions) | TODO | |
 | 42 | Configurable/parameterized BOMs (size, color variants) | TODO | |
 
@@ -100,19 +100,19 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
 | 43 | Batch assignment to finished goods at production receipt | TODO | Assign batch/lot number on receive |
-| 44 | Input batch tracking (which RM batches consumed per WO) | TODO | Link stock_movement batches to WO |
+| 44 | Input batch tracking (which RM batches consumed per WO) | DONE | batch_id/batch_number on work_order_line (V59, Tier 2) |
 | 45 | FEFO in production material consumption | TODO | Extend existing FEFO to production issue |
-| 46 | Forward/backward traceability report (FG batch → RM batches → suppliers) | TODO | |
+| 46 | Forward/backward traceability report (FG batch → RM batches → suppliers) | DONE | `BatchTraceService` forward/backward trace (V61, Tier 3) |
 | 47 | Batch recall support | TODO | Given defective RM batch, find all affected FG batches |
 
 ### 2.3 Production Reporting & Analytics
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 48 | Production summary report (WOs by status, completion rate, on-time %) | TODO | |
-| 49 | Cost variance report (planned vs actual: material + labor + overhead) | TODO | |
-| 50 | Material consumption report (planned vs actual per WO) | TODO | |
-| 51 | WIP valuation report (value of in-progress production) | TODO | |
+| 48 | Production summary report (WOs by status, completion rate, on-time %) | DONE | `GET /reports/production-summary` — status counts, completion/on-time %, yield, scrap by reason (V66) |
+| 49 | Cost variance report (planned vs actual: material + labor + overhead) | DONE | `ProductionCostSummary` + cost variance report (V59, Tier 2) |
+| 50 | Material consumption report (planned vs actual per WO) | DONE | Consumption report across completed WOs (Tier 2) |
+| 51 | WIP valuation report (value of in-progress production) | DONE | Sum of IN_PROGRESS WO costs (Tier 2) |
 | 52 | Production analytics dashboard (throughput, efficiency, trends) | TODO | |
 | 53 | Work order profitability (revenue - production cost per WO) | TODO | |
 | 54 | Scrap rate dashboard (by product, operation, reason, trend) | TODO | |
@@ -121,20 +121,20 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 55 | WIP journal entries (DR WIP / CR Raw Materials on issue; DR FG / CR WIP on receipt) | TODO | Use existing JournalService |
-| 56 | Production → Purchase Order link (MRP generates POs for shortages) | TODO | |
+| 55 | WIP journal entries (DR WIP / CR Raw Materials on issue; DR FG / CR WIP on receipt) | DONE | `ManufacturingWipPostingRule` — WIP 1210, variance 5050 (V59, Tier 2) |
+| 56 | Production → Purchase Order link (MRP generates POs for shortages) | DONE | MRP `convertPlannedToPO()` (V61, Tier 3) |
 | 57 | Production → Payroll integration (labor hours → piece-rate/hourly pay) | TODO | Bridge to existing payroll module |
-| 58 | Backflush materials (auto-issue when FG received instead of manual issue) | TODO | Alternative to current issue-to-production |
+| 58 | Backflush materials (auto-issue when FG received instead of manual issue) | DONE | `backflushMode` on WO, proportional auto-issue on FG receipt (Tier 2) |
 
 ### 2.5 Work Order Enhancements
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 59 | Work order priority and sequencing (urgent/high/normal/low) | TODO | |
+| 59 | Work order priority and sequencing (urgent/high/normal/low) | DONE | priority column + filter, URGENT-first default sort, update endpoint (V66) |
 | 60 | Linked/dependent work orders (auto-create child WOs for sub-assemblies) | TODO | |
-| 61 | Work order approval workflow | TODO | Reuse existing ApprovalWorkflowService |
-| 62 | Work order cloning / templates | TODO | |
-| 63 | Disassembly / unbuild orders (reverse FG back to components) | TODO | |
+| 61 | Work order approval workflow | DONE | `WorkOrderWorkflowHandler` mirrors SO pattern, seeded inactive, PENDING_APPROVAL blocks issue (V66) |
+| 62 | Work order cloning / templates | DONE | `POST /work-orders/{id}/clone` — fresh DRAFT, lines reset, passes approval gate (V66) |
+| 63 | Disassembly / unbuild orders (reverse FG back to components) | DONE | `createDisassemblyOrder()` + `executeDisassembly()` (Tier 2) |
 | 64 | Split / merge work orders | TODO | |
 | 65 | Batch/lot assignment on production receipt | TODO | |
 | 66 | Auto-create WOs from reorder points (auto-assembly) | TODO | |
@@ -147,13 +147,13 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 67 | MRP run (analyze demand, check stock, generate planned WOs + POs) | DEFERRED | Core MRP engine — complex, do after Tier 1-2 |
+| 67 | MRP run (analyze demand, check stock, generate planned WOs + POs) | DONE | `MrpService.runMrp()` — demand from SO+forecasts, BOM explosion, planned orders, convert-to-PO/WO (V61, Tier 3) |
 | 68 | Master Production Schedule (MPS) | DEFERRED | |
 | 69 | Forward/backward scheduling | DEFERRED | |
 | 70 | Finite capacity scheduling | DEFERRED | Requires workstations (Tier 1) |
 | 71 | Gantt chart / visual scheduler | DEFERRED | |
 | 72 | Production planning board (material readiness view) | DEFERRED | |
-| 73 | Demand forecasting from historical sales | DEFERRED | |
+| 73 | Demand forecasting from historical sales | DONE | `SupplyChainService` — moving avg + weighted + seasonal forecasts (V60, Phase 10) |
 | 74 | Lead time estimation from routing + procurement | DEFERRED | |
 
 ### 3.2 Shop Floor Control
@@ -221,6 +221,11 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 |------|----------------|------------|-------|
 | 2026-06-06 | Phase 9 base: WO lifecycle, BOM explosion, issue/receive, costing, cancel | 13 | Initial Manufacturing-Lite |
 | 2026-06-07 | Tier 1: Job work (7), routing/ops/job cards (5), QC (5), scrap (3), SO→WO (2) | 30 | V46 migration, 4 services, 41 new tests (417 total) |
+| 2026-06-11 | Tier 2: WIP journals, BOM versioning, backflush, disassembly, batch links, variance/consumption/WIP reports | 41 | V59 migration |
+| 2026-06-11 | Tier 3: MRP engine, batch trace report, demand forecasting, MRP→PO link | 45 | V61 migration, 10 MRP tests |
+| 2026-06-12 | QC disposition (accept/reject/hold), NCR, CoA | 48 | V65 migration, 9 new QC tests |
+| 2026-06-12 | BOM: scrap %, phantom, alternates, co-products, cost roll-up | 53 | V64 migration, 14 new tests |
+| 2026-06-12 | WO: priority, approval workflow, cloning, yield, production summary | 58 | V66 migration, 16 new tests. 629 total tests pass |
 
 ---
 

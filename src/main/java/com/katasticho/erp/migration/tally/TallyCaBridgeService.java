@@ -9,11 +9,17 @@ import com.katasticho.erp.accounting.repository.JournalEntryRepository;
 import com.katasticho.erp.accounting.service.FinancialReportService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.entity.ContactType;
+import com.katasticho.erp.contact.repository.ContactRepository;
+import com.katasticho.erp.inventory.entity.Item;
+import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.migration.tally.TallyImportDtos.TallyTbLine;
 import com.katasticho.erp.migration.tally.TallyImportDtos.TbVerificationLine;
 import com.katasticho.erp.migration.tally.TallyImportDtos.TbVerificationResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +51,8 @@ public class TallyCaBridgeService {
     private final FinancialReportService financialReportService;
     private final JournalEntryRepository journalEntryRepository;
     private final AccountRepository accountRepository;
+    private final ContactRepository contactRepository;
+    private final ItemRepository itemRepository;
 
     /** Names matched within this rupee tolerance are treated as equal. */
     private static final BigDecimal TOLERANCE = BigDecimal.ONE;
@@ -212,6 +220,144 @@ public class TallyCaBridgeService {
 
         log.info("Tally XML export: {} vouchers from {} to {}", entries.size(), from, to);
         return xml.toString();
+    }
+
+    // ── Tally XML masters export ────────────────────────────────────────────
+
+    /**
+     * Export org masters (accounts, contacts, items) as Tally-importable XML.
+     *
+     * <ul>
+     *   <li><b>Accounts</b> → {@code <LEDGER>} elements under the closest Tally group
+     *       (Sundry Debtors / Sundry Creditors / Capital Account / Indirect Expenses /
+     *        Indirect Income / Current Liabilities / Current Assets).</li>
+     *   <li><b>Contacts</b> → {@code <LEDGER>} elements under Sundry Debtors (CUSTOMER)
+     *       or Sundry Creditors (VENDOR).</li>
+     *   <li><b>Items</b> → {@code <STOCKITEM>} elements with rate and unit of measure.</li>
+     * </ul>
+     *
+     * Import into TallyPrime: Gateway → Import Data → Masters.
+     */
+    @Transactional(readOnly = true)
+    public String exportMastersXml() {
+        UUID orgId = requireOrgId();
+
+        List<Account> accounts = accountRepository.findByOrgIdAndIsDeletedFalseOrderByCode(orgId);
+        List<Contact> contacts = contactRepository.findByOrgIdAndIsDeletedFalse(orgId, Pageable.unpaged()).getContent();
+        List<Item> items = itemRepository.findByOrgIdAndIsDeletedFalseAndTrackInventoryTrue(orgId);
+
+        StringBuilder xml = new StringBuilder(8192);
+        xml.append("<ENVELOPE>\n")
+                .append(" <HEADER>\n")
+                .append("  <TALLYREQUEST>Import Data</TALLYREQUEST>\n")
+                .append(" </HEADER>\n")
+                .append(" <BODY>\n")
+                .append("  <IMPORTDATA>\n")
+                .append("   <REQUESTDESC>\n")
+                .append("    <REPORTNAME>All Masters</REPORTNAME>\n")
+                .append("   </REQUESTDESC>\n")
+                .append("   <REQUESTDATA>\n");
+
+        // ── Accounts → Ledgers ──────────────────────────────────────────────
+        for (Account a : accounts) {
+            if (a.isSystem()) continue;  // skip auto-created system accounts
+            String group = tallyGroupFor(a.getType(), a.getSubType());
+            xml.append("    <TALLYMESSAGE xmlns:UDF=\"TallyUDF\">\n")
+                    .append("     <LEDGER NAME=\"").append(xmlAttr(a.getName()))
+                    .append("\" ACTION=\"Create\">\n")
+                    .append("      <NAME>").append(xmlText(a.getName())).append("</NAME>\n")
+                    .append("      <PARENT>").append(xmlText(group)).append("</PARENT>\n");
+            if (a.getOpeningBalance() != null && a.getOpeningBalance().signum() != 0) {
+                // Positive opening = debit for asset/expense accounts; Tally uses same convention.
+                xml.append("      <OPENINGBALANCE>")
+                        .append(a.getOpeningBalance().toPlainString())
+                        .append("</OPENINGBALANCE>\n");
+            }
+            if (a.getDescription() != null && !a.getDescription().isBlank()) {
+                xml.append("      <NARRATION>").append(xmlText(a.getDescription())).append("</NARRATION>\n");
+            }
+            xml.append("     </LEDGER>\n")
+                    .append("    </TALLYMESSAGE>\n");
+        }
+
+        // ── Contacts → Ledgers (Sundry Debtors / Creditors) ────────────────
+        for (Contact c : contacts) {
+            ContactType type = c.getContactType();
+            String group = ContactType.VENDOR == type ? "Sundry Creditors" : "Sundry Debtors";
+            xml.append("    <TALLYMESSAGE xmlns:UDF=\"TallyUDF\">\n")
+                    .append("     <LEDGER NAME=\"").append(xmlAttr(c.getDisplayName()))
+                    .append("\" ACTION=\"Create\">\n")
+                    .append("      <NAME>").append(xmlText(c.getDisplayName())).append("</NAME>\n")
+                    .append("      <PARENT>").append(xmlText(group)).append("</PARENT>\n");
+            if (c.getGstin() != null && !c.getGstin().isBlank()) {
+                xml.append("      <GSTIN>").append(xmlText(c.getGstin())).append("</GSTIN>\n");
+            }
+            xml.append("     </LEDGER>\n")
+                    .append("    </TALLYMESSAGE>\n");
+        }
+
+        // ── Items → Stock Items ─────────────────────────────────────────────
+        for (Item item : items) {
+            xml.append("    <TALLYMESSAGE xmlns:UDF=\"TallyUDF\">\n")
+                    .append("     <STOCKITEM NAME=\"").append(xmlAttr(item.getName()))
+                    .append("\" ACTION=\"Create\">\n")
+                    .append("      <NAME>").append(xmlText(item.getName())).append("</NAME>\n")
+                    .append("      <BASEUNITS>").append(xmlText(item.getUnitOfMeasure())).append("</BASEUNITS>\n");
+            if (item.getHsnCode() != null && !item.getHsnCode().isBlank()) {
+                xml.append("      <HSNCODE>").append(xmlText(item.getHsnCode())).append("</HSNCODE>\n");
+            }
+            if (item.getPurchasePrice() != null && item.getPurchasePrice().signum() != 0) {
+                xml.append("      <COSTPRICE>").append(item.getPurchasePrice().toPlainString())
+                        .append("</COSTPRICE>\n");
+            }
+            if (item.getSalePrice() != null && item.getSalePrice().signum() != 0) {
+                xml.append("      <SELLINGPRICE>").append(item.getSalePrice().toPlainString())
+                        .append("</SELLINGPRICE>\n");
+            }
+            xml.append("     </STOCKITEM>\n")
+                    .append("    </TALLYMESSAGE>\n");
+        }
+
+        xml.append("   </REQUESTDATA>\n")
+                .append("  </IMPORTDATA>\n")
+                .append(" </BODY>\n")
+                .append("</ENVELOPE>\n");
+
+        log.info("Tally masters XML export: {} accounts, {} contacts, {} items",
+                accounts.stream().filter(a -> !a.isSystem()).count(), contacts.size(), items.size());
+        return xml.toString();
+    }
+
+    /**
+     * Map our account type/subtype to the closest standard Tally group name.
+     * Tally's built-in groups: Capital Account, Loans (Liability), Current Liabilities,
+     * Sundry Creditors, Sundry Debtors, Current Assets, Bank Accounts,
+     * Fixed Assets, Indirect Expenses, Indirect Income, Sales Accounts, Purchase Accounts.
+     */
+    static String tallyGroupFor(String type, String subType) {
+        if (type == null) return "Indirect Expenses";
+        String t = type.toUpperCase(Locale.ROOT);
+        String s = subType != null ? subType.toUpperCase(Locale.ROOT) : "";
+        return switch (t) {
+            case "ASSET" -> {
+                if (s.contains("BANK")) yield "Bank Accounts";
+                if (s.contains("CASH")) yield "Cash-in-Hand";
+                if (s.contains("RECEIVABLE") || s.contains("DEBTOR")) yield "Sundry Debtors";
+                if (s.contains("FIXED") || s.contains("EQUIPMENT")) yield "Fixed Assets";
+                if (s.contains("INVENTORY") || s.contains("STOCK")) yield "Stock-in-Hand";
+                yield "Current Assets";
+            }
+            case "LIABILITY" -> {
+                if (s.contains("CREDITOR") || s.contains("PAYABLE") && s.contains("VENDOR")) yield "Sundry Creditors";
+                if (s.contains("CAPITAL") || s.contains("EQUITY")) yield "Capital Account";
+                if (s.contains("LOAN")) yield "Loans (Liability)";
+                yield "Current Liabilities";
+            }
+            case "EQUITY" -> "Capital Account";
+            case "INCOME", "REVENUE" -> s.contains("SALES") ? "Sales Accounts" : "Indirect Income";
+            case "EXPENSE", "COGS" -> s.contains("PURCHASE") ? "Purchase Accounts" : "Indirect Expenses";
+            default -> "Indirect Expenses";
+        };
     }
 
     /** Map our source module to the closest TallyPrime voucher type. */

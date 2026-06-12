@@ -8,6 +8,7 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/form_error_handler.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../accounts/data/account_repository.dart';
 import '../data/journal_repository.dart';
@@ -170,19 +171,23 @@ class _JournalCreateScreenState extends ConsumerState<JournalCreateScreen>
     final accountsAsync = ref.watch(accountsProvider);
     final cs = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Manual Journal'),
-      ),
-      body: accountsAsync.when(
-        loading: () => const KLoading(message: 'Loading accounts...'),
-        error: (err, _) => KErrorView(
-          message: 'Failed to load accounts',
-          onRetry: () => ref.invalidate(accountsProvider),
+    return KKeyboardFormWrapper(
+      onSubmit: _canSubmit ? () => _submit(autoPost: true) : null,
+      onCancel: () => context.go('/accounting/journal-entries'),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Create Manual Journal'),
         ),
-        data: (accounts) => _buildForm(accounts, cs),
+        body: accountsAsync.when(
+          loading: () => const KLoading(message: 'Loading accounts...'),
+          error: (err, _) => KErrorView(
+            message: 'Failed to load accounts',
+            onRetry: () => ref.invalidate(accountsProvider),
+          ),
+          data: (accounts) => _buildForm(accounts, cs),
+        ),
+        bottomNavigationBar: _buildFooter(cs),
       ),
-      bottomNavigationBar: _buildFooter(cs),
     );
   }
 

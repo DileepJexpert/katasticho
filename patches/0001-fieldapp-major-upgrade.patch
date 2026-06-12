@@ -1,0 +1,4169 @@
+From 0d06a1283b9ef376cb64af4754b99f702aa4cef5 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 12 Jun 2026 06:08:00 +0000
+Subject: [PATCH] Major upgrade: parties, expenses, day close, van stock,
+ offline queue, token refresh, line-item ordering
+
+Token refresh: Dio interceptor auto-refreshes JWT on 401 (serialized via
+Completer), retries the request; forces logout on refresh failure.
+
+Parties (was placeholder): debounced contact search from ERP, cards with
+type icon, phone, city, outstanding AR in red; detail screen with
+receivable/payable/credit-limit/terms MetricTiles + GSTIN/address.
+
+Expenses (was static): connected to /api/v1/expenses; resolves expense
+CoA account by category keywords and cash account (1010) automatically;
+today's expense list with status.
+
+Day close (new): visit/order/collection summary, cash reconciliation
+form, initiate+submit, status banners (SUBMITTED/APPROVED/REJECTED),
+handles FS_DAY_CLOSE_ALREADY_EXISTS gracefully.
+
+Van stock (new): assigned-van stock balance with low-stock highlight,
+request load / return stock dialogs, transfer history with status chips.
+
+Offline queue (new): SharedPreferences-backed queue; check-in/out,
+orders, collections auto-queue on network errors; sync screen shows
+pending items with retry counts; 30s auto-sync drains queue when online.
+
+Line-item ordering (new): OrderBuilderScreen with debounced item search,
+cart with qty steppers + editable rates, creates a real Sales Order via
+/api/v1/sales-orders, acknowledges credit warnings, links SO to the
+visit; two-option bottom sheet (Build order / Quick amount) on visit and
+orders screens.
+
+Navigation: Day Close replaces Sync in bottom nav (Sync moved to app
+bar), Van added as 8th tab.
+---
+ lib/src/core/network/api_client.dart          | 332 ++++++++-
+ lib/src/core/storage/offline_queue.dart       | 185 +++++
+ .../core/storage/offline_queue_provider.dart  |   6 +
+ lib/src/features/auth/auth_controller.dart    |  22 +-
+ .../features/dayclose/day_close_screen.dart   | 535 ++++++++++++++
+ .../features/expenses/expenses_screen.dart    | 428 +++++++++++-
+ lib/src/features/home/home_shell.dart         |  28 +-
+ .../features/orders/order_builder_screen.dart | 654 ++++++++++++++++++
+ lib/src/features/orders/orders_screen.dart    |  60 +-
+ lib/src/features/parties/parties_screen.dart  | 517 +++++++++++++-
+ lib/src/features/sync/sync_screen.dart        | 252 ++++++-
+ lib/src/features/van/van_stock_screen.dart    | 544 +++++++++++++++
+ lib/src/features/visits/visits_screen.dart    | 196 +++++-
+ 13 files changed, 3647 insertions(+), 112 deletions(-)
+ create mode 100644 lib/src/core/storage/offline_queue.dart
+ create mode 100644 lib/src/core/storage/offline_queue_provider.dart
+ create mode 100644 lib/src/features/dayclose/day_close_screen.dart
+ create mode 100644 lib/src/features/orders/order_builder_screen.dart
+ create mode 100644 lib/src/features/van/van_stock_screen.dart
+
+diff --git a/lib/src/core/network/api_client.dart b/lib/src/core/network/api_client.dart
+index c141cb0..ce4ea7c 100644
+--- a/lib/src/core/network/api_client.dart
++++ b/lib/src/core/network/api_client.dart
+@@ -1,3 +1,5 @@
++import 'dart:async';
++
+ import 'package:dio/dio.dart';
+ 
+ import '../config/app_config.dart';
+@@ -15,11 +17,23 @@ class FieldApiClient {
+             'Accept': 'application/json',
+           },
+         ),
+-      );
++      ) {
++    _dio.interceptors.add(_TokenRefreshInterceptor(this));
++  }
+ 
+   final Dio _dio;
+   FieldSession? _session;
+ 
++  /// Invoked after a successful background token refresh so the app can
++  /// persist the new session (SessionStore) and update auth state.
++  void Function(FieldSession session)? onSessionRefreshed;
++
++  /// Invoked when a token refresh fails — the session is no longer usable
++  /// and the user should be sent back to the login screen.
++  void Function()? onSessionExpired;
++
++  FieldSession? get session => _session;
++
+   void setSession(FieldSession? session) {
+     _session = session;
+   }
+@@ -37,6 +51,14 @@ class FieldApiClient {
+     return _unwrap(response.data);
+   }
+ 
++  Future<Map<String, dynamic>> refreshToken(String refreshToken) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/auth/refresh',
++      data: {'refreshToken': refreshToken},
++    );
++    return _unwrap(response.data);
++  }
++
+   Future<Map<String, dynamic>> getMe() async {
+     final response = await _dio.get<Map<String, dynamic>>(
+       '/api/v1/auth/me',
+@@ -243,6 +265,221 @@ class FieldApiClient {
+     return _unwrapList(response.data);
+   }
+ 
++  // ── Contacts (Parties) ────────────────────────────────────────
++
++  /// GET /api/v1/contacts — paged (Spring Page); returns `data.content`.
++  /// [type] filters by contact type: CUSTOMER / VENDOR / BOTH.
++  Future<List<dynamic>> getContacts({String? search, String? type}) async {
++    final response = await _dio.get<Map<String, dynamic>>(
++      '/api/v1/contacts',
++      queryParameters: {
++        if (search != null && search.isNotEmpty) 'search': search,
++        if (type != null && type.isNotEmpty) 'type': type,
++        'size': 50,
++      },
++      options: _authOptions(),
++    );
++    return _unwrapList(response.data);
++  }
++
++  Future<Map<String, dynamic>> getContact(String id) async {
++    final response = await _dio.get<Map<String, dynamic>>(
++      '/api/v1/contacts/$id',
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  // ── Expenses ──────────────────────────────────────────────────
++
++  /// GET /api/v1/expenses — paged response; returns `data.content`.
++  /// [from] / [to] are ISO dates (yyyy-MM-dd).
++  Future<List<dynamic>> getExpenses({String? from, String? to}) async {
++    final response = await _dio.get<Map<String, dynamic>>(
++      '/api/v1/expenses',
++      queryParameters: {
++        if (from != null && from.isNotEmpty) 'from': from,
++        if (to != null && to.isNotEmpty) 'to': to,
++        'size': 50,
++      },
++      options: _authOptions(),
++    );
++    return _unwrapList(response.data);
++  }
++
++  /// POST /api/v1/expenses — requires expenseDate, accountId (expense
++  /// account), amount, paymentMode, paidThroughId (cash/bank account).
++  Future<Map<String, dynamic>> createExpense({
++    required String expenseDate,
++    required String accountId,
++    required double amount,
++    required String paymentMode,
++    required String paidThroughId,
++    String? category,
++    String? description,
++  }) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/expenses',
++      data: {
++        'expenseDate': expenseDate,
++        'accountId': accountId,
++        'amount': amount,
++        'paymentMode': paymentMode,
++        'paidThroughId': paidThroughId,
++        if (category != null && category.isNotEmpty) 'category': category,
++        if (description != null && description.isNotEmpty)
++          'description': description,
++      },
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  // ── Chart of Accounts ─────────────────────────────────────────
++
++  /// GET /api/v1/accounts — flat list used to resolve the expense
++  /// account and the cash (paid-through) account for expense entry.
++  Future<List<dynamic>> getAccounts() async {
++    final response = await _dio.get<Map<String, dynamic>>(
++      '/api/v1/accounts',
++      options: _authOptions(),
++    );
++    return _unwrapList(response.data);
++  }
++
++  // ── Catalog & Sales Orders ────────────────────────────────────
++
++  /// GET /api/v1/items — paged (Spring Page); returns `data.content`.
++  /// Each item: id, sku, name, salePrice, mrp, gstRate, defaultTaxGroupId,
++  /// unitOfMeasure, hsnCode, totalOnHand, trackInventory.
++  Future<List<dynamic>> searchItems(String query) async {
++    final response = await _dio.get<Map<String, dynamic>>(
++      '/api/v1/items',
++      queryParameters: {
++        if (query.isNotEmpty) 'search': query,
++        'size': 10,
++        'activeOnly': true,
++      },
++      options: _authOptions(),
++    );
++    return _unwrapList(response.data);
++  }
++
++  /// POST /api/v1/sales-orders — creates a real Sales Order.
++  /// Lines: [{'itemId', 'description', 'quantity', 'rate', 'discountPct',
++  /// 'taxGroupId'?, 'hsnCode'?}]. Returns the full SO map including
++  /// `id`, `salesOrderNumber`, `totalAmount`, `status` and `warnings`
++  /// (warnings arrive AFTER the SO has been created — informational only).
++  Future<Map<String, dynamic>> createSalesOrder({
++    required String contactId,
++    required List<Map<String, dynamic>> lines,
++    String? notes,
++  }) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/sales-orders',
++      data: {
++        'contactId': contactId,
++        'lines': lines,
++        if (notes != null && notes.isNotEmpty) 'notes': notes,
++      },
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  // ── Van Stock ─────────────────────────────────────────────────
++
++  Future<List<dynamic>> getVanStock(String vanId) async {
++    final response = await _dio.get<Map<String, dynamic>>(
++      '/api/v1/field-sales/vans/$vanId/stock',
++      options: _authOptions(),
++    );
++    return _unwrapList(response.data);
++  }
++
++  /// Creates a DRAFT van load transfer.
++  /// Lines: [{'itemId': uuid, 'quantity': num, 'batchId'?: uuid}]
++  Future<Map<String, dynamic>> createVanLoad(
++    String vanId,
++    String warehouseId,
++    List<Map<String, dynamic>> lines,
++  ) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/field-sales/van-transfers/load',
++      data: {'vanId': vanId, 'warehouseId': warehouseId, 'lines': lines},
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  Future<Map<String, dynamic>> confirmVanLoad(String transferId) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/field-sales/van-transfers/$transferId/confirm-load',
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  /// Creates a DRAFT van return transfer.
++  Future<Map<String, dynamic>> createVanReturn(
++    String vanId,
++    String warehouseId,
++    List<Map<String, dynamic>> lines, {
++    String? routeExecutionId,
++  }) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/field-sales/van-transfers/return',
++      data: {
++        'vanId': vanId,
++        'warehouseId': warehouseId,
++        if (routeExecutionId != null) 'routeExecutionId': routeExecutionId,
++        'lines': lines,
++      },
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  Future<Map<String, dynamic>> confirmVanReturn(String transferId) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      '/api/v1/field-sales/van-transfers/$transferId/confirm-return',
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
++  Future<List<dynamic>> getVanTransfers(String vanId) async {
++    final response = await _dio.get<Map<String, dynamic>>(
++      '/api/v1/field-sales/van-transfers/van/$vanId',
++      options: _authOptions(),
++    );
++    return _unwrapList(response.data);
++  }
++
++  Future<List<dynamic>> getTransferLines(String transferId) async {
++    final response = await _dio.get<Map<String, dynamic>>(
++      '/api/v1/field-sales/van-transfers/$transferId/lines',
++      options: _authOptions(),
++    );
++    return _unwrapList(response.data);
++  }
++
++  // ── Offline replay ────────────────────────────────────────────
++
++  /// Generic authenticated POST used by the offline queue to replay
++  /// queued actions against their original endpoint + body.
++  Future<Map<String, dynamic>> rawPost(
++    String path,
++    Map<String, dynamic> data,
++  ) async {
++    final response = await _dio.post<Map<String, dynamic>>(
++      path,
++      data: data,
++      options: _authOptions(),
++    );
++    return _unwrap(response.data);
++  }
++
+   // ── Helpers ───────────────────────────────────────────────────
+ 
+   Options _authOptions() {
+@@ -271,3 +508,96 @@ class FieldApiClient {
+     return [];
+   }
+ }
++
++/// Transparent 401 → refresh → retry interceptor.
++///
++/// On a 401 from any authenticated call it refreshes the access token via
++/// `POST /api/v1/auth/refresh` (serialized through a shared [Completer] so
++/// concurrent 401s trigger exactly one refresh), updates the client session,
++/// notifies [FieldApiClient.onSessionRefreshed], and replays the original
++/// request. If the refresh itself fails, [FieldApiClient.onSessionExpired]
++/// fires so the app can drop back to the login screen.
++class _TokenRefreshInterceptor extends Interceptor {
++  _TokenRefreshInterceptor(this._client);
++
++  final FieldApiClient _client;
++  Completer<bool>? _refreshCompleter;
++
++  static const _skippedPaths = ['/api/v1/auth/login', '/api/v1/auth/refresh'];
++
++  @override
++  Future<void> onError(
++    DioException err,
++    ErrorInterceptorHandler handler,
++  ) async {
++    final status = err.response?.statusCode;
++    final path = err.requestOptions.path;
++    final session = _client.session;
++
++    final shouldAttempt =
++        status == 401 &&
++        session != null &&
++        !session.isDemo &&
++        session.refreshToken.isNotEmpty &&
++        !_skippedPaths.any(path.contains);
++
++    if (!shouldAttempt) {
++      handler.next(err);
++      return;
++    }
++
++    final refreshed = await _refresh();
++    if (!refreshed) {
++      handler.next(err);
++      return;
++    }
++
++    // Replay the original request with the fresh token.
++    final fresh = _client.session;
++    if (fresh == null) {
++      handler.next(err);
++      return;
++    }
++    final options = err.requestOptions;
++    options.headers['Authorization'] = 'Bearer ${fresh.accessToken}';
++    options.headers['X-Org-Id'] = fresh.orgId;
++    try {
++      final response = await _client._dio.fetch<dynamic>(options);
++      handler.resolve(response);
++    } on DioException catch (retryError) {
++      handler.next(retryError);
++    } catch (_) {
++      handler.next(err);
++    }
++  }
++
++  Future<bool> _refresh() async {
++    final inFlight = _refreshCompleter;
++    if (inFlight != null) return inFlight.future;
++
++    final completer = Completer<bool>();
++    _refreshCompleter = completer;
++    try {
++      final current = _client.session;
++      if (current == null || current.refreshToken.isEmpty) {
++        completer.complete(false);
++      } else {
++        final payload = await _client.refreshToken(current.refreshToken);
++        final next = FieldSession.fromAuthPayload(payload);
++        if (next.accessToken.isEmpty) {
++          throw StateError('Refresh response missing accessToken');
++        }
++        _client.setSession(next);
++        _client.onSessionRefreshed?.call(next);
++        completer.complete(true);
++      }
++    } catch (_) {
++      _client.setSession(null);
++      _client.onSessionExpired?.call();
++      completer.complete(false);
++    } finally {
++      _refreshCompleter = null;
++    }
++    return completer.future;
++  }
++}
+diff --git a/lib/src/core/storage/offline_queue.dart b/lib/src/core/storage/offline_queue.dart
+new file mode 100644
+index 0000000..e1cd1eb
+--- /dev/null
++++ b/lib/src/core/storage/offline_queue.dart
+@@ -0,0 +1,185 @@
++import 'dart:convert';
++
++import 'package:shared_preferences/shared_preferences.dart';
++import 'package:uuid/uuid.dart';
++
++import '../network/api_client.dart';
++
++/// A single pending offline action waiting to be replayed against the backend.
++class OfflineAction {
++  OfflineAction({
++    required this.id,
++    required this.type,
++    required this.endpoint,
++    required this.method,
++    required this.body,
++    required this.createdAt,
++    this.retryCount = 0,
++  });
++
++  /// Unique id (uuid v4).
++  final String id;
++
++  /// One of: CHECK_IN, CHECK_OUT, RECORD_ORDER, RECORD_COLLECTION, EXPENSE.
++  final String type;
++
++  /// Full API path, e.g. /api/v1/field-sales/visits/{id}/check-in
++  final String endpoint;
++
++  /// HTTP method (currently only POST is replayed).
++  final String method;
++
++  /// JSON body to replay.
++  final Map<String, dynamic> body;
++
++  /// ISO-8601 timestamp of when the action was queued.
++  final String createdAt;
++
++  /// Number of failed replay attempts so far.
++  int retryCount;
++
++  Map<String, dynamic> toJson() => {
++    'id': id,
++    'type': type,
++    'endpoint': endpoint,
++    'method': method,
++    'body': body,
++    'createdAt': createdAt,
++    'retryCount': retryCount,
++  };
++
++  factory OfflineAction.fromJson(Map<String, dynamic> json) => OfflineAction(
++    id: json['id']?.toString() ?? '',
++    type: json['type']?.toString() ?? 'UNKNOWN',
++    endpoint: json['endpoint']?.toString() ?? '',
++    method: json['method']?.toString() ?? 'POST',
++    body: (json['body'] is Map)
++        ? Map<String, dynamic>.from(json['body'] as Map)
++        : <String, dynamic>{},
++    createdAt: json['createdAt']?.toString() ?? '',
++    retryCount: (json['retryCount'] as num?)?.toInt() ?? 0,
++  );
++}
++
++/// Result summary for a [OfflineQueue.processQueue] run.
++class QueueProcessResult {
++  const QueueProcessResult({
++    required this.synced,
++    required this.failed,
++    required this.dropped,
++  });
++
++  final int synced;
++  final int failed;
++  final int dropped;
++}
++
++/// SharedPreferences-backed queue of actions captured while offline.
++///
++/// Each action is replayed via [FieldApiClient.rawPost]; on success it is
++/// removed, on failure its retryCount is incremented, and after
++/// [maxRetries] failures it is dropped permanently.
++class OfflineQueue {
++  static const _storageKey = 'field.offline.queue';
++  static const maxRetries = 5;
++
++  static const _uuid = Uuid();
++
++  Future<List<OfflineAction>> _load() async {
++    final prefs = await SharedPreferences.getInstance();
++    final raw = prefs.getString(_storageKey);
++    if (raw == null || raw.isEmpty) return [];
++    try {
++      final decoded = jsonDecode(raw);
++      if (decoded is! List) return [];
++      return decoded
++          .whereType<Map>()
++          .map((e) => OfflineAction.fromJson(Map<String, dynamic>.from(e)))
++          .toList();
++    } catch (_) {
++      return [];
++    }
++  }
++
++  Future<void> _save(List<OfflineAction> actions) async {
++    final prefs = await SharedPreferences.getInstance();
++    await prefs.setString(
++      _storageKey,
++      jsonEncode(actions.map((a) => a.toJson()).toList()),
++    );
++  }
++
++  /// Adds a new pending action and returns it.
++  Future<OfflineAction> enqueue({
++    required String type,
++    required String endpoint,
++    String method = 'POST',
++    required Map<String, dynamic> body,
++  }) async {
++    final action = OfflineAction(
++      id: _uuid.v4(),
++      type: type,
++      endpoint: endpoint,
++      method: method,
++      body: body,
++      createdAt: DateTime.now().toIso8601String(),
++    );
++    final actions = await _load();
++    actions.add(action);
++    await _save(actions);
++    return action;
++  }
++
++  /// All pending actions, oldest first.
++  Future<List<OfflineAction>> get items => _load();
++
++  /// Number of pending actions.
++  Future<int> get pendingCount async => (await _load()).length;
++
++  /// Removes a single action by id.
++  Future<void> remove(String id) async {
++    final actions = await _load();
++    actions.removeWhere((a) => a.id == id);
++    await _save(actions);
++  }
++
++  /// Drops every pending action.
++  Future<void> clear() async {
++    final prefs = await SharedPreferences.getInstance();
++    await prefs.remove(_storageKey);
++  }
++
++  /// Replays every pending action via [FieldApiClient.rawPost].
++  ///
++  /// Successful actions are removed. Failed actions get retryCount
++  /// incremented and are dropped permanently after [maxRetries] attempts.
++  Future<QueueProcessResult> processQueue(FieldApiClient api) async {
++    final actions = await _load();
++    if (actions.isEmpty) {
++      return const QueueProcessResult(synced: 0, failed: 0, dropped: 0);
++    }
++
++    var synced = 0;
++    var failed = 0;
++    var dropped = 0;
++    final remaining = <OfflineAction>[];
++
++    for (final action in actions) {
++      try {
++        await api.rawPost(action.endpoint, action.body);
++        synced++;
++      } catch (_) {
++        action.retryCount++;
++        if (action.retryCount >= maxRetries) {
++          dropped++;
++        } else {
++          failed++;
++          remaining.add(action);
++        }
++      }
++    }
++
++    await _save(remaining);
++    return QueueProcessResult(synced: synced, failed: failed, dropped: dropped);
++  }
++}
+diff --git a/lib/src/core/storage/offline_queue_provider.dart b/lib/src/core/storage/offline_queue_provider.dart
+new file mode 100644
+index 0000000..e6c927b
+--- /dev/null
++++ b/lib/src/core/storage/offline_queue_provider.dart
+@@ -0,0 +1,6 @@
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++
++import 'offline_queue.dart';
++
++/// Single shared offline queue instance for the whole app.
++final offlineQueueProvider = Provider<OfflineQueue>((ref) => OfflineQueue());
+diff --git a/lib/src/features/auth/auth_controller.dart b/lib/src/features/auth/auth_controller.dart
+index 445c651..263ad9c 100644
+--- a/lib/src/features/auth/auth_controller.dart
++++ b/lib/src/features/auth/auth_controller.dart
+@@ -42,6 +42,7 @@ class AuthController extends Notifier<AuthState> {
+     final api = ref.read(apiClientProvider);
+     final session = await store.load();
+     api.setSession(session);
++    _wireInterceptorCallbacks();
+     state = AuthState(session: session);
+   }
+ 
+@@ -56,12 +57,28 @@ class AuthController extends Notifier<AuthState> {
+       final session = FieldSession.fromAuthPayload(payload);
+       await ref.read(sessionStoreProvider).save(session);
+       api.setSession(session);
++      _wireInterceptorCallbacks();
+       state = AuthState(session: session);
+     } catch (error) {
+       state = AuthState(error: _friendlyError(error));
+     }
+   }
+ 
++  /// Connects the API client's token-refresh interceptor to auth state:
++  /// a successful background refresh is persisted + reflected in state,
++  /// a failed refresh clears the session and returns to the login screen.
++  void _wireInterceptorCallbacks() {
++    final api = ref.read(apiClientProvider);
++    api.onSessionRefreshed = (session) async {
++      await ref.read(sessionStoreProvider).save(session);
++      state = AuthState(session: session);
++    };
++    api.onSessionExpired = () async {
++      await ref.read(sessionStoreProvider).clear();
++      state = const AuthState();
++    };
++  }
++
+   Future<void> startDemo() async {
+     final session = FieldSession.demo();
+     await ref.read(sessionStoreProvider).save(session);
+@@ -71,7 +88,10 @@ class AuthController extends Notifier<AuthState> {
+ 
+   Future<void> logout() async {
+     await ref.read(sessionStoreProvider).clear();
+-    ref.read(apiClientProvider).setSession(null);
++    final api = ref.read(apiClientProvider);
++    api.setSession(null);
++    api.onSessionRefreshed = null;
++    api.onSessionExpired = null;
+     state = const AuthState();
+   }
+ 
+diff --git a/lib/src/features/dayclose/day_close_screen.dart b/lib/src/features/dayclose/day_close_screen.dart
+new file mode 100644
+index 0000000..7304632
+--- /dev/null
++++ b/lib/src/features/dayclose/day_close_screen.dart
+@@ -0,0 +1,535 @@
++import 'package:dio/dio.dart';
++import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++
++import '../auth/auth_controller.dart';
++import '../shared/field_widgets.dart';
++
++class DayCloseScreen extends ConsumerStatefulWidget {
++  const DayCloseScreen({super.key});
++
++  @override
++  ConsumerState<DayCloseScreen> createState() => _DayCloseScreenState();
++}
++
++class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
++  final _closingCashController = TextEditingController();
++  final _depositedController = TextEditingController();
++  final _notesController = TextEditingController();
++
++  bool _loading = true;
++  bool _submitting = false;
++  String? _error;
++
++  Map<String, dynamic>? _execution;
++  List<dynamic> _visits = [];
++  Map<String, dynamic>? _dayClose;
++
++  @override
++  void initState() {
++    super.initState();
++    _load();
++  }
++
++  @override
++  void dispose() {
++    _closingCashController.dispose();
++    _depositedController.dispose();
++    _notesController.dispose();
++    super.dispose();
++  }
++
++  Future<void> _load() async {
++    final session = ref.read(authControllerProvider).session;
++    if (session == null || session.isDemo) {
++      setState(() => _loading = false);
++      return;
++    }
++
++    setState(() {
++      _loading = true;
++      _error = null;
++    });
++
++    try {
++      final api = ref.read(apiClientProvider);
++      final executions = await api.getMyTodayExecutions();
++
++      Map<String, dynamic>? execution;
++      for (final status in ['COMPLETED', 'IN_PROGRESS']) {
++        for (final raw in executions) {
++          if (raw is Map<String, dynamic> &&
++              raw['status']?.toString() == status) {
++            execution = raw;
++            break;
++          }
++        }
++        if (execution != null) break;
++      }
++
++      List<dynamic> visits = [];
++      Map<String, dynamic>? dayClose;
++      if (execution != null) {
++        final execId = execution['id']?.toString() ?? '';
++        visits = await api.getVisits(execId);
++
++        final dayCloseId = execution['dayCloseId']?.toString();
++        if (dayCloseId != null && dayCloseId.isNotEmpty) {
++          dayClose = await api.getDayClose(dayCloseId);
++        }
++      }
++
++      if (mounted) {
++        setState(() {
++          _execution = execution;
++          _visits = visits;
++          _dayClose = dayClose;
++        });
++      }
++    } catch (e) {
++      if (mounted) setState(() => _error = e.toString());
++    } finally {
++      if (mounted) setState(() => _loading = false);
++    }
++  }
++
++  Future<void> _submit() async {
++    final execution = _execution;
++    if (execution == null) return;
++
++    final closingCash = double.tryParse(_closingCashController.text.trim());
++    if (closingCash == null || closingCash < 0) {
++      _showSnack('Enter the closing cash amount.');
++      return;
++    }
++    final deposited =
++        double.tryParse(_depositedController.text.trim()) ?? 0;
++
++    setState(() => _submitting = true);
++    try {
++      final api = ref.read(apiClientProvider);
++      final execId = execution['id']?.toString() ?? '';
++      final initiated = await api.initiateDayClose(execId);
++      final dayCloseId = initiated['id']?.toString() ?? '';
++      final submitted = await api.submitDayClose(
++        dayCloseId,
++        closingCash: closingCash,
++        cashDeposited: deposited,
++        notes: _notesController.text.trim(),
++      );
++      if (mounted) {
++        setState(() => _dayClose = submitted);
++        _showSnack('Day close submitted for approval.');
++      }
++    } on DioException catch (e) {
++      if (!mounted) return;
++      if (e.response?.statusCode == 409) {
++        _showSnack('A day close already exists for this route.');
++      } else {
++        _showSnack('Day close failed: ${e.message ?? e}');
++      }
++    } catch (e) {
++      if (mounted) _showSnack('Day close failed: $e');
++    } finally {
++      if (mounted) setState(() => _submitting = false);
++    }
++  }
++
++  void _showSnack(String message) {
++    if (!mounted) return;
++    ScaffoldMessenger.of(
++      context,
++    ).showSnackBar(SnackBar(content: Text(message)));
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    final session = ref.watch(authControllerProvider).session;
++    final theme = Theme.of(context);
++
++    if (_loading) {
++      return const Center(child: CircularProgressIndicator());
++    }
++
++    if (session?.isDemo == true) {
++      return PageScaffold(
++        title: 'Day Close',
++        subtitle: 'Demo mode — login with real credentials to see live data.',
++        children: [
++          Card(
++            child: Padding(
++              padding: const EdgeInsets.all(14),
++              child: Row(
++                children: [
++                  Icon(Icons.info_outline, color: theme.colorScheme.primary),
++                  const SizedBox(width: 10),
++                  const Expanded(
++                    child: Text(
++                      'Demo mode shows sample data. Login with your '
++                      'Katasticho ERP credentials to reconcile and close '
++                      'your day.',
++                    ),
++                  ),
++                ],
++              ),
++            ),
++          ),
++        ],
++      );
++    }
++
++    return RefreshIndicator(
++      onRefresh: _load,
++      child: PageScaffold(
++        title: 'Day Close',
++        subtitle: 'End-of-day cash reconciliation and summary.',
++        children: [
++          if (_error != null) ...[
++            Card(
++              color: Colors.red.shade50,
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Text(
++                  _error!,
++                  style: TextStyle(color: Colors.red.shade700),
++                ),
++              ),
++            ),
++            const SizedBox(height: 12),
++          ],
++          if (_execution == null)
++            Card(
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Row(
++                  children: [
++                    Icon(Icons.event_busy, color: Colors.grey.shade400),
++                    const SizedBox(width: 10),
++                    const Expanded(
++                      child: Text(
++                        'No route execution for today. Start and complete '
++                        'a route to close the day.',
++                      ),
++                    ),
++                  ],
++                ),
++              ),
++            )
++          else ...[
++            _executionSummary(theme),
++            const SizedBox(height: 16),
++            if (_dayClose != null)
++              ..._dayCloseStatus(theme)
++            else
++              _reconciliationForm(theme),
++          ],
++        ],
++      ),
++    );
++  }
++
++  // ── Summary from visits ───────────────────────────────────────
++
++  Widget _executionSummary(ThemeData theme) {
++    final execution = _execution!;
++    final routeName =
++        execution['routeName']?.toString() ??
++        execution['routeId']?.toString() ??
++        'Route';
++    final status = execution['status']?.toString() ?? '';
++
++    final totalVisits = _visits.length;
++    var completed = 0;
++    var skipped = 0;
++    var ordersValue = 0.0;
++    var collections = 0.0;
++    for (final raw in _visits) {
++      if (raw is! Map<String, dynamic>) continue;
++      final visitStatus = raw['status']?.toString() ?? '';
++      if (visitStatus == 'COMPLETED') completed++;
++      if (visitStatus == 'SKIPPED') skipped++;
++      ordersValue += (raw['orderValue'] as num?)?.toDouble() ?? 0;
++      collections += (raw['collectionAmount'] as num?)?.toDouble() ?? 0;
++    }
++
++    return Column(
++      crossAxisAlignment: CrossAxisAlignment.start,
++      children: [
++        Row(
++          children: [
++            Expanded(
++              child: Text(
++                routeName,
++                style: theme.textTheme.titleMedium?.copyWith(
++                  fontWeight: FontWeight.w800,
++                ),
++              ),
++            ),
++            Chip(
++              label: Text(
++                status.replaceAll('_', ' '),
++                style: TextStyle(
++                  color: status == 'COMPLETED' ? Colors.green : Colors.orange,
++                  fontSize: 12,
++                  fontWeight: FontWeight.w600,
++                ),
++              ),
++              backgroundColor:
++                  (status == 'COMPLETED' ? Colors.green : Colors.orange)
++                      .withValues(alpha: 0.1),
++              side: BorderSide.none,
++            ),
++          ],
++        ),
++        const SizedBox(height: 10),
++        Row(
++          children: [
++            Expanded(
++              child: MetricTile(
++                icon: Icons.storefront,
++                label: 'Visits',
++                value: '$completed / $totalVisits',
++                tint: const Color(0xFF2563EB),
++              ),
++            ),
++            const SizedBox(width: 10),
++            Expanded(
++              child: MetricTile(
++                icon: Icons.skip_next,
++                label: 'Skipped',
++                value: '$skipped',
++                tint: const Color(0xFF475569),
++              ),
++            ),
++          ],
++        ),
++        const SizedBox(height: 10),
++        Row(
++          children: [
++            Expanded(
++              child: MetricTile(
++                icon: Icons.shopping_cart,
++                label: 'Orders',
++                value: _formatCurrency(ordersValue),
++                tint: const Color(0xFF0891B2),
++              ),
++            ),
++            const SizedBox(width: 10),
++            Expanded(
++              child: MetricTile(
++                icon: Icons.payments,
++                label: 'Collections',
++                value: _formatCurrency(collections),
++                tint: const Color(0xFF7C3AED),
++              ),
++            ),
++          ],
++        ),
++      ],
++    );
++  }
++
++  // ── Day close status (already initiated/submitted) ────────────
++
++  List<Widget> _dayCloseStatus(ThemeData theme) {
++    final dayClose = _dayClose!;
++    final status = dayClose['status']?.toString() ?? 'PENDING';
++
++    final (bannerColor, bannerIcon, bannerText) = switch (status) {
++      'APPROVED' => (
++        Colors.green,
++        Icons.check_circle,
++        'Day close approved.',
++      ),
++      'REJECTED' => (
++        Colors.red,
++        Icons.cancel,
++        'Day close rejected.'
++            '${dayClose['rejectionReason'] != null ? ' Reason: ${dayClose['rejectionReason']}' : ''}',
++      ),
++      'SUBMITTED' => (
++        Colors.amber.shade800,
++        Icons.hourglass_top,
++        'Day close submitted — awaiting approval.',
++      ),
++      _ => (
++        Colors.blueGrey,
++        Icons.pending_actions,
++        'Day close initiated but not yet submitted.',
++      ),
++    };
++
++    return [
++      Card(
++        color: bannerColor.withValues(alpha: 0.08),
++        child: Padding(
++          padding: const EdgeInsets.all(14),
++          child: Row(
++            children: [
++              Icon(bannerIcon, color: bannerColor),
++              const SizedBox(width: 10),
++              Expanded(
++                child: Text(
++                  bannerText,
++                  style: TextStyle(
++                    color: bannerColor,
++                    fontWeight: FontWeight.w700,
++                  ),
++                ),
++              ),
++            ],
++          ),
++        ),
++      ),
++      const SizedBox(height: 12),
++      Text(
++        'Cash Reconciliation',
++        style: theme.textTheme.titleMedium?.copyWith(
++          fontWeight: FontWeight.w800,
++        ),
++      ),
++      const SizedBox(height: 8),
++      Card(
++        child: Padding(
++          padding: const EdgeInsets.all(14),
++          child: Column(
++            children: [
++              _amountRow('Opening cash', dayClose['openingCash']),
++              _amountRow('Cash collections', dayClose['cashCollections']),
++              _amountRow('Cash expenses', dayClose['cashExpenses']),
++              const Divider(),
++              _amountRow('Closing cash', dayClose['closingCash']),
++              _amountRow('Cash deposited', dayClose['cashDeposited']),
++              _amountRow(
++                'Variance',
++                dayClose['cashVariance'],
++                highlight: true,
++              ),
++            ],
++          ),
++        ),
++      ),
++    ];
++  }
++
++  Widget _amountRow(String label, dynamic value, {bool highlight = false}) {
++    final amount = (value as num?)?.toDouble() ?? 0;
++    final color = highlight
++        ? (amount == 0 ? Colors.green : Colors.red)
++        : null;
++    return Padding(
++      padding: const EdgeInsets.symmetric(vertical: 4),
++      child: Row(
++        children: [
++          Expanded(
++            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
++          ),
++          Text(
++            _formatCurrency(amount),
++            style: TextStyle(fontWeight: FontWeight.w800, color: color),
++          ),
++        ],
++      ),
++    );
++  }
++
++  // ── Reconciliation form ───────────────────────────────────────
++
++  Widget _reconciliationForm(ThemeData theme) {
++    final execution = _execution!;
++    final isCompleted = execution['status']?.toString() == 'COMPLETED';
++
++    return Column(
++      crossAxisAlignment: CrossAxisAlignment.start,
++      children: [
++        Text(
++          'Cash Reconciliation',
++          style: theme.textTheme.titleMedium?.copyWith(
++            fontWeight: FontWeight.w800,
++          ),
++        ),
++        const SizedBox(height: 8),
++        Card(
++          child: Padding(
++            padding: const EdgeInsets.all(14),
++            child: Column(
++              children: [
++                if (!isCompleted) ...[
++                  Row(
++                    children: [
++                      Icon(
++                        Icons.info_outline,
++                        color: Colors.orange.shade700,
++                      ),
++                      const SizedBox(width: 10),
++                      const Expanded(
++                        child: Text(
++                          'Complete your route before closing the day.',
++                        ),
++                      ),
++                    ],
++                  ),
++                  const SizedBox(height: 12),
++                ],
++                TextField(
++                  controller: _closingCashController,
++                  keyboardType: const TextInputType.numberWithOptions(
++                    decimal: true,
++                  ),
++                  decoration: const InputDecoration(
++                    labelText: 'Closing cash in hand',
++                    prefixText: '₹ ',
++                  ),
++                ),
++                const SizedBox(height: 12),
++                TextField(
++                  controller: _depositedController,
++                  keyboardType: const TextInputType.numberWithOptions(
++                    decimal: true,
++                  ),
++                  decoration: const InputDecoration(
++                    labelText: 'Cash deposited',
++                    prefixText: '₹ ',
++                  ),
++                ),
++                const SizedBox(height: 12),
++                TextField(
++                  controller: _notesController,
++                  minLines: 2,
++                  maxLines: 4,
++                  decoration: const InputDecoration(labelText: 'Notes'),
++                ),
++                const SizedBox(height: 12),
++                SizedBox(
++                  width: double.infinity,
++                  child: FilledButton.icon(
++                    onPressed: (!isCompleted || _submitting) ? null : _submit,
++                    icon: _submitting
++                        ? const SizedBox(
++                            height: 18,
++                            width: 18,
++                            child: CircularProgressIndicator(strokeWidth: 2),
++                          )
++                        : const Icon(Icons.nightlight_round),
++                    label: Text(
++                      _submitting ? 'Submitting…' : 'Submit day close',
++                    ),
++                  ),
++                ),
++              ],
++            ),
++          ),
++        ),
++      ],
++    );
++  }
++
++  String _formatCurrency(double value) {
++    if (value >= 100000) {
++      return '₹${(value / 100000).toStringAsFixed(1)}L';
++    } else if (value >= 1000) {
++      return '₹${(value / 1000).toStringAsFixed(1)}k';
++    }
++    return '₹${value.toStringAsFixed(0)}';
++  }
++}
+diff --git a/lib/src/features/expenses/expenses_screen.dart b/lib/src/features/expenses/expenses_screen.dart
+index 5511066..2740eb4 100644
+--- a/lib/src/features/expenses/expenses_screen.dart
++++ b/lib/src/features/expenses/expenses_screen.dart
+@@ -1,54 +1,408 @@
+ import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
+ 
++import '../auth/auth_controller.dart';
+ import '../shared/field_widgets.dart';
+ 
+-class ExpensesScreen extends StatelessWidget {
++class ExpensesScreen extends ConsumerStatefulWidget {
+   const ExpensesScreen({super.key});
+ 
++  @override
++  ConsumerState<ExpensesScreen> createState() => _ExpensesScreenState();
++}
++
++class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
++  static const _categories = ['TRAVEL', 'FOOD', 'LODGING', 'MISC'];
++
++  String _category = 'TRAVEL';
++  final _amountController = TextEditingController();
++  final _notesController = TextEditingController();
++
++  bool _loading = true;
++  bool _submitting = false;
++  String? _error;
++  List<dynamic> _expenses = [];
++  List<dynamic> _accounts = [];
++
++  @override
++  void initState() {
++    super.initState();
++    _load();
++  }
++
++  @override
++  void dispose() {
++    _amountController.dispose();
++    _notesController.dispose();
++    super.dispose();
++  }
++
++  String get _today => DateTime.now().toIso8601String().split('T')[0];
++
++  Future<void> _load() async {
++    final session = ref.read(authControllerProvider).session;
++    if (session == null || session.isDemo) {
++      setState(() => _loading = false);
++      return;
++    }
++
++    setState(() {
++      _loading = true;
++      _error = null;
++    });
++
++    try {
++      final api = ref.read(apiClientProvider);
++      final results = await Future.wait([
++        api.getExpenses(from: _today, to: _today),
++        api.getAccounts(),
++      ]);
++      if (mounted) {
++        setState(() {
++          _expenses = results[0];
++          _accounts = results[1];
++        });
++      }
++    } catch (e) {
++      if (mounted) setState(() => _error = e.toString());
++    } finally {
++      if (mounted) setState(() => _loading = false);
++    }
++  }
++
++  /// Picks the expense (debit) account for the selected category by name
++  /// keywords, falling back to a Miscellaneous / first EXPENSE account.
++  Map<String, dynamic>? _resolveExpenseAccount(String category) {
++    final keywords = switch (category) {
++      'TRAVEL' => ['travel', 'conveyance', 'transport'],
++      'FOOD' => ['food', 'meal', 'staff welfare', 'refreshment'],
++      'LODGING' => ['lodging', 'hotel', 'accommodation', 'boarding'],
++      _ => ['miscellaneous', 'misc', 'general', 'other'],
++    };
++
++    final expenseAccounts = _accounts
++        .whereType<Map<String, dynamic>>()
++        .where((a) => a['type']?.toString() == 'EXPENSE')
++        .toList();
++
++    for (final keyword in keywords) {
++      for (final account in expenseAccounts) {
++        final name = account['name']?.toString().toLowerCase() ?? '';
++        if (name.contains(keyword)) return account;
++      }
++    }
++    // Fallback: a Miscellaneous expense account, then any expense account.
++    for (final account in expenseAccounts) {
++      final name = account['name']?.toString().toLowerCase() ?? '';
++      if (name.contains('miscellaneous') || name.contains('misc')) {
++        return account;
++      }
++    }
++    return expenseAccounts.isNotEmpty ? expenseAccounts.first : null;
++  }
++
++  /// Cash account (1010) used as the paid-through account for CASH spend.
++  Map<String, dynamic>? _resolveCashAccount() {
++    final accounts = _accounts.whereType<Map<String, dynamic>>().toList();
++    for (final account in accounts) {
++      if (account['code']?.toString() == '1010') return account;
++    }
++    for (final account in accounts) {
++      final name = account['name']?.toString().toLowerCase() ?? '';
++      if (account['type']?.toString() == 'ASSET' && name.contains('cash')) {
++        return account;
++      }
++    }
++    return null;
++  }
++
++  Future<void> _submit() async {
++    final amount = double.tryParse(_amountController.text.trim());
++    if (amount == null || amount <= 0) {
++      _showSnack('Enter a valid amount.');
++      return;
++    }
++
++    final expenseAccount = _resolveExpenseAccount(_category);
++    final cashAccount = _resolveCashAccount();
++    if (expenseAccount == null || cashAccount == null) {
++      _showSnack(
++        'Could not resolve expense/cash accounts. '
++        'Ask your admin to set up the chart of accounts.',
++      );
++      return;
++    }
++
++    setState(() => _submitting = true);
++    try {
++      final api = ref.read(apiClientProvider);
++      await api.createExpense(
++        expenseDate: _today,
++        accountId: expenseAccount['id'].toString(),
++        amount: amount,
++        paymentMode: 'CASH',
++        paidThroughId: cashAccount['id'].toString(),
++        category: _category,
++        description: _notesController.text.trim(),
++      );
++      if (!mounted) return;
++      _amountController.clear();
++      _notesController.clear();
++      _showSnack('Expense recorded.');
++      await _load();
++    } catch (e) {
++      if (mounted) _showSnack('Failed to record expense: $e');
++    } finally {
++      if (mounted) setState(() => _submitting = false);
++    }
++  }
++
++  void _showSnack(String message) {
++    if (!mounted) return;
++    ScaffoldMessenger.of(
++      context,
++    ).showSnackBar(SnackBar(content: Text(message)));
++  }
++
+   @override
+   Widget build(BuildContext context) {
+-    return PageScaffold(
+-      title: 'Expenses',
+-      subtitle:
+-          'Capture travel, food, lodging, samples support, and misc expenses.',
+-      children: [
+-        Card(
+-          child: Padding(
+-            padding: const EdgeInsets.all(14),
+-            child: Column(
+-              children: [
+-                DropdownButtonFormField<String>(
+-                  decoration: const InputDecoration(labelText: 'Expense type'),
+-                  items: const [
+-                    DropdownMenuItem(value: 'TRAVEL', child: Text('Travel')),
+-                    DropdownMenuItem(value: 'FOOD', child: Text('Food')),
+-                    DropdownMenuItem(value: 'LODGING', child: Text('Lodging')),
+-                    DropdownMenuItem(value: 'MISC', child: Text('Misc')),
++    final session = ref.watch(authControllerProvider).session;
++    final theme = Theme.of(context);
++    final isDemo = session?.isDemo == true;
++
++    if (_loading) {
++      return const Center(child: CircularProgressIndicator());
++    }
++
++    return RefreshIndicator(
++      onRefresh: _load,
++      child: PageScaffold(
++        title: 'Expenses',
++        subtitle:
++            'Capture travel, food, lodging, and misc expenses on the go.',
++        children: [
++          if (isDemo) ...[
++            Card(
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Row(
++                  children: [
++                    Icon(Icons.info_outline, color: theme.colorScheme.primary),
++                    const SizedBox(width: 10),
++                    const Expanded(
++                      child: Text(
++                        'Demo mode — login with your Katasticho ERP '
++                        'credentials to record real expenses.',
++                      ),
++                    ),
+                   ],
+-                  onChanged: (_) {},
+                 ),
+-                const SizedBox(height: 12),
+-                const TextField(
+-                  keyboardType: TextInputType.number,
+-                  decoration: InputDecoration(labelText: 'Amount'),
+-                ),
+-                const SizedBox(height: 12),
+-                const TextField(
+-                  minLines: 2,
+-                  maxLines: 4,
+-                  decoration: InputDecoration(labelText: 'Notes'),
+-                ),
+-                const SizedBox(height: 12),
+-                FilledButton.icon(
+-                  onPressed: () {},
+-                  icon: const Icon(Icons.cloud_upload),
+-                  label: const Text('Queue expense'),
++              ),
++            ),
++            const SizedBox(height: 12),
++          ],
++          if (_error != null) ...[
++            Card(
++              color: Colors.red.shade50,
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Text(
++                  _error!,
++                  style: TextStyle(color: Colors.red.shade700),
+                 ),
+-              ],
++              ),
++            ),
++            const SizedBox(height: 12),
++          ],
++          Card(
++            child: Padding(
++              padding: const EdgeInsets.all(14),
++              child: Column(
++                children: [
++                  DropdownButtonFormField<String>(
++                    initialValue: _category,
++                    decoration: const InputDecoration(
++                      labelText: 'Expense type',
++                    ),
++                    items: _categories
++                        .map(
++                          (c) => DropdownMenuItem(
++                            value: c,
++                            child: Text(_categoryLabel(c)),
++                          ),
++                        )
++                        .toList(),
++                    onChanged: (value) {
++                      if (value != null) setState(() => _category = value);
++                    },
++                  ),
++                  const SizedBox(height: 12),
++                  TextField(
++                    controller: _amountController,
++                    keyboardType: const TextInputType.numberWithOptions(
++                      decimal: true,
++                    ),
++                    decoration: const InputDecoration(
++                      labelText: 'Amount',
++                      prefixText: '₹ ',
++                    ),
++                  ),
++                  const SizedBox(height: 12),
++                  TextField(
++                    controller: _notesController,
++                    minLines: 2,
++                    maxLines: 4,
++                    decoration: const InputDecoration(labelText: 'Notes'),
++                  ),
++                  const SizedBox(height: 12),
++                  Align(
++                    alignment: Alignment.centerLeft,
++                    child: OutlinedButton.icon(
++                      onPressed: () =>
++                          _showSnack('Receipt photo capture coming soon.'),
++                      icon: const Icon(Icons.photo_camera),
++                      label: const Text('Attach receipt photo'),
++                    ),
++                  ),
++                  const SizedBox(height: 12),
++                  SizedBox(
++                    width: double.infinity,
++                    child: FilledButton.icon(
++                      onPressed: (isDemo || _submitting) ? null : _submit,
++                      icon: _submitting
++                          ? const SizedBox(
++                              height: 18,
++                              width: 18,
++                              child: CircularProgressIndicator(strokeWidth: 2),
++                            )
++                          : const Icon(Icons.check),
++                      label: Text(
++                        _submitting ? 'Recording…' : 'Record expense',
++                      ),
++                    ),
++                  ),
++                ],
++              ),
++            ),
++          ),
++          const SizedBox(height: 20),
++          Text(
++            "Today's Expenses",
++            style: theme.textTheme.titleMedium?.copyWith(
++              fontWeight: FontWeight.w800,
+             ),
+           ),
++          const SizedBox(height: 8),
++          if (_expenses.isEmpty)
++            Card(
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Row(
++                  children: [
++                    Icon(Icons.receipt_long, color: Colors.grey.shade400),
++                    const SizedBox(width: 10),
++                    const Expanded(
++                      child: Text('No expenses recorded today.'),
++                    ),
++                  ],
++                ),
++              ),
++            )
++          else
++            ..._expenses.whereType<Map<String, dynamic>>().map(_expenseCard),
++        ],
++      ),
++    );
++  }
++
++  Widget _expenseCard(Map<String, dynamic> expense) {
++    final theme = Theme.of(context);
++    final category = expense['category']?.toString() ?? 'MISC';
++    final description = expense['description']?.toString() ?? '';
++    final number = expense['expenseNumber']?.toString() ?? '';
++    final status = expense['status']?.toString() ?? '';
++    final amount =
++        (expense['total'] as num?)?.toDouble() ??
++        (expense['amount'] as num?)?.toDouble() ??
++        0;
++    final color = _categoryColor(category);
++
++    return Card(
++      child: Padding(
++        padding: const EdgeInsets.all(14),
++        child: Row(
++          children: [
++            CircleAvatar(
++              backgroundColor: color.withValues(alpha: 0.14),
++              foregroundColor: color,
++              child: Icon(_categoryIcon(category)),
++            ),
++            const SizedBox(width: 12),
++            Expanded(
++              child: Column(
++                crossAxisAlignment: CrossAxisAlignment.start,
++                children: [
++                  Text(
++                    description.isNotEmpty
++                        ? description
++                        : _categoryLabel(category),
++                    style: theme.textTheme.titleSmall?.copyWith(
++                      fontWeight: FontWeight.w700,
++                    ),
++                  ),
++                  Text(
++                    [
++                      if (number.isNotEmpty) number,
++                      if (status.isNotEmpty) status,
++                    ].join(' · '),
++                    style: theme.textTheme.bodySmall,
++                  ),
++                ],
++              ),
++            ),
++            Text(
++              _formatCurrency(amount),
++              style: const TextStyle(fontWeight: FontWeight.w800),
++            ),
++          ],
+         ),
+-      ],
++      ),
+     );
+   }
++
++  String _categoryLabel(String category) {
++    return switch (category) {
++      'TRAVEL' => 'Travel',
++      'FOOD' => 'Food',
++      'LODGING' => 'Lodging',
++      _ => 'Misc',
++    };
++  }
++
++  IconData _categoryIcon(String category) {
++    return switch (category) {
++      'TRAVEL' => Icons.directions_car,
++      'FOOD' => Icons.restaurant,
++      'LODGING' => Icons.hotel,
++      _ => Icons.receipt_long,
++    };
++  }
++
++  Color _categoryColor(String category) {
++    return switch (category) {
++      'TRAVEL' => const Color(0xFF2563EB),
++      'FOOD' => const Color(0xFFF59E0B),
++      'LODGING' => const Color(0xFF7C3AED),
++      _ => const Color(0xFF475569),
++    };
++  }
++
++  String _formatCurrency(double value) {
++    if (value >= 100000) {
++      return '₹${(value / 100000).toStringAsFixed(1)}L';
++    } else if (value >= 1000) {
++      return '₹${(value / 1000).toStringAsFixed(1)}k';
++    }
++    return '₹${value.toStringAsFixed(0)}';
++  }
+ }
+diff --git a/lib/src/features/home/home_shell.dart b/lib/src/features/home/home_shell.dart
+index c0680a8..103c2cd 100644
+--- a/lib/src/features/home/home_shell.dart
++++ b/lib/src/features/home/home_shell.dart
+@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import '../auth/auth_controller.dart';
+ import '../collections/collections_screen.dart';
+ import '../dashboard/today_dashboard_screen.dart';
++import '../dayclose/day_close_screen.dart';
+ import '../expenses/expenses_screen.dart';
+ import '../orders/orders_screen.dart';
+ import '../parties/parties_screen.dart';
+ import '../sync/sync_screen.dart';
++import '../van/van_stock_screen.dart';
+ import '../visits/visits_screen.dart';
+ 
+ class HomeShell extends ConsumerStatefulWidget {
+@@ -27,7 +29,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
+     OrdersScreen(),
+     CollectionsScreen(),
+     ExpensesScreen(),
+-    SyncScreen(),
++    DayCloseScreen(),
++    VanStockScreen(),
+   ];
+ 
+   @override
+@@ -47,6 +50,20 @@ class _HomeShellState extends ConsumerState<HomeShell> {
+           ],
+         ),
+         actions: [
++          IconButton(
++            tooltip: 'Sync',
++            onPressed: () {
++              Navigator.of(context).push(
++                MaterialPageRoute<void>(
++                  builder: (_) => Scaffold(
++                    appBar: AppBar(title: const Text('Sync')),
++                    body: const SyncScreen(),
++                  ),
++                ),
++              );
++            },
++            icon: const Icon(Icons.sync),
++          ),
+           IconButton(
+             tooltip: 'Logout',
+             onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+@@ -71,7 +88,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
+             icon: Icon(Icons.receipt_long),
+             label: 'Expense',
+           ),
+-          NavigationDestination(icon: Icon(Icons.sync), label: 'Sync'),
++          NavigationDestination(
++            icon: Icon(Icons.nightlight_round),
++            label: 'Day Close',
++          ),
++          NavigationDestination(
++            icon: Icon(Icons.local_shipping),
++            label: 'Van',
++          ),
+         ],
+       ),
+     );
+diff --git a/lib/src/features/orders/order_builder_screen.dart b/lib/src/features/orders/order_builder_screen.dart
+new file mode 100644
+index 0000000..bdd0ece
+--- /dev/null
++++ b/lib/src/features/orders/order_builder_screen.dart
+@@ -0,0 +1,654 @@
++import 'dart:async';
++
++import 'package:dio/dio.dart';
++import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++
++import '../auth/auth_controller.dart';
++
++/// Builds a real line-item Sales Order against the ERP catalog and links
++/// it to the field visit.
++///
++/// Flow: search items → build cart → POST /api/v1/sales-orders →
++/// acknowledge any warnings (SO is already created at that point) →
++/// record-order on the visit with the real salesOrderId + totalAmount.
++///
++/// SO creation is intentionally NOT offline-queued — use the "Quick
++/// amount" option (which queues offline) when there is no connectivity.
++class OrderBuilderScreen extends ConsumerStatefulWidget {
++  const OrderBuilderScreen({
++    super.key,
++    required this.visitId,
++    required this.contactId,
++    required this.contactName,
++  });
++
++  final String visitId;
++  final String contactId;
++  final String contactName;
++
++  @override
++  ConsumerState<OrderBuilderScreen> createState() => _OrderBuilderScreenState();
++}
++
++class _CartLine {
++  _CartLine({
++    required this.itemId,
++    required this.name,
++    this.sku,
++    this.taxGroupId,
++    this.hsnCode,
++    required this.rate,
++    this.quantity = 1,
++  }) : rateCtl = TextEditingController(text: _trimZeros(rate));
++
++  final String itemId;
++  final String name;
++  final String? sku;
++  final String? taxGroupId;
++  final String? hsnCode;
++  double rate;
++  int quantity;
++  final TextEditingController rateCtl;
++
++  double get effectiveRate => double.tryParse(rateCtl.text.trim()) ?? rate;
++  double get lineTotal => effectiveRate * quantity;
++
++  static String _trimZeros(double v) {
++    final s = v.toStringAsFixed(2);
++    return s.endsWith('.00') ? v.toStringAsFixed(0) : s;
++  }
++
++  void dispose() => rateCtl.dispose();
++}
++
++class _OrderBuilderScreenState extends ConsumerState<OrderBuilderScreen> {
++  final _searchCtl = TextEditingController();
++  Timer? _debounce;
++  bool _searching = false;
++  List<Map<String, dynamic>> _results = [];
++  String? _searchError;
++
++  final List<_CartLine> _cart = [];
++  // Controllers of removed cart lines — disposed with the screen so we
++  // never dispose a controller whose TextField may still be in the tree.
++  final List<_CartLine> _removedLines = [];
++  bool _submitting = false;
++
++  @override
++  void initState() {
++    super.initState();
++    _searchCtl.addListener(_onSearchChanged);
++  }
++
++  @override
++  void dispose() {
++    _debounce?.cancel();
++    _searchCtl.removeListener(_onSearchChanged);
++    _searchCtl.dispose();
++    for (final line in _cart) {
++      line.dispose();
++    }
++    for (final line in _removedLines) {
++      line.dispose();
++    }
++    super.dispose();
++  }
++
++  void _onSearchChanged() {
++    _debounce?.cancel();
++    final query = _searchCtl.text.trim();
++    if (query.isEmpty) {
++      setState(() {
++        _results = [];
++        _searching = false;
++        _searchError = null;
++      });
++      return;
++    }
++    // Rebuild so the clear (suffix) icon tracks the text state.
++    setState(() {});
++    _debounce = Timer(const Duration(milliseconds: 400), () {
++      _runSearch(query);
++    });
++  }
++
++  Future<void> _runSearch(String query) async {
++    setState(() {
++      _searching = true;
++      _searchError = null;
++    });
++    try {
++      final raw = await ref.read(apiClientProvider).searchItems(query);
++      if (!mounted || _searchCtl.text.trim() != query) return;
++      setState(() {
++        _results = raw.whereType<Map<String, dynamic>>().toList();
++      });
++    } catch (e) {
++      if (mounted && _searchCtl.text.trim() == query) {
++        setState(() => _searchError = 'Search failed: $e');
++      }
++    } finally {
++      if (mounted) setState(() => _searching = false);
++    }
++  }
++
++  void _addToCart(Map<String, dynamic> item) {
++    final itemId = item['id']?.toString();
++    if (itemId == null || itemId.isEmpty) return;
++
++    setState(() {
++      final existing = _cart.where((l) => l.itemId == itemId).toList();
++      if (existing.isNotEmpty) {
++        existing.first.quantity += 1;
++      } else {
++        _cart.add(
++          _CartLine(
++            itemId: itemId,
++            name: item['name']?.toString() ?? 'Item',
++            sku: item['sku']?.toString(),
++            taxGroupId: item['defaultTaxGroupId']?.toString(),
++            hsnCode: item['hsnCode']?.toString(),
++            rate: (item['salePrice'] as num?)?.toDouble() ?? 0,
++          ),
++        );
++      }
++    });
++  }
++
++  void _changeQty(_CartLine line, int delta) {
++    setState(() {
++      line.quantity += delta;
++      if (line.quantity <= 0) {
++        _cart.remove(line);
++        _removedLines.add(line);
++      }
++    });
++  }
++
++  double get _grandTotal =>
++      _cart.fold(0.0, (sum, line) => sum + line.lineTotal);
++
++  String _money(double v) {
++    final s = v.toStringAsFixed(2);
++    return s.endsWith('.00') ? '₹${v.toStringAsFixed(0)}' : '₹$s';
++  }
++
++  bool _isNetworkError(Object e) {
++    if (e is DioException) {
++      switch (e.type) {
++        case DioExceptionType.connectionTimeout:
++        case DioExceptionType.sendTimeout:
++        case DioExceptionType.receiveTimeout:
++        case DioExceptionType.connectionError:
++          return true;
++        default:
++          break;
++      }
++    }
++    final text = e.toString();
++    return text.contains('SocketException') ||
++        text.contains('Connection refused') ||
++        text.contains('Network is unreachable') ||
++        text.contains('Failed host lookup');
++  }
++
++  Future<void> _placeOrder() async {
++    if (_cart.isEmpty || _submitting) return;
++
++    // Validate rates before submitting.
++    for (final line in _cart) {
++      final rate = double.tryParse(line.rateCtl.text.trim());
++      if (rate == null || rate < 0) {
++        ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(content: Text('Invalid rate for ${line.name}')),
++        );
++        return;
++      }
++    }
++
++    setState(() => _submitting = true);
++    final api = ref.read(apiClientProvider);
++
++    final lines = _cart
++        .map(
++          (line) => <String, dynamic>{
++            'itemId': line.itemId,
++            'description': line.name,
++            'quantity': line.quantity,
++            'rate': line.effectiveRate,
++            'discountPct': 0,
++            if (line.taxGroupId != null && line.taxGroupId!.isNotEmpty)
++              'taxGroupId': line.taxGroupId,
++            if (line.hsnCode != null && line.hsnCode!.isNotEmpty)
++              'hsnCode': line.hsnCode,
++          },
++        )
++        .toList();
++
++    Map<String, dynamic> so;
++    try {
++      so = await api.createSalesOrder(
++        contactId: widget.contactId,
++        lines: lines,
++        notes: 'Field visit order — ${widget.contactName}',
++      );
++    } catch (e) {
++      if (mounted) {
++        setState(() => _submitting = false);
++        ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(
++            content: Text(
++              _isNetworkError(e)
++                  ? 'No connection — use the Quick amount option to record '
++                        'the order offline.'
++                  : 'Order failed: $e',
++            ),
++            backgroundColor: _isNetworkError(e) ? Colors.orange : null,
++          ),
++        );
++      }
++      return;
++    }
++
++    if (!mounted) return;
++
++    // Warnings arrive ON the create response, AFTER the SO already exists,
++    // so this is an acknowledge-only dialog (no Cancel — that would orphan
++    // the created SO).
++    final warnings = (so['warnings'] as List?)
++        ?.map((w) => w.toString())
++        .where((w) => w.isNotEmpty)
++        .toList();
++    if (warnings != null && warnings.isNotEmpty) {
++      final status = so['status']?.toString();
++      await showDialog<void>(
++        context: context,
++        barrierDismissible: false,
++        builder: (ctx) => AlertDialog(
++          title: Text(
++            status == 'PENDING_APPROVAL'
++                ? 'Order needs approval'
++                : 'Order created with warnings',
++          ),
++          content: Column(
++            mainAxisSize: MainAxisSize.min,
++            crossAxisAlignment: CrossAxisAlignment.start,
++            children: warnings
++                .map(
++                  (w) => Padding(
++                    padding: const EdgeInsets.only(bottom: 6),
++                    child: Row(
++                      crossAxisAlignment: CrossAxisAlignment.start,
++                      children: [
++                        const Icon(
++                          Icons.warning_amber_rounded,
++                          size: 18,
++                          color: Colors.orange,
++                        ),
++                        const SizedBox(width: 8),
++                        Expanded(child: Text(w)),
++                      ],
++                    ),
++                  ),
++                )
++                .toList(),
++          ),
++          actions: [
++            FilledButton(
++              onPressed: () => Navigator.pop(ctx),
++              child: const Text('OK'),
++            ),
++          ],
++        ),
++      );
++      if (!mounted) return;
++    }
++
++    final soId = so['id']?.toString() ?? '';
++    final soNumber = so['salesOrderNumber']?.toString() ?? '';
++    final totalAmount = (so['totalAmount'] as num?)?.toDouble() ?? _grandTotal;
++
++    // Link the created SO to the visit.
++    try {
++      await api.recordOrder(
++        widget.visitId,
++        salesOrderId: soId,
++        orderValue: totalAmount,
++      );
++    } catch (e) {
++      if (mounted) {
++        setState(() => _submitting = false);
++        ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(
++            content: Text(
++              'Order $soNumber created, but linking it to the visit failed: '
++              '$e',
++            ),
++            backgroundColor: Colors.orange,
++          ),
++        );
++        Navigator.of(context).pop(true);
++      }
++      return;
++    }
++
++    if (!mounted) return;
++    ScaffoldMessenger.of(context).showSnackBar(
++      SnackBar(
++        content: Text(
++          soNumber.isNotEmpty
++              ? 'Order $soNumber placed — ${_money(totalAmount)}'
++              : 'Order placed — ${_money(totalAmount)}',
++        ),
++        backgroundColor: Colors.green,
++      ),
++    );
++    Navigator.of(context).pop(true);
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    final theme = Theme.of(context);
++
++    if (widget.contactId.isEmpty) {
++      return Scaffold(
++        appBar: AppBar(title: const Text('Build Order')),
++        body: Center(
++          child: Padding(
++            padding: const EdgeInsets.all(24),
++            child: Column(
++              mainAxisSize: MainAxisSize.min,
++              children: [
++                Icon(Icons.person_off, size: 48, color: Colors.grey.shade400),
++                const SizedBox(height: 12),
++                const Text(
++                  'No customer linked to this visit.\n'
++                  'Use the Quick amount option instead.',
++                  textAlign: TextAlign.center,
++                ),
++              ],
++            ),
++          ),
++        ),
++      );
++    }
++
++    return Scaffold(
++      appBar: AppBar(
++        title: Column(
++          crossAxisAlignment: CrossAxisAlignment.start,
++          children: [
++            const Text('Build Order'),
++            Text(
++              widget.contactName,
++              style: theme.textTheme.bodySmall?.copyWith(
++                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
++              ),
++            ),
++          ],
++        ),
++      ),
++      body: Column(
++        children: [
++          Padding(
++            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
++            child: TextField(
++              controller: _searchCtl,
++              decoration: InputDecoration(
++                hintText: 'Search items by name or SKU…',
++                prefixIcon: const Icon(Icons.search),
++                suffixIcon: _searchCtl.text.isNotEmpty
++                    ? IconButton(
++                        icon: const Icon(Icons.clear),
++                        onPressed: () => _searchCtl.clear(),
++                      )
++                    : null,
++                border: OutlineInputBorder(
++                  borderRadius: BorderRadius.circular(12),
++                ),
++                isDense: true,
++              ),
++              textInputAction: TextInputAction.search,
++            ),
++          ),
++          Expanded(
++            child: ListView(
++              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
++              children: [
++                if (_searching)
++                  const Padding(
++                    padding: EdgeInsets.all(16),
++                    child: Center(child: CircularProgressIndicator()),
++                  ),
++                if (_searchError != null)
++                  Card(
++                    color: Colors.red.shade50,
++                    child: Padding(
++                      padding: const EdgeInsets.all(14),
++                      child: Text(
++                        _searchError!,
++                        style: TextStyle(color: Colors.red.shade700),
++                      ),
++                    ),
++                  ),
++                if (!_searching &&
++                    _searchError == null &&
++                    _searchCtl.text.trim().isNotEmpty &&
++                    _results.isEmpty)
++                  const Card(
++                    child: Padding(
++                      padding: EdgeInsets.all(14),
++                      child: Text('No items found.'),
++                    ),
++                  ),
++                ..._results.map((item) => _buildResultTile(item, theme)),
++
++                if (_cart.isNotEmpty) ...[
++                  const SizedBox(height: 12),
++                  Text(
++                    'Cart (${_cart.length} item${_cart.length == 1 ? '' : 's'})',
++                    style: theme.textTheme.titleMedium?.copyWith(
++                      fontWeight: FontWeight.w800,
++                    ),
++                  ),
++                  const SizedBox(height: 6),
++                  ..._cart.map((line) => _buildCartLine(line, theme)),
++                ] else if (_searchCtl.text.trim().isEmpty) ...[
++                  Card(
++                    child: Padding(
++                      padding: const EdgeInsets.all(14),
++                      child: Row(
++                        children: [
++                          Icon(
++                            Icons.shopping_cart_outlined,
++                            color: Colors.grey.shade400,
++                          ),
++                          const SizedBox(width: 10),
++                          const Expanded(
++                            child: Text(
++                              'Search the catalog above and tap an item to '
++                              'add it to the cart.',
++                            ),
++                          ),
++                        ],
++                      ),
++                    ),
++                  ),
++                ],
++              ],
++            ),
++          ),
++        ],
++      ),
++      bottomNavigationBar: SafeArea(
++        child: Container(
++          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
++          decoration: BoxDecoration(
++            color: theme.colorScheme.surface,
++            boxShadow: [
++              BoxShadow(
++                color: Colors.black.withValues(alpha: 0.08),
++                blurRadius: 8,
++                offset: const Offset(0, -2),
++              ),
++            ],
++          ),
++          child: Row(
++            children: [
++              Expanded(
++                child: Column(
++                  crossAxisAlignment: CrossAxisAlignment.start,
++                  mainAxisSize: MainAxisSize.min,
++                  children: [
++                    Text('Total', style: theme.textTheme.bodySmall),
++                    Text(
++                      _money(_grandTotal),
++                      style: theme.textTheme.titleLarge?.copyWith(
++                        fontWeight: FontWeight.w800,
++                      ),
++                    ),
++                  ],
++                ),
++              ),
++              FilledButton.icon(
++                onPressed: _cart.isEmpty || _submitting ? null : _placeOrder,
++                icon: _submitting
++                    ? const SizedBox(
++                        height: 18,
++                        width: 18,
++                        child: CircularProgressIndicator(strokeWidth: 2),
++                      )
++                    : const Icon(Icons.check_circle_outline, size: 20),
++                label: Text(_submitting ? 'Placing…' : 'Place Order'),
++              ),
++            ],
++          ),
++        ),
++      ),
++    );
++  }
++
++  Widget _buildResultTile(Map<String, dynamic> item, ThemeData theme) {
++    final name = item['name']?.toString() ?? 'Item';
++    final sku = item['sku']?.toString();
++    final salePrice = (item['salePrice'] as num?)?.toDouble() ?? 0;
++    final onHand = (item['totalOnHand'] as num?)?.toDouble();
++    final trackInventory = item['trackInventory'] == true;
++    final inCart = _cart.any((l) => l.itemId == item['id']?.toString());
++
++    return Card(
++      child: ListTile(
++        dense: true,
++        title: Text(
++          name,
++          style: theme.textTheme.titleSmall?.copyWith(
++            fontWeight: FontWeight.w700,
++          ),
++        ),
++        subtitle: Text(
++          [
++            if (sku != null && sku.isNotEmpty) sku,
++            _money(salePrice),
++            if (trackInventory && onHand != null)
++              '${onHand.toStringAsFixed(onHand == onHand.roundToDouble() ? 0 : 1)} on hand',
++          ].join(' · '),
++          style: theme.textTheme.bodySmall,
++        ),
++        trailing: Icon(
++          inCart ? Icons.add_circle : Icons.add_circle_outline,
++          color: theme.colorScheme.primary,
++        ),
++        onTap: () => _addToCart(item),
++      ),
++    );
++  }
++
++  Widget _buildCartLine(_CartLine line, ThemeData theme) {
++    return Card(
++      child: Padding(
++        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
++        child: Column(
++          crossAxisAlignment: CrossAxisAlignment.start,
++          children: [
++            Row(
++              children: [
++                Expanded(
++                  child: Text(
++                    line.name,
++                    style: theme.textTheme.titleSmall?.copyWith(
++                      fontWeight: FontWeight.w700,
++                    ),
++                  ),
++                ),
++                Text(
++                  _money(line.lineTotal),
++                  style: theme.textTheme.titleSmall?.copyWith(
++                    fontWeight: FontWeight.w800,
++                  ),
++                ),
++              ],
++            ),
++            const SizedBox(height: 8),
++            Row(
++              children: [
++                // Qty stepper
++                IconButton(
++                  visualDensity: VisualDensity.compact,
++                  icon: Icon(
++                    line.quantity == 1
++                        ? Icons.delete_outline
++                        : Icons.remove_circle_outline,
++                    size: 22,
++                    color: line.quantity == 1
++                        ? Colors.red
++                        : theme.colorScheme.primary,
++                  ),
++                  onPressed: () => _changeQty(line, -1),
++                ),
++                SizedBox(
++                  width: 32,
++                  child: Text(
++                    '${line.quantity}',
++                    textAlign: TextAlign.center,
++                    style: theme.textTheme.titleMedium?.copyWith(
++                      fontWeight: FontWeight.w800,
++                    ),
++                  ),
++                ),
++                IconButton(
++                  visualDensity: VisualDensity.compact,
++                  icon: Icon(
++                    Icons.add_circle_outline,
++                    size: 22,
++                    color: theme.colorScheme.primary,
++                  ),
++                  onPressed: () => _changeQty(line, 1),
++                ),
++                const Spacer(),
++                // Editable rate
++                SizedBox(
++                  width: 110,
++                  child: TextField(
++                    controller: line.rateCtl,
++                    keyboardType: const TextInputType.numberWithOptions(
++                      decimal: true,
++                    ),
++                    textAlign: TextAlign.right,
++                    decoration: const InputDecoration(
++                      labelText: 'Rate',
++                      prefixText: '₹ ',
++                      isDense: true,
++                      border: OutlineInputBorder(),
++                    ),
++                    onChanged: (_) => setState(() {}),
++                  ),
++                ),
++              ],
++            ),
++          ],
++        ),
++      ),
++    );
++  }
++}
+diff --git a/lib/src/features/orders/orders_screen.dart b/lib/src/features/orders/orders_screen.dart
+index d7c3ab5..d8820ae 100644
+--- a/lib/src/features/orders/orders_screen.dart
++++ b/lib/src/features/orders/orders_screen.dart
+@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ 
+ import '../auth/auth_controller.dart';
+ import '../shared/field_widgets.dart';
++import 'order_builder_screen.dart';
+ 
+ class OrdersScreen extends ConsumerStatefulWidget {
+   const OrdersScreen({super.key});
+@@ -64,6 +65,62 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
+     }
+   }
+ 
++  /// Record Order entry point: bottom sheet with two paths —
++  /// build a real line-item Sales Order, or the quick-amount dialog.
++  Future<void> _showOrderOptions(Map<String, dynamic> visit) async {
++    final visitId = visit['id']?.toString() ?? '';
++    final contactId = visit['contactId']?.toString() ?? '';
++    final contactName =
++        visit['contactName']?.toString() ??
++        visit['contactId']?.toString() ??
++        'Customer';
++
++    final choice = await showModalBottomSheet<String>(
++      context: context,
++      builder: (ctx) => SafeArea(
++        child: Column(
++          mainAxisSize: MainAxisSize.min,
++          children: [
++            const SizedBox(height: 8),
++            ListTile(
++              leading: const Icon(Icons.inventory_2_outlined),
++              title: const Text('Build order (items)'),
++              subtitle: const Text(
++                'Browse catalog, build a cart, create a Sales Order',
++              ),
++              onTap: () => Navigator.pop(ctx, 'build'),
++            ),
++            ListTile(
++              leading: const Icon(Icons.currency_rupee),
++              title: const Text('Quick amount'),
++              subtitle: const Text(
++                'Just record the order value (works offline)',
++              ),
++              onTap: () => Navigator.pop(ctx, 'quick'),
++            ),
++            const SizedBox(height: 8),
++          ],
++        ),
++      ),
++    );
++    if (choice == null || !mounted) return;
++
++    if (choice == 'build') {
++      final placed = await Navigator.of(context).push<bool>(
++        MaterialPageRoute(
++          builder: (_) => OrderBuilderScreen(
++            visitId: visitId,
++            contactId: contactId,
++            contactName: contactName,
++          ),
++        ),
++      );
++      if (placed == true && mounted) await _loadVisits();
++    } else {
++      await _recordOrder(visitId, contactName);
++    }
++  }
++
+   Future<void> _recordOrder(String visitId, String contactName) async {
+     final valueCtl = TextEditingController();
+     final soIdCtl = TextEditingController();
+@@ -204,7 +261,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
+             )
+           else
+             ..._visits.map((visit) {
+-              final visitId = visit['id']?.toString() ?? '';
+               final name =
+                   visit['contactName']?.toString() ??
+                   visit['contactId']?.toString() ??
+@@ -245,7 +301,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
+                       ],
+                       const SizedBox(height: 10),
+                       FilledButton.icon(
+-                        onPressed: () => _recordOrder(visitId, name),
++                        onPressed: () => _showOrderOptions(visit),
+                         icon: const Icon(Icons.add_shopping_cart, size: 18),
+                         label: Text(
+                           existingOrder != null && existingOrder > 0
+diff --git a/lib/src/features/parties/parties_screen.dart b/lib/src/features/parties/parties_screen.dart
+index 2d8b0f8..576c1a7 100644
+--- a/lib/src/features/parties/parties_screen.dart
++++ b/lib/src/features/parties/parties_screen.dart
+@@ -1,38 +1,511 @@
++import 'dart:async';
++
+ import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
+ 
++import '../auth/auth_controller.dart';
+ import '../shared/field_widgets.dart';
+ 
+-class PartiesScreen extends StatelessWidget {
++class PartiesScreen extends ConsumerStatefulWidget {
+   const PartiesScreen({super.key});
+ 
++  @override
++  ConsumerState<PartiesScreen> createState() => _PartiesScreenState();
++}
++
++class _PartiesScreenState extends ConsumerState<PartiesScreen> {
++  final _searchController = TextEditingController();
++  Timer? _debounce;
++
++  bool _loading = true;
++  String? _error;
++  List<dynamic> _contacts = [];
++
++  @override
++  void initState() {
++    super.initState();
++    _load();
++  }
++
++  @override
++  void dispose() {
++    _debounce?.cancel();
++    _searchController.dispose();
++    super.dispose();
++  }
++
++  Future<void> _load() async {
++    final session = ref.read(authControllerProvider).session;
++    if (session == null || session.isDemo) {
++      setState(() => _loading = false);
++      return;
++    }
++
++    setState(() {
++      _loading = true;
++      _error = null;
++    });
++
++    try {
++      final api = ref.read(apiClientProvider);
++      final contacts = await api.getContacts(
++        search: _searchController.text.trim(),
++      );
++      if (mounted) setState(() => _contacts = contacts);
++    } catch (e) {
++      if (mounted) setState(() => _error = e.toString());
++    } finally {
++      if (mounted) setState(() => _loading = false);
++    }
++  }
++
++  void _onSearchChanged(String _) {
++    _debounce?.cancel();
++    _debounce = Timer(const Duration(milliseconds: 450), _load);
++    setState(() {}); // refresh the clear button visibility
++  }
++
+   @override
+   Widget build(BuildContext context) {
+-    return PageScaffold(
+-      title: 'Parties',
+-      subtitle:
+-          'Doctors, hospitals, chemists, retailers, distributors, and stockists.',
+-      children: [
+-        Card(
+-          child: Padding(
+-            padding: const EdgeInsets.all(14),
+-            child: Row(
+-              crossAxisAlignment: CrossAxisAlignment.start,
+-              children: [
+-                Icon(
+-                  Icons.info_outline,
+-                  color: Theme.of(context).colorScheme.primary,
+-                ),
+-                const SizedBox(width: 10),
+-                const Expanded(
+-                  child: Text(
+-                    'Party / contact lookup will connect to the ERP contacts endpoint in a future release. Visits and collections are already tracked per visit.',
++    final session = ref.watch(authControllerProvider).session;
++    final theme = Theme.of(context);
++
++    if (session?.isDemo == true) {
++      return PageScaffold(
++        title: 'Parties',
++        subtitle: 'Demo mode — login with real credentials to see live data.',
++        children: [
++          Card(
++            child: Padding(
++              padding: const EdgeInsets.all(14),
++              child: Row(
++                children: [
++                  Icon(Icons.info_outline, color: theme.colorScheme.primary),
++                  const SizedBox(width: 10),
++                  const Expanded(
++                    child: Text(
++                      'Demo mode shows sample data. Login with your '
++                      'Katasticho ERP credentials to browse customers, '
++                      'vendors, and their outstanding balances.',
++                    ),
+                   ),
++                ],
++              ),
++            ),
++          ),
++        ],
++      );
++    }
++
++    return RefreshIndicator(
++      onRefresh: _load,
++      child: PageScaffold(
++        title: 'Parties',
++        subtitle: 'Customers and vendors from your organisation.',
++        children: [
++          TextField(
++            controller: _searchController,
++            onChanged: _onSearchChanged,
++            textInputAction: TextInputAction.search,
++            onSubmitted: (_) => _load(),
++            decoration: InputDecoration(
++              hintText: 'Search by name, phone, GSTIN…',
++              prefixIcon: const Icon(Icons.search),
++              suffixIcon: _searchController.text.isEmpty
++                  ? null
++                  : IconButton(
++                      icon: const Icon(Icons.clear),
++                      onPressed: () {
++                        _searchController.clear();
++                        _debounce?.cancel();
++                        _load();
++                      },
++                    ),
++              border: OutlineInputBorder(
++                borderRadius: BorderRadius.circular(12),
++              ),
++              isDense: true,
++            ),
++          ),
++          const SizedBox(height: 12),
++          if (_error != null) ...[
++            Card(
++              color: Colors.red.shade50,
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Text(
++                  _error!,
++                  style: TextStyle(color: Colors.red.shade700),
+                 ),
+-              ],
++              ),
+             ),
++            const SizedBox(height: 12),
++          ],
++          if (_loading)
++            const Padding(
++              padding: EdgeInsets.symmetric(vertical: 40),
++              child: Center(child: CircularProgressIndicator()),
++            )
++          else if (_contacts.isEmpty)
++            Card(
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Row(
++                  children: [
++                    Icon(Icons.people_outline, color: Colors.grey.shade400),
++                    const SizedBox(width: 10),
++                    const Expanded(child: Text('No parties found.')),
++                  ],
++                ),
++              ),
++            )
++          else
++            ..._contacts.map(
++              (raw) => _ContactCard(
++                contact: raw as Map<String, dynamic>,
++                onTap: () {
++                  Navigator.of(context).push(
++                    MaterialPageRoute<void>(
++                      builder: (_) => _ContactDetailScreen(
++                        contactId: raw['id']?.toString() ?? '',
++                        displayName: raw['displayName']?.toString() ?? 'Party',
++                      ),
++                    ),
++                  );
++                },
++              ),
++            ),
++        ],
++      ),
++    );
++  }
++}
++
++class _ContactCard extends StatelessWidget {
++  const _ContactCard({required this.contact, required this.onTap});
++
++  final Map<String, dynamic> contact;
++  final VoidCallback onTap;
++
++  @override
++  Widget build(BuildContext context) {
++    final theme = Theme.of(context);
++    final name = contact['displayName']?.toString() ?? 'Unnamed';
++    final type = contact['contactType']?.toString() ?? 'CUSTOMER';
++    final phone = contact['mobile']?.toString().isNotEmpty == true
++        ? contact['mobile'].toString()
++        : (contact['phone']?.toString() ?? '');
++    final city = contact['billingCity']?.toString() ?? '';
++    final outstanding = (contact['outstandingAr'] as num?)?.toDouble() ?? 0;
++
++    final color = _contactTypeColor(type);
++
++    final subtitleParts = <String>[
++      if (phone.isNotEmpty) phone,
++      if (city.isNotEmpty) city,
++    ];
++
++    return Card(
++      child: InkWell(
++        borderRadius: BorderRadius.circular(12),
++        onTap: onTap,
++        child: Padding(
++          padding: const EdgeInsets.all(14),
++          child: Row(
++            children: [
++              CircleAvatar(
++                backgroundColor: color.withValues(alpha: 0.14),
++                foregroundColor: color,
++                child: Icon(_contactTypeIcon(type)),
++              ),
++              const SizedBox(width: 12),
++              Expanded(
++                child: Column(
++                  crossAxisAlignment: CrossAxisAlignment.start,
++                  children: [
++                    Text(
++                      name,
++                      style: theme.textTheme.titleMedium?.copyWith(
++                        fontWeight: FontWeight.w800,
++                      ),
++                    ),
++                    if (subtitleParts.isNotEmpty)
++                      Text(
++                        subtitleParts.join(' · '),
++                        style: theme.textTheme.bodySmall,
++                      ),
++                    const SizedBox(height: 2),
++                    Text(
++                      _contactTypeLabel(type),
++                      style: theme.textTheme.bodySmall?.copyWith(color: color),
++                    ),
++                  ],
++                ),
++              ),
++              if (outstanding > 0)
++                Column(
++                  crossAxisAlignment: CrossAxisAlignment.end,
++                  children: [
++                    Text(
++                      formatCurrencyCompact(outstanding),
++                      style: const TextStyle(
++                        color: Colors.red,
++                        fontWeight: FontWeight.w800,
++                      ),
++                    ),
++                    Text('due', style: theme.textTheme.bodySmall),
++                  ],
++                )
++              else
++                const Icon(Icons.chevron_right),
++            ],
+           ),
+         ),
+-      ],
++      ),
++    );
++  }
++}
++
++class _ContactDetailScreen extends ConsumerStatefulWidget {
++  const _ContactDetailScreen({
++    required this.contactId,
++    required this.displayName,
++  });
++
++  final String contactId;
++  final String displayName;
++
++  @override
++  ConsumerState<_ContactDetailScreen> createState() =>
++      _ContactDetailScreenState();
++}
++
++class _ContactDetailScreenState extends ConsumerState<_ContactDetailScreen> {
++  bool _loading = true;
++  String? _error;
++  Map<String, dynamic> _contact = {};
++
++  @override
++  void initState() {
++    super.initState();
++    _load();
++  }
++
++  Future<void> _load() async {
++    setState(() {
++      _loading = true;
++      _error = null;
++    });
++    try {
++      final api = ref.read(apiClientProvider);
++      final contact = await api.getContact(widget.contactId);
++      if (mounted) setState(() => _contact = contact);
++    } catch (e) {
++      if (mounted) setState(() => _error = e.toString());
++    } finally {
++      if (mounted) setState(() => _loading = false);
++    }
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    final theme = Theme.of(context);
++    final name = _contact['displayName']?.toString() ?? widget.displayName;
++    final receivable = (_contact['outstandingAr'] as num?)?.toDouble() ?? 0;
++    final payable = (_contact['outstandingAp'] as num?)?.toDouble() ?? 0;
++    final creditLimit = (_contact['creditLimit'] as num?)?.toDouble() ?? 0;
++    final termsDays = (_contact['paymentTermsDays'] as num?)?.toInt() ?? 0;
++
++    return Scaffold(
++      appBar: AppBar(title: Text(name)),
++      body: _loading
++          ? const Center(child: CircularProgressIndicator())
++          : RefreshIndicator(
++              onRefresh: _load,
++              child: ListView(
++                physics: const AlwaysScrollableScrollPhysics(),
++                padding: const EdgeInsets.all(16),
++                children: [
++                  if (_error != null) ...[
++                    Card(
++                      color: Colors.red.shade50,
++                      child: Padding(
++                        padding: const EdgeInsets.all(14),
++                        child: Text(
++                          _error!,
++                          style: TextStyle(color: Colors.red.shade700),
++                        ),
++                      ),
++                    ),
++                    const SizedBox(height: 12),
++                  ],
++                  Row(
++                    children: [
++                      Expanded(
++                        child: MetricTile(
++                          icon: Icons.call_received,
++                          label: 'Receivable',
++                          value: formatCurrencyCompact(receivable),
++                          tint: receivable > 0
++                              ? const Color(0xFFDC2626)
++                              : const Color(0xFF059669),
++                        ),
++                      ),
++                      const SizedBox(width: 10),
++                      Expanded(
++                        child: MetricTile(
++                          icon: Icons.call_made,
++                          label: 'Payable',
++                          value: formatCurrencyCompact(payable),
++                          tint: const Color(0xFFF59E0B),
++                        ),
++                      ),
++                    ],
++                  ),
++                  const SizedBox(height: 10),
++                  Row(
++                    children: [
++                      Expanded(
++                        child: MetricTile(
++                          icon: Icons.credit_score,
++                          label: 'Credit limit',
++                          value: creditLimit > 0
++                              ? formatCurrencyCompact(creditLimit)
++                              : '--',
++                          tint: const Color(0xFF2563EB),
++                        ),
++                      ),
++                      const SizedBox(width: 10),
++                      Expanded(
++                        child: MetricTile(
++                          icon: Icons.schedule,
++                          label: 'Payment terms',
++                          value: termsDays > 0 ? '$termsDays days' : '--',
++                          tint: const Color(0xFF7C3AED),
++                        ),
++                      ),
++                    ],
++                  ),
++                  const SizedBox(height: 16),
++                  Text(
++                    'Details',
++                    style: theme.textTheme.titleMedium?.copyWith(
++                      fontWeight: FontWeight.w800,
++                    ),
++                  ),
++                  const SizedBox(height: 8),
++                  Card(
++                    child: Padding(
++                      padding: const EdgeInsets.all(14),
++                      child: Column(
++                        children: [
++                          _detailRow(
++                            Icons.phone,
++                            'Phone',
++                            _contact['phone']?.toString(),
++                          ),
++                          _detailRow(
++                            Icons.smartphone,
++                            'Mobile',
++                            _contact['mobile']?.toString(),
++                          ),
++                          _detailRow(
++                            Icons.email,
++                            'Email',
++                            _contact['email']?.toString(),
++                          ),
++                          _detailRow(
++                            Icons.receipt_long,
++                            'GSTIN',
++                            _contact['gstin']?.toString(),
++                          ),
++                          _detailRow(
++                            Icons.location_on,
++                            'Billing address',
++                            _billingAddress(),
++                          ),
++                        ],
++                      ),
++                    ),
++                  ),
++                ],
++              ),
++            ),
++    );
++  }
++
++  String? _billingAddress() {
++    final parts = <String>[
++      _contact['billingAddressLine1']?.toString() ?? '',
++      _contact['billingAddressLine2']?.toString() ?? '',
++      _contact['billingCity']?.toString() ?? '',
++      _contact['billingState']?.toString() ?? '',
++      _contact['billingPostalCode']?.toString() ?? '',
++    ].where((p) => p.isNotEmpty).toList();
++    return parts.isEmpty ? null : parts.join(', ');
++  }
++
++  Widget _detailRow(IconData icon, String label, String? value) {
++    final display = (value == null || value.isEmpty) ? '--' : value;
++    return Padding(
++      padding: const EdgeInsets.symmetric(vertical: 6),
++      child: Row(
++        crossAxisAlignment: CrossAxisAlignment.start,
++        children: [
++          Icon(icon, size: 18, color: Colors.grey.shade600),
++          const SizedBox(width: 10),
++          SizedBox(
++            width: 110,
++            child: Text(
++              label,
++              style: Theme.of(context).textTheme.bodySmall,
++            ),
++          ),
++          Expanded(
++            child: Text(
++              display,
++              style: const TextStyle(fontWeight: FontWeight.w600),
++            ),
++          ),
++        ],
++      ),
+     );
+   }
+ }
++
++String _contactTypeLabel(String type) {
++  return switch (type) {
++    'CUSTOMER' => 'Customer',
++    'VENDOR' => 'Vendor',
++    'BOTH' => 'Customer & Vendor',
++    _ => type,
++  };
++}
++
++IconData _contactTypeIcon(String type) {
++  return switch (type) {
++    'CUSTOMER' => Icons.storefront,
++    'VENDOR' => Icons.local_shipping,
++    'BOTH' => Icons.swap_horiz,
++    _ => Icons.person,
++  };
++}
++
++Color _contactTypeColor(String type) {
++  return switch (type) {
++    'CUSTOMER' => const Color(0xFF059669),
++    'VENDOR' => const Color(0xFF0891B2),
++    'BOTH' => const Color(0xFF7C3AED),
++    _ => const Color(0xFF475569),
++  };
++}
++
++/// ₹ compact formatting shared with the dashboard style: ₹X.XL / ₹X.Xk.
++String formatCurrencyCompact(double value) {
++  if (value >= 100000) {
++    return '₹${(value / 100000).toStringAsFixed(1)}L';
++  } else if (value >= 1000) {
++    return '₹${(value / 1000).toStringAsFixed(1)}k';
++  }
++  return '₹${value.toStringAsFixed(0)}';
++}
+diff --git a/lib/src/features/sync/sync_screen.dart b/lib/src/features/sync/sync_screen.dart
+index 053067d..7f8e033 100644
+--- a/lib/src/features/sync/sync_screen.dart
++++ b/lib/src/features/sync/sync_screen.dart
+@@ -1,6 +1,10 @@
++import 'dart:async';
++
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ 
++import '../../core/storage/offline_queue.dart';
++import '../../core/storage/offline_queue_provider.dart';
+ import '../auth/auth_controller.dart';
+ import '../shared/field_widgets.dart';
+ 
+@@ -16,6 +20,33 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
+   bool? _backendReachable;
+   String? _lastChecked;
+ 
++  bool _syncing = false;
++  List<OfflineAction> _pendingActions = [];
++  String? _lastSyncResult;
++  Timer? _autoSyncTimer;
++
++  @override
++  void initState() {
++    super.initState();
++    _refreshQueue();
++    // Every 30s: if backend reachable and actions pending, auto-process.
++    _autoSyncTimer = Timer.periodic(
++      const Duration(seconds: 30),
++      (_) => _autoSync(),
++    );
++  }
++
++  @override
++  void dispose() {
++    _autoSyncTimer?.cancel();
++    super.dispose();
++  }
++
++  Future<void> _refreshQueue() async {
++    final items = await ref.read(offlineQueueProvider).items;
++    if (mounted) setState(() => _pendingActions = items);
++  }
++
+   Future<void> _checkConnection() async {
+     setState(() => _checking = true);
+     try {
+@@ -35,10 +66,107 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
+         _lastChecked = TimeOfDay.now().format(context);
+       });
+     } finally {
+-      setState(() => _checking = false);
++      if (mounted) setState(() => _checking = false);
++    }
++  }
++
++  /// Periodic auto-sync: silently verifies connectivity, then drains the
++  /// queue if anything is pending.
++  Future<void> _autoSync() async {
++    if (!mounted || _syncing) return;
++    final session = ref.read(authControllerProvider).session;
++    if (session == null || session.isDemo) return;
++
++    final queue = ref.read(offlineQueueProvider);
++    if (await queue.pendingCount == 0) {
++      await _refreshQueue();
++      return;
++    }
++
++    // Verify connectivity first so offline timer ticks don't burn retries.
++    try {
++      await ref.read(apiClientProvider).getMe();
++      if (mounted) setState(() => _backendReachable = true);
++    } catch (_) {
++      if (mounted) setState(() => _backendReachable = false);
++      return;
++    }
++
++    await _processQueue(showSnack: false);
++  }
++
++  Future<void> _processQueue({bool showSnack = true}) async {
++    if (_syncing) return;
++    setState(() => _syncing = true);
++    try {
++      final result = await ref
++          .read(offlineQueueProvider)
++          .processQueue(ref.read(apiClientProvider));
++      final summary =
++          '${result.synced} synced'
++          '${result.failed > 0 ? ', ${result.failed} failed' : ''}'
++          '${result.dropped > 0 ? ', ${result.dropped} dropped' : ''}';
++      if (mounted) {
++        setState(() => _lastSyncResult = summary);
++        if (showSnack) {
++          ScaffoldMessenger.of(context).showSnackBar(
++            SnackBar(
++              content: Text('Sync complete: $summary'),
++              backgroundColor: result.failed == 0 && result.dropped == 0
++                  ? Colors.green
++                  : Colors.orange,
++            ),
++          );
++        }
++      }
++    } catch (_) {
++      if (mounted && showSnack) {
++        ScaffoldMessenger.of(
++          context,
++        ).showSnackBar(const SnackBar(content: Text('Sync failed')));
++      }
++    } finally {
++      if (mounted) setState(() => _syncing = false);
++      await _refreshQueue();
+     }
+   }
+ 
++  Future<void> _deleteAction(OfflineAction action) async {
++    await ref.read(offlineQueueProvider).remove(action.id);
++    await _refreshQueue();
++  }
++
++  String _actionLabel(String type) {
++    return switch (type) {
++      'CHECK_IN' => 'Check In',
++      'CHECK_OUT' => 'Check Out',
++      'RECORD_ORDER' => 'Record Order',
++      'RECORD_COLLECTION' => 'Record Collection',
++      'EXPENSE' => 'Expense',
++      _ => type,
++    };
++  }
++
++  IconData _actionIcon(String type) {
++    return switch (type) {
++      'CHECK_IN' => Icons.location_on,
++      'CHECK_OUT' => Icons.logout,
++      'RECORD_ORDER' => Icons.shopping_cart,
++      'RECORD_COLLECTION' => Icons.payments,
++      'EXPENSE' => Icons.receipt_long,
++      _ => Icons.pending_actions,
++    };
++  }
++
++  String _formatCreatedAt(String iso) {
++    final parsed = DateTime.tryParse(iso);
++    if (parsed == null) return iso;
++    final local = parsed.toLocal();
++    final h = local.hour.toString().padLeft(2, '0');
++    final m = local.minute.toString().padLeft(2, '0');
++    return '${local.day}/${local.month} $h:$m';
++  }
++
+   @override
+   Widget build(BuildContext context) {
+     final theme = Theme.of(context);
+@@ -57,7 +185,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
+ 
+     return PageScaffold(
+       title: 'Sync',
+-      subtitle: 'Check backend connectivity and session status.',
++      subtitle: 'Backend connectivity and offline action queue.',
+       children: [
+         // Connection status card
+         Card(
+@@ -110,6 +238,106 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
+         ),
+         const SizedBox(height: 12),
+ 
++        // Offline queue card
++        Card(
++          child: Padding(
++            padding: const EdgeInsets.all(16),
++            child: Column(
++              crossAxisAlignment: CrossAxisAlignment.start,
++              children: [
++                Row(
++                  children: [
++                    Icon(
++                      Icons.cloud_upload,
++                      color: _pendingActions.isEmpty
++                          ? Colors.green
++                          : Colors.orange,
++                    ),
++                    const SizedBox(width: 10),
++                    Expanded(
++                      child: Text(
++                        _pendingActions.isEmpty
++                            ? 'Offline queue: empty'
++                            : 'Offline queue: ${_pendingActions.length} pending',
++                        style: theme.textTheme.titleMedium?.copyWith(
++                          fontWeight: FontWeight.w700,
++                        ),
++                      ),
++                    ),
++                  ],
++                ),
++                if (_lastSyncResult != null) ...[
++                  const SizedBox(height: 6),
++                  Text(
++                    'Last sync: $_lastSyncResult',
++                    style: theme.textTheme.bodySmall,
++                  ),
++                ],
++                const SizedBox(height: 6),
++                Text(
++                  'Pending actions sync automatically every 30 seconds when '
++                  'the backend is reachable.',
++                  style: theme.textTheme.bodySmall,
++                ),
++                const SizedBox(height: 14),
++                FilledButton.icon(
++                  onPressed: (_syncing || _pendingActions.isEmpty)
++                      ? null
++                      : _processQueue,
++                  icon: _syncing
++                      ? const SizedBox(
++                          width: 18,
++                          height: 18,
++                          child: CircularProgressIndicator(strokeWidth: 2),
++                        )
++                      : const Icon(Icons.sync, size: 18),
++                  label: Text(_syncing ? 'Syncing…' : 'Sync Now'),
++                ),
++              ],
++            ),
++          ),
++        ),
++        const SizedBox(height: 12),
++
++        // Pending actions list
++        if (_pendingActions.isNotEmpty) ...[
++          Text(
++            'Pending Actions',
++            style: theme.textTheme.titleMedium?.copyWith(
++              fontWeight: FontWeight.w800,
++            ),
++          ),
++          const SizedBox(height: 8),
++          ..._pendingActions.map(
++            (action) => Card(
++              child: ListTile(
++                dense: true,
++                leading: Icon(
++                  _actionIcon(action.type),
++                  color: theme.colorScheme.primary,
++                ),
++                title: Text(
++                  _actionLabel(action.type),
++                  style: const TextStyle(fontWeight: FontWeight.w700),
++                ),
++                subtitle: Text(
++                  action.retryCount > 0
++                      ? 'Queued ${_formatCreatedAt(action.createdAt)} · '
++                            '${action.retryCount} failed '
++                            '${action.retryCount == 1 ? 'attempt' : 'attempts'}'
++                      : 'Queued ${_formatCreatedAt(action.createdAt)}',
++                ),
++                trailing: IconButton(
++                  tooltip: 'Discard',
++                  icon: const Icon(Icons.delete_outline, size: 20),
++                  onPressed: () => _deleteAction(action),
++                ),
++              ),
++            ),
++          ),
++          const SizedBox(height: 12),
++        ],
++
+         // Session info
+         if (session != null)
+           Card(
+@@ -140,26 +368,6 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
+               ),
+             ),
+           ),
+-        const SizedBox(height: 12),
+-
+-        // Note about offline
+-        Card(
+-          child: Padding(
+-            padding: const EdgeInsets.all(14),
+-            child: Row(
+-              crossAxisAlignment: CrossAxisAlignment.start,
+-              children: [
+-                Icon(Icons.info_outline, color: theme.colorScheme.primary),
+-                const SizedBox(width: 10),
+-                const Expanded(
+-                  child: Text(
+-                    'This app currently requires an active connection. Offline sync (queue-based) will be added in a future release.',
+-                  ),
+-                ),
+-              ],
+-            ),
+-          ),
+-        ),
+       ],
+     );
+   }
+diff --git a/lib/src/features/van/van_stock_screen.dart b/lib/src/features/van/van_stock_screen.dart
+new file mode 100644
+index 0000000..81d7252
+--- /dev/null
++++ b/lib/src/features/van/van_stock_screen.dart
+@@ -0,0 +1,544 @@
++import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++
++import '../auth/auth_controller.dart';
++import '../shared/field_widgets.dart';
++
++/// Van stock tab: shows the assigned van's current stock, lets the
++/// salesperson request a load from a warehouse or return stock, and
++/// lists recent LOAD/RETURN transfers.
++class VanStockScreen extends ConsumerStatefulWidget {
++  const VanStockScreen({super.key});
++
++  @override
++  ConsumerState<VanStockScreen> createState() => _VanStockScreenState();
++}
++
++class _VanStockScreenState extends ConsumerState<VanStockScreen> {
++  bool _loading = true;
++  String? _error;
++  String? _vanId;
++  List<Map<String, dynamic>> _stock = [];
++  List<Map<String, dynamic>> _transfers = [];
++
++  static const _lowStockThreshold = 5;
++
++  @override
++  void initState() {
++    super.initState();
++    _loadData();
++  }
++
++  Future<void> _loadData() async {
++    setState(() {
++      _loading = true;
++      _error = null;
++    });
++
++    final session = ref.read(authControllerProvider).session;
++    if (session == null || session.isDemo) {
++      if (mounted) setState(() => _loading = false);
++      return;
++    }
++
++    try {
++      final api = ref.read(apiClientProvider);
++
++      // Find the salesperson's assigned van from active assignments.
++      final assignments = await api.getMyAssignments();
++      String? vanId;
++      for (final raw in assignments) {
++        if (raw is Map<String, dynamic>) {
++          final id = raw['vanId']?.toString();
++          if (id != null && id.isNotEmpty) {
++            vanId = id;
++            break;
++          }
++        }
++      }
++
++      List<Map<String, dynamic>> stock = [];
++      List<Map<String, dynamic>> transfers = [];
++      if (vanId != null) {
++        final rawStock = await api.getVanStock(vanId);
++        stock = rawStock.whereType<Map<String, dynamic>>().toList();
++        final rawTransfers = await api.getVanTransfers(vanId);
++        transfers = rawTransfers.whereType<Map<String, dynamic>>().toList();
++      }
++
++      if (mounted) {
++        setState(() {
++          _vanId = vanId;
++          _stock = stock;
++          _transfers = transfers;
++        });
++      }
++    } catch (e) {
++      if (mounted) setState(() => _error = e.toString());
++    } finally {
++      if (mounted) setState(() => _loading = false);
++    }
++  }
++
++  // ── Actions ───────────────────────────────────────────────────
++
++  Future<void> _requestLoad() async {
++    final vanId = _vanId;
++    if (vanId == null) return;
++
++    final request = await _showTransferDialog(
++      title: 'Request Load',
++      submitLabel: 'Request Load',
++      initialItemIds: const [],
++    );
++    if (request == null || !mounted) return;
++
++    try {
++      await ref
++          .read(apiClientProvider)
++          .createVanLoad(vanId, request.warehouseId, request.lines);
++      _showSuccess('Load request created (DRAFT)');
++      await _loadData();
++    } catch (e) {
++      _showError('Failed to create load: $e');
++    }
++  }
++
++  Future<void> _returnStock() async {
++    final vanId = _vanId;
++    if (vanId == null) return;
++
++    // Pre-fill the line rows with the item ids currently in van stock.
++    final itemIds = _stock
++        .map((s) => s['itemId']?.toString() ?? '')
++        .where((id) => id.isNotEmpty)
++        .toList();
++
++    final request = await _showTransferDialog(
++      title: 'Return Stock',
++      submitLabel: 'Return',
++      initialItemIds: itemIds,
++    );
++    if (request == null || !mounted) return;
++
++    try {
++      await ref
++          .read(apiClientProvider)
++          .createVanReturn(vanId, request.warehouseId, request.lines);
++      _showSuccess('Return request created (DRAFT)');
++      await _loadData();
++    } catch (e) {
++      _showError('Failed to create return: $e');
++    }
++  }
++
++  /// Shared dialog for load/return: warehouse id + dynamic line rows.
++  Future<_TransferRequest?> _showTransferDialog({
++    required String title,
++    required String submitLabel,
++    required List<String> initialItemIds,
++  }) async {
++    final warehouseCtl = TextEditingController();
++    final itemCtls = <TextEditingController>[];
++    final qtyCtls = <TextEditingController>[];
++
++    void addRow(String itemId) {
++      itemCtls.add(TextEditingController(text: itemId));
++      qtyCtls.add(TextEditingController());
++    }
++
++    if (initialItemIds.isEmpty) {
++      addRow('');
++    } else {
++      for (final id in initialItemIds) {
++        addRow(id);
++      }
++    }
++
++    final result = await showDialog<_TransferRequest>(
++      context: context,
++      builder: (ctx) => StatefulBuilder(
++        builder: (ctx, setDialogState) => AlertDialog(
++          title: Text(title),
++          content: SizedBox(
++            width: double.maxFinite,
++            child: SingleChildScrollView(
++              child: Column(
++                mainAxisSize: MainAxisSize.min,
++                crossAxisAlignment: CrossAxisAlignment.start,
++                children: [
++                  TextField(
++                    controller: warehouseCtl,
++                    decoration: const InputDecoration(
++                      labelText: 'Warehouse ID *',
++                      hintText: 'Warehouse UUID',
++                    ),
++                  ),
++                  const SizedBox(height: 14),
++                  Text(
++                    'Lines',
++                    style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
++                      fontWeight: FontWeight.w700,
++                    ),
++                  ),
++                  const SizedBox(height: 6),
++                  for (var i = 0; i < itemCtls.length; i++)
++                    Padding(
++                      padding: const EdgeInsets.only(bottom: 8),
++                      child: Row(
++                        children: [
++                          Expanded(
++                            flex: 3,
++                            child: TextField(
++                              controller: itemCtls[i],
++                              decoration: const InputDecoration(
++                                labelText: 'Item ID',
++                                isDense: true,
++                              ),
++                            ),
++                          ),
++                          const SizedBox(width: 8),
++                          Expanded(
++                            flex: 2,
++                            child: TextField(
++                              controller: qtyCtls[i],
++                              keyboardType: TextInputType.number,
++                              decoration: const InputDecoration(
++                                labelText: 'Qty',
++                                isDense: true,
++                              ),
++                            ),
++                          ),
++                          IconButton(
++                            tooltip: 'Remove line',
++                            icon: const Icon(Icons.close, size: 18),
++                            onPressed: itemCtls.length <= 1
++                                ? null
++                                : () => setDialogState(() {
++                                    itemCtls.removeAt(i);
++                                    qtyCtls.removeAt(i);
++                                  }),
++                          ),
++                        ],
++                      ),
++                    ),
++                  TextButton.icon(
++                    onPressed: () => setDialogState(() => addRow('')),
++                    icon: const Icon(Icons.add, size: 18),
++                    label: const Text('Add line'),
++                  ),
++                ],
++              ),
++            ),
++          ),
++          actions: [
++            TextButton(
++              onPressed: () => Navigator.pop(ctx),
++              child: const Text('Cancel'),
++            ),
++            FilledButton(
++              onPressed: () {
++                final warehouseId = warehouseCtl.text.trim();
++                if (warehouseId.isEmpty) {
++                  ScaffoldMessenger.of(ctx).showSnackBar(
++                    const SnackBar(content: Text('Warehouse ID is required')),
++                  );
++                  return;
++                }
++                final lines = <Map<String, dynamic>>[];
++                for (var i = 0; i < itemCtls.length; i++) {
++                  final itemId = itemCtls[i].text.trim();
++                  final qty = double.tryParse(qtyCtls[i].text.trim());
++                  if (itemId.isEmpty || qty == null || qty <= 0) continue;
++                  lines.add({'itemId': itemId, 'quantity': qty});
++                }
++                if (lines.isEmpty) {
++                  ScaffoldMessenger.of(ctx).showSnackBar(
++                    const SnackBar(
++                      content: Text(
++                        'At least one line with item ID and quantity is required',
++                      ),
++                    ),
++                  );
++                  return;
++                }
++                Navigator.pop(
++                  ctx,
++                  _TransferRequest(warehouseId: warehouseId, lines: lines),
++                );
++              },
++              child: Text(submitLabel),
++            ),
++          ],
++        ),
++      ),
++    );
++    return result;
++  }
++
++  void _showSuccess(String msg) {
++    if (!mounted) return;
++    ScaffoldMessenger.of(
++      context,
++    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.green));
++  }
++
++  void _showError(String msg) {
++    if (!mounted) return;
++    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
++  }
++
++  // ── UI ────────────────────────────────────────────────────────
++
++  @override
++  Widget build(BuildContext context) {
++    final session = ref.watch(authControllerProvider).session;
++    final theme = Theme.of(context);
++
++    if (_loading) {
++      return const Center(child: CircularProgressIndicator());
++    }
++
++    if (session?.isDemo == true) {
++      return const PageScaffold(
++        title: 'Van Stock',
++        subtitle: 'Demo mode — login to see your van stock.',
++        children: [],
++      );
++    }
++
++    return RefreshIndicator(
++      onRefresh: _loadData,
++      child: PageScaffold(
++        title: 'Van Stock',
++        subtitle: 'Stock on your assigned van, loads and returns.',
++        children: [
++          if (_error != null) ...[
++            Card(
++              color: Colors.red.shade50,
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Text(
++                  _error!,
++                  style: TextStyle(color: Colors.red.shade700),
++                ),
++              ),
++            ),
++            const SizedBox(height: 12),
++          ],
++
++          if (_vanId == null) ...[
++            Card(
++              child: Padding(
++                padding: const EdgeInsets.all(14),
++                child: Row(
++                  children: [
++                    Icon(Icons.local_shipping, color: Colors.grey.shade400),
++                    const SizedBox(width: 10),
++                    const Expanded(
++                      child: Text(
++                        'No van assigned to you. Ask your admin to set up a '
++                        'field sales assignment with a van.',
++                      ),
++                    ),
++                  ],
++                ),
++              ),
++            ),
++          ] else ...[
++            // Action buttons
++            Row(
++              children: [
++                Expanded(
++                  child: FilledButton.icon(
++                    onPressed: _requestLoad,
++                    icon: const Icon(Icons.download, size: 18),
++                    label: const Text('Request Load'),
++                  ),
++                ),
++                const SizedBox(width: 10),
++                Expanded(
++                  child: OutlinedButton.icon(
++                    onPressed: _stock.isEmpty ? null : _returnStock,
++                    icon: const Icon(Icons.upload, size: 18),
++                    label: const Text('Return Stock'),
++                  ),
++                ),
++              ],
++            ),
++            const SizedBox(height: 14),
++
++            // Current stock
++            Text(
++              'Current Stock',
++              style: theme.textTheme.titleMedium?.copyWith(
++                fontWeight: FontWeight.w800,
++              ),
++            ),
++            const SizedBox(height: 8),
++            if (_stock.isEmpty)
++              const Card(
++                child: Padding(
++                  padding: EdgeInsets.all(14),
++                  child: Text('Van is empty. Request a load to begin.'),
++                ),
++              )
++            else
++              ..._stock.map((row) => _buildStockCard(row, theme)),
++            const SizedBox(height: 16),
++
++            // Recent transfers
++            Text(
++              'Recent Transfers',
++              style: theme.textTheme.titleMedium?.copyWith(
++                fontWeight: FontWeight.w800,
++              ),
++            ),
++            const SizedBox(height: 8),
++            if (_transfers.isEmpty)
++              const Card(
++                child: Padding(
++                  padding: EdgeInsets.all(14),
++                  child: Text('No transfers yet.'),
++                ),
++              )
++            else
++              ..._transfers.map((t) => _buildTransferCard(t, theme)),
++          ],
++        ],
++      ),
++    );
++  }
++
++  Widget _buildStockCard(Map<String, dynamic> row, ThemeData theme) {
++    final itemId = row['itemId']?.toString() ?? '';
++    final itemLabel =
++        row['itemName']?.toString() ??
++        row['itemCode']?.toString() ??
++        (itemId.length > 8 ? 'Item ${itemId.substring(0, 8)}…' : 'Item');
++    final qty = (row['quantityOnHand'] as num?)?.toDouble() ?? 0;
++    final lowStock = qty <= _lowStockThreshold;
++    final qtyColor = lowStock ? Colors.red : Colors.green.shade700;
++
++    return Card(
++      child: Padding(
++        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
++        child: Row(
++          children: [
++            Icon(
++              Icons.inventory_2,
++              size: 20,
++              color: lowStock ? Colors.red : theme.colorScheme.primary,
++            ),
++            const SizedBox(width: 12),
++            Expanded(
++              child: Column(
++                crossAxisAlignment: CrossAxisAlignment.start,
++                children: [
++                  Text(
++                    itemLabel,
++                    style: theme.textTheme.titleSmall?.copyWith(
++                      fontWeight: FontWeight.w700,
++                    ),
++                  ),
++                  if (itemId.isNotEmpty)
++                    Text(
++                      itemId,
++                      style: theme.textTheme.bodySmall?.copyWith(
++                        color: Colors.grey.shade600,
++                      ),
++                      overflow: TextOverflow.ellipsis,
++                    ),
++                ],
++              ),
++            ),
++            Column(
++              crossAxisAlignment: CrossAxisAlignment.end,
++              children: [
++                Text(
++                  qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2),
++                  style: theme.textTheme.titleMedium?.copyWith(
++                    fontWeight: FontWeight.w800,
++                    color: qtyColor,
++                  ),
++                ),
++                if (lowStock)
++                  Text(
++                    'Low stock',
++                    style: theme.textTheme.bodySmall?.copyWith(
++                      color: Colors.red,
++                      fontWeight: FontWeight.w600,
++                    ),
++                  ),
++              ],
++            ),
++          ],
++        ),
++      ),
++    );
++  }
++
++  Widget _buildTransferCard(Map<String, dynamic> transfer, ThemeData theme) {
++    final type = transfer['transferType']?.toString() ?? 'LOAD';
++    final status = transfer['status']?.toString() ?? 'DRAFT';
++    final date = transfer['transferDate']?.toString() ?? '';
++
++    final isLoad = type == 'LOAD';
++    final typeColor = isLoad ? const Color(0xFF0891B2) : const Color(0xFFF59E0B);
++    final statusColor = switch (status) {
++      'CONFIRMED' => Colors.green,
++      'CANCELLED' => Colors.red,
++      _ => Colors.blueGrey,
++    };
++
++    return Card(
++      child: Padding(
++        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
++        child: Row(
++          children: [
++            Icon(
++              isLoad ? Icons.download : Icons.upload,
++              size: 20,
++              color: typeColor,
++            ),
++            const SizedBox(width: 12),
++            Expanded(
++              child: Column(
++                crossAxisAlignment: CrossAxisAlignment.start,
++                children: [
++                  Text(
++                    type,
++                    style: theme.textTheme.titleSmall?.copyWith(
++                      fontWeight: FontWeight.w700,
++                    ),
++                  ),
++                  if (date.isNotEmpty)
++                    Text(date, style: theme.textTheme.bodySmall),
++                ],
++              ),
++            ),
++            Chip(
++              label: Text(
++                status,
++                style: TextStyle(
++                  color: statusColor,
++                  fontSize: 12,
++                  fontWeight: FontWeight.w600,
++                ),
++              ),
++              backgroundColor: statusColor.withValues(alpha: 0.1),
++              side: BorderSide.none,
++            ),
++          ],
++        ),
++      ),
++    );
++  }
++}
++
++class _TransferRequest {
++  const _TransferRequest({required this.warehouseId, required this.lines});
++
++  final String warehouseId;
++  final List<Map<String, dynamic>> lines;
++}
+diff --git a/lib/src/features/visits/visits_screen.dart b/lib/src/features/visits/visits_screen.dart
+index 4e33d92..d39a49f 100644
+--- a/lib/src/features/visits/visits_screen.dart
++++ b/lib/src/features/visits/visits_screen.dart
+@@ -1,8 +1,11 @@
++import 'package:dio/dio.dart';
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ 
+ import '../../core/location/location_service.dart';
++import '../../core/storage/offline_queue_provider.dart';
+ import '../auth/auth_controller.dart';
++import '../orders/order_builder_screen.dart';
+ import '../shared/field_widgets.dart';
+ 
+ class VisitsScreen extends ConsumerStatefulWidget {
+@@ -93,20 +96,32 @@ class _VisitsScreenState extends ConsumerState<VisitsScreen> {
+   }
+ 
+   Future<void> _checkIn(String visitId) async {
++    FieldLocation? loc;
++    try {
++      loc = await _locationService.currentLocation();
++    } catch (_) {
++      loc = null;
++    }
++    final latitude = loc?.latitude ?? 0.0;
++    final longitude = loc?.longitude ?? 0.0;
++
+     try {
+-      final loc = await _locationService.currentLocation();
+       await ref
+           .read(apiClientProvider)
+-          .checkIn(
+-            visitId,
+-            latitude: loc?.latitude ?? 0,
+-            longitude: loc?.longitude ?? 0,
+-          );
++          .checkIn(visitId, latitude: latitude, longitude: longitude);
+       if (loc == null) _showInfo('Location unavailable — using default');
+       _showSuccess('Checked in');
+       await _loadData();
+     } catch (e) {
+-      _showError('Check-in failed: $e');
++      if (_isNetworkError(e)) {
++        await _enqueueAction(
++          'CHECK_IN',
++          '/api/v1/field-sales/visits/$visitId/check-in',
++          {'latitude': latitude, 'longitude': longitude},
++        );
++      } else {
++        _showError('Check-in failed: $e');
++      }
+     }
+   }
+ 
+@@ -138,21 +153,41 @@ class _VisitsScreenState extends ConsumerState<VisitsScreen> {
+     );
+     if (proceed != true || !mounted) return;
+ 
++    FieldLocation? loc;
++    try {
++      loc = await _locationService.currentLocation();
++    } catch (_) {
++      loc = null;
++    }
++    final latitude = loc?.latitude ?? 0.0;
++    final longitude = loc?.longitude ?? 0.0;
++    final notes = notesCtl.text.trim();
++
+     try {
+-      final loc = await _locationService.currentLocation();
+-      final notes = notesCtl.text.trim();
+       await ref
+           .read(apiClientProvider)
+           .checkOut(
+             visitId,
+-            latitude: loc?.latitude ?? 0,
+-            longitude: loc?.longitude ?? 0,
++            latitude: latitude,
++            longitude: longitude,
+             notes: notes.isNotEmpty ? notes : null,
+           );
+       _showSuccess('Checked out');
+       await _loadData();
+     } catch (e) {
+-      _showError('Check-out failed: $e');
++      if (_isNetworkError(e)) {
++        await _enqueueAction(
++          'CHECK_OUT',
++          '/api/v1/field-sales/visits/$visitId/check-out',
++          {
++            'latitude': latitude,
++            'longitude': longitude,
++            if (notes.isNotEmpty) 'notes': notes,
++          },
++        );
++      } else {
++        _showError('Check-out failed: $e');
++      }
+     }
+   }
+ 
+@@ -203,6 +238,63 @@ class _VisitsScreenState extends ConsumerState<VisitsScreen> {
+     }
+   }
+ 
++  /// Record Order entry point: bottom sheet with two paths —
++  /// build a real line-item Sales Order, or the quick-amount dialog
++  /// (which stays offline-capable).
++  Future<void> _showOrderOptions(Map<String, dynamic> visit) async {
++    final visitId = visit['id']?.toString() ?? '';
++    final contactId = visit['contactId']?.toString() ?? '';
++    final contactName =
++        visit['contactName']?.toString() ??
++        visit['contactId']?.toString() ??
++        'Customer';
++
++    final choice = await showModalBottomSheet<String>(
++      context: context,
++      builder: (ctx) => SafeArea(
++        child: Column(
++          mainAxisSize: MainAxisSize.min,
++          children: [
++            const SizedBox(height: 8),
++            ListTile(
++              leading: const Icon(Icons.inventory_2_outlined),
++              title: const Text('Build order (items)'),
++              subtitle: const Text(
++                'Browse catalog, build a cart, create a Sales Order',
++              ),
++              onTap: () => Navigator.pop(ctx, 'build'),
++            ),
++            ListTile(
++              leading: const Icon(Icons.currency_rupee),
++              title: const Text('Quick amount'),
++              subtitle: const Text(
++                'Just record the order value (works offline)',
++              ),
++              onTap: () => Navigator.pop(ctx, 'quick'),
++            ),
++            const SizedBox(height: 8),
++          ],
++        ),
++      ),
++    );
++    if (choice == null || !mounted) return;
++
++    if (choice == 'build') {
++      final placed = await Navigator.of(context).push<bool>(
++        MaterialPageRoute(
++          builder: (_) => OrderBuilderScreen(
++            visitId: visitId,
++            contactId: contactId,
++            contactName: contactName,
++          ),
++        ),
++      );
++      if (placed == true && mounted) await _loadData();
++    } else {
++      await _recordOrder(visitId);
++    }
++  }
++
+   Future<void> _recordOrder(String visitId) async {
+     final valueCtl = TextEditingController();
+     final soIdCtl = TextEditingController();
+@@ -253,18 +345,25 @@ class _VisitsScreenState extends ConsumerState<VisitsScreen> {
+     );
+     if (proceed != true || !mounted) return;
+ 
++    final salesOrderId = soIdCtl.text.trim();
++    final orderValue = double.tryParse(valueCtl.text.trim()) ?? 0;
++
+     try {
+       await ref
+           .read(apiClientProvider)
+-          .recordOrder(
+-            visitId,
+-            salesOrderId: soIdCtl.text.trim(),
+-            orderValue: double.tryParse(valueCtl.text.trim()) ?? 0,
+-          );
++          .recordOrder(visitId, salesOrderId: salesOrderId, orderValue: orderValue);
+       _showSuccess('Order recorded');
+       await _loadData();
+     } catch (e) {
+-      _showError('Failed to record order: $e');
++      if (_isNetworkError(e)) {
++        await _enqueueAction(
++          'RECORD_ORDER',
++          '/api/v1/field-sales/visits/$visitId/record-order',
++          {'salesOrderId': salesOrderId, 'orderValue': orderValue},
++        );
++      } else {
++        _showError('Failed to record order: $e');
++      }
+     }
+   }
+ 
+@@ -304,18 +403,65 @@ class _VisitsScreenState extends ConsumerState<VisitsScreen> {
+     );
+     if (proceed != true || !mounted) return;
+ 
++    final collectionAmount = double.tryParse(amountCtl.text.trim()) ?? 0;
++
+     try {
+       await ref
+           .read(apiClientProvider)
+-          .recordCollection(
+-            visitId,
+-            collectionAmount: double.tryParse(amountCtl.text.trim()) ?? 0,
+-          );
++          .recordCollection(visitId, collectionAmount: collectionAmount);
+       _showSuccess('Collection recorded');
+       await _loadData();
+     } catch (e) {
+-      _showError('Failed to record collection: $e');
++      if (_isNetworkError(e)) {
++        await _enqueueAction(
++          'RECORD_COLLECTION',
++          '/api/v1/field-sales/visits/$visitId/record-collection',
++          {'collectionAmount': collectionAmount},
++        );
++      } else {
++        _showError('Failed to record collection: $e');
++      }
++    }
++  }
++
++  // ── Offline support ───────────────────────────────────────────
++
++  /// True when the failure is connectivity-related (worth queuing
++  /// offline) rather than a server-side rejection.
++  bool _isNetworkError(Object e) {
++    if (e is DioException) {
++      switch (e.type) {
++        case DioExceptionType.connectionTimeout:
++        case DioExceptionType.sendTimeout:
++        case DioExceptionType.receiveTimeout:
++        case DioExceptionType.connectionError:
++          return true;
++        default:
++          break;
++      }
+     }
++    final text = e.toString();
++    return text.contains('SocketException') ||
++        text.contains('Connection refused') ||
++        text.contains('Network is unreachable') ||
++        text.contains('Failed host lookup');
++  }
++
++  Future<void> _enqueueAction(
++    String type,
++    String endpoint,
++    Map<String, dynamic> body,
++  ) async {
++    await ref
++        .read(offlineQueueProvider)
++        .enqueue(type: type, endpoint: endpoint, body: body);
++    if (!mounted) return;
++    ScaffoldMessenger.of(context).showSnackBar(
++      const SnackBar(
++        content: Text('Saved offline — will sync when connected'),
++        backgroundColor: Colors.orange,
++      ),
++    );
+   }
+ 
+   void _showSuccess(String msg) {
+@@ -583,7 +729,7 @@ class _VisitsScreenState extends ConsumerState<VisitsScreen> {
+                     label: const Text('Check Out'),
+                   ),
+                   OutlinedButton.icon(
+-                    onPressed: () => _recordOrder(visitId),
++                    onPressed: () => _showOrderOptions(visit),
+                     icon: const Icon(Icons.shopping_cart, size: 18),
+                     label: const Text('Order'),
+                   ),
+@@ -595,7 +741,7 @@ class _VisitsScreenState extends ConsumerState<VisitsScreen> {
+                 ],
+                 if (status == 'COMPLETED') ...[
+                   OutlinedButton.icon(
+-                    onPressed: () => _recordOrder(visitId),
++                    onPressed: () => _showOrderOptions(visit),
+                     icon: const Icon(Icons.shopping_cart, size: 18),
+                     label: const Text('Order'),
+                   ),
+-- 
+2.43.0
+

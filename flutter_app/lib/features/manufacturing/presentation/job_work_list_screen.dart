@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/manufacturing_repository.dart';
 
@@ -20,7 +21,21 @@ class _JobWorkListScreenState extends ConsumerState<JobWorkListScreen> {
     final ordersAsync = ref.watch(jobWorkOrdersProvider(_statusFilter));
     final alertsAsync = ref.watch(_gstAlertsProvider);
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: () => ordersAsync.valueOrNull?.length ?? 0,
+      onNew: () => context.go('/manufacturing/job-work/new'),
+      onRefresh: () {
+        ref.invalidate(jobWorkOrdersProvider(_statusFilter));
+        ref.invalidate(_gstAlertsProvider);
+      },
+      onOpen: (index) {
+        final orders = ordersAsync.valueOrNull;
+        if (orders != null && index < orders.length) {
+          final id = orders[index]['id']?.toString();
+          if (id != null) context.go('/manufacturing/job-work/$id');
+        }
+      },
+      child: Scaffold(
       body: Column(
         children: [
           const KListPageHeader(
@@ -146,6 +161,7 @@ class _JobWorkListScreenState extends ConsumerState<JobWorkListScreen> {
         label: const Text('New Job Work Order'),
         tooltip: 'New Job Work Order (N)',
       ),
+    ),
     );
   }
 

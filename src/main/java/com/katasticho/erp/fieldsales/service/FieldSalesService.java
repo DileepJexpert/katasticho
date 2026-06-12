@@ -1059,10 +1059,12 @@ public class FieldSalesService {
                 .orElseThrow(() -> BusinessException.notFound("FieldVisit", visitId));
         ensureVisitOwnership(visit, orgId);
 
-        salesOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(salesOrderId, orgId)
-                .orElseThrow(() -> BusinessException.notFound("SalesOrder", salesOrderId));
-
-        visit.setSalesOrderId(salesOrderId);
+        // salesOrderId is optional — quick-amount orders from the field app record value only
+        if (salesOrderId != null) {
+            salesOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(salesOrderId, orgId)
+                    .orElseThrow(() -> BusinessException.notFound("SalesOrder", salesOrderId));
+            visit.setSalesOrderId(salesOrderId);
+        }
         visit.setOrderValue(orderValue != null ? orderValue : BigDecimal.ZERO);
 
         visit = fieldVisitRepository.save(visit);

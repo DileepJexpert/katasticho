@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/partner_network_repository.dart';
 
@@ -13,36 +15,45 @@ class PartnerListScreen extends ConsumerWidget {
     final pendingAsync = ref.watch(pendingPartnersProvider);
     final theme = Theme.of(context);
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        body: Column(
-          children: [
-            const KListPageHeader(
-              title: 'Trading Partners',
-            ),
-            TabBar(
-              tabs: const [
-                Tab(text: 'All Partners'),
-                Tab(text: 'Pending Requests'),
-              ],
-              labelColor: theme.colorScheme.primary,
-            ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _AllPartnersTab(partnersAsync: partnersAsync, ref: ref),
-                  _PendingTab(pendingAsync: pendingAsync, ref: ref),
-                ],
+    return KKeyboardListWrapper(
+      itemCount: () => partnersAsync.valueOrNull?.length ?? 0,
+      onNew: () => _showRequestDialog(context, ref),
+      onRefresh: () {
+        ref.invalidate(partnersProvider);
+        ref.invalidate(pendingPartnersProvider);
+      },
+      child: DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          body: Column(
+            children: [
+              const KListPageHeader(
+                title: 'Trading Partners',
+                subtitle: 'Manage B2B relationships with suppliers and buyers.',
               ),
-            ),
-          ],
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => _showRequestDialog(context, ref),
-          icon: const Icon(Icons.handshake),
-          label: const Text('Request Partnership'),
-          tooltip: 'Request Partnership (N)',
+              TabBar(
+                tabs: const [
+                  Tab(text: 'All Partners'),
+                  Tab(text: 'Pending Requests'),
+                ],
+                labelColor: theme.colorScheme.primary,
+              ),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _AllPartnersTab(partnersAsync: partnersAsync, ref: ref),
+                    _PendingTab(pendingAsync: pendingAsync, ref: ref),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => _showRequestDialog(context, ref),
+            icon: const Icon(Icons.handshake),
+            label: const Text('Request Partnership'),
+            tooltip: 'Request Partnership (N)',
+          ),
         ),
       ),
     );
@@ -222,7 +233,7 @@ class _PartnerCard extends StatelessWidget {
                   child: Text('$sellerName → $buyerName',
                       style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                 ),
-                KStatusChip(status: status),
+                KStatusChip(label: status),
               ],
             ),
             if (partner['paymentTerms'] != null) ...[

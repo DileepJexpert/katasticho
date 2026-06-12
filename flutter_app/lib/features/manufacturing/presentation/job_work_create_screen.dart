@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/widgets.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../data/manufacturing_repository.dart';
 
 class JobWorkCreateScreen extends ConsumerStatefulWidget {
@@ -49,7 +50,10 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _submit,
+      onCancel: () => context.pop(),
+      child: Scaffold(
       appBar: AppBar(title: const Text('New Job Work Order')),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -224,7 +228,7 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
           const SizedBox(height: 16),
         ],
       ),
-    );
+    ));
   }
 
   Future<void> _submit() async {

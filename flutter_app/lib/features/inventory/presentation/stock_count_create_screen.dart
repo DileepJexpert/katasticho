@@ -9,6 +9,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../../../routing/app_router.dart';
 
 class StockCountCreateScreen extends ConsumerStatefulWidget {
@@ -246,7 +247,10 @@ class _StockCountCreateScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _submit,
+      onCancel: () => context.go(Routes.stockCounts),
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('New Stock Count'),
         leading: IconButton(
@@ -271,7 +275,7 @@ class _StockCountCreateScreenState
         ],
       ),
       bottomNavigationBar: _buildBottomBar(),
-    );
+    ));
   }
 
   Widget _buildHeaderSection() {

@@ -9,6 +9,8 @@ import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.accounting.repository.JournalEntryRepository;
 import com.katasticho.erp.accounting.service.FinancialReportService;
 import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.contact.repository.ContactRepository;
+import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.migration.tally.TallyImportDtos.TbVerificationResult;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,9 +32,12 @@ class TallyCaBridgeServiceTest {
     private final FinancialReportService financialReportService = mock(FinancialReportService.class);
     private final JournalEntryRepository journalEntryRepository = mock(JournalEntryRepository.class);
     private final AccountRepository accountRepository = mock(AccountRepository.class);
+    private final ContactRepository contactRepository = mock(ContactRepository.class);
+    private final ItemRepository itemRepository = mock(ItemRepository.class);
 
     private final TallyCaBridgeService service = new TallyCaBridgeService(
-            new TallyXmlParser(), financialReportService, journalEntryRepository, accountRepository);
+            new TallyXmlParser(), financialReportService, journalEntryRepository, accountRepository,
+            contactRepository, itemRepository);
 
     private final UUID orgId = UUID.randomUUID();
 

@@ -5,10 +5,16 @@ import com.katasticho.erp.accounting.posting.ManufacturingWipPostingRule;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.inventory.entity.BomAlternate;
+import com.katasticho.erp.inventory.entity.BomCoProduct;
 import com.katasticho.erp.inventory.entity.BomComponent;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.entity.ItemType;
+import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.Warehouse;
+import com.katasticho.erp.inventory.dto.StockMovementRequest;
+import com.katasticho.erp.inventory.repository.BomAlternateRepository;
+import com.katasticho.erp.inventory.repository.BomCoProductRepository;
 import com.katasticho.erp.inventory.repository.BomComponentRepository;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
@@ -29,6 +35,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -49,6 +56,11 @@ class ManufacturingServiceTest {
     @Mock private JournalService journalService;
     @Mock private ManufacturingWipPostingRule wipPostingRule;
     @Mock private ProductionCostSummaryRepository costSummaryRepo;
+    @Mock private BomAlternateRepository bomAlternateRepo;
+    @Mock private BomCoProductRepository bomCoProductRepo;
+    @Mock private com.katasticho.erp.common.workflow.ApprovalWorkflowService approvalWorkflowService;
+    @Mock private com.katasticho.erp.manufacturing.repository.ProductionScrapRepository productionScrapRepo;
+    @Mock private com.katasticho.erp.manufacturing.repository.ScrapReasonCodeRepository scrapReasonCodeRepo;
 
     private ManufacturingService service;
 
@@ -62,7 +74,9 @@ class ManufacturingServiceTest {
     void setUp() {
         service = new ManufacturingService(
                 workOrderRepo, workOrderLineRepo, bomComponentRepo, itemRepo, inventoryService,
-                salesOrderRepo, warehouseRepo, journalService, wipPostingRule, costSummaryRepo);
+                salesOrderRepo, warehouseRepo, journalService, wipPostingRule, costSummaryRepo,
+                bomAlternateRepo, bomCoProductRepo, approvalWorkflowService,
+                productionScrapRepo, scrapReasonCodeRepo);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
@@ -563,6 +577,315 @@ class ManufacturingServiceTest {
 
         assertNotNull(result.get("totalWipValue"));
         assertEquals(2, result.get("wipOrderCount"));
+    }
+
+    // ── BOM Enhancements: scrap % on issue ───────────────────────────
+
+    @Test
+    void issueToProduction_scrapPercent_inflatesIssuedQuantity() {
+        WorkOrder wo = createTestWorkOrder("DRAFT");
+        BomComponent comp = buildBomComponent();
+        comp.setScrapPercent(BigDecimal.valueOf(10));
+
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(wo));
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+                .thenReturn(List.of(comp));
+        when(inventoryService.recordMovement(any())).thenReturn(null);
+        when(workOrderRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        WorkOrder result = service.issueToProduction(wo.getId());
+
+        org.mockito.ArgumentCaptor<StockMovementRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(StockMovementRequest.class);
+        verify(inventoryService).recordMovement(captor.capture());
+
+        // requiredQty 30 × (1 + 10/100) = 33, issued as a negative movement
+        assertEquals(0, BigDecimal.valueOf(-33).compareTo(captor.getValue().quantity()));
+        assertEquals(0, BigDecimal.valueOf(33).compareTo(result.getLines().get(0).getIssuedQty()));
+        // RM cost reflects the inflated issue: 33 × 50 = 1650
+        assertEquals(0, BigDecimal.valueOf(1650).compareTo(result.getRawMaterialCost()));
+    }
+
+    @Test
+    void issueToProduction_zeroScrapPercent_issuesNominalQuantity() {
+        WorkOrder wo = createTestWorkOrder("DRAFT");
+        BomComponent comp = buildBomComponent(); // scrapPercent defaults to 0
+
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(wo));
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+                .thenReturn(List.of(comp));
+        when(inventoryService.recordMovement(any())).thenReturn(null);
+        when(workOrderRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        WorkOrder result = service.issueToProduction(wo.getId());
+
+        org.mockito.ArgumentCaptor<StockMovementRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(StockMovementRequest.class);
+        verify(inventoryService).recordMovement(captor.capture());
+        assertEquals(0, BigDecimal.valueOf(-30).compareTo(captor.getValue().quantity()));
+        assertEquals(0, BigDecimal.valueOf(1500).compareTo(result.getRawMaterialCost()));
+    }
+
+    // ── BOM Enhancements: co-products on FG receipt ──────────────────
+
+    @Test
+    void receiveFinishedGoods_withCoProducts_splitsCostAndReceivesCoProduct() {
+        WorkOrder wo = createTestWorkOrder("IN_PROGRESS");
+        UUID coProductItemId = UUID.randomUUID();
+        BomCoProduct cp = BomCoProduct.builder()
+                .parentItemId(fgItemId)
+                .coProductItemId(coProductItemId)
+                .quantityPerUnit(BigDecimal.valueOf(2))
+                .costAllocationPercent(BigDecimal.valueOf(20))
+                .build();
+        cp.setOrgId(orgId);
+
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(wo));
+        when(bomCoProductRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+                .thenReturn(List.of(cp));
+        when(inventoryService.recordMovement(any())).thenReturn(null);
+        when(workOrderRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Partial receipt of 5/10 keeps the WO IN_PROGRESS (no completion journal)
+        WorkOrder result = service.receiveFinishedGoods(wo.getId(), BigDecimal.valueOf(5));
+
+        org.mockito.ArgumentCaptor<StockMovementRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(StockMovementRequest.class);
+        verify(inventoryService, times(2)).recordMovement(captor.capture());
+
+        StockMovementRequest fgMove = captor.getAllValues().get(0);
+        StockMovementRequest cpMove = captor.getAllValues().get(1);
+
+        // Main FG keeps 80% of cost: 1500 × 0.8 / 10 = 120 per unit
+        assertEquals(fgItemId, fgMove.itemId());
+        assertEquals(MovementType.PRODUCTION_RECEIVE, fgMove.movementType());
+        assertEquals(0, BigDecimal.valueOf(5).compareTo(fgMove.quantity()));
+        assertEquals(0, BigDecimal.valueOf(120).compareTo(fgMove.unitCost()));
+        assertEquals(0, BigDecimal.valueOf(120).compareTo(result.getUnitCost()));
+
+        // Co-product: 5 × 2 = 10 units @ 1500 × 0.2 / (10 × 2) = 15 per unit
+        assertEquals(coProductItemId, cpMove.itemId());
+        assertEquals(MovementType.PRODUCTION_RECEIVE, cpMove.movementType());
+        assertEquals(0, BigDecimal.valueOf(10).compareTo(cpMove.quantity()));
+        assertEquals(0, BigDecimal.valueOf(15).compareTo(cpMove.unitCost()));
+    }
+
+    @Test
+    void receiveFinishedGoods_noCoProducts_legacyCostPathUnchanged() {
+        WorkOrder wo = createTestWorkOrder("IN_PROGRESS");
+        // bomCoProductRepo unstubbed → empty list → pre-co-product path
+
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(wo));
+        when(inventoryService.recordMovement(any())).thenReturn(null);
+        when(workOrderRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        WorkOrder result = service.receiveFinishedGoods(wo.getId(), BigDecimal.valueOf(5));
+
+        org.mockito.ArgumentCaptor<StockMovementRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(StockMovementRequest.class);
+        verify(inventoryService, times(1)).recordMovement(captor.capture());
+        // Full cost on the FG: 1500 / 10 = 150 per unit, exactly as before
+        assertEquals(0, BigDecimal.valueOf(150).compareTo(captor.getValue().unitCost()));
+        assertEquals(0, BigDecimal.valueOf(150).compareTo(result.getUnitCost()));
+    }
+
+    // ── BOM Enhancements: alternate substitution ─────────────────────
+
+    @Test
+    void substituteWorkOrderLine_registeredAlternate_swapsItemAndReprices() {
+        WorkOrder wo = createTestWorkOrder("DRAFT");
+        var line = wo.getLines().get(0);
+        line.setId(UUID.randomUUID());
+
+        BomComponent comp = buildBomComponent();
+        comp.setId(UUID.randomUUID());
+
+        UUID alternateItemId = UUID.randomUUID();
+        Item alternate = Item.builder()
+                .sku("RM-ALT").name("Alternate Material")
+                .itemType(ItemType.GOODS)
+                .purchasePrice(BigDecimal.valueOf(60))
+                .salePrice(BigDecimal.ZERO)
+                .build();
+        alternate.setId(alternateItemId);
+        alternate.setOrgId(orgId);
+
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(wo));
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+                .thenReturn(List.of(comp));
+        when(bomAlternateRepo.existsByOrgIdAndBomComponentIdAndAlternateItemIdAndIsDeletedFalse(
+                orgId, comp.getId(), alternateItemId)).thenReturn(true);
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(alternateItemId, orgId))
+                .thenReturn(Optional.of(alternate));
+        when(workOrderRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        WorkOrder result = service.substituteWorkOrderLine(wo.getId(), line.getId(), alternateItemId);
+
+        assertEquals(alternateItemId, result.getLines().get(0).getItemId());
+        assertEquals(0, BigDecimal.valueOf(60).compareTo(result.getLines().get(0).getUnitCost()));
+        // 30 × 60 = 1800
+        assertEquals(0, BigDecimal.valueOf(1800).compareTo(result.getLines().get(0).getLineCost()));
+        assertEquals(0, BigDecimal.valueOf(1800).compareTo(result.getRawMaterialCost()));
+    }
+
+    @Test
+    void substituteWorkOrderLine_unregisteredAlternate_throws() {
+        WorkOrder wo = createTestWorkOrder("DRAFT");
+        var line = wo.getLines().get(0);
+        line.setId(UUID.randomUUID());
+
+        BomComponent comp = buildBomComponent();
+        comp.setId(UUID.randomUUID());
+
+        UUID alternateItemId = UUID.randomUUID();
+
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(wo));
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+                .thenReturn(List.of(comp));
+        when(bomAlternateRepo.existsByOrgIdAndBomComponentIdAndAlternateItemIdAndIsDeletedFalse(
+                orgId, comp.getId(), alternateItemId)).thenReturn(false);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.substituteWorkOrderLine(wo.getId(), line.getId(), alternateItemId));
+        assertEquals("MFG_ALTERNATE_NOT_REGISTERED", ex.getErrorCode());
+        verify(workOrderRepo, never()).save(any());
+    }
+
+    @Test
+    void substituteWorkOrderLine_notDraft_throws() {
+        WorkOrder wo = createTestWorkOrder("IN_PROGRESS");
+        var line = wo.getLines().get(0);
+        line.setId(UUID.randomUUID());
+
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(wo));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.substituteWorkOrderLine(wo.getId(), line.getId(), UUID.randomUUID()));
+        assertEquals("MFG_NOT_DRAFT", ex.getErrorCode());
+    }
+
+    @Test
+    void addBomAlternate_sameAsPrimary_throws() {
+        BomComponent comp = buildBomComponent();
+        comp.setId(UUID.randomUUID());
+        Item rm = buildRawMaterial();
+
+        when(bomComponentRepo.findByIdAndOrgIdAndIsDeletedFalse(comp.getId(), orgId))
+                .thenReturn(Optional.of(comp));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId))
+                .thenReturn(Optional.of(rm));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.addBomAlternate(comp.getId(), rmItemId, 1, null));
+        assertEquals("MFG_ALTERNATE_SAME_AS_PRIMARY", ex.getErrorCode());
+        verify(bomAlternateRepo, never()).save(any());
+    }
+
+    @Test
+    void addBomAlternate_happyPath_persists() {
+        BomComponent comp = buildBomComponent();
+        comp.setId(UUID.randomUUID());
+
+        UUID alternateItemId = UUID.randomUUID();
+        Item alternate = Item.builder()
+                .sku("RM-ALT").name("Alternate Material")
+                .itemType(ItemType.GOODS)
+                .purchasePrice(BigDecimal.valueOf(60))
+                .salePrice(BigDecimal.ZERO)
+                .build();
+        alternate.setId(alternateItemId);
+        alternate.setOrgId(orgId);
+
+        when(bomComponentRepo.findByIdAndOrgIdAndIsDeletedFalse(comp.getId(), orgId))
+                .thenReturn(Optional.of(comp));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(alternateItemId, orgId))
+                .thenReturn(Optional.of(alternate));
+        when(bomAlternateRepo.existsByOrgIdAndBomComponentIdAndAlternateItemIdAndIsDeletedFalse(
+                orgId, comp.getId(), alternateItemId)).thenReturn(false);
+        when(bomAlternateRepo.save(any(BomAlternate.class))).thenAnswer(inv -> {
+            BomAlternate row = inv.getArgument(0);
+            row.setId(UUID.randomUUID());
+            return row;
+        });
+
+        BomAlternate saved = service.addBomAlternate(comp.getId(), alternateItemId, 2, "supplier B");
+
+        assertNotNull(saved.getId());
+        assertEquals(comp.getId(), saved.getBomComponentId());
+        assertEquals(alternateItemId, saved.getAlternateItemId());
+        assertEquals(2, saved.getPriority());
+    }
+
+    // ── BOM Enhancements: cost roll-up ───────────────────────────────
+
+    @Test
+    void getBomCostRollup_recursesThroughLevelsWithScrapInflation() {
+        UUID subAssemblyId = UUID.randomUUID();
+        UUID leafId = UUID.randomUUID();
+
+        Item root = buildCompositeItem();
+        Item sub = Item.builder()
+                .sku("SUB-001").name("Sub Assembly")
+                .itemType(ItemType.COMPOSITE)
+                .phantom(true)
+                .purchasePrice(BigDecimal.ZERO)
+                .salePrice(BigDecimal.ZERO)
+                .build();
+        sub.setId(subAssemblyId);
+        sub.setOrgId(orgId);
+        Item leaf = Item.builder()
+                .sku("LEAF-001").name("Leaf Material")
+                .itemType(ItemType.GOODS)
+                .purchasePrice(BigDecimal.TEN)
+                .salePrice(BigDecimal.ZERO)
+                .build();
+        leaf.setId(leafId);
+        leaf.setOrgId(orgId);
+
+        BomComponent rootComp = BomComponent.builder()
+                .parentItemId(fgItemId).childItemId(subAssemblyId)
+                .quantity(BigDecimal.valueOf(2)).build();
+        rootComp.setOrgId(orgId);
+        BomComponent subComp = BomComponent.builder()
+                .parentItemId(subAssemblyId).childItemId(leafId)
+                .quantity(BigDecimal.valueOf(3))
+                .scrapPercent(BigDecimal.valueOf(10)).build();
+        subComp.setOrgId(orgId);
+
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(root));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(subAssemblyId, orgId)).thenReturn(Optional.of(sub));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(leafId, orgId)).thenReturn(Optional.of(leaf));
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+                .thenReturn(List.of(rootComp));
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, subAssemblyId))
+                .thenReturn(List.of(subComp));
+
+        Map<String, Object> result = service.getBomCostRollup(fgItemId);
+
+        // Leaf: 3 × 1.10 = 3.3 effective × ₹10 = ₹33.00 per sub-assembly unit
+        // Root: 2 sub-assemblies × ₹33.00 = ₹66.00
+        assertEquals(0, new BigDecimal("66.00").compareTo((BigDecimal) result.get("totalCost")));
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> children = (List<Map<String, Object>>) result.get("children");
+        assertEquals(1, children.size());
+        Map<String, Object> subNode = children.get(0);
+        assertEquals(0, new BigDecimal("33.00").compareTo((BigDecimal) subNode.get("unitCost")));
+        assertEquals(0, new BigDecimal("66.00").compareTo((BigDecimal) subNode.get("extendedCost")));
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> grandChildren = (List<Map<String, Object>>) subNode.get("children");
+        assertEquals(1, grandChildren.size());
+        Map<String, Object> leafNode = grandChildren.get(0);
+        assertEquals(0, new BigDecimal("3.3").compareTo((BigDecimal) leafNode.get("effectiveQuantity")));
+        assertEquals(0, new BigDecimal("33.00").compareTo((BigDecimal) leafNode.get("extendedCost")));
     }
 
     private WorkOrder createTestWorkOrder(String status) {

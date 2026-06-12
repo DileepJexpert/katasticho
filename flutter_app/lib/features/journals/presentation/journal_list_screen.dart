@@ -121,6 +121,7 @@ class _JournalListScreenState extends ConsumerState<JournalListScreen> {
         onPressed: () => context.push('/accounting/journal-entries/create'),
         icon: const Icon(Icons.add),
         label: const Text('Manual Journal'),
+        tooltip: 'Manual Journal (N)',
       ),
     ));
   }

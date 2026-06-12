@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/routing_repository.dart';
 
@@ -23,55 +24,71 @@ class _JobCardListScreenState extends ConsumerState<JobCardListScreen> {
   Widget build(BuildContext context) {
     final cardsAsync = ref.watch(jobCardsProvider(widget.workOrderId));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Job Cards — ${widget.workOrderNumber}'),
-      ),
-      body: cardsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => KErrorView(
-          message: e.toString(),
-          onRetry: () => ref.invalidate(jobCardsProvider(widget.workOrderId)),
-        ),
-        data: (cards) {
-          if (cards.isEmpty) {
-            return const KEmptyState(
-              icon: Icons.assignment_outlined,
-              title: 'No job cards',
-              subtitle:
-                  'Tap the button below to create job cards from a routing.',
-            );
-          }
-          // Sort by sequence number
+    return KKeyboardListWrapper(
+      itemCount: () => cardsAsync.valueOrNull?.length ?? 0,
+      onNew: _showCreateJobCardsDialog,
+      onRefresh: () => ref.invalidate(jobCardsProvider(widget.workOrderId)),
+      onOpen: (index) {
+        final cards = cardsAsync.valueOrNull;
+        if (cards != null && index < cards.length) {
           final sorted = [...cards]
             ..sort((a, b) =>
                 ((a['sequenceNumber'] as num?)?.compareTo(
                         (b['sequenceNumber'] as num?) ?? 0) ??
                     0));
-          return RefreshIndicator(
-            onRefresh: () async =>
-                ref.invalidate(jobCardsProvider(widget.workOrderId)),
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: sorted.length,
-              itemBuilder: (ctx, i) => _JobCardItem(
-                card: sorted[i],
-                onTap: () => _showCardSheet(sorted[i]),
+          _showCardSheet(sorted[index]);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Job Cards — ${widget.workOrderNumber}'),
+        ),
+        body: cardsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => KErrorView(
+            message: e.toString(),
+            onRetry: () => ref.invalidate(jobCardsProvider(widget.workOrderId)),
+          ),
+          data: (cards) {
+            if (cards.isEmpty) {
+              return const KEmptyState(
+                icon: Icons.assignment_outlined,
+                title: 'No job cards',
+                subtitle:
+                    'Tap the button below to create job cards from a routing.',
+              );
+            }
+            // Sort by sequence number
+            final sorted = [...cards]
+              ..sort((a, b) =>
+                  ((a['sequenceNumber'] as num?)?.compareTo(
+                          (b['sequenceNumber'] as num?) ?? 0) ??
+                      0));
+            return RefreshIndicator(
+              onRefresh: () async =>
+                  ref.invalidate(jobCardsProvider(widget.workOrderId)),
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: sorted.length,
+                itemBuilder: (ctx, i) => _JobCardItem(
+                  card: sorted[i],
+                  onTap: () => _showCardSheet(sorted[i]),
+                ),
               ),
-            ),
-          );
-        },
-      ),
-      floatingActionButton: cardsAsync.maybeWhen(
-        data: (cards) => cards.isEmpty
-            ? FloatingActionButton.extended(
-                onPressed: _showCreateJobCardsDialog,
-                icon: const Icon(Icons.post_add),
-                label: const Text('Create Job Cards'),
-                tooltip: 'Create Job Cards (N)',
-              )
-            : null,
-        orElse: () => null,
+            );
+          },
+        ),
+        floatingActionButton: cardsAsync.maybeWhen(
+          data: (cards) => cards.isEmpty
+              ? FloatingActionButton.extended(
+                  onPressed: _showCreateJobCardsDialog,
+                  icon: const Icon(Icons.post_add),
+                  label: const Text('Create Job Cards'),
+                  tooltip: 'Create Job Cards (N)',
+                )
+              : null,
+          orElse: () => null,
+        ),
       ),
     );
   }

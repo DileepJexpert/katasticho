@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/widgets.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../data/routing_repository.dart';
 
 class RoutingCreateScreen extends ConsumerStatefulWidget {
@@ -63,7 +64,10 @@ class _RoutingCreateScreenState extends ConsumerState<RoutingCreateScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _submit,
+      onCancel: () => context.pop(),
+      child: Scaffold(
       appBar: AppBar(title: const Text('New Routing')),
       body: Form(
         key: _formKey,
@@ -165,7 +169,7 @@ class _RoutingCreateScreenState extends ConsumerState<RoutingCreateScreen> {
           ],
         ),
       ),
-    );
+    ));
   }
 
   Future<void> _submit() async {

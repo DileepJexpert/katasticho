@@ -274,9 +274,10 @@ public class FieldSalesController {
     // Van Stock Transfer endpoints
     // ══════════════════════════════════════════════════════════════
 
+    // OPERATOR may request a load (creates DRAFT only — stock moves at confirm, which stays OWNER/ADMIN)
     @SuppressWarnings("unchecked")
     @PostMapping("/van-transfers/load")
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR')")
     public ResponseEntity<ApiResponse<VanStockTransfer>> createVanLoad(
             @RequestBody Map<String, Object> body) {
         UUID vanId = UUID.fromString((String) body.get("vanId"));
@@ -293,9 +294,10 @@ public class FieldSalesController {
                 service.confirmVanLoad(id), "Van load confirmed"));
     }
 
+    // OPERATOR may initiate a return (creates DRAFT only — stock moves at confirm, which stays OWNER/ADMIN)
     @SuppressWarnings("unchecked")
     @PostMapping("/van-transfers/return")
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR')")
     public ResponseEntity<ApiResponse<VanStockTransfer>> createVanReturn(
             @RequestBody Map<String, Object> body) {
         UUID vanId = UUID.fromString((String) body.get("vanId"));
@@ -428,7 +430,8 @@ public class FieldSalesController {
     public ResponseEntity<ApiResponse<FieldVisit>> recordVisitOrder(
             @PathVariable UUID id,
             @RequestBody Map<String, Object> body) {
-        UUID salesOrderId = UUID.fromString((String) body.get("salesOrderId"));
+        String rawSoId = (String) body.get("salesOrderId");
+        UUID salesOrderId = (rawSoId == null || rawSoId.isBlank()) ? null : UUID.fromString(rawSoId);
         BigDecimal orderValue = new BigDecimal(body.get("orderValue").toString());
         return ResponseEntity.ok(ApiResponse.ok(
                 service.recordVisitOrder(id, salesOrderId, orderValue), "Order recorded"));

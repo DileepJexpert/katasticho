@@ -54,6 +54,11 @@ public class WorkflowSeedService {
         created |= transition(orgId, "PAYMENT", "PENDING_APPROVAL", "VOIDED",
                 new String[]{"OWNER", "ADMIN", "ACCOUNTANT"}, false);
 
+        created |= transition(orgId, "WORK_ORDER", "PENDING_APPROVAL", "DRAFT",
+                new String[]{"OWNER", "ADMIN"}, false);
+        created |= transition(orgId, "WORK_ORDER", "PENDING_APPROVAL", "REJECTED",
+                new String[]{"OWNER", "ADMIN"}, false);
+
         created |= workflow(orgId, "SALES_ORDER",
                 "SALES_ORDER_CREDIT_APPROVAL",
                 "Sales Order Credit Approval",
@@ -83,6 +88,12 @@ public class WorkflowSeedService {
                 "Payment Backdated Approval",
                 """
                         {"field":"payment.daysBackdated","operator":"GT","value":7}
+                        """);
+        created |= workflow(orgId, "WORK_ORDER",
+                "WORK_ORDER_PRODUCTION_APPROVAL",
+                "Work Order Production Approval",
+                """
+                        {"field":"workOrder.totalCost","operator":"GTE","value":0}
                         """);
 
         return created ? SeedResult.CREATED_NEW : SeedResult.ALREADY_EXISTS;
