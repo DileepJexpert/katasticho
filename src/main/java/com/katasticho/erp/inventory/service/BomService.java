@@ -81,10 +81,10 @@ public class BomService {
 
         Item child = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(request.childItemId(), orgId)
                 .orElseThrow(() -> BusinessException.notFound("Item", request.childItemId()));
-        if (child.getItemType() == ItemType.COMPOSITE) {
-            // v1: nested BOMs not supported. The explosion path assumes
-            // one level and would need cycle detection + recursion to
-            // safely traverse more.
+        if (child.getItemType() == ItemType.COMPOSITE && !child.isPhantom()) {
+            // Nested STOCKED composites are still not supported — the
+            // explosion path only recurses through PHANTOM composites
+            // (which are flattened with cycle detection in explode()).
             throw new BusinessException(
                     "Child " + child.getSku() + " is itself a composite — nested BOMs are not supported in this release",
                     "BOM_NESTED_NOT_SUPPORTED", HttpStatus.BAD_REQUEST);
@@ -107,6 +107,15 @@ public class BomService {
                     "BOM_QUANTITY_INVALID", HttpStatus.BAD_REQUEST);
         }
 
+        BigDecimal scrapPercent = request.scrapPercent() != null
+                ? request.scrapPercent() : BigDecimal.ZERO;
+        if (scrapPercent.compareTo(BigDecimal.ZERO) < 0
+                || scrapPercent.compareTo(BigDecimal.valueOf(100)) >= 0) {
+            throw new BusinessException(
+                    "BOM scrap percent must be between 0 and 99.99",
+                    "BOM_SCRAP_PERCENT_INVALID", HttpStatus.BAD_REQUEST);
+        }
+
         if (bomRepository.existsByOrgIdAndParentItemIdAndChildItemIdAndIsDeletedFalse(
                 orgId, parentItemId, request.childItemId())) {
             throw new BusinessException(
@@ -118,6 +127,7 @@ public class BomService {
                 .parentItemId(parentItemId)
                 .childItemId(request.childItemId())
                 .quantity(qty)
+                .scrapPercent(scrapPercent)
                 .build();
 
         BomComponent saved = bomRepository.save(row);
@@ -186,10 +196,15 @@ public class BomService {
     // ────────────────────────────────────────────────────────────────────
 
     /**
-     * Return every live BOM row for {@code parentItemId} in this tenant.
-     * Called from {@link InventoryService#deductStockForInvoice} and the
-     * credit-note restore path once per composite invoice line; the v1
-     * single-level constraint means we return the rows as-is and the
+     * Return every live BOM row for {@code parentItemId} in this tenant,
+     * with PHANTOM composite children flattened through: a child that is
+     * COMPOSITE + {@code isPhantom} is replaced by its own components,
+     * each scaled by the phantom line's quantity (recursively, with
+     * cycle detection). Non-phantom BOMs return the repository rows
+     * untouched — the original v1 hot path.
+     *
+     * <p>Called from {@link InventoryService#deductStockForInvoice} and
+     * the credit-note restore path once per composite invoice line; the
      * caller multiplies each row's {@code quantity} by the invoice-line
      * quantity to get the absolute number of child units to move.
      *
@@ -200,7 +215,52 @@ public class BomService {
      */
     @Transactional(readOnly = true)
     public List<BomComponent> explode(UUID orgId, UUID parentItemId) {
-        return bomRepository
+        List<BomComponent> out = new java.util.ArrayList<>();
+        Set<UUID> visiting = new java.util.HashSet<>();
+        visiting.add(parentItemId);
+        flatten(orgId, parentItemId, parentItemId, BigDecimal.ONE, visiting, out);
+        return out;
+    }
+
+    /**
+     * Depth-first flattening. {@code multiplier} carries the product of
+     * phantom line quantities from the root down to this level; rows at
+     * multiplier 1 (the common no-phantom case) are returned as-is so
+     * the behaviour for existing BOMs is byte-for-byte unchanged.
+     * Flattened rows are TRANSIENT copies re-parented onto the root so
+     * callers see a single-level list, exactly like v1.
+     */
+    private void flatten(UUID orgId, UUID rootParentId, UUID parentItemId,
+                         BigDecimal multiplier, Set<UUID> visiting, List<BomComponent> out) {
+        List<BomComponent> rows = bomRepository
                 .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentItemId);
+        for (BomComponent row : rows) {
+            Item child = itemRepository
+                    .findByIdAndOrgIdAndIsDeletedFalse(row.getChildItemId(), orgId)
+                    .orElse(null);
+            if (child != null && child.getItemType() == ItemType.COMPOSITE && child.isPhantom()) {
+                if (!visiting.add(child.getId())) {
+                    throw new BusinessException(
+                            "Phantom BOM cycle detected at item " + child.getSku(),
+                            "BOM_PHANTOM_CYCLE", HttpStatus.CONFLICT);
+                }
+                flatten(orgId, rootParentId, child.getId(),
+                        multiplier.multiply(row.getQuantity()), visiting, out);
+                visiting.remove(child.getId());
+            } else if (BigDecimal.ONE.compareTo(multiplier) == 0) {
+                out.add(row);
+            } else {
+                BomComponent flat = BomComponent.builder()
+                        .parentItemId(rootParentId)
+                        .childItemId(row.getChildItemId())
+                        .quantity(row.getQuantity().multiply(multiplier)
+                                .setScale(4, java.math.RoundingMode.HALF_UP))
+                        .scrapPercent(row.getScrapPercent())
+                        .build();
+                flat.setId(row.getId());
+                flat.setOrgId(orgId);
+                out.add(flat);
+            }
+        }
     }
 }

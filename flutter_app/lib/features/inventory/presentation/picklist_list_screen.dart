@@ -8,6 +8,7 @@ import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 
@@ -268,91 +269,104 @@ class _PicklistListScreenState extends ConsumerState<PicklistListScreen> {
     final filter = ref.watch(_picklistFilterProvider);
     final picklistsAsync = ref.watch(_picklistListProvider);
 
-    return Scaffold(
-      body: Column(
-        children: [
-          KListPageHeader(
-            title: 'Picklists',
-            searchHint: 'Search picklists...',
-            tabs: _statusTabs,
-            selectedTab: filter.status,
-            onTabChanged: (v) => ref
-                .read(_picklistFilterProvider.notifier)
-                .state = filter.copyWith(status: v, page: 0),
-            onSearchChanged: (q) => ref
-                .read(_picklistFilterProvider.notifier)
-                .state =
-                filter.copyWith(search: q.isEmpty ? null : q, page: 0),
-          ),
-          Expanded(
-            child: picklistsAsync.when(
-              loading: () => const KShimmerList(),
-              error: (err, _) => KErrorView(
-                message: 'Failed to load picklists',
-                onRetry: () => ref.invalidate(_picklistListProvider),
-              ),
-              data: (raw) {
-                final data = raw['data'] ?? raw;
-                final picklists = (data is List)
-                    ? data
-                    : (data is Map
-                        ? (data['content'] as List?) ?? []
-                        : []);
-
-                if (picklists.isEmpty) {
-                  return KEmptyState(
-                    icon: Icons.checklist_outlined,
-                    title: filter.status != null
-                        ? 'No ${_statusLabel(filter.status!).toLowerCase()} picklists'
-                        : 'No picklists yet',
-                    subtitle: filter.status != null
-                        ? 'Try a different status filter'
-                        : 'Create a picklist from a sales order to start picking',
-                    actionLabel: filter.status == null ? 'Create Picklist' : null,
-                    onAction: filter.status == null ? _createPicklist : null,
-                  );
-                }
-
-                final picklistMaps = picklists
-                    .whereType<Map>()
-                    .map((p) => p.cast<String, dynamic>())
-                    .toList();
-
-                return RefreshIndicator(
-                  onRefresh: () async =>
-                      ref.invalidate(_picklistListProvider),
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: picklistMaps.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) {
-                      final picklist = picklistMaps[index];
-                      final id = picklist['id']?.toString() ?? '';
-                      final isExpanded = _expandedId == id;
-
-                      return _PicklistCard(
-                        picklist: picklist,
-                        isExpanded: isExpanded,
-                        actionInProgress: _actionInProgress,
-                        onTap: () => setState(() =>
-                            _expandedId = isExpanded ? null : id),
-                        onStart: () => _startPicklist(id),
-                        onComplete: () => _completePicklist(id),
-                        onCancel: () => _cancelPicklist(id),
-                      );
-                    },
-                  ),
-                );
-              },
+    return KKeyboardListWrapper(
+      itemCount: () {
+        final raw = picklistsAsync.valueOrNull;
+        if (raw == null) return 0;
+        final data = raw['data'] ?? raw;
+        final picklists = (data is List)
+            ? data
+            : (data is Map ? (data['content'] as List?) ?? [] : []);
+        return picklists.length;
+      },
+      onNew: _actionInProgress ? null : _createPicklist,
+      onRefresh: () => ref.invalidate(_picklistListProvider),
+      child: Scaffold(
+        body: Column(
+          children: [
+            KListPageHeader(
+              title: 'Picklists',
+              searchHint: 'Search picklists...',
+              tabs: _statusTabs,
+              selectedTab: filter.status,
+              onTabChanged: (v) => ref
+                  .read(_picklistFilterProvider.notifier)
+                  .state = filter.copyWith(status: v, page: 0),
+              onSearchChanged: (q) => ref
+                  .read(_picklistFilterProvider.notifier)
+                  .state =
+                  filter.copyWith(search: q.isEmpty ? null : q, page: 0),
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _actionInProgress ? null : _createPicklist,
-        icon: const Icon(Icons.add),
-        label: const Text('New Picklist'),
-        tooltip: 'New Picklist (N)',
+            Expanded(
+              child: picklistsAsync.when(
+                loading: () => const KShimmerList(),
+                error: (err, _) => KErrorView(
+                  message: 'Failed to load picklists',
+                  onRetry: () => ref.invalidate(_picklistListProvider),
+                ),
+                data: (raw) {
+                  final data = raw['data'] ?? raw;
+                  final picklists = (data is List)
+                      ? data
+                      : (data is Map
+                          ? (data['content'] as List?) ?? []
+                          : []);
+
+                  if (picklists.isEmpty) {
+                    return KEmptyState(
+                      icon: Icons.checklist_outlined,
+                      title: filter.status != null
+                          ? 'No ${_statusLabel(filter.status!).toLowerCase()} picklists'
+                          : 'No picklists yet',
+                      subtitle: filter.status != null
+                          ? 'Try a different status filter'
+                          : 'Create a picklist from a sales order to start picking',
+                      actionLabel: filter.status == null ? 'Create Picklist' : null,
+                      onAction: filter.status == null ? _createPicklist : null,
+                    );
+                  }
+
+                  final picklistMaps = picklists
+                      .whereType<Map>()
+                      .map((p) => p.cast<String, dynamic>())
+                      .toList();
+
+                  return RefreshIndicator(
+                    onRefresh: () async =>
+                        ref.invalidate(_picklistListProvider),
+                    child: ListView.separated(
+                      padding: KSpacing.pagePadding,
+                      itemCount: picklistMaps.length,
+                      separatorBuilder: (_, __) => KSpacing.vGapSm,
+                      itemBuilder: (context, index) {
+                        final picklist = picklistMaps[index];
+                        final id = picklist['id']?.toString() ?? '';
+                        final isExpanded = _expandedId == id;
+
+                        return _PicklistCard(
+                          picklist: picklist,
+                          isExpanded: isExpanded,
+                          actionInProgress: _actionInProgress,
+                          onTap: () => setState(() =>
+                              _expandedId = isExpanded ? null : id),
+                          onStart: () => _startPicklist(id),
+                          onComplete: () => _completePicklist(id),
+                          onCancel: () => _cancelPicklist(id),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: _actionInProgress ? null : _createPicklist,
+          icon: const Icon(Icons.add),
+          label: const Text('New Picklist'),
+          tooltip: 'New Picklist (N)',
+        ),
       ),
     );
   }

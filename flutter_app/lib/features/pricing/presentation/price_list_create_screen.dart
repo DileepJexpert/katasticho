@@ -6,6 +6,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/form_error_handler.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../data/price_list_repository.dart';
 
 /// Form for creating a new price list. The server flips the previous
@@ -72,7 +73,10 @@ class _PriceListCreateScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KKeyboardFormWrapper(
+      onSubmit: _save,
+      onCancel: () => context.pop(),
+      child: Scaffold(
       appBar: AppBar(title: const Text('New Price List')),
       body: Form(
         key: _formKey,
@@ -148,6 +152,6 @@ class _PriceListCreateScreenState
           ),
         ),
       ),
-    );
+    ));
   }
 }

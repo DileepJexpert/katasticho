@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/qc_repository.dart';
 
@@ -23,7 +24,18 @@ class _QcInspectionListScreenState
     final filter = inspectionFilter(status: _statusFilter, type: _typeFilter);
     final inspectionsAsync = ref.watch(qcInspectionsProvider(filter));
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: () => inspectionsAsync.valueOrNull?.length ?? 0,
+      onNew: () => _showCreateSheet(context),
+      onRefresh: () => ref.invalidate(qcInspectionsProvider(filter)),
+      onOpen: (index) {
+        final inspections = inspectionsAsync.valueOrNull;
+        if (inspections != null && index < inspections.length) {
+          final id = inspections[index]['id']?.toString();
+          if (id != null) context.go('/manufacturing/qc-inspections/$id');
+        }
+      },
+      child: Scaffold(
       body: Column(
         children: [
           const KListPageHeader(
@@ -158,6 +170,7 @@ class _QcInspectionListScreenState
         label: const Text('New Inspection'),
         tooltip: 'New Inspection (N)',
       ),
+    ),
     );
   }
 

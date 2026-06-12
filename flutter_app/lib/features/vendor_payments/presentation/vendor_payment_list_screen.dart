@@ -5,6 +5,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../data/vendor_payment_dto.dart';
@@ -19,105 +20,134 @@ class VendorPaymentListScreen extends ConsumerWidget {
     final filter = ref.watch(vendorPaymentFilterProvider);
     final paymentsAsync = ref.watch(vendorPaymentListProvider);
 
-    return Scaffold(
-      body: Column(
-        children: [
-          KListPageHeader(
-            title: 'Vendor Payments',
-            searchHint: 'Search payments…',
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.filter_list, size: 20),
-                tooltip: 'Filter by date',
-                visualDensity: VisualDensity.compact,
-                onPressed: () => _showFilterSheet(context, ref),
-              ),
-            ],
-          ),
-          if (filter.dateFrom != null || filter.dateTo != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: KSpacing.md,
-                vertical: KSpacing.sm,
-              ),
-              color: KColors.primary.withValues(alpha: 0.06),
-              child: Row(
-                children: [
-                  const Icon(Icons.filter_alt_outlined,
-                      size: 16, color: KColors.primary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _filterSummary(filter),
-                      style: KTypography.bodySmall.copyWith(
-                        color: KColors.primary,
+    return KKeyboardListWrapper(
+      itemCount: () {
+        final data = paymentsAsync.valueOrNull;
+        if (data == null) return 0;
+        final content = data['data'];
+        if (content == null) return 0;
+        final payments = (content is List)
+            ? content
+            : (content['content'] as List?) ?? [];
+        return payments.length;
+      },
+      onRefresh: () => ref.invalidate(vendorPaymentListProvider),
+      onOpen: (index) {
+        final data = paymentsAsync.valueOrNull;
+        if (data == null) return;
+        final content = data['data'];
+        if (content == null) return;
+        final payments = (content is List)
+            ? content
+            : (content['content'] as List?) ?? [];
+        if (index < payments.length) {
+          final payment = payments[index];
+          if (payment is Map) {
+            final id = payment['id']?.toString() ?? '';
+            if (id.isNotEmpty) context.go('/vendor-payments/$id');
+          }
+        }
+      },
+      child: Scaffold(
+        body: Column(
+          children: [
+            KListPageHeader(
+              title: 'Vendor Payments',
+              searchHint: 'Search payments…',
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.filter_list, size: 20),
+                  tooltip: 'Filter by date',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _showFilterSheet(context, ref),
+                ),
+              ],
+            ),
+            if (filter.dateFrom != null || filter.dateTo != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: KSpacing.md,
+                  vertical: KSpacing.sm,
+                ),
+                color: KColors.primary.withValues(alpha: 0.06),
+                child: Row(
+                  children: [
+                    const Icon(Icons.filter_alt_outlined,
+                        size: 16, color: KColors.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _filterSummary(filter),
+                        style: KTypography.bodySmall.copyWith(
+                          color: KColors.primary,
+                        ),
                       ),
                     ),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      ref.read(vendorPaymentFilterProvider.notifier).state =
-                          const VendorPaymentListFilter();
-                    },
-                    child: Text(
-                      'Clear',
-                      style: KTypography.labelSmall.copyWith(
-                        color: KColors.primary,
-                        fontWeight: FontWeight.w700,
+                    GestureDetector(
+                      onTap: () {
+                        ref.read(vendorPaymentFilterProvider.notifier).state =
+                            const VendorPaymentListFilter();
+                      },
+                      child: Text(
+                        'Clear',
+                        style: KTypography.labelSmall.copyWith(
+                          color: KColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+              ),
+            Expanded(
+              child: paymentsAsync.when(
+                loading: () => const KShimmerList(),
+                error: (err, _) => KErrorView(
+                  message: 'Failed to load payments',
+                  onRetry: () => ref.invalidate(vendorPaymentListProvider),
+                ),
+                data: (data) {
+                  final content = data['data'];
+                  if (content == null) {
+                    return const KEmptyState(
+                      icon: Icons.payments_outlined,
+                      title: 'No vendor payments yet',
+                      subtitle: 'Payments recorded from bills will appear here',
+                    );
+                  }
+
+                  final payments = (content is List)
+                      ? content
+                      : (content['content'] as List?) ?? [];
+
+                  if (payments.isEmpty) {
+                    return const KEmptyState(
+                      icon: Icons.payments_outlined,
+                      title: 'No payments found',
+                      subtitle: 'Try adjusting your filters',
+                    );
+                  }
+
+                  final paymentMaps = payments
+                      .whereType<Map>()
+                      .map((payment) => payment.cast<String, dynamic>())
+                      .toList();
+
+                  return KResponsiveEntityList<Map<String, dynamic>>(
+                    items: paymentMaps,
+                    onRefresh: () async =>
+                        ref.invalidate(vendorPaymentListProvider),
+                    mobileItemBuilder: (context, payment) =>
+                        VendorPaymentCard(payment: payment),
+                    tableBuilder: (context) =>
+                        _VendorPaymentTable(payments: paymentMaps),
+                  );
+                },
               ),
             ),
-          Expanded(
-            child: paymentsAsync.when(
-              loading: () => const KShimmerList(),
-              error: (err, _) => KErrorView(
-                message: 'Failed to load payments',
-                onRetry: () => ref.invalidate(vendorPaymentListProvider),
-              ),
-              data: (data) {
-                final content = data['data'];
-                if (content == null) {
-                  return const KEmptyState(
-                    icon: Icons.payments_outlined,
-                    title: 'No vendor payments yet',
-                    subtitle: 'Payments recorded from bills will appear here',
-                  );
-                }
-
-                final payments = (content is List)
-                    ? content
-                    : (content['content'] as List?) ?? [];
-
-                if (payments.isEmpty) {
-                  return const KEmptyState(
-                    icon: Icons.payments_outlined,
-                    title: 'No payments found',
-                    subtitle: 'Try adjusting your filters',
-                  );
-                }
-
-                final paymentMaps = payments
-                    .whereType<Map>()
-                    .map((payment) => payment.cast<String, dynamic>())
-                    .toList();
-
-                return KResponsiveEntityList<Map<String, dynamic>>(
-                  items: paymentMaps,
-                  onRefresh: () async =>
-                      ref.invalidate(vendorPaymentListProvider),
-                  mobileItemBuilder: (context, payment) =>
-                      VendorPaymentCard(payment: payment),
-                  tableBuilder: (context) =>
-                      _VendorPaymentTable(payments: paymentMaps),
-                );
-              },
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

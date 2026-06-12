@@ -3,12 +3,15 @@ package com.katasticho.erp.manufacturing.controller;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
+import com.katasticho.erp.inventory.entity.BomAlternate;
+import com.katasticho.erp.inventory.entity.BomCoProduct;
 import com.katasticho.erp.inventory.entity.BomComponent;
 import com.katasticho.erp.manufacturing.entity.*;
 import com.katasticho.erp.manufacturing.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -31,6 +34,7 @@ public class ManufacturingController {
     private final JobWorkService jobWorkService;
     private final QualityControlService qcService;
     private final ScrapService scrapService;
+    private final MrpService mrpService;
 
     @PostMapping("/work-orders")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
@@ -50,19 +54,21 @@ public class ManufacturingController {
         boolean backflush = Boolean.TRUE.equals(body.get("backflushMode"));
         Integer bomVersion = body.get("bomVersion") != null
                 ? Integer.parseInt(body.get("bomVersion").toString()) : null;
+        String priority = (String) body.get("priority");
 
         return ResponseEntity.ok(ApiResponse.ok(
                 service.createWorkOrder(finishedGoodId, warehouseId, qty,
                         plannedStart, plannedEnd, laborCost, overhead, notes,
-                        backflush, bomVersion, false),
+                        backflush, bomVersion, false, priority),
                 "Work order created"));
     }
 
     @GetMapping("/work-orders")
     public ResponseEntity<ApiResponse<Page<WorkOrder>>> listWorkOrders(
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String priority,
             Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.ok(service.listWorkOrders(status, pageable)));
+        return ResponseEntity.ok(ApiResponse.ok(service.listWorkOrders(status, priority, pageable)));
     }
 
     @GetMapping("/work-orders/{id}")
@@ -105,6 +111,22 @@ public class ManufacturingController {
     public ResponseEntity<ApiResponse<WorkOrder>> cancelWorkOrder(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(
                 service.cancelWorkOrder(id), "Work order cancelled"));
+    }
+
+    @RequestMapping(value = "/work-orders/{id}/priority",
+            method = {RequestMethod.POST, RequestMethod.PATCH})
+    public ResponseEntity<ApiResponse<WorkOrder>> updatePriority(
+            @PathVariable UUID id, @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.updatePriority(id, (String) body.get("priority")),
+                "Priority updated"));
+    }
+
+    @PostMapping("/work-orders/{id}/clone")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<WorkOrder>> cloneWorkOrder(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.cloneWorkOrder(id), "Work order cloned"));
     }
 
     @PostMapping("/work-orders/from-sales-order")
@@ -389,6 +411,66 @@ public class ManufacturingController {
         ), "Inspection finalized"));
     }
 
+    @PostMapping("/qc-inspections/{id}/disposition")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<QcInspection>> recordDisposition(
+            @PathVariable UUID id, @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(ApiResponse.ok(qcService.recordDisposition(id,
+                (String) body.get("decision"),
+                body.get("acceptedQty") != null ? new BigDecimal(body.get("acceptedQty").toString()) : null,
+                body.get("rejectedQty") != null ? new BigDecimal(body.get("rejectedQty").toString()) : null,
+                body.get("holdQty") != null ? new BigDecimal(body.get("holdQty").toString()) : null,
+                body.get("quarantineZoneId") != null ? UUID.fromString((String) body.get("quarantineZoneId")) : null,
+                (String) body.get("notes")
+        ), "Disposition recorded"));
+    }
+
+    @GetMapping("/qc-inspections/{id}/coa")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getCertificateOfAnalysis(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(qcService.generateCoa(id)));
+    }
+
+    // ── Non-Conformance Reports ───────────────────────────────────
+
+    @PostMapping("/qc/ncrs")
+    public ResponseEntity<ApiResponse<NonConformanceReport>> createNcr(@RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(ApiResponse.ok(qcService.createNcr(
+                body.get("qcInspectionId") != null ? UUID.fromString((String) body.get("qcInspectionId")) : null,
+                UUID.fromString((String) body.get("itemId")),
+                (String) body.get("batchNumber"),
+                (String) body.get("severity"),
+                (String) body.get("reason"),
+                (String) body.get("description")
+        ), "NCR created"));
+    }
+
+    @GetMapping("/qc/ncrs")
+    public ResponseEntity<ApiResponse<Page<NonConformanceReport>>> listNcrs(
+            @RequestParam(required = false) String status, Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(qcService.listNcrs(status, pageable)));
+    }
+
+    @GetMapping("/qc/ncrs/{id}")
+    public ResponseEntity<ApiResponse<NonConformanceReport>> getNcr(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(qcService.getNcr(id)));
+    }
+
+    @PutMapping("/qc/ncrs/{id}")
+    public ResponseEntity<ApiResponse<NonConformanceReport>> updateNcr(
+            @PathVariable UUID id, @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(ApiResponse.ok(qcService.updateNcr(id,
+                (String) body.get("correctiveAction"),
+                (String) body.get("rootCause"),
+                (String) body.get("status")
+        ), "NCR updated"));
+    }
+
+    @PostMapping("/qc/ncrs/{id}/close")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<NonConformanceReport>> closeNcr(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(qcService.closeNcr(id), "NCR closed"));
+    }
+
     // ── Scrap ─────────────────────────────────────────────────────
 
     @PostMapping("/scrap/reason-codes")
@@ -468,6 +550,77 @@ public class ManufacturingController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("version", version)));
     }
 
+    // ── BOM Alternates (substitute materials) ────────────────────────
+
+    @GetMapping("/bom-alternates")
+    public ResponseEntity<ApiResponse<List<BomAlternate>>> listBomAlternates(
+            @RequestParam UUID bomComponentId) {
+        return ResponseEntity.ok(ApiResponse.ok(service.listBomAlternates(bomComponentId)));
+    }
+
+    @PostMapping("/bom-alternates")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<BomAlternate>> addBomAlternate(@RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(ApiResponse.ok(service.addBomAlternate(
+                UUID.fromString((String) body.get("bomComponentId")),
+                UUID.fromString((String) body.get("alternateItemId")),
+                body.get("priority") != null ? Integer.parseInt(body.get("priority").toString()) : null,
+                (String) body.get("notes")
+        ), "BOM alternate registered"));
+    }
+
+    @DeleteMapping("/bom-alternates/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteBomAlternate(@PathVariable UUID id) {
+        service.deleteBomAlternate(id);
+        return ResponseEntity.ok(ApiResponse.ok(null, "BOM alternate removed"));
+    }
+
+    @PostMapping("/work-orders/{id}/lines/{lineId}/substitute")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<WorkOrder>> substituteWorkOrderLine(
+            @PathVariable UUID id, @PathVariable UUID lineId,
+            @RequestBody Map<String, Object> body) {
+        UUID alternateItemId = UUID.fromString((String) body.get("alternateItemId"));
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.substituteWorkOrderLine(id, lineId, alternateItemId),
+                "Component substituted"));
+    }
+
+    // ── Co-products / By-products ────────────────────────────────────
+
+    @GetMapping("/bom-co-products")
+    public ResponseEntity<ApiResponse<List<BomCoProduct>>> listCoProducts(
+            @RequestParam UUID parentItemId) {
+        return ResponseEntity.ok(ApiResponse.ok(service.listCoProducts(parentItemId)));
+    }
+
+    @PostMapping("/bom-co-products")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<BomCoProduct>> addCoProduct(@RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(ApiResponse.ok(service.addCoProduct(
+                UUID.fromString((String) body.get("parentItemId")),
+                UUID.fromString((String) body.get("coProductItemId")),
+                new BigDecimal(body.get("quantityPerUnit").toString()),
+                body.get("costAllocationPercent") != null
+                        ? new BigDecimal(body.get("costAllocationPercent").toString()) : null
+        ), "Co-product defined"));
+    }
+
+    @DeleteMapping("/bom-co-products/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteCoProduct(@PathVariable UUID id) {
+        service.deleteCoProduct(id);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Co-product removed"));
+    }
+
+    // ── BOM Cost Roll-up ─────────────────────────────────────────────
+
+    @GetMapping("/bom/{itemId}/cost-rollup")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getBomCostRollup(@PathVariable UUID itemId) {
+        return ResponseEntity.ok(ApiResponse.ok(service.getBomCostRollup(itemId)));
+    }
+
     // ── Production Reports ───────────────────────────────────────────
 
     @GetMapping("/reports/cost-variance")
@@ -489,5 +642,46 @@ public class ManufacturingController {
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getConsumptionReport(
             @RequestParam(required = false) UUID finishedGoodId) {
         return ResponseEntity.ok(ApiResponse.ok(service.getConsumptionReport(finishedGoodId)));
+    }
+
+    @GetMapping("/reports/production-summary")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getProductionSummary(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        return ResponseEntity.ok(ApiResponse.ok(service.getProductionSummary(fromDate, toDate)));
+    }
+
+    // ── MRP ──────────────────────────────────────────────────────────────────
+
+    @PostMapping("/mrp/run")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<MrpRun>> runMrp(@RequestBody(required = false) Map<String, Object> body) {
+        int horizonDays = body != null && body.containsKey("horizonDays")
+                ? Integer.parseInt(body.get("horizonDays").toString()) : 90;
+        return ResponseEntity.ok(ApiResponse.ok(mrpService.runMrp(horizonDays), "MRP run completed"));
+    }
+
+    @GetMapping("/mrp/runs")
+    public ResponseEntity<ApiResponse<List<MrpRun>>> listMrpRuns() {
+        return ResponseEntity.ok(ApiResponse.ok(mrpService.listMrpRuns()));
+    }
+
+    @GetMapping("/mrp/runs/{id}")
+    public ResponseEntity<ApiResponse<MrpRun>> getMrpRun(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(mrpService.getMrpRun(id)));
+    }
+
+    @PostMapping("/mrp/planned-orders/{id}/convert-po")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<PlannedOrder>> convertPlannedToPO(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                mrpService.convertPlannedToPO(id), "Converted planned order to Purchase Order"));
+    }
+
+    @PostMapping("/mrp/planned-orders/{id}/convert-wo")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<PlannedOrder>> convertPlannedToWO(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                mrpService.convertPlannedToWO(id), "Converted planned order to Work Order"));
     }
 }

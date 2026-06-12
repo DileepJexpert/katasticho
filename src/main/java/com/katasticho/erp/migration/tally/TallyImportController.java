@@ -105,6 +105,21 @@ public class TallyImportController {
                 .body(body);
     }
 
+    /**
+     * Export masters (accounts, contacts, items) as Tally-importable XML.
+     * Import into TallyPrime: Gateway → Import Data → Masters.
+     */
+    @GetMapping("/export-masters")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<byte[]> exportMasters() {
+        String xml = tallyCaBridgeService.exportMastersXml();
+        byte[] body = xml.getBytes(StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"katasticho-masters.xml\"")
+                .contentType(MediaType.APPLICATION_XML)
+                .body(body);
+    }
+
     // ── Shared ──────────────────────────────────────────────────────────
 
     private byte[] bytes(MultipartFile file) {

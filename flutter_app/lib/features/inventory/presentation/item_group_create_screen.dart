@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/form_error_handler.dart';
 import '../data/item_group_repository.dart';
@@ -192,9 +193,12 @@ class _ItemGroupCreateScreenState extends ConsumerState<ItemGroupCreateScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(_isEdit ? 'Edit Group' : 'New Group')),
-      body: _loading
+    return KKeyboardFormWrapper(
+      onSubmit: _save,
+      onCancel: () => context.pop(),
+      child: Scaffold(
+        appBar: AppBar(title: Text(_isEdit ? 'Edit Group' : 'New Group')),
+        body: _loading
           ? const KLoading()
           : Form(
               key: _formKey,

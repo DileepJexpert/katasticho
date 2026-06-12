@@ -7,6 +7,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/sales_receipt_providers.dart';
 
@@ -25,7 +26,10 @@ class SalesReceiptListScreen extends ConsumerWidget {
     final filter = ref.watch(receiptFilterProvider);
     final receiptsAsync = ref.watch(receiptListProvider);
 
-    return Scaffold(
+    return KKeyboardListWrapper(
+      itemCount: () => 0,
+      onRefresh: () => ref.invalidate(receiptListProvider),
+      child: Scaffold(
       body: Column(
         children: [
           KListPageHeader(
@@ -87,6 +91,7 @@ class SalesReceiptListScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

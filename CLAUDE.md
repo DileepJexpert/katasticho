@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V59** (Manufacturing Tier 2). Next new migration = V60.
+- Location: `src/main/resources/db/migration/`. Latest is **V66** (WO priority/approval/summary). Next new migration = V67.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -227,8 +227,8 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 ### Phase 9: Manufacturing (Tier 1 COMPLETE — 2026-06-07)
 **Goal:** Production-ready manufacturing module. Coverage: 30/114 features (26%).
 **Reference:** `docs/MANUFACTURING_FEATURE_TRACKER.md` for full tracker with daily progress.
-- **V47 migration (done):** 2 tables (work_order, work_order_line) + 6 indexes.
-- **V48 migration (done):** 15 new tables (workstation, operation, routing, routing_operation, job_card, job_work_order, job_work_order_line, qc_template, qc_parameter, qc_inspection, qc_inspection_result, scrap_reason_code, production_scrap) + 5 ALTER TABLE on work_order + 20 indexes.
+- **V45 migration (done):** 2 tables (work_order, work_order_line) + 6 indexes.
+- **V46 migration (done):** 15 new tables (workstation, operation, routing, routing_operation, job_card, job_work_order, job_work_order_line, qc_template, qc_parameter, qc_inspection, qc_inspection_result, scrap_reason_code, production_scrap) + 5 ALTER TABLE on work_order + 20 indexes.
 - **Backend (done):** `com.katasticho.erp.manufacturing` — 15 entities, 14 repositories, 5 services (ManufacturingService, RoutingService, JobWorkService, QualityControlService, ScrapService), ManufacturingController (50+ endpoints at `/api/v1/manufacturing`). ModuleCode.MANUFACTURING added.
 - **Work order lifecycle (done):** DRAFT → IN_PROGRESS → COMPLETED (or CANCELLED). BOM explosion, issue to production, receive FG, SO→WO automation.
 - **Routing/Operations/Job Cards (done):** Workstation CRUD, Operation CRUD, Routing with ordered operations. Job cards created from routing, start/complete lifecycle with time tracking.
@@ -249,7 +249,21 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Batch traceability (done):** `batch_id` and `batch_number` on work_order_line for linking consumed batches to production.
 - **DefaultAccountPurpose extended:** WIP_INVENTORY (1210), MANUFACTURING_OVERHEAD (5030), DIRECT_LABOR (5040), MATERIAL_VARIANCE (5050).
 - **Flutter (done):** Backflush toggle on WO create screen. Repository methods for all Tier 2 APIs (disassembly, BOM versioning, reports).
-- **Tier 3 (DEFERRED):** MRP engine, Gantt scheduling, capacity planning, shop floor mobile, maintenance management, industry-specific (pharma BMR, food FSSAI, garment cut plans).
+#### Tier 3 (COMPLETE — 2026-06-11)
+- **V61 migration (done):** 4 MRP tables (mrp_run, mrp_demand, mrp_supply, planned_order) + warehouse_zone, shipment, shipment_line, batch_trace.
+- **MRP engine (done):** `MrpService` — demand aggregation from SO + forecasts, supply matching (on-hand + open PO + WO), net requirement with safety stock, BOM explosion via queue, planned order generation (PURCHASE/PRODUCTION), convert-to-PO and convert-to-WO.
+- **Warehouse zones (done):** `WarehouseZoneService` — STORAGE/QUARANTINE/STAGING/CROSS_DOCK/RETURNS zone types. CRUD at `/api/v1/inventory/warehouse-zones`.
+- **Batch traceability (done):** `BatchTraceService` — forward (RM→FG) and backward (FG→RM) trace. `/api/v1/inventory/batch-trace`.
+- **Shipment/logistics (done):** `ShipmentService` — DRAFT→IN_TRANSIT→DELIVERED lifecycle, auto-generated SHP numbers. Endpoints on SupplyChainController.
+- **Flutter (done):** MRP run screen, warehouse zone screen, batch trace screen, shipment list screen.
+- **Tests (done):** 10 MRP tests (SO demand, BOM explosion, net deduction, convert-to-PO/WO, etc.).
+- **Still deferred:** Gantt scheduling, shop floor mobile, maintenance management, industry-specific (pharma BMR, food FSSAI, garment cut plans).
+
+#### Gap-Fill Round (COMPLETE — 2026-06-12) — 58/101 tracker features
+- **V64 BOM enhancements:** `bom_component.scrap_percent` (issue inflates by 1+scrap%/100, planned qty stays nominal), `item.is_phantom` (explode() flattens phantoms recursively w/ `BOM_PHANTOM_CYCLE` guard; MRP skips PRODUCTION order — components become demand directly), `bom_alternate` (CRUD + DRAFT-only WO-line substitution w/ repricing), `bom_co_product` (FG receipt also receives co-products, cost allocation % split, Σ≤100% guard, no-co-product path byte-for-byte unchanged), `GET /bom/{itemId}/cost-rollup` recursive tree.
+- **V65 QC disposition/NCR/CoA:** `recordDisposition()` ACCEPT/REJECT/HOLD on finalized inspections (qty split must equal inspected qty, once-only). REJECT → negative ADJUSTMENT movement (warehouse via WO reference) + auto OPEN/MAJOR NCR. HOLD → validates QUARANTINE zone. `non_conformance_report` (NCR-xxxxx, OPEN→IN_PROGRESS→CLOSED). CoA JSON @ `GET /qc-inspections/{id}/coa`.
+- **V66 WO enhancements:** priority (URGENT/HIGH/NORMAL/LOW, URGENT-first default sort, `?priority=` filter), `WorkOrderWorkflowHandler` (mirrors SO pattern, WORK_ORDER workflow seeded `active=false`, PENDING_APPROVAL blocks issue), `POST /work-orders/{id}/clone` (fresh DRAFT, passes approval gate), yield via existing `ProductionCostSummary.yieldPercentage`, `GET /reports/production-summary` (status counts, completion/on-time %, avg yield, scrap by reason).
+- **Tests:** 629 total pass (39 new: 14 BOM/mfg, 9 QC, 14 WO enhancements, 2 WO workflow handler).
 
 ### Kirana Retail Production Gaps (2026-06-10)
 **Goal:** Make the POS + core flows production-ready for Indian small grocery/pharmacy shops.
@@ -261,24 +275,47 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **~~P1: Thermal/Bluetooth printer~~ (DONE):** ThermalPrintService (ESC/POS via flutter_blue_plus, 58mm/80mm paper, respects ReceiptSettings). PrinterSetupScreen with scan/connect/test/auto-print. POS _handlePrint uses thermal when connected, PDF fallback.
 - **~~P2: Offline POS~~ (DONE):** OfflinePosService with SQLite queue (sqflite). Network errors in _completeSale auto-queue receipt locally. Connectivity listener auto-syncs on reconnect. Sync badge in POS app bar shows pending count + manual Sync Now. Max 5 retries per receipt.
 
-**Parked (not needed now):**
-- P3: Hindi i18n — Flutter l10n, ARB files, Hindi translations for POS + core screens.
-- P5: Push notifications Firebase — FCM setup, server-side token storage, notification triggers.
-- P9: Tally export — XML export in Tally format for CA handoff.
+**Previously parked, now DONE:**
+- **~~P3: Hindi i18n~~ (DONE):** `l10n.yaml`, `app_en.arb`, `app_hi.arb` with 69 translated keys. Flutter l10n wired in `main.dart`.
+- **~~P5: Push notifications~~ (DONE):** V63 migration (push_token table). `PushNotificationService` with FCM stub, token registration/management. `PushNotificationController` at `/api/v1/notifications/push`.
+- **~~P9: Tally masters export~~ (DONE):** `TallyCaBridgeService.exportMastersXml()` — accounts, contacts, items as Tally-importable XML. `GET /api/v1/migration/tally/export-masters`.
 
-### Keyboard-Parity UX Program (IN PROGRESS — 2026-06-11)
+### Keyboard-Parity UX Program (COMPLETE — 2026-06-11)
 **Goal:** Never-touch-the-mouse voucher entry and app-wide keyboard navigation.
 
-- **KShortcuts registry (done):** Central shortcut catalogue expanded — global (Ctrl+K palette, Ctrl+N context-new, ? help, / search), list (J/K navigate, N create, R refresh, Enter open, X select), form (Ctrl+Enter submit, Ctrl+←→ step nav, Esc cancel), POS (F1-F7, Ctrl+F, Ctrl+Enter).
-- **KShortcutHelpOverlay (done):** `?` key opens context-aware shortcut reference overlay (global, list, form, POS sections shown as appropriate). Esc/? to dismiss.
-- **Command palette expansion (done):** `buildAppCommands()` expanded from ~40 to ~100 commands covering all modules: Sales Orders, Purchase Orders, Delivery Challans, Debit Notes, Chart of Accounts, Journal Entries, Credit Ledger, Bank Recon, Approval Inbox, Stock Counts, Transfer Orders, Picklists, Payroll, Field Sales (beats/routes/vans/executions/dashboard), Partner Network (partners/catalog/supplier search), Manufacturing (work orders/job work/routings/QC), and all create + settings routes.
-- **KKeyboardListWrapper (done):** Reusable Focus wrapper for list screens — J/K or ↑/↓ row navigation, N to create, R to refresh, / to focus search, Enter to open selected, X to toggle selection. Text-field-aware (disables single-key shortcuts when typing).
-- **KKeyboardFormWrapper (done):** Reusable Focus wrapper for stepped create forms — Ctrl+Enter to submit, Ctrl+←→ for step navigation, Esc to cancel.
-- **List screens wired (done):** Invoices, Bills, Sales Orders, Items, Contacts, Stock Receipts, Purchase Orders, Delivery Challans, Journal Entries, Credit Notes, Vendor Credits, Estimates, Expenses, Recurring Invoices, Work Orders, Employees — all wrapped with KKeyboardListWrapper for keyboard navigation.
-- **Form screens wired (done):** Invoice Create, Bill Create, Sales Order Create, Delivery Challan Create, Stock Receipt Create, Estimate Create, Expense Create, Credit Note Create, Vendor Credit Create — all wrapped with KKeyboardFormWrapper for Ctrl+Enter submit and step navigation.
-- **ShellScreen global shortcuts (done):** Ctrl+N (context-aware new — detects current route and navigates to create; falls back to command palette), ? (shortcut help overlay). Text-field-aware to avoid conflicts.
+- **KShortcuts registry (done):** Central shortcut catalogue — global (Ctrl+K palette, Ctrl+N context-new, ? help, / search), list (J/K navigate, N create, R refresh, Enter open, X select), form (Ctrl+Enter submit, Ctrl+←→ step nav, Esc cancel), POS (F1-F7, Ctrl+F, Ctrl+Enter).
+- **KShortcutHelpOverlay (done):** `?` key opens context-aware shortcut reference overlay.
+- **Command palette expansion (done):** 100+ commands covering all modules.
+- **KKeyboardListWrapper (done):** All list screens wrapped — Invoices, Bills, Sales Orders, Items, Contacts, Stock Receipts, Purchase Orders, Delivery Challans, Journal Entries, Credit Notes, Vendor Credits, Estimates, Expenses, Recurring Invoices, Work Orders, Employees, Accounts, Vendor Payments, Schemes, Price Lists, Item Groups, Stock Counts, Transfer Orders, Picklists, Beats, Routes, Vans, Routings, Job Cards, Job Work, QC Inspections, Partners, Catalog, Payroll Runs.
+- **KKeyboardFormWrapper (done):** All create forms wrapped — Invoice, Bill, SO, DC, Stock Receipt, Estimate, Expense, Credit Note, Vendor Credit, Journal, Purchase Order, Recurring Invoice, Contact, Account, Item, Item Group, Price List, Stock Count, Transfer Order, Work Order, Routing, Job Work.
+- **ShellScreen global shortcuts (done):** Ctrl+N (context-aware new for all routes), ? (shortcut help overlay).
 - **POS shortcut help (done):** `?` key in POS opens POS-specific shortcut reference.
-- **FAB tooltip hints (done):** 30+ list screens show `(N)` keyboard hint on the create FAB tooltip across all modules.
+- **FAB tooltip hints (done):** 40+ list screens show `(N)` keyboard hint on the create FAB tooltip.
+
+### Phase 10: Supply Chain Module (COMPLETE — 2026-06-11)
+**Goal:** Transform ERP into a supply chain product with demand planning, supplier intelligence, and inventory optimization.
+- **V60 migration (done):** 8 new tables (item_supplier, supplier_performance, demand_forecast, purchase_requisition, purchase_requisition_line, return_order, return_order_line, reorder_policy, supply_chain_alert) + supplier enhancements (lead_time_days, quality/delivery/overall_rating) + 15 indexes.
+- **Backend (done):** `com.katasticho.erp.supplychain` — 8 entities, 7 repositories, SupplyChainService (500+ lines), SupplyChainController (40+ endpoints at `/api/v1/supply-chain`). ModuleCode.SUPPLY_CHAIN added.
+- **Multi-supplier sourcing (done):** Item↔Supplier mapping with lead time, min order qty, unit price, preferred flag. CRUD + set-preferred endpoint.
+- **Demand forecasting (done):** Moving average forecast from sales history. Configurable history window and forecast horizon. Confidence scoring based on coefficient of variation.
+- **ABC classification (done):** Automatic A/B/C categorization based on 12-month consumption value (80/15/5 split). Stored in reorder_policy with abc_class field.
+- **Safety stock & EOQ (done):** Statistical safety stock (Z=1.65 for 95% service level × σ × √L). Economic Order Quantity. Reorder point = avg demand × lead time + safety stock.
+- **Purchase requisition workflow (done):** DRAFT → SUBMITTED → APPROVED/REJECTED. Auto-create from low stock alerts. Manual and automated creation.
+- **Return order management (done):** DRAFT → APPROVED → PROCESSED (or CANCELLED). Support for PURCHASE_RETURN and SALES_RETURN types. Reason codes, restock flags, condition tracking.
+- **Supply chain alerts (done):** Stockout risk detection (below safety stock), low stock alerts. Alert scan, resolve workflow.
+- **Supplier performance (done):** Scorecard calculation from PO/GRN data (orders, qty, quality rate, on-time rate). Supplier rankings.
+- **Inventory analytics (done):** Turnover ratio, days-on-hand, COGS analysis per item. Supply chain dashboard with KPIs.
+- **Flutter screens (done):** Dashboard (metrics + quick actions + navigation), Requisition list (with lifecycle actions), Return order list, Alert list (with scan + resolve), Supplier rankings, Inventory analytics (turnover + ABC). Routes and sidebar nav integrated.
+- **Tests (done):** 17 tests in SupplyChainServiceTest — item-supplier CRUD, requisition lifecycle, return order lifecycle, auto-PR, alerts, dashboard.
+- **Advanced forecasting (done — 2026-06-11):** Weighted moving average + seasonal decomposition with trend slope in SupplyChainService (`generateWeightedForecast()`, `generateSeasonalForecast()`, `computeTrendSlope()`).
+
+### Phase 11: Multi-Currency + Consignment/VMI + Integration Connectors (COMPLETE — 2026-06-11)
+**Goal:** Cross-border currency support, vendor-managed inventory, and third-party ERP connectors.
+- **V62 migration (done):** 6 new tables (currency, exchange_rate, consignment_stock, consignment_settlement, integration_config, integration_sync_log) + 30 seeded currencies (INR, USD, EUR, GBP, etc.).
+- **Multi-currency (done):** `com.katasticho.erp.common.currency` — `Currency` (platform-level, no org_id), `ExchangeRate` (org-scoped). `CurrencyManagementService`: rate management (upsert), conversion with latest-rate fallback, list rates. `CurrencyController` at `/api/v1/currencies`. 8 tests pass.
+- **Consignment/VMI (done):** `com.katasticho.erp.inventory.consignment` — `ConsignmentStock`, `ConsignmentSettlement`. `ConsignmentService`: receive (with weighted-average cost blending on top-up), record-sale (deducts stock, creates DRAFT settlement), settle. `ConsignmentController` at `/api/v1/consignment`.
+- **Integration connectors (done):** `com.katasticho.erp.integration` — `IntegrationConfig` (API key stored as SHA-256 hash), `IntegrationSyncLog`. `IntegrationService`: CRUD for TALLY/ZOHO/BUSY/SAP/CUSTOM connectors, test-connection stub, sync with log, sync history. `IntegrationController` at `/api/v1/integrations`.
+- **Flutter screens (done):** Currency management (rates, conversion), integration list (CRUD + sync). Routes and sidebar nav integrated.
 
 ---
 
@@ -339,6 +376,9 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `ai/service/ProactiveAgentServiceTest.java` — collections reminders (one per overdue customer, dedup, priority by days, resilient to reminder-text failure), month-close checklist (prior period open/closed/absent, Jan→Dec rollback), runAll aggregation (8 tests)
 - `banking/service/BankStatementParserTest.java` — HDFC-style preamble+split columns, legacy format, month-name dates, AI fallback, Indian amount formats (5 tests)
 - `banking/service/BankReconciliationServiceTest.java` — credit→invoice suggest+accept (regression), debit→bill suggest, accept-bill→vendor payment with allocation (4 tests)
+- `manufacturing/service/MrpServiceTest.java` — MRP engine: SO demand, BOM explosion, net deduction, convert-to-PO/WO (10 tests)
+- `common/currency/CurrencyServiceTest.java` — multi-currency: list, convert, rate upsert, fallback, zero-rate validation (8 tests)
+- `supplychain/service/SupplyChainServiceTest.java` — item-supplier CRUD, requisition lifecycle, return order, auto-PR, alerts, dashboard (17 tests)
 - `reporting/service/DetailedReportService` — no test file (needs one)
 
 ## Existing Service Files (key ones)
@@ -386,6 +426,15 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 - `banking/service/BankReconciliationService.java` — CREDIT→outstanding invoices AND **DEBIT→open vendor bills** matching (V52: payment_match.match_type/bill_id). Accept records AR payment or **vendor payment** (allocated to bill, paid via default BANK account). `POST /banking/transactions/import-file`, `GET /banking/summary`.
 - `notification/whatsapp/WhatsAppService.java` + `WhatsAppDocumentService.java` — **WhatsApp document templates** (V58 `whatsapp_message` log). Send invoices/receipts (with PDF) + reminders/statements (text params) over the WhatsApp Business API using approved templates. Mirrors `SmsService` (per-org `org_settings` `whatsapp.*`, native HttpClient, failures recorded not thrown). Two providers: **META** (Cloud API — PDF uploaded as media → template with document header + body params, no public URL needed) and **CUSTOM** (POST normalised JSON incl. base64 doc to `whatsapp.custom_url`). `WhatsAppDocumentService` resolves recipient (contact mobile/phone → E.164 via `toWhatsAppNumber`), renders PDF via existing `InvoicePdfService`/`ReceiptPdfService`, picks the org template, and records a `WhatsAppMessage` row (SENT/FAILED/**SKIPPED** when disabled/no number — never throws). POS receipt auto-send (`whatsapp.auto_send_receipt`) fires after-commit + async so checkout is never blocked. Endpoints: `POST /api/v1/whatsapp/{invoices|receipts}/{id}`, `/{reminders|statements}/{contactId}`, `GET /api/v1/whatsapp/messages`; settings @ `/api/v1/settings/whatsapp` (token write-only/masked). Distinct from the existing wa.me share-link endpoints.
 - **`mcp/`** (TypeScript, not Java) — **MCP server** so Claude Desktop / agents can run the books via the REST API using an API key. Tools: ask, list_bills, list_invoices, list_ai_inbox, draft_bill, approve_bill_draft, reject_bill_draft. `mcp/README.md` has Claude Desktop setup. Drafts-only-until-approved.
+- `manufacturing/service/MrpService.java` — **MRP engine**: `runMrp()` aggregates demand (SO + forecasts), matches supply (on-hand + PO + WO), computes net requirement with safety stock, BOM explosion for composites, generates planned orders (PURCHASE/PRODUCTION). `convertPlannedToPO()` / `convertPlannedToWO()`. Endpoints on ManufacturingController.
+- `inventory/service/WarehouseZoneService.java` — Warehouse zone CRUD (STORAGE/QUARANTINE/STAGING/CROSS_DOCK/RETURNS). `/api/v1/inventory/warehouse-zones`.
+- `inventory/service/BatchTraceService.java` — Forward (RM→FG) and backward (FG→RM) batch traceability. `/api/v1/inventory/batch-trace`.
+- `supplychain/service/ShipmentService.java` — Shipment lifecycle (DRAFT→IN_TRANSIT→DELIVERED/CANCELLED). Auto-generated SHP numbers.
+- `supplychain/service/SupplyChainService.java` — Multi-supplier, demand forecasting (moving avg + weighted + seasonal), ABC classification, safety stock/EOQ, purchase requisitions, return orders, supply chain alerts, supplier performance, inventory analytics.
+- `common/currency/service/CurrencyManagementService.java` — Multi-currency: rate management, conversion, latest-rate fallback. `/api/v1/currencies`.
+- `inventory/consignment/service/ConsignmentService.java` — Consignment/VMI: receive, record-sale, settle. `/api/v1/consignment`.
+- `integration/service/IntegrationService.java` — ERP connector CRUD (Tally/Zoho/Busy/SAP/Custom), sync history. `/api/v1/integrations`.
+- `notification/push/PushNotificationService.java` — FCM stub with token registration/management. `/api/v1/notifications/push`.
 
 ## Doc Files Index
 | Doc | Purpose | Read when |

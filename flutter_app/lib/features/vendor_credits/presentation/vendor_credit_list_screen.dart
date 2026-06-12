@@ -118,6 +118,7 @@ class _VendorCreditListScreenState
         onPressed: () => context.go(Routes.vendorCreditCreate),
         icon: const Icon(Icons.add),
         label: const Text('New Credit'),
+        tooltip: 'New Credit (N)',
       ),
     ));
   }

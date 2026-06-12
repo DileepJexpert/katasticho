@@ -8,6 +8,7 @@ import '../../../core/utils/form_error_handler.dart';
 import '../../settings/data/feature_flag_repository.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/item_group_repository.dart';
 import '../data/item_repository.dart';
@@ -978,19 +979,22 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_isEdit ? 'Edit Item' : 'New Item'),
-        actions: [
-          if (!_isEdit)
-            IconButton(
-              icon: const Icon(Icons.document_scanner_outlined),
-              tooltip: 'Scan product label',
-              onPressed: _handleScan,
-            ),
-        ],
-      ),
-      body: _loading
+    return KKeyboardFormWrapper(
+      onSubmit: _save,
+      onCancel: () => context.pop(),
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(_isEdit ? 'Edit Item' : 'New Item'),
+          actions: [
+            if (!_isEdit)
+              IconButton(
+                icon: const Icon(Icons.document_scanner_outlined),
+                tooltip: 'Scan product label',
+                onPressed: _handleScan,
+              ),
+          ],
+        ),
+        body: _loading
           ? const KLoading()
           : Form(
               key: _formKey,
@@ -1531,6 +1535,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                 ],
               ),
             ),
+      ),
     );
   }
 }

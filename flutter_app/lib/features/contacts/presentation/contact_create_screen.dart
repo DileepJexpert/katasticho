@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/utils/form_error_handler.dart';
+import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/contact_repository.dart';
 
@@ -107,23 +108,26 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_isEdit ? 'Edit Contact' : 'Add Contact'),
-        actions: [
-          TextButton(
-            onPressed: _loading ? null : _save,
-            child: _loading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Save'),
-          ),
-        ],
-      ),
-      body: Form(
+    return KKeyboardFormWrapper(
+      onSubmit: _save,
+      onCancel: () => context.pop(),
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(_isEdit ? 'Edit Contact' : 'Add Contact'),
+          actions: [
+            TextButton(
+              onPressed: _loading ? null : _save,
+              child: _loading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Save'),
+            ),
+          ],
+        ),
+        body: Form(
         key: _formKey,
         child: ListView(
           padding: KSpacing.pagePadding,
@@ -338,6 +342,7 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
             KSpacing.vGapMd,
           ],
         ),
+      ),
       ),
     );
   }

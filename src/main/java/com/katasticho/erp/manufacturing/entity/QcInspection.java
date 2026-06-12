@@ -61,6 +61,25 @@ public class QcInspection extends BaseEntity {
 
     private String notes;
 
+    /** ACCEPT | REJECT | HOLD — null until a disposition is recorded. */
+    @Column(length = 10)
+    private String disposition;
+
+    @Column(name = "hold_qty")
+    private BigDecimal holdQty;
+
+    @Column(name = "quarantine_zone_id")
+    private UUID quarantineZoneId;
+
+    @Column(name = "disposition_notes")
+    private String dispositionNotes;
+
+    @Column(name = "disposition_at")
+    private Instant dispositionAt;
+
+    @Column(name = "disposition_by")
+    private UUID dispositionBy;
+
     @OneToMany(mappedBy = "inspection", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<QcInspectionResult> results = new ArrayList<>();

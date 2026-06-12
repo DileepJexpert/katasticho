@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/field_sales_repository.dart';
 
@@ -193,84 +194,89 @@ class _BeatListScreenState extends ConsumerState<BeatListScreen> {
   Widget build(BuildContext context) {
     final filtered = _filteredBeats;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Beats'),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-                KSpacing.md, KSpacing.sm, KSpacing.md, KSpacing.sm),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search beats by name, area...',
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      )
-                    : null,
-                isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                border: OutlineInputBorder(
-                  borderRadius: KSpacing.borderRadiusMd,
-                  borderSide: const BorderSide(color: KColors.divider),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: KSpacing.borderRadiusMd,
-                  borderSide: const BorderSide(color: KColors.divider),
-                ),
-              ),
-              onChanged: (val) => setState(() => _searchQuery = val),
-            ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? const KLoading()
-                : filtered.isEmpty
-                    ? KEmptyState(
-                        icon: Icons.map_outlined,
-                        title: _beats.isEmpty
-                            ? 'No beats yet'
-                            : 'No matching beats',
-                        subtitle: _beats.isEmpty
-                            ? 'Create beats to define sales territories for your field team.'
-                            : 'Try a different search term.',
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadBeats,
-                        child: ListView.separated(
-                          padding: KSpacing.pagePadding,
-                          itemCount: filtered.length,
-                          separatorBuilder: (_, __) => KSpacing.vGapSm,
-                          itemBuilder: (context, index) {
-                            final beat = filtered[index];
-                            final beatId = beat['id']?.toString() ?? '';
-                            final isExpanded = _expandedBeatId == beatId;
-                            return _BeatCard(
-                              beat: beat,
-                              isExpanded: isExpanded,
-                              onTap: () => _toggleExpand(beatId),
-                              repo: ref.read(fieldSalesRepositoryProvider),
-                            );
+    return KKeyboardListWrapper(
+      itemCount: () => filtered.length,
+      onNew: _showCreateBeatDialog,
+      onRefresh: () => _loadBeats(),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Beats'),
+        ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  KSpacing.md, KSpacing.sm, KSpacing.md, KSpacing.sm),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search beats by name, area...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
                           },
+                        )
+                      : null,
+                  isDense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: KSpacing.borderRadiusMd,
+                    borderSide: const BorderSide(color: KColors.divider),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: KSpacing.borderRadiusMd,
+                    borderSide: const BorderSide(color: KColors.divider),
+                  ),
+                ),
+                onChanged: (val) => setState(() => _searchQuery = val),
+              ),
+            ),
+            Expanded(
+              child: _isLoading
+                  ? const KLoading()
+                  : filtered.isEmpty
+                      ? KEmptyState(
+                          icon: Icons.map_outlined,
+                          title: _beats.isEmpty
+                              ? 'No beats yet'
+                              : 'No matching beats',
+                          subtitle: _beats.isEmpty
+                              ? 'Create beats to define sales territories for your field team.'
+                              : 'Try a different search term.',
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _loadBeats,
+                          child: ListView.separated(
+                            padding: KSpacing.pagePadding,
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) => KSpacing.vGapSm,
+                            itemBuilder: (context, index) {
+                              final beat = filtered[index];
+                              final beatId = beat['id']?.toString() ?? '';
+                              final isExpanded = _expandedBeatId == beatId;
+                              return _BeatCard(
+                                beat: beat,
+                                isExpanded: isExpanded,
+                                onTap: () => _toggleExpand(beatId),
+                                repo: ref.read(fieldSalesRepositoryProvider),
+                              );
+                            },
+                          ),
                         ),
-                      ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateBeatDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('New Beat'),
-        tooltip: 'New Beat (N)',
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: _showCreateBeatDialog,
+          icon: const Icon(Icons.add),
+          label: const Text('New Beat'),
+          tooltip: 'New Beat (N)',
+        ),
       ),
     );
   }

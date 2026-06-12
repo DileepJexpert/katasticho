@@ -230,6 +230,47 @@ class ManufacturingRepository {
     return _unwrapList(res);
   }
 
+  // ---------------------------------------------------------------------------
+  // MRP (Material Requirements Planning)
+  // ---------------------------------------------------------------------------
+
+  Future<void> runMrp() async {
+    await _api.post(ApiConfig.manufacturingMrpRun);
+  }
+
+  Future<List<dynamic>> listMrpRuns() async {
+    try {
+      final res = await _api.get(ApiConfig.manufacturingMrpRuns);
+      final data = res.data['data'];
+      if (data is List) return data;
+      if (data is Map) {
+        final content = data['content'];
+        if (content is List) return content;
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<dynamic>> getMrpRunOrders(String runId) async {
+    try {
+      final res = await _api.get(ApiConfig.manufacturingMrpRunById(runId));
+      final data = res.data['data'];
+      if (data is Map) {
+        final orders = data['plannedOrders'];
+        if (orders is List) return orders;
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> convertMrpOrder(String orderId) async {
+    await _api.post(ApiConfig.manufacturingMrpOrderConvert(orderId));
+  }
+
   Map<String, dynamic> _unwrap(dynamic res) {
     if (res is Map<String, dynamic>) {
       final data = res['data'];

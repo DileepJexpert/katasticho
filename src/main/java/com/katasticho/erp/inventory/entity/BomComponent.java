@@ -44,6 +44,17 @@ public class BomComponent extends BaseEntity {
     @Column(nullable = false)
     private BigDecimal quantity;
 
+    /**
+     * Expected process loss for this component, as a percentage of the
+     * nominal quantity. {@code ManufacturingService.issueToProduction()}
+     * issues {@code requiredQty × (1 + scrapPercent/100)} so the shop
+     * floor receives enough material to cover the loss. Default 0 keeps
+     * every existing BOM byte-for-byte unchanged.
+     */
+    @Builder.Default
+    @Column(name = "scrap_percent")
+    private BigDecimal scrapPercent = BigDecimal.ZERO;
+
     @Builder.Default
     @Column(name = "version")
     private Integer version = 1;

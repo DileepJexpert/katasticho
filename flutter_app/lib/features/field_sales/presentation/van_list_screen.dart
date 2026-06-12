@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/field_sales_repository.dart';
 
@@ -193,41 +194,47 @@ class _VanListScreenState extends ConsumerState<VanListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Vans'),
-      ),
-      body: _isLoading
-          ? const KLoading()
-          : _vans.isEmpty
-              ? KEmptyState(
-                  icon: Icons.local_shipping_outlined,
-                  title: 'No vans yet',
-                  subtitle:
-                      'Add vans to manage your field delivery vehicles.',
-                  actionLabel: 'New Van',
-                  onAction: _showCreateDialog,
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadVans,
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: _vans.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) {
-                      final van = _vans[index];
-                      return _VanCard(
-                        van: van,
-                        onTap: () => _showVanStockSheet(van),
-                      );
-                    },
+    return KKeyboardListWrapper(
+      itemCount: () => _vans.length,
+      onNew: _showCreateDialog,
+      onRefresh: () => _loadVans(),
+      onOpen: (i) => _showVanStockSheet(_vans[i]),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Vans'),
+        ),
+        body: _isLoading
+            ? const KLoading()
+            : _vans.isEmpty
+                ? KEmptyState(
+                    icon: Icons.local_shipping_outlined,
+                    title: 'No vans yet',
+                    subtitle:
+                        'Add vans to manage your field delivery vehicles.',
+                    actionLabel: 'New Van',
+                    onAction: _showCreateDialog,
+                  )
+                : RefreshIndicator(
+                    onRefresh: _loadVans,
+                    child: ListView.separated(
+                      padding: KSpacing.pagePadding,
+                      itemCount: _vans.length,
+                      separatorBuilder: (_, __) => KSpacing.vGapSm,
+                      itemBuilder: (context, index) {
+                        final van = _vans[index];
+                        return _VanCard(
+                          van: van,
+                          onTap: () => _showVanStockSheet(van),
+                        );
+                      },
+                    ),
                   ),
-                ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('New Van'),
-        tooltip: 'New Van (N)',
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: _showCreateDialog,
+          icon: const Icon(Icons.add),
+          label: const Text('New Van'),
+          tooltip: 'New Van (N)',
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/field_sales_repository.dart';
 
@@ -232,38 +233,43 @@ class _RouteListScreenState extends ConsumerState<RouteListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Routes'),
-      ),
-      body: _isLoading
-          ? const KLoading()
-          : _routes.isEmpty
-              ? KEmptyState(
-                  icon: Icons.route_outlined,
-                  title: 'No routes yet',
-                  subtitle:
-                      'Create routes to plan daily field visits for your sales team.',
-                  actionLabel: 'New Route',
-                  onAction: _showCreateRouteDialog,
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadData,
-                  child: ListView.separated(
-                    padding: KSpacing.pagePadding,
-                    itemCount: _routes.length,
-                    separatorBuilder: (_, __) => KSpacing.vGapSm,
-                    itemBuilder: (context, index) {
-                      final route = _routes[index];
-                      return _RouteCard(route: route);
-                    },
+    return KKeyboardListWrapper(
+      itemCount: () => _routes.length,
+      onNew: _showCreateRouteDialog,
+      onRefresh: () => _loadData(),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Routes'),
+        ),
+        body: _isLoading
+            ? const KLoading()
+            : _routes.isEmpty
+                ? KEmptyState(
+                    icon: Icons.route_outlined,
+                    title: 'No routes yet',
+                    subtitle:
+                        'Create routes to plan daily field visits for your sales team.',
+                    actionLabel: 'New Route',
+                    onAction: _showCreateRouteDialog,
+                  )
+                : RefreshIndicator(
+                    onRefresh: _loadData,
+                    child: ListView.separated(
+                      padding: KSpacing.pagePadding,
+                      itemCount: _routes.length,
+                      separatorBuilder: (_, __) => KSpacing.vGapSm,
+                      itemBuilder: (context, index) {
+                        final route = _routes[index];
+                        return _RouteCard(route: route);
+                      },
+                    ),
                   ),
-                ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateRouteDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('New Route'),
-        tooltip: 'New Route (N)',
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: _showCreateRouteDialog,
+          icon: const Icon(Icons.add),
+          label: const Text('New Route'),
+          tooltip: 'New Route (N)',
+        ),
       ),
     );
   }

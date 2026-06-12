@@ -21,7 +21,8 @@ public record BomComponentResponse(
         UUID childItemId,
         String childSku,
         String childName,
-        BigDecimal quantity
+        BigDecimal quantity,
+        BigDecimal scrapPercent
 ) {
     public static BomComponentResponse from(BomComponent row) {
         return new BomComponentResponse(
@@ -30,7 +31,8 @@ public record BomComponentResponse(
                 row.getChildItemId(),
                 null,
                 null,
-                row.getQuantity());
+                row.getQuantity(),
+                row.getScrapPercent());
     }
 
     public static BomComponentResponse from(BomComponent row, String childSku, String childName) {
@@ -40,6 +42,7 @@ public record BomComponentResponse(
                 row.getChildItemId(),
                 childSku,
                 childName,
-                row.getQuantity());
+                row.getQuantity(),
+                row.getScrapPercent());
     }
 }
