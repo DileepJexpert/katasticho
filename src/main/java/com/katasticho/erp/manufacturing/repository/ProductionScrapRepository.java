@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,4 +16,7 @@ public interface ProductionScrapRepository extends JpaRepository<ProductionScrap
     List<ProductionScrap> findByWorkOrderIdAndOrgIdAndIsDeletedFalse(UUID workOrderId, UUID orgId);
 
     Page<ProductionScrap> findByOrgIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID orgId, Pageable pageable);
+
+    List<ProductionScrap> findByOrgIdAndIsDeletedFalseAndScrappedAtGreaterThanEqualAndScrappedAtLessThan(
+            UUID orgId, Instant from, Instant to);
 }

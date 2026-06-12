@@ -1,7 +1,7 @@
 # Manufacturing Module — Feature Tracker
 
 Gap analysis based on Zoho, ERPNext, Odoo, SAP B1, NetSuite, Katana, MRPeasy, Cin7, Fishbowl, InFlow.
-Current coverage: **48 / 101 features (48%)** as of 2026-06-12 (plus 9 in progress). Target: Tier 1 + Tier 2 = competitive for Indian SMBs.
+Current coverage: **58 / 101 features (57%)** as of 2026-06-12. Target: Tier 1 + Tier 2 = competitive for Indian SMBs.
 
 ---
 
@@ -66,8 +66,8 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 | 26 | Scrap recording during production (qty + reason code) | DONE | `ScrapService.recordScrap()` with PRODUCTION_SCRAP movement + WO totals |
 | 27 | Scrap reason codes (material defect, machine error, operator, tooling) | DONE | `ScrapReasonCode` entity, CRUD in `ScrapService` |
 | 28 | Scrap stock location / scrap accounting | DONE | PRODUCTION_SCRAP stock movement type, scrapQty/scrapCost on WorkOrder |
-| 29 | Yield tracking (input vs output ratio, actual vs expected) | TODO | |
-| 30 | BOM scrap/yield percentage (e.g., issue 105% for 5% expected waste) | IN_PROGRESS | `scrap_percent` on `bom_component`, inflates issue qty (V64) |
+| 29 | Yield tracking (input vs output ratio, actual vs expected) | DONE | `ProductionCostSummary.yieldPercentage` (V59) + averageYieldPercent in production summary report |
+| 30 | BOM scrap/yield percentage (e.g., issue 105% for 5% expected waste) | DONE | `scrap_percent` on `bom_component`, issue inflates by (1 + scrap%/100) (V64) |
 | 31 | Material variance reporting (planned vs actual consumption) | DONE | Cost variance report + Material Variance account 5050 (V59, Tier 2) |
 
 ### 1.5 Production Plan from Sales Orders
@@ -88,10 +88,10 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 |---|---------|--------|-------|
 | 35 | Multi-level BOM (nested sub-assemblies) | DONE | BomService already supports explosion |
 | 36 | BOM versioning / revision control (Rev A, B, C with effectivity dates) | DONE | `createBomVersion()` snapshots BOM, closes effectivity dates (V59, Tier 2) |
-| 37 | Alternate/substitute materials in BOM | IN_PROGRESS | `bom_alternate` table + WO line substitution (V64) |
-| 38 | Phantom/kit BOM (explode but don't create sub-WOs) | IN_PROGRESS | `is_phantom` flag, explosion flattens through (V64) |
-| 39 | Co-products / by-products in BOM | IN_PROGRESS | `bom_co_product` table, cost allocation split on FG receipt (V64) |
-| 40 | BOM cost roll-up through all levels | IN_PROGRESS | Recursive cost-rollup endpoint (V64) |
+| 37 | Alternate/substitute materials in BOM | DONE | `bom_alternate` table + DRAFT-only WO line substitution with repricing (V64) |
+| 38 | Phantom/kit BOM (explode but don't create sub-WOs) | DONE | `item.is_phantom`, explode() flattens recursively w/ cycle guard; MRP skips PRODUCTION order (V64) |
+| 39 | Co-products / by-products in BOM | DONE | `bom_co_product` table, cost allocation % split on FG receipt, Σ ≤ 100% guard (V64) |
+| 40 | BOM cost roll-up through all levels | DONE | `GET /bom/{itemId}/cost-rollup` recursive tree w/ scrap inflation (V64) |
 | 41 | BOM comparison (diff between versions) | TODO | |
 | 42 | Configurable/parameterized BOMs (size, color variants) | TODO | |
 
@@ -109,7 +109,7 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 48 | Production summary report (WOs by status, completion rate, on-time %) | IN_PROGRESS | (V66 workstream) |
+| 48 | Production summary report (WOs by status, completion rate, on-time %) | DONE | `GET /reports/production-summary` — status counts, completion/on-time %, yield, scrap by reason (V66) |
 | 49 | Cost variance report (planned vs actual: material + labor + overhead) | DONE | `ProductionCostSummary` + cost variance report (V59, Tier 2) |
 | 50 | Material consumption report (planned vs actual per WO) | DONE | Consumption report across completed WOs (Tier 2) |
 | 51 | WIP valuation report (value of in-progress production) | DONE | Sum of IN_PROGRESS WO costs (Tier 2) |
@@ -130,10 +130,10 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 59 | Work order priority and sequencing (urgent/high/normal/low) | IN_PROGRESS | (V66 workstream) |
+| 59 | Work order priority and sequencing (urgent/high/normal/low) | DONE | priority column + filter, URGENT-first default sort, update endpoint (V66) |
 | 60 | Linked/dependent work orders (auto-create child WOs for sub-assemblies) | TODO | |
-| 61 | Work order approval workflow | IN_PROGRESS | Reuse existing ApprovalWorkflowService (V66 workstream) |
-| 62 | Work order cloning / templates | IN_PROGRESS | (V66 workstream) |
+| 61 | Work order approval workflow | DONE | `WorkOrderWorkflowHandler` mirrors SO pattern, seeded inactive, PENDING_APPROVAL blocks issue (V66) |
+| 62 | Work order cloning / templates | DONE | `POST /work-orders/{id}/clone` — fresh DRAFT, lines reset, passes approval gate (V66) |
 | 63 | Disassembly / unbuild orders (reverse FG back to components) | DONE | `createDisassemblyOrder()` + `executeDisassembly()` (Tier 2) |
 | 64 | Split / merge work orders | TODO | |
 | 65 | Batch/lot assignment on production receipt | TODO | |
@@ -223,7 +223,9 @@ Regulatory requirement for pharma (GMP Schedule M), food (FSSAI). Non-negotiable
 | 2026-06-07 | Tier 1: Job work (7), routing/ops/job cards (5), QC (5), scrap (3), SO→WO (2) | 30 | V46 migration, 4 services, 41 new tests (417 total) |
 | 2026-06-11 | Tier 2: WIP journals, BOM versioning, backflush, disassembly, batch links, variance/consumption/WIP reports | 41 | V59 migration |
 | 2026-06-11 | Tier 3: MRP engine, batch trace report, demand forecasting, MRP→PO link | 45 | V61 migration, 10 MRP tests |
-| 2026-06-12 | QC disposition (accept/reject/hold), NCR, CoA | 48 | V65 migration, 9 new QC tests. BOM enhancements (37-40, 30) + WO enhancements (48, 59, 61, 62) in progress (V64/V66) |
+| 2026-06-12 | QC disposition (accept/reject/hold), NCR, CoA | 48 | V65 migration, 9 new QC tests |
+| 2026-06-12 | BOM: scrap %, phantom, alternates, co-products, cost roll-up | 53 | V64 migration, 14 new tests |
+| 2026-06-12 | WO: priority, approval workflow, cloning, yield, production summary | 58 | V66 migration, 16 new tests. 629 total tests pass |
 
 ---
 

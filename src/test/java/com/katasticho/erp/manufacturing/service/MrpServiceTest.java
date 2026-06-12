@@ -72,6 +72,9 @@ class MrpServiceTest {
     @Mock private ProductionCostSummaryRepository costSummaryRepo;
     @Mock private com.katasticho.erp.inventory.repository.BomAlternateRepository bomAlternateRepo;
     @Mock private com.katasticho.erp.inventory.repository.BomCoProductRepository bomCoProductRepo;
+    @Mock private com.katasticho.erp.common.workflow.ApprovalWorkflowService approvalWorkflowService;
+    @Mock private com.katasticho.erp.manufacturing.repository.ProductionScrapRepository productionScrapRepo;
+    @Mock private com.katasticho.erp.manufacturing.repository.ScrapReasonCodeRepository scrapReasonCodeRepo;
 
     // ── PurchaseOrderService (used for convertPlannedToPO) ───────────────────
     @Mock private PurchaseOrderService purchaseOrderService;
@@ -91,7 +94,8 @@ class MrpServiceTest {
         manufacturingService = new ManufacturingService(
                 workOrderRepo, workOrderLineRepo, bomComponentRepo, itemRepo, inventoryService,
                 salesOrderRepo, warehouseRepo, journalService, wipPostingRule, costSummaryRepo,
-                bomAlternateRepo, bomCoProductRepo);
+                bomAlternateRepo, bomCoProductRepo, approvalWorkflowService,
+                productionScrapRepo, scrapReasonCodeRepo);
 
         mrpService = new MrpService(
                 mrpRunRepo, mrpDemandRepo, mrpSupplyRepo, plannedOrderRepo,

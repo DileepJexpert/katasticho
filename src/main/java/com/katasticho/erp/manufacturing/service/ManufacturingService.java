@@ -6,16 +6,24 @@ import com.katasticho.erp.accounting.posting.PostingContext;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.workflow.ApprovalWorkflowService;
+import com.katasticho.erp.common.workflow.WorkflowDefinition;
 import com.katasticho.erp.inventory.dto.StockMovementRequest;
 import com.katasticho.erp.inventory.entity.*;
+import com.katasticho.erp.inventory.repository.BomAlternateRepository;
+import com.katasticho.erp.inventory.repository.BomCoProductRepository;
 import com.katasticho.erp.inventory.repository.BomComponentRepository;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.manufacturing.entity.ProductionCostSummary;
+import com.katasticho.erp.manufacturing.entity.ProductionScrap;
+import com.katasticho.erp.manufacturing.entity.ScrapReasonCode;
 import com.katasticho.erp.manufacturing.entity.WorkOrder;
 import com.katasticho.erp.manufacturing.entity.WorkOrderLine;
 import com.katasticho.erp.manufacturing.repository.ProductionCostSummaryRepository;
+import com.katasticho.erp.manufacturing.repository.ProductionScrapRepository;
+import com.katasticho.erp.manufacturing.repository.ScrapReasonCodeRepository;
 import com.katasticho.erp.manufacturing.repository.WorkOrderLineRepository;
 import com.katasticho.erp.manufacturing.repository.WorkOrderRepository;
 import com.katasticho.erp.sales.entity.SalesOrder;
@@ -33,10 +41,15 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 
 @Service
@@ -54,6 +67,14 @@ public class ManufacturingService {
     private final JournalService journalService;
     private final ManufacturingWipPostingRule wipPostingRule;
     private final ProductionCostSummaryRepository costSummaryRepository;
+    private final BomAlternateRepository bomAlternateRepository;
+    private final BomCoProductRepository bomCoProductRepository;
+    private final ApprovalWorkflowService approvalWorkflowService;
+    private final ProductionScrapRepository productionScrapRepository;
+    private final ScrapReasonCodeRepository scrapReasonCodeRepository;
+
+    private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
+    private static final Set<String> VALID_PRIORITIES = Set.of("URGENT", "HIGH", "NORMAL", "LOW");
 
     // ── Work Order CRUD ──────────────────────────────────────────────
 
@@ -75,6 +96,19 @@ public class ManufacturingService {
                                      BigDecimal directLaborCost, BigDecimal overheadCost,
                                      String notes, boolean backflushMode,
                                      Integer bomVersion, boolean isDisassembly) {
+        return createWorkOrder(finishedGoodId, warehouseId, quantityToProduce,
+                plannedStart, plannedEnd, directLaborCost, overheadCost,
+                notes, backflushMode, bomVersion, isDisassembly, null);
+    }
+
+    @Transactional
+    public WorkOrder createWorkOrder(UUID finishedGoodId, UUID warehouseId,
+                                     BigDecimal quantityToProduce,
+                                     LocalDate plannedStart, LocalDate plannedEnd,
+                                     BigDecimal directLaborCost, BigDecimal overheadCost,
+                                     String notes, boolean backflushMode,
+                                     Integer bomVersion, boolean isDisassembly,
+                                     String priority) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
         Item fg = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(finishedGoodId, orgId)
@@ -128,6 +162,7 @@ public class ManufacturingService {
                 .backflushMode(backflushMode)
                 .bomVersion(resolvedVersion > 0 ? resolvedVersion : null)
                 .disassembly(isDisassembly)
+                .priority(normalizePriority(priority, true))
                 .lines(new ArrayList<>())
                 .build();
 
@@ -162,10 +197,153 @@ public class ManufacturingService {
         recalculateTotalCost(wo);
 
         wo = workOrderRepository.save(wo);
+        wo = applyApprovalWorkflowIfMatched(wo);
 
         log.info("Created work order {} for item {} qty={} with {} lines for org {}",
                 woNumber, fg.getSku(), quantityToProduce, bom.size(), orgId);
         return wo;
+    }
+
+    /**
+     * Mirror of the SalesOrderService pattern: if an ACTIVE approval workflow
+     * for WORK_ORDER matches the order's context, the WO goes to
+     * PENDING_APPROVAL and an approval request is opened. Workflows are seeded
+     * inactive, so this is a no-op until an admin activates one.
+     */
+    private WorkOrder applyApprovalWorkflowIfMatched(WorkOrder wo) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Map<String, Object> context = Map.of(
+                "workOrder.totalCost", wo.getTotalCost(),
+                "workOrder.quantity", wo.getQuantityToProduce(),
+                "workOrder.priority", wo.getPriority() != null ? wo.getPriority() : "NORMAL",
+                "item.id", wo.getFinishedGoodId().toString());
+
+        Optional<WorkflowDefinition> workflow =
+                approvalWorkflowService.findMatchingWorkflow(orgId, "WORK_ORDER", context);
+        if (workflow.isEmpty()) {
+            return wo;
+        }
+
+        wo.setStatus("PENDING_APPROVAL");
+        wo.setApprovalStatus("PENDING");
+        wo = workOrderRepository.save(wo);
+        approvalWorkflowService.requestApproval(
+                orgId,
+                workflow.get(),
+                "WORK_ORDER",
+                wo.getId(),
+                "Work order " + wo.getWorkOrderNumber() + " requires approval before production",
+                context);
+        log.info("Work order {} routed to approval workflow {} for org {}",
+                wo.getWorkOrderNumber(), workflow.get().getCode(), orgId);
+        return wo;
+    }
+
+    private String normalizePriority(String priority, boolean defaultWhenBlank) {
+        if (priority == null || priority.isBlank()) {
+            if (defaultWhenBlank) {
+                return "NORMAL";
+            }
+            throw new BusinessException("Priority is required",
+                    "MFG_INVALID_PRIORITY", HttpStatus.BAD_REQUEST);
+        }
+        String normalized = priority.trim().toUpperCase();
+        if (!VALID_PRIORITIES.contains(normalized)) {
+            throw new BusinessException(
+                    "Invalid priority '" + priority + "' — must be one of URGENT, HIGH, NORMAL, LOW",
+                    "MFG_INVALID_PRIORITY", HttpStatus.BAD_REQUEST);
+        }
+        return normalized;
+    }
+
+    // ── Priority ─────────────────────────────────────────────────────
+
+    @Transactional
+    public WorkOrder updatePriority(UUID workOrderId, String priority) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        WorkOrder wo = workOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(workOrderId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("WorkOrder", workOrderId));
+
+        if ("CANCELLED".equals(wo.getStatus())) {
+            throw new BusinessException("Cannot change priority of a cancelled work order",
+                    "MFG_ALREADY_CANCELLED", HttpStatus.BAD_REQUEST);
+        }
+
+        wo.setPriority(normalizePriority(priority, false));
+        wo = workOrderRepository.save(wo);
+        log.info("Work order {} priority set to {} for org {}",
+                wo.getWorkOrderNumber(), wo.getPriority(), orgId);
+        return wo;
+    }
+
+    // ── Clone ────────────────────────────────────────────────────────
+
+    /**
+     * Clones a work order into a fresh DRAFT: same item, quantity, warehouse,
+     * BOM version, routing, backflush mode and lines — but zeroed
+     * issued/produced quantities, a new WO number, and no journal or
+     * sales-order references.
+     */
+    @Transactional
+    public WorkOrder cloneWorkOrder(UUID workOrderId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        WorkOrder source = workOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(workOrderId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("WorkOrder", workOrderId));
+
+        int nextNum = workOrderRepository.findMaxWorkOrderNumber(orgId) + 1;
+        String woNumber = String.format("WO-%05d", nextNum);
+
+        WorkOrder clone = WorkOrder.builder()
+                .workOrderNumber(woNumber)
+                .finishedGoodId(source.getFinishedGoodId())
+                .warehouseId(source.getWarehouseId())
+                .quantityToProduce(source.getQuantityToProduce())
+                .plannedStartDate(source.getPlannedStartDate())
+                .plannedEndDate(source.getPlannedEndDate())
+                .directLaborCost(source.getDirectLaborCost())
+                .overheadCost(source.getOverheadCost())
+                .notes("Cloned from " + source.getWorkOrderNumber())
+                .status("DRAFT")
+                .backflushMode(source.isBackflushMode())
+                .bomVersion(source.getBomVersion())
+                .routingId(source.getRoutingId())
+                .priority(source.getPriority() != null ? source.getPriority() : "NORMAL")
+                .disassembly(source.isDisassembly())
+                .lines(new ArrayList<>())
+                .build();
+
+        clone = workOrderRepository.save(clone);
+
+        BigDecimal totalRmCost = BigDecimal.ZERO;
+        for (WorkOrderLine line : source.getLines()) {
+            if (line.isDeleted()) continue;
+
+            BigDecimal lineCost = line.getUnitCost().multiply(line.getRequiredQty())
+                    .setScale(2, RoundingMode.HALF_UP);
+            WorkOrderLine newLine = WorkOrderLine.builder()
+                    .workOrder(clone)
+                    .itemId(line.getItemId())
+                    .requiredQty(line.getRequiredQty())
+                    .issuedQty(BigDecimal.ZERO)
+                    .unitCost(line.getUnitCost())
+                    .lineCost(lineCost)
+                    .status("PENDING")
+                    .build();
+            clone.getLines().add(newLine);
+            totalRmCost = totalRmCost.add(lineCost);
+        }
+
+        clone.setRawMaterialCost(totalRmCost);
+        recalculateTotalCost(clone);
+
+        clone = workOrderRepository.save(clone);
+        clone = applyApprovalWorkflowIfMatched(clone);
+
+        log.info("Work order {} cloned from {} for org {}",
+                clone.getWorkOrderNumber(), source.getWorkOrderNumber(), orgId);
+        return clone;
     }
 
     @Transactional(readOnly = true)
@@ -177,11 +355,34 @@ public class ManufacturingService {
 
     @Transactional(readOnly = true)
     public Page<WorkOrder> listWorkOrders(String status, Pageable pageable) {
+        return listWorkOrders(status, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<WorkOrder> listWorkOrders(String status, String priority, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        if (status != null && !status.isBlank()) {
-            return workOrderRepository.findByOrgIdAndStatusAndIsDeletedFalse(orgId, status, pageable);
+        String statusFilter = (status != null && !status.isBlank()) ? status : null;
+        String priorityFilter = (priority != null && !priority.isBlank())
+                ? normalizePriority(priority, false) : null;
+
+        if (pageable.getSort().isUnsorted()) {
+            // Default ordering: URGENT first, newest first within each band.
+            return workOrderRepository.findForListPriorityFirst(
+                    orgId, statusFilter, priorityFilter, pageable);
         }
-        return workOrderRepository.findByOrgIdAndIsDeletedFalseOrderByCreatedAtDesc(orgId, pageable);
+
+        // Explicit sort requested by the caller — honour it as-is.
+        if (statusFilter != null && priorityFilter != null) {
+            return workOrderRepository.findByOrgIdAndStatusAndPriorityAndIsDeletedFalse(
+                    orgId, statusFilter, priorityFilter, pageable);
+        }
+        if (priorityFilter != null) {
+            return workOrderRepository.findByOrgIdAndPriorityAndIsDeletedFalse(orgId, priorityFilter, pageable);
+        }
+        if (statusFilter != null) {
+            return workOrderRepository.findByOrgIdAndStatusAndIsDeletedFalse(orgId, statusFilter, pageable);
+        }
+        return workOrderRepository.findByOrgIdAndIsDeletedFalse(orgId, pageable);
     }
 
     // ── Issue to Production ──────────────────────────────────────────
@@ -218,15 +419,26 @@ public class ManufacturingService {
     }
 
     private void issueMaterials(WorkOrder wo) {
+        Map<UUID, BigDecimal> scrapByChild = scrapPercentByChild(wo);
         BigDecimal actualRmCost = BigDecimal.ZERO;
         for (WorkOrderLine line : wo.getLines()) {
             if (line.isDeleted()) continue;
+
+            // Inflate by the BOM line's scrap percent so the shop floor
+            // receives enough material to cover expected process loss.
+            BigDecimal scrapPercent = scrapByChild.getOrDefault(line.getItemId(), BigDecimal.ZERO);
+            BigDecimal issueQty = line.getRequiredQty();
+            if (scrapPercent.signum() > 0) {
+                issueQty = issueQty
+                        .multiply(BigDecimal.ONE.add(scrapPercent.divide(HUNDRED, 6, RoundingMode.HALF_UP)))
+                        .setScale(4, RoundingMode.HALF_UP);
+            }
 
             inventoryService.recordMovement(new StockMovementRequest(
                     line.getItemId(),
                     wo.getWarehouseId(),
                     MovementType.PRODUCTION_ISSUE,
-                    line.getRequiredQty().negate(),
+                    issueQty.negate(),
                     line.getUnitCost(),
                     LocalDate.now(),
                     ReferenceType.WORK_ORDER,
@@ -235,7 +447,7 @@ public class ManufacturingService {
                     "Production issue for " + wo.getWorkOrderNumber()
             ));
 
-            line.setIssuedQty(line.getRequiredQty());
+            line.setIssuedQty(issueQty);
             line.setStatus("ISSUED");
             BigDecimal lineCost = line.getUnitCost().multiply(line.getIssuedQty())
                     .setScale(2, RoundingMode.HALF_UP);
@@ -243,6 +455,29 @@ public class ManufacturingService {
             actualRmCost = actualRmCost.add(lineCost);
         }
         wo.setRawMaterialCost(actualRmCost);
+    }
+
+    /**
+     * Map childItemId → scrap percent for the WO's BOM (version-aware).
+     * Only entries with scrap > 0 are returned, so an empty/missing BOM
+     * or a substituted line (whose item no longer matches a BOM child)
+     * falls back to zero inflation — identical to the pre-scrap path.
+     */
+    private Map<UUID, BigDecimal> scrapPercentByChild(WorkOrder wo) {
+        List<BomComponent> bom = wo.getBomVersion() != null
+                ? bomComponentRepository
+                        .findByOrgIdAndParentItemIdAndVersionAndIsDeletedFalseOrderByCreatedAtAsc(
+                                wo.getOrgId(), wo.getFinishedGoodId(), wo.getBomVersion())
+                : bomComponentRepository
+                        .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(
+                                wo.getOrgId(), wo.getFinishedGoodId());
+        Map<UUID, BigDecimal> scrapByChild = new HashMap<>();
+        for (BomComponent comp : bom) {
+            if (comp.getScrapPercent() != null && comp.getScrapPercent().signum() > 0) {
+                scrapByChild.put(comp.getChildItemId(), comp.getScrapPercent());
+            }
+        }
+        return scrapByChild;
     }
 
     // ── Receive Finished Goods ───────────────────────────────────────
@@ -279,9 +514,34 @@ public class ManufacturingService {
         }
 
         recalculateTotalCost(wo);
-        BigDecimal fgUnitCost = wo.getQuantityToProduce().compareTo(BigDecimal.ZERO) > 0
-                ? wo.getTotalCost().divide(wo.getQuantityToProduce(), 4, RoundingMode.HALF_UP)
-                : BigDecimal.ZERO;
+
+        // Co-products: each receives Q × quantityPerUnit, costed at
+        // (total WO cost × costAllocationPercent/100) spread over its
+        // planned quantity; the main FG keeps the remaining percentage.
+        // With no co-products defined this block computes the exact
+        // pre-existing fgUnitCost — byte-for-byte unchanged.
+        List<BomCoProduct> coProducts = bomCoProductRepository
+                .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(
+                        orgId, wo.getFinishedGoodId());
+
+        BigDecimal fgUnitCost;
+        if (coProducts.isEmpty()) {
+            fgUnitCost = wo.getQuantityToProduce().compareTo(BigDecimal.ZERO) > 0
+                    ? wo.getTotalCost().divide(wo.getQuantityToProduce(), 4, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+        } else {
+            BigDecimal allocatedPercent = coProducts.stream()
+                    .map(cp -> cp.getCostAllocationPercent() != null
+                            ? cp.getCostAllocationPercent() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal mainPercent = HUNDRED.subtract(allocatedPercent);
+            if (mainPercent.signum() < 0) mainPercent = BigDecimal.ZERO;
+            fgUnitCost = wo.getQuantityToProduce().compareTo(BigDecimal.ZERO) > 0
+                    ? wo.getTotalCost().multiply(mainPercent)
+                            .divide(HUNDRED, 8, RoundingMode.HALF_UP)
+                            .divide(wo.getQuantityToProduce(), 4, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+        }
 
         inventoryService.recordMovement(new StockMovementRequest(
                 wo.getFinishedGoodId(),
@@ -295,6 +555,37 @@ public class ManufacturingService {
                 wo.getWorkOrderNumber(),
                 "Finished goods receipt for " + wo.getWorkOrderNumber()
         ));
+
+        for (BomCoProduct cp : coProducts) {
+            BigDecimal cpQty = quantityReceived.multiply(cp.getQuantityPerUnit())
+                    .setScale(4, RoundingMode.HALF_UP);
+            if (cpQty.signum() <= 0) continue;
+
+            // Unit cost based on the PLANNED co-product output so partial
+            // receipts carry a stable per-unit cost (mirrors fgUnitCost,
+            // which divides by quantityToProduce).
+            BigDecimal plannedCpQty = wo.getQuantityToProduce().multiply(cp.getQuantityPerUnit());
+            BigDecimal allocPercent = cp.getCostAllocationPercent() != null
+                    ? cp.getCostAllocationPercent() : BigDecimal.ZERO;
+            BigDecimal cpUnitCost = plannedCpQty.signum() > 0
+                    ? wo.getTotalCost().multiply(allocPercent)
+                            .divide(HUNDRED, 8, RoundingMode.HALF_UP)
+                            .divide(plannedCpQty, 4, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+
+            inventoryService.recordMovement(new StockMovementRequest(
+                    cp.getCoProductItemId(),
+                    wo.getWarehouseId(),
+                    MovementType.PRODUCTION_RECEIVE,
+                    cpQty,
+                    cpUnitCost,
+                    LocalDate.now(),
+                    ReferenceType.WORK_ORDER,
+                    wo.getId(),
+                    wo.getWorkOrderNumber(),
+                    "Co-product receipt for " + wo.getWorkOrderNumber()
+            ));
+        }
 
         wo.setQuantityProduced(newTotal);
         wo.setUnitCost(fgUnitCost);
@@ -645,6 +936,120 @@ public class ManufacturingService {
         return result;
     }
 
+    /**
+     * Production summary for a creation-date period: WO counts by status,
+     * completion rate, on-time %, planned vs produced quantities, average
+     * yield % (of completed WOs) and scrap totals by reason code.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getProductionSummary(LocalDate fromDate, LocalDate toDate) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        if (fromDate == null || toDate == null || toDate.isBefore(fromDate)) {
+            throw new BusinessException("Invalid date range — fromDate must be on or before toDate",
+                    "MFG_INVALID_DATE_RANGE", HttpStatus.BAD_REQUEST);
+        }
+
+        Instant fromTs = fromDate.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant toTs = toDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+
+        List<WorkOrder> orders = workOrderRepository
+                .findByOrgIdAndIsDeletedFalseAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                        orgId, fromTs, toTs);
+
+        Map<String, Long> statusCounts = new TreeMap<>();
+        BigDecimal totalPlannedQty = BigDecimal.ZERO;
+        BigDecimal totalProducedQty = BigDecimal.ZERO;
+        BigDecimal yieldSum = BigDecimal.ZERO;
+        int completedCount = 0;
+        int onTimeMeasured = 0;
+        int onTimeCount = 0;
+
+        for (WorkOrder wo : orders) {
+            statusCounts.merge(wo.getStatus(), 1L, Long::sum);
+            totalPlannedQty = totalPlannedQty.add(wo.getQuantityToProduce());
+            totalProducedQty = totalProducedQty.add(wo.getQuantityProduced());
+
+            if ("COMPLETED".equals(wo.getStatus())) {
+                completedCount++;
+                if (wo.getQuantityToProduce().signum() > 0) {
+                    yieldSum = yieldSum.add(wo.getQuantityProduced()
+                            .divide(wo.getQuantityToProduce(), 4, RoundingMode.HALF_UP)
+                            .multiply(HUNDRED));
+                }
+                if (wo.getPlannedEndDate() != null && wo.getActualEndDate() != null) {
+                    onTimeMeasured++;
+                    if (!wo.getActualEndDate().isAfter(wo.getPlannedEndDate())) {
+                        onTimeCount++;
+                    }
+                }
+            }
+        }
+
+        BigDecimal completionRate = orders.isEmpty() ? BigDecimal.ZERO
+                : BigDecimal.valueOf(completedCount)
+                        .divide(BigDecimal.valueOf(orders.size()), 4, RoundingMode.HALF_UP)
+                        .multiply(HUNDRED).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal onTimePercent = onTimeMeasured == 0 ? BigDecimal.ZERO
+                : BigDecimal.valueOf(onTimeCount)
+                        .divide(BigDecimal.valueOf(onTimeMeasured), 4, RoundingMode.HALF_UP)
+                        .multiply(HUNDRED).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal averageYieldPercent = completedCount == 0 ? BigDecimal.ZERO
+                : yieldSum.divide(BigDecimal.valueOf(completedCount), 2, RoundingMode.HALF_UP);
+
+        // Scrap by reason code, for scrap recorded inside the period
+        List<ProductionScrap> scrapRows = productionScrapRepository
+                .findByOrgIdAndIsDeletedFalseAndScrappedAtGreaterThanEqualAndScrappedAtLessThan(
+                        orgId, fromTs, toTs);
+
+        Map<UUID, Map<String, Object>> scrapByReason = new LinkedHashMap<>();
+        BigDecimal totalScrapQty = BigDecimal.ZERO;
+        BigDecimal totalScrapCost = BigDecimal.ZERO;
+        for (ProductionScrap scrap : scrapRows) {
+            totalScrapQty = totalScrapQty.add(scrap.getScrapQty());
+            totalScrapCost = totalScrapCost.add(scrap.getScrapCost());
+
+            Map<String, Object> bucket = scrapByReason.computeIfAbsent(scrap.getReasonCodeId(), reasonId -> {
+                Map<String, Object> row = new HashMap<>();
+                row.put("reasonCodeId", reasonId);
+                String code = "UNSPECIFIED";
+                String description = null;
+                if (reasonId != null) {
+                    ScrapReasonCode reason = scrapReasonCodeRepository
+                            .findByIdAndOrgIdAndIsDeletedFalse(reasonId, orgId).orElse(null);
+                    if (reason != null) {
+                        code = reason.getCode();
+                        description = reason.getDescription();
+                    }
+                }
+                row.put("reasonCode", code);
+                row.put("description", description);
+                row.put("totalQty", BigDecimal.ZERO);
+                row.put("totalCost", BigDecimal.ZERO);
+                return row;
+            });
+            bucket.put("totalQty", ((BigDecimal) bucket.get("totalQty")).add(scrap.getScrapQty()));
+            bucket.put("totalCost", ((BigDecimal) bucket.get("totalCost")).add(scrap.getScrapCost()));
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("fromDate", fromDate);
+        result.put("toDate", toDate);
+        result.put("totalWorkOrders", orders.size());
+        result.put("statusCounts", statusCounts);
+        result.put("completedCount", completedCount);
+        result.put("completionRate", completionRate);
+        result.put("onTimePercent", onTimePercent);
+        result.put("onTimeMeasuredCount", onTimeMeasured);
+        result.put("totalPlannedQty", totalPlannedQty);
+        result.put("totalProducedQty", totalProducedQty);
+        result.put("averageYieldPercent", averageYieldPercent);
+        result.put("totalScrapQty", totalScrapQty);
+        result.put("totalScrapCost", totalScrapCost);
+        result.put("scrapByReason", new ArrayList<>(scrapByReason.values()));
+        return result;
+    }
+
     // ── BOM Versioning ───────────────────────────────────────────────
 
     @Transactional
@@ -701,6 +1106,313 @@ public class ManufacturingService {
     public int getLatestBomVersion(UUID parentItemId) {
         UUID orgId = TenantContext.getCurrentOrgId();
         return bomComponentRepository.findMaxVersion(orgId, parentItemId);
+    }
+
+    // ── BOM Alternates (substitute materials) ────────────────────────
+
+    @Transactional
+    public BomAlternate addBomAlternate(UUID bomComponentId, UUID alternateItemId,
+                                        Integer priority, String notes) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        BomComponent comp = bomComponentRepository
+                .findByIdAndOrgIdAndIsDeletedFalse(bomComponentId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("BomComponent", bomComponentId));
+
+        Item alternate = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(alternateItemId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Item", alternateItemId));
+
+        if (alternateItemId.equals(comp.getChildItemId())) {
+            throw new BusinessException(
+                    "Alternate item is the same as the BOM line's primary component",
+                    "MFG_ALTERNATE_SAME_AS_PRIMARY", HttpStatus.BAD_REQUEST);
+        }
+
+        if (bomAlternateRepository.existsByOrgIdAndBomComponentIdAndAlternateItemIdAndIsDeletedFalse(
+                orgId, bomComponentId, alternateItemId)) {
+            throw new BusinessException(
+                    "Item " + alternate.getSku() + " is already registered as an alternate for this BOM line",
+                    "MFG_ALTERNATE_DUPLICATE", HttpStatus.CONFLICT);
+        }
+
+        BomAlternate row = BomAlternate.builder()
+                .bomComponentId(bomComponentId)
+                .alternateItemId(alternateItemId)
+                .priority(priority != null ? priority : 1)
+                .notes(notes)
+                .build();
+        row = bomAlternateRepository.save(row);
+
+        log.info("BOM alternate {} registered for component {} (org {})",
+                alternate.getSku(), bomComponentId, orgId);
+        return row;
+    }
+
+    @Transactional(readOnly = true)
+    public List<BomAlternate> listBomAlternates(UUID bomComponentId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        bomComponentRepository.findByIdAndOrgIdAndIsDeletedFalse(bomComponentId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("BomComponent", bomComponentId));
+        return bomAlternateRepository
+                .findByOrgIdAndBomComponentIdAndIsDeletedFalseOrderByPriorityAsc(orgId, bomComponentId);
+    }
+
+    @Transactional
+    public void deleteBomAlternate(UUID id) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        BomAlternate row = bomAlternateRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
+                .orElseThrow(() -> BusinessException.notFound("BomAlternate", id));
+        row.setDeleted(true);
+        bomAlternateRepository.save(row);
+    }
+
+    /**
+     * Replace a DRAFT work-order line's component with one of the
+     * registered alternates for the matching BOM line. Quantity stays
+     * the same (alternates substitute 1:1); unit cost re-prices from
+     * the alternate's purchase price and the WO totals are recomputed.
+     */
+    @Transactional
+    public WorkOrder substituteWorkOrderLine(UUID workOrderId, UUID lineId, UUID alternateItemId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        WorkOrder wo = workOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(workOrderId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("WorkOrder", workOrderId));
+
+        if (!"DRAFT".equals(wo.getStatus())) {
+            throw new BusinessException(
+                    "Components can only be substituted while the work order is DRAFT, current: " + wo.getStatus(),
+                    "MFG_NOT_DRAFT", HttpStatus.BAD_REQUEST);
+        }
+
+        WorkOrderLine line = wo.getLines().stream()
+                .filter(l -> !l.isDeleted() && lineId.equals(l.getId()))
+                .findFirst()
+                .orElseThrow(() -> BusinessException.notFound("WorkOrderLine", lineId));
+
+        // Find the BOM line this WO line was built from (version-aware).
+        List<BomComponent> bom = wo.getBomVersion() != null
+                ? bomComponentRepository
+                        .findByOrgIdAndParentItemIdAndVersionAndIsDeletedFalseOrderByCreatedAtAsc(
+                                orgId, wo.getFinishedGoodId(), wo.getBomVersion())
+                : bomComponentRepository
+                        .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(
+                                orgId, wo.getFinishedGoodId());
+        BomComponent comp = bom.stream()
+                .filter(c -> c.getChildItemId().equals(line.getItemId()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(
+                        "Work order line item does not match any BOM component of the finished good",
+                        "MFG_BOM_LINE_NOT_FOUND", HttpStatus.BAD_REQUEST));
+
+        if (!bomAlternateRepository.existsByOrgIdAndBomComponentIdAndAlternateItemIdAndIsDeletedFalse(
+                orgId, comp.getId(), alternateItemId)) {
+            throw new BusinessException(
+                    "Item is not a registered alternate for this BOM component",
+                    "MFG_ALTERNATE_NOT_REGISTERED", HttpStatus.BAD_REQUEST);
+        }
+
+        Item alternate = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(alternateItemId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Item", alternateItemId));
+
+        line.setItemId(alternateItemId);
+        BigDecimal unitCost = alternate.getPurchasePrice() != null
+                ? alternate.getPurchasePrice() : BigDecimal.ZERO;
+        line.setUnitCost(unitCost);
+        line.setLineCost(unitCost.multiply(line.getRequiredQty()).setScale(2, RoundingMode.HALF_UP));
+
+        BigDecimal totalRmCost = BigDecimal.ZERO;
+        for (WorkOrderLine l : wo.getLines()) {
+            if (l.isDeleted()) continue;
+            totalRmCost = totalRmCost.add(l.getLineCost());
+        }
+        wo.setRawMaterialCost(totalRmCost);
+        recalculateTotalCost(wo);
+
+        wo = workOrderRepository.save(wo);
+        log.info("Work order {} line {} substituted with alternate {} for org {}",
+                wo.getWorkOrderNumber(), lineId, alternate.getSku(), orgId);
+        return wo;
+    }
+
+    // ── Co-products / By-products ────────────────────────────────────
+
+    @Transactional
+    public BomCoProduct addCoProduct(UUID parentItemId, UUID coProductItemId,
+                                     BigDecimal quantityPerUnit, BigDecimal costAllocationPercent) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        Item parent = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(parentItemId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Item", parentItemId));
+        if (parent.getItemType() != ItemType.COMPOSITE) {
+            throw new BusinessException(
+                    "Co-products can only be defined on COMPOSITE items",
+                    "MFG_NOT_COMPOSITE", HttpStatus.BAD_REQUEST);
+        }
+
+        if (parentItemId.equals(coProductItemId)) {
+            throw new BusinessException(
+                    "An item cannot be its own co-product",
+                    "MFG_CO_PRODUCT_SELF", HttpStatus.BAD_REQUEST);
+        }
+
+        itemRepository.findByIdAndOrgIdAndIsDeletedFalse(coProductItemId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Item", coProductItemId));
+
+        if (quantityPerUnit == null || quantityPerUnit.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(
+                    "Co-product quantity per unit must be positive",
+                    "MFG_INVALID_QUANTITY", HttpStatus.BAD_REQUEST);
+        }
+
+        BigDecimal allocPercent = costAllocationPercent != null ? costAllocationPercent : BigDecimal.ZERO;
+        if (allocPercent.signum() < 0) {
+            throw new BusinessException(
+                    "Cost allocation percent cannot be negative",
+                    "MFG_CO_PRODUCT_PERCENT_INVALID", HttpStatus.BAD_REQUEST);
+        }
+
+        if (bomCoProductRepository.existsByOrgIdAndParentItemIdAndCoProductItemIdAndIsDeletedFalse(
+                orgId, parentItemId, coProductItemId)) {
+            throw new BusinessException(
+                    "This co-product is already defined for the item — delete and re-add to change it",
+                    "MFG_CO_PRODUCT_DUPLICATE", HttpStatus.CONFLICT);
+        }
+
+        BigDecimal existingAllocation = bomCoProductRepository
+                .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentItemId)
+                .stream()
+                .map(cp -> cp.getCostAllocationPercent() != null
+                        ? cp.getCostAllocationPercent() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (existingAllocation.add(allocPercent).compareTo(HUNDRED) > 0) {
+            throw new BusinessException(
+                    "Total co-product cost allocation would exceed 100% (existing: "
+                            + existingAllocation + "%, adding: " + allocPercent + "%)",
+                    "MFG_CO_PRODUCT_ALLOCATION_EXCEEDED", HttpStatus.BAD_REQUEST);
+        }
+
+        BomCoProduct row = BomCoProduct.builder()
+                .parentItemId(parentItemId)
+                .coProductItemId(coProductItemId)
+                .quantityPerUnit(quantityPerUnit)
+                .costAllocationPercent(allocPercent)
+                .build();
+        row = bomCoProductRepository.save(row);
+
+        log.info("Co-product {} ({}× per unit, {}% cost) defined for item {} (org {})",
+                coProductItemId, quantityPerUnit, allocPercent, parent.getSku(), orgId);
+        return row;
+    }
+
+    @Transactional(readOnly = true)
+    public List<BomCoProduct> listCoProducts(UUID parentItemId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        return bomCoProductRepository
+                .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentItemId);
+    }
+
+    @Transactional
+    public void deleteCoProduct(UUID id) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        BomCoProduct row = bomCoProductRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
+                .orElseThrow(() -> BusinessException.notFound("BomCoProduct", id));
+        row.setDeleted(true);
+        bomCoProductRepository.save(row);
+    }
+
+    // ── BOM Cost Roll-up ─────────────────────────────────────────────
+
+    /**
+     * Recursive cost roll-up through every BOM level. Leaf items are
+     * costed at their purchase price; composite children are costed
+     * from their own components. Each level's quantity is inflated by
+     * the BOM line's scrap percent, so the roll-up reflects what
+     * production will actually consume.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getBomCostRollup(UUID itemId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Item root = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(itemId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Item", itemId));
+
+        java.util.Set<UUID> visiting = new java.util.HashSet<>();
+        visiting.add(itemId);
+        List<Map<String, Object>> children = rollupChildren(orgId, itemId, visiting);
+
+        BigDecimal total = children.stream()
+                .map(c -> (BigDecimal) c.get("extendedCost"))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("itemId", itemId);
+        result.put("sku", root.getSku());
+        result.put("name", root.getName());
+        result.put("totalCost", total);
+        result.put("children", children);
+        return result;
+    }
+
+    private List<Map<String, Object>> rollupChildren(UUID orgId, UUID parentItemId,
+                                                     java.util.Set<UUID> visiting) {
+        List<BomComponent> bom = bomComponentRepository
+                .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentItemId);
+
+        List<Map<String, Object>> nodes = new ArrayList<>();
+        for (BomComponent comp : bom) {
+            Item child = itemRepository
+                    .findByIdAndOrgIdAndIsDeletedFalse(comp.getChildItemId(), orgId)
+                    .orElse(null);
+            if (child == null) continue;
+
+            BigDecimal scrapPercent = comp.getScrapPercent() != null
+                    ? comp.getScrapPercent() : BigDecimal.ZERO;
+            BigDecimal effectiveQty = comp.getQuantity();
+            if (scrapPercent.signum() > 0) {
+                effectiveQty = effectiveQty
+                        .multiply(BigDecimal.ONE.add(scrapPercent.divide(HUNDRED, 6, RoundingMode.HALF_UP)))
+                        .setScale(4, RoundingMode.HALF_UP);
+            }
+
+            List<Map<String, Object>> grandChildren = List.of();
+            BigDecimal unitCost;
+            if (child.getItemType() == ItemType.COMPOSITE) {
+                if (!visiting.add(child.getId())) {
+                    throw new BusinessException(
+                            "BOM cycle detected at item " + child.getSku(),
+                            "BOM_CYCLE_DETECTED", HttpStatus.CONFLICT);
+                }
+                grandChildren = rollupChildren(orgId, child.getId(), visiting);
+                visiting.remove(child.getId());
+            }
+            if (!grandChildren.isEmpty()) {
+                // Cost of one unit of the composite child = sum of its
+                // own component extended costs.
+                unitCost = grandChildren.stream()
+                        .map(c -> (BigDecimal) c.get("extendedCost"))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+            } else {
+                unitCost = child.getPurchasePrice() != null
+                        ? child.getPurchasePrice() : BigDecimal.ZERO;
+            }
+
+            BigDecimal extendedCost = unitCost.multiply(effectiveQty)
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            Map<String, Object> node = new HashMap<>();
+            node.put("itemId", child.getId());
+            node.put("sku", child.getSku());
+            node.put("name", child.getName());
+            node.put("quantity", comp.getQuantity());
+            node.put("scrapPercent", scrapPercent);
+            node.put("effectiveQuantity", effectiveQty);
+            node.put("unitCost", unitCost);
+            node.put("extendedCost", extendedCost);
+            node.put("phantom", child.isPhantom());
+            node.put("children", grandChildren);
+            nodes.add(node);
+        }
+        return nodes;
     }
 
     // ── WIP Journal Posting ──────────────────────────────────────────

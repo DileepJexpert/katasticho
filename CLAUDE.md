@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V63** (Push Token). Next new migration = V64.
+- Location: `src/main/resources/db/migration/`. Latest is **V66** (WO priority/approval/summary). Next new migration = V67.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -258,6 +258,12 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Flutter (done):** MRP run screen, warehouse zone screen, batch trace screen, shipment list screen.
 - **Tests (done):** 10 MRP tests (SO demand, BOM explosion, net deduction, convert-to-PO/WO, etc.).
 - **Still deferred:** Gantt scheduling, shop floor mobile, maintenance management, industry-specific (pharma BMR, food FSSAI, garment cut plans).
+
+#### Gap-Fill Round (COMPLETE — 2026-06-12) — 58/101 tracker features
+- **V64 BOM enhancements:** `bom_component.scrap_percent` (issue inflates by 1+scrap%/100, planned qty stays nominal), `item.is_phantom` (explode() flattens phantoms recursively w/ `BOM_PHANTOM_CYCLE` guard; MRP skips PRODUCTION order — components become demand directly), `bom_alternate` (CRUD + DRAFT-only WO-line substitution w/ repricing), `bom_co_product` (FG receipt also receives co-products, cost allocation % split, Σ≤100% guard, no-co-product path byte-for-byte unchanged), `GET /bom/{itemId}/cost-rollup` recursive tree.
+- **V65 QC disposition/NCR/CoA:** `recordDisposition()` ACCEPT/REJECT/HOLD on finalized inspections (qty split must equal inspected qty, once-only). REJECT → negative ADJUSTMENT movement (warehouse via WO reference) + auto OPEN/MAJOR NCR. HOLD → validates QUARANTINE zone. `non_conformance_report` (NCR-xxxxx, OPEN→IN_PROGRESS→CLOSED). CoA JSON @ `GET /qc-inspections/{id}/coa`.
+- **V66 WO enhancements:** priority (URGENT/HIGH/NORMAL/LOW, URGENT-first default sort, `?priority=` filter), `WorkOrderWorkflowHandler` (mirrors SO pattern, WORK_ORDER workflow seeded `active=false`, PENDING_APPROVAL blocks issue), `POST /work-orders/{id}/clone` (fresh DRAFT, passes approval gate), yield via existing `ProductionCostSummary.yieldPercentage`, `GET /reports/production-summary` (status counts, completion/on-time %, avg yield, scrap by reason).
+- **Tests:** 629 total pass (39 new: 14 BOM/mfg, 9 QC, 14 WO enhancements, 2 WO workflow handler).
 
 ### Kirana Retail Production Gaps (2026-06-10)
 **Goal:** Make the POS + core flows production-ready for Indian small grocery/pharmacy shops.
