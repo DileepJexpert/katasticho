@@ -459,6 +459,11 @@ const _fieldSalesGroup = NavGroup(
         activeIcon: Icons.dashboard_rounded,
         route: Routes.fieldSalesDashboard),
     NavItem(
+        label: 'Live Tracking',
+        icon: Icons.my_location_outlined,
+        activeIcon: Icons.my_location,
+        route: Routes.fieldSalesLiveTracking),
+    NavItem(
         label: 'Beats',
         icon: Icons.location_on_outlined,
         activeIcon: Icons.location_on_rounded,

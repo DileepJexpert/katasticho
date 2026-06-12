@@ -235,4 +235,20 @@ class FieldSalesRepository {
     final response = await _api.get(uri.toString());
     return (response.data['data'] ?? response.data) as Map<String, dynamic>;
   }
+
+  // -- Live tracking --
+  Future<List<Map<String, dynamic>>> getLiveLocations() async {
+    final response = await _api.get(ApiConfig.fieldSalesLiveLocations);
+    final data = response.data['data'] ?? response.data;
+    return (data as List)
+        .whereType<Map>()
+        .map((e) => e.cast<String, dynamic>())
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> getLocationTrail(String executionId) async {
+    final response =
+        await _api.get(ApiConfig.fieldSalesLocationTrail(executionId));
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
 }

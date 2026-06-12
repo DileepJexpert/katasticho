@@ -6,6 +6,7 @@ import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.fieldsales.entity.*;
 import com.katasticho.erp.fieldsales.service.FieldSalesService;
+import com.katasticho.erp.fieldsales.service.FieldTrackingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,6 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -25,6 +27,7 @@ import java.util.*;
 public class FieldSalesController {
 
     private final FieldSalesService service;
+    private final FieldTrackingService trackingService;
 
     // ══════════════════════════════════════════════════════════════
     // Beat endpoints
@@ -444,6 +447,43 @@ public class FieldSalesController {
         BigDecimal collectionAmount = new BigDecimal(body.get("collectionAmount").toString());
         return ResponseEntity.ok(ApiResponse.ok(
                 service.recordVisitCollection(id, collectionAmount), "Collection recorded"));
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Location tracking endpoints
+    // ══════════════════════════════════════════════════════════════
+
+    @PostMapping("/locations/ping")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> recordLocationPings(
+            @RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> rawPings = (List<Map<String, Object>>) body.get("pings");
+        List<FieldTrackingService.PingRequest> pings = new ArrayList<>();
+        if (rawPings != null) {
+            for (Map<String, Object> p : rawPings) {
+                pings.add(new FieldTrackingService.PingRequest(
+                        p.get("latitude") != null ? new BigDecimal(p.get("latitude").toString()) : null,
+                        p.get("longitude") != null ? new BigDecimal(p.get("longitude").toString()) : null,
+                        p.get("accuracyM") != null ? new BigDecimal(p.get("accuracyM").toString()) : null,
+                        p.get("recordedAt") != null ? Instant.parse(p.get("recordedAt").toString()) : null,
+                        p.get("routeExecutionId") != null
+                                ? UUID.fromString(p.get("routeExecutionId").toString()) : null));
+            }
+        }
+        int saved = trackingService.recordPings(pings).size();
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("saved", saved), "Pings recorded"));
+    }
+
+    @GetMapping("/locations/live")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getLiveLocations() {
+        return ResponseEntity.ok(ApiResponse.ok(trackingService.liveLocations()));
+    }
+
+    @GetMapping("/locations/trail/{executionId}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getTrail(@PathVariable UUID executionId) {
+        return ResponseEntity.ok(ApiResponse.ok(trackingService.trail(executionId)));
     }
 
     // ══════════════════════════════════════════════════════════════

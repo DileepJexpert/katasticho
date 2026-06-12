@@ -705,6 +705,10 @@ class ApiConfig {
   static String fieldSalesTargetAchievement(String id) =>
       '/api/v1/field-sales/targets/$id/achievement';
   static const String fieldSalesDashboard = '/api/v1/field-sales/dashboard';
+  static const String fieldSalesLiveLocations =
+      '/api/v1/field-sales/locations/live';
+  static String fieldSalesLocationTrail(String executionId) =>
+      '/api/v1/field-sales/locations/trail/$executionId';
 
   // Partner Network
   static const String partnerNetworkPartners = '/api/v1/partner-network/partners';

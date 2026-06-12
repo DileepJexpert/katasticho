@@ -302,6 +302,13 @@ List<KCommand> buildAppCommands() {
       route: Routes.fieldSalesDashboard,
       keywords: ['target', 'incentive'],
     ),
+    KCommand(
+      label: 'Live Field Tracking',
+      icon: Icons.my_location,
+      section: 'Navigate',
+      route: Routes.fieldSalesLiveTracking,
+      keywords: ['gps', 'location', 'salesman', 'map'],
+    ),
 
     // ── Partner Network ────────────────────────────────────────────
     KCommand(

@@ -6,6 +6,7 @@ import com.katasticho.erp.fieldsales.entity.*;
 import com.katasticho.erp.fieldsales.repository.*;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.service.InventoryService;
+import com.katasticho.erp.organisation.OrgSettingsService;
 import com.katasticho.erp.sales.entity.SalesOrder;
 import com.katasticho.erp.sales.repository.SalesOrderRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -43,6 +44,7 @@ class FieldSalesServiceTest {
     @Mock private InventoryService inventoryService;
     @Mock private StockBalanceRepository stockBalanceRepo;
     @Mock private SalesOrderRepository salesOrderRepo;
+    @Mock private OrgSettingsService orgSettingsService;
 
     private FieldSalesService service;
 
@@ -58,7 +60,7 @@ class FieldSalesServiceTest {
                 vanStockTransferRepo, vanStockTransferLineRepo,
                 routeExecutionRepo, fieldVisitRepo, dayCloseRepo,
                 salesmanTargetRepo, inventoryService, stockBalanceRepo,
-                salesOrderRepo);
+                salesOrderRepo, orgSettingsService);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
@@ -174,6 +176,76 @@ class FieldSalesServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> service.skipVisit(visitId, "shop closed"));
         assertEquals("FS_NOT_ASSIGNED_SALESPERSON", ex.getErrorCode());
+    }
+
+    // ── Geofence at check-in ──
+
+    @Test
+    void checkIn_withinGeofence_setsVerifiedTrue() {
+        FieldVisit visit = geofenceVisit();
+        // ~50m north of the stored location
+        stubGeofenceCustomer(visit, new BigDecimal("28.6139000"), new BigDecimal("77.2090000"));
+
+        FieldVisit result = service.checkIn(visit.getId(),
+                new BigDecimal("28.6143500"), new BigDecimal("77.2090000"));
+
+        assertEquals(Boolean.TRUE, result.getGeoVerified());
+        assertNotNull(result.getGeoDistanceM());
+        assertTrue(result.getGeoDistanceM().doubleValue() < 250);
+    }
+
+    @Test
+    void checkIn_outsideGeofence_setsVerifiedFalse() {
+        FieldVisit visit = geofenceVisit();
+        // ~1.1km away from the stored location
+        stubGeofenceCustomer(visit, new BigDecimal("28.6139000"), new BigDecimal("77.2090000"));
+
+        FieldVisit result = service.checkIn(visit.getId(),
+                new BigDecimal("28.6239000"), new BigDecimal("77.2090000"));
+
+        assertEquals(Boolean.FALSE, result.getGeoVerified());
+        assertTrue(result.getGeoDistanceM().doubleValue() > 250);
+    }
+
+    @Test
+    void checkIn_customerWithoutCoordinates_leavesGeoNull() {
+        FieldVisit visit = geofenceVisit();
+        stubGeofenceCustomer(visit, null, null);
+
+        FieldVisit result = service.checkIn(visit.getId(),
+                new BigDecimal("28.6139000"), new BigDecimal("77.2090000"));
+
+        assertNull(result.getGeoVerified());
+        assertNull(result.getGeoDistanceM());
+    }
+
+    private FieldVisit geofenceVisit() {
+        UUID visitId = UUID.randomUUID();
+        UUID execId = UUID.randomUUID();
+        FieldVisit visit = FieldVisit.builder()
+                .id(visitId).orgId(orgId).routeExecutionId(execId)
+                .beatId(UUID.randomUUID()).contactId(UUID.randomUUID())
+                .status("PLANNED").build();
+        RouteExecution exec = buildExecution(execId, userId, "IN_PROGRESS");
+        when(fieldVisitRepo.findByIdAndOrgIdAndIsDeletedFalse(visitId, orgId))
+                .thenReturn(Optional.of(visit));
+        when(routeExecutionRepo.findByIdAndOrgIdAndIsDeletedFalse(execId, orgId))
+                .thenReturn(Optional.of(exec));
+        when(fieldVisitRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        return visit;
+    }
+
+    private void stubGeofenceCustomer(FieldVisit visit, BigDecimal geoLat, BigDecimal geoLng) {
+        BeatCustomer bc = BeatCustomer.builder()
+                .beatId(visit.getBeatId()).contactId(visit.getContactId())
+                .geoLatitude(geoLat).geoLongitude(geoLng).build();
+        when(beatCustomerRepo.findFirstByOrgIdAndBeatIdAndContactId(
+                orgId, visit.getBeatId(), visit.getContactId()))
+                .thenReturn(Optional.of(bc));
+        if (geoLat != null) {
+            when(orgSettingsService.get(orgId, "field_sales.geofence_radius_m", "250"))
+                    .thenReturn("250");
+        }
     }
 
     // ── recordVisitOrder with SO validation ──

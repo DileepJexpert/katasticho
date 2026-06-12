@@ -10,6 +10,7 @@ import com.katasticho.erp.inventory.entity.ReferenceType;
 import com.katasticho.erp.inventory.entity.StockBalance;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.service.InventoryService;
+import com.katasticho.erp.organisation.OrgSettingsService;
 import com.katasticho.erp.sales.repository.SalesOrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +55,7 @@ public class FieldSalesService {
     private final InventoryService inventoryService;
     private final StockBalanceRepository stockBalanceRepository;
     private final SalesOrderRepository salesOrderRepository;
+    private final OrgSettingsService orgSettingsService;
 
     // =====================================================================
     // Beat Management
@@ -985,6 +987,7 @@ public class FieldSalesService {
         visit.setCheckInTime(Instant.now());
         visit.setCheckInLatitude(latitude);
         visit.setCheckInLongitude(longitude);
+        applyGeofence(visit, orgId, latitude, longitude);
 
         visit = fieldVisitRepository.save(visit);
         log.info("Checked in to visit {} at ({}, {}) for org {}",
@@ -1100,6 +1103,37 @@ public class FieldSalesService {
         UUID orgId = TenantContext.getCurrentOrgId();
         return fieldVisitRepository
                 .findByOrgIdAndRouteExecutionIdAndIsDeletedFalseOrderBySequenceNumber(orgId, routeExecutionId);
+    }
+
+    /**
+     * Geofence verification at check-in: compares the check-in coordinates
+     * against the beat customer's stored geo location. Sets geoVerified
+     * true/false + distance when both coordinates exist; leaves them null
+     * when the customer has no stored location or no GPS was sent.
+     * Never blocks the check-in — a failed geofence is a flag for review.
+     */
+    private void applyGeofence(FieldVisit visit, UUID orgId,
+                               BigDecimal latitude, BigDecimal longitude) {
+        if (visit.getBeatId() == null
+                || latitude == null || longitude == null
+                || (latitude.signum() == 0 && longitude.signum() == 0)) {
+            return;
+        }
+        beatCustomerRepository
+                .findFirstByOrgIdAndBeatIdAndContactId(orgId, visit.getBeatId(), visit.getContactId())
+                .ifPresent(bc -> {
+                    if (bc.getGeoLatitude() == null || bc.getGeoLongitude() == null) return;
+                    double distance = FieldTrackingService.distanceMeters(
+                            bc.getGeoLatitude(), bc.getGeoLongitude(), latitude, longitude);
+                    double radius = Double.parseDouble(orgSettingsService.get(
+                            orgId, "field_sales.geofence_radius_m", "250"));
+                    visit.setGeoDistanceM(BigDecimal.valueOf(distance).setScale(2, RoundingMode.HALF_UP));
+                    visit.setGeoVerified(distance <= radius);
+                    if (distance > radius) {
+                        log.warn("Geofence mismatch on visit {}: {}m from customer location (radius {}m)",
+                                visit.getId(), Math.round(distance), Math.round(radius));
+                    }
+                });
     }
 
     private void ensureVisitOwnership(FieldVisit visit, UUID orgId) {

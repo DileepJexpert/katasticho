@@ -57,6 +57,13 @@ public class FieldVisit {
     @Column(name = "check_out_longitude")
     private BigDecimal checkOutLongitude;
 
+    /** Geofence result at check-in; null when the beat customer has no stored coordinates. */
+    @Column(name = "geo_verified")
+    private Boolean geoVerified;
+
+    @Column(name = "geo_distance_m")
+    private BigDecimal geoDistanceM;
+
     @Column(name = "sales_order_id")
     private UUID salesOrderId;
 

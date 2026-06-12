@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. Latest is **V66** (WO priority/approval/summary). Next new migration = V67.
+- Location: `src/main/resources/db/migration/`. Latest is **V67** (field location tracking). Next new migration = V68.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
@@ -210,6 +210,15 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Secondary-sales dashboard (done):** Aggregated KPIs (routes, visits, productive %, orders, collections) with date range.
 - **Flutter screens (done):** Beat list, route list, van list, route execution (today's routes), execution detail (with visit actions), day close, salesman dashboard. Routes and sidebar nav integrated, gated by `canUseFieldSales`.
 - **328 tests pass.**
+
+#### Live Field Tracking (2026-06-12)
+- **V67 migration:** `field_location_ping` (append-only GPS breadcrumbs, no soft delete) + `field_visit.geo_verified`/`geo_distance_m`.
+- **`FieldTrackingService`:** `recordPings()` (batched, max 500, org/user stamped from TenantContext), `liveLocations()` (latest ping per salesperson today, names via AppUserRepository), `trail(executionId)` (pings + haversine total km). Static `distanceMeters()` haversine.
+- **Geofenced check-in:** `FieldSalesService.checkIn` → `applyGeofence()` compares check-in GPS vs `beat_customer.geo_latitude/longitude`; radius org setting `field_sales.geofence_radius_m` (default 250m). Flags (never blocks): sets `geoVerified` true/false + distance; null when customer has no stored coords.
+- **Endpoints:** `POST /api/v1/field-sales/locations/ping` (any field role), `GET /locations/live` + `GET /locations/trail/{executionId}` (OWNER/ADMIN).
+- **ERP Flutter:** `LiveTrackingScreen` (`/field-sales/live-tracking`) — 30s auto-refresh list, stale (>15min) highlighting, open-in-Google-Maps, trail bottom sheet (distance + ping count). Sidebar + command palette wired.
+- **Field app (katasticho-mr-salesman-app):** `LocationPingTracker` (3-min foreground Timer while execution IN_PROGRESS, auto start/stop from visits screen `_syncPingTracker`), pings queue offline as `LOCATION_PING` on network failure, geofence warning snackbar after check-in.
+- **Tests:** FieldTrackingServiceTest (7) + 3 geofence tests in FieldSalesServiceTest. 647 total pass.
 
 ### Phase 8: Partner Network (B2B Ordering) (COMPLETE — 2026-06-06)
 **Goal:** Connected B2B trade network within the same product.
