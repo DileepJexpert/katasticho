@@ -186,7 +186,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
       _dosageFormController.text = drug['dosageForm'] ?? '';
       _packSizeController.text = drug['packSize'] ?? '';
       _hsnController.text = hsnCode;
-      _gstRateController.text = (drug['gstRate'] ?? 12).toString();
+      _gstRateController.text = (drug['gstRate'] ?? 5).toString();
       final mrp = drug['mrp'];
       if (mrp != null) {
         final mrpText = mrp.toString();
