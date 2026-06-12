@@ -112,4 +112,91 @@ class PaymentForexPostingTest {
         JournalPostRequest req = post(new BigDecimal("750"), null, null);
         assertEquals(2, req.lines().size());
     }
+
+    // ── Vendor (AP) side ────────────────────────────────────────────────
+
+    private JournalPostRequest postVendor(BigDecimal amount, BigDecimal tds,
+                                          BigDecimal payRate,
+                                          List<AccountingPostingEngine.VendorAllocationFx> allocs) {
+        engine.postVendorPayment(orgId, "VPAY-1", LocalDate.of(2026, 6, 1),
+                amount, tds, "1020", payRate, allocs);
+        ArgumentCaptor<JournalPostRequest> captor = ArgumentCaptor.forClass(JournalPostRequest.class);
+        verify(journalService).postJournal(captor.capture());
+        return captor.getValue();
+    }
+
+    @Test
+    void vendor_sameRates_legacyJournal() {
+        JournalPostRequest req = postVendor(new BigDecimal("3000"), BigDecimal.ZERO,
+                BigDecimal.ONE,
+                List.of(new AccountingPostingEngine.VendorAllocationFx(
+                        new BigDecimal("3000"), BigDecimal.ONE)));
+        List<JournalLineRequest> lines = req.lines();
+        assertEquals(2, lines.size());
+        assertEquals(0, new BigDecimal("3000.00").compareTo(lines.get(0).debit()));
+        assertEquals(0, new BigDecimal("3000.00").compareTo(lines.get(1).credit()));
+    }
+
+    @Test
+    void vendor_tdsPresent_keepsLegacyPathEvenWithRates() {
+        JournalPostRequest req = postVendor(new BigDecimal("3000"), new BigDecimal("30"),
+                new BigDecimal("84"),
+                List.of(new AccountingPostingEngine.VendorAllocationFx(
+                        new BigDecimal("3000"), new BigDecimal("82"))));
+        List<JournalLineRequest> lines = req.lines();
+        assertEquals(3, lines.size()); // AP + TDS + bank, no forex line
+        assertEquals(0, new BigDecimal("2970").compareTo(lines.get(0).debit()));
+        assertEquals(0, new BigDecimal("3000").compareTo(lines.get(2).credit()));
+    }
+
+    @Test
+    void vendor_payRateHigher_postsForexLossDebit() {
+        // $100 bill booked @82, paid @84 -> pay 200 more base -> loss
+        JournalPostRequest req = postVendor(new BigDecimal("100"), BigDecimal.ZERO,
+                new BigDecimal("84"),
+                List.of(new AccountingPostingEngine.VendorAllocationFx(
+                        new BigDecimal("100"), new BigDecimal("82"))));
+        List<JournalLineRequest> lines = req.lines();
+        assertEquals(3, lines.size());
+        assertEquals(0, new BigDecimal("8200.00").compareTo(lines.get(0).debit()));  // AP
+        assertEquals(0, new BigDecimal("8400.00").compareTo(lines.get(1).credit())); // bank
+        assertEquals("5500", lines.get(2).accountCode());
+        assertEquals(0, new BigDecimal("200.00").compareTo(lines.get(2).debit()));   // loss
+    }
+
+    @Test
+    void vendor_multiBill_weightsEachAllocationByItsBillRate() {
+        // $100 @80 + $50 @84 booked = 12200 AP; pay $150 @82 = 12300 -> loss 100
+        JournalPostRequest req = postVendor(new BigDecimal("150"), BigDecimal.ZERO,
+                new BigDecimal("82"),
+                List.of(
+                        new AccountingPostingEngine.VendorAllocationFx(
+                                new BigDecimal("100"), new BigDecimal("80")),
+                        new AccountingPostingEngine.VendorAllocationFx(
+                                new BigDecimal("50"), new BigDecimal("84"))));
+        List<JournalLineRequest> lines = req.lines();
+        assertEquals(3, lines.size());
+        assertEquals(0, new BigDecimal("12200.00").compareTo(lines.get(0).debit()));
+        assertEquals(0, new BigDecimal("12300.00").compareTo(lines.get(1).credit()));
+        assertEquals(0, new BigDecimal("100.00").compareTo(lines.get(2).debit()));   // loss
+
+        BigDecimal totalDebit = lines.stream().map(JournalLineRequest::debit)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCredit = lines.stream().map(JournalLineRequest::credit)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertEquals(0, totalDebit.compareTo(totalCredit));
+    }
+
+    @Test
+    void vendor_payRateLower_postsForexGainCredit() {
+        // $100 bill booked @84, paid @81 -> pay 300 less -> gain
+        JournalPostRequest req = postVendor(new BigDecimal("100"), BigDecimal.ZERO,
+                new BigDecimal("81"),
+                List.of(new AccountingPostingEngine.VendorAllocationFx(
+                        new BigDecimal("100"), new BigDecimal("84"))));
+        List<JournalLineRequest> lines = req.lines();
+        assertEquals(3, lines.size());
+        assertEquals("5500", lines.get(2).accountCode());
+        assertEquals(0, new BigDecimal("300.00").compareTo(lines.get(2).credit()));  // gain
+    }
 }

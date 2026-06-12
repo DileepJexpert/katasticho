@@ -495,7 +495,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 ### B. Tally "CA pack"
 **Discovery 2026-06-12: items 1-5 were ALREADY IMPLEMENTED in the old chain (undocumented):** `OperationalReportService.costCentres()/overdueInterest()/stockAgeing()/ratioAnalysis()/budgetVariance()`, `BudgetService` (+ `budget_line` table in baseline), endpoints on FinancialReportController, hub entries in reports_hub_screen, journal form has costCentre, budgets screen @ `/settings/budgets`. Tests: BudgetServiceTest + OperationalReportServiceTest.
 1. ~~Cost centre P&L~~ DONE · 2. ~~Budgets + variance~~ DONE · 3. ~~Interest on overdue~~ DONE (debit-note draft still optional) · 4. ~~Stock ageing~~ DONE · 5. ~~Ratio analysis~~ DONE · Post-dated vouchers DONE (old V56).
-6. ~~Realized forex gain/loss~~ AR side DONE (2026-06-12): `AccountingPostingEngine.postPaymentReceived` now posts base amounts (amount × rate) with the invoice-vs-payment rate difference to Forex Gain/Loss 5500 (CR = gain, DR = loss); INR path byte-identical. Tests: PaymentForexPostingTest (4). **AP side still pending** — vendor payments allocate across multiple bills, needs per-bill rate weighting.
+6. ~~Realized forex gain/loss~~ DONE both sides (2026-06-12). AR: `postPaymentReceived` books cash at payment rate, clears AR at invoice rate, diff → 5500. AP: `postVendorPayment` clears AP per-allocation at each bill's rate vs cash at payment rate (paying more base = loss DR, less = gain CR); **forex applies only when TDS = 0** (TDS sections govern resident INR payments) — TDS path stays byte-identical legacy. Tests: PaymentForexPostingTest (9).
 
 ### C. Pharma/catalog follow-ups
 1. ~~HSN master CRUD~~ DONE (2026-06-12): `PharmacyMasterService.upsertHsn` — OWNER/ADMIN may ADD missing codes (rates are statutory facts, shared platform table); editing an EXISTING row needs PLATFORM_ADMIN (`HSN_PLATFORM_ROW_READONLY`). `POST /api/v1/pharmacy-masters/hsn`; ERP `HsnMasterScreen` @ `/inventory/hsn-codes` (sidebar + palette).
@@ -505,8 +505,8 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 5. Optional: merge official Jan Aushadhi / NLEM lists (gov sites bot-gated — needs one manual browser download).
 
 ### D. Field force leftovers
-1. E-detailing (brochures/visual aids shown in-visit, tracked per product) — last Phase-3 item.
-2. Attendance → payroll LOP integration.
+1. E-detailing (brochures/visual aids shown in-visit, tracked per product) — last Phase-3 item. Needs a media strategy (URL-based detail-aid master is the cheap path; no file-storage service exists yet).
+2. ~~Attendance → payroll LOP~~ DONE (2026-06-12): `employee.user_id` (baseline) links payroll employees to app users; `payslip.lop_days` records approved UNPAID leave days clipped to the run period; EARNING components prorate by (periodDays − lop)/periodDays in `PayrollService.calculatePayslip`. No user link / no unpaid leave = behaviour unchanged. `EmployeeRequest.userId` exposed (ERP employee-form dropdown still TODO). **LOP unit test pending** (needs calculateRun scaffolding in PayrollServiceTest).
 3. True background GPS in field app (current tracking is foreground Timer only).
 
 ### E. Deployment-day config checklist (no code)

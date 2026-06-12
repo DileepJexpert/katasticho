@@ -281,18 +281,49 @@ public class AccountingPostingEngine {
 
     // ── Vendor Payment ─────────────────────────────────────────
 
+    /** Per-bill share of a vendor payment with the rate the bill was booked at. */
+    public record VendorAllocationFx(BigDecimal amount, BigDecimal billExchangeRate) {}
+
+    /**
+     * Vendor-payment journal with realized forex gain/loss.
+     *
+     * Each allocated bill's AP was booked at that bill's exchange rate; the
+     * cash leaves at the payment-date rate. The per-bill weighted difference
+     * posts to Forex Gain/Loss (5500): paying fewer base units than booked is
+     * a gain (credit), more is a loss (debit). Forex applies only when TDS is
+     * zero — TDS sections govern resident INR payments, so an FX bill with
+     * TDS keeps the legacy single-currency journal. When every rate is 1 the
+     * journal is identical to before.
+     */
     public JournalEntry postVendorPayment(UUID orgId,
                                            String paymentNumber,
                                            java.time.LocalDate paymentDate,
                                            BigDecimal amount,
                                            BigDecimal tdsAmount,
-                                           String paidThroughAccountCode) {
-        List<JournalLineRequest> lines = new ArrayList<>();
+                                           String paidThroughAccountCode,
+                                           BigDecimal paymentExchangeRate,
+                                           List<VendorAllocationFx> allocations) {
+        BigDecimal payRate = paymentExchangeRate != null ? paymentExchangeRate : BigDecimal.ONE;
+        boolean fxApplies = tdsAmount.signum() == 0 && allocations != null && !allocations.isEmpty();
 
-        BigDecimal apDebit = amount.subtract(tdsAmount);
+        BigDecimal apDebitBase;
+        BigDecimal paidBase;
+        if (fxApplies) {
+            apDebitBase = allocations.stream()
+                    .map(a -> a.amount().multiply(
+                            a.billExchangeRate() != null ? a.billExchangeRate() : BigDecimal.ONE))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .setScale(2, java.math.RoundingMode.HALF_UP);
+            paidBase = amount.multiply(payRate).setScale(2, java.math.RoundingMode.HALF_UP);
+        } else {
+            apDebitBase = amount.subtract(tdsAmount);
+            paidBase = amount;
+        }
+
+        List<JournalLineRequest> lines = new ArrayList<>();
         lines.add(new JournalLineRequest(
                 defaultAccountService.getCode(orgId, DefaultAccountPurpose.AP),
-                apDebit, BigDecimal.ZERO,
+                apDebitBase, BigDecimal.ZERO,
                 "AP cleared: " + paymentNumber,
                 null, null));
 
@@ -306,9 +337,22 @@ public class AccountingPostingEngine {
 
         lines.add(new JournalLineRequest(
                 paidThroughAccountCode,
-                BigDecimal.ZERO, amount,
+                BigDecimal.ZERO, paidBase,
                 "Payment " + paymentNumber + " to vendor",
                 null, null));
+
+        if (fxApplies) {
+            BigDecimal forexDiff = apDebitBase.subtract(paidBase);
+            if (forexDiff.signum() > 0) {
+                lines.add(new JournalLineRequest(FOREX_GAIN_LOSS_CODE,
+                        BigDecimal.ZERO, forexDiff,
+                        "Realized forex gain on " + paymentNumber, null, null));
+            } else if (forexDiff.signum() < 0) {
+                lines.add(new JournalLineRequest(FOREX_GAIN_LOSS_CODE,
+                        forexDiff.negate(), BigDecimal.ZERO,
+                        "Realized forex loss on " + paymentNumber, null, null));
+            }
+        }
 
         return journalService.postJournal(new JournalPostRequest(
                 paymentDate,

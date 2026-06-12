@@ -101,10 +101,15 @@ public class VendorPaymentService {
                     "AP_ALLOCATION_MISMATCH", HttpStatus.BAD_REQUEST);
         }
 
-        // Validate each allocation against its bill
+        // Validate each allocation against its bill (and collect bill
+        // exchange rates for realized-forex posting)
+        List<com.katasticho.erp.accounting.posting.AccountingPostingEngine.VendorAllocationFx> allocationFx =
+                new java.util.ArrayList<>();
         for (VendorPaymentRequest.AllocationRequest alloc : request.allocations()) {
             PurchaseBill bill = billRepository.findByIdAndOrgIdAndIsDeletedFalse(alloc.billId(), orgId)
                     .orElseThrow(() -> BusinessException.notFound("PurchaseBill", alloc.billId()));
+            allocationFx.add(new com.katasticho.erp.accounting.posting.AccountingPostingEngine.VendorAllocationFx(
+                    alloc.amountApplied(), bill.getExchangeRate()));
 
             if ("DRAFT".equals(bill.getStatus()) || "VOID".equals(bill.getStatus()) || "PAID".equals(bill.getStatus())) {
                 throw new BusinessException(
@@ -132,7 +137,8 @@ public class VendorPaymentService {
         JournalEntry journalEntry = postingEngine.postVendorPayment(
                 orgId, paymentNumber, request.paymentDate(),
                 request.amount(), request.tdsAmount(),
-                paidThroughAccount.getCode());
+                paidThroughAccount.getCode(),
+                exchangeRate, allocationFx);
 
         // ── Resolve branch ──────────────────────────────────────
 

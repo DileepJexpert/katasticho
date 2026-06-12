@@ -37,6 +37,7 @@ class PayrollServiceTest {
     @Mock private StatutoryPaymentRepository statutoryPaymentRepo;
     @Mock private JournalService journalService;
     @Mock private AccountRepository accountRepo;
+    @Mock private com.katasticho.erp.attendance.LeaveRequestRepository leaveRequestRepo;
 
     private PayrollService service;
 
@@ -52,7 +53,7 @@ class PayrollServiceTest {
         service = new PayrollService(
                 settingsRepo, employeeRepo, componentRepo, structureRepo,
                 runRepo, payslipRepo, paymentRepo, statutoryPaymentRepo,
-                journalService, accountRepo);
+                journalService, accountRepo, leaveRequestRepo);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
 

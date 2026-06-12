@@ -44,6 +44,11 @@ public class Payslip {
     @JsonIgnore
     private Employee employee;
 
+    /** Loss-of-pay days from approved UNPAID leave in the run period. */
+    @Column(name = "lop_days")
+    @Builder.Default
+    private BigDecimal lopDays = BigDecimal.ZERO;
+
     @Column(name = "gross_pay")
     @Builder.Default
     private BigDecimal grossPay = BigDecimal.ZERO;

@@ -90,6 +90,7 @@ public class PayrollController {
                 .esiApplicable(request.isEsiApplicable())
                 .ptApplicable(request.isPtApplicable())
                 .lwfApplicable(request.isLwfApplicable())
+                .userId(request.userId())
                 .build();
         return ResponseEntity.ok(ApiResponse.ok(service.createEmployee(employee), "Employee created"));
     }
@@ -123,6 +124,7 @@ public class PayrollController {
                 .esiApplicable(request.isEsiApplicable())
                 .ptApplicable(request.isPtApplicable())
                 .lwfApplicable(request.isLwfApplicable())
+                .userId(request.userId())
                 .build();
         return ResponseEntity.ok(ApiResponse.ok(service.updateEmployee(id, updates), "Employee updated"));
     }

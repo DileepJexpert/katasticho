@@ -40,6 +40,7 @@ public class PayrollService {
     private final StatutoryPaymentRepository statutoryPaymentRepository;
     private final JournalService journalService;
     private final AccountRepository accountRepository;
+    private final com.katasticho.erp.attendance.LeaveRequestRepository leaveRequestRepository;
 
     // ──────────────────────────────── Settings ────────────────────────────────
 
@@ -145,6 +146,7 @@ public class PayrollService {
         }
 
         existing.setFullName(updates.getFullName());
+        existing.setUserId(updates.getUserId());
         existing.setPhone(updates.getPhone());
         existing.setEmail(updates.getEmail());
         existing.setDesignation(updates.getDesignation());
@@ -712,11 +714,22 @@ public class PayrollService {
                                      EmployeeSalaryStructure structure, PayrollSettings settings,
                                      Map<String, SalaryComponent> componentsByCode) {
 
+        BigDecimal lopDays = lopDays(orgId, employee, run);
+        // Earnings prorate by (period days - LOP days) / period days
+        long periodDays = java.time.temporal.ChronoUnit.DAYS.between(
+                run.getPeriodStart(), run.getPeriodEnd()) + 1;
+        BigDecimal lopFactor = lopDays.signum() > 0 && periodDays > 0
+                ? BigDecimal.valueOf(periodDays).subtract(lopDays)
+                        .max(BigDecimal.ZERO)
+                        .divide(BigDecimal.valueOf(periodDays), 6, RoundingMode.HALF_UP)
+                : BigDecimal.ONE;
+
         Payslip payslip = Payslip.builder()
                 .orgId(orgId)
                 .payrollRunId(run.getId())
                 .employeeId(employee.getId())
                 .status("DRAFT")
+                .lopDays(lopDays)
                 .grossPay(BigDecimal.ZERO)
                 .totalDeductions(BigDecimal.ZERO)
                 .employerContributions(BigDecimal.ZERO)
@@ -737,6 +750,9 @@ public class PayrollService {
                 if (comp == null) continue;
 
                 BigDecimal amount = computeComponentAmount(esc, computedAmounts);
+                if ("EARNING".equals(comp.getComponentType()) && lopFactor.compareTo(BigDecimal.ONE) < 0) {
+                    amount = amount.multiply(lopFactor).setScale(2, RoundingMode.HALF_UP);
+                }
                 computedAmounts.put(comp.getCode(), amount);
 
                 PayslipLine line = PayslipLine.builder()
@@ -1057,5 +1073,27 @@ public class PayrollService {
             }
         }
         return null;
+    }
+
+    /**
+     * Loss-of-pay days for the run period: approved UNPAID leave of the
+     * employee's linked app user, clipped to the period. Employees without
+     * a user link (or with no unpaid leave) get zero - behaviour unchanged.
+     */
+    private BigDecimal lopDays(UUID orgId, Employee employee, PayrollRun run) {
+        if (employee.getUserId() == null) return BigDecimal.ZERO;
+        long days = 0;
+        for (var leave : leaveRequestRepository
+                .findByOrgIdAndUserIdAndStatusInAndFromDateLessThanEqualAndToDateGreaterThanEqualAndIsDeletedFalse(
+                        orgId, employee.getUserId(), java.util.List.of("APPROVED"),
+                        run.getPeriodEnd(), run.getPeriodStart())) {
+            if (!"UNPAID".equals(leave.getLeaveType())) continue;
+            LocalDate from = leave.getFromDate().isBefore(run.getPeriodStart())
+                    ? run.getPeriodStart() : leave.getFromDate();
+            LocalDate to = leave.getToDate().isAfter(run.getPeriodEnd())
+                    ? run.getPeriodEnd() : leave.getToDate();
+            days += java.time.temporal.ChronoUnit.DAYS.between(from, to) + 1;
+        }
+        return BigDecimal.valueOf(days);
     }
 }

@@ -22,5 +22,8 @@ public record EmployeeRequest(
     boolean isPfApplicable,
     boolean isEsiApplicable,
     boolean isPtApplicable,
-    boolean isLwfApplicable
+    boolean isLwfApplicable,
+
+    /** Optional app-user link — enables attendance/leave (LOP) integration. */
+    java.util.UUID userId
 ) {}

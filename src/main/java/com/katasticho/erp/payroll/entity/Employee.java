@@ -28,6 +28,10 @@ public class Employee {
     @Column(name = "org_id", nullable = false)
     private UUID orgId;
 
+    /** Optional link to the app login of this employee (attendance/leave source). */
+    @Column(name = "user_id")
+    private UUID userId;
+
     @Column(name = "employee_code", length = 50)
     private String employeeCode;
 

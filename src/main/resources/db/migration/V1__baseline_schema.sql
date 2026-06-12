@@ -1466,6 +1466,7 @@ CREATE TABLE public.email_verification_token (
 CREATE TABLE public.employee (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
+    user_id uuid,
     employee_code character varying(50),
     full_name character varying(255) NOT NULL,
     phone character varying(30),
@@ -2849,6 +2850,7 @@ CREATE TABLE public.payslip (
     org_id uuid NOT NULL,
     payroll_run_id uuid NOT NULL,
     employee_id uuid NOT NULL,
+    lop_days numeric(5,2) DEFAULT 0 NOT NULL,
     gross_pay numeric(14,2) DEFAULT 0,
     total_deductions numeric(14,2) DEFAULT 0,
     employer_contributions numeric(14,2) DEFAULT 0,
