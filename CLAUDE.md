@@ -27,7 +27,9 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. **Re-baselined 2026-06-12:** the old V1..V70 history is squashed into `V1__baseline_schema.sql` (full schema from the migrated DB) + `V2__reference_data.sql` (platform seeds: drug/salt/manufacturer/HSN masters, substitutions, interactions, currencies, CoA templates, AI model registry). Next new migration = **V3**. Databases created before the re-baseline must be dropped and recreated.
+- Location: `src/main/resources/db/migration/`. **Re-baselined 2026-06-12:** the old V1..V70 history is squashed into `V1__baseline_schema.sql` (full schema) + `V2__reference_data.sql` (platform seeds: drug/salt/manufacturer/HSN masters, substitutions, interactions, currencies, CoA templates, AI model registry).
+- **DEV-PHASE MIGRATION POLICY (until go-live): do NOT create new migration files and do NOT write ALTER statements.** Schema changes (new column, type change, new table) are edited DIRECTLY into `V1__baseline_schema.sql`; seed changes into `V2__reference_data.sql`. Then reset the DB: `./scripts/reset-db.sh` (docker compose down -v + up). Flyway rebuilds everything from the baseline on next app start.
+- After go-live this flips: V1/V2 are frozen forever and changes resume as additive V3, V4, … migrations.
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
 - Master tables seeded in V28 (drugs/salts), V29 (pharmacy refs), V34/V36 (drug master seeds).
 
