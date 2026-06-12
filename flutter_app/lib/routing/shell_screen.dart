@@ -469,6 +469,11 @@ const _fieldSalesGroup = NavGroup(
         activeIcon: Icons.fact_check,
         route: Routes.fieldSalesMrApprovals),
     NavItem(
+        label: 'Samples & TA/DA',
+        icon: Icons.inventory_2_outlined,
+        activeIcon: Icons.inventory_2,
+        route: Routes.fieldSalesSamples),
+    NavItem(
         label: 'Beats',
         icon: Icons.location_on_outlined,
         activeIcon: Icons.location_on_rounded,

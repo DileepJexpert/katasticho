@@ -722,6 +722,14 @@ class ApiConfig {
   static String mrDcrApprove(String id) => '/api/v1/mr/dcr/$id/approve';
   static String mrDcrReject(String id) => '/api/v1/mr/dcr/$id/reject';
 
+  // Field samples + allowance (all verticals)
+  static const String fieldSamplesIssue = '/api/v1/field-sales/samples/issue';
+  static const String fieldSamplesReturn = '/api/v1/field-sales/samples/return';
+  static String fieldSamplesBalance(String salespersonId) =>
+      '/api/v1/field-sales/samples/balance/$salespersonId';
+  static String fieldSamplesTransactions(String salespersonId) =>
+      '/api/v1/field-sales/samples/transactions/$salespersonId';
+
   // Partner Network
   static const String partnerNetworkPartners = '/api/v1/partner-network/partners';
   static const String partnerNetworkPartnersPending = '/api/v1/partner-network/partners/pending';

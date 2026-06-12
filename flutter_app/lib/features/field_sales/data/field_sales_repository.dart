@@ -284,6 +284,38 @@ class FieldSalesRepository {
     await _api.post(ApiConfig.mrDcrReject(id), data: {'reason': reason});
   }
 
+  // -- Field samples (all verticals) --
+  Future<List<Map<String, dynamic>>> sampleBalance(String salespersonId) async {
+    final response =
+        await _api.get(ApiConfig.fieldSamplesBalance(salespersonId));
+    return _asList(response.data['data'] ?? response.data);
+  }
+
+  Future<List<Map<String, dynamic>>> sampleTransactions(
+      String salespersonId) async {
+    final response =
+        await _api.get(ApiConfig.fieldSamplesTransactions(salespersonId));
+    return _asList(response.data['data'] ?? response.data);
+  }
+
+  Future<void> recordSampleTxn({
+    required bool isIssue,
+    required String salespersonId,
+    required String productName,
+    required int quantity,
+    String? notes,
+  }) async {
+    await _api.post(
+      isIssue ? ApiConfig.fieldSamplesIssue : ApiConfig.fieldSamplesReturn,
+      data: {
+        'salespersonId': salespersonId,
+        'productName': productName,
+        'quantity': quantity,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      },
+    );
+  }
+
   List<Map<String, dynamic>> _asList(dynamic data) {
     final content = data is Map ? (data['content'] as List?) ?? [] : data;
     return (content as List)

@@ -5,7 +5,9 @@ import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.fieldsales.entity.*;
+import com.katasticho.erp.fieldsales.service.FieldAllowanceService;
 import com.katasticho.erp.fieldsales.service.FieldSalesService;
+import com.katasticho.erp.fieldsales.service.FieldSampleService;
 import com.katasticho.erp.fieldsales.service.FieldTrackingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -28,6 +30,8 @@ public class FieldSalesController {
 
     private final FieldSalesService service;
     private final FieldTrackingService trackingService;
+    private final FieldAllowanceService allowanceService;
+    private final FieldSampleService sampleService;
 
     // ══════════════════════════════════════════════════════════════
     // Beat endpoints
@@ -484,6 +488,81 @@ public class FieldSalesController {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getTrail(@PathVariable UUID executionId) {
         return ResponseEntity.ok(ApiResponse.ok(trackingService.trail(executionId)));
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // TA/DA allowance endpoints (all verticals)
+    // ══════════════════════════════════════════════════════════════
+
+    @GetMapping("/allowance/me")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> myAllowance(
+            @RequestParam(required = false) LocalDate date) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                allowanceService.computeAllowance(date != null ? date : LocalDate.now())));
+    }
+
+    @PostMapping("/allowance/claim")
+    public ResponseEntity<ApiResponse<FieldAllowanceClaim>> claimAllowance(
+            @RequestBody(required = false) Map<String, Object> body) {
+        LocalDate date = body != null && body.get("date") != null
+                ? LocalDate.parse(body.get("date").toString()) : LocalDate.now();
+        return ResponseEntity.ok(ApiResponse.ok(
+                allowanceService.claim(date), "Allowance claimed"));
+    }
+
+    @GetMapping("/allowance/claims/me")
+    public ResponseEntity<ApiResponse<List<FieldAllowanceClaim>>> myAllowanceClaims() {
+        return ResponseEntity.ok(ApiResponse.ok(allowanceService.myClaims()));
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Sample / promo stock endpoints (all verticals)
+    // ══════════════════════════════════════════════════════════════
+
+    @PostMapping("/samples/issue")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<FieldSampleTxn>> issueSamples(
+            @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                recordSampleTxn("ISSUE", body), "Samples issued"));
+    }
+
+    @PostMapping("/samples/return")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<FieldSampleTxn>> returnSamples(
+            @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                recordSampleTxn("RETURN", body), "Samples returned"));
+    }
+
+    private FieldSampleTxn recordSampleTxn(String type, Map<String, Object> body) {
+        return sampleService.record(type,
+                UUID.fromString(body.get("salespersonId").toString()),
+                body.get("itemId") != null ? UUID.fromString(body.get("itemId").toString()) : null,
+                (String) body.get("productName"),
+                Integer.parseInt(body.get("quantity").toString()),
+                body.get("date") != null ? LocalDate.parse(body.get("date").toString()) : null,
+                (String) body.get("notes"));
+    }
+
+    @GetMapping("/samples/balance/me")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> mySampleBalance() {
+        return ResponseEntity.ok(ApiResponse.ok(
+                sampleService.balance(TenantContext.getCurrentUserId())));
+    }
+
+    @GetMapping("/samples/balance/{salespersonId}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> sampleBalance(
+            @PathVariable UUID salespersonId) {
+        return ResponseEntity.ok(ApiResponse.ok(sampleService.balance(salespersonId)));
+    }
+
+    @GetMapping("/samples/transactions/{salespersonId}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<List<FieldSampleTxn>>> sampleTransactions(
+            @PathVariable UUID salespersonId) {
+        return ResponseEntity.ok(ApiResponse.ok(sampleService.transactions(salespersonId)));
     }
 
     // ══════════════════════════════════════════════════════════════

@@ -316,6 +316,13 @@ List<KCommand> buildAppCommands() {
       route: Routes.fieldSalesMrApprovals,
       keywords: ['tour plan', 'dcr', 'mtp', 'medical rep'],
     ),
+    KCommand(
+      label: 'Field Samples & Allowance',
+      icon: Icons.inventory_2,
+      section: 'Navigate',
+      route: Routes.fieldSalesSamples,
+      keywords: ['samples', 'promo', 'ta', 'da', 'allowance'],
+    ),
 
     // ── Partner Network ────────────────────────────────────────────
     KCommand(
