@@ -2,6 +2,7 @@ package com.katasticho.erp.common.config;
 
 import com.katasticho.erp.auth.filter.ApiKeyAuthenticationFilter;
 import com.katasticho.erp.auth.filter.JwtAuthenticationFilter;
+import com.katasticho.erp.common.idempotency.IdempotencyFilter;
 import com.katasticho.erp.platform.filter.PlatformAdminJwtFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +32,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ApiKeyAuthenticationFilter apiKeyAuthenticationFilter;
     private final PlatformAdminJwtFilter platformAdminJwtFilter;
+    private final IdempotencyFilter idempotencyFilter;
 
     @Value("${app.cors.allowed-origins:*}")
     private List<String> allowedOrigins;
@@ -73,7 +75,10 @@ public class SecurityConfig {
                 // API-key filter runs before JWT: it authenticates X-API-Key / Bearer kat_…
                 // requests; everything else falls through to the JWT filter untouched.
                 .addFilterBefore(apiKeyAuthenticationFilter, JwtAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                // Idempotency runs after auth (needs TenantContext org). Commands with
+                // an Idempotency-Key header are replayed on retry instead of re-executed.
+                .addFilterAfter(idempotencyFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }
