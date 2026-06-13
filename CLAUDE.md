@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`, `gst_state_code`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. **Squashed 2026-06-12** (old V1-V71 chain deleted; DB is recreated from scratch): `V1__baseline_schema.sql` (full schema, CREATE-only, generated via pg_dump after applying the historical chain to PostgreSQL 16 and diff-verified identical) + `V2__seed_reference_data.sql` (drug/salt/manufacturer/HSN masters — deduped, post-GST-2.0 rates — substitutions, interactions, coa_template, currency, ai_model_registry) + `V3__seed_drug_master_extended.sql` (Marg-style preloaded medicine catalog: ~22.5k branded products from the open A-Z Indian medicine dataset, top-3 brands per salt composition with marquee-house preference, MRP/pack/manufacturer/composition, all HSN 3004 @ 5%). `V4__drug_schedule_h1_and_exempt_drugs.sql` (Schedule H1 overlay + 36 nil-rated lifesaving drugs) + `V5__detail_aids.sql` (e-detailing) + `V6__gst_state_code_master.sql` (38 official GST/TIN state codes — platform reference, Marg-parity dropdown/GSTIN-prefix lookup). **Next new migration = V7.**
+- Location: `src/main/resources/db/migration/`. **Squashed 2026-06-12** (old V1-V71 chain deleted; DB is recreated from scratch): `V1__baseline_schema.sql` (full schema, CREATE-only, generated via pg_dump after applying the historical chain to PostgreSQL 16 and diff-verified identical) + `V2__seed_reference_data.sql` (drug/salt/manufacturer/HSN masters — deduped, post-GST-2.0 rates — substitutions, interactions, coa_template, currency, ai_model_registry) + `V3__seed_drug_master_extended.sql` (Marg-style preloaded medicine catalog: ~22.5k branded products from the open A-Z Indian medicine dataset, top-3 brands per salt composition with marquee-house preference, MRP/pack/manufacturer/composition, all HSN 3004 @ 5%). `V4__drug_schedule_h1_and_exempt_drugs.sql` (Schedule H1 overlay + 36 nil-rated lifesaving drugs) + `V5__detail_aids.sql` (e-detailing) + `V6__gst_state_code_master.sql` (38 official GST/TIN state codes — platform reference, Marg-parity dropdown/GSTIN-prefix lookup) + `V7__hsn_gst_directory_expansion.sql` (36 common kirana/FMCG/general HSN rows at post-GST-2.0 rates — dairy/produce/staples/oils/personal-care/etc; ambiguous codes salt 2501, tea/coffee, namkeen 2106 deliberately omitted). **Next new migration = V8.**
 - Latent fresh-install bugs fixed during the squash: old V59 inserted into non-existent `account.system` (→ `is_system`); old V62's org-scoped `exchange_rate` collided with the V1 platform-level table (V62 shape kept — matches the JPA entity); old V62's currency-column DO-block guards checked the wrong column. The old chain only ever worked on incrementally-migrated DBs.
 - V-number references in the phase notes below (V42, V67, ...) are historical — those files now live only in git history (pre-squash commit).
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
@@ -41,7 +41,7 @@ cd flutter_app && flutter test
 ## Accounting Rules (important domain logic)
 - **POS receipts** → Cash/Revenue journal, NOT Accounts Receivable.
 - **Contact "outstanding"** = openingBalance + invoices − payments (AR only).
-- **HSN → GST mapping (post GST 2.0, Notification 9/2025-CT(Rate), eff. 2025-09-22):** chapter 30 (3001-3006 medicines/vaccines/dressings) = 5%, 9018/9019/9021 medical devices = 5%, 2106 supplements = 18% default (medicinal nutraceuticals may be 5% — override per item). The 33 notified lifesaving drugs are exempt **by drug name**, not HSN → model as items with gst_rate 0. Seeds: `V2__seed_reference_data.sql` hsn_gst_master (10 rows).
+- **HSN → GST mapping (post GST 2.0, Notification 9/2025-CT(Rate), eff. 2025-09-22):** chapter 30 (3001-3006 medicines/vaccines/dressings) = 5%, 9018/9019/9021 medical devices = 5%, 2106 supplements = 18% default (medicinal nutraceuticals may be 5% — override per item). The 33 notified lifesaving drugs are exempt **by drug name**, not HSN → model as items with gst_rate 0. Seeds: `V2__seed_reference_data.sql` hsn_gst_master (10 pharma rows) + `V7__hsn_gst_directory_expansion.sql` (36 common kirana/FMCG/general rows at post-GST-2.0 rates — note detergents 3402 stayed 18% while soap 3401 dropped to 5%; rates reflect pre-packaged retail, override per item for loose/unbranded).
 - **Payment lifecycle:** DRAFT → {POSTED | PENDING_APPROVAL}; PENDING_APPROVAL → {POSTED | VOIDED}.
 - **Approval workflows:** seeded but `active=false` by default — nothing triggers until an admin activates.
 - **Inventory costing (V57):** org setting `inventory.valuation_method` (`FIFO` default | `WEIGHTED_AVERAGE`) is now *honored*. FIFO uses `cost_lot`/`cost_lot_consumption`: each receipt opens a lot; each issue draws lots oldest-first (rows pessimistic-locked so concurrent issues serialize) and bakes the blended FIFO cost into the immutable `stock_movement.unit_cost`/`total_cost` (computed before the row is built). Valuation = Σ(remaining_qty × unit_cost) of active lots. Pre-FIFO stock is seeded as an opening lot from the weighted-average balance on first issue OR first receipt (`seedOpeningLotIfNeeded`), so a receipt-before-issue can't strand it. Reversals close (receipt) or restore (issue) lots — restore is skipped for lots whose backing receipt was itself reversed (no phantom resurrection). **COGS posting (`SalesInvoicePostingRule`) prorates per item**: blended unit cost of the dispatched SALE movements (SO→challans, or the invoice's own movements for direct invoices — stock is deducted BEFORE the journal posts in `InvoiceService.sendInvoice`) × THIS invoice's quantity, so partial invoices take only their share and a second invoice on the same SO never double-books cost; else falls back to `item.purchasePrice` (= weighted-average path, byte-for-byte unchanged). Bill void reverses each PURCHASE movement via `reverseMovement` (closes lots). `TransferOrderService.receive` carries the TRANSFER_OUT leg's recorded cost so a warehouse move can't change total inventory value. Report: `/api/v1/reports/fifo-valuation`; `stock-summary` values FIFO orgs at lot value. Engine: `inventory/service/FifoCostingService.java`.
@@ -528,11 +528,19 @@ already strong (22,928 drug / 256 salt / 57 manufacturer).
    state-codes[/by-gstin/{gstin}]` (UNGATED — any role; every org needs it). Flutter
    `ApiConfig.gstStateCodes`. Tests: GstStateCodeServiceTest (5). **UI wiring (state
    dropdown in org/contact address forms + GSTIN auto-resolve) still TODO.**
-2. **HSN/GST directory expansion** (next) — hsn_gst_master is 10 pharma rows; Marg
-   ships the full HSN book. Needs AUTHENTIC post-GST-2.0 per-HSN rates (gov sources
-   bot-gated) before seeding — do NOT fabricate rates. Add common kirana/FMCG/general
-   HSN once rates are confirmed.
-3. Optional later: GST tax-slab pick-list, pincode/city master, bank IFSC master.
+2. ~~HSN/GST directory expansion~~ DONE (2026-06-13): `V7__hsn_gst_directory_expansion.sql`
+   adds 36 common kirana/FMCG/general HSN rows (dairy, fresh produce, staples,
+   edible oils, sugar, bakery, beverages, personal care, household, stationery,
+   footwear) at post-GST-2.0 rates per Notification 9/2025, corroborated across
+   CAclubindia/CMAKnowledge + ClearTax. Rates = pre-packaged retail case (loose/
+   unbranded staples may be nil → override per item). Caught: detergents 3402 stayed
+   18% (only soap 3401 dropped to 5%); aerated drinks 2202 = 40%. Omitted ambiguous
+   codes: salt 2501, tea 0902/coffee 0901 (processed-vs-unprocessed), namkeen 2106
+   (already @ 18% for supplements — one rate per code). hsn_gst_master now 46 rows.
+3. **GSTIN auto-resolve UI** DONE (2026-06-13): org details + contact forms fill
+   State + Code from the GSTIN prefix via `/api/v1/reference/state-codes/by-gstin`.
+   (Explicit state dropdown still optional — auto-resolve covers the common path.)
+4. Optional later: GST tax-slab pick-list, pincode/city master, bank IFSC master.
 
 ---
 
