@@ -30,6 +30,7 @@ class _OrgDetailsScreenState extends ConsumerState<OrgDetailsScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _editing = false;
   bool _saving = false;
+  String? _lastGstinPrefix;
 
   final _name = TextEditingController();
   final _phone = TextEditingController();
@@ -201,7 +202,8 @@ class _OrgDetailsScreenState extends ConsumerState<OrgDetailsScreen> {
                 children: [
                   _field(_name, 'Business Name', required: true),
                   KSpacing.vGapSm,
-                  _field(_gstin, 'GSTIN', hint: '22ABCDE1234F1Z5'),
+                  _field(_gstin, 'GSTIN', hint: '22ABCDE1234F1Z5',
+                      onChanged: _resolveStateFromGstin),
                   KSpacing.vGapSm,
                   _field(_phone, 'Phone', keyboard: TextInputType.phone),
                   KSpacing.vGapSm,
@@ -266,16 +268,42 @@ class _OrgDetailsScreenState extends ConsumerState<OrgDetailsScreen> {
     );
   }
 
+  /// Marg-style: derive State + Code from the GSTIN's leading two digits via
+  /// the platform state-code master. Fires once per distinct prefix so it never
+  /// clobbers manual edits on every keystroke; silent on lookup failure.
+  Future<void> _resolveStateFromGstin(String gstin) async {
+    final g = gstin.trim();
+    if (g.length < 2) return;
+    final prefix = g.substring(0, 2);
+    if (prefix == _lastGstinPrefix || int.tryParse(prefix) == null) return;
+    _lastGstinPrefix = prefix;
+    try {
+      final res =
+          await ref.read(apiClientProvider).get(ApiConfig.gstStateByGstin(prefix));
+      final data = (res.data as Map<String, dynamic>)['data'] as Map<String, dynamic>?;
+      if (data != null && mounted) {
+        setState(() {
+          _state.text = data['stateName'] as String? ?? _state.text;
+          _stateCode.text = data['code'] as String? ?? _stateCode.text;
+        });
+      }
+    } catch (_) {
+      // ignore — leave fields untouched if the prefix isn't a known state
+    }
+  }
+
   Widget _field(
     TextEditingController ctrl,
     String label, {
     String? hint,
     bool required = false,
     TextInputType? keyboard,
+    ValueChanged<String>? onChanged,
   }) {
     return TextFormField(
       controller: ctrl,
       keyboardType: keyboard,
+      onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,

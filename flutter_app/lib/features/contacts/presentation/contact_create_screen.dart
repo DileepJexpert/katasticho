@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/api/api_client.dart';
+import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/k_keyboard_form_wrapper.dart';
@@ -30,6 +32,7 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
   final _gstinCtrl = TextEditingController();
   final _panCtrl = TextEditingController();
   String _gstTreatment = 'UNREGISTERED';
+  String? _lastGstinPrefix;
 
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
@@ -60,6 +63,29 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
     if (widget.contactId != null) {
       _isEdit = true;
       _loadContact();
+    }
+  }
+
+  /// Marg-style: derive billing State + Code from the GSTIN's leading two
+  /// digits via the platform state-code master. Fires once per distinct prefix
+  /// so it never clobbers manual edits; silent on lookup failure.
+  Future<void> _resolveBillingStateFromGstin(String gstin) async {
+    if (gstin.length < 2) return;
+    final prefix = gstin.substring(0, 2);
+    if (prefix == _lastGstinPrefix || int.tryParse(prefix) == null) return;
+    _lastGstinPrefix = prefix;
+    try {
+      final res =
+          await ref.read(apiClientProvider).get(ApiConfig.gstStateByGstin(prefix));
+      final data = (res.data as Map<String, dynamic>)['data'] as Map<String, dynamic>?;
+      if (data != null && mounted) {
+        setState(() {
+          _billStateCtrl.text = data['stateName'] as String? ?? _billStateCtrl.text;
+          _billStateCodeCtrl.text = data['code'] as String? ?? _billStateCodeCtrl.text;
+        });
+      }
+    } catch (_) {
+      // ignore — leave fields untouched if the prefix isn't a known state
     }
   }
 
@@ -242,6 +268,9 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
                         setState(() => _gstTreatment = 'REGISTERED');
                       } else if (_gstTreatment == 'REGISTERED') {
                         setState(() => _gstTreatment = 'UNREGISTERED');
+                      }
+                      if (v.trim().length >= 2) {
+                        _resolveBillingStateFromGstin(v.trim());
                       }
                     },
                   ),
