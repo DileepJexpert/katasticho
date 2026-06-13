@@ -24,10 +24,10 @@ cd flutter_app && flutter test
 - **Multi-tenant:** every org-scoped query is filtered by `TenantContext.getCurrentOrgId()`. Org-scoped entities extend the BaseEntity pattern (`org_id`, `is_deleted`, audit timestamps).
 - **Controllers** return `ApiResponse.ok(...)` wrapper. Guard with `@PreAuthorize("hasAnyRole(...)")`. Roles: `OWNER, ADMIN, ACCOUNTANT, OPERATOR, VIEWER`.
 - **Exceptions:** `BusinessException.notFound("Entity", id)` or `new BusinessException(msg, "CODE", HttpStatus.X)`.
-- **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`. `rack_location` IS org-scoped.
+- **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`, `gst_state_code`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. **Squashed 2026-06-12** (old V1-V71 chain deleted; DB is recreated from scratch): `V1__baseline_schema.sql` (full schema, CREATE-only, generated via pg_dump after applying the historical chain to PostgreSQL 16 and diff-verified identical) + `V2__seed_reference_data.sql` (drug/salt/manufacturer/HSN masters — deduped, post-GST-2.0 rates — substitutions, interactions, coa_template, currency, ai_model_registry) + `V3__seed_drug_master_extended.sql` (Marg-style preloaded medicine catalog: ~22.5k branded products from the open A-Z Indian medicine dataset, top-3 brands per salt composition with marquee-house preference, MRP/pack/manufacturer/composition, all HSN 3004 @ 5%). `V4__drug_schedule_h1_and_exempt_drugs.sql` (Schedule H1 overlay + 36 nil-rated lifesaving drugs) + `V5__detail_aids.sql` (e-detailing). **Next new migration = V6.**
+- Location: `src/main/resources/db/migration/`. **Squashed 2026-06-12** (old V1-V71 chain deleted; DB is recreated from scratch): `V1__baseline_schema.sql` (full schema, CREATE-only, generated via pg_dump after applying the historical chain to PostgreSQL 16 and diff-verified identical) + `V2__seed_reference_data.sql` (drug/salt/manufacturer/HSN masters — deduped, post-GST-2.0 rates — substitutions, interactions, coa_template, currency, ai_model_registry) + `V3__seed_drug_master_extended.sql` (Marg-style preloaded medicine catalog: ~22.5k branded products from the open A-Z Indian medicine dataset, top-3 brands per salt composition with marquee-house preference, MRP/pack/manufacturer/composition, all HSN 3004 @ 5%). `V4__drug_schedule_h1_and_exempt_drugs.sql` (Schedule H1 overlay + 36 nil-rated lifesaving drugs) + `V5__detail_aids.sql` (e-detailing) + `V6__gst_state_code_master.sql` (38 official GST/TIN state codes — platform reference, Marg-parity dropdown/GSTIN-prefix lookup). **Next new migration = V7.**
 - Latent fresh-install bugs fixed during the squash: old V59 inserted into non-existent `account.system` (→ `is_system`); old V62's org-scoped `exchange_rate` collided with the V1 platform-level table (V62 shape kept — matches the JPA entity); old V62's currency-column DO-block guards checked the wrong column. The old chain only ever worked on incrementally-migrated DBs.
 - V-number references in the phase notes below (V42, V67, ...) are historical — those files now live only in git history (pre-squash commit).
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
@@ -514,6 +514,25 @@ FCM service-account (`app.push.fcm.service-account-file`) · SMS provider keys �
 
 ### F. Bigger tracks (later)
 Manufacturing tracker 43/101 remaining (Gantt, shop-floor mobile, maintenance, pharma BMR/FSSAI) · GST polish (B2CL in GSTR-1, 2B auto-fetch via GSP, re-upload dedupe) · POS catalog: full 254k source list importer.
+
+### G. Marg first-timer master-data parity (2026-06-13)
+Goal: match Marg's "ready in minutes" preloaded masters. Audit found UoM already
+covered (UomService bootstrap seeds common + industry units incl. pharma Strip/
+Bottle/Vial/Tube, kirana Pack/Bora/Katta etc.); drug/salt/manufacturer masters
+already strong (22,928 drug / 256 salt / 57 manufacturer).
+1. ~~GST state-code master~~ DONE: `V6__gst_state_code_master.sql` — `gst_state_code`
+   platform table + 38 rows (36 states/UTs current GST codes + Other Territory 97 +
+   Centre Jurisdiction 99; obsolete 25/28 omitted). `gst/entity/GstStateCode`,
+   `GstStateCodeRepository`, `GstStateCodeService` (listAll, findByCode,
+   resolveFromGstin = first 2 digits), `StateCodeController` @ `/api/v1/reference/
+   state-codes[/by-gstin/{gstin}]` (UNGATED — any role; every org needs it). Flutter
+   `ApiConfig.gstStateCodes`. Tests: GstStateCodeServiceTest (5). **UI wiring (state
+   dropdown in org/contact address forms + GSTIN auto-resolve) still TODO.**
+2. **HSN/GST directory expansion** (next) — hsn_gst_master is 10 pharma rows; Marg
+   ships the full HSN book. Needs AUTHENTIC post-GST-2.0 per-HSN rates (gov sources
+   bot-gated) before seeding — do NOT fabricate rates. Add common kirana/FMCG/general
+   HSN once rates are confirmed.
+3. Optional later: GST tax-slab pick-list, pincode/city master, bank IFSC master.
 
 ---
 

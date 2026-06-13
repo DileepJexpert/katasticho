@@ -603,6 +603,11 @@ class ApiConfig {
   static const String pharmacyHsnUpsert = '/api/v1/pharmacy-masters/hsn';
   static String hsnGstByCode(String code) =>
       '/api/v1/pharmacy-masters/hsn/$code';
+  // GST reference (ungated — all orgs need state codes for address/GSTIN entry)
+  static const String gstStateCodes = '/api/v1/reference/state-codes';
+  static String gstStateByGstin(String gstin) =>
+      '/api/v1/reference/state-codes/by-gstin/$gstin';
+
   static const String rackLocations = '/api/v1/pharmacy-masters/rack-locations';
   static const String rackLocationsSeedDemo =
       '/api/v1/pharmacy-masters/rack-locations/seed-demo';
