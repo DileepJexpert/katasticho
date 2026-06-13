@@ -67,6 +67,15 @@ public class Gstr2bReconService {
                     "GST_2B_EMPTY");
         }
 
+        // Re-upload dedupe: clear the prior upload's un-actioned inbox items for
+        // this period before replacing entries, so suggestions don't accumulate.
+        List<Gstr2bEntry> prior = entryRepository
+                .findByOrgIdAndReturnPeriodOrderBySupplierGstinAscInvoiceNumberAsc(orgId, ym.toString());
+        if (!prior.isEmpty()) {
+            aiSuggestionService.dismissPendingForEntities("GSTR2B_ENTRY",
+                    prior.stream().map(Gstr2bEntry::getId).toList());
+        }
+
         entryRepository.deleteByOrgIdAndReturnPeriod(orgId, ym.toString());
         List<Gstr2bEntry> saved = entryRepository.saveAll(parsed);
         reconcile(orgId, ym, saved);

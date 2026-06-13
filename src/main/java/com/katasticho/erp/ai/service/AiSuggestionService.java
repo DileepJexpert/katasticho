@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -92,6 +93,18 @@ public class AiSuggestionService {
             suggestion.setOrgId(requireOrgId());
         }
         return aiSuggestionRepository.save(suggestion);
+    }
+
+    /**
+     * Remove un-actioned (PENDING) suggestions tied to entities that are about
+     * to be replaced, so re-running a generator (e.g. GSTR-2B re-upload) doesn't
+     * accumulate duplicate inbox items. Reviewed rows are preserved.
+     */
+    @Transactional
+    public int dismissPendingForEntities(String entityType, Collection<UUID> entityIds) {
+        if (entityIds == null || entityIds.isEmpty()) return 0;
+        return aiSuggestionRepository.deletePendingByEntityIds(
+                requireOrgId(), entityType, entityIds);
     }
 
     private void createTrainingExample(AiSuggestion suggestion, String action, UUID userId) {

@@ -18,6 +18,7 @@ import org.mockito.ArgumentCaptor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -141,6 +143,31 @@ class Gstr2bReconServiceTest {
         List<Map<String, Object>> notFiled = (List<Map<String, Object>>) summary.get("supplierNotFiled");
         assertThat(notFiled).extracting(m -> m.get("vendorBillNumber")).contains("INV-XYZ");
         assertThat((BigDecimal) summary.get("itcAtRisk")).isPositive();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void reUploadClearsPriorPendingSuggestionsForPeriod() {
+        when(contactRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), any()))
+                .thenReturn(List.of());
+        when(purchaseBillRepository.findPostedByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(List.of());
+
+        Map<String, Object> portal = Map.of("entries", List.of(entry("INV-100", "5000")));
+
+        // First upload: no prior entries for the period -> nothing to dismiss.
+        service.upload("2026-05", portal);
+        verify(aiSuggestionService, never()).dismissPendingForEntities(anyString(), any());
+
+        List<UUID> firstIds = savedRef.get().stream().map(Gstr2bEntry::getId).toList();
+
+        // Re-upload same period: the prior upload's entries are dismissed before
+        // being replaced, so the inbox doesn't accumulate duplicate suggestions.
+        service.upload("2026-05", portal);
+
+        ArgumentCaptor<Collection<UUID>> ids = ArgumentCaptor.forClass(Collection.class);
+        verify(aiSuggestionService).dismissPendingForEntities(eq("GSTR2B_ENTRY"), ids.capture());
+        assertThat(ids.getValue()).containsExactlyInAnyOrderElementsOf(firstIds);
     }
 
     @Test

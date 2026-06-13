@@ -4,6 +4,7 @@ import com.katasticho.erp.ai.entity.AiSuggestion;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -36,6 +37,19 @@ public interface AiSuggestionRepository extends JpaRepository<AiSuggestion, UUID
     """)
     boolean existsOpenSuggestion(UUID orgId, String entityType, UUID entityId, UUID entityLineId,
                                  String suggestionType, Collection<String> statuses);
+
+    /** Delete un-actioned (PENDING) suggestions for entities being replaced —
+     *  prevents duplicate inbox items when a generator re-runs (e.g. GSTR-2B
+     *  re-upload). Already-reviewed (ACCEPTED/REJECTED) rows are preserved. */
+    @Modifying
+    @Query("""
+        DELETE FROM AiSuggestion s
+        WHERE s.orgId = :orgId
+          AND s.entityType = :entityType
+          AND s.entityId IN :entityIds
+          AND s.status = 'PENDING'
+    """)
+    int deletePendingByEntityIds(UUID orgId, String entityType, Collection<UUID> entityIds);
 
     @Query("""
         SELECT COUNT(s) FROM AiSuggestion s
