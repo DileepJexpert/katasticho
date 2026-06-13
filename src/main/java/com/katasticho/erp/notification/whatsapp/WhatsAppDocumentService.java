@@ -44,6 +44,9 @@ public class WhatsAppDocumentService {
     private final InvoiceService invoiceService;
     private final InvoicePdfService invoicePdfService;
     private final InvoiceRepository invoiceRepository;
+    // @Lazy breaks the WhatsAppDocumentService <-> SalesReceiptService cycle
+    // (POS auto-send calls back into this service after a sale posts).
+    @org.springframework.context.annotation.Lazy
     private final SalesReceiptService salesReceiptService;
     private final ReceiptPdfService receiptPdfService;
     private final ContactRepository contactRepository;

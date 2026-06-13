@@ -504,6 +504,7 @@ CREATE TABLE public.bank_transaction (
 CREATE TABLE public.batch_trace (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
+    created_by uuid,
     batch_id uuid NOT NULL,
     item_id uuid NOT NULL,
     trace_type character varying(20) NOT NULL,
@@ -1981,6 +1982,7 @@ CREATE TABLE public.integration_config (
 CREATE TABLE public.integration_sync_log (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
+    created_by uuid,
     integration_id uuid NOT NULL,
     sync_type character varying(30),
     direction character varying(10),
@@ -2376,6 +2378,7 @@ CREATE TABLE public.manufacturer_master (
 CREATE TABLE public.mrp_demand (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
+    created_by uuid,
     mrp_run_id uuid NOT NULL,
     item_id uuid NOT NULL,
     warehouse_id uuid,
@@ -2412,6 +2415,7 @@ CREATE TABLE public.mrp_run (
 CREATE TABLE public.mrp_supply (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
+    created_by uuid,
     mrp_run_id uuid NOT NULL,
     item_id uuid NOT NULL,
     warehouse_id uuid,
@@ -3122,6 +3126,7 @@ CREATE TABLE public.price_list_item (
 CREATE TABLE public.production_cost_summary (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
+    created_by uuid,
     work_order_id uuid NOT NULL,
     work_order_number character varying(30) NOT NULL,
     finished_good_id uuid NOT NULL,
@@ -3341,6 +3346,7 @@ CREATE TABLE public.purchase_requisition (
 CREATE TABLE public.purchase_requisition_line (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
+    created_by uuid,
     requisition_id uuid NOT NULL,
     item_id uuid NOT NULL,
     required_qty numeric(15,4) NOT NULL,
@@ -3616,6 +3622,7 @@ CREATE TABLE public.return_order (
 CREATE TABLE public.return_order_line (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
+    created_by uuid,
     return_order_id uuid NOT NULL,
     item_id uuid NOT NULL,
     batch_id uuid,
@@ -4006,6 +4013,7 @@ CREATE TABLE public.shipment (
 CREATE TABLE public.shipment_line (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
+    created_by uuid,
     shipment_id uuid NOT NULL,
     reference_type character varying(30),
     reference_id uuid,
@@ -4869,6 +4877,7 @@ CREATE TABLE public.work_order (
 CREATE TABLE public.work_order_line (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     org_id uuid NOT NULL,
+    created_by uuid,
     work_order_id uuid NOT NULL,
     item_id uuid NOT NULL,
     required_qty numeric(15,4) NOT NULL,

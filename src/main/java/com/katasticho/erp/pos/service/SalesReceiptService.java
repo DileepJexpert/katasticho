@@ -94,6 +94,9 @@ public class SalesReceiptService {
     private final DocumentSnapshotService documentSnapshotService;
     private final ContactLedgerService contactLedgerService;
     private final SmsService smsService;
+    // @Lazy: WhatsAppDocumentService renders receipts (via ReceiptPdfService)
+    // which depend back on this service - the common edge of both cycles.
+    @org.springframework.context.annotation.Lazy
     private final com.katasticho.erp.notification.whatsapp.WhatsAppDocumentService whatsAppDocumentService;
 
     @Transactional

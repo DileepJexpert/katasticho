@@ -489,7 +489,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 ### A. Verification debt (FIRST)
 1. ~~BUG-2 residual~~ — RESOLVED in code: `PaymentService.voidPayment` line ~248 calls `adjustContactOutstandingAr(+amount)`; test assertion added to PaymentServiceTest.
 2. `flutter analyze` + `flutter test` on BOTH apps — recent screens were written without an SDK in the cloud env (POS catalog section, Coverage, Attendance, Samples, MR Approvals, Live Tracking; field app Tour Plan/Daily Report/detailing/punch card). MUST run locally before building.
-3. Fresh-DB boot smoke: start backend against empty DB (Redis up), register org, confirm V1→V3 Flyway + per-org CoA seeding, bill one POS sale.
+3. ~~Fresh-DB boot smoke~~ DONE (2026-06-13, in cloud env w/ local Postgres+Redis): app boots, Flyway V1-V5 applied, org registered via API (61 CoA accounts seeded), login, drug search, HSN search, and POS catalog quick-add w/ opening stock all verified live. **Three latent fresh-boot bugs found & fixed:** (a) 9 tables from old V59-V62 era missing `created_by` vs their BaseEntity mappings (Hibernate validate failed) — added to V1 baseline; (b) WhatsAppDocumentService↔SalesReceiptService bean cycle via two paths — `@Lazy` on the common edge (lombok.config already copies @Lazy); (c) SecurityConfig anchored the API-key filter to JwtAuthenticationFilter BEFORE registering it — reordered. **CI note: `mvn clean` is mandatory after the migration squash** — incremental target/classes still carried deleted V6-V71 files → "Found more than one migration with version 1".
 4. ~~DetailedReportService has no test~~ — stale note: DetailedReportServiceTest.java exists.
 
 ### B. Tally "CA pack"

@@ -70,10 +70,11 @@ public class SecurityConfig {
                         })
                 )
                 .addFilterBefore(platformAdminJwtFilter, UsernamePasswordAuthenticationFilter.class)
+                // JWT filter must be registered before anything can anchor to it.
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 // API-key filter runs before JWT: it authenticates X-API-Key / Bearer kat_…
                 // requests; everything else falls through to the JWT filter untouched.
-                .addFilterBefore(apiKeyAuthenticationFilter, JwtAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(apiKeyAuthenticationFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }
