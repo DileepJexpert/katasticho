@@ -1,6 +1,8 @@
 package com.katasticho.erp.gst.service;
 
 import com.katasticho.erp.ap.repository.PurchaseBillRepository;
+import com.katasticho.erp.ar.entity.Invoice;
+import com.katasticho.erp.ar.entity.TaxLineItem;
 import com.katasticho.erp.ar.repository.CreditNoteRepository;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.repository.TaxLineItemRepository;
@@ -119,6 +121,62 @@ class GstServiceTest {
         // No purchase bills → no ITC → everything payable.
         assertThat((BigDecimal) gstr3b.get("netPayable")).isEqualByComparingTo("12");
         assertThat(gstr3b.get("posReceiptCount")).isEqualTo(1);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void gstr1SplitsInterStateB2cOverThresholdIntoB2cl() {
+        UUID aId = UUID.randomUUID(); // inter-state, value > 1L  -> B2CL
+        UUID bId = UUID.randomUUID(); // inter-state, value < 1L  -> B2CS
+
+        Invoice a = Invoice.builder()
+                .id(aId).orgId(orgId).contactId(UUID.randomUUID())
+                .invoiceNumber("INV-A").invoiceDate(LocalDate.of(2026, 5, 10))
+                .totalAmount(new BigDecimal("177000")).placeOfSupply("29").status("POSTED")
+                .build();
+        Invoice b = Invoice.builder()
+                .id(bId).orgId(orgId).contactId(UUID.randomUUID())
+                .invoiceNumber("INV-B").invoiceDate(LocalDate.of(2026, 5, 12))
+                .totalAmount(new BigDecimal("59000")).placeOfSupply("29").status("POSTED")
+                .build();
+        when(invoiceRepository.findPostedByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(List.of(a, b));
+        when(salesReceiptRepository.findByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(List.of());
+        when(taxLineItemRepository.findByOrgAndSourceTypesAndRegimeAndSourceIds(
+                any(), any(), any(), any()))
+                .thenReturn(List.of(
+                        igstLine(aId, "150000", "27000"),
+                        igstLine(bId, "50000", "9000")));
+
+        Map<String, Object> gstr1 = service.generateGstr1(2026, 5);
+
+        // A is invoice-level in B2CL, grouped by place of supply
+        List<Map<String, Object>> b2cl = (List<Map<String, Object>>) gstr1.get("b2cl");
+        assertThat(b2cl).hasSize(1);
+        assertThat(b2cl.get(0).get("pos")).isEqualTo("29");
+        List<Map<String, Object>> invs = (List<Map<String, Object>>) b2cl.get(0).get("inv");
+        assertThat(invs).hasSize(1);
+        assertThat(invs.get(0).get("inum")).isEqualTo("INV-A");
+        assertThat((BigDecimal) invs.get(0).get("val")).isEqualByComparingTo("177000");
+
+        // B stays in the B2CS summary; A must NOT leak into it
+        List<Map<String, Object>> b2cs = (List<Map<String, Object>>) gstr1.get("b2cs");
+        assertThat(b2cs).hasSize(1);
+        assertThat((BigDecimal) b2cs.get(0).get("txval")).isEqualByComparingTo("50000");
+        assertThat((BigDecimal) b2cs.get(0).get("iamt")).isEqualByComparingTo("9000");
+
+        Map<String, Object> meta = (Map<String, Object>) gstr1.get("_meta");
+        assertThat(meta.get("b2clCount")).isEqualTo(1);
+    }
+
+    private TaxLineItem igstLine(UUID sourceId, String taxable, String tax) {
+        return TaxLineItem.builder()
+                .sourceId(sourceId).sourceType("INVOICE").componentCode("IGST")
+                .rate(new BigDecimal("18"))
+                .taxableAmount(new BigDecimal(taxable))
+                .taxAmount(new BigDecimal(tax))
+                .build();
     }
 
     private SalesReceipt intraStateReceipt() {

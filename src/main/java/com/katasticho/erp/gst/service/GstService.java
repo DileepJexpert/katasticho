@@ -31,6 +31,9 @@ import java.util.stream.Collectors;
 public class GstService {
 
     private static final String GST_REGIME = "INDIA_GST";
+    /** Inter-state B2C invoices ABOVE this value go to B2CL (Table 5), not B2CS.
+     *  Reduced from Rs 2.5L to Rs 1L by Notification 12/2024-CT, eff 1 Aug 2024. */
+    private static final BigDecimal B2CL_THRESHOLD = new BigDecimal("100000");
     private static final String STATUS_DRAFT = "DRAFT";
     private static final String STATUS_CANCELLED = "CANCELLED";
     private static final String STATUS_VOID = "VOID";
@@ -94,6 +97,9 @@ public class GstService {
 
         // Build sections
         List<Map<String, Object>> b2b = buildB2B(invoices, taxBySource, contactMap);
+        // B2CL — inter-state B2C invoices over the reporting threshold are
+        // reported invoice-level (Table 5) and excluded from the B2CS summary.
+        List<Map<String, Object>> b2cl = buildB2CL(invoices, taxBySource, contactMap);
         List<Map<String, Object>> b2cs = mergeB2cs(
                 buildB2CS(invoices, taxBySource, contactMap),
                 buildPosB2cs(receipts, orgState));
@@ -107,6 +113,7 @@ public class GstService {
         result.put("gstin", orgGstin);
         result.put("fp", String.format("%02d%d", month, year));
         result.put("b2b", b2b);
+        result.put("b2cl", b2cl);
         result.put("b2cs", b2cs);
         result.put("cdnr", cdnr);
         result.put("cdnur", cdnur);
@@ -116,6 +123,7 @@ public class GstService {
                 "creditNoteCount", creditNotes.size(),
                 "posReceiptCount", receipts.size(),
                 "b2bCount", b2b.size(),
+                "b2clCount", b2cl.size(),
                 "b2csCount", b2cs.size()
         ));
         return result;
@@ -154,6 +162,43 @@ public class GstService {
         return records;
     }
 
+    // B2CL — unregistered customers, inter-state, invoice value > threshold.
+    // Reported invoice-level (GSTR-1 Table 5), grouped by place of supply.
+    private List<Map<String, Object>> buildB2CL(
+            List<Invoice> invoices,
+            Map<UUID, List<TaxLineItem>> taxBySource,
+            Map<UUID, Contact> contacts) {
+
+        Map<String, List<Map<String, Object>>> byPos = new LinkedHashMap<>();
+        for (Invoice inv : invoices) {
+            Contact c = contacts.get(inv.getContactId());
+            if (c != null && !isBlank(c.getGstin())) continue; // registered -> B2B
+            List<TaxLineItem> tls = taxBySource.getOrDefault(inv.getId(), List.of());
+            if (!isB2cl(inv, tls)) continue;
+            byPos.computeIfAbsent(nvl(inv.getPlaceOfSupply()), k -> new ArrayList<>())
+                    .add(Map.of(
+                            "inum", inv.getInvoiceNumber(),
+                            "idt", inv.getInvoiceDate().toString(),
+                            "val", inv.getTotalAmount(),
+                            "itms", buildTaxRateItems(tls)
+                    ));
+        }
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map.Entry<String, List<Map<String, Object>>> e : byPos.entrySet()) {
+            result.add(Map.of("pos", e.getKey(), "inv", e.getValue()));
+        }
+        return result;
+    }
+
+    /** Inter-state (any IGST line) B2C invoice whose value exceeds the B2CL
+     *  threshold. Caller has already confirmed the customer is unregistered. */
+    private boolean isB2cl(Invoice inv, List<TaxLineItem> tls) {
+        boolean interState = tls.stream().anyMatch(tl -> "IGST".equals(tl.getComponentCode())
+                && tl.getTaxAmount() != null && tl.getTaxAmount().signum() > 0);
+        BigDecimal val = inv.getTotalAmount() != null ? inv.getTotalAmount() : BigDecimal.ZERO;
+        return interState && val.compareTo(B2CL_THRESHOLD) > 0;
+    }
+
     // B2CS — unregistered / consumer customers, grouped by rate + state
     private List<Map<String, Object>> buildB2CS(
             List<Invoice> invoices,
@@ -167,6 +212,7 @@ public class GstService {
             Contact c = contacts.get(inv.getContactId());
             if (c != null && !isBlank(c.getGstin())) continue; // skip B2B
             List<TaxLineItem> tls = taxBySource.getOrDefault(inv.getId(), List.of());
+            if (isB2cl(inv, tls)) continue; // reported invoice-level in B2CL
             String pos = nvl(inv.getPlaceOfSupply());
 
             Map<BigDecimal, List<TaxLineItem>> byRate = tls.stream()
