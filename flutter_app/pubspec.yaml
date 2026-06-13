@@ -75,7 +75,7 @@ dependencies:
 
   # Thermal printer (ESC/POS via Bluetooth)
   flutter_blue_plus: ^1.32.0
-  esc_pos_utils: ^1.1.0
+  esc_pos_utils_plus: ^2.0.4
 
   # Offline POS — local receipt queue
   sqflite: ^2.3.0
