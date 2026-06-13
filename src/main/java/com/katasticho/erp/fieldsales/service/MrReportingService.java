@@ -38,6 +38,7 @@ public class MrReportingService {
     private final FieldVisitRepository fieldVisitRepository;
     private final RouteExecutionRepository routeExecutionRepository;
     private final ContactRepository contactRepository;
+    private final FieldHierarchyService fieldHierarchyService;
 
     // =====================================================================
     // Tour Plan (MTP)
@@ -116,7 +117,7 @@ public class MrReportingService {
     @Transactional
     public TourPlan approveTourPlan(UUID planId) {
         TourPlan plan = loadSubmittedPlan(planId);
-        ensureNotSelfApproval(plan.getSalespersonId());
+        ensureCanDecide(plan.getSalespersonId());
         plan.setStatus("APPROVED");
         plan.setApprovedBy(TenantContext.getCurrentUserId());
         plan.setApprovedAt(Instant.now());
@@ -126,7 +127,7 @@ public class MrReportingService {
     @Transactional
     public TourPlan rejectTourPlan(UUID planId, String reason) {
         TourPlan plan = loadSubmittedPlan(planId);
-        ensureNotSelfApproval(plan.getSalespersonId());
+        ensureCanDecide(plan.getSalespersonId());
         plan.setStatus("REJECTED");
         plan.setRejectionReason(reason);
         return tourPlanRepository.save(plan);
@@ -140,8 +141,9 @@ public class MrReportingService {
 
     @Transactional(readOnly = true)
     public List<TourPlan> pendingTourPlans() {
-        return tourPlanRepository.findByOrgIdAndStatusAndIsDeletedFalseOrderByPlanMonthDesc(
+        List<TourPlan> all = tourPlanRepository.findByOrgIdAndStatusAndIsDeletedFalseOrderByPlanMonthDesc(
                 TenantContext.getCurrentOrgId(), "SUBMITTED");
+        return scopeToDownline(all, TourPlan::getSalespersonId);
     }
 
     @Transactional(readOnly = true)
@@ -342,7 +344,7 @@ public class MrReportingService {
     @Transactional
     public DcrReport approveDcr(UUID dcrId) {
         DcrReport dcr = loadSubmittedDcr(dcrId);
-        ensureNotSelfApproval(dcr.getSalespersonId());
+        ensureCanDecide(dcr.getSalespersonId());
         dcr.setStatus("APPROVED");
         dcr.setApprovedBy(TenantContext.getCurrentUserId());
         dcr.setApprovedAt(Instant.now());
@@ -352,7 +354,7 @@ public class MrReportingService {
     @Transactional
     public DcrReport rejectDcr(UUID dcrId, String reason) {
         DcrReport dcr = loadSubmittedDcr(dcrId);
-        ensureNotSelfApproval(dcr.getSalespersonId());
+        ensureCanDecide(dcr.getSalespersonId());
         dcr.setStatus("REJECTED");
         dcr.setRejectionReason(reason);
         return dcrReportRepository.save(dcr);
@@ -367,8 +369,20 @@ public class MrReportingService {
 
     @Transactional(readOnly = true)
     public List<DcrReport> pendingDcrs() {
-        return dcrReportRepository.findByOrgIdAndStatusAndIsDeletedFalseOrderByReportDateDesc(
+        List<DcrReport> all = dcrReportRepository.findByOrgIdAndStatusAndIsDeletedFalseOrderByReportDateDesc(
                 TenantContext.getCurrentOrgId(), "SUBMITTED");
+        return scopeToDownline(all, DcrReport::getSalespersonId);
+    }
+
+    /** Admins see everything; a manager sees only their downline's submissions. */
+    private <T> List<T> scopeToDownline(List<T> items, java.util.function.Function<T, UUID> ownerOf) {
+        if (isAdmin()) return items;
+        Set<UUID> downline = fieldHierarchyService.downlineUserIds(TenantContext.getCurrentUserId());
+        List<T> filtered = new ArrayList<>();
+        for (T item : items) {
+            if (downline.contains(ownerOf.apply(item))) filtered.add(item);
+        }
+        return filtered;
     }
 
     private DcrReport loadSubmittedDcr(UUID dcrId) {
@@ -392,6 +406,26 @@ public class MrReportingService {
             throw new BusinessException("You cannot approve or reject your own submission",
                     "MR_SELF_APPROVAL_FORBIDDEN", HttpStatus.FORBIDDEN);
         }
+    }
+
+    /**
+     * The current user may decide a submission only if they are OWNER/ADMIN, or
+     * the submitter's reporting manager (any ancestor in the field hierarchy).
+     * Self-approval is always blocked.
+     */
+    private void ensureCanDecide(UUID submitterId) {
+        ensureNotSelfApproval(submitterId);
+        if (isAdmin()) return;
+        if (!fieldHierarchyService.isAncestor(TenantContext.getCurrentUserId(), submitterId)) {
+            throw new BusinessException(
+                    "Only an admin or the submitter's reporting manager can approve this",
+                    "MR_NOT_MANAGER", HttpStatus.FORBIDDEN);
+        }
+    }
+
+    private static boolean isAdmin() {
+        String role = TenantContext.getCurrentRole();
+        return role != null && (role.contains("OWNER") || role.contains("ADMIN"));
     }
 
     private void ensureVisitOwnership(FieldVisit visit, UUID orgId) {

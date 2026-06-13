@@ -34,6 +34,7 @@ class MrReportingServiceTest {
     @Mock private FieldVisitRepository fieldVisitRepo;
     @Mock private RouteExecutionRepository routeExecutionRepo;
     @Mock private ContactRepository contactRepo;
+    @Mock private FieldHierarchyService fieldHierarchyService;
 
     private MrReportingService service;
 
@@ -44,7 +45,7 @@ class MrReportingServiceTest {
     @BeforeEach
     void setUp() {
         service = new MrReportingService(tourPlanRepo, tourPlanEntryRepo, dcrRepo,
-                vplRepo, fieldVisitRepo, routeExecutionRepo, contactRepo);
+                vplRepo, fieldVisitRepo, routeExecutionRepo, contactRepo, fieldHierarchyService);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
@@ -137,6 +138,7 @@ class MrReportingServiceTest {
     @Test
     void approveTourPlan_byManager_succeeds() {
         TourPlan plan = submittedPlan(managerId);
+        when(fieldHierarchyService.isAncestor(userId, managerId)).thenReturn(true);
         when(tourPlanRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         TourPlan result = service.approveTourPlan(plan.getId());
@@ -148,6 +150,7 @@ class MrReportingServiceTest {
     @Test
     void rejectTourPlan_setsReason_andAllowsResubmitAfterEdit() {
         TourPlan plan = submittedPlan(managerId);
+        when(fieldHierarchyService.isAncestor(userId, managerId)).thenReturn(true);
         when(tourPlanRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         TourPlan result = service.rejectTourPlan(plan.getId(), "Too few field days");
@@ -288,12 +291,46 @@ class MrReportingServiceTest {
                 .status("SUBMITTED").build();
         when(dcrRepo.findByIdAndOrgIdAndIsDeletedFalse(dcr.getId(), orgId))
                 .thenReturn(Optional.of(dcr));
+        when(fieldHierarchyService.isAncestor(userId, managerId)).thenReturn(true);
         when(dcrRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         DcrReport result = service.approveDcr(dcr.getId());
 
         assertEquals("APPROVED", result.getStatus());
         assertEquals(userId, result.getApprovedBy());
+    }
+
+    @Test
+    void approveDcr_byNonManagerNonAdmin_throws() {
+        DcrReport dcr = DcrReport.builder()
+                .id(UUID.randomUUID()).orgId(orgId)
+                .salespersonId(managerId).reportDate(LocalDate.now())
+                .status("SUBMITTED").build();
+        when(dcrRepo.findByIdAndOrgIdAndIsDeletedFalse(dcr.getId(), orgId))
+                .thenReturn(Optional.of(dcr));
+        // current user is neither admin nor an ancestor (isAncestor defaults false)
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.approveDcr(dcr.getId()));
+        assertEquals("MR_NOT_MANAGER", ex.getErrorCode());
+    }
+
+    @Test
+    void approveDcr_byAdmin_succeedsWithoutHierarchy() {
+        TenantContext.setCurrentRole("ADMIN");
+        DcrReport dcr = DcrReport.builder()
+                .id(UUID.randomUUID()).orgId(orgId)
+                .salespersonId(managerId).reportDate(LocalDate.now())
+                .status("SUBMITTED").build();
+        when(dcrRepo.findByIdAndOrgIdAndIsDeletedFalse(dcr.getId(), orgId))
+                .thenReturn(Optional.of(dcr));
+        when(dcrRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        DcrReport result = service.approveDcr(dcr.getId());
+
+        assertEquals("APPROVED", result.getStatus());
+        // admin path must not consult the hierarchy
+        verify(fieldHierarchyService, never()).isAncestor(any(), any());
     }
 
     // ── helpers ──

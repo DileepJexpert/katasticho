@@ -44,7 +44,7 @@ public class MrReportingController {
     }
 
     @GetMapping("/tour-plans/pending")
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR')")
     public ResponseEntity<ApiResponse<List<TourPlan>>> pendingTourPlans() {
         return ResponseEntity.ok(ApiResponse.ok(service.pendingTourPlans()));
     }
@@ -78,13 +78,13 @@ public class MrReportingController {
     }
 
     @PostMapping("/tour-plans/{id}/approve")
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR')")
     public ResponseEntity<ApiResponse<TourPlan>> approveTourPlan(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.approveTourPlan(id), "Tour plan approved"));
     }
 
     @PostMapping("/tour-plans/{id}/reject")
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR')")
     public ResponseEntity<ApiResponse<TourPlan>> rejectTourPlan(
             @PathVariable UUID id, @RequestBody Map<String, Object> body) {
         return ResponseEntity.ok(ApiResponse.ok(
@@ -161,13 +161,13 @@ public class MrReportingController {
     }
 
     @GetMapping("/dcr/pending")
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR')")
     public ResponseEntity<ApiResponse<List<DcrReport>>> pendingDcrs() {
         return ResponseEntity.ok(ApiResponse.ok(service.pendingDcrs()));
     }
 
     @PostMapping("/dcr/{id}/approve")
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR')")
     public ResponseEntity<ApiResponse<DcrReport>> approveDcr(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.approveDcr(id), "DCR approved"));
     }
@@ -260,7 +260,7 @@ public class MrReportingController {
     }
 
     @PostMapping("/dcr/{id}/reject")
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR')")
     public ResponseEntity<ApiResponse<DcrReport>> rejectDcr(
             @PathVariable UUID id, @RequestBody Map<String, Object> body) {
         return ResponseEntity.ok(ApiResponse.ok(

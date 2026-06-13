@@ -53,6 +53,10 @@ public class AppUser extends BaseEntity {
     @Column(name = "ca_firm_id")
     private UUID caFirmId;
 
+    /** Self-referencing reporting manager (field hierarchy: MR -> ABM -> RBM ...). */
+    @Column(name = "reports_to_user_id")
+    private UUID reportsToUserId;
+
     @Column(name = "token_version", nullable = false)
     @Builder.Default
     private int tokenVersion = 0;

@@ -31,6 +31,10 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
 
     List<AppUser> findByOrgIdAndIsDeletedFalseOrderByRoleAscFullNameAsc(UUID orgId);
 
+    /** Direct reports of a manager (field hierarchy). */
+    List<AppUser> findByOrgIdAndReportsToUserIdAndIsDeletedFalseOrderByFullNameAsc(
+            UUID orgId, UUID reportsToUserId);
+
     List<AppUser> findByCaFirmIdAndIsDeletedFalseOrderByRoleAscFullNameAsc(UUID caFirmId);
 
     List<AppUser> findByIsDeletedFalseOrderByCreatedAtDesc();
