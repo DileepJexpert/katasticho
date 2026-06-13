@@ -3,11 +3,13 @@ package com.katasticho.erp.fieldsales.service;
 import com.katasticho.erp.auth.entity.AppUser;
 import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.fieldsales.entity.*;
 import com.katasticho.erp.fieldsales.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +42,24 @@ public class FieldCoverageService {
     private final DcrReportRepository dcrReportRepository;
     private final FieldLocationPingRepository pingRepository;
     private final AppUserRepository appUserRepository;
+    private final FieldHierarchyService fieldHierarchyService;
+
+    private static boolean isAdmin() {
+        String role = TenantContext.getCurrentRole();
+        return role != null && (role.contains("OWNER") || role.contains("ADMIN"));
+    }
+
+    /** Non-admins may only view themselves or someone in their downline. */
+    private void ensureCanView(UUID salespersonId) {
+        if (isAdmin()) return;
+        UUID me = TenantContext.getCurrentUserId();
+        if (salespersonId != null && (salespersonId.equals(me)
+                || fieldHierarchyService.isAncestor(me, salespersonId))) {
+            return;
+        }
+        throw new BusinessException("You can only view your own team's reports",
+                "FH_NOT_IN_TEAM", HttpStatus.FORBIDDEN);
+    }
 
     /**
      * Day-by-day comparison of the salesperson's approved tour plan vs
@@ -48,6 +68,7 @@ public class FieldCoverageService {
      */
     @Transactional(readOnly = true)
     public Map<String, Object> deviationReport(LocalDate month, UUID salespersonId) {
+        ensureCanView(salespersonId);
         UUID orgId = TenantContext.getCurrentOrgId();
         LocalDate from = month.withDayOfMonth(1);
         LocalDate to = from.plusMonths(1).minusDays(1);
@@ -125,6 +146,7 @@ public class FieldCoverageService {
      */
     @Transactional(readOnly = true)
     public Map<String, Object> frequencyCompliance(LocalDate month, UUID salespersonId) {
+        ensureCanView(salespersonId);
         UUID orgId = TenantContext.getCurrentOrgId();
         LocalDate from = month.withDayOfMonth(1);
         LocalDate to = from.plusMonths(1).minusDays(1);
@@ -181,6 +203,11 @@ public class FieldCoverageService {
 
         Map<UUID, List<RouteExecution>> bySalesperson = executions.stream()
                 .collect(Collectors.groupingBy(RouteExecution::getSalespersonId));
+        // A manager sees only their downline; admins see the whole org.
+        if (!isAdmin()) {
+            bySalesperson.keySet().retainAll(
+                    fieldHierarchyService.downlineUserIds(TenantContext.getCurrentUserId()));
+        }
         Map<UUID, String> names = appUserRepository.findAllById(bySalesperson.keySet()).stream()
                 .collect(Collectors.toMap(AppUser::getId,
                         u -> u.getFullName() != null ? u.getFullName() : ""));

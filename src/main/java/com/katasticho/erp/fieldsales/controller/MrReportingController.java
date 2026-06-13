@@ -236,7 +236,7 @@ public class MrReportingController {
     // ══════════════════════════════════════════════════════════════
 
     @GetMapping("/reports/deviation")
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> deviationReport(
             @RequestParam LocalDate month, @RequestParam UUID salespersonId) {
         return ResponseEntity.ok(ApiResponse.ok(
@@ -244,7 +244,7 @@ public class MrReportingController {
     }
 
     @GetMapping("/reports/frequency-compliance")
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> frequencyCompliance(
             @RequestParam LocalDate month,
             @RequestParam(required = false) UUID salespersonId) {
@@ -253,7 +253,7 @@ public class MrReportingController {
     }
 
     @GetMapping("/reports/team-dashboard")
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR')")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> teamDashboard(
             @RequestParam LocalDate from, @RequestParam LocalDate to) {
         return ResponseEntity.ok(ApiResponse.ok(coverageService.teamDashboard(from, to)));

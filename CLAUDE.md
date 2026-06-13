@@ -256,7 +256,8 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **`FieldHierarchyService`:** `assignManager` (self-manager + cycle guards: `FH_SELF_MANAGER`/`FH_CYCLE`), `directReports`, `downlineUserIds` (transitive BFS), `isAncestor` (walks up the chain w/ cycle-safe seen-set), `orgChart`.
 - **Manager-based MR approvals:** `MrReportingService.ensureCanDecide` replaces the OWNER/ADMIN-only gate on tour-plan + DCR approve/reject — now OWNER/ADMIN **or** the submitter's reporting manager (any ancestor); self-approval still blocked (`MR_NOT_MANAGER`). Pending lists (`pendingTourPlans`/`pendingDcrs`) scope to the manager's downline for non-admins. Controller approve/reject/pending endpoints widened to OPERATOR (service enforces the relationship).
 - **`FieldHierarchyController`** @ `/api/v1/field-sales/hierarchy`: `PUT /users/{id}/manager` + `GET /org-chart` (OWNER/ADMIN), `GET /my-team` (direct reports + downline count, any field role).
-- **Tests:** FieldHierarchyServiceTest (5) + MrReportingServiceTest +3 (manager approves, non-manager blocked, admin bypasses hierarchy). **ERP Flutter org-chart/manager-assignment UI + downline-scoped coverage dashboard still TODO.**
+- **Downline-scoped coverage:** `FieldCoverageService` now scopes to the caller's tree — `teamDashboard` retains only the manager's downline (admins see all); `deviationReport`/`frequencyCompliance` guard `ensureCanView` (self or downline, else `FH_NOT_IN_TEAM`). Report endpoints widened to OPERATOR.
+- **Tests:** FieldHierarchyServiceTest (5) + MrReportingServiceTest +3 + FieldCoverageServiceTest +1 (downline scoping). 65 field-sales tests pass. **ERP Flutter org-chart/manager-assignment UI still TODO (backend complete).**
 
 ### Phase 8: Partner Network (B2B Ordering) (COMPLETE — 2026-06-06)
 **Goal:** Connected B2B trade network within the same product.

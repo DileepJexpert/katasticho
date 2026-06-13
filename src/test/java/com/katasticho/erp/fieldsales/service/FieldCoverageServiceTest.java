@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -36,6 +37,7 @@ class FieldCoverageServiceTest {
     @Mock private DcrReportRepository dcrRepo;
     @Mock private FieldLocationPingRepository pingRepo;
     @Mock private AppUserRepository appUserRepo;
+    @Mock private FieldHierarchyService fieldHierarchyService;
 
     private FieldCoverageService service;
 
@@ -47,9 +49,11 @@ class FieldCoverageServiceTest {
     @BeforeEach
     void setUp() {
         service = new FieldCoverageService(tourPlanRepo, tourPlanEntryRepo, routeExecutionRepo,
-                fieldVisitRepo, contactRepo, dcrRepo, pingRepo, appUserRepo);
+                fieldVisitRepo, contactRepo, dcrRepo, pingRepo, appUserRepo, fieldHierarchyService);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(UUID.randomUUID());
+        // Existing tests exercise the org-wide (admin) path.
+        TenantContext.setCurrentRole("ADMIN");
     }
 
     @AfterEach
@@ -143,6 +147,36 @@ class FieldCoverageServiceTest {
         assertEquals(0, new BigDecimal("70.0").compareTo((BigDecimal) row.get("completionPct")));
         assertEquals(0, new BigDecimal("8000").compareTo((BigDecimal) row.get("ordersValue")));
         assertEquals(1L, row.get("dcrsSubmitted"));
+    }
+
+    @Test
+    void teamDashboard_nonAdmin_scopesToDownline() {
+        UUID managerId = UUID.randomUUID();
+        UUID outsiderId = UUID.randomUUID();   // not in the manager's downline
+        TenantContext.setCurrentUserId(managerId);
+        TenantContext.setCurrentRole("OPERATOR");
+
+        RouteExecution mine = execution(month.plusDays(1), "COMPLETED", 5); // salespersonId (in team)
+        RouteExecution theirs = RouteExecution.builder()
+                .salespersonId(outsiderId).status("COMPLETED")
+                .routeId(UUID.randomUUID()).executionDate(month.plusDays(1)).build();
+        theirs.setOrgId(orgId);
+        theirs.setCompletedVisits(9);
+
+        when(routeExecutionRepo.findByOrgIdAndExecutionDateBetweenAndIsDeletedFalse(
+                eq(orgId), any(), any())).thenReturn(List.of(mine, theirs));
+        when(fieldHierarchyService.downlineUserIds(managerId)).thenReturn(Set.of(salespersonId));
+        when(appUserRepo.findAllById(any())).thenReturn(List.of());
+        when(dcrRepo.findByOrgIdAndSalespersonIdAndReportDateBetweenAndIsDeletedFalseOrderByReportDateDesc(
+                eq(orgId), eq(salespersonId), any(), any())).thenReturn(List.of());
+        when(pingRepo.findByOrgIdAndSalespersonIdAndRecordedAtBetweenOrderByRecordedAtAsc(
+                eq(orgId), eq(salespersonId), any(), any())).thenReturn(List.of());
+
+        List<Map<String, Object>> rows =
+                service.teamDashboard(month, month.plusMonths(1).minusDays(1));
+
+        assertEquals(1, rows.size());
+        assertEquals(salespersonId, rows.get(0).get("salespersonId")); // outsider excluded
     }
 
     private TourPlanEntry entry(UUID planId, LocalDate date, String activity) {
