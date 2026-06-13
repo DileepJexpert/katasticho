@@ -4,6 +4,7 @@ import com.katasticho.erp.accounting.entity.Account;
 import com.katasticho.erp.accounting.entity.JournalEntry;
 import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.accounting.service.JournalService;
+import com.katasticho.erp.attendance.LeaveRequest;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.payroll.entity.*;
@@ -254,5 +255,114 @@ class PayrollServiceTest {
         PayrollRun result = service.cancelRun(runId);
 
         assertEquals("CANCELLED", result.getStatus());
+    }
+
+    // ── Attendance LOP proration (V71 attendance -> payroll) ──
+
+    /** Builds the calculateRun mock chain for one ACTIVE employee on a single
+     *  fixed BASIC earning, with all statutory deductions disabled so
+     *  gross == net and only LOP proration moves the number. */
+    private Payslip runPayrollWithLeave(int basic, LocalDate periodStart,
+                                        LocalDate periodEnd, List<LeaveRequest> leaves) {
+        UUID runId = UUID.randomUUID();
+        UUID empId = UUID.randomUUID();
+
+        PayrollRun run = PayrollRun.builder()
+                .id(runId).orgId(orgId).status("DRAFT")
+                .periodStart(periodStart).periodEnd(periodEnd)
+                .build();
+        when(runRepo.findByIdAndOrgId(runId, orgId)).thenReturn(Optional.of(run));
+
+        // Statutory all off -> gross == net, isolates the LOP factor
+        PayrollSettings settings = PayrollSettings.builder()
+                .orgId(orgId).payFrequency("MONTHLY")
+                .pfEnabled(false).esiEnabled(false).ptEnabled(false)
+                .lwfEnabled(false).tdsEnabled(false)
+                .build();
+        when(settingsRepo.findByOrgId(orgId)).thenReturn(Optional.of(settings));
+
+        Employee emp = Employee.builder()
+                .id(empId).orgId(orgId).userId(userId)
+                .employeeCode("E1").employmentStatus("ACTIVE")
+                .build();
+        when(employeeRepo.findByOrgIdAndIsDeletedFalseAndEmploymentStatus(orgId, "ACTIVE"))
+                .thenReturn(List.of(emp));
+        when(componentRepo.findByOrgIdAndActiveTrueOrderByCodeAsc(orgId)).thenReturn(List.of());
+        when(payslipRepo.findByOrgIdAndPayrollRunId(orgId, runId)).thenReturn(List.of());
+
+        SalaryComponent basicComp = SalaryComponent.builder()
+                .code("BASIC").name("Basic Salary").componentType("EARNING").build();
+        EmployeeSalaryComponent line = EmployeeSalaryComponent.builder()
+                .salaryComponent(basicComp)
+                .calculationType("FIXED")
+                .amount(BigDecimal.valueOf(basic))
+                .build();
+        EmployeeSalaryStructure structure = EmployeeSalaryStructure.builder()
+                .orgId(orgId).employeeId(empId).status("ACTIVE")
+                .lines(new ArrayList<>(List.of(line)))
+                .build();
+        when(structureRepo.findCurrentActive(orgId, empId)).thenReturn(Optional.of(structure));
+
+        when(leaveRequestRepo
+                .findByOrgIdAndUserIdAndStatusInAndFromDateLessThanEqualAndToDateGreaterThanEqualAndIsDeletedFalse(
+                        orgId, userId, List.of("APPROVED"), periodEnd, periodStart))
+                .thenReturn(leaves);
+
+        ArgumentCaptor<Payslip> captor = ArgumentCaptor.forClass(Payslip.class);
+        when(payslipRepo.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
+        when(runRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.calculateRun(runId);
+        return captor.getValue();
+    }
+
+    @Test
+    void calculateRun_unpaidLeave_proratesEarningsAndRecordsLop() {
+        LocalDate start = LocalDate.of(2026, 6, 1);
+        LocalDate end = LocalDate.of(2026, 6, 30); // 30 period days
+        LeaveRequest unpaid = LeaveRequest.builder()
+                .orgId(orgId).userId(userId).status("APPROVED").leaveType("UNPAID")
+                .fromDate(LocalDate.of(2026, 6, 1)).toDate(LocalDate.of(2026, 6, 3)) // 3 LOP days
+                .build();
+
+        Payslip slip = runPayrollWithLeave(30000, start, end, List.of(unpaid));
+
+        // 30000 * (30 - 3)/30 = 30000 * 0.9
+        assertEquals(0, slip.getGrossPay().compareTo(new BigDecimal("27000.00")));
+        assertEquals(0, slip.getLopDays().compareTo(new BigDecimal("3")));
+        assertEquals(0, slip.getNetPay().compareTo(new BigDecimal("27000.00")));
+    }
+
+    @Test
+    void calculateRun_leaveClippedToPeriod_countsOnlyInPeriodDays() {
+        LocalDate start = LocalDate.of(2026, 6, 1);
+        LocalDate end = LocalDate.of(2026, 6, 30);
+        // Leave spans May 30 -> Jun 2; only Jun 1-2 (2 days) fall in the run period
+        LeaveRequest spanning = LeaveRequest.builder()
+                .orgId(orgId).userId(userId).status("APPROVED").leaveType("UNPAID")
+                .fromDate(LocalDate.of(2026, 5, 30)).toDate(LocalDate.of(2026, 6, 2))
+                .build();
+
+        Payslip slip = runPayrollWithLeave(30000, start, end, List.of(spanning));
+
+        assertEquals(0, slip.getLopDays().compareTo(new BigDecimal("2")));
+        // 30000 * (30 - 2)/30, lopFactor at scale 6 = 0.933333 -> 27999.99
+        assertEquals(0, slip.getGrossPay().compareTo(new BigDecimal("27999.99")));
+    }
+
+    @Test
+    void calculateRun_paidLeaveOnly_noLopFullPay() {
+        LocalDate start = LocalDate.of(2026, 6, 1);
+        LocalDate end = LocalDate.of(2026, 6, 30);
+        // CASUAL (paid) leave must NOT reduce pay
+        LeaveRequest paid = LeaveRequest.builder()
+                .orgId(orgId).userId(userId).status("APPROVED").leaveType("CASUAL")
+                .fromDate(LocalDate.of(2026, 6, 5)).toDate(LocalDate.of(2026, 6, 7))
+                .build();
+
+        Payslip slip = runPayrollWithLeave(30000, start, end, List.of(paid));
+
+        assertEquals(0, slip.getLopDays().compareTo(BigDecimal.ZERO));
+        assertEquals(0, slip.getGrossPay().compareTo(new BigDecimal("30000")));
     }
 }
