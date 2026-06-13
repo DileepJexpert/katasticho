@@ -45,7 +45,6 @@ class _RoutingListScreenState extends ConsumerState<RoutingListScreen>
           children: [
             const KListPageHeader(
               title: 'Routings & Workstations',
-              subtitle: 'Define production routings and manage workstations.',
             ),
             TabBar(
               controller: _tabController,
@@ -302,7 +301,7 @@ class _WorkstationCard extends StatelessWidget {
                   ],
                 ),
               ),
-              KStatusChip(label: isActive ? 'Active' : 'Inactive'),
+              KStatusChip(status: isActive ? 'Active' : 'Inactive'),
             ],
           ),
         ),

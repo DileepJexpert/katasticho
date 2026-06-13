@@ -40,7 +40,6 @@ class _QcInspectionListScreenState
         children: [
           const KListPageHeader(
             title: 'QC Inspections',
-            subtitle: 'Track incoming, in-process, and outgoing quality checks.',
           ),
 
           // ── Status filter row ──────────────────────────────────────────
@@ -259,7 +258,7 @@ class _InspectionCard extends StatelessWidget {
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                   ),
-                  KStatusChip(label: status),
+                  KStatusChip(status: status),
                 ],
               ),
               const SizedBox(height: 8),

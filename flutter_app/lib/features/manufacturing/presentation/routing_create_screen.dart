@@ -85,7 +85,7 @@ class _RoutingCreateScreenState extends ConsumerState<RoutingCreateScreen> {
             KTextField(
               controller: _itemIdCtl,
               label: 'Item ID (UUID) *',
-              hintText: 'e.g. 550e8400-e29b-41d4-a716-446655440000',
+              hint: 'e.g. 550e8400-e29b-41d4-a716-446655440000',
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Required' : null,
             ),
@@ -323,13 +323,13 @@ class _OperationRowWidget extends StatelessWidget {
               KTextField(
                 controller: row.operationIdCtl,
                 label: 'Operation ID (UUID) *',
-                hintText: 'e.g. 550e8400-e29b-41d4-a716-446655440000',
+                hint: 'e.g. 550e8400-e29b-41d4-a716-446655440000',
               ),
               const SizedBox(height: 8),
               KTextField(
                 controller: row.workstationIdCtl,
                 label: 'Workstation ID (UUID, optional)',
-                hintText: 'Leave blank to use operation default',
+                hint: 'Leave blank to use operation default',
               ),
             ],
           ),

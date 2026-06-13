@@ -27,7 +27,7 @@ class SupplyChainDashboardScreen extends ConsumerWidget {
         data: (dash) => RefreshIndicator(
           onRefresh: () async => ref.invalidate(_dashboardProvider),
           child: ListView(
-            padding: KSpacing.screenPadding,
+            padding: KSpacing.pagePadding,
             children: [
               _MetricsRow(dash),
               const SizedBox(height: KSpacing.lg),
@@ -57,7 +57,7 @@ class _MetricsRow extends StatelessWidget {
         _MetricCard('Low Stock', '${data['lowStockCount'] ?? 0}', KColors.warning),
         _MetricCard('Class A', '${abc['A'] ?? 0}', KColors.success),
         _MetricCard('Class B', '${abc['B'] ?? 0}', KColors.info),
-        _MetricCard('Class C', '${abc['C'] ?? 0}', KColors.neutral),
+        _MetricCard('Class C', '${abc['C'] ?? 0}', KColors.draft),
         _MetricCard('Auto-Reorder', '${data['autoReorderItems'] ?? 0}', KColors.primary),
       ],
     );
@@ -79,7 +79,7 @@ class _MetricCard extends StatelessWidget {
           padding: const EdgeInsets.all(KSpacing.md),
           child: Column(
             children: [
-              Text(value, style: KTypography.headlineMedium.copyWith(color: color)),
+              Text(value, style: KTypography.h2.copyWith(color: color)),
               const SizedBox(height: KSpacing.xs),
               Text(label, style: KTypography.bodySmall),
             ],

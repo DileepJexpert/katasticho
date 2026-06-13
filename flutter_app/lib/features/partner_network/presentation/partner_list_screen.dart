@@ -233,7 +233,7 @@ class _PartnerCard extends StatelessWidget {
                   child: Text('$sellerName → $buyerName',
                       style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                 ),
-                KStatusChip(label: status),
+                KStatusChip(status: status),
               ],
             ),
             if (partner['paymentTerms'] != null) ...[

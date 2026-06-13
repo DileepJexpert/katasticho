@@ -546,7 +546,7 @@ class _RecordResultsDialogState extends State<_RecordResultsDialog> {
                                 ? () => setState(
                                     () => _rows.removeAt(entry.key))
                                 : null,
-                            onChanged: (_) => setState(() {}),
+                            onChanged: () => setState(() {}),
                           ),
                         ),
                   ],

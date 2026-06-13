@@ -59,7 +59,7 @@ class SupplyChainAlertListScreen extends ConsumerWidget {
             return RefreshIndicator(
               onRefresh: () async => ref.invalidate(_alertListProvider),
               child: ListView.builder(
-                padding: KSpacing.screenPadding,
+                padding: KSpacing.pagePadding,
                 itemCount: items.length,
                 itemBuilder: (context, index) {
                   final alert = items[index] as Map<String, dynamic>;
@@ -86,7 +86,7 @@ class _AlertCard extends StatelessWidget {
       'HIGH' => KColors.error,
       'MEDIUM' => KColors.warning,
       'LOW' => KColors.info,
-      _ => KColors.neutral,
+      _ => KColors.draft,
     };
     final icon = switch (severity) {
       'HIGH' => Icons.error,

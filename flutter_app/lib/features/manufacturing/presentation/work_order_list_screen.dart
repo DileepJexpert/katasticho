@@ -154,7 +154,7 @@ class _WorkOrderCard extends StatelessWidget {
                     child: Text(woNumber,
                         style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                   ),
-                  KStatusChip(label: status),
+                  KStatusChip(status: status),
                 ],
               ),
               const SizedBox(height: 8),

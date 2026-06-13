@@ -62,7 +62,7 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
           KTextField(
             controller: _vendorCtl,
             label: 'Vendor ID (UUID)',
-            hintText: 'e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6',
+            hint: 'e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6',
           ),
 
           const SizedBox(height: 16),
@@ -71,7 +71,7 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
           KTextField(
             controller: _warehouseCtl,
             label: 'Warehouse ID (UUID)',
-            hintText: 'e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6',
+            hint: 'e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6',
           ),
 
           const SizedBox(height: 16),
@@ -81,7 +81,7 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
             controller: _processingChargesCtl,
             label: 'Processing Charges (₹)',
             keyboardType: TextInputType.number,
-            hintText: '0.00',
+            hint: '0.00',
           ),
 
           const SizedBox(height: 16),

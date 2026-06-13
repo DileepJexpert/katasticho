@@ -159,7 +159,7 @@ class _TraceView extends ConsumerWidget {
         }
 
         return ListView(
-          padding: KSpacing.screenPadding,
+          padding: KSpacing.pagePadding,
           children: [
             Card(
               color: Theme.of(context).colorScheme.primaryContainer,

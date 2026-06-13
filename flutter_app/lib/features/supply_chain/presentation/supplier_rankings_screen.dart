@@ -34,7 +34,7 @@ class SupplierRankingsScreen extends ConsumerWidget {
             return RefreshIndicator(
               onRefresh: () async => ref.invalidate(_rankingsProvider),
               child: ListView.builder(
-                padding: KSpacing.screenPadding,
+                padding: KSpacing.pagePadding,
                 itemCount: rankings.length,
                 itemBuilder: (context, index) {
                   final r = rankings[index] as Map<String, dynamic>;
@@ -57,7 +57,7 @@ class SupplierRankingsScreen extends ConsumerWidget {
                           Text('Score: ${score.toStringAsFixed(1)}%'),
                           Text('Quality: ${r['qualityRate']}% | Orders: ${r['totalOrders']}',
                               style: KTypography.bodySmall),
-                          Text('Amount: ${CurrencyFormatter.format(r['totalAmount'])}',
+                          Text('Amount: ${CurrencyFormatter.formatIndian((r['totalAmount'] as num?)?.toDouble() ?? 0)}',
                               style: KTypography.bodySmall),
                         ],
                       ),

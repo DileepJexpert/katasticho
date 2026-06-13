@@ -46,7 +46,7 @@ class IntegrationListScreen extends ConsumerWidget {
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(_integrationsProvider),
             child: ListView.builder(
-              padding: KSpacing.screenPadding,
+              padding: KSpacing.pagePadding,
               itemCount: integrations.length,
               itemBuilder: (_, i) {
                 final integration = integrations[i] as Map<String, dynamic>;

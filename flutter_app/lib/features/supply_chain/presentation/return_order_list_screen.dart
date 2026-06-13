@@ -36,7 +36,7 @@ class ReturnOrderListScreen extends ConsumerWidget {
             return RefreshIndicator(
               onRefresh: () async => ref.invalidate(_returnListProvider),
               child: ListView.builder(
-                padding: KSpacing.screenPadding,
+                padding: KSpacing.pagePadding,
                 itemCount: items.length,
                 itemBuilder: (context, index) {
                   final ro = items[index] as Map<String, dynamic>;
@@ -61,11 +61,11 @@ class _ReturnCard extends StatelessWidget {
     final status = ro['status'] as String? ?? 'DRAFT';
     final returnType = ro['returnType'] as String? ?? '';
     final color = switch (status) {
-      'DRAFT' => KColors.neutral,
+      'DRAFT' => KColors.draft,
       'APPROVED' => KColors.success,
       'PROCESSED' => KColors.info,
       'CANCELLED' => KColors.error,
-      _ => KColors.neutral,
+      _ => KColors.draft,
     };
 
     return Card(
@@ -75,14 +75,14 @@ class _ReturnCard extends StatelessWidget {
           children: [
             Text(ro['returnNumber'] ?? '', style: KTypography.titleSmall),
             const SizedBox(width: KSpacing.sm),
-            KStatusChip(label: status, color: color),
+            KStatusChip(status: status),
           ],
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(returnType.replaceAll('_', ' '), style: KTypography.bodySmall),
-            Text('Total: ${CurrencyFormatter.format(ro['totalAmount'])}',
+            Text('Total: ${CurrencyFormatter.formatIndian((ro['totalAmount'] as num?)?.toDouble() ?? 0)}',
                 style: KTypography.bodySmall),
           ],
         ),

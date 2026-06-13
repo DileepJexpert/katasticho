@@ -102,7 +102,7 @@ class _CatalogCard extends StatelessWidget {
                         child: Text(name,
                             style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                       ),
-                      KStatusChip(label: isActive ? availability : 'INACTIVE'),
+                      KStatusChip(status: isActive ? availability : 'INACTIVE'),
                     ],
                   ),
                   if (sku != null) ...[

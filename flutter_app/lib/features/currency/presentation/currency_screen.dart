@@ -76,7 +76,7 @@ class _CurrenciesTab extends ConsumerWidget {
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(_currenciesProvider),
           child: ListView.builder(
-            padding: KSpacing.screenPadding,
+            padding: KSpacing.pagePadding,
             itemCount: currencies.length,
             itemBuilder: (_, i) {
               final c = currencies[i] as Map<String, dynamic>;
@@ -141,7 +141,7 @@ class _ExchangeRatesTab extends ConsumerWidget {
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(_exchangeRatesProvider),
             child: ListView.builder(
-              padding: KSpacing.screenPadding,
+              padding: KSpacing.pagePadding,
               itemCount: rates.length,
               itemBuilder: (_, i) {
                 final r = rates[i] as Map<String, dynamic>;

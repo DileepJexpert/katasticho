@@ -58,7 +58,7 @@ class RequisitionListScreen extends ConsumerWidget {
             return RefreshIndicator(
               onRefresh: () async => ref.invalidate(_requisitionListProvider),
               child: ListView.builder(
-                padding: KSpacing.screenPadding,
+                padding: KSpacing.pagePadding,
                 itemCount: items.length,
                 itemBuilder: (context, index) {
                   final pr = items[index] as Map<String, dynamic>;
@@ -82,11 +82,11 @@ class _RequisitionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = pr['status'] as String? ?? 'DRAFT';
     final color = switch (status) {
-      'DRAFT' => KColors.neutral,
+      'DRAFT' => KColors.draft,
       'SUBMITTED' => KColors.info,
       'APPROVED' => KColors.success,
       'REJECTED' => KColors.error,
-      _ => KColors.neutral,
+      _ => KColors.draft,
     };
 
     return Card(
@@ -96,14 +96,14 @@ class _RequisitionCard extends StatelessWidget {
           children: [
             Text(pr['requisitionNumber'] ?? '', style: KTypography.titleSmall),
             const SizedBox(width: KSpacing.sm),
-            KStatusChip(label: status, color: color),
+            KStatusChip(status: status),
           ],
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (pr['notes'] != null) Text(pr['notes'], maxLines: 1, overflow: TextOverflow.ellipsis),
-            Text('Total: ${CurrencyFormatter.format(pr['totalAmount'])}',
+            Text('Total: ${CurrencyFormatter.formatIndian((pr['totalAmount'] as num?)?.toDouble() ?? 0)}',
                 style: KTypography.bodySmall),
           ],
         ),

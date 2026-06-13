@@ -40,7 +40,6 @@ class _JobWorkListScreenState extends ConsumerState<JobWorkListScreen> {
         children: [
           const KListPageHeader(
             title: 'Job Work Orders',
-            subtitle: 'Manage subcontracted job work with GST ITC-04 tracking.',
           ),
 
           // GST alert banner
@@ -223,7 +222,7 @@ class _JobWorkCard extends StatelessWidget {
                       style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                     ),
                   ),
-                  KStatusChip(label: status),
+                  KStatusChip(status: status),
                 ],
               ),
               const SizedBox(height: 8),

@@ -129,7 +129,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                                 style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                               ),
                             ),
-                            KStatusChip(label: line['status']?.toString() ?? ''),
+                            KStatusChip(status: line['status']?.toString() ?? ''),
                           ],
                         ),
                         const SizedBox(height: 4),

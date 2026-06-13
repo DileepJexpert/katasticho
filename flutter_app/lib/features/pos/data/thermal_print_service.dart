@@ -164,7 +164,7 @@ class ThermalPrintService {
     final paper = settings.paperSize == '80mm' ? PaperSize.mm80 : PaperSize.mm58;
     final profile = await CapabilityProfile.load();
     final gen = Generator(paper, profile);
-    final List<int> bytes = [];
+    List<int> bytes = [];
 
     bytes += gen.reset();
 

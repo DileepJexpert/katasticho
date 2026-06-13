@@ -33,7 +33,7 @@ class InventoryTurnoverScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(title: const Text('Inventory Analytics')),
         body: ListView(
-          padding: KSpacing.screenPadding,
+          padding: KSpacing.pagePadding,
           children: [
             Text('Inventory Turnover', style: KTypography.titleMedium),
             const SizedBox(height: KSpacing.sm),
@@ -56,8 +56,8 @@ class InventoryTurnoverScreen extends ConsumerWidget {
                       child: ListTile(
                         title: Text(m['itemName'] ?? '', style: KTypography.titleSmall),
                         subtitle: Text(
-                          'COGS: ${CurrencyFormatter.format(m['cogs'])} | '
-                          'Avg Inventory: ${CurrencyFormatter.format(m['avgInventoryValue'])}',
+                          'COGS: ${CurrencyFormatter.formatIndian((m['cogs'] as num?)?.toDouble() ?? 0)} | '
+                          'Avg Inventory: ${CurrencyFormatter.formatIndian((m['avgInventoryValue'] as num?)?.toDouble() ?? 0)}',
                           style: KTypography.bodySmall,
                         ),
                         trailing: Column(
@@ -116,7 +116,7 @@ class InventoryTurnoverScreen extends ConsumerWidget {
                       'A' => KColors.error,
                       'B' => KColors.warning,
                       'C' => KColors.success,
-                      _ => KColors.neutral,
+                      _ => KColors.draft,
                     };
 
                     return Card(

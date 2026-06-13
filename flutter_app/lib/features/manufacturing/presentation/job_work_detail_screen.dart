@@ -795,7 +795,7 @@ class _LineRow extends StatelessWidget {
             width: 80,
             child: Align(
               alignment: Alignment.centerRight,
-              child: KStatusChip(label: status),
+              child: KStatusChip(status: status),
             ),
           ),
         ],

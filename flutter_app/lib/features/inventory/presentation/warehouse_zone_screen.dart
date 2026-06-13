@@ -86,7 +86,7 @@ class _WarehouseZoneScreenState extends ConsumerState<WarehouseZoneScreen> {
                   return RefreshIndicator(
                     onRefresh: () async => ref.invalidate(_warehouseZonesProvider),
                     child: ListView.builder(
-                      padding: KSpacing.screenPadding,
+                      padding: KSpacing.pagePadding,
                       itemCount: zones.length,
                       itemBuilder: (_, i) {
                         final zone = zones[i] as Map<String, dynamic>;

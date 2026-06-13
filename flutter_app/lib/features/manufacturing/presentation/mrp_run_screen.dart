@@ -53,7 +53,7 @@ class MrpRunScreen extends ConsumerWidget {
             return RefreshIndicator(
               onRefresh: () async => ref.invalidate(_mrpRunsProvider),
               child: ListView.builder(
-                padding: KSpacing.screenPadding,
+                padding: KSpacing.pagePadding,
                 itemCount: runs.length,
                 itemBuilder: (context, index) {
                   final run = runs[index] as Map<String, dynamic>;

@@ -42,7 +42,6 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
         children: [
           const KListPageHeader(
             title: 'Production Scrap',
-            subtitle: 'Record and manage scrap/waste from production runs.',
           ),
           TabBar(
             controller: _tabs,

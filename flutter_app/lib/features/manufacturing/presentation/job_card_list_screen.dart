@@ -253,7 +253,7 @@ class _JobCardItem extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        KStatusChip(label: status),
+                        KStatusChip(status: status),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -330,7 +330,7 @@ class _JobCardSheet extends ConsumerWidget {
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(width: 12),
-              KStatusChip(label: status),
+              KStatusChip(status: status),
             ],
           ),
           const SizedBox(height: 12),

@@ -57,7 +57,7 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen> {
             return RefreshIndicator(
               onRefresh: () async => ref.invalidate(_shipmentListProvider),
               child: ListView.builder(
-                padding: KSpacing.screenPadding,
+                padding: KSpacing.pagePadding,
                 itemCount: shipments.length,
                 itemBuilder: (context, index) {
                   final s = shipments[index] as Map<String, dynamic>;
