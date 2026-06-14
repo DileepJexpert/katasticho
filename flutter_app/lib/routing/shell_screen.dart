@@ -488,6 +488,11 @@ const _hrGroup = NavGroup(
         icon: Icons.folder_outlined,
         activeIcon: Icons.folder,
         route: Routes.hrDocuments),
+    NavItem(
+        label: 'Analytics',
+        icon: Icons.insights_outlined,
+        activeIcon: Icons.insights,
+        route: Routes.hrAnalytics),
   ],
 );
 

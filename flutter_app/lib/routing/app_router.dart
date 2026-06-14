@@ -154,6 +154,7 @@ import '../features/hr/presentation/shift_management_screen.dart';
 import '../features/hr/presentation/timesheet_screen.dart';
 import '../features/hr/presentation/help_desk_screen.dart';
 import '../features/hr/presentation/employee_documents_screen.dart';
+import '../features/hr/presentation/hr_analytics_screen.dart';
 import '../features/field_sales/presentation/beat_list_screen.dart';
 import '../features/field_sales/presentation/live_tracking_screen.dart';
 import '../features/field_sales/presentation/mr_approvals_screen.dart';
@@ -374,6 +375,7 @@ class Routes {
   static const hrTimesheets = '/hr/timesheets';
   static const hrHelpdesk = '/hr/helpdesk';
   static const hrDocuments = '/hr/documents';
+  static const hrAnalytics = '/hr/analytics';
 
   // Field Sales / FMCG
   static const fieldSalesBeats = '/field-sales/beats';
@@ -1118,6 +1120,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.hrDocuments,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: EmployeeDocumentsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.hrAnalytics,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: HrAnalyticsScreen(),
             ),
           ),
           // Field Sales / FMCG Execution

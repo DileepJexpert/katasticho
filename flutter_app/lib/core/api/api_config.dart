@@ -672,6 +672,9 @@ class ApiConfig {
   static const String hrDocumentsExpiring = '/api/v1/hr/documents/expiring';
   static String hrDocumentById(String id) => '/api/v1/hr/documents/$id';
 
+  // HR portal — Analytics
+  static const String hrAnalyticsDashboard = '/api/v1/hr/analytics/dashboard';
+
   // Payroll
   static const String payrollSettings = '/api/v1/payroll/settings';
   static const String payrollEmployees = '/api/v1/payroll/employees';

@@ -624,7 +624,12 @@ generic `AttachmentService`/`EntityAttachment` for documents.
    GET /me, /{userId}, /expiring; DELETE /{id}). Tests: EmployeeDocumentServiceTest (4).
    Flutter `EmployeeDocumentsScreen` (`/hr/documents`, tabs My Documents (file_picker
    multipart upload + delete) / Expiring (HR)). analyze-clean.
-8. HR analytics — headcount/attrition/leave/attendance dashboards.
+8. ~~HR analytics~~ **DONE (module 8):** `HrAnalyticsService.dashboard()` — read-only
+   org snapshot rolling up the other modules: headcount + by-department (active payroll
+   employees), onLeaveToday, pendingLeaves, pendingRegularizations, pendingTimesheets,
+   openTickets, documentsExpiringIn30Days. No new tables. `HrAnalyticsController` @
+   `/api/v1/hr/analytics/dashboard` (OWNER/ADMIN). Tests: HrAnalyticsServiceTest (1).
+   Flutter `HrAnalyticsScreen` (`/hr/analytics`) — metric cards + dept breakdown. analyze-clean.
 9. Offboarding — exit process, clearance, F&F.
 **Flutter HR portal UI: Leave + Attendance + Shifts + Timesheets DONE** (all under sidebar "HR" group, analyze-clean). Employee depth / HR help desk / Documents / Analytics / Offboarding UI follow with their backends. (Flutter 3.44.2 installed in the env — both apps analyze with 0 errors.)
 
