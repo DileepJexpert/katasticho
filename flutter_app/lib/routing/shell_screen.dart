@@ -453,6 +453,19 @@ const _payrollGroup = NavGroup(
   ],
 );
 
+const _hrGroup = NavGroup(
+  label: 'HR',
+  icon: Icons.groups_outlined,
+  activeIcon: Icons.groups_rounded,
+  children: [
+    NavItem(
+        label: 'Leave',
+        icon: Icons.beach_access_outlined,
+        activeIcon: Icons.beach_access_rounded,
+        route: Routes.hrLeave),
+  ],
+);
+
 const _fieldSalesGroup = NavGroup(
   label: 'Field Sales',
   icon: Icons.directions_car_outlined,
@@ -643,6 +656,7 @@ const _allGroups = [
   _accountingGroup,
   _reportsGroup,
   _payrollGroup,
+  _hrGroup,
   _fieldSalesGroup,
   _partnerNetworkGroup,
   _manufacturingGroup,
@@ -1154,6 +1168,7 @@ List<Widget> _buildSidebarSections({
   final accountingGroup = _visibleGroup(_accountingGroup, capabilities);
   final reportsGroup = _visibleGroup(_reportsGroup, capabilities);
   final payrollGroup = _visibleGroup(_payrollGroup, capabilities);
+  final hrGroup = _visibleGroup(_hrGroup, capabilities);
   final fieldSalesGroup = _visibleGroup(_fieldSalesGroup, capabilities);
   final partnerNetworkGroup = _visibleGroup(_partnerNetworkGroup, capabilities);
   final manufacturingGroup = _visibleGroup(_manufacturingGroup, capabilities);
@@ -1184,6 +1199,8 @@ List<Widget> _buildSidebarSections({
       _SidebarNavGroup(group: reportsGroup, collapsed: collapsed),
     if (canAccounting && payrollGroup != null)
       _SidebarNavGroup(group: payrollGroup, collapsed: collapsed),
+    if (canAccounting && hrGroup != null)
+      _SidebarNavGroup(group: hrGroup, collapsed: collapsed),
     if (!isViewer && fieldSalesGroup != null)
       _SidebarNavGroup(group: fieldSalesGroup, collapsed: collapsed),
     if (!isViewer && partnerNetworkGroup != null)

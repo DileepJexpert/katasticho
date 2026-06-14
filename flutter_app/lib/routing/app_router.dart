@@ -148,6 +148,7 @@ import '../features/payroll/presentation/employee_form_screen.dart';
 import '../features/payroll/presentation/payroll_run_list_screen.dart';
 import '../features/payroll/presentation/payroll_run_detail_screen.dart';
 import '../features/payroll/presentation/payroll_settings_screen.dart';
+import '../features/hr/presentation/leave_management_screen.dart';
 import '../features/field_sales/presentation/beat_list_screen.dart';
 import '../features/field_sales/presentation/live_tracking_screen.dart';
 import '../features/field_sales/presentation/mr_approvals_screen.dart';
@@ -360,6 +361,9 @@ class Routes {
   static const payrollRuns = '/payroll/runs';
   static const payrollRunDetail = '/payroll/runs/:id';
   static const payrollSettings = '/payroll/settings';
+
+  // HR portal
+  static const hrLeave = '/hr/leave';
 
   // Field Sales / FMCG
   static const fieldSalesBeats = '/field-sales/beats';
@@ -1068,6 +1072,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.payrollSettings,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: PayrollSettingsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.hrLeave,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: LeaveManagementScreen(),
             ),
           ),
           // Field Sales / FMCG Execution

@@ -582,6 +582,7 @@ generic `AttachmentService`/`EntityAttachment` for documents.
    (balance deduct/restore), `myBalances`. `LeaveController` @ `/api/v1/hr/leave`
    (types+holidays OWNER/ADMIN; apply/cancel/me/my-balances any; approve/reject/pending
    OWNER/ADMIN). Tests: LeaveManagementServiceTest (5). Payroll LOP + attendance regression-clean.
+   **Flutter UI DONE:** `LeaveManagementScreen` (`/hr/leave`, tabs Apply/My Leave (balances+requests)/Approvals) under a new sidebar "HR" group. (Flutter SDK now installed in the cloud env — analyze runs clean.)
 2. Employee management — employee master/profile depth + self-service (payroll Employee exists).
 3. ~~Attendance management~~ **DONE (module 2, V12):** `attendance_regularization`
    (employee requests a punch correction, manager approves -> writes the corrected
@@ -608,7 +609,7 @@ generic `AttachmentService`/`EntityAttachment` for documents.
 7. Document management — wire `EntityAttachment` to employee (ID/PAN/insurance, expiry).
 8. HR analytics — headcount/attrition/leave/attendance dashboards.
 9. Offboarding — exit process, clearance, F&F.
-**Flutter HR portal UI = TODO for all (no SDK in cloud env).**
+**Flutter HR portal UI: Leave DONE; Attendance/Shift/Timesheets TODO.** (Flutter 3.44.2 now installed in the env — both apps analyze with 0 errors.)
 
 ## Doc Files Index
 | Doc | Purpose | Read when |

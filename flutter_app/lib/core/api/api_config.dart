@@ -618,6 +618,17 @@ class ApiConfig {
   static const String drugInteractionCheckByComposition =
       '/api/v1/pharmacy-masters/interactions/check-by-composition';
 
+  // HR portal — Leave management
+  static const String hrLeaveTypes = '/api/v1/hr/leave/types';
+  static const String hrLeaveApply = '/api/v1/hr/leave/apply';
+  static String hrLeaveApprove(String id) => '/api/v1/hr/leave/$id/approve';
+  static String hrLeaveReject(String id) => '/api/v1/hr/leave/$id/reject';
+  static String hrLeaveCancel(String id) => '/api/v1/hr/leave/$id/cancel';
+  static const String hrLeaveMine = '/api/v1/hr/leave/me';
+  static const String hrLeavePending = '/api/v1/hr/leave/pending';
+  static const String hrLeaveBalances = '/api/v1/hr/leave/my-balances';
+  static const String hrHolidays = '/api/v1/hr/leave/holidays';
+
   // Payroll
   static const String payrollSettings = '/api/v1/payroll/settings';
   static const String payrollEmployees = '/api/v1/payroll/employees';
