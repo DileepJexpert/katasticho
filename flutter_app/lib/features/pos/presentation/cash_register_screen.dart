@@ -97,7 +97,7 @@ class _TodayTab extends ConsumerWidget {
     return async.when(
       loading: () => const KLoading(),
       error: (e, _) => KErrorView(
-        message: ApiErrorParser.parse(e),
+        message: ApiErrorParser.message(e),
         onRetry: () => ref.invalidate(cashRegisterProvider),
       ),
       data: (data) => _TodayContent(data: data, onRefresh: onRefresh),
@@ -175,7 +175,7 @@ class _TodayContentState extends ConsumerState<_TodayContent> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ApiErrorParser.parse(e))),
+          SnackBar(content: Text(ApiErrorParser.message(e))),
         );
       }
     } finally {
@@ -247,7 +247,7 @@ class _TodayContentState extends ConsumerState<_TodayContent> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ApiErrorParser.parse(e))),
+          SnackBar(content: Text(ApiErrorParser.message(e))),
         );
       }
     } finally {
@@ -283,7 +283,7 @@ class _TodayContentState extends ConsumerState<_TodayContent> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ApiErrorParser.parse(e))),
+          SnackBar(content: Text(ApiErrorParser.message(e))),
         );
       }
     } finally {
@@ -400,7 +400,7 @@ class _TodayContentState extends ConsumerState<_TodayContent> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ApiErrorParser.parse(e))),
+          SnackBar(content: Text(ApiErrorParser.message(e))),
         );
       }
     } finally {
@@ -546,7 +546,7 @@ class _TodayContentState extends ConsumerState<_TodayContent> {
                     ),
                     Text(
                       'Opening + Cash Sales - Expenses',
-                      style: KTypography.caption
+                      style: KTypography.bodySmall
                           .copyWith(color: cs.onSurfaceVariant),
                     ),
                   ],
@@ -584,14 +584,14 @@ class _TodayContentState extends ConsumerState<_TodayContent> {
                             dense: true,
                             contentPadding: EdgeInsets.zero,
                             title: Text(desc,
-                                style: KTypography.body
+                                style: KTypography.bodyMedium
                                     .copyWith(fontSize: 13)),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
                                   CurrencyFormatter.formatIndian(amt),
-                                  style: KTypography.body.copyWith(
+                                  style: KTypography.bodyMedium.copyWith(
                                     fontWeight: FontWeight.w600,
                                     color: Colors.red.shade700,
                                   ),
@@ -762,7 +762,7 @@ class _HistoryTabState extends ConsumerState<_HistoryTab> {
                               Row(
                                 children: [
                                   Text(date,
-                                      style: KTypography.body.copyWith(
+                                      style: KTypography.bodyMedium.copyWith(
                                           fontWeight: FontWeight.w600)),
                                   const SizedBox(width: 8),
                                   _StatusChip(status: status, compact: true),
@@ -794,7 +794,7 @@ class _HistoryTabState extends ConsumerState<_HistoryTab> {
                         ),
                         Text(
                           CurrencyFormatter.formatIndian(totalSales),
-                          style: KTypography.body.copyWith(
+                          style: KTypography.bodyMedium.copyWith(
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
                           ),
@@ -864,7 +864,7 @@ class _SummaryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final style = KTypography.body.copyWith(
+    final style = KTypography.bodyMedium.copyWith(
       fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
       fontSize: bold ? 14 : 13,
     );

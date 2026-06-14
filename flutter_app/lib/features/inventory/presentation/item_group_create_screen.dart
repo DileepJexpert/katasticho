@@ -354,6 +354,7 @@ class _ItemGroupCreateScreenState extends ConsumerState<ItemGroupCreateScreen>
                 ],
               ),
             ),
+          ),
     );
   }
 }

@@ -2002,7 +2002,7 @@ class _OfflineSyncBadge extends ConsumerWidget {
             onPressed: () {
               Navigator.pop(ctx);
               OfflinePosService.instance.setApiClient(ref.read(apiClientProvider));
-              OfflinePosService.instance.syncPendingReceipts(ref: ref);
+              OfflinePosService.instance.syncPendingReceipts();
             },
             child: const Text('Sync Now'),
           ),

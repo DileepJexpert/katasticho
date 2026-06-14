@@ -195,7 +195,7 @@ class _TallyImportScreenState extends ConsumerState<TallyImportScreen> {
   Future<void> _exportVouchers() async {
     setState(() { _busy = true; _error = null; });
     try {
-      final response = await ref.read(apiClientProvider).get(
+      final response = await ref.read(apiClientProvider).dio.get(
             ApiConfig.tallyExportVouchers,
             queryParameters: {
               'fromDate': _isoDate(_exportRange.start),

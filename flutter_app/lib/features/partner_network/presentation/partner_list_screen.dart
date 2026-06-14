@@ -29,7 +29,6 @@ class PartnerListScreen extends ConsumerWidget {
             children: [
               const KListPageHeader(
                 title: 'Trading Partners',
-                subtitle: 'Manage B2B relationships with suppliers and buyers.',
               ),
               TabBar(
                 tabs: const [

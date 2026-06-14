@@ -39,7 +39,6 @@ class _WorkOrderListScreenState extends ConsumerState<WorkOrderListScreen> {
         children: [
           const KListPageHeader(
             title: 'Work Orders',
-            subtitle: 'Manage production work orders for composite items.',
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

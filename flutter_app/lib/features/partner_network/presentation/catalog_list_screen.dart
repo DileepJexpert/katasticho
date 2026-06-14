@@ -21,7 +21,6 @@ class CatalogListScreen extends ConsumerWidget {
           children: [
             const KListPageHeader(
               title: 'Published Catalog',
-              subtitle: 'Items visible to your approved trading partners.',
             ),
             Expanded(
               child: catalogAsync.when(

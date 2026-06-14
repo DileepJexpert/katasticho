@@ -846,13 +846,6 @@ class ApiConfig {
   // POS — Cash Register / Day Close
   static const String cashRegister = '/api/v1/pos/cash-register';
   static String cashRegisterDate(String date) => '/api/v1/pos/cash-register/$date';
-  static const String cashRegisterToday = '/api/v1/pos/cash-register/today';
-  static const String cashRegisterOpen = '/api/v1/pos/cash-register/open';
-  static const String cashRegisterClose = '/api/v1/pos/cash-register/close';
-  static const String cashRegisterExpense = '/api/v1/pos/cash-register/expense';
-  static String cashRegisterDeleteExpense(String id) =>
-      '/api/v1/pos/cash-register/expense/$id';
-  static const String cashRegisterHistory = '/api/v1/pos/cash-register/history';
 
   // WhatsApp document templates
   static const String whatsappSettings = '/api/v1/settings/whatsapp';
