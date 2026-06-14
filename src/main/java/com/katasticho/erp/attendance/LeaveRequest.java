@@ -38,6 +38,14 @@ public class LeaveRequest {
     @Builder.Default
     private String leaveType = "CASUAL";
 
+    /** Link to the configured hr_leave_type (set by the HR leave module). */
+    @Column(name = "leave_type_id")
+    private UUID leaveTypeId;
+
+    /** Working days (excludes weekends + holidays) this request covers. */
+    @Column(name = "working_days")
+    private java.math.BigDecimal workingDays;
+
     private String reason;
 
     @Column(length = 20)

@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`, `gst_state_code`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. **Squashed 2026-06-12** (old V1-V71 chain deleted; DB is recreated from scratch): `V1__baseline_schema.sql` (full schema, CREATE-only, generated via pg_dump after applying the historical chain to PostgreSQL 16 and diff-verified identical) + `V2__seed_reference_data.sql` (drug/salt/manufacturer/HSN masters — deduped, post-GST-2.0 rates — substitutions, interactions, coa_template, currency, ai_model_registry) + `V3__seed_drug_master_extended.sql` (Marg-style preloaded medicine catalog: ~22.5k branded products from the open A-Z Indian medicine dataset, top-3 brands per salt composition with marquee-house preference, MRP/pack/manufacturer/composition, all HSN 3004 @ 5%). `V4__drug_schedule_h1_and_exempt_drugs.sql` (Schedule H1 overlay + 36 nil-rated lifesaving drugs) + `V5__detail_aids.sql` (e-detailing) + `V6__gst_state_code_master.sql` (38 official GST/TIN state codes — platform reference, Marg-parity dropdown/GSTIN-prefix lookup) + `V7__hsn_gst_directory_expansion.sql` (36 common kirana/FMCG/general HSN rows at post-GST-2.0 rates — dairy/produce/staples/oils/personal-care/etc; ambiguous codes salt 2501, tea/coffee, namkeen 2106 deliberately omitted) + `V8__field_reporting_hierarchy.sql` (app_user.reports_to_user_id — field MR→ABM→RBM hierarchy) + `V9__stockist_secondary_sales.sql` (stockist Stock & Sales Statement — secondary-sales loop) + `V10__rcpa_chemist_audit.sql` (Retail Chemist Prescription Audit — own-vs-competitor brand share). **Next new migration = V11.**
+- Location: `src/main/resources/db/migration/`. **Squashed 2026-06-12** (old V1-V71 chain deleted; DB is recreated from scratch): `V1__baseline_schema.sql` (full schema, CREATE-only, generated via pg_dump after applying the historical chain to PostgreSQL 16 and diff-verified identical) + `V2__seed_reference_data.sql` (drug/salt/manufacturer/HSN masters — deduped, post-GST-2.0 rates — substitutions, interactions, coa_template, currency, ai_model_registry) + `V3__seed_drug_master_extended.sql` (Marg-style preloaded medicine catalog: ~22.5k branded products from the open A-Z Indian medicine dataset, top-3 brands per salt composition with marquee-house preference, MRP/pack/manufacturer/composition, all HSN 3004 @ 5%). `V4__drug_schedule_h1_and_exempt_drugs.sql` (Schedule H1 overlay + 36 nil-rated lifesaving drugs) + `V5__detail_aids.sql` (e-detailing) + `V6__gst_state_code_master.sql` (38 official GST/TIN state codes — platform reference, Marg-parity dropdown/GSTIN-prefix lookup) + `V7__hsn_gst_directory_expansion.sql` (36 common kirana/FMCG/general HSN rows at post-GST-2.0 rates — dairy/produce/staples/oils/personal-care/etc; ambiguous codes salt 2501, tea/coffee, namkeen 2106 deliberately omitted) + `V8__field_reporting_hierarchy.sql` (app_user.reports_to_user_id — field MR→ABM→RBM hierarchy) + `V9__stockist_secondary_sales.sql` (stockist Stock & Sales Statement — secondary-sales loop) + `V10__rcpa_chemist_audit.sql` (Retail Chemist Prescription Audit — own-vs-competitor brand share) + `V11__hr_leave_management.sql` (HR portal leave: types/holidays/balances). **Next new migration = V12.**
 - Latent fresh-install bugs fixed during the squash: old V59 inserted into non-existent `account.system` (→ `is_system`); old V62's org-scoped `exchange_rate` collided with the V1 platform-level table (V62 shape kept — matches the JPA entity); old V62's currency-column DO-block guards checked the wrong column. The old chain only ever worked on incrementally-migrated DBs.
 - V-number references in the phase notes below (V42, V67, ...) are historical — those files now live only in git history (pre-squash commit).
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
@@ -563,6 +563,34 @@ already strong (22,928 drug / 256 salt / 57 manufacturer).
 4. Optional later: GST tax-slab pick-list, pincode/city master, bank IFSC master.
 
 ---
+
+### HR Portal — Zoho People "Core HR" parity (2026-06-14, IN PROGRESS)
+Goal: a full production HR portal (not a demo). Benchmark = Zoho People Core HR
+(9 modules). Build module by module, backend + tests first; Flutter UI follows.
+New package `com.katasticho.erp.hr`. Existing base: payroll (Phase 5), basic
+attendance + leave (V71 `attendance` pkg), employee master, field hierarchy (V8),
+generic `AttachmentService`/`EntityAttachment` for documents.
+
+**The 9 Core HR modules + status:**
+1. ~~Leave management (Time off)~~ **DONE (module 1, V11):** `hr_leave_type`
+   (paid/unpaid, annual_quota, ANNUAL/MONTHLY/NONE accrual, carry_forward, requires_approval),
+   `hr_holiday` (org calendar), `hr_leave_balance` (per user/type/year, available = entitled+carried−used).
+   `leave_request` gains `leave_type_id` + `working_days`. `LeaveManagementService`:
+   type CRUD, holiday CRUD, `workingDays` (excludes weekends + holidays), balance-aware
+   `applyLeave` (paid→balance check, unpaid→leaveType "UNPAID" so payroll LOP path is
+   unchanged; auto-approve when type doesn't require approval), approve/reject/cancel
+   (balance deduct/restore), `myBalances`. `LeaveController` @ `/api/v1/hr/leave`
+   (types+holidays OWNER/ADMIN; apply/cancel/me/my-balances any; approve/reject/pending
+   OWNER/ADMIN). Tests: LeaveManagementServiceTest (5). Payroll LOP + attendance regression-clean.
+2. Employee management — employee master/profile depth + self-service (payroll Employee exists).
+3. Attendance management — general attendance + regularization + monthly summary (have basic GPS punch).
+4. Shift management — shift defs, rosters, assignment.
+5. Timesheets — project/task time tracking.
+6. HR help desk — employee tickets to HR.
+7. Document management — wire `EntityAttachment` to employee (ID/PAN/insurance, expiry).
+8. HR analytics — headcount/attrition/leave/attendance dashboards.
+9. Offboarding — exit process, clearance, F&F.
+**Flutter HR portal UI = TODO for all (no SDK in cloud env).**
 
 ## Doc Files Index
 | Doc | Purpose | Read when |
