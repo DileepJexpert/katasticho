@@ -493,6 +493,11 @@ const _hrGroup = NavGroup(
         icon: Icons.insights_outlined,
         activeIcon: Icons.insights,
         route: Routes.hrAnalytics),
+    NavItem(
+        label: 'Offboarding',
+        icon: Icons.logout_outlined,
+        activeIcon: Icons.logout,
+        route: Routes.hrOffboarding),
   ],
 );
 

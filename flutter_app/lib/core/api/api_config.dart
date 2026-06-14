@@ -675,6 +675,17 @@ class ApiConfig {
   // HR portal — Analytics
   static const String hrAnalyticsDashboard = '/api/v1/hr/analytics/dashboard';
 
+  // HR portal — Offboarding
+  static const String hrOffboarding = '/api/v1/hr/offboarding';
+  static String hrOffboardingById(String id) => '/api/v1/hr/offboarding/$id';
+  static String hrOffboardingTaskComplete(String taskId) =>
+      '/api/v1/hr/offboarding/tasks/$taskId/complete';
+  static String hrOffboardingFnf(String id) => '/api/v1/hr/offboarding/$id/fnf';
+  static String hrOffboardingComplete(String id) =>
+      '/api/v1/hr/offboarding/$id/complete';
+  static String hrOffboardingCancel(String id) =>
+      '/api/v1/hr/offboarding/$id/cancel';
+
   // Payroll
   static const String payrollSettings = '/api/v1/payroll/settings';
   static const String payrollEmployees = '/api/v1/payroll/employees';

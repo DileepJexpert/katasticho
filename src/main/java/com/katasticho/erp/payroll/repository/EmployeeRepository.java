@@ -15,6 +15,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
 
     Optional<Employee> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
+    Optional<Employee> findByOrgIdAndUserIdAndIsDeletedFalse(UUID orgId, UUID userId);
+
     Page<Employee> findByOrgIdAndIsDeletedFalseOrderByFullNameAsc(UUID orgId, Pageable pageable);
 
     List<Employee> findByOrgIdAndIsDeletedFalseAndEmploymentStatus(UUID orgId, String status);
