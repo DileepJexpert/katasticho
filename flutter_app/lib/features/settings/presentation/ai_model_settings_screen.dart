@@ -499,15 +499,21 @@ class _ModelList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: models
-          .map((m) => _ModelTile(
-                model: m,
-                selected: m.id == selected,
-                enabled: enabled,
-                onSelect: () => onSelect(m.id),
-              ))
-          .toList(),
+    return RadioGroup<String>(
+      groupValue: selected,
+      onChanged: (value) {
+        if (enabled && value != null) onSelect(value);
+      },
+      child: Column(
+        children: models
+            .map((m) => _ModelTile(
+                  model: m,
+                  selected: m.id == selected,
+                  enabled: enabled,
+                  onSelect: () => onSelect(m.id),
+                ))
+            .toList(),
+      ),
     );
   }
 }
@@ -547,8 +553,7 @@ class _ModelTile extends StatelessWidget {
             children: [
               Radio<String>(
                 value: model.id,
-                groupValue: selected ? model.id : '',
-                onChanged: enabled ? (_) => onSelect() : null,
+                enabled: enabled,
                 activeColor: KColors.primary,
               ),
               Expanded(

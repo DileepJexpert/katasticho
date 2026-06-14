@@ -114,25 +114,25 @@ class PosReceiptSettingsScreen extends ConsumerWidget {
           Text('Paper Size', style: KTypography.h3),
           KSpacing.vGapSm,
           KCard(
-            child: Column(
-              children: [
-                RadioListTile<String>(
-                  value: '58mm',
-                  groupValue: settings.paperSize,
-                  onChanged: (v) => _update(ref, settings.copyWith(paperSize: v)),
-                  title: const Text('58mm (Thermal)'),
-                  subtitle: const Text('Standard POS thermal printer'),
-                  dense: true,
-                ),
-                RadioListTile<String>(
-                  value: '80mm',
-                  groupValue: settings.paperSize,
-                  onChanged: (v) => _update(ref, settings.copyWith(paperSize: v)),
-                  title: const Text('80mm (Wide Thermal)'),
-                  subtitle: const Text('Wide format thermal printer'),
-                  dense: true,
-                ),
-              ],
+            child: RadioGroup<String>(
+              groupValue: settings.paperSize,
+              onChanged: (v) => _update(ref, settings.copyWith(paperSize: v)),
+              child: Column(
+                children: const [
+                  RadioListTile<String>(
+                    value: '58mm',
+                    title: Text('58mm (Thermal)'),
+                    subtitle: Text('Standard POS thermal printer'),
+                    dense: true,
+                  ),
+                  RadioListTile<String>(
+                    value: '80mm',
+                    title: Text('80mm (Wide Thermal)'),
+                    subtitle: Text('Wide format thermal printer'),
+                    dense: true,
+                  ),
+                ],
+              ),
             ),
           ),
           KSpacing.vGapLg,

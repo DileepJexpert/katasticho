@@ -25,7 +25,6 @@ class WeekTrendCard extends ConsumerWidget {
         child: KErrorBanner(message: 'Failed to load: $err'),
       ),
       data: (data) {
-        final cs = Theme.of(context).colorScheme;
         final week = data.thisWeek;
 
         return KCard(
@@ -125,8 +124,6 @@ class _MiniBarChart extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final maxSale = rows.map((r) => r.sale).fold<double>(0, (m, v) => v > m ? v : m);
     final barMax = maxSale > 0 ? maxSale : 1.0;
-
-    final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,

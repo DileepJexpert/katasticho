@@ -522,8 +522,6 @@ class _RecordResultsDialogState extends State<_RecordResultsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return AlertDialog(
       title: const Text('Record Results'),
       content: SizedBox(

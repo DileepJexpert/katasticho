@@ -11,7 +11,7 @@ final qcRepositoryProvider = Provider((ref) {
 });
 
 final qcInspectionsProvider =
-    FutureProvider.family<List<Map<String, dynamic>>, _InspectionFilter>(
+    FutureProvider.family<List<Map<String, dynamic>>, InspectionFilter>(
   (ref, filter) => ref
       .watch(qcRepositoryProvider)
       .listInspections(status: filter.status, inspectionType: filter.type),
@@ -27,22 +27,22 @@ final qcTemplatesProvider = FutureProvider<List<Map<String, dynamic>>>(
 );
 
 // Simple filter value object — used as the family key.
-class _InspectionFilter {
-  const _InspectionFilter({this.status, this.type});
+class InspectionFilter {
+  const InspectionFilter({this.status, this.type});
   final String? status;
   final String? type;
 
   @override
   bool operator ==(Object other) =>
-      other is _InspectionFilter && other.status == status && other.type == type;
+      other is InspectionFilter && other.status == status && other.type == type;
 
   @override
   int get hashCode => Object.hash(status, type);
 }
 
 // Convenience constructor exposed to callers.
-_InspectionFilter inspectionFilter({String? status, String? type}) =>
-    _InspectionFilter(status: status, type: type);
+InspectionFilter inspectionFilter({String? status, String? type}) =>
+    InspectionFilter(status: status, type: type);
 
 // ---------------------------------------------------------------------------
 // Repository

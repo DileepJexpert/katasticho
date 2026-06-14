@@ -70,8 +70,8 @@ class BranchesScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => ProviderScope(
-        parent: ProviderScope.containerOf(context),
+      builder: (_) => UncontrolledProviderScope(
+        container: ProviderScope.containerOf(context),
         child: const _BranchCreateSheet(),
       ),
     );

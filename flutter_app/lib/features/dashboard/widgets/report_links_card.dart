@@ -19,8 +19,6 @@ class ReportLinksCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return KCard(
       title: 'Quick Reports',
       child: Wrap(

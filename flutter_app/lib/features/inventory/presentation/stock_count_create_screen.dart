@@ -26,7 +26,6 @@ class _StockCountCreateScreenState
 
   // Header fields
   String? _selectedWarehouseId;
-  String? _selectedWarehouseName;
   DateTime _countDate = DateTime.now();
   final _notesCtl = TextEditingController();
 
@@ -67,7 +66,6 @@ class _StockCountCreateScreenState
           .toList();
       if (_warehouses.length == 1) {
         _selectedWarehouseId = _warehouses.first['id']?.toString();
-        _selectedWarehouseName = _warehouses.first['name']?.toString();
       }
     } catch (_) {
       // Warehouses may fail — user can retry
@@ -318,12 +316,6 @@ class _StockCountCreateScreenState
                   onChanged: (value) {
                     setState(() {
                       _selectedWarehouseId = value;
-                      _selectedWarehouseName = _warehouses
-                          .firstWhere(
-                            (wh) => wh['id']?.toString() == value,
-                            orElse: () => <String, dynamic>{},
-                          )['name']
-                          ?.toString();
                     });
                     _loadAllExpectedQuantities();
                   },

@@ -29,7 +29,6 @@ class _WorkOrderCreateScreenState extends ConsumerState<WorkOrderCreateScreen> {
   String? _selectedItemId;
   String? _selectedItemLabel;
   String? _selectedWarehouseId;
-  String? _selectedWarehouseLabel;
 
   List<Map<String, dynamic>> _itemResults = [];
   List<Map<String, dynamic>> _warehouseResults = [];
@@ -169,8 +168,6 @@ class _WorkOrderCreateScreenState extends ConsumerState<WorkOrderCreateScreen> {
             }).toList(),
             onChanged: (v) => setState(() {
               _selectedWarehouseId = v;
-              _selectedWarehouseLabel = _warehouseResults
-                  .firstWhere((w) => w['id']?.toString() == v, orElse: () => {})['name']?.toString();
             }),
           ),
 

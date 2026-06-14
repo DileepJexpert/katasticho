@@ -79,13 +79,6 @@ class _RequisitionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = pr['status'] as String? ?? 'DRAFT';
-    final color = switch (status) {
-      'DRAFT' => KColors.draft,
-      'SUBMITTED' => KColors.info,
-      'APPROVED' => KColors.success,
-      'REJECTED' => KColors.error,
-      _ => KColors.draft,
-    };
 
     return Card(
       margin: const EdgeInsets.only(bottom: KSpacing.sm),

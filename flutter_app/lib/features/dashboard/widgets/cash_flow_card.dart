@@ -24,7 +24,6 @@ class CashFlowCard extends ConsumerWidget {
         child: KErrorBanner(message: 'Failed to load: $err'),
       ),
       data: (data) {
-        final cs = Theme.of(context).colorScheme;
         final isPositive = data.netCashFlow >= 0;
 
         return KCard(

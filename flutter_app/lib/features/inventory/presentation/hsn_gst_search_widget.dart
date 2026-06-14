@@ -46,7 +46,6 @@ class _HsnGstSearchWidgetState extends ConsumerState<HsnGstSearchWidget> {
 
   /// Tracks the currently selected GST rate so we can render the chip.
   double? _selectedGstRate;
-  String? _selectedHsnCode;
 
   @override
   void initState() {
@@ -103,8 +102,7 @@ class _HsnGstSearchWidgetState extends ConsumerState<HsnGstSearchWidget> {
       }
       if (entry != null && mounted) {
         setState(() {
-          _selectedHsnCode = entry!['hsnCode']?.toString() ?? code;
-          _selectedGstRate = (entry['gstRate'] as num?)?.toDouble();
+          _selectedGstRate = (entry!['gstRate'] as num?)?.toDouble();
         });
       }
     } catch (_) {
@@ -160,7 +158,6 @@ class _HsnGstSearchWidgetState extends ConsumerState<HsnGstSearchWidget> {
     setState(() {
       _results = [];
       _showDropdown = false;
-      _selectedHsnCode = hsnCode;
       _selectedGstRate = gstRate;
     });
     _focusNode.unfocus();

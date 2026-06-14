@@ -194,16 +194,18 @@ class _MembersTab extends ConsumerWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
           title: const Text('Change Role'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: availableRoles
-                .map((role) => RadioListTile<String>(
-                      title: Text(_roleLabels[role] ?? role),
-                      value: role,
-                      groupValue: selected,
-                      onChanged: (v) => setS(() => selected = v!),
-                    ))
-                .toList(),
+          content: RadioGroup<String>(
+            groupValue: selected,
+            onChanged: (v) => setS(() => selected = v!),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: availableRoles
+                  .map((role) => RadioListTile<String>(
+                        title: Text(_roleLabels[role] ?? role),
+                        value: role,
+                      ))
+                  .toList(),
+            ),
           ),
           actions: [
             TextButton(

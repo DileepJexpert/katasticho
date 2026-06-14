@@ -205,18 +205,6 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     }
   }
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'IN_PROGRESS':
-        return Colors.orange;
-      case 'COMPLETED':
-        return Colors.green;
-      case 'PLANNED':
-      default:
-        return Colors.blue;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final dateStr = _selectedDate.toIso8601String().split('T')[0];

@@ -59,13 +59,6 @@ class _ReturnCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = ro['status'] as String? ?? 'DRAFT';
     final returnType = ro['returnType'] as String? ?? '';
-    final color = switch (status) {
-      'DRAFT' => KColors.draft,
-      'APPROVED' => KColors.success,
-      'PROCESSED' => KColors.info,
-      'CANCELLED' => KColors.error,
-      _ => KColors.draft,
-    };
 
     return Card(
       margin: const EdgeInsets.only(bottom: KSpacing.sm),
