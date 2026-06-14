@@ -667,6 +667,11 @@ class ApiConfig {
   static String hrHelpdeskStatus(String id) =>
       '/api/v1/hr/helpdesk/tickets/$id/status';
 
+  // HR portal — Employee documents
+  static const String hrDocumentsMine = '/api/v1/hr/documents/me';
+  static const String hrDocumentsExpiring = '/api/v1/hr/documents/expiring';
+  static String hrDocumentById(String id) => '/api/v1/hr/documents/$id';
+
   // Payroll
   static const String payrollSettings = '/api/v1/payroll/settings';
   static const String payrollEmployees = '/api/v1/payroll/employees';

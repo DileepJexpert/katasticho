@@ -483,6 +483,11 @@ const _hrGroup = NavGroup(
         icon: Icons.support_agent_outlined,
         activeIcon: Icons.support_agent,
         route: Routes.hrHelpdesk),
+    NavItem(
+        label: 'Documents',
+        icon: Icons.folder_outlined,
+        activeIcon: Icons.folder,
+        route: Routes.hrDocuments),
   ],
 );
 
