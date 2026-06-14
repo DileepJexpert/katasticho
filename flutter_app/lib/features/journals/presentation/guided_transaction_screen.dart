@@ -504,7 +504,7 @@ class _TransactionForm extends StatelessWidget {
           Text('What happened?', style: KTypography.h4),
           KSpacing.vGapMd,
           DropdownButtonFormField<GuidedTransactionType>(
-            value: type,
+            initialValue: type,
             decoration: const InputDecoration(labelText: 'Transaction type'),
             items: GuidedTransactionType.values
                 .map(
@@ -731,7 +731,7 @@ class _AccountDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final fallback = accounts.firstOrNull?.code;
     return DropdownButtonFormField<String>(
-      value: accounts.any((a) => a.code == value) ? value : fallback,
+      initialValue: accounts.any((a) => a.code == value) ? value : fallback,
       decoration: InputDecoration(labelText: label),
       items: accounts
           .map(

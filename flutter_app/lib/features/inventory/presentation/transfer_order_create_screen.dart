@@ -9,7 +9,6 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import 'item_picker_sheet.dart';
 
 class TransferOrderCreateScreen extends ConsumerStatefulWidget {
@@ -335,7 +334,7 @@ class _WarehouseDropdown extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           decoration: InputDecoration(
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

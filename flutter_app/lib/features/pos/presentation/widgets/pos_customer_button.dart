@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_typography.dart';
-import '../../../contacts/data/contact_repository.dart';
 import '../../../contacts/presentation/contact_picker_sheet.dart';
 import '../../../loyalty/presentation/wallet_history_screen.dart';
 import '../../data/pos_cart_state.dart';

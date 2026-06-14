@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../../../routing/app_router.dart';
 import '../data/manufacturing_repository.dart';
 
@@ -161,7 +160,7 @@ class _WorkOrderCreateScreenState extends ConsumerState<WorkOrderCreateScreen> {
           Text('Warehouse', style: theme.textTheme.labelMedium),
           const SizedBox(height: 4),
           DropdownButtonFormField<String>(
-            value: _selectedWarehouseId,
+            initialValue: _selectedWarehouseId,
             decoration: const InputDecoration(hintText: 'Select warehouse'),
             items: _warehouseResults.map((w) {
               final id = w['id']?.toString() ?? '';

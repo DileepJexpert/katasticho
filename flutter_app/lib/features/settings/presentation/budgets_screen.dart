@@ -142,7 +142,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                       ),
                       KSpacing.vGapSm,
                       DropdownButtonFormField<int>(
-                        value: _fy,
+                        initialValue: _fy,
                         decoration: const InputDecoration(
                           labelText: 'Fiscal year',
                           border: OutlineInputBorder(),
@@ -183,7 +183,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                             child: accountsAsync.when(
                               data: (accounts) =>
                                   DropdownButtonFormField<AccountDto>(
-                                value: line.account,
+                                initialValue: line.account,
                                 isExpanded: true,
                                 decoration: const InputDecoration(
                                   labelText: 'Account',

@@ -252,7 +252,7 @@ class _PurposeRow extends StatelessWidget {
           ),
           KSpacing.vGapSm,
           DropdownButtonFormField<String>(
-            value: selectable,
+            initialValue: selectable,
             isExpanded: true,
             decoration: const InputDecoration(
               labelText: 'Account',

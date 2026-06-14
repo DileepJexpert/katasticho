@@ -15,7 +15,6 @@ import '../../invoices/data/invoice_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/credit_note_repository.dart';
 import '../data/credit_note_providers.dart';
-import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 
 class CreditNoteCreateScreen extends ConsumerStatefulWidget {
   const CreditNoteCreateScreen({super.key});

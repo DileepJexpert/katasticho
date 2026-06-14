@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/field_sales_repository.dart';
 
@@ -84,7 +83,7 @@ class _VanListScreenState extends ConsumerState<VanListScreen> {
                 ),
                 KSpacing.vGapSm,
                 DropdownButtonFormField<String>(
-                  value: selectedType,
+                  initialValue: selectedType,
                   decoration: const InputDecoration(labelText: 'Vehicle Type'),
                   items: vehicleTypes
                       .map((t) => DropdownMenuItem(

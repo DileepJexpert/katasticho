@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/k_colors.dart';
-import '../../../core/theme/k_spacing.dart';
-import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 
 class OverdueInvoicesWidget extends StatelessWidget {

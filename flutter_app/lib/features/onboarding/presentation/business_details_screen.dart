@@ -201,7 +201,7 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
               ),
               KSpacing.vGapMd,
               DropdownButtonFormField<String>(
-                value: _selectedStateCode,
+                initialValue: _selectedStateCode,
                 decoration: InputDecoration(
                   labelText: 'State',
                   prefixIcon: const Icon(Icons.location_on_outlined),

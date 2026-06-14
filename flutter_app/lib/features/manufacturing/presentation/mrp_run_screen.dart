@@ -4,7 +4,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../data/manufacturing_repository.dart';
 
@@ -20,7 +19,7 @@ class MrpRunScreen extends ConsumerWidget {
     final runsAsync = ref.watch(_mrpRunsProvider);
 
     return KKeyboardListWrapper(
-      itemCount: () => (runsAsync.valueOrNull as List?)?.length ?? 0,
+      itemCount: () => (runsAsync.valueOrNull)?.length ?? 0,
       onRefresh: () => ref.invalidate(_mrpRunsProvider),
       child: Scaffold(
         appBar: AppBar(title: const Text('MRP Runs')),
@@ -228,7 +227,7 @@ class _PlannedOrdersSheet extends StatelessWidget {
                       Text('Qty: ${o['quantity']} • Due: ${o['dueDate'] ?? 'N/A'}'),
                   trailing: Chip(
                     label: Text(o['orderType'] as String? ?? 'PURCHASE'),
-                    backgroundColor: KColors.info.withOpacity(0.12),
+                    backgroundColor: KColors.info.withValues(alpha: 0.12),
                   ),
                 );
               },

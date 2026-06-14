@@ -15,7 +15,6 @@ import '../../contacts/data/contact_repository.dart';
 import '../../inventory/data/item_repository.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
-import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../data/bill_repository.dart';
 import 'bill_scan_sheet.dart';
 
@@ -1196,7 +1195,7 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
           if (_unitOptions.length > 1) ...[
             KSpacing.vGapXs,
             DropdownButtonFormField<String>(
-              value: _selectedUnitAbbr,
+              initialValue: _selectedUnitAbbr,
               decoration: const InputDecoration(
                 labelText: 'Unit',
                 border: OutlineInputBorder(),

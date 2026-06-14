@@ -1,4 +1,5 @@
 /// Typed helpers for parsing vendor payment API responses.
+library;
 
 class VendorPaymentDto {
   final Map<String, dynamic> raw;

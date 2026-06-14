@@ -39,7 +39,7 @@ class FieldSalesRepository {
     final content = data is List
         ? data
         : (data is Map ? (data['content'] as List?) ?? [] : []);
-    return (content as List)
+    return (content)
         .whereType<Map>()
         .map((e) => e.cast<String, dynamic>())
         .toList();
@@ -85,7 +85,7 @@ class FieldSalesRepository {
     final content = data is List
         ? data
         : (data is Map ? (data['content'] as List?) ?? [] : []);
-    return (content as List)
+    return (content)
         .whereType<Map>()
         .map((e) => e.cast<String, dynamic>())
         .toList();
@@ -132,7 +132,7 @@ class FieldSalesRepository {
     final content = data is List
         ? data
         : (data is Map ? (data['content'] as List?) ?? [] : []);
-    return (content as List)
+    return (content)
         .whereType<Map>()
         .map((e) => e.cast<String, dynamic>())
         .toList();
@@ -212,7 +212,7 @@ class FieldSalesRepository {
     final content = data is List
         ? data
         : (data is Map ? (data['content'] as List?) ?? [] : []);
-    return (content as List)
+    return (content)
         .whereType<Map>()
         .map((e) => e.cast<String, dynamic>())
         .toList();

@@ -333,7 +333,7 @@ class _MappingRow extends StatelessWidget {
           ],
           KSpacing.vGapMd,
           DropdownButtonFormField<String>(
-            value: outputValue,
+            initialValue: outputValue,
             isExpanded: true,
             decoration: const InputDecoration(
               labelText: 'Output (collected) account',
@@ -350,7 +350,7 @@ class _MappingRow extends StatelessWidget {
           if (mapping.recoverable) ...[
             KSpacing.vGapSm,
             DropdownButtonFormField<String>(
-              value: inputValue,
+              initialValue: inputValue,
               isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Input (recoverable) account',

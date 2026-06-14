@@ -10,11 +10,9 @@ import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../contacts/data/contact_repository.dart';
-import '../../tax_groups/data/tax_group_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/expense_repository.dart';
 import 'expense_list_screen.dart' show kExpenseCategories;
-import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 
 /// Lightweight provider to pull the chart of accounts once per screen open.
 final _accountsFutureProvider =
@@ -126,7 +124,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen>
                 // Category + Expense account side-by-side
                 KCompactRow(children: [
                   DropdownButtonFormField<String>(
-                    value: _category,
+                    initialValue: _category,
                     decoration: const InputDecoration(labelText: 'Category'),
                     items: kExpenseCategories
                         .map((c) =>
@@ -135,7 +133,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen>
                     onChanged: (v) => setState(() => _category = v),
                   ),
                   DropdownButtonFormField<String>(
-                    value: _expenseAccountId,
+                    initialValue: _expenseAccountId,
                     isExpanded: true,
                     decoration:
                         const InputDecoration(labelText: 'Expense account *'),
@@ -165,7 +163,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen>
                     }),
                   ),
                   DropdownButtonFormField<String>(
-                    value: _paidThroughId,
+                    initialValue: _paidThroughId,
                     isExpanded: true,
                     decoration:
                         const InputDecoration(labelText: 'Paid through *'),

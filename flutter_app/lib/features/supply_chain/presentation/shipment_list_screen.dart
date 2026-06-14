@@ -4,7 +4,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../data/supply_chain_repository.dart';
 
@@ -28,7 +27,7 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen> {
     final listAsync = ref.watch(_shipmentListProvider(_statusFilter));
 
     return KKeyboardListWrapper(
-      itemCount: () => (listAsync.valueOrNull as List?)?.length ?? 0,
+      itemCount: () => (listAsync.valueOrNull)?.length ?? 0,
       onRefresh: () => ref.invalidate(_shipmentListProvider),
       child: Scaffold(
         appBar: AppBar(

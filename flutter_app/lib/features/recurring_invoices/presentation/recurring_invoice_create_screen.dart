@@ -4,11 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/form_error_handler.dart';
 import '../../contacts/data/contact_repository.dart';
-import '../../tax_groups/data/tax_group_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/recurring_invoice_repository.dart';
 
@@ -25,9 +23,7 @@ class _LineDraft {
     String? description,
     double quantity = 1,
     double rate = 0,
-    this.discountPct = 0,
-    this.taxRate = 0,
-  })  : descriptionCtrl = TextEditingController(text: description ?? ''),
+  })  : discountPct = 0, taxRate = 0, descriptionCtrl = TextEditingController(text: description ?? ''),
         quantityCtrl = TextEditingController(text: quantity.toString()),
         rateCtrl = TextEditingController(text: rate.toString());
 
@@ -146,7 +142,7 @@ class _RecurringInvoiceCreateScreenState
 
             // Frequency
             DropdownButtonFormField<String>(
-              value: _frequency,
+              initialValue: _frequency,
               decoration: const InputDecoration(labelText: 'Frequency *'),
               items: _frequencies
                   .map((f) => DropdownMenuItem(

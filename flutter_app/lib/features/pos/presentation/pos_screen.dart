@@ -16,7 +16,6 @@ import '../data/pos_held_carts.dart';
 import '../data/pos_recent_transactions.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_repository.dart';
-import '../data/pos_repository.dart';
 import '../data/sales_receipt_providers.dart';
 import 'widgets/pos_search_bar.dart';
 import 'widgets/pos_item_search_result.dart';

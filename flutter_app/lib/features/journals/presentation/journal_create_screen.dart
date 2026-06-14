@@ -8,7 +8,6 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/form_error_handler.dart';
-import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../accounts/data/account_repository.dart';
 import '../data/journal_repository.dart';
@@ -387,7 +386,7 @@ class _JournalLineCard extends StatelessWidget {
 
           // Account dropdown
           DropdownButtonFormField<AccountDto>(
-            value: line.account,
+            initialValue: line.account,
             isExpanded: true,
             decoration: const InputDecoration(
               labelText: 'Account',

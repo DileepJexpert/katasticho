@@ -94,7 +94,7 @@ class _BranchBar extends StatelessWidget {
     final fraction =
         maxPurchases > 0 ? (row.purchases / maxPurchases) : 0.0;
     // Use secondary/teal to visually distinguish from revenue (primary/blue)
-    final barColor = KColors.secondary;
+    const barColor = KColors.secondary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -276,7 +276,7 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
             ),
           ),
           DropdownButtonFormField<String>(
-            value: _paymentMode,
+            initialValue: _paymentMode,
             decoration: const InputDecoration(
               labelText: 'Payment Mode',
               prefixIcon: Icon(Icons.payment_outlined),

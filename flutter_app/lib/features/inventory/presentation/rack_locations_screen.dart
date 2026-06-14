@@ -151,7 +151,7 @@ class _RackLocationsScreenState extends ConsumerState<RackLocationsScreen> {
                         ),
                         KSpacing.vGapMd,
                         DropdownButtonFormField<String>(
-                          value: _selectedWarehouseId,
+                          initialValue: _selectedWarehouseId,
                           decoration: const InputDecoration(
                             labelText: 'Warehouse',
                             border: OutlineInputBorder(),

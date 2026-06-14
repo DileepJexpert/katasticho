@@ -5,7 +5,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
-import '../../../core/widgets/widgets.dart';
 import '../data/prescription_repository.dart';
 
 class AddPrescriptionScreen extends ConsumerStatefulWidget {

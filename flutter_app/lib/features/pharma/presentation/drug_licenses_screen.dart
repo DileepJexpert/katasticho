@@ -516,7 +516,7 @@ class _DrugLicenseFormState extends ConsumerState<_DrugLicenseForm> {
 
                 // License Type dropdown
                 DropdownButtonFormField<String>(
-                  value: _licenseType,
+                  initialValue: _licenseType,
                   decoration: const InputDecoration(
                     labelText: 'License Type',
                     border: OutlineInputBorder(),

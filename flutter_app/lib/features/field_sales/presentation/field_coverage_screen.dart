@@ -180,7 +180,7 @@ class _FieldCoverageScreenState extends ConsumerState<FieldCoverageScreen> {
         Padding(
           padding: const EdgeInsets.all(12),
           child: DropdownButtonFormField<String>(
-            value: _selectedUserId,
+            initialValue: _selectedUserId,
             decoration: const InputDecoration(labelText: 'Salesperson'),
             items: _users
                 .map((u) => DropdownMenuItem(
@@ -236,7 +236,7 @@ class _FieldCoverageScreenState extends ConsumerState<FieldCoverageScreen> {
                       '${d['plannedActivity'] ?? 'no plan'}'
                       '${(d['plannedArea'] ?? '').toString().isNotEmpty ? ' @ ${d['plannedArea']}' : ''}'),
                   subtitle: Text(
-                      '${d['worked'] == true ? 'Worked, ${d['visitsCompleted']} visits' : 'Did not work'}'),
+                      d['worked'] == true ? 'Worked, ${d['visitsCompleted']} visits' : 'Did not work'),
                   trailing: Text(status,
                       style: TextStyle(color: color, fontSize: 11)),
                 );

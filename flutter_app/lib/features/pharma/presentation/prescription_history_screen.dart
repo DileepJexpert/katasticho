@@ -150,7 +150,7 @@ class _EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.receipt_long_outlined,
-                size: 64, color: KColors.textSecondary.withOpacity(0.4)),
+                size: 64, color: KColors.textSecondary.withValues(alpha: 0.4)),
             const SizedBox(height: KSpacing.md),
             Text(
               'No prescriptions recorded for this patient',
@@ -229,7 +229,7 @@ class _PrescriptionTile extends StatelessWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: KSpacing.md),
         decoration: BoxDecoration(
-          color: KColors.error.withOpacity(0.1),
+          color: KColors.error.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Icon(Icons.delete_outline, color: KColors.error),
@@ -317,8 +317,8 @@ class _ValidityChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: valid
-            ? KColors.success.withOpacity(0.12)
-            : KColors.error.withOpacity(0.12),
+            ? KColors.success.withValues(alpha: 0.12)
+            : KColors.error.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(

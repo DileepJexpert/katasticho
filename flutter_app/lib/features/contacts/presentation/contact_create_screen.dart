@@ -5,7 +5,6 @@ import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/utils/form_error_handler.dart';
-import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/contact_repository.dart';
 
@@ -286,7 +285,7 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
                 ]),
                 KSpacing.vGapSm,
                 DropdownButtonFormField<String>(
-                  value: _gstTreatment,
+                  initialValue: _gstTreatment,
                   decoration: const InputDecoration(
                     labelText: 'GST Treatment',
                     prefixIcon: Icon(Icons.account_balance_outlined),
@@ -362,7 +361,7 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
                     prefixIcon: Icons.account_balance_wallet_outlined,
                   ),
                   DropdownButtonFormField<int>(
-                    value: _paymentTermsDays,
+                    initialValue: _paymentTermsDays,
                     decoration: const InputDecoration(
                       labelText: 'Payment Terms',
                       prefixIcon: Icon(Icons.calendar_today_outlined),
@@ -388,7 +387,7 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
               children: [
                 KCompactRow(children: [
                   DropdownButtonFormField<String?>(
-                    value: _medicalCategory,
+                    initialValue: _medicalCategory,
                     decoration: const InputDecoration(
                       labelText: 'Category',
                       prefixIcon: Icon(Icons.medical_services_outlined),
@@ -405,7 +404,7 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
                     onChanged: (v) => setState(() => _medicalCategory = v),
                   ),
                   DropdownButtonFormField<String?>(
-                    value: _mrClass,
+                    initialValue: _mrClass,
                     decoration: const InputDecoration(
                       labelText: 'Class',
                       prefixIcon: Icon(Icons.star_outline),

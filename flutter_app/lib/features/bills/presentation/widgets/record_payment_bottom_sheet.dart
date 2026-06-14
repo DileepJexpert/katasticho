@@ -121,7 +121,7 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
           ),
           KSpacing.vGapMd,
           DropdownButtonFormField<String>(
-            value: _paymentMode,
+            initialValue: _paymentMode,
             decoration: const InputDecoration(labelText: 'Payment Mode'),
             items: const [
               DropdownMenuItem(value: 'CASH', child: Text('Cash')),
@@ -142,7 +142,7 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
               style: KTypography.bodySmall.copyWith(color: KColors.error),
             ),
             data: (accounts) => DropdownButtonFormField<String>(
-              value: _paidThroughId,
+              initialValue: _paidThroughId,
               isExpanded: true,
               decoration:
                   const InputDecoration(labelText: 'Paid through *'),

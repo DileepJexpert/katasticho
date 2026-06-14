@@ -1,4 +1,5 @@
 /// Typed helpers for parsing vendor credit API responses.
+library;
 
 class VendorCreditDto {
   final Map<String, dynamic> raw;

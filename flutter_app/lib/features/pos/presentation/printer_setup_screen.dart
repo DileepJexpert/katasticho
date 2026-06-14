@@ -249,7 +249,7 @@ class _PrinterSetupScreenState extends State<PrinterSetupScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 24),
                   child: Column(
                     children: [
-                      Icon(Icons.bluetooth, size: 48, color: KColors.textSecondary.withOpacity(0.5)),
+                      Icon(Icons.bluetooth, size: 48, color: KColors.textSecondary.withValues(alpha: 0.5)),
                       KSpacing.vGapSm,
                       Text('Tap Scan to find nearby printers',
                           style: KTypography.bodyMedium.copyWith(color: KColors.textSecondary)),

@@ -429,7 +429,7 @@ class _PlatformAdminOrgsScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               DropdownButtonFormField<String>(
-                value: _planOptions.contains(selectedPlan) ? selectedPlan : 'RETAIL',
+                initialValue: _planOptions.contains(selectedPlan) ? selectedPlan : 'RETAIL',
                 decoration: const InputDecoration(labelText: 'Plan Tier'),
                 items: _planOptions
                     .map((plan) => DropdownMenuItem(

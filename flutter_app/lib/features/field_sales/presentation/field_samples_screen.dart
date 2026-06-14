@@ -196,7 +196,7 @@ class _FieldSamplesScreenState extends ConsumerState<FieldSamplesScreen> {
                         ),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
-                          value: _allowanceMode,
+                          initialValue: _allowanceMode,
                           decoration: const InputDecoration(
                             labelText: 'Distance claiming mode',
                           ),
@@ -256,7 +256,7 @@ class _FieldSamplesScreenState extends ConsumerState<FieldSamplesScreen> {
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: _selectedUserId,
+                  initialValue: _selectedUserId,
                   decoration:
                       const InputDecoration(labelText: 'Salesperson'),
                   items: _users

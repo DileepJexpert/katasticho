@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../data/scheme_repository.dart';
@@ -250,8 +249,9 @@ class _CreateSchemeSheetState extends ConsumerState<_CreateSchemeSheet> {
         body['freeQuantity'] = double.tryParse(_freeQtyCtl.text) ?? 1;
       } else {
         body['discountPercent'] = double.tryParse(_discountPctCtl.text) ?? 0;
-        if (_minQtyCtl.text.isNotEmpty)
+        if (_minQtyCtl.text.isNotEmpty) {
           body['minOrderQuantity'] = double.tryParse(_minQtyCtl.text) ?? 0;
+        }
       }
       await ref.read(schemeRepositoryProvider).createScheme(body);
       if (!mounted) return;
@@ -287,7 +287,7 @@ class _CreateSchemeSheetState extends ConsumerState<_CreateSchemeSheet> {
             KTextField(label: 'Scheme Name', controller: _nameCtl),
             KSpacing.vGapSm,
             DropdownButtonFormField<String>(
-              value: _schemeType,
+              initialValue: _schemeType,
               decoration: const InputDecoration(labelText: 'Scheme Type'),
               items: const [
                 DropdownMenuItem(

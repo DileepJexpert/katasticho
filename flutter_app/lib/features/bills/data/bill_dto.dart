@@ -2,6 +2,7 @@
 ///
 /// The API returns `Map<String, dynamic>` — these helpers provide safe
 /// accessors so screens don't need to repeat null-coalescing everywhere.
+library;
 
 class BillDto {
   final Map<String, dynamic> raw;

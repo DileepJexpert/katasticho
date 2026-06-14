@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/field_sales_repository.dart';
 
@@ -96,7 +95,7 @@ class _RouteListScreenState extends ConsumerState<RouteListScreen> {
                 ),
                 KSpacing.vGapSm,
                 DropdownButtonFormField<String>(
-                  value: selectedDay,
+                  initialValue: selectedDay,
                   decoration: const InputDecoration(labelText: 'Day of Week'),
                   items: daysOfWeek
                       .map((d) => DropdownMenuItem(
@@ -111,7 +110,7 @@ class _RouteListScreenState extends ConsumerState<RouteListScreen> {
                 ),
                 KSpacing.vGapSm,
                 DropdownButtonFormField<String>(
-                  value: selectedFrequency,
+                  initialValue: selectedFrequency,
                   decoration: const InputDecoration(labelText: 'Frequency'),
                   items: frequencies
                       .map((f) => DropdownMenuItem(

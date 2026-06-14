@@ -8,7 +8,6 @@ import '../../../core/utils/form_error_handler.dart';
 import '../../settings/data/feature_flag_repository.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/item_group_repository.dart';
 import '../data/item_repository.dart';
@@ -535,7 +534,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
           children: [
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: uomItems.contains(baseUnit.toUpperCase())
+                initialValue: uomItems.contains(baseUnit.toUpperCase())
                     ? baseUnit.toUpperCase()
                     : (uomItems.contains(baseUnit) ? baseUnit : null),
                 decoration: const InputDecoration(
@@ -571,7 +570,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
 
         // Purchase unit toggle
         DropdownButtonFormField<bool>(
-          value: _hasDifferentPurchaseUnit,
+          initialValue: _hasDifferentPurchaseUnit,
           decoration: const InputDecoration(
             labelText: 'Purchase Unit',
             border: OutlineInputBorder(),
@@ -598,7 +597,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 DropdownButtonFormField<String>(
-                  value: _purchaseUomAbbr,
+                  initialValue: _purchaseUomAbbr,
                   decoration: const InputDecoration(
                     labelText: 'Purchase Unit',
                     border: OutlineInputBorder(),
@@ -695,7 +694,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                     ),
                     KSpacing.vGapSm,
                     DropdownButtonFormField<String>(
-                      value: su.uomAbbr,
+                      initialValue: su.uomAbbr,
                       decoration: const InputDecoration(
                         labelText: 'Unit',
                         border: OutlineInputBorder(),
@@ -882,7 +881,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
             return Padding(
               padding: const EdgeInsets.only(bottom: KSpacing.md),
               child: DropdownButtonFormField<String>(
-                value: _variantAttrs[key],
+                initialValue: _variantAttrs[key],
                 decoration: InputDecoration(labelText: key),
                 items: values
                     .map((v) => DropdownMenuItem(value: v, child: Text(v)))
@@ -1089,7 +1088,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                       KSpacing.vGapSm,
                       KCompactRow(children: [
                         DropdownButtonFormField<String>(
-                          value: _itemType,
+                          initialValue: _itemType,
                           decoration: const InputDecoration(labelText: 'Type'),
                           items: const [
                             DropdownMenuItem(
@@ -1129,7 +1128,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                       if (_rackLocations.isNotEmpty) ...[
                         KSpacing.vGapSm,
                         DropdownButtonFormField<String>(
-                          value: _rackLocationId,
+                          initialValue: _rackLocationId,
                           decoration: const InputDecoration(
                             labelText: 'Rack Location',
                           ),

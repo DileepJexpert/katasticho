@@ -8,7 +8,6 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
-import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../data/credit_note_providers.dart';
 
 const _statusTabs = [

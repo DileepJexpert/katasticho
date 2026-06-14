@@ -7,7 +7,6 @@ import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/vendor_credit_dto.dart';
 import '../data/vendor_credit_providers.dart';
-import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import 'widgets/vendor_credit_card.dart';
 
 const _statusTabs = [

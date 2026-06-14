@@ -4,7 +4,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../data/inventory_repository.dart';
 
@@ -35,7 +34,7 @@ class _WarehouseZoneScreenState extends ConsumerState<WarehouseZoneScreen> {
     final zonesAsync = ref.watch(_warehouseZonesProvider(_selectedWarehouseId));
 
     return KKeyboardListWrapper(
-      itemCount: () => (zonesAsync.valueOrNull as List?)?.length ?? 0,
+      itemCount: () => (zonesAsync.valueOrNull)?.length ?? 0,
       onRefresh: () => ref.invalidate(_warehouseZonesProvider),
       child: Scaffold(
         appBar: AppBar(title: const Text('Warehouse Zones')),
@@ -54,7 +53,7 @@ class _WarehouseZoneScreenState extends ConsumerState<WarehouseZoneScreen> {
                 padding: const EdgeInsets.fromLTRB(
                     KSpacing.md, KSpacing.md, KSpacing.md, 0),
                 child: DropdownButtonFormField<String>(
-                  value: _selectedWarehouseId,
+                  initialValue: _selectedWarehouseId,
                   decoration: const InputDecoration(
                     labelText: 'Warehouse',
                     border: OutlineInputBorder(),
@@ -192,7 +191,7 @@ class _CreateZoneSheetState extends ConsumerState<_CreateZoneSheet> {
           ),
           const SizedBox(height: KSpacing.sm),
           DropdownButtonFormField<String>(
-            value: _zoneType,
+            initialValue: _zoneType,
             decoration: const InputDecoration(
               labelText: 'Zone Type',
               border: OutlineInputBorder(),

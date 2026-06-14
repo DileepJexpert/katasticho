@@ -504,7 +504,7 @@ class _ReturnReasonDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       decoration: InputDecoration(
         labelText: 'Return Reason *',
         border: OutlineInputBorder(

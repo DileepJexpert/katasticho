@@ -475,7 +475,7 @@ class _WhatsAppSettingsSectionState
                       labelText: 'Provider',
                       border: OutlineInputBorder(),
                     ),
-                    value: _provider,
+                    initialValue: _provider,
                     items: const [
                       DropdownMenuItem(
                           value: 'META', child: Text('Meta Cloud API')),
@@ -657,7 +657,7 @@ class _SmsSettingsSectionState extends ConsumerState<_SmsSettingsSection> {
                       labelText: 'SMS Provider',
                       border: OutlineInputBorder(),
                     ),
-                    value: _provider,
+                    initialValue: _provider,
                     items: const [
                       DropdownMenuItem(value: 'FAST2SMS', child: Text('Fast2SMS')),
                       DropdownMenuItem(value: 'MSG91', child: Text('MSG91')),

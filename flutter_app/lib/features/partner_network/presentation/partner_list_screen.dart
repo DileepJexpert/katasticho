@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/partner_network_repository.dart';
 
@@ -80,7 +78,7 @@ class PartnerListScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: role,
+                initialValue: role,
                 decoration: const InputDecoration(labelText: 'Your Role'),
                 items: const [
                   DropdownMenuItem(value: 'BUYER', child: Text('I am Buyer (they sell to me)')),

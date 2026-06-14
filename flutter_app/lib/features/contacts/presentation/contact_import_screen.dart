@@ -68,7 +68,7 @@ class _ContactImportScreenState extends ConsumerState<ContactImportScreen> {
             .split(RegExp(r'\r?\n'))
             .where((l) => l.trim().isNotEmpty)
             .toList();
-        dataRows = lines.length > 0 ? lines.length - 1 : 0;
+        dataRows = lines.isNotEmpty ? lines.length - 1 : 0;
       }
 
       setState(() {

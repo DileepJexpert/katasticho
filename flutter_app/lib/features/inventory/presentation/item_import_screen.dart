@@ -71,7 +71,7 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
             .split(RegExp(r'\r?\n'))
             .where((l) => l.trim().isNotEmpty)
             .toList();
-        dataRows = lines.length > 0 ? lines.length - 1 : 0;
+        dataRows = lines.isNotEmpty ? lines.length - 1 : 0;
       } else {
         dataRows = -1;
       }
@@ -184,7 +184,7 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
     final items = await showItemScanSheet(context, purchaseInvoice: true);
     if (items == null || items.isEmpty || !mounted) return;
 
-    final header = 'sku,name,description,item_type,category,brand,hsn_code,'
+    const header = 'sku,name,description,item_type,category,brand,hsn_code,'
         'unit_of_measure,purchase_price,sale_price,mrp,gst_rate,'
         'reorder_level,reorder_quantity,opening_stock,'
         'barcode,manufacturer,batch_number,mfg_date,expiry_date';

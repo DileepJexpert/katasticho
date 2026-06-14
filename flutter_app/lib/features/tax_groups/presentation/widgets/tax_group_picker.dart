@@ -37,14 +37,14 @@ class TaxGroupPicker extends ConsumerWidget {
 
     return taxGroupsAsync.when(
       loading: () => DropdownButtonFormField<String>(
-        value: null,
+        initialValue: null,
         decoration: InputDecoration(labelText: label),
         items: const [],
         onChanged: null,
         hint: const Text('Loading...'),
       ),
       error: (_, __) => DropdownButtonFormField<String>(
-        value: null,
+        initialValue: null,
         decoration: InputDecoration(
           labelText: label,
           errorText: 'Failed to load',
@@ -56,7 +56,7 @@ class TaxGroupPicker extends ConsumerWidget {
         final activeGroups = groups.where((g) => g.active).toList();
 
         return DropdownButtonFormField<String>(
-          value: value != null &&
+          initialValue: value != null &&
                   activeGroups.any((g) => g.id == value)
               ? value
               : null,

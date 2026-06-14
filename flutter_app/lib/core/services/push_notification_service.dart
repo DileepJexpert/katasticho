@@ -29,6 +29,7 @@
 ///
 /// 6. Background / terminated messages are handled by FCM automatically via
 ///    the OS notification tray; no additional Flutter code is needed.
+library;
 
 class PushNotificationService {
   PushNotificationService._();

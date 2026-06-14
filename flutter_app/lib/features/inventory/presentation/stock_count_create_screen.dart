@@ -9,7 +9,6 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../../../routing/app_router.dart';
 
 class StockCountCreateScreen extends ConsumerStatefulWidget {
@@ -62,7 +61,7 @@ class _StockCountCreateScreenState
       final response = await api.get(ApiConfig.warehouses);
       final data = response.data['data'] ?? response.data;
       final list = data is List ? data : (data is Map ? (data['content'] as List?) ?? [] : []);
-      _warehouses = (list as List)
+      _warehouses = (list)
           .whereType<Map>()
           .map((e) => e.cast<String, dynamic>())
           .toList();
@@ -90,7 +89,7 @@ class _StockCountCreateScreenState
       );
       final data = response.data['data'] ?? response.data;
       final list = data is List ? data : (data is Map ? (data['content'] as List?) ?? [] : []);
-      _searchResults = (list as List)
+      _searchResults = (list)
           .whereType<Map>()
           .map((e) => e.cast<String, dynamic>())
           .toList();
@@ -299,7 +298,7 @@ class _StockCountCreateScreenState
                   ),
                 )
               : DropdownButtonFormField<String>(
-                  value: _selectedWarehouseId,
+                  initialValue: _selectedWarehouseId,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     hintText: 'Select warehouse',
@@ -544,8 +543,7 @@ class _CountLine {
     required this.sku,
     this.expectedQuantity = 0,
     this.countedQuantity = 0,
-    this.notes = '',
-  });
+  }) : notes = '';
 
   double get variance => countedQuantity - expectedQuantity;
 }

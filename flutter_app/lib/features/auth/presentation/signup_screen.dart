@@ -294,7 +294,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       ),
                       KSpacing.vGapMd,
                       DropdownButtonFormField<String>(
-                        value: _selectedCountry,
+                        initialValue: _selectedCountry,
                         decoration: const InputDecoration(
                           labelText: 'Country',
                           prefixIcon: Icon(Icons.public),

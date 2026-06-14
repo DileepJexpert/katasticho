@@ -264,7 +264,7 @@ class _PolicyDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       items: [
         for (final item in items)
           DropdownMenuItem(

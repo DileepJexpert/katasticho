@@ -15,7 +15,6 @@ import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../pricing/data/scheme_repository.dart';
 import '../../settings/data/org_settings_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
-import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../data/sales_order_providers.dart';
 import '../data/sales_order_repository.dart';
 
@@ -1621,7 +1620,7 @@ class _UnitDropdown extends StatelessWidget {
     final allUnits = units.contains(value) ? units : [value, ...units];
 
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       decoration: const InputDecoration(labelText: 'Unit'),
       isExpanded: true,
       items: allUnits

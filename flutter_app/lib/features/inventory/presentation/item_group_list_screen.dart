@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/item_group_repository.dart';
 
@@ -21,7 +20,7 @@ class ItemGroupListScreen extends ConsumerWidget {
                   ? groupsAsync.valueOrNull!['data'] as List
                   : (groupsAsync.valueOrNull!['data'] is Map
                       ? (groupsAsync.valueOrNull!['data']['content'] as List?) ?? []
-                      : [])) as List)
+                      : [])))
               .length
           : 0,
       onNew: () => context.push('/item-groups/create'),

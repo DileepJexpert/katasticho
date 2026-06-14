@@ -555,7 +555,7 @@ class _Row extends StatelessWidget {
   final String value;
   final bool bold;
 
-  const _Row(this.label, this.value, {this.bold = false});
+  const _Row(this.label, this.value) : bold = false;
 
   @override
   Widget build(BuildContext context) {

@@ -726,7 +726,7 @@ class _TdsTabState extends ConsumerState<TdsTab> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: _fy,
+                      initialValue: _fy,
                       decoration: const InputDecoration(
                         labelText: 'FY starting',
                         border: OutlineInputBorder(),
@@ -748,7 +748,7 @@ class _TdsTabState extends ConsumerState<TdsTab> {
                   KSpacing.hGapMd,
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: _quarter,
+                      initialValue: _quarter,
                       decoration: const InputDecoration(
                         labelText: 'Quarter',
                         border: OutlineInputBorder(),
@@ -1359,7 +1359,7 @@ class _TcsTabState extends ConsumerState<TcsTab> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: _fy,
+                      initialValue: _fy,
                       decoration: const InputDecoration(
                         labelText: 'FY starting',
                         border: OutlineInputBorder(),
@@ -1381,7 +1381,7 @@ class _TcsTabState extends ConsumerState<TcsTab> {
                   KSpacing.hGapMd,
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: _quarter,
+                      initialValue: _quarter,
                       decoration: const InputDecoration(
                         labelText: 'Quarter',
                         border: OutlineInputBorder(),

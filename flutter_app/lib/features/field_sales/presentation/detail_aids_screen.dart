@@ -73,7 +73,7 @@ class _DetailAidsScreenState extends ConsumerState<DetailAidsScreen> {
                   ),
                 ),
                 DropdownButtonFormField<String>(
-                  value: type,
+                  initialValue: type,
                   decoration: const InputDecoration(labelText: 'Type'),
                   items: const [
                     DropdownMenuItem(value: 'PDF', child: Text('PDF')),

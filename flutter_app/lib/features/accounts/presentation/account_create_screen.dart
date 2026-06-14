@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/form_error_handler.dart';
-import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/account_repository.dart';
 
@@ -133,7 +132,7 @@ class _AccountCreateScreenState extends ConsumerState<AccountCreateScreen> with 
               _SectionTitle('Account Type'),
               KSpacing.vGapSm,
               DropdownButtonFormField<String>(
-                value: _accountType,
+                initialValue: _accountType,
                 decoration: const InputDecoration(
                   labelText: 'Type',
                   prefixIcon: Icon(Icons.category_outlined),
@@ -154,7 +153,7 @@ class _AccountCreateScreenState extends ConsumerState<AccountCreateScreen> with 
               if (_currentSubTypes.isNotEmpty) ...[
                 KSpacing.vGapMd,
                 DropdownButtonFormField<String?>(
-                  value: _subType,
+                  initialValue: _subType,
                   decoration: const InputDecoration(
                     labelText: 'Sub-type',
                     prefixIcon: Icon(Icons.subdirectory_arrow_right_outlined),
@@ -309,7 +308,7 @@ class _ParentAccountPicker extends ConsumerWidget {
             .toList()
           ..sort((a, b) => a.code.compareTo(b.code));
         return DropdownButtonFormField<String?>(
-          value: value,
+          initialValue: value,
           decoration: const InputDecoration(
             labelText: 'Parent Account',
             prefixIcon: Icon(Icons.account_tree_outlined),

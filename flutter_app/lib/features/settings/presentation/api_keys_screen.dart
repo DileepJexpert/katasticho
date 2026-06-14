@@ -216,7 +216,7 @@ class _ApiKeysScreenState extends ConsumerState<ApiKeysScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: KColors.info.withOpacity(0.08),
+        color: KColors.info.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -270,7 +270,7 @@ class _ApiKeysScreenState extends ConsumerState<ApiKeysScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: KColors.error.withOpacity(0.1),
+                          color: KColors.error.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text('Revoked',
@@ -303,7 +303,7 @@ class _ApiKeysScreenState extends ConsumerState<ApiKeysScreen> {
         child: Column(
           children: [
             Icon(Icons.vpn_key_outlined,
-                size: 48, color: KColors.textSecondary.withOpacity(0.5)),
+                size: 48, color: KColors.textSecondary.withValues(alpha: 0.5)),
             KSpacing.vGapSm,
             Text('No API keys yet',
                 style: KTypography.bodyMedium

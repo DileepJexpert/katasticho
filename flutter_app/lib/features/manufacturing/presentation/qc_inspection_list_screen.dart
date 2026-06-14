@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/qc_repository.dart';
 
@@ -406,7 +405,7 @@ class _CreateInspectionSheetState
 
               // Inspection type
               DropdownButtonFormField<String>(
-                value: _inspectionType,
+                initialValue: _inspectionType,
                 decoration: const InputDecoration(
                   labelText: 'Inspection Type *',
                   border: OutlineInputBorder(),

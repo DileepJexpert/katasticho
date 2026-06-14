@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,7 +5,6 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/form_error_handler.dart';
-import '../../../core/widgets/k_keyboard_form_wrapper.dart';
 import '../data/price_list_repository.dart';
 
 /// Form for creating a new price list. The server flips the previous
@@ -116,7 +114,7 @@ class _PriceListCreateScreenState
               ),
               KSpacing.vGapMd,
               DropdownButtonFormField<String>(
-                value: _currency,
+                initialValue: _currency,
                 decoration: const InputDecoration(labelText: 'Currency'),
                 items: const [
                   DropdownMenuItem(value: 'INR', child: Text('INR — Indian Rupee')),

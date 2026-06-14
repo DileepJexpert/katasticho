@@ -33,9 +33,9 @@ class PlatformAdminTokenNotifier extends StateNotifier<String?> {
 
   // ── Storage helpers (same pattern as AuthStorage) ──
 
-  static final FlutterSecureStorage? _secureStorage = kIsWeb
+  static const FlutterSecureStorage? _secureStorage = kIsWeb
       ? null
-      : const FlutterSecureStorage(
+      : FlutterSecureStorage(
           aOptions: AndroidOptions(encryptedSharedPreferences: true),
         );
 

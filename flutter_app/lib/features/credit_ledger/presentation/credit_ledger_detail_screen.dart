@@ -434,7 +434,7 @@ class _CollectionFollowUpSheetState extends State<_CollectionFollowUpSheet> {
           Text('Collection Follow-up', style: KTypography.h3),
           KSpacing.vGapMd,
           DropdownButtonFormField<String>(
-            value: _status,
+            initialValue: _status,
             decoration: const InputDecoration(
               labelText: 'Status',
               border: OutlineInputBorder(),

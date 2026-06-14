@@ -356,7 +356,7 @@ class _StepEditorRow extends StatelessWidget {
             SizedBox(
               width: narrow ? double.infinity : 190,
               child: DropdownButtonFormField<String>(
-                value: _roles.contains(step.approverRole)
+                initialValue: _roles.contains(step.approverRole)
                     ? step.approverRole
                     : 'OWNER',
                 decoration: const InputDecoration(
@@ -396,7 +396,7 @@ class _StepEditorRow extends StatelessWidget {
             SizedBox(
               width: narrow ? double.infinity : 170,
               child: DropdownButtonFormField<String>(
-                value: _timeoutActions.contains(step.onTimeout)
+                initialValue: _timeoutActions.contains(step.onTimeout)
                     ? step.onTimeout
                     : 'ESCALATE',
                 decoration: const InputDecoration(

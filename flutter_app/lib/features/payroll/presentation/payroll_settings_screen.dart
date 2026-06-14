@@ -216,7 +216,7 @@ class _PayrollSettingsScreenState extends ConsumerState<PayrollSettingsScreen> {
           KSpacing.vGapSm,
           KCard(
             child: DropdownButtonFormField<String>(
-              value: _payFrequency,
+              initialValue: _payFrequency,
               isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Frequency',
