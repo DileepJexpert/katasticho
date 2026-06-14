@@ -148,6 +148,7 @@ import '../features/payroll/presentation/employee_form_screen.dart';
 import '../features/payroll/presentation/payroll_run_list_screen.dart';
 import '../features/payroll/presentation/payroll_run_detail_screen.dart';
 import '../features/payroll/presentation/payroll_settings_screen.dart';
+import '../features/hr/presentation/my_profile_screen.dart';
 import '../features/hr/presentation/leave_management_screen.dart';
 import '../features/hr/presentation/hr_attendance_screen.dart';
 import '../features/hr/presentation/shift_management_screen.dart';
@@ -370,6 +371,7 @@ class Routes {
   static const payrollSettings = '/payroll/settings';
 
   // HR portal
+  static const hrProfile = '/hr/profile';
   static const hrLeave = '/hr/leave';
   static const hrAttendance = '/hr/attendance';
   static const hrShifts = '/hr/shifts';
@@ -1086,6 +1088,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.payrollSettings,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: PayrollSettingsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.hrProfile,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: MyProfileScreen(),
             ),
           ),
           GoRoute(

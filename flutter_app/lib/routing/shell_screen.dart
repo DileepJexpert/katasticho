@@ -459,6 +459,11 @@ const _hrGroup = NavGroup(
   activeIcon: Icons.groups_rounded,
   children: [
     NavItem(
+        label: 'My Profile',
+        icon: Icons.badge_outlined,
+        activeIcon: Icons.badge,
+        route: Routes.hrProfile),
+    NavItem(
         label: 'Leave',
         icon: Icons.beach_access_outlined,
         activeIcon: Icons.beach_access_rounded,

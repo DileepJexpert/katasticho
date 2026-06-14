@@ -686,6 +686,10 @@ class ApiConfig {
   static String hrOffboardingCancel(String id) =>
       '/api/v1/hr/offboarding/$id/cancel';
 
+  // HR portal — Employee profile (self-service)
+  static const String hrProfileMe = '/api/v1/hr/profile/me';
+  static String hrProfileByUser(String userId) => '/api/v1/hr/profile/$userId';
+
   // Payroll
   static const String payrollSettings = '/api/v1/payroll/settings';
   static const String payrollEmployees = '/api/v1/payroll/employees';
