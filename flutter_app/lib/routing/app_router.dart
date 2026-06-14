@@ -149,6 +149,9 @@ import '../features/payroll/presentation/payroll_run_list_screen.dart';
 import '../features/payroll/presentation/payroll_run_detail_screen.dart';
 import '../features/payroll/presentation/payroll_settings_screen.dart';
 import '../features/hr/presentation/leave_management_screen.dart';
+import '../features/hr/presentation/hr_attendance_screen.dart';
+import '../features/hr/presentation/shift_management_screen.dart';
+import '../features/hr/presentation/timesheet_screen.dart';
 import '../features/field_sales/presentation/beat_list_screen.dart';
 import '../features/field_sales/presentation/live_tracking_screen.dart';
 import '../features/field_sales/presentation/mr_approvals_screen.dart';
@@ -364,6 +367,9 @@ class Routes {
 
   // HR portal
   static const hrLeave = '/hr/leave';
+  static const hrAttendance = '/hr/attendance';
+  static const hrShifts = '/hr/shifts';
+  static const hrTimesheets = '/hr/timesheets';
 
   // Field Sales / FMCG
   static const fieldSalesBeats = '/field-sales/beats';
@@ -1078,6 +1084,24 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.hrLeave,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: LeaveManagementScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.hrAttendance,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: HrAttendanceScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.hrShifts,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ShiftManagementScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.hrTimesheets,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: TimesheetScreen(),
             ),
           ),
           // Field Sales / FMCG Execution

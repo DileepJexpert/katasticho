@@ -463,6 +463,21 @@ const _hrGroup = NavGroup(
         icon: Icons.beach_access_outlined,
         activeIcon: Icons.beach_access_rounded,
         route: Routes.hrLeave),
+    NavItem(
+        label: 'Attendance',
+        icon: Icons.co_present_outlined,
+        activeIcon: Icons.co_present_rounded,
+        route: Routes.hrAttendance),
+    NavItem(
+        label: 'Shifts',
+        icon: Icons.access_time_outlined,
+        activeIcon: Icons.access_time_filled,
+        route: Routes.hrShifts),
+    NavItem(
+        label: 'Timesheets',
+        icon: Icons.timer_outlined,
+        activeIcon: Icons.timer,
+        route: Routes.hrTimesheets),
   ],
 );
 

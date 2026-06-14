@@ -609,7 +609,7 @@ generic `AttachmentService`/`EntityAttachment` for documents.
 7. Document management — wire `EntityAttachment` to employee (ID/PAN/insurance, expiry).
 8. HR analytics — headcount/attrition/leave/attendance dashboards.
 9. Offboarding — exit process, clearance, F&F.
-**Flutter HR portal UI: Leave DONE; Attendance/Shift/Timesheets TODO.** (Flutter 3.44.2 now installed in the env — both apps analyze with 0 errors.)
+**Flutter HR portal UI: Leave + Attendance + Shifts + Timesheets DONE** (all under sidebar "HR" group, analyze-clean). Employee depth / HR help desk / Documents / Analytics / Offboarding UI follow with their backends. (Flutter 3.44.2 installed in the env — both apps analyze with 0 errors.)
 
 ## Doc Files Index
 | Doc | Purpose | Read when |

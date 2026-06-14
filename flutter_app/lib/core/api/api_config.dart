@@ -629,6 +629,32 @@ class ApiConfig {
   static const String hrLeaveBalances = '/api/v1/hr/leave/my-balances';
   static const String hrHolidays = '/api/v1/hr/leave/holidays';
 
+  // HR portal — Attendance management
+  static const String hrAttendanceRegs = '/api/v1/hr/attendance/regularizations';
+  static const String hrAttendanceRegsMine =
+      '/api/v1/hr/attendance/regularizations/me';
+  static const String hrAttendanceRegsPending =
+      '/api/v1/hr/attendance/regularizations/pending';
+  static String hrAttendanceRegApprove(String id) =>
+      '/api/v1/hr/attendance/regularizations/$id/approve';
+  static String hrAttendanceRegReject(String id) =>
+      '/api/v1/hr/attendance/regularizations/$id/reject';
+  static const String hrAttendanceSummaryMe = '/api/v1/hr/attendance/summary/me';
+
+  // HR portal — Shift management
+  static const String hrShifts = '/api/v1/hr/shifts';
+  static const String hrShiftAssignments = '/api/v1/hr/shifts/assignments';
+
+  // HR portal — Timesheets
+  static const String hrTimesheets = '/api/v1/hr/timesheets';
+  static const String hrTimesheetSubmit = '/api/v1/hr/timesheets/submit';
+  static const String hrTimesheetMine = '/api/v1/hr/timesheets/me';
+  static const String hrTimesheetPending = '/api/v1/hr/timesheets/pending';
+  static const String hrTimesheetSummary = '/api/v1/hr/timesheets/summary';
+  static String hrTimesheetApprove(String id) =>
+      '/api/v1/hr/timesheets/$id/approve';
+  static String hrTimesheetReject(String id) => '/api/v1/hr/timesheets/$id/reject';
+
   // Payroll
   static const String payrollSettings = '/api/v1/payroll/settings';
   static const String payrollEmployees = '/api/v1/payroll/employees';
