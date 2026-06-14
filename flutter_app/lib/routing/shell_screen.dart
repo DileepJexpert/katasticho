@@ -478,6 +478,11 @@ const _hrGroup = NavGroup(
         icon: Icons.timer_outlined,
         activeIcon: Icons.timer,
         route: Routes.hrTimesheets),
+    NavItem(
+        label: 'Help Desk',
+        icon: Icons.support_agent_outlined,
+        activeIcon: Icons.support_agent,
+        route: Routes.hrHelpdesk),
   ],
 );
 

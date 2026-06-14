@@ -655,6 +655,18 @@ class ApiConfig {
       '/api/v1/hr/timesheets/$id/approve';
   static String hrTimesheetReject(String id) => '/api/v1/hr/timesheets/$id/reject';
 
+  // HR portal — Help Desk
+  static const String hrHelpdeskTickets = '/api/v1/hr/helpdesk/tickets';
+  static const String hrHelpdeskMine = '/api/v1/hr/helpdesk/tickets/me';
+  static const String hrHelpdeskOpen = '/api/v1/hr/helpdesk/tickets/open';
+  static String hrHelpdeskTicket(String id) => '/api/v1/hr/helpdesk/tickets/$id';
+  static String hrHelpdeskComments(String id) =>
+      '/api/v1/hr/helpdesk/tickets/$id/comments';
+  static String hrHelpdeskAssign(String id) =>
+      '/api/v1/hr/helpdesk/tickets/$id/assign';
+  static String hrHelpdeskStatus(String id) =>
+      '/api/v1/hr/helpdesk/tickets/$id/status';
+
   // Payroll
   static const String payrollSettings = '/api/v1/payroll/settings';
   static const String payrollEmployees = '/api/v1/payroll/employees';
