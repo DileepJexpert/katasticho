@@ -3,6 +3,7 @@ package com.katasticho.erp.common.config;
 import com.katasticho.erp.auth.filter.ApiKeyAuthenticationFilter;
 import com.katasticho.erp.auth.filter.JwtAuthenticationFilter;
 import com.katasticho.erp.platform.filter.PlatformAdminJwtFilter;
+import com.katasticho.erp.portal.filter.PortalAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -31,6 +32,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ApiKeyAuthenticationFilter apiKeyAuthenticationFilter;
     private final PlatformAdminJwtFilter platformAdminJwtFilter;
+    private final PortalAuthenticationFilter portalAuthenticationFilter;
 
     @Value("${app.cors.allowed-origins:*}")
     private List<String> allowedOrigins;
@@ -52,6 +54,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/v1/auth/**",
+                                "/api/v1/portal/auth/**",
                                 "/api/v1/health",
                                 "/api/platform-admin/v1/auth/login",
                                 "/actuator/health",
@@ -74,7 +77,10 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 // API-key filter runs before JWT: it authenticates X-API-Key / Bearer kat_…
                 // requests; everything else falls through to the JWT filter untouched.
-                .addFilterBefore(apiKeyAuthenticationFilter, JwtAuthenticationFilter.class);
+                .addFilterBefore(apiKeyAuthenticationFilter, JwtAuthenticationFilter.class)
+                // Portal filter authenticates external customers/vendors on /api/v1/portal/**
+                // (it self-skips all other paths, including /api/v1/portal/auth/**).
+                .addFilterBefore(portalAuthenticationFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

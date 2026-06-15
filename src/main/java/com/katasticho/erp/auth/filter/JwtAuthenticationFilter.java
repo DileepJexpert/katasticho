@@ -115,6 +115,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
         if (path.startsWith("/api/v1/auth/")
+                || path.startsWith("/api/v1/portal/")   // portal users carry a portal JWT, not an app JWT
                 || path.startsWith("/api/platform-admin/")
                 || path.startsWith("/actuator/")
                 || path.startsWith("/v3/api-docs")
