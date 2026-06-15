@@ -136,6 +136,9 @@ class ApiConfig {
   static String cashRegisterDeleteExpense(String id) => '/api/v1/pos/cash-register/expense/$id';
   static String cashRegisterByDate(String date) => '/api/v1/pos/cash-register/$date';
 
+  // POS catalog delta sync (local-first POS)
+  static const String posSync = '/api/v1/items/pos-sync';
+
   // Customer/Vendor portal accounts (admin management)
   static const String portalUsers = '/api/v1/portal-users';
   static String portalUserResendInvite(String id) => '/api/v1/portal-users/$id/resend-invite';

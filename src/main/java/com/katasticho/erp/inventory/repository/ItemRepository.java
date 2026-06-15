@@ -28,6 +28,13 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
 
     Page<Item> findByOrgIdAndIsDeletedFalseAndActiveTrue(UUID orgId, Pageable pageable);
 
+    /** Items changed since the given timestamp — feeds the POS catalog delta sync. */
+    @Query("SELECT i FROM Item i WHERE i.orgId = :orgId AND i.updatedAt > :since " +
+            "ORDER BY i.updatedAt ASC")
+    Page<Item> findChangedSince(@Param("orgId") UUID orgId,
+                                @Param("since") java.time.Instant since,
+                                Pageable pageable);
+
     @Query("""
             SELECT i FROM Item i
             WHERE i.orgId = :orgId

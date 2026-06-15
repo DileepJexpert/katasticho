@@ -6,6 +6,7 @@ import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.pos.dto.PosSearchResult;
 import com.katasticho.erp.pos.service.PosCatalogService;
+import com.katasticho.erp.pos.service.PosCatalogSyncService;
 import com.katasticho.erp.pos.service.PosSearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,7 @@ public class PosSearchController {
 
     private final PosSearchService posSearchService;
     private final PosCatalogService posCatalogService;
+    private final PosCatalogSyncService posCatalogSyncService;
 
     /**
      * Fast POS item search — optimized for counter billing speed.
@@ -68,6 +70,24 @@ public class PosSearchController {
         return ResponseEntity.ok(ApiResponse.ok(
                 posCatalogService.createItemFromDrug(drugId, branchId, openingStock),
                 "Item added from catalog"));
+    }
+
+    /**
+     * POS catalog delta sync — items changed since {@code since} (or full
+     * snapshot if absent). The client persists {@code nextSince} and pages
+     * through with {@code hasMore}. This is what powers the local-first POS
+     * search: the client searches its own SQLite, this keeps it fresh.
+     */
+    @GetMapping("/pos-sync")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> posSync(
+            @RequestParam(required = false) String since,
+            @RequestParam(name = "branch_id", required = false) UUID branchId,
+            @RequestParam(name = "page_size", defaultValue = "500") int pageSize) {
+        java.time.Instant from = (since == null || since.isBlank())
+                ? null : java.time.Instant.parse(since);
+        return ResponseEntity.ok(ApiResponse.ok(
+                posCatalogSyncService.sync(from, branchId, pageSize)));
     }
 
     private boolean canSeeCostPrice(Authentication auth) {

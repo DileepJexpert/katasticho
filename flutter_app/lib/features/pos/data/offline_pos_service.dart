@@ -12,6 +12,7 @@ import '../../../core/storage/pos_database.dart';
 const _dbName = 'katasticho_offline.db';
 const _table = 'pending_receipts';
 const _itemTable = 'pos_item_cache';
+const _metaTable = 'pos_meta';
 
 class PendingReceipt {
   final int? id;
@@ -50,7 +51,7 @@ class OfflinePosService {
     final dbPath = await getDatabasesPath();
     _db = await openDatabase(
       p.join(dbPath, _dbName),
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE $_table (
@@ -62,9 +63,11 @@ class OfflinePosService {
           )
         ''');
         await _createItemCache(db);
+        await _createMeta(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _createItemCache(db);
+        if (oldVersion < 3) await _createMeta(db);
       },
     );
     return _db!;
@@ -82,6 +85,36 @@ class OfflinePosService {
         updated_at TEXT NOT NULL
       )
     ''');
+  }
+
+  Future<void> _createMeta(Database db) {
+    return db.execute('''
+      CREATE TABLE $_metaTable (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      )
+    ''');
+  }
+
+  Future<String?> getMeta(String key) async {
+    if (!posOfflineSupported) return null;
+    final db = await _getDb();
+    final rows = await db.query(_metaTable, where: 'key = ?', whereArgs: [key]);
+    return rows.isEmpty ? null : rows.first['value'] as String?;
+  }
+
+  Future<void> setMeta(String key, String value) async {
+    if (!posOfflineSupported) return;
+    final db = await _getDb();
+    await db.insert(_metaTable, {'key': key, 'value': value},
+        conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Remove an item from the local catalog (used when sync reports isDeleted).
+  Future<void> removeCachedItem(String itemId) async {
+    if (!posOfflineSupported) return;
+    final db = await _getDb();
+    await db.delete(_itemTable, where: 'item_id = ?', whereArgs: [itemId]);
   }
 
   Future<void> init() async {

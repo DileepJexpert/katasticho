@@ -14,6 +14,7 @@ import '../../../core/widgets/widgets.dart';
 import '../data/pos_cart_state.dart';
 import '../data/pos_held_carts.dart';
 import '../data/pos_recent_transactions.dart';
+import '../data/pos_catalog_sync_service.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_repository.dart';
 import '../data/sales_receipt_providers.dart';
@@ -72,7 +73,19 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   String? _walletRedeemContactId; // matches the cart's contactId
 
   @override
+  void initState() {
+    super.initState();
+    // Start the local-first catalog sync as soon as POS opens. Runs an
+    // immediate delta sync + a ~60s background timer; never blocks the UI.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(posCatalogSyncProvider).start();
+    });
+  }
+
+  @override
   void dispose() {
+    ref.read(posCatalogSyncProvider).stop();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _debounce?.cancel();
