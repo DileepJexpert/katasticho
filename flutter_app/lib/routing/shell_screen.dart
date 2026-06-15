@@ -547,6 +547,21 @@ const _fieldSalesGroup = NavGroup(
         activeIcon: Icons.auto_stories,
         route: Routes.fieldSalesDetailAids),
     NavItem(
+        label: 'Secondary Sales',
+        icon: Icons.inventory_2_outlined,
+        activeIcon: Icons.inventory_2,
+        route: Routes.fieldSalesSecondarySales),
+    NavItem(
+        label: 'RCPA',
+        icon: Icons.fact_check_outlined,
+        activeIcon: Icons.fact_check,
+        route: Routes.fieldSalesRcpa),
+    NavItem(
+        label: 'Org Chart',
+        icon: Icons.account_tree_outlined,
+        activeIcon: Icons.account_tree,
+        route: Routes.fieldSalesOrgChart),
+    NavItem(
         label: 'Beats',
         icon: Icons.location_on_outlined,
         activeIcon: Icons.location_on_rounded,

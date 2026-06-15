@@ -53,13 +53,28 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
   bool _ptApplicable = false;
   bool _lwfApplicable = false;
 
+  // Link to the app login (powers attendance/leave → payroll LOP)
+  String? _userId;
+  List<Map<String, dynamic>> _orgUsers = [];
+
   @override
   void initState() {
     super.initState();
+    _loadOrgUsers();
     if (_isEdit) {
       _initialLoading = true;
       _loadEmployee();
     }
+  }
+
+  Future<void> _loadOrgUsers() async {
+    try {
+      final res = await ref.read(apiClientProvider).get(ApiConfig.orgUsers);
+      final list = (res.data['data'] as List?) ?? const [];
+      if (!mounted) return;
+      setState(() => _orgUsers =
+          list.map((e) => Map<String, dynamic>.from(e as Map)).toList());
+    } catch (_) {/* user link is optional */}
   }
 
   @override
@@ -118,6 +133,8 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
         _esiApplicable = data['esiApplicable'] as bool? ?? false;
         _ptApplicable = data['ptApplicable'] as bool? ?? false;
         _lwfApplicable = data['lwfApplicable'] as bool? ?? false;
+
+        _userId = data['userId'] as String?;
 
         _initialLoading = false;
       });
@@ -297,6 +314,30 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
             ],
             onChanged: (v) =>
                 setState(() => _paymentMode = v ?? 'BANK_TRANSFER'),
+          ),
+          KSpacing.vGapSm,
+          DropdownButtonFormField<String?>(
+            initialValue: _userId,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'App login (for attendance / leave → payroll LOP)',
+              prefixIcon: Icon(Icons.link_outlined),
+            ),
+            items: [
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Text('Not linked'),
+              ),
+              ..._orgUsers.map((u) {
+                final id = (u['userId'] ?? u['id'])?.toString();
+                final name = (u['fullName'] ?? u['email'] ?? id)?.toString() ?? '';
+                return DropdownMenuItem<String?>(
+                  value: id,
+                  child: Text(name, overflow: TextOverflow.ellipsis),
+                );
+              }),
+            ],
+            onChanged: (v) => setState(() => _userId = v),
           ),
         ]),
       ],
@@ -478,6 +519,7 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
         'uan': _uanCtrl.text.trim(),
       if (_esiNumberCtrl.text.trim().isNotEmpty)
         'esiNumber': _esiNumberCtrl.text.trim(),
+      'userId': _userId,
     };
 
     try {

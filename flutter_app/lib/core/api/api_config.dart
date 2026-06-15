@@ -821,6 +821,35 @@ class ApiConfig {
   static String fieldSamplesTransactions(String salespersonId) =>
       '/api/v1/field-sales/samples/transactions/$salespersonId';
 
+  // Stockist secondary sales (SSS)
+  static const String secondarySalesStatements =
+      '/api/v1/field-sales/secondary-sales/statements';
+  static String secondarySalesStatementById(String id) =>
+      '/api/v1/field-sales/secondary-sales/statements/$id';
+  static String secondarySalesStatementSubmit(String id) =>
+      '/api/v1/field-sales/secondary-sales/statements/$id/submit';
+  static const String secondarySalesReport =
+      '/api/v1/field-sales/secondary-sales/reports/secondary-sales';
+  static const String secondarySalesStockOnHand =
+      '/api/v1/field-sales/secondary-sales/reports/stock-on-hand';
+
+  // RCPA (retail chemist prescription audit)
+  static const String mrRcpa = '/api/v1/mr/rcpa';
+  static const String mrRcpaMine = '/api/v1/mr/rcpa/me';
+  static String mrRcpaById(String id) => '/api/v1/mr/rcpa/$id';
+  static String mrRcpaByChemist(String chemistId) =>
+      '/api/v1/mr/rcpa/by-chemist/$chemistId';
+  static const String mrRcpaShareReport = '/api/v1/mr/rcpa/reports/share';
+  static const String mrRcpaCompetitors = '/api/v1/mr/rcpa/reports/competitors';
+
+  // Field reporting hierarchy (org chart + manager assignment)
+  static const String fieldHierarchyOrgChart =
+      '/api/v1/field-sales/hierarchy/org-chart';
+  static const String fieldHierarchyMyTeam =
+      '/api/v1/field-sales/hierarchy/my-team';
+  static String fieldHierarchySetManager(String userId) =>
+      '/api/v1/field-sales/hierarchy/users/$userId/manager';
+
   // Coverage reports
   static const String mrTeamDashboard = '/api/v1/mr/reports/team-dashboard';
   static const String mrDeviationReport = '/api/v1/mr/reports/deviation';

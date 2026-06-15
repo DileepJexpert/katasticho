@@ -162,6 +162,9 @@ import '../features/field_sales/presentation/live_tracking_screen.dart';
 import '../features/field_sales/presentation/mr_approvals_screen.dart';
 import '../features/field_sales/presentation/field_samples_screen.dart';
 import '../features/field_sales/presentation/field_coverage_screen.dart';
+import '../features/field_sales/presentation/secondary_sales_screen.dart';
+import '../features/field_sales/presentation/rcpa_screen.dart';
+import '../features/field_sales/presentation/field_org_chart_screen.dart';
 import '../features/field_sales/presentation/attendance_screen.dart';
 import '../features/field_sales/presentation/detail_aids_screen.dart';
 import '../features/field_sales/presentation/route_list_screen.dart';
@@ -395,6 +398,9 @@ class Routes {
   static const fieldSalesCoverage = '/field-sales/coverage';
   static const fieldSalesAttendance = '/field-sales/attendance';
   static const fieldSalesDetailAids = '/field-sales/detail-aids';
+  static const fieldSalesSecondarySales = '/field-sales/secondary-sales';
+  static const fieldSalesRcpa = '/field-sales/rcpa';
+  static const fieldSalesOrgChart = '/field-sales/org-chart';
 
   // Partner Network (B2B)
   static const partnerNetworkPartners = '/partner-network/partners';
@@ -1209,6 +1215,24 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.fieldSalesCoverage,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: FieldCoverageScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesSecondarySales,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SecondarySalesScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesRcpa,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RcpaScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesOrgChart,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: FieldOrgChartScreen(),
             ),
           ),
           GoRoute(
