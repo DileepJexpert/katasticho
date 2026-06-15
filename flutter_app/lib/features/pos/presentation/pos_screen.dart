@@ -33,6 +33,7 @@ import 'widgets/pos_recent_bills.dart';
 import 'widgets/pos_weight_popup.dart';
 import '../../inventory/data/batch_repository.dart';
 import '../../../core/shortcuts/k_shortcuts.dart';
+import '../../../core/storage/pos_database.dart';
 import '../data/thermal_print_service.dart';
 import '../data/offline_pos_service.dart';
 import 'pos_receipt_settings_screen.dart';
@@ -514,6 +515,16 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     if (result != null && mounted) {
       ref.read(posCartProvider.notifier).applyGlobalDiscount(result);
     }
+  }
+
+  /// Open the catalog pre-sync sheet (one-tap "Download the whole catalog for
+  /// offline" + progress bar). Cashier triggers it once on a fresh terminal.
+  void _showCatalogSyncSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _CatalogSyncSheet(),
+    );
   }
 
   Future<void> _showNotesDialog() async {
@@ -1444,6 +1455,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 context.push('/pos/cash-register');
               case _PosOverflowAction.printerSetup:
                 context.push('/pos/printer-setup');
+              case _PosOverflowAction.catalogSync:
+                _showCatalogSyncSheet();
               case _PosOverflowAction.discount:
                 _showCartDiscount();
               case _PosOverflowAction.notes:
@@ -1494,6 +1507,16 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               child: ListTile(
                 leading: Icon(Icons.print),
                 title: Text('Printer Setup'),
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              ),
+            ),
+            const PopupMenuItem(
+              value: _PosOverflowAction.catalogSync,
+              child: ListTile(
+                leading: Icon(Icons.cloud_download_outlined),
+                title: Text('Catalog sync'),
+                subtitle: Text('Download for offline'),
                 contentPadding: EdgeInsets.zero,
                 dense: true,
               ),
@@ -1776,7 +1799,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       color: Theme.of(context).colorScheme.outlineVariant, fontSize: 10);
 }
 
-enum _PosOverflowAction { clear, settings, discount, notes, cashRegister, printerSetup }
+enum _PosOverflowAction {
+  clear,
+  settings,
+  discount,
+  notes,
+  cashRegister,
+  printerSetup,
+  catalogSync,
+}
 
 /// AppBar title showing "Quick POS" + live session sales summary.
 class _PosSessionTitle extends ConsumerWidget {
@@ -2100,6 +2131,126 @@ class _PosCatalogSection extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+
+/// Cashier-facing pre-sync sheet — downloads the whole catalog into the local
+/// store so a fresh terminal can search instantly without waiting for the
+/// background sync to page through. Resumable: re-running just continues from
+/// the persisted cursor.
+class _CatalogSyncSheet extends ConsumerStatefulWidget {
+  const _CatalogSyncSheet();
+
+  @override
+  ConsumerState<_CatalogSyncSheet> createState() => _CatalogSyncSheetState();
+}
+
+class _CatalogSyncSheetState extends ConsumerState<_CatalogSyncSheet> {
+  bool _running = false;
+  int _cached = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshCount();
+  }
+
+  Future<void> _refreshCount() async {
+    final n = await OfflinePosService.instance.cachedItemCount();
+    if (mounted) setState(() => _cached = n);
+  }
+
+  Future<void> _start() async {
+    setState(() => _running = true);
+    try {
+      await ref.read(posCatalogSyncProvider).fullPreSync();
+    } finally {
+      if (mounted) {
+        setState(() => _running = false);
+        await _refreshCount();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final progressAsync = ref.watch(posCatalogSyncProgressProvider);
+    final progress = progressAsync.value;
+    final supported = posOfflineSupported;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.cloud_download_outlined),
+                const SizedBox(width: 8),
+                Text("Catalog sync",
+                    style: Theme.of(context).textTheme.titleLarge),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              supported
+                  ? "Download the full item catalog to this terminal. Search runs "
+                      "instantly from the local store — no network in the hot path. "
+                      "Resumable: re-running continues from where it left off."
+                  : "Offline catalog is available only on the desktop / mobile build "
+                      "of this app, not on web.",
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.inventory_2_outlined),
+                title: const Text("Items cached locally"),
+                trailing: Text(
+                  '$_cached',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            ),
+            if (_running || progress != null) ...[
+              const SizedBox(height: 16),
+              LinearProgressIndicator(
+                value: progress == null || progress.total <= 0
+                    ? null
+                    : progress.fraction,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                progress == null
+                    ? "Starting…"
+                    : progress.total <= 0
+                        ? '${progress.processed} downloaded…'
+                        : '${progress.processed} of ${progress.total} downloaded',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: !supported || _running ? null : _start,
+              icon: const Icon(Icons.play_arrow),
+              label: Text(_running ? "Syncing…" : "Sync now"),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Close"),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

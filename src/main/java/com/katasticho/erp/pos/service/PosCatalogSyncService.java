@@ -45,10 +45,13 @@ public class PosCatalogSyncService {
      *
      * <p>{@code isDeleted} rows are included so the client can prune its cache.
      */
+    private static final UUID NIL_UUID = new UUID(0, 0);
+
     @Transactional(readOnly = true)
-    public Map<String, Object> sync(Instant since, UUID warehouseId, int pageSize) {
+    public Map<String, Object> sync(Instant since, UUID sinceId, UUID warehouseId, int pageSize) {
         UUID orgId = TenantContext.getCurrentOrgId();
         Instant from = since == null ? Instant.EPOCH : since;
+        UUID fromId = sinceId == null ? NIL_UUID : sinceId;
         int size = Math.min(Math.max(pageSize, 1), MAX_PAGE_SIZE);
 
         UUID whId = warehouseId != null ? warehouseId : warehouseRepository
@@ -56,18 +59,19 @@ public class PosCatalogSyncService {
                 .map(Warehouse::getId).orElse(null);
 
         List<Item> items = itemRepository
-                .findChangedSince(orgId, from, PageRequest.of(0, size,
-                        Sort.by(Sort.Direction.ASC, "updatedAt")))
+                .findChangedSince(orgId, from, fromId, PageRequest.of(0, size))
                 .getContent();
 
         Map<UUID, BigDecimal> stockByItem = loadStock(orgId, whId, items);
 
         List<Map<String, Object>> rows = new ArrayList<>(items.size());
         Instant cursor = from;
+        UUID cursorId = fromId;
         for (Item it : items) {
             rows.add(row(it, stockByItem.get(it.getId())));
-            if (it.getUpdatedAt() != null && it.getUpdatedAt().isAfter(cursor)) {
+            if (it.getUpdatedAt() != null) {
                 cursor = it.getUpdatedAt();
+                cursorId = it.getId();
             }
         }
 
@@ -75,7 +79,9 @@ public class PosCatalogSyncService {
         out.put("items", rows);
         out.put("count", rows.size());
         out.put("nextSince", cursor);
+        out.put("nextSinceId", cursorId);
         out.put("hasMore", rows.size() >= size);
+        out.put("totalCount", itemRepository.countByOrgId(orgId));
         return out;
     }
 

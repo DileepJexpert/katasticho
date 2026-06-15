@@ -82,12 +82,13 @@ public class PosSearchController {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> posSync(
             @RequestParam(required = false) String since,
+            @RequestParam(name = "since_id", required = false) UUID sinceId,
             @RequestParam(name = "branch_id", required = false) UUID branchId,
             @RequestParam(name = "page_size", defaultValue = "500") int pageSize) {
         java.time.Instant from = (since == null || since.isBlank())
                 ? null : java.time.Instant.parse(since);
         return ResponseEntity.ok(ApiResponse.ok(
-                posCatalogSyncService.sync(from, branchId, pageSize)));
+                posCatalogSyncService.sync(from, sinceId, branchId, pageSize)));
     }
 
     private boolean canSeeCostPrice(Authentication auth) {
