@@ -212,6 +212,20 @@ class GstRepository {
     return _data(response.data);
   }
 
+  /// Quarterly Form 24Q data (salary TDS). [fy] = FY start year.
+  Future<Map<String, dynamic>> tds24q(int fy, int quarter) async {
+    final response = await _api.get(ApiConfig.tds24q,
+        queryParameters: {'fy': fy, 'quarter': quarter});
+    return _data(response.data);
+  }
+
+  /// Annual Form 16 (employee TDS certificate). [fy] = FY start year.
+  Future<Map<String, dynamic>> tdsForm16(String employeeId, int fy) async {
+    final response = await _api.get(ApiConfig.tdsForm16(employeeId),
+        queryParameters: {'fy': fy});
+    return _data(response.data);
+  }
+
   // ── TCS 206C(1H) ─────────────────────────────────────────────────────
 
   /// Quarterly Form 27EQ data (collectee-wise TCS summary).

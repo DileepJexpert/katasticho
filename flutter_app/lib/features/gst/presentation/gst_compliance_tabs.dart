@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/api/api_client.dart';
+import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -892,6 +894,417 @@ class _TdsTabState extends ConsumerState<TdsTab> {
           }),
         ],
       ],
+    );
+  }
+}
+
+// ── Salary TDS Tab (Form 24Q + Form 16) ──────────────────────────────────────
+
+class SalaryTdsTab extends ConsumerStatefulWidget {
+  const SalaryTdsTab({super.key});
+
+  @override
+  ConsumerState<SalaryTdsTab> createState() => _SalaryTdsTabState();
+}
+
+class _SalaryTdsTabState extends ConsumerState<SalaryTdsTab> {
+  late int _fy;
+  late int _quarter;
+  Map<String, dynamic>? _data;
+  bool _loading = false;
+
+  // Form 16 picker state
+  List<Map<String, dynamic>> _employees = [];
+  String? _employeeId;
+  Map<String, dynamic>? _form16;
+  bool _form16Loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _fy = now.month >= 4 ? now.year : now.year - 1;
+    final fyMonth = now.month >= 4 ? now.month - 3 : now.month + 9;
+    _quarter = ((fyMonth - 1) ~/ 3) + 1;
+    _load();
+    _loadEmployees();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final data = await ref.read(gstRepositoryProvider).tds24q(_fy, _quarter);
+      if (mounted) setState(() => _data = data);
+    } catch (_) {
+      if (mounted) setState(() => _data = null);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadEmployees() async {
+    try {
+      final res = await ref.read(apiClientProvider).get(
+            ApiConfig.payrollEmployees,
+            queryParameters: {'pageNo': 0, 'pageSize': 200},
+          );
+      final content =
+          ((res.data['data'] as Map?)?['content'] as List?) ?? const [];
+      if (mounted) {
+        setState(() => _employees = content
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList());
+      }
+    } catch (_) {/* employees optional for Form 16 */}
+  }
+
+  Future<void> _loadForm16() async {
+    final id = _employeeId;
+    if (id == null) return;
+    setState(() => _form16Loading = true);
+    try {
+      final data = await ref.read(gstRepositoryProvider).tdsForm16(id, _fy);
+      if (mounted) setState(() => _form16 = data);
+    } catch (_) {
+      if (mounted) setState(() => _form16 = null);
+    } finally {
+      if (mounted) setState(() => _form16Loading = false);
+    }
+  }
+
+  Future<void> _share24q() async {
+    if (_data == null) return;
+    final pretty = const JsonEncoder.withIndent('  ').convert(_data);
+    await Share.share(pretty, subject: 'Form 24Q data — Q$_quarter FY $_fy');
+  }
+
+  Future<void> _shareForm16() async {
+    if (_form16 == null) return;
+    final pretty = const JsonEncoder.withIndent('  ').convert(_form16);
+    await Share.share(pretty, subject: 'Form 16 — FY $_fy');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = _data;
+    final deductees = (data?['deductees'] as List?) ?? const [];
+    return ListView(
+      padding: KSpacing.pagePadding,
+      children: [
+        KCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Form 24Q (TDS on salary)', style: KTypography.h3),
+              KSpacing.vGapSm,
+              Text(
+                'Salary TDS is deducted inside payroll. This rolls up the '
+                'employee-wise TDS from posted payroll runs for the quarterly '
+                '24Q return. Set the deductor TAN in settings to file.',
+                style: KTypography.bodySmall
+                    .copyWith(color: KColors.textSecondary),
+              ),
+              KSpacing.vGapMd,
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      initialValue: _fy,
+                      decoration: const InputDecoration(
+                        labelText: 'FY starting',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: List.generate(4, (i) {
+                        final year = DateTime.now().year - i;
+                        return DropdownMenuItem(
+                            value: year,
+                            child: Text('$year-${(year + 1) % 100}'));
+                      }),
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _fy = v);
+                        _load();
+                        if (_employeeId != null) _loadForm16();
+                      },
+                    ),
+                  ),
+                  KSpacing.hGapMd,
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      initialValue: _quarter,
+                      decoration: const InputDecoration(
+                        labelText: 'Quarter',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('Q1 Apr–Jun')),
+                        DropdownMenuItem(value: 2, child: Text('Q2 Jul–Sep')),
+                        DropdownMenuItem(value: 3, child: Text('Q3 Oct–Dec')),
+                        DropdownMenuItem(value: 4, child: Text('Q4 Jan–Mar')),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _quarter = v);
+                        _load();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        KSpacing.vGapMd,
+        if (_loading)
+          const Center(
+              child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator()))
+        else if (data == null)
+          Center(
+              child: Text('No salary TDS for this quarter',
+                  style: KTypography.bodyMedium
+                      .copyWith(color: KColors.textHint)))
+        else ...[
+          Row(
+            children: [
+              Expanded(
+                child: KCard(
+                  child: Column(children: [
+                    Text(
+                        CurrencyFormatter.formatIndian(
+                            (data['totalTdsDeducted'] as num?)?.toDouble() ?? 0),
+                        style: KTypography.h2.copyWith(color: KColors.primary)),
+                    Text('TDS deducted',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary)),
+                  ]),
+                ),
+              ),
+              KSpacing.hGapSm,
+              Expanded(
+                child: KCard(
+                  child: Column(children: [
+                    Text('${data['deducteeCount'] ?? 0}',
+                        style: KTypography.h2),
+                    Text('Employees',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary)),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+          if ((data['warning']?.toString() ?? '').isNotEmpty) ...[
+            KSpacing.vGapSm,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: KColors.warning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber,
+                      color: KColors.warning, size: 18),
+                  KSpacing.hGapSm,
+                  Expanded(
+                    child: Text(data['warning'].toString(),
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.warning)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          KSpacing.vGapSm,
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: deductees.isEmpty ? null : _share24q,
+              icon: const Icon(Icons.ios_share, size: 16),
+              label: const Text('Share 24Q data (JSON)'),
+            ),
+          ),
+          KSpacing.vGapMd,
+          ...deductees.map((raw) {
+            final d = Map<String, dynamic>.from(raw as Map);
+            final pan = d['deducteePan']?.toString() ?? '';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: KSpacing.sm),
+              child: KCard(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(d['deducteeName']?.toString() ?? '',
+                              style: KTypography.labelLarge),
+                          Text(
+                            '${pan.isEmpty ? 'PAN MISSING' : pan} · ${d['monthCount']} month(s)',
+                            style: KTypography.bodySmall.copyWith(
+                                color: pan.isEmpty
+                                    ? KColors.error
+                                    : KColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                            CurrencyFormatter.formatIndian(
+                                (d['tdsDeducted'] as num?)?.toDouble() ?? 0),
+                            style: KTypography.labelLarge
+                                .copyWith(color: KColors.primary)),
+                        Text(
+                            'on ${CurrencyFormatter.formatIndian((d['amountPaid'] as num?)?.toDouble() ?? 0)}',
+                            style: KTypography.bodySmall
+                                .copyWith(color: KColors.textSecondary)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+        KSpacing.vGapMd,
+        const Divider(),
+        KSpacing.vGapMd,
+        _buildForm16Section(),
+      ],
+    );
+  }
+
+  Widget _buildForm16Section() {
+    final f = _form16;
+    final partA = (f?['partA'] as List?) ?? const [];
+    final partB = (f?['partB'] as Map?)?.cast<String, dynamic>() ?? const {};
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        KCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Form 16 (employee TDS certificate)',
+                  style: KTypography.h3),
+              KSpacing.vGapSm,
+              Text(
+                'Annual TDS certificate for an employee — Part A (quarter-wise '
+                'TDS) and Part B (salary breakup). Uses the FY selected above.',
+                style: KTypography.bodySmall
+                    .copyWith(color: KColors.textSecondary),
+              ),
+              KSpacing.vGapMd,
+              DropdownButtonFormField<String>(
+                initialValue: _employeeId,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Employee',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: _employees.map((e) {
+                  final id = e['id']?.toString() ?? '';
+                  final name = e['fullName']?.toString() ?? id;
+                  final code = e['employeeCode']?.toString() ?? '';
+                  return DropdownMenuItem(
+                      value: id,
+                      child: Text(code.isEmpty ? name : '$name ($code)',
+                          overflow: TextOverflow.ellipsis));
+                }).toList(),
+                onChanged: (v) {
+                  setState(() => _employeeId = v);
+                  _loadForm16();
+                },
+              ),
+            ],
+          ),
+        ),
+        if (_form16Loading)
+          const Center(
+              child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator()))
+        else if (_employeeId != null && f != null) ...[
+          KSpacing.vGapMd,
+          KCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('FY ${f['fy']} · AY ${f['assessmentYear']}',
+                    style: KTypography.labelLarge),
+                KSpacing.vGapSm,
+                if ((f['warning']?.toString() ?? '').isNotEmpty)
+                  Text(f['warning'].toString(),
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.error)),
+                KSpacing.vGapSm,
+                Text('Part A — TDS by quarter', style: KTypography.labelMedium),
+                ...partA.map((raw) {
+                  final q = Map<String, dynamic>.from(raw as Map);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(q['quarter']?.toString() ?? '',
+                            style: KTypography.bodySmall),
+                        Text(
+                            CurrencyFormatter.formatIndian(
+                                (q['tdsDeducted'] as num?)?.toDouble() ?? 0),
+                            style: KTypography.bodySmall),
+                      ],
+                    ),
+                  );
+                }),
+                const Divider(),
+                _kv('Gross salary',
+                    (partB['grossSalary'] as num?)?.toDouble() ?? 0),
+                _kv('Professional tax',
+                    (partB['professionalTax'] as num?)?.toDouble() ?? 0),
+                _kv('Total TDS deducted',
+                    (partB['totalTaxDeducted'] as num?)?.toDouble() ?? 0,
+                    highlight: true),
+                KSpacing.vGapSm,
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _shareForm16,
+                    icon: const Icon(Icons.ios_share, size: 16),
+                    label: const Text('Share Form 16 (JSON)'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _kv(String label, double value, {bool highlight = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: highlight
+                  ? KTypography.labelMedium
+                  : KTypography.bodyMedium),
+          Text(CurrencyFormatter.formatIndian(value),
+              style: highlight
+                  ? KTypography.labelLarge.copyWith(color: KColors.primary)
+                  : KTypography.bodyMedium),
+        ],
+      ),
     );
   }
 }

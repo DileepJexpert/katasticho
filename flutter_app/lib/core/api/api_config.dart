@@ -105,6 +105,10 @@ class ApiConfig {
   // TDS
   static const String tdsRegister = '/api/v1/tds/register';
   static const String tds26q = '/api/v1/tds/26q';
+  // Salary TDS (Form 24Q quarterly + Form 16 per-employee, from posted payroll)
+  static const String tds24q = '/api/v1/tds/24q';
+  static const String tdsSalaryRegister = '/api/v1/tds/salary-register';
+  static String tdsForm16(String employeeId) => '/api/v1/tds/form16/$employeeId';
 
   // TCS 206C(1H) (auto-collected on invoices past ₹50L/buyer/FY)
   static const String tcsRegister = '/api/v1/tcs/register';
