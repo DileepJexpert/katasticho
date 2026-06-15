@@ -115,6 +115,12 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push(Routes.teamMembers),
             ),
             _SettingsTile(
+              icon: Icons.badge_outlined,
+              title: 'Portal Users',
+              subtitle: 'Invite customers & vendors to the self-service portal',
+              onTap: () => context.push(Routes.portalUsers),
+            ),
+            _SettingsTile(
               icon: Icons.fact_check_outlined,
               title: 'Approval Inbox',
               subtitle: 'Review pending workflow approvals',

@@ -136,6 +136,13 @@ class ApiConfig {
   static String cashRegisterDeleteExpense(String id) => '/api/v1/pos/cash-register/expense/$id';
   static String cashRegisterByDate(String date) => '/api/v1/pos/cash-register/$date';
 
+  // Customer/Vendor portal accounts (admin management)
+  static const String portalUsers = '/api/v1/portal-users';
+  static String portalUserResendInvite(String id) => '/api/v1/portal-users/$id/resend-invite';
+  static String portalUserSuspend(String id) => '/api/v1/portal-users/$id/suspend';
+  static String portalUserReactivate(String id) => '/api/v1/portal-users/$id/reactivate';
+  static String portalUserById(String id) => '/api/v1/portal-users/$id';
+
   // AI Model Settings
   static const String orgSettings = '/api/v1/settings';
   static const String upiSettings = '/api/v1/settings/upi';
