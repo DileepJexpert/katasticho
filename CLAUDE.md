@@ -271,6 +271,13 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **`RcpaController`** @ `/api/v1/mr/rcpa` (OWNER/ADMIN/OPERATOR, FIELD_SALES module): record, get, `/me`, `/by-chemist/{id}`, `/reports/share`, `/reports/competitors`.
 - **Tests:** RcpaServiceTest (3 — brand-type normalisation + salesperson stamp, own/competitor share %, competitor aggregation+sort). **ERP Flutter RCPA UI DONE** (`RcpaScreen` @ `/field-sales/rcpa`: My Audits tab — chemist picker + own/competitor line entry; Reports tab — own-vs-competitor share + competitor league; sidebar "RCPA").
 
+#### Field Force Facade — mobile app backend (2026-06-15)
+**Goal:** a narrow, offline-friendly mobile API for the **Katasticho Field** app (`katasticho-mr-salesman-app`) — MR/distributor/FMCG salesmen — instead of exposing the full ERP. `com.katasticho.erp.fieldforce`.
+- **`FieldFacadeController`** @ `/api/v1/field` (FIELD_SALES module, OWNER/ADMIN/OPERATOR; scoped to the logged-in salesperson). Endpoints: `GET /today` (today's executions+visits, dealer names cached), `GET /dealers[?search]` + `GET /dealers/{id}` (contact + ledger outstanding + open invoices), `POST /visits/check-in|check-out`, `POST /orders` (books a sales order), `POST /collections` (FIFO settle), `POST /location-pings`, `GET /sync/bootstrap` (profile+today+dealers).
+- **`FieldFacadeService`** is a thin delegation layer — reuses `FieldSalesService` (executions/visits/check-in-out/recordVisitOrder/recordVisitCollection), `ContactService`/`ContactLedgerService` (dealers), `SalesOrderService.create` (order booking → credit/scheme/pricing all apply), `PaymentService.recordPayment` (collections), `FieldTrackingService.recordPings` (GPS). **Collections FIFO-allocate** the amount across the dealer's open invoices oldest-first (`PaymentService` needs an invoice per payment); any excess over open balance is reported as `unallocated` with a note. No new tables.
+- **Deferred:** `POST /api/v1/field/sync/push` (the offline batch envelope) — for now the app flushes its queue via the individual endpoints. Field-app side: replace demo data with real API-backed repositories against these endpoints.
+- **Tests:** FieldFacadeServiceTest (3 — FIFO oldest-first allocation, excess→unallocated, non-positive amount guard).
+
 ### Phase 8: Partner Network (B2B Ordering) (COMPLETE — 2026-06-06)
 **Goal:** Connected B2B trade network within the same product.
 **Reference:** `docs/PARTNER_NETWORK_MODULE_PLAN.md`
