@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../core/auth/business_capabilities.dart';
 import '../core/auth/auth_state.dart';
 import '../features/auth/presentation/login_screen.dart';
+import '../features/portal_app/presentation/portal_login_screen.dart';
+import '../features/portal_app/presentation/portal_accept_invite_screen.dart';
+import '../features/portal_app/presentation/portal_home_screen.dart';
 import '../features/auth/presentation/otp_screen.dart';
 import '../features/auth/presentation/signup_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
@@ -450,6 +453,11 @@ class Routes {
 
   static const platformAdmin = '/platform-admin';
   static const platformAdminLogin = '/platform-admin/login';
+
+  // External customer/vendor portal (separate from admin app)
+  static const portalLogin = '/portal/login';
+  static const portalAccept = '/portal/accept';
+  static const portalHome = '/portal/home';
   static const platformAdminDashboard = '/platform-admin/dashboard';
   static const platformAdminPending = '/platform-admin/pending';
   static const platformAdminOrgs = '/platform-admin/orgs';
@@ -492,6 +500,12 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Platform admin routes handle their own auth — skip main auth redirect
       if (isPlatformAdminRoute) {
+        return null;
+      }
+
+      // External portal routes authenticate independently (portal JWT) — the
+      // admin auth guard must never redirect them to the admin login.
+      if (loc.startsWith('/portal/')) {
         return null;
       }
 
@@ -550,6 +564,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.login,
         builder: (context, state) => const LoginScreen(),
+      ),
+      // ── External customer/vendor portal (no admin shell, own auth) ──
+      GoRoute(
+        path: Routes.portalLogin,
+        builder: (context, state) => const PortalLoginScreen(),
+      ),
+      GoRoute(
+        path: Routes.portalAccept,
+        builder: (context, state) =>
+            PortalAcceptInviteScreen(token: state.uri.queryParameters['token']),
+      ),
+      GoRoute(
+        path: Routes.portalHome,
+        builder: (context, state) => const PortalHomeScreen(),
       ),
       GoRoute(
         path: Routes.otp,

@@ -143,6 +143,17 @@ class ApiConfig {
   static String portalUserReactivate(String id) => '/api/v1/portal-users/$id/reactivate';
   static String portalUserById(String id) => '/api/v1/portal-users/$id';
 
+  // External portal (customer/vendor self-service login)
+  static const String portalLogin = '/api/v1/portal/auth/login';
+  static const String portalAcceptInvite = '/api/v1/portal/auth/accept-invite';
+  static const String portalMe = '/api/v1/portal/me';
+  static const String portalDashboard = '/api/v1/portal/dashboard';
+  static const String portalInvoices = '/api/v1/portal/invoices';
+  static const String portalStatement = '/api/v1/portal/statement';
+  static const String portalPurchaseOrders = '/api/v1/portal/purchase-orders';
+  static const String portalBills = '/api/v1/portal/bills';
+  static const String portalChangePassword = '/api/v1/portal/change-password';
+
   // AI Model Settings
   static const String orgSettings = '/api/v1/settings';
   static const String upiSettings = '/api/v1/settings/upi';
