@@ -2143,54 +2143,105 @@ class _HeldCartsBadge extends ConsumerWidget {
   }
 }
 
+/// Persistent POS connection indicator: a small pill the cashier can always
+/// glance at — Online (green) / Syncing (spinner) / Offline (red) — with the
+/// count of receipts still waiting to sync. Tapping opens the sync dialog.
 class _OfflineSyncBadge extends ConsumerWidget {
   const _OfflineSyncBadge();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final countAsync = ref.watch(offlinePendingCountProvider);
-    final count = countAsync.valueOrNull ?? 0;
-    if (count == 0) return const SizedBox.shrink();
+    if (!posOfflineSupported) return const SizedBox.shrink();
 
-    final syncAsync = ref.watch(offlineSyncStatusProvider);
-    final syncing = syncAsync.valueOrNull == SyncStatus.syncing;
+    final count = ref.watch(offlinePendingCountProvider).valueOrNull ?? 0;
+    final online = ref.watch(posOnlineProvider).valueOrNull ?? true;
+    final syncing =
+        ref.watch(offlineSyncStatusProvider).valueOrNull == SyncStatus.syncing;
 
-    return Badge(
-      label: Text('$count'),
-      backgroundColor: syncing ? KColors.primary : KColors.warning,
-      child: IconButton(
-        icon: syncing
-            ? const SizedBox(
-                width: 20, height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2))
-            : const Icon(Icons.cloud_upload_outlined, size: 20),
-        onPressed: () => _showSyncDialog(context, ref, count),
-        tooltip: '$count receipts pending sync',
+    final (Color color, IconData icon, String label) = !online
+        ? (KColors.error, Icons.cloud_off_outlined, 'Offline')
+        : syncing
+            ? (KColors.primary, Icons.sync, 'Syncing')
+            : count > 0
+                ? (KColors.warning, Icons.cloud_upload_outlined, '$count pending')
+                : (KColors.success, Icons.cloud_done_outlined, 'Online');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Tooltip(
+        message: !online
+            ? 'No network — sales are saved offline and printed locally'
+            : count > 0
+                ? '$count receipt(s) waiting to sync'
+                : 'Online — sales post live',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _showSyncDialog(context, ref, count, online),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: color.withValues(alpha: 0.35)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                syncing
+                    ? SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: color),
+                      )
+                    : Icon(icon, size: 16, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  void _showSyncDialog(BuildContext context, WidgetRef ref, int count) {
+  void _showSyncDialog(
+      BuildContext context, WidgetRef ref, int count, bool online) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Offline Receipts'),
-        content: Text('$count receipt(s) saved offline and waiting to sync.\n\n'
-            'They will be uploaded automatically when the connection returns, '
-            'or tap Sync Now to try immediately.'),
+        title: Text(online ? 'Sync status' : 'Offline mode'),
+        content: Text(
+          !online
+              ? 'No network. Sales are saved on this terminal and printed '
+                  'locally${count > 0 ? ' ($count waiting)' : ''}. They upload '
+                  'automatically when the connection returns.'
+              : count > 0
+                  ? '$count receipt(s) saved offline and waiting to sync. They '
+                      'upload automatically, or tap Sync Now to try immediately.'
+                  : 'Online — sales are posting live. Nothing is waiting to sync.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Close'),
           ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              OfflinePosService.instance.setApiClient(ref.read(apiClientProvider));
-              OfflinePosService.instance.syncPendingReceipts();
-            },
-            child: const Text('Sync Now'),
-          ),
+          if (count > 0)
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                OfflinePosService.instance
+                    .setApiClient(ref.read(apiClientProvider));
+                OfflinePosService.instance.syncPendingReceipts();
+              },
+              child: const Text('Sync Now'),
+            ),
         ],
       ),
     );

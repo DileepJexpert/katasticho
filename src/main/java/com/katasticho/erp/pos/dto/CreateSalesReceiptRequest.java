@@ -33,6 +33,10 @@ public record CreateSalesReceiptRequest(
 
         Boolean gstInvoice,
 
+        /** Client temp number (e.g. OFF-0007) when this receipt was rung up
+         *  offline — kept on the posted receipt so a paper bill can be traced. */
+        String offlineReceiptNumber,
+
         @NotEmpty(message = "At least one line item is required")
         @Valid
         List<LineRequest> lines

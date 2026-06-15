@@ -393,3 +393,12 @@ final offlinePendingCountProvider = StreamProvider<int>((ref) {
 final offlineSyncStatusProvider = StreamProvider<SyncStatus>((ref) {
   return OfflinePosService.instance.syncStatusStream;
 });
+
+/// Live network-availability for the POS connection badge. Reports whether a
+/// network interface is up (not true internet reachability — a connected-but-
+/// unreachable state still routes a sale through the offline path).
+final posOnlineProvider = StreamProvider<bool>((ref) async* {
+  bool up(List<ConnectivityResult> r) => r.any((x) => x != ConnectivityResult.none);
+  yield up(await Connectivity().checkConnectivity());
+  yield* Connectivity().onConnectivityChanged.map(up);
+});
