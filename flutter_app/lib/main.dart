@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/config/env_config.dart';
+import 'core/storage/pos_database.dart';
 import 'core/theme/k_theme.dart';
 import 'core/theme/theme_mode_controller.dart';
 import 'features/pos/data/offline_pos_service.dart';
@@ -10,7 +11,12 @@ import 'routing/app_router.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  OfflinePosService.instance.init();
+  // Offline POS uses native SQLite — configure the platform factory first, and
+  // only start the offline service where it is supported (not on web).
+  initPosDatabaseFactory();
+  if (posOfflineSupported) {
+    OfflinePosService.instance.init();
+  }
 
   // Log environment at startup (only in debug/profile mode)
   if (kDebugMode) {

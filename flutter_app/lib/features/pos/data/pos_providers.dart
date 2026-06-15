@@ -1,8 +1,19 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/api/api_client.dart';
+import 'offline_pos_service.dart';
 import 'pos_favourites.dart';
 import 'pos_repository.dart';
+
+bool _isNetworkError(Object e) {
+  if (e is! DioException) return false;
+  return e.type == DioExceptionType.connectionTimeout ||
+      e.type == DioExceptionType.sendTimeout ||
+      e.type == DioExceptionType.receiveTimeout ||
+      e.type == DioExceptionType.connectionError ||
+      e.type == DioExceptionType.unknown;
+}
 
 /// Drug-master catalog fallback for POS — medicines not yet in the org's
 /// item master. Only fetched when the catalog section is actually built.
@@ -13,12 +24,25 @@ final posCatalogSearchProvider = FutureProvider.autoDispose
   return repo.catalogSearch(query: query.trim());
 });
 
-/// POS search results — re-fetches when query changes.
+/// POS search results — re-fetches when query changes. Online results are
+/// cached to the local catalog so the same search keeps working offline; on a
+/// network failure the query falls back to the cached catalog.
 final posSearchProvider = FutureProvider.autoDispose
     .family<List<Map<String, dynamic>>, String?>((ref, query) async {
   if (query == null || query.trim().isEmpty) return [];
+  final q = query.trim();
   final repo = ref.watch(posRepositoryProvider);
-  return repo.posSearch(query: query.trim());
+  final offline = OfflinePosService.instance;
+  try {
+    final results = await repo.posSearch(query: q);
+    offline.cacheItems(results); // fire-and-forget: keep the catalog warm
+    return results;
+  } catch (e) {
+    if (_isNetworkError(e)) {
+      return offline.searchLocalItems(q); // offline fallback
+    }
+    rethrow;
+  }
 });
 
 /// Fetches UPI payment settings (upiId, displayName) from org settings.

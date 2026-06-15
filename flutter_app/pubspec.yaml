@@ -79,6 +79,8 @@ dependencies:
 
   # Offline POS — local receipt queue
   sqflite: ^2.3.0
+  # Desktop (Windows/Linux/macOS) SQLite via FFI — sqflite alone is mobile-only
+  sqflite_common_ffi: ^2.3.3
   path: ^1.9.0
 
   # Geolocation (field sales check-in/out)

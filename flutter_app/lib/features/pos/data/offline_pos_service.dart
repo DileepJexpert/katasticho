@@ -7,9 +7,11 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/storage/pos_database.dart';
 
 const _dbName = 'katasticho_offline.db';
 const _table = 'pending_receipts';
+const _itemTable = 'pos_item_cache';
 
 class PendingReceipt {
   final int? id;
@@ -48,9 +50,9 @@ class OfflinePosService {
     final dbPath = await getDatabasesPath();
     _db = await openDatabase(
       p.join(dbPath, _dbName),
-      version: 1,
-      onCreate: (db, version) {
-        return db.execute('''
+      version: 2,
+      onCreate: (db, version) async {
+        await db.execute('''
           CREATE TABLE $_table (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             request_json TEXT NOT NULL,
@@ -59,12 +61,31 @@ class OfflinePosService {
             last_error TEXT
           )
         ''');
+        await _createItemCache(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) await _createItemCache(db);
       },
     );
     return _db!;
   }
 
+  Future<void> _createItemCache(Database db) {
+    return db.execute('''
+      CREATE TABLE $_itemTable (
+        item_id TEXT PRIMARY KEY,
+        name TEXT,
+        sku TEXT,
+        barcode TEXT,
+        search_text TEXT,
+        result_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+  }
+
   Future<void> init() async {
+    if (!posOfflineSupported) return;
     await _getDb();
     _emitCount();
     _startConnectivityListener();
@@ -86,6 +107,7 @@ class OfflinePosService {
   }
 
   Future<void> queueReceipt(Map<String, dynamic> requestBody) async {
+    if (!posOfflineSupported) return;
     final db = await _getDb();
     await db.insert(_table, {
       'request_json': jsonEncode(requestBody),
@@ -94,6 +116,86 @@ class OfflinePosService {
     });
     _emitCount();
     debugPrint('[OfflinePOS] Receipt queued locally');
+  }
+
+  // ── Offline catalog cache ──────────────────────────────────────────────
+  // Item search/prices/stock are online by default; caching successful search
+  // results (and a periodic full sync) lets POS search + billing keep working
+  // when the network drops at the counter.
+
+  /// Upsert POS search results into the local catalog cache (fire-and-forget).
+  Future<void> cacheItems(List<Map<String, dynamic>> items) async {
+    if (!posOfflineSupported || items.isEmpty) return;
+    try {
+      final db = await _getDb();
+      final batch = db.batch();
+      final now = DateTime.now().toIso8601String();
+      for (final it in items) {
+        final id = (it['itemId'] ?? it['id'])?.toString();
+        if (id == null || id.isEmpty) continue;
+        final name = (it['name'] ?? '').toString();
+        final sku = (it['sku'] ?? '').toString();
+        final barcode = (it['barcode'] ?? '').toString();
+        batch.insert(
+          _itemTable,
+          {
+            'item_id': id,
+            'name': name,
+            'sku': sku,
+            'barcode': barcode,
+            'search_text': '$name $sku $barcode'.toLowerCase(),
+            'result_json': jsonEncode(it),
+            'updated_at': now,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+    } catch (e) {
+      debugPrint('[OfflinePOS] cacheItems failed: $e');
+    }
+  }
+
+  /// Offline ranked search over the cached catalog: barcode exact > SKU prefix
+  /// > name/text contains.
+  Future<List<Map<String, dynamic>>> searchLocalItems(String query,
+      {int limit = 20}) async {
+    if (!posOfflineSupported) return [];
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return [];
+    try {
+      final db = await _getDb();
+      final rows = await db.rawQuery(
+        '''
+        SELECT result_json,
+          CASE
+            WHEN lower(barcode) = ? THEN 0
+            WHEN lower(sku) LIKE ? THEN 1
+            WHEN search_text LIKE ? THEN 2
+            ELSE 3
+          END AS rank
+        FROM $_itemTable
+        WHERE lower(barcode) = ? OR lower(sku) LIKE ? OR search_text LIKE ?
+        ORDER BY rank, name
+        LIMIT ?
+        ''',
+        [q, '$q%', '%$q%', q, '$q%', '%$q%', limit],
+      );
+      return rows
+          .map((r) => jsonDecode(r['result_json'] as String) as Map<String, dynamic>)
+          .toList();
+    } catch (e) {
+      debugPrint('[OfflinePOS] searchLocalItems failed: $e');
+      return [];
+    }
+  }
+
+  Future<int> cachedItemCount() async {
+    if (!posOfflineSupported) return 0;
+    final db = await _getDb();
+    return Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM $_itemTable')) ??
+        0;
   }
 
   Future<int> pendingCount() async {
