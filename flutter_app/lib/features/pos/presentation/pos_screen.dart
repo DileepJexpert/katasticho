@@ -646,6 +646,17 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final repo = ref.read(posRepositoryProvider);
     final requestBody = _buildReceiptRequest(cart, paymentResult);
 
+    // Upfront offline detection — when there's no network at all, go straight
+    // to the offline sale (no multi-second connection-timeout hang per bill).
+    if (posOfflineSupported) {
+      final online = await OfflinePosService.instance.isOnline();
+      if (!online && mounted) {
+        await _completeSaleOffline(repo, requestBody, cart, paymentResult);
+        if (mounted) setState(() => _isSubmitting = false);
+        return;
+      }
+    }
+
     try {
       final response = await repo.createReceipt(requestBody);
 
@@ -726,7 +737,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     } catch (e) {
       if (!mounted) return;
       if (_isNetworkError(e)) {
-        await _queueOffline(requestBody, cart);
+        // Connected but the server was unreachable — same as offline.
+        await _completeSaleOffline(repo, requestBody, cart, paymentResult);
       } else {
         final message =
             e is DioException ? ApiErrorParser.message(e) : e.toString();
@@ -759,22 +771,152 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     return false;
   }
 
-  Future<void> _queueOffline(Map<String, dynamic> requestBody, PosCartState cart) async {
+  /// Completes a sale fully OFFLINE: assigns a temp receipt number, queues the
+  /// receipt for sync, optimistically drops local stock, prints (thermal), and
+  /// shows the same success sheet as an online sale — so the cashier hands the
+  /// customer a real printed bill with no network.
+  Future<void> _completeSaleOffline(
+    PosRepository repo,
+    Map<String, dynamic> requestBody,
+    PosCartState cart,
+    Map<String, dynamic> paymentResult,
+  ) async {
     final offline = OfflinePosService.instance;
-    await offline.queueReceipt(requestBody);
-    if (!mounted) return;
+    final tempNumber = await offline.nextOfflineReceiptNumber();
 
+    // Tag the queued request so the server can tie its real receipt back to the
+    // number the customer was given offline.
+    requestBody['offlineReceiptNumber'] = tempNumber;
+    await offline.queueReceipt(requestBody);
+
+    // Optimistic local stock decrement (single-counter).
+    await offline.decrementCachedStock([
+      for (final it in cart.items)
+        if (it.itemId != null)
+          {'itemId': it.itemId, 'qty': it.requestedStockQuantity},
+    ]);
+
+    if (!mounted) return;
     HapticFeedback.mediumImpact();
+
+    final receiptData = _buildLocalReceiptData(cart, paymentResult, tempNumber);
+    final response = {'data': receiptData};
+
+    // Thermal auto-print works fully offline (rendered client-side). The
+    // online _autoPrintIfEnabled needs a server id, so trigger it directly.
+    final autoPrint = await ThermalPrintService.instance.autoPrintEnabled;
+    if (autoPrint && mounted) {
+      await _handleOfflinePrint(receiptData);
+    }
+
+    if (!mounted) return;
+    final action = await showPosSuccessSheet(
+      context,
+      receipt: response,
+      customerPhone: cart.contactPhone,
+    );
+    if (mounted) {
+      if (action == SuccessAction.print) {
+        await _handleOfflinePrint(receiptData);
+      } else if (action == SuccessAction.whatsapp ||
+          action == SuccessAction.email) {
+        _showInfoSnackBar('Available once this bill syncs online');
+      }
+    }
+
+    // Track in recent transactions with the temp number.
+    ref.read(recentTransactionsProvider.notifier).add(
+          RecentTransaction(
+            receiptId: tempNumber,
+            receiptNumber: tempNumber,
+            total: cart.total,
+            paymentMode: paymentResult['paymentMode']?.toString() ?? 'CASH',
+            customerName: cart.contactName,
+            completedAt: DateTime.now(),
+          ),
+        );
+
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Saved offline — will sync when connection returns'),
-        backgroundColor: Color(0xFF4CAF50),
-        duration: Duration(seconds: 3),
+      SnackBar(
+        content: Text('Offline sale $tempNumber saved — will sync when online'),
+        backgroundColor: const Color(0xFF4CAF50),
+        duration: const Duration(seconds: 3),
       ),
     );
-
     ref.read(posCartProvider.notifier).clear();
     _searchFocusNode.requestFocus();
+  }
+
+  /// Builds a receipt map (shaped like the server response `data`) from the
+  /// cart + payment, for offline print + the success sheet. Tax is split
+  /// intra-state (CGST=SGST) — the authoritative receipt comes from the server
+  /// on sync; this is the cashier's working copy.
+  Map<String, dynamic> _buildLocalReceiptData(
+      PosCartState cart, Map<String, dynamic> paymentResult, String tempNumber) {
+    final now = DateTime.now();
+    final tax = cart.taxAmount;
+    return {
+      'id': null,
+      'offline': true,
+      'receiptNumber': tempNumber,
+      'receiptDate':
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
+      'paymentMode': paymentResult['paymentMode'],
+      'amountReceived': paymentResult['amountReceived'] ?? cart.total,
+      'changeReturned': paymentResult['changeReturned'] ?? cart.changeReturned,
+      'subtotal': cart.subtotal,
+      'discountTotal': cart.items
+          .fold<double>(0, (s, it) => s + (it.rate * it.quantity - it.lineTotal)),
+      'cgst': tax / 2,
+      'sgst': tax / 2,
+      'igst': 0,
+      'total': cart.total,
+      if (cart.contactName != null) 'contactName': cart.contactName,
+      'lines': cart.items
+          .map((it) => {
+                'itemName': it.name,
+                'description': it.name,
+                'quantity': it.quantity,
+                if (it.unit != null) 'unit': it.unit,
+                'rate': it.effectiveRate,
+                'amount': it.lineTotal,
+                if (it.hsnCode != null) 'hsnCode': it.hsnCode,
+              })
+          .toList(),
+    };
+  }
+
+  /// Offline print path — thermal only (the server-PDF fallback can't run
+  /// without a connection). If no printer is connected, tell the cashier.
+  Future<void> _handleOfflinePrint(Map<String, dynamic> receiptData) async {
+    final printer = ThermalPrintService.instance;
+    if (!printer.isConnected && !await printer.reconnectSaved()) {
+      if (mounted) {
+        _showInfoSnackBar('Connect a thermal printer to print offline');
+      }
+      return;
+    }
+    try {
+      if (mounted) _showInfoSnackBar('Printing...');
+      final auth = ref.read(authProvider);
+      final settings = ref.read(receiptSettingsProvider);
+      await printer.printReceipt(
+        receipt: receiptData,
+        org: {'name': auth.orgName ?? ''},
+        settings: ReceiptPrintSettings(
+          paperSize: settings.paperSize,
+          showStoreAddress: settings.showStoreAddress,
+          showGstin: settings.showGstin,
+          showHsnCode: settings.showHsnCode,
+          showTaxBreakdown: settings.showTaxBreakdown,
+          footerText: settings.footerText,
+        ),
+      );
+      if (mounted) _showInfoSnackBar('Receipt printed');
+    } catch (e) {
+      if (mounted) _showErrorSnackBar('Print failed: $e');
+    }
   }
 
   Map<String, dynamic> _buildReceiptRequest(

@@ -117,6 +117,43 @@ class OfflinePosService {
     await db.delete(_itemTable, where: 'item_id = ?', whereArgs: [itemId]);
   }
 
+  /// Next client-side receipt number for an offline sale (e.g. "OFF-0007").
+  /// The server assigns the real number when the queued receipt syncs; this is
+  /// what the cashier prints/shows the customer in the meantime.
+  Future<String> nextOfflineReceiptNumber() async {
+    if (!posOfflineSupported) return 'OFF';
+    final cur = int.tryParse(await getMeta('offline_receipt_seq') ?? '0') ?? 0;
+    final next = cur + 1;
+    await setMeta('offline_receipt_seq', next.toString());
+    return 'OFF-${next.toString().padLeft(4, '0')}';
+  }
+
+  /// Optimistically reduce cached stock for items just sold offline, so the
+  /// next offline sale sees the lower count. (Single-counter assumption — the
+  /// server is still the source of truth and reconciles on sync.)
+  Future<void> decrementCachedStock(List<Map<String, dynamic>> sold) async {
+    if (!posOfflineSupported) return;
+    try {
+      final db = await _getDb();
+      for (final s in sold) {
+        final id = s['itemId']?.toString();
+        final qty = (s['qty'] as num?)?.toDouble() ?? 0;
+        if (id == null || qty <= 0) continue;
+        final rows =
+            await db.query(_itemTable, where: 'item_id = ?', whereArgs: [id]);
+        if (rows.isEmpty) continue;
+        final json =
+            jsonDecode(rows.first['result_json'] as String) as Map<String, dynamic>;
+        final cur = (json['currentStock'] as num?)?.toDouble() ?? 0;
+        json['currentStock'] = cur - qty;
+        await db.update(_itemTable, {'result_json': jsonEncode(json)},
+            where: 'item_id = ?', whereArgs: [id]);
+      }
+    } catch (e) {
+      debugPrint('[OfflinePOS] decrementCachedStock failed: $e');
+    }
+  }
+
   Future<void> init() async {
     if (!posOfflineSupported) return;
     await _getDb();
