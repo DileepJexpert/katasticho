@@ -4,17 +4,14 @@ import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.fieldsales.entity.FieldVisit;
-import com.katasticho.erp.fieldsales.service.FieldTrackingService;
 import com.katasticho.erp.fieldforce.service.FieldFacadeService;
-import com.katasticho.erp.sales.dto.SalesOrderLineRequest;
+import com.katasticho.erp.fieldforce.service.FieldPayloadParser;
+import com.katasticho.erp.fieldforce.service.FieldSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -35,6 +32,7 @@ import java.util.UUID;
 public class FieldFacadeController {
 
     private final FieldFacadeService service;
+    private final FieldSyncService syncService;
 
     @GetMapping("/today")
     public ResponseEntity<ApiResponse<Map<String, Object>>> today() {
@@ -56,7 +54,8 @@ public class FieldFacadeController {
     public ResponseEntity<ApiResponse<FieldVisit>> checkIn(@RequestBody Map<String, Object> body) {
         UUID visitId = UUID.fromString(body.get("visitId").toString());
         return ResponseEntity.ok(ApiResponse.ok(
-                service.checkIn(visitId, num(body.get("latitude")), num(body.get("longitude"))),
+                service.checkIn(visitId, FieldPayloadParser.num(body.get("latitude")),
+                        FieldPayloadParser.num(body.get("longitude"))),
                 "Checked in"));
     }
 
@@ -64,8 +63,8 @@ public class FieldFacadeController {
     public ResponseEntity<ApiResponse<FieldVisit>> checkOut(@RequestBody Map<String, Object> body) {
         UUID visitId = UUID.fromString(body.get("visitId").toString());
         return ResponseEntity.ok(ApiResponse.ok(
-                service.checkOut(visitId, num(body.get("latitude")), num(body.get("longitude")),
-                        (String) body.get("notes")),
+                service.checkOut(visitId, FieldPayloadParser.num(body.get("latitude")),
+                        FieldPayloadParser.num(body.get("longitude")), (String) body.get("notes")),
                 "Checked out"));
     }
 
@@ -75,7 +74,7 @@ public class FieldFacadeController {
         UUID visitId = body.get("visitId") != null ? UUID.fromString(body.get("visitId").toString()) : null;
         String notes = (String) body.get("notes");
         return ResponseEntity.ok(ApiResponse.ok(
-                service.createOrder(dealerId, parseLines(body.get("lines")), notes, visitId),
+                service.createOrder(dealerId, FieldPayloadParser.parseLines(body.get("lines")), notes, visitId),
                 "Order booked"));
     }
 
@@ -85,7 +84,7 @@ public class FieldFacadeController {
         UUID dealerId = UUID.fromString(body.get("dealerId").toString());
         UUID visitId = body.get("visitId") != null ? UUID.fromString(body.get("visitId").toString()) : null;
         return ResponseEntity.ok(ApiResponse.ok(
-                service.recordCollection(dealerId, num(body.get("amount")),
+                service.recordCollection(dealerId, FieldPayloadParser.num(body.get("amount")),
                         (String) body.get("paymentMethod"), visitId),
                 "Collection recorded"));
     }
@@ -93,7 +92,7 @@ public class FieldFacadeController {
     @PostMapping("/location-pings")
     public ResponseEntity<ApiResponse<Map<String, Object>>> locationPings(
             @RequestBody Map<String, Object> body) {
-        int saved = service.recordPings(parsePings(body.get("pings")));
+        int saved = service.recordPings(FieldPayloadParser.parsePings(body.get("pings")));
         return ResponseEntity.ok(ApiResponse.ok(Map.of("saved", saved), "Pings recorded"));
     }
 
@@ -102,49 +101,12 @@ public class FieldFacadeController {
         return ResponseEntity.ok(ApiResponse.ok(service.bootstrap()));
     }
 
-    // ── Parsing helpers ──────────────────────────────────────────────────
-
+    /** Flush a batch of offline-queued actions; idempotent per action clientId. */
+    @PostMapping("/sync/push")
     @SuppressWarnings("unchecked")
-    private List<SalesOrderLineRequest> parseLines(Object raw) {
-        List<SalesOrderLineRequest> lines = new ArrayList<>();
-        if (!(raw instanceof List<?> list)) return lines;
-        for (Object o : list) {
-            Map<String, Object> m = (Map<String, Object>) o;
-            lines.add(new SalesOrderLineRequest(
-                    m.get("itemId") != null ? UUID.fromString(m.get("itemId").toString()) : null,
-                    (String) m.get("description"),
-                    num(m.get("quantity")),
-                    num(m.get("rate")),
-                    (String) m.get("unit"),
-                    num(m.get("discountPct")),
-                    m.get("taxGroupId") != null ? UUID.fromString(m.get("taxGroupId").toString()) : null,
-                    (String) m.get("hsnCode")));
-        }
-        return lines;
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<FieldTrackingService.PingRequest> parsePings(Object raw) {
-        List<FieldTrackingService.PingRequest> pings = new ArrayList<>();
-        if (!(raw instanceof List<?> list)) return pings;
-        for (Object o : list) {
-            Map<String, Object> p = (Map<String, Object>) o;
-            pings.add(new FieldTrackingService.PingRequest(
-                    num(p.get("latitude")), num(p.get("longitude")), num(p.get("accuracyM")),
-                    p.get("recordedAt") != null ? Instant.parse(p.get("recordedAt").toString()) : null,
-                    p.get("routeExecutionId") != null
-                            ? UUID.fromString(p.get("routeExecutionId").toString()) : null));
-        }
-        return pings;
-    }
-
-    private static BigDecimal num(Object o) {
-        if (o == null) return null;
-        if (o instanceof Number n) return new BigDecimal(n.toString());
-        try {
-            return new BigDecimal(o.toString());
-        } catch (NumberFormatException e) {
-            return null;
-        }
+    public ResponseEntity<ApiResponse<Map<String, Object>>> syncPush(@RequestBody Map<String, Object> body) {
+        List<Map<String, Object>> actions = body.get("actions") instanceof List<?> l
+                ? (List<Map<String, Object>>) l : List.of();
+        return ResponseEntity.ok(ApiResponse.ok(syncService.push(actions), "Sync processed"));
     }
 }
