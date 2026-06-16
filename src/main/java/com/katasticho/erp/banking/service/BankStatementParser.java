@@ -2,7 +2,7 @@ package com.katasticho.erp.banking.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.katasticho.erp.ai.service.ClaudeApiClient;
+import com.katasticho.erp.ai.service.VisionModelRouter;
 import com.katasticho.erp.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -67,7 +67,7 @@ public class BankStatementParser {
     private static final Pattern CSV_SPLIT =
             Pattern.compile(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
 
-    private final ClaudeApiClient claudeApiClient;
+    private final VisionModelRouter modelRouter;
     private final ObjectMapper objectMapper;
 
     // ── Entry points ─────────────────────────────────────────────────────
@@ -212,7 +212,7 @@ public class BankStatementParser {
 
         String response;
         try {
-            response = claudeApiClient.sendMessage(AI_SYSTEM_PROMPT, capped);
+            response = modelRouter.sendMessage(AI_SYSTEM_PROMPT, capped);
         } catch (Exception e) {
             throw new BusinessException(
                     "Could not read this statement format automatically and the AI parser is unavailable ("

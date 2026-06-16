@@ -7,7 +7,9 @@ import com.katasticho.erp.accounting.repository.FiscalPeriodRepository;
 import com.katasticho.erp.accounting.service.FinancialReportService;
 import com.katasticho.erp.ai.config.AiConfig;
 import com.katasticho.erp.ai.entity.AiSuggestion;
+import com.katasticho.erp.ai.entity.OrgAiSettings;
 import com.katasticho.erp.ai.repository.AiSuggestionRepository;
+import com.katasticho.erp.ai.repository.OrgAiSettingsRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,12 +34,14 @@ class FluxAnalysisServiceTest {
     private final FiscalPeriodRepository fiscalPeriodRepository = mock(FiscalPeriodRepository.class);
     private final AiSuggestionRepository aiSuggestionRepository = mock(AiSuggestionRepository.class);
     private final AiSuggestionService aiSuggestionService = mock(AiSuggestionService.class);
+    private final OrgAiSettingsRepository orgAiSettingsRepository = mock(OrgAiSettingsRepository.class);
     private final AiConfig aiConfig = new AiConfig();
-    private final ClaudeApiClient claudeApiClient = mock(ClaudeApiClient.class);
+    private final VisionModelRouter modelRouter = mock(VisionModelRouter.class);
 
     private final FluxAnalysisService service = new FluxAnalysisService(
             financialReportService, fiscalPeriodRepository,
-            aiSuggestionRepository, aiSuggestionService, aiConfig, claudeApiClient);
+            aiSuggestionRepository, aiSuggestionService, orgAiSettingsRepository,
+            aiConfig, modelRouter);
 
     private final UUID orgId = UUID.randomUUID();
     private final UUID periodId = UUID.randomUUID();
@@ -47,7 +51,10 @@ class FluxAnalysisServiceTest {
     void setUp() {
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(UUID.randomUUID());
-        aiConfig.setAnthropicApiKey(""); // disable AI by default (deterministic)
+        // Default to Claude-with-no-key so AI is OFF unless a test enables it.
+        aiConfig.setDefaultProvider("CLAUDE");
+        aiConfig.setAnthropicApiKey("");
+        when(orgAiSettingsRepository.findById(orgId)).thenReturn(java.util.Optional.empty());
     }
 
     @AfterEach
@@ -124,7 +131,7 @@ class FluxAnalysisServiceTest {
         // Two material lines (revenue + rent), tiny misc filtered out
         assertThat(rows).hasSize(2);
         // AI is disabled → no Claude call
-        verifyNoInteractions(claudeApiClient);
+        verifyNoInteractions(modelRouter);
     }
 
     @Test
@@ -144,7 +151,7 @@ class FluxAnalysisServiceTest {
         when(financialReportService.generateProfitLoss(LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
                 .thenReturn(pl(LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30),
                         List.of(revAPrev), List.of(expAPrev)));
-        when(claudeApiClient.sendMessage(any(), any())).thenReturn("Sales doubled on the launch of X; rent up 167% suggests a posting error.");
+        when(modelRouter.sendMessage(any(), any())).thenReturn("Sales doubled on the launch of X; rent up 167% suggests a posting error.");
 
         assertThat(service.draftForLastMonth(today)).isEqualTo(1);
 
@@ -152,7 +159,7 @@ class FluxAnalysisServiceTest {
         verify(aiSuggestionService).createSuggestion(cap.capture());
         assertThat(cap.getValue().getReasoning()).contains("posting error");
         assertThat(cap.getValue().getModelName()).isNotEqualTo("deterministic_rules");
-        verify(claudeApiClient).sendMessage(any(), any());
+        verify(modelRouter).sendMessage(any(), any());
     }
 
     @Test

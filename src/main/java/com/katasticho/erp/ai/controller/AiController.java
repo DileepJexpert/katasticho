@@ -10,6 +10,7 @@ import com.katasticho.erp.ai.dto.BillScanResponse;
 import com.katasticho.erp.ai.dto.AiInboxSummaryResponse;
 import com.katasticho.erp.ai.dto.ItemScanResponse;
 import com.katasticho.erp.ai.service.AiSuggestionService;
+import com.katasticho.erp.ai.service.AiTrainingExportService;
 import com.katasticho.erp.ai.service.BillScanService;
 import com.katasticho.erp.ai.service.ItemScanService;
 import com.katasticho.erp.ai.service.NlpQueryService;
@@ -40,6 +41,26 @@ public class AiController {
     private final AiSuggestionService aiSuggestionService;
     private final RuleBasedAiAgentService ruleBasedAiAgentService;
     private final ProactiveAgentService proactiveAgentService;
+    private final AiTrainingExportService aiTrainingExportService;
+
+    /** Summary of how much fine-tuning data has accumulated. */
+    @GetMapping("/training/summary")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> trainingSummary() {
+        return ResponseEntity.ok(ApiResponse.ok(aiTrainingExportService.summary()));
+    }
+
+    /** Export human-reviewed AI decisions as chat-format JSONL for LoRA/SFT fine-tuning. */
+    @GetMapping(value = "/training/export", produces = "application/x-ndjson")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<String> exportTraining(
+            @RequestParam(required = false) String taskType,
+            @RequestParam(defaultValue = "true") boolean goodOnly) {
+        String jsonl = aiTrainingExportService.exportJsonl(taskType, goodOnly);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"katasticho-finetune.jsonl\"")
+                .body(jsonl);
+    }
 
     @GetMapping("/suggestions")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")

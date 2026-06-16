@@ -7,6 +7,7 @@ import com.katasticho.erp.accounting.service.FinancialReportService;
 import com.katasticho.erp.ai.config.AiConfig;
 import com.katasticho.erp.ai.entity.AiSuggestion;
 import com.katasticho.erp.ai.repository.AiSuggestionRepository;
+import com.katasticho.erp.ai.repository.OrgAiSettingsRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -50,8 +51,9 @@ public class FluxAnalysisService {
     private final FiscalPeriodRepository fiscalPeriodRepository;
     private final AiSuggestionRepository aiSuggestionRepository;
     private final AiSuggestionService aiSuggestionService;
+    private final OrgAiSettingsRepository orgAiSettingsRepository;
     private final AiConfig aiConfig;
-    private final ClaudeApiClient claudeApiClient;
+    private final VisionModelRouter modelRouter;
 
     /**
      * Draft a flux suggestion for the month that just ended.
@@ -119,7 +121,7 @@ public class FluxAnalysisService {
                 .reasoning(commentary)
                 .confidence(new BigDecimal("0.850"))
                 .agentName("flux_agent")
-                .modelName(aiEnabled() ? aiConfig.getModel() : "deterministic_rules")
+                .modelName(aiEnabled() ? resolvedModelName() : "deterministic_rules")
                 .modelVersion("1")
                 .promptVersion("flux_v1")
                 .priority(rows.size() >= 5 ? "HIGH" : "MEDIUM")
@@ -181,9 +183,28 @@ public class FluxAnalysisService {
 
     // ── AI commentary ────────────────────────────────────────────────────
 
+    /** AI is usable if the org runs a local model (Ollama / OpenAI-compatible)
+     *  or has a Claude key set. Local models need no key. */
     private boolean aiEnabled() {
+        String provider = resolvedProvider();
+        if ("OLLAMA".equals(provider) || "OPENAI_COMPAT".equals(provider)) return true;
         String k = aiConfig.getAnthropicApiKey();
         return k != null && !k.isBlank();
+    }
+
+    private String resolvedProvider() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        String p = orgId == null ? null : orgAiSettingsRepository.findById(orgId)
+                .map(s -> s.getProvider()).orElse(null);
+        if (p == null) p = aiConfig.getDefaultProvider();
+        return p == null ? "CLAUDE" : p.toUpperCase();
+    }
+
+    private String resolvedModelName() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        String name = orgId == null ? null : orgAiSettingsRepository.findById(orgId)
+                .map(s -> s.getModelName()).orElse(null);
+        return name != null ? name : aiConfig.getModel();
     }
 
     private String generateCommentary(YearMonth curr, YearMonth prev,
@@ -198,7 +219,8 @@ public class FluxAnalysisService {
                 fmt(prevPl.netProfit()), fmt(currPl.netProfit()),
                 rows.size());
         if (!aiEnabled()) {
-            return header + " (AI commentary disabled — set app.ai.anthropic-api-key to enable.)";
+            return header + " (AI commentary disabled — configure a model provider "
+                    + "in AI settings: a local Ollama/OpenAI-compatible server, or a Claude key.)";
         }
         try {
             StringBuilder user = new StringBuilder();
@@ -221,7 +243,7 @@ public class FluxAnalysisService {
                     + "explaining the most material movements in plain business language, "
                     + "flag anything that looks unusual or might be a posting error, and "
                     + "suggest what to investigate before close. Do not invent numbers.";
-            String response = claudeApiClient.sendMessage(system, user.toString());
+            String response = modelRouter.sendMessage(system, user.toString());
             return header + "\n\n" + response.trim();
         } catch (Exception e) {
             log.warn("Flux commentary fallback (AI call failed): {}", e.getMessage());
