@@ -32,10 +32,12 @@ class ProactiveAgentServiceTest {
     private final RuleBasedAiAgentService ruleBasedAiAgentService = mock(RuleBasedAiAgentService.class);
     private final AiSuggestionRepository aiSuggestionRepository = mock(AiSuggestionRepository.class);
     private final AiSuggestionService aiSuggestionService = mock(AiSuggestionService.class);
+    private final com.katasticho.erp.ai.service.FluxAnalysisService fluxAnalysisService =
+            mock(com.katasticho.erp.ai.service.FluxAnalysisService.class);
 
     private final ProactiveAgentService service = new ProactiveAgentService(
             creditReminderService, fiscalPeriodRepository, ruleBasedAiAgentService,
-            aiSuggestionRepository, aiSuggestionService);
+            aiSuggestionRepository, aiSuggestionService, fluxAnalysisService);
 
     private final UUID orgId = UUID.randomUUID();
 

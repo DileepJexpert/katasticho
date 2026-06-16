@@ -52,8 +52,9 @@ public class ProactiveAgentService {
     private final RuleBasedAiAgentService ruleBasedAiAgentService;
     private final AiSuggestionRepository aiSuggestionRepository;
     private final AiSuggestionService aiSuggestionService;
+    private final FluxAnalysisService fluxAnalysisService;
 
-    public record ProactiveRunResult(int collections, int monthClose, int anomalies) {}
+    public record ProactiveRunResult(int collections, int monthClose, int anomalies, int flux) {}
 
     /** Run all proactive agents for the current tenant. */
     @Transactional
@@ -61,9 +62,15 @@ public class ProactiveAgentService {
         int collections = draftCollectionsReminders();
         int monthClose = draftMonthCloseChecklist(LocalDate.now());
         int anomalies = ruleBasedAiAgentService.runRuleChecks(30).createdSuggestions();
-        log.info("Proactive sweep: {} collections, {} month-close, {} anomalies",
-                collections, monthClose, anomalies);
-        return new ProactiveRunResult(collections, monthClose, anomalies);
+        int flux = 0;
+        try {
+            flux = fluxAnalysisService.draftForLastMonth(LocalDate.now());
+        } catch (Exception e) {
+            log.warn("Flux agent failed: {}", e.getMessage());
+        }
+        log.info("Proactive sweep: {} collections, {} month-close, {} anomalies, {} flux",
+                collections, monthClose, anomalies, flux);
+        return new ProactiveRunResult(collections, monthClose, anomalies, flux);
     }
 
     // ── Collections reminders ───────────────────────────────────────────
