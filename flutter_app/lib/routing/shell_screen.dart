@@ -360,6 +360,11 @@ const _accountingGroup = NavGroup(
         activeIcon: Icons.precision_manufacturing,
         route: Routes.fixedAssets),
     NavItem(
+        label: 'Amortization',
+        icon: Icons.schedule_outlined,
+        activeIcon: Icons.schedule,
+        route: Routes.amortization),
+    NavItem(
         label: 'GST',
         icon: Icons.percent_outlined,
         activeIcon: Icons.percent_rounded,

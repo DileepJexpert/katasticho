@@ -44,6 +44,12 @@ class ApiConfig {
   static const String fixedAssetDepreciationRun = '/api/v1/fixed-assets/depreciation/run';
   static String fixedAssetDispose(String id) => '/api/v1/fixed-assets/$id/dispose';
   static const String fixedAssetIncomeTaxSchedule = '/api/v1/fixed-assets/income-tax-schedule';
+
+  // Recurring amortization (prepaids / deferred income / accruals)
+  static const String amortization = '/api/v1/amortization';
+  static String amortizationById(String id) => '/api/v1/amortization/$id';
+  static const String amortizationRun = '/api/v1/amortization/run';
+  static String amortizationCancel(String id) => '/api/v1/amortization/$id/cancel';
   static const String fiscalPeriods = '/api/v1/accounting/periods';
   static String closeFiscalPeriod(int year, int month) =>
       '/api/v1/accounting/periods/$year/$month/close';
