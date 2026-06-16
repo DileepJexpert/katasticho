@@ -163,6 +163,7 @@ class ApiConfig {
   static const String smsSettings = '/api/v1/settings/sms';
   static const String aiSettings = '/api/v1/settings/ai';
   static const String aiSettingsTest = '/api/v1/settings/ai/test';
+  static const String aiSettingsModels = '/api/v1/settings/ai/models';
 
   // Contact Ledger
   static String contactLedger(String id) => '/api/v1/contacts/$id/ledger';
