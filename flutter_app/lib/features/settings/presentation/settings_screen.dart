@@ -121,6 +121,12 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push(Routes.portalUsers),
             ),
             _SettingsTile(
+              icon: Icons.auto_awesome_outlined,
+              title: 'AI Models',
+              subtitle: 'Use a local model (Ollama / vLLM) or Claude for AI features',
+              onTap: () => context.push(Routes.aiSettings),
+            ),
+            _SettingsTile(
               icon: Icons.fact_check_outlined,
               title: 'Approval Inbox',
               subtitle: 'Review pending workflow approvals',
