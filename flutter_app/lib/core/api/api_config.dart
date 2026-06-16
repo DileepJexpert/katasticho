@@ -37,6 +37,13 @@ class ApiConfig {
   // Accounting
   static const String chartOfAccounts = '/api/v1/accounts';
   static const String journalEntries = '/api/v1/journal-entries';
+
+  // Fixed assets + depreciation
+  static const String fixedAssets = '/api/v1/fixed-assets';
+  static String fixedAssetById(String id) => '/api/v1/fixed-assets/$id';
+  static const String fixedAssetDepreciationRun = '/api/v1/fixed-assets/depreciation/run';
+  static String fixedAssetDispose(String id) => '/api/v1/fixed-assets/$id/dispose';
+  static const String fixedAssetIncomeTaxSchedule = '/api/v1/fixed-assets/income-tax-schedule';
   static const String fiscalPeriods = '/api/v1/accounting/periods';
   static String closeFiscalPeriod(int year, int month) =>
       '/api/v1/accounting/periods/$year/$month/close';

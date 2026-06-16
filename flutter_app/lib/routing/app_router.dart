@@ -112,6 +112,7 @@ import '../features/journals/presentation/journal_detail_screen.dart';
 import '../features/journals/presentation/journal_create_screen.dart';
 import '../features/journals/presentation/guided_transaction_screen.dart';
 import '../features/accounting_periods/presentation/period_close_screen.dart';
+import '../features/fixed_assets/presentation/fixed_assets_screen.dart';
 import '../features/contacts/presentation/contact_statement_screen.dart';
 import '../features/inventory/presentation/near_expiry_screen.dart';
 import '../features/inventory/presentation/stock_count_list_screen.dart';
@@ -351,6 +352,7 @@ class Routes {
   static const journalEntryCreate = '/accounting/journal-entries/create';
   static const journalEntryDetail = '/accounting/journal-entries/:id';
   static const periodClose = '/accounting/period-close';
+  static const fixedAssets = '/accounting/fixed-assets';
   static const caConsole = '/ca';
   static const caCalendar = '/ca/calendar';
   static const caAlerts = '/ca/alerts';
@@ -844,6 +846,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.periodClose,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: PeriodCloseScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fixedAssets,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: FixedAssetsScreen(),
             ),
           ),
           // Chart of Accounts

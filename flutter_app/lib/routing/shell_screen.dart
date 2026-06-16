@@ -355,6 +355,11 @@ const _accountingGroup = NavGroup(
         activeIcon: Icons.event_busy_rounded,
         route: Routes.periodClose),
     NavItem(
+        label: 'Fixed Assets',
+        icon: Icons.precision_manufacturing_outlined,
+        activeIcon: Icons.precision_manufacturing,
+        route: Routes.fixedAssets),
+    NavItem(
         label: 'GST',
         icon: Icons.percent_outlined,
         activeIcon: Icons.percent_rounded,
