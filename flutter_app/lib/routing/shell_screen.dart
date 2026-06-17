@@ -670,6 +670,24 @@ const _manufacturingGroup = NavGroup(
   ],
 );
 
+const _courierGroup = NavGroup(
+  label: 'Courier',
+  icon: Icons.local_post_office_outlined,
+  activeIcon: Icons.local_post_office,
+  children: [
+    NavItem(
+        label: 'Shipments',
+        icon: Icons.local_shipping_outlined,
+        activeIcon: Icons.local_shipping_rounded,
+        route: Routes.courierShipments),
+    NavItem(
+        label: 'COD Remittances',
+        icon: Icons.payments_outlined,
+        activeIcon: Icons.payments_rounded,
+        route: Routes.courierCod),
+  ],
+);
+
 const _supplyChainGroup = NavGroup(
   label: 'Supply Chain',
   icon: Icons.hub_outlined,
@@ -726,6 +744,7 @@ const _allGroups = [
   _partnerNetworkGroup,
   _manufacturingGroup,
   _supplyChainGroup,
+  _courierGroup,
 ];
 
 /// Flat list of every route across top-level items and groups (for active-state matching).

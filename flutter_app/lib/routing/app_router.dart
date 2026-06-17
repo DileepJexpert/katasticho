@@ -57,6 +57,9 @@ import '../features/onboarding/presentation/business_details_screen.dart';
 import '../features/onboarding/presentation/setup_complete_screen.dart';
 import '../features/gst/presentation/gst_dashboard_screen.dart';
 import '../features/gst/presentation/itc_risk_screen.dart';
+import '../features/courier/presentation/courier_shipment_list_screen.dart';
+import '../features/courier/presentation/cod_remittance_list_screen.dart';
+import '../features/courier/presentation/courier_settings_screen.dart';
 import '../features/credit_notes/presentation/credit_note_list_screen.dart';
 import '../features/credit_notes/presentation/credit_note_detail_screen.dart';
 import '../features/credit_notes/presentation/credit_note_create_screen.dart';
@@ -310,6 +313,9 @@ class Routes {
   static const bankReconciliation = '/banking/reconciliation';
   static const gst = '/gst';
   static const gstItcRisk = '/gst/itc-risk';
+  static const courierShipments = '/courier/shipments';
+  static const courierCod = '/courier/cod-remittances';
+  static const courierSettings = '/settings/couriers';
   static const reorder = '/reorder';
   static const shortbook = '/shortbook';
   static const nearExpiry = '/inventory/near-expiry';
@@ -1793,6 +1799,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.gstItcRisk,
             builder: (context, state) => const ItcRiskScreen(),
+          ),
+          GoRoute(
+            path: Routes.courierShipments,
+            builder: (context, state) => const CourierShipmentListScreen(),
+          ),
+          GoRoute(
+            path: Routes.courierCod,
+            builder: (context, state) => const CodRemittanceListScreen(),
+          ),
+          GoRoute(
+            path: Routes.courierSettings,
+            builder: (context, state) => const CourierSettingsScreen(),
           ),
           GoRoute(
             path: Routes.settings,

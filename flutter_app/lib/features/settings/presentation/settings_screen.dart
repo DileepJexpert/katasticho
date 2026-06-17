@@ -249,6 +249,13 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push(Routes.gspSettings),
             ),
             _SettingsTile(
+              icon: Icons.local_post_office_outlined,
+              title: 'Courier Connections',
+              subtitle:
+                  'BlueDart, Delhivery, India Post, DTDC, Shiprocket — tracking & COD',
+              onTap: () => context.push(Routes.courierSettings),
+            ),
+            _SettingsTile(
               icon: Icons.swap_horiz,
               title: 'Migrate from Tally',
               subtitle: 'Import ledgers, items & opening balances from Tally XML',

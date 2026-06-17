@@ -641,6 +641,27 @@ List<KCommand> buildAppCommands() {
       keywords: ['gsp', 'gst', 'e-invoice', 'irn', 'eway', '2b', 'suvidha'],
     ),
     KCommand(
+      label: 'Courier Shipments',
+      icon: Icons.local_shipping_rounded,
+      section: 'Navigate',
+      route: Routes.courierShipments,
+      keywords: ['courier', 'awb', 'tracking', 'parcel', 'rto', 'delhivery', 'bluedart'],
+    ),
+    KCommand(
+      label: 'COD Remittances',
+      icon: Icons.payments_rounded,
+      section: 'Navigate',
+      route: Routes.courierCod,
+      keywords: ['cod', 'remittance', 'courier', 'collection', 'reconcile'],
+    ),
+    KCommand(
+      label: 'Courier Connections',
+      icon: Icons.local_post_office_rounded,
+      section: 'Settings',
+      route: Routes.courierSettings,
+      keywords: ['courier', 'bluedart', 'delhivery', 'shiprocket', 'india post', 'dtdc'],
+    ),
+    KCommand(
       label: 'Payroll Settings',
       icon: Icons.settings_rounded,
       section: 'Settings',

@@ -1015,6 +1015,27 @@ class ApiConfig {
   // GSP direct e-invoice / e-way bill generation
   static const String gspSettings = '/api/v1/gst/gsp-settings';
   static const String gspSettingsTest = '/api/v1/gst/gsp-settings/test';
+
+  // Courier (dispatch tracking + COD reconciliation)
+  static const String courierShipments = '/api/v1/courier/shipments';
+  static String courierShipment(String id) => '/api/v1/courier/shipments/$id';
+  static String courierShipmentBook(String id) =>
+      '/api/v1/courier/shipments/$id/book';
+  static String courierShipmentCancel(String id) =>
+      '/api/v1/courier/shipments/$id/cancel';
+  static String courierShipmentEvents(String id) =>
+      '/api/v1/courier/shipments/$id/events';
+  static const String courierShipmentsPendingRto =
+      '/api/v1/courier/shipments/pending-rto';
+  static const String codRemittances = '/api/v1/courier/cod-remittances';
+  static String codRemittance(String id) => '/api/v1/courier/cod-remittances/$id';
+  static String codRemittanceReconcile(String id) =>
+      '/api/v1/courier/cod-remittances/$id/reconcile';
+  static const String courierSettings = '/api/v1/courier/settings';
+  static String courierSettingsPartner(String partner) =>
+      '/api/v1/courier/settings/$partner';
+  static String courierSettingsPartnerTest(String partner) =>
+      '/api/v1/courier/settings/$partner/test';
   static String einvoiceGenerateViaGsp(String id) =>
       '/api/v1/gst/einvoices/$id/generate-gsp';
   static String ewayBillGenerateViaGsp(String id) =>
