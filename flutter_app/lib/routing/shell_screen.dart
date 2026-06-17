@@ -498,6 +498,11 @@ const _hrGroup = NavGroup(
         icon: Icons.logout_outlined,
         activeIcon: Icons.logout,
         route: Routes.hrOffboarding),
+    NavItem(
+        label: 'My Profile',
+        icon: Icons.person_outline,
+        activeIcon: Icons.person,
+        route: Routes.hrMyProfile),
   ],
 );
 

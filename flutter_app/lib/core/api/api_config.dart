@@ -686,6 +686,23 @@ class ApiConfig {
   static String hrOffboardingCancel(String id) =>
       '/api/v1/hr/offboarding/$id/cancel';
 
+  // HR portal — Employee depth + self-service (module 2)
+  static const String hrMyProfile = '/api/v1/hr/employees/me';
+  static const String hrMyFamily = '/api/v1/hr/employees/me/family';
+  static String hrMyFamilyById(String id) => '/api/v1/hr/employees/me/family/$id';
+  static const String hrMyEducation = '/api/v1/hr/employees/me/education';
+  static String hrMyEducationById(String id) =>
+      '/api/v1/hr/employees/me/education/$id';
+  static const String hrMyExperience = '/api/v1/hr/employees/me/experience';
+  static String hrMyExperienceById(String id) =>
+      '/api/v1/hr/employees/me/experience/$id';
+  static String hrEmployeeFamily(String employeeId) =>
+      '/api/v1/hr/employees/$employeeId/family';
+  static String hrEmployeeEducation(String employeeId) =>
+      '/api/v1/hr/employees/$employeeId/education';
+  static String hrEmployeeExperience(String employeeId) =>
+      '/api/v1/hr/employees/$employeeId/experience';
+
   // Payroll
   static const String payrollSettings = '/api/v1/payroll/settings';
   static const String payrollEmployees = '/api/v1/payroll/employees';
