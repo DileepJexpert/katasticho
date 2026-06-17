@@ -533,9 +533,34 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 FCM service-account (`app.push.fcm.service-account-file`) · SMS provider keys · WhatsApp Business token · GSP creds (e-invoice/EWB one-click) · Redis.
 
 ### F. Bigger tracks (later)
-Manufacturing tracker ~40/101 remaining after maintenance track (Gantt, shop-floor mobile, pharma BMR/FSSAI; ~~maintenance management~~ DONE 2026-06-17) · GST polish (~~B2CL in GSTR-1~~ DONE · ~~2B re-upload dedupe~~ DONE 2026-06-13 · ~~2B auto-fetch via GSP~~ DONE 2026-06-17) · POS catalog: full 254k source list importer.
+Manufacturing tracker ~37/101 remaining after maintenance + shop-floor mobile tracks (Gantt, pharma BMR/FSSAI; ~~maintenance management~~ DONE 2026-06-17; ~~shop-floor mobile UI~~ DONE 2026-06-17) · GST polish (~~B2CL in GSTR-1~~ DONE · ~~2B re-upload dedupe~~ DONE 2026-06-13 · ~~2B auto-fetch via GSP~~ DONE 2026-06-17) · POS catalog: full 254k source list importer.
 
-#### Manufacturing — Maintenance Management (2026-06-17)
+#### Manufacturing — Shop-floor Mobile (2026-06-17)
+- **Backend:** `WorkOrderRepository.findByOrgIdAndWorkOrderNumberIgnoreCaseAndIsDeletedFalse`
+  + `ManufacturingService.getWorkOrderByNumber(number)` + `GET /api/v1/manufacturing/
+  work-orders/by-number/{number}` so scanning a printed WO sticker resolves to the
+  same WO + job cards the existing detail endpoints return. Reuses the existing
+  start/complete job-card + scrap endpoints — no new lifecycle. Tests:
+  ManufacturingServiceTest +2 (returnsWoForScanInput w/ case-insensitive lookup,
+  unknown-number throws). 33/33 + 104/104 mfg sweep green.
+- **Flutter `ShopFloorScreen`** (`/manufacturing/shop-floor`, sidebar "Shop floor"
+  under Manufacturing, capabilities gated via `canUseManufacturing`) — mobile-first
+  operator UI:
+  - Autofocused "Scan or enter WO number" field that works with USB keyboard-wedge
+    scanners (filters out tab/CR/LF input that some scanners prepend) — Enter
+    triggers lookup, clears + refocuses on success so the operator can scan the
+    next WO without lifting fingers off the gun.
+  - Fallback "Active work orders" list (calls existing list endpoint with
+    `status=IN_PROGRESS`) for picking by tap when scanning isn't an option.
+  - Loaded WO renders the header card + job-card list w/ status pill (PENDING /
+    IN_PROGRESS / COMPLETED / CANCELLED) + big finger-sized action buttons:
+    Start (PENDING → IN_PROGRESS), Complete (modal bottom sheet captures
+    quantity produced + actual hours + notes), Log scrap (modal sheet w/
+    reason-code dropdown + qty + notes; posts to the work-order scrap endpoint
+    with `jobCardId` attached so the scrap row is attributed to the right
+    operation). All actions refresh the WO + job-cards inline.
+  - "Done — scan next WO" link returns to the active-WO list and refocuses
+    the scan field.
 - **V20 migration:** `maintenance_schedule` (workstation_id + code uniq +
   frequency_days CHECK > 0 + next_due_date NOT NULL + active flag + due-date
   partial index for the daily sweep) + `maintenance_work_order` (mwo_number

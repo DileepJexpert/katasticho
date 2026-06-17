@@ -353,6 +353,15 @@ public class ManufacturingService {
                 .orElseThrow(() -> BusinessException.notFound("WorkOrder", id));
     }
 
+    /** Shop-floor lookup by the printed/scanned WO number. */
+    @Transactional(readOnly = true)
+    public WorkOrder getWorkOrderByNumber(String workOrderNumber) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        return workOrderRepository
+                .findByOrgIdAndWorkOrderNumberIgnoreCaseAndIsDeletedFalse(orgId, workOrderNumber)
+                .orElseThrow(() -> BusinessException.notFound("WorkOrder", workOrderNumber));
+    }
+
     @Transactional(readOnly = true)
     public Page<WorkOrder> listWorkOrders(String status, Pageable pageable) {
         return listWorkOrders(status, null, pageable);

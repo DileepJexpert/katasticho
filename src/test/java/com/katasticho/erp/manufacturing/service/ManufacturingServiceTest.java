@@ -917,4 +917,29 @@ class ManufacturingServiceTest {
         line.setWorkOrder(wo);
         return wo;
     }
+
+    // ─── Shop-floor lookup ───
+
+    @Test
+    void getWorkOrderByNumber_returnsWoForScanInput() {
+        WorkOrder wo = createTestWorkOrder("DRAFT");
+        when(workOrderRepo
+                .findByOrgIdAndWorkOrderNumberIgnoreCaseAndIsDeletedFalse(orgId, "WO-00001"))
+                .thenReturn(java.util.Optional.of(wo));
+
+        WorkOrder result = service.getWorkOrderByNumber("WO-00001");
+
+        assertEquals(wo.getId(), result.getId());
+        assertEquals("WO-00001", result.getWorkOrderNumber());
+    }
+
+    @Test
+    void getWorkOrderByNumber_unknownNumber_throwsNotFound() {
+        when(workOrderRepo
+                .findByOrgIdAndWorkOrderNumberIgnoreCaseAndIsDeletedFalse(orgId, "WO-99999"))
+                .thenReturn(java.util.Optional.empty());
+
+        assertThrows(BusinessException.class,
+                () -> service.getWorkOrderByNumber("WO-99999"));
+    }
 }

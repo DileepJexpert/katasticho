@@ -76,6 +76,13 @@ public class ManufacturingController {
         return ResponseEntity.ok(ApiResponse.ok(service.getWorkOrder(id)));
     }
 
+    /** Shop-floor lookup by the printed/scanned WO number (e.g. WO-00042). */
+    @GetMapping("/work-orders/by-number/{number}")
+    public ResponseEntity<ApiResponse<WorkOrder>> getWorkOrderByNumber(
+            @PathVariable("number") String number) {
+        return ResponseEntity.ok(ApiResponse.ok(service.getWorkOrderByNumber(number)));
+    }
+
     @PostMapping("/work-orders/{id}/issue")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<WorkOrder>> issueToProduction(@PathVariable UUID id) {

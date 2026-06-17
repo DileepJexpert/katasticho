@@ -643,6 +643,11 @@ const _manufacturingGroup = NavGroup(
         activeIcon: Icons.build_rounded,
         route: Routes.manufacturingMaintenance),
     NavItem(
+        label: 'Shop floor',
+        icon: Icons.precision_manufacturing_outlined,
+        activeIcon: Icons.precision_manufacturing_rounded,
+        route: Routes.manufacturingShopFloor),
+    NavItem(
         label: 'MRP Runs',
         icon: Icons.calculate_outlined,
         activeIcon: Icons.calculate_rounded,

@@ -18,6 +18,10 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, UUID> {
 
     Optional<WorkOrder> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
+    /** Shop-floor lookup by the printed/scanned WO number (case-insensitive). */
+    Optional<WorkOrder> findByOrgIdAndWorkOrderNumberIgnoreCaseAndIsDeletedFalse(
+            UUID orgId, String workOrderNumber);
+
     Page<WorkOrder> findByOrgIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID orgId, Pageable pageable);
 
     Page<WorkOrder> findByOrgIdAndStatusAndIsDeletedFalse(UUID orgId, String status, Pageable pageable);
