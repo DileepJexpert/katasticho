@@ -11,10 +11,13 @@ import com.katasticho.erp.hr.repository.EmployeeFamilyRepository;
 import com.katasticho.erp.payroll.entity.Employee;
 import com.katasticho.erp.payroll.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -157,6 +160,66 @@ public class HrEmployeeService {
                 .orElseThrow(() -> BusinessException.notFound("EmployeeExperience", id));
         existing.setDeleted(true);
         experienceRepository.save(existing);
+    }
+
+    // ───── Self-service /me ─────
+
+    /** Resolve the payroll Employee linked to the current app-user, or throw. */
+    public Employee me() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        UUID userId = TenantContext.getCurrentUserId();
+        return employeeRepository.findByOrgIdAndUserIdAndIsDeletedFalse(orgId, userId)
+                .orElseThrow(() -> new BusinessException(
+                        "No employee profile is linked to your account. Ask HR to link your employee record.",
+                        "HR_EMPLOYEE_NOT_LINKED", HttpStatus.NOT_FOUND));
+    }
+
+    /** Full self-service view: profile + family + education + experience. */
+    public Map<String, Object> myProfile() {
+        Employee employee = me();
+        Map<String, Object> out = new HashMap<>();
+        out.put("employee", employee);
+        out.put("family", familyRepository
+                .findByOrgIdAndEmployeeIdAndIsDeletedFalseOrderByCreatedAtAsc(employee.getOrgId(), employee.getId()));
+        out.put("education", educationRepository
+                .findByOrgIdAndEmployeeIdAndIsDeletedFalseOrderByStartYearDesc(employee.getOrgId(), employee.getId()));
+        out.put("experience", experienceRepository
+                .findByOrgIdAndEmployeeIdAndIsDeletedFalseOrderByFromDateDesc(employee.getOrgId(), employee.getId()));
+        return out;
+    }
+
+    /**
+     * Self-service profile update. Writes ONLY the fields an employee is
+     * allowed to edit themselves — personal info, addresses, emergency contact,
+     * personal email, profile photo. All other fields (designation, department,
+     * salary IDs, statutory IDs, employment status, etc.) stay locked and must
+     * go through the admin endpoints.
+     */
+    @Transactional
+    public Employee updateMe(Employee input) {
+        Employee me = me();
+        me.setDateOfBirth(input.getDateOfBirth());
+        me.setGender(input.getGender());
+        me.setMaritalStatus(input.getMaritalStatus());
+        me.setBloodGroup(input.getBloodGroup());
+        me.setNationality(input.getNationality());
+        me.setPersonalEmail(input.getPersonalEmail());
+        me.setPhone(input.getPhone());
+        me.setCurrentAddressLine1(input.getCurrentAddressLine1());
+        me.setCurrentAddressLine2(input.getCurrentAddressLine2());
+        me.setCurrentCity(input.getCurrentCity());
+        me.setCurrentState(input.getCurrentState());
+        me.setCurrentPincode(input.getCurrentPincode());
+        me.setPermanentAddressLine1(input.getPermanentAddressLine1());
+        me.setPermanentAddressLine2(input.getPermanentAddressLine2());
+        me.setPermanentCity(input.getPermanentCity());
+        me.setPermanentState(input.getPermanentState());
+        me.setPermanentPincode(input.getPermanentPincode());
+        me.setEmergencyContactName(input.getEmergencyContactName());
+        me.setEmergencyContactRelationship(input.getEmergencyContactRelationship());
+        me.setEmergencyContactPhone(input.getEmergencyContactPhone());
+        me.setPhotoAttachmentId(input.getPhotoAttachmentId());
+        return employeeRepository.save(me);
     }
 
     // ───── Helpers ─────

@@ -205,4 +205,109 @@ class HrEmployeeServiceTest {
         service.listExperience(employeeId);
         verify(experienceRepo).findByOrgIdAndEmployeeIdAndIsDeletedFalseOrderByFromDateDesc(orgId, employeeId);
     }
+
+    // ───── Self-service /me ─────
+
+    @Test
+    void me_returnsEmployeeLinkedToCurrentUser() {
+        Employee linked = Employee.builder().id(UUID.randomUUID()).orgId(orgId).userId(userId)
+                .fullName("Anita").build();
+        when(employeeRepo.findByOrgIdAndUserIdAndIsDeletedFalse(orgId, userId))
+                .thenReturn(Optional.of(linked));
+
+        Employee me = service.me();
+
+        assertEquals(linked.getId(), me.getId());
+        assertEquals("Anita", me.getFullName());
+    }
+
+    @Test
+    void me_userNotLinked_throwsHrEmployeeNotLinked() {
+        when(employeeRepo.findByOrgIdAndUserIdAndIsDeletedFalse(orgId, userId))
+                .thenReturn(Optional.empty());
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.me());
+        assertEquals("HR_EMPLOYEE_NOT_LINKED", ex.getErrorCode());
+    }
+
+    @Test
+    void updateMe_overwritesOnlySelfEditableFields_locksManagerFields() {
+        UUID myId = UUID.randomUUID();
+        Employee me = Employee.builder()
+                .id(myId).orgId(orgId).userId(userId)
+                .fullName("Anita")
+                .designation("Senior Engineer")   // manager-set; must be preserved
+                .department("Engineering")        // manager-set; must be preserved
+                .employmentStatus("ACTIVE")       // manager-set
+                .employmentType("FULL_TIME")      // manager-set
+                .pan("ABCDE1234F")                // statutory; must be preserved
+                .bankAccountNumber("12345678")    // payment; must be preserved
+                .build();
+        when(employeeRepo.findByOrgIdAndUserIdAndIsDeletedFalse(orgId, userId))
+                .thenReturn(Optional.of(me));
+        when(employeeRepo.save(any(Employee.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Employee selfEdit = Employee.builder()
+                // self-editable
+                .dateOfBirth(LocalDate.of(1990, 5, 12))
+                .gender("FEMALE")
+                .maritalStatus("MARRIED")
+                .bloodGroup("O+")
+                .nationality("Indian")
+                .personalEmail("priya@personal.com")
+                .phone("9999000000")
+                .currentAddressLine1("12 MG Road")
+                .currentCity("Bengaluru")
+                .emergencyContactName("Ravi")
+                .emergencyContactPhone("9876543210")
+                .photoAttachmentId(UUID.randomUUID())
+                // attempts to change manager fields — must be IGNORED
+                .designation("CEO")
+                .department("Finance")
+                .employmentStatus("EXITED")
+                .pan("ZZZZZ9999Z")
+                .bankAccountNumber("99999999")
+                .build();
+
+        Employee saved = service.updateMe(selfEdit);
+
+        // Self-editable fields applied
+        assertEquals(LocalDate.of(1990, 5, 12), saved.getDateOfBirth());
+        assertEquals("FEMALE", saved.getGender());
+        assertEquals("MARRIED", saved.getMaritalStatus());
+        assertEquals("priya@personal.com", saved.getPersonalEmail());
+        assertEquals("9999000000", saved.getPhone());
+        assertEquals("Bengaluru", saved.getCurrentCity());
+        assertEquals("Ravi", saved.getEmergencyContactName());
+        assertNotNull(saved.getPhotoAttachmentId());
+
+        // Manager-controlled fields NOT overwritten
+        assertEquals("Senior Engineer", saved.getDesignation());
+        assertEquals("Engineering", saved.getDepartment());
+        assertEquals("ACTIVE", saved.getEmploymentStatus());
+        assertEquals("FULL_TIME", saved.getEmploymentType());
+        assertEquals("ABCDE1234F", saved.getPan());
+        assertEquals("12345678", saved.getBankAccountNumber());
+        assertEquals("Anita", saved.getFullName());
+    }
+
+    @Test
+    void myProfile_returnsEmployeePlusSubresources() {
+        UUID myId = UUID.randomUUID();
+        Employee me = Employee.builder().id(myId).orgId(orgId).userId(userId).fullName("Anita").build();
+        when(employeeRepo.findByOrgIdAndUserIdAndIsDeletedFalse(orgId, userId))
+                .thenReturn(Optional.of(me));
+        when(familyRepo.findByOrgIdAndEmployeeIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, myId))
+                .thenReturn(java.util.List.of(EmployeeFamily.builder().name("Ravi").relationship("SPOUSE").build()));
+        when(educationRepo.findByOrgIdAndEmployeeIdAndIsDeletedFalseOrderByStartYearDesc(orgId, myId))
+                .thenReturn(java.util.List.of(EmployeeEducation.builder().degree("B.Tech").build()));
+        when(experienceRepo.findByOrgIdAndEmployeeIdAndIsDeletedFalseOrderByFromDateDesc(orgId, myId))
+                .thenReturn(java.util.List.of(EmployeeExperience.builder().companyName("Infosys").build()));
+
+        var profile = service.myProfile();
+
+        assertSame(me, profile.get("employee"));
+        assertEquals(1, ((java.util.List<?>) profile.get("family")).size());
+        assertEquals(1, ((java.util.List<?>) profile.get("education")).size());
+        assertEquals(1, ((java.util.List<?>) profile.get("experience")).size());
+    }
 }
