@@ -21,6 +21,7 @@ class ItcRiskScreen extends ConsumerStatefulWidget {
 class _ItcRiskScreenState extends ConsumerState<ItcRiskScreen> {
   late String _period; // YYYY-MM
   Map<String, dynamic>? _report;
+  Map<String, dynamic>? _rollup;
   bool _loading = false;
   bool _refreshing = false;
 
@@ -37,8 +38,14 @@ class _ItcRiskScreenState extends ConsumerState<ItcRiskScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final r = await ref.read(gstRepositoryProvider).getItcRisk(_period);
+      final repo = ref.read(gstRepositoryProvider);
+      final r = await repo.getItcRisk(_period);
       if (mounted) setState(() => _report = r);
+      // Rollup is best-effort — never block the main view on it.
+      try {
+        final rollup = await repo.getItcRiskRollup();
+        if (mounted) setState(() => _rollup = rollup);
+      } catch (_) {}
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -129,6 +136,7 @@ class _ItcRiskScreenState extends ConsumerState<ItcRiskScreen> {
           : ListView(
               padding: KSpacing.pagePadding,
               children: [
+                if (_rollup != null) _rollupCard(_rollup!),
                 if (report != null) _deadlineBanner(report),
                 KCard(
                   child: Column(
@@ -223,6 +231,52 @@ class _ItcRiskScreenState extends ConsumerState<ItcRiskScreen> {
                 ],
               ],
             ),
+    );
+  }
+
+  /// Money headline across recent cycles: still-saveable vs already-lost ITC.
+  Widget _rollupCard(Map<String, dynamic> rollup) {
+    final recoverable = (rollup['totalRecoverable'] as num?)?.toDouble() ?? 0;
+    final passed = (rollup['totalPassed'] as num?)?.toDouble() ?? 0;
+    if (recoverable == 0 && passed == 0) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: KCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Input credit this quarter', style: KTypography.labelLarge),
+            KSpacing.vGapSm,
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(CurrencyFormatter.formatIndian(recoverable),
+                          style: KTypography.h2.copyWith(color: KColors.success)),
+                      Text('still recoverable — act before the deadline',
+                          style: KTypography.bodySmall
+                              .copyWith(color: KColors.textSecondary)),
+                    ],
+                  ),
+                ),
+                if (passed > 0)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(CurrencyFormatter.formatIndian(passed),
+                          style: KTypography.h3.copyWith(color: KColors.error)),
+                      Text('deadline passed',
+                          style: KTypography.bodySmall
+                              .copyWith(color: KColors.textSecondary)),
+                    ],
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 

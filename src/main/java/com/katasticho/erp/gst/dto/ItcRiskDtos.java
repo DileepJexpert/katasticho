@@ -41,5 +41,26 @@ public class ItcRiskDtos {
             String urgency              // OVERDUE | CRITICAL | URGENT | NORMAL
     ) {}
 
+    /** One period's headline numbers for the cross-period rollup. */
+    public record PeriodSummary(
+            String period,
+            java.math.BigDecimal itcAtRisk,
+            int suppliersAtRisk,
+            int daysToDeadline,
+            String urgency,
+            boolean dataAvailable,
+            boolean recoverable          // deadline not yet passed — still saveable by nudging
+    ) {}
+
+    /**
+     * Money framing across recent cycles: how much ITC you can still save by
+     * chasing suppliers before their deadline, vs how much already slipped past.
+     */
+    public record RecoverableRollup(
+            java.math.BigDecimal totalRecoverable,   // at-risk in periods whose deadline is still open
+            java.math.BigDecimal totalPassed,        // at-risk in periods whose deadline has passed
+            List<PeriodSummary> periods
+    ) {}
+
     private ItcRiskDtos() {}
 }

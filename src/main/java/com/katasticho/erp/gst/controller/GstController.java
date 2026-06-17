@@ -140,6 +140,14 @@ public class GstController {
         return ResponseEntity.ok(ApiResponse.ok(itcRiskMonitorService.assessRisk(period)));
     }
 
+    /** Money rollup across recent cycles: ₹ITC still recoverable vs already lost. */
+    @GetMapping("/itc-risk/rollup")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
+    public ResponseEntity<ApiResponse<com.katasticho.erp.gst.dto.ItcRiskDtos.RecoverableRollup>> itcRiskRollup(
+            @RequestParam(defaultValue = "3") int months) {
+        return ResponseEntity.ok(ApiResponse.ok(itcRiskMonitorService.recoverableRollup(months)));
+    }
+
     /** Refresh real-time 2A via GSP (if configured) and raise an AI-Inbox alert per at-risk supplier. */
     @PostMapping("/itc-risk/alert")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")

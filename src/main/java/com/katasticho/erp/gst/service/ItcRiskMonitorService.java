@@ -127,6 +127,31 @@ public class ItcRiskMonitorService {
                 source, refreshedAt, daysToDeadline, urgency);
     }
 
+    /**
+     * Money framing across the last {@code months} cycles: ₹ITC still recoverable
+     * (deadline open) vs ₹ already slipped past. Drives the dashboard headline.
+     */
+    @Transactional(readOnly = true)
+    public com.katasticho.erp.gst.dto.ItcRiskDtos.RecoverableRollup recoverableRollup(int months) {
+        int n = months <= 0 ? 3 : Math.min(months, 12);
+        YearMonth start = YearMonth.now(clock);
+        List<com.katasticho.erp.gst.dto.ItcRiskDtos.PeriodSummary> periods = new ArrayList<>();
+        BigDecimal recoverable = BigDecimal.ZERO, passed = BigDecimal.ZERO;
+        for (int i = 0; i < n; i++) {
+            YearMonth ym = start.minusMonths(i);
+            ItcRiskReport r = assessRisk(ym.toString());
+            boolean isRecoverable = r.daysToDeadline() >= 0;
+            periods.add(new com.katasticho.erp.gst.dto.ItcRiskDtos.PeriodSummary(
+                    r.period(), r.totalItcAtRisk(), r.suppliersAtRisk(), r.daysToDeadline(),
+                    r.urgency(), r.dataAvailable(), isRecoverable));
+            if (r.dataAvailable()) {
+                if (isRecoverable) recoverable = recoverable.add(r.totalItcAtRisk());
+                else passed = passed.add(r.totalItcAtRisk());
+            }
+        }
+        return new com.katasticho.erp.gst.dto.ItcRiskDtos.RecoverableRollup(recoverable, passed, periods);
+    }
+
     // ── Alert (write — Inbox suggestions only) ────────────────────────────
 
     /**

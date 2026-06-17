@@ -209,6 +209,27 @@ class ItcRiskMonitorServiceTest {
     }
 
     @Test
+    void rollup_splitsRecoverableFromPassedByDeadline() {
+        // Same ₹4000 laggard in every period; clock = 2026-06-08.
+        // months=3 from June → June (deadline Jul 11, open), May (Jun 11, 3d open),
+        // Apr (May 11, passed). So recoverable = June+May = 8000, passed = Apr = 4000.
+        when(entryRepository.findByOrgIdAndReturnPeriodOrderBySupplierGstinAscInvoiceNumberAsc(eq(orgId), anyString()))
+                .thenReturn(List.of(filed("27AAAAA0000A1Z5", "INV-1")));
+        when(purchaseBillRepository.findPostedByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(List.of(bill(laggardId, "INV-9", "4000")));
+        when(contactRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), any()))
+                .thenReturn(List.of(vendor(laggardId, "Laggard Traders", "29BBBBB1111B1Z5", "9822222222")));
+
+        var rollup = service.recoverableRollup(3);
+
+        assertThat(rollup.periods()).hasSize(3);
+        assertThat(rollup.totalRecoverable()).isEqualByComparingTo("8000");
+        assertThat(rollup.totalPassed()).isEqualByComparingTo("4000");
+        assertThat(rollup.periods().get(0).period()).isEqualTo("2026-06"); // most recent first
+        assertThat(rollup.periods().get(2).recoverable()).isFalse();       // April — passed
+    }
+
+    @Test
     void refreshAndAlert_pullsRealtime2aWhenGspConfigured() {
         when(gspClient.isConfigured(orgId)).thenReturn(true);
         when(gspClient.fetchGstr2a(orgId, "052026")).thenReturn(java.util.Map.of("entries", List.of()));

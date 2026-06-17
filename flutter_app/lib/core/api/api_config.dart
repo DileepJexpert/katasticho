@@ -104,6 +104,7 @@ class ApiConfig {
   static const String gstr2b = '/api/v1/gst/gstr2b';
   static const String gstr2bSummary = '/api/v1/gst/gstr2b/summary';
   static const String gstItcRisk = '/api/v1/gst/itc-risk';
+  static const String gstItcRiskRollup = '/api/v1/gst/itc-risk/rollup';
   static const String gstItcRiskAlert = '/api/v1/gst/itc-risk/alert';
   // e-Way bills
   static const String ewayBills = '/api/v1/gst/eway-bills';

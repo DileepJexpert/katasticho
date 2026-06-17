@@ -288,6 +288,13 @@ class GstRepository {
     return _data(response.data);
   }
 
+  /// Cross-period money rollup: ₹ITC still recoverable vs already lost.
+  Future<Map<String, dynamic>> getItcRiskRollup({int months = 3}) async {
+    final response = await _api.get(ApiConfig.gstItcRiskRollup,
+        queryParameters: {'months': months});
+    return _data(response.data);
+  }
+
   /// Refresh real-time 2A (if GSP set) and raise an alert per at-risk supplier.
   Future<Map<String, dynamic>> raiseItcRiskAlerts(String period) async {
     final response = await _api
