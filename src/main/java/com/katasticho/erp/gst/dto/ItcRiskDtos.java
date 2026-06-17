@@ -36,7 +36,9 @@ public class ItcRiskDtos {
             List<SupplierRisk> suppliers,
             String message,
             String source,              // GSTR_2A | GSTR_2B | UPLOAD — provenance of the filing data
-            java.time.Instant lastRefreshedAt   // when that data was last pulled (null if never)
+            java.time.Instant lastRefreshedAt,  // when that data was last pulled (null if never)
+            int daysToDeadline,         // days until the GSTR-1 filing cutoff (11th); negative if passed
+            String urgency              // OVERDUE | CRITICAL | URGENT | NORMAL
     ) {}
 
     private ItcRiskDtos() {}

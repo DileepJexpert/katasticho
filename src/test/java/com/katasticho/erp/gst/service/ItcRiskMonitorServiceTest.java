@@ -49,11 +49,15 @@ class ItcRiskMonitorServiceTest {
     private final UUID laggardId = UUID.randomUUID();
     private final UUID unregId = UUID.randomUUID();
 
+    // Fixed at 2026-06-08 → 3 days before the 2026-05 filing deadline (11th) → CRITICAL.
+    private final java.time.Clock clock = java.time.Clock.fixed(
+            java.time.Instant.parse("2026-06-08T10:00:00Z"), java.time.ZoneOffset.UTC);
+
     @BeforeEach
     void setUp() {
         service = new ItcRiskMonitorService(purchaseBillRepository, contactRepository,
                 entryRepository, aiSuggestionService, aiSuggestionRepository, gspClient, gstr2bReconService,
-                filingSnapshotRepository);
+                filingSnapshotRepository, clock);
         TenantContext.setCurrentOrgId(orgId);
     }
 
@@ -131,9 +135,10 @@ class ItcRiskMonitorServiceTest {
                 .thenReturn(List.of(bill(laggardId, "INV-9", "12000")));
         when(contactRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), any()))
                 .thenReturn(List.of(vendor(laggardId, "Laggard Traders", "29BBBBB1111B1Z5", "9822222222")));
-        when(aiSuggestionRepository.existsOpenSuggestion(
-                eq(orgId), eq("CONTACT"), eq(laggardId), isNull(), eq("ITC_AT_RISK"), any()))
-                .thenReturn(false);
+        when(aiSuggestionRepository
+                .findFirstByOrgIdAndEntityTypeAndEntityIdAndSuggestionTypeAndStatusInOrderByCreatedAtDesc(
+                        eq(orgId), eq("CONTACT"), eq(laggardId), eq("ITC_AT_RISK"), any()))
+                .thenReturn(java.util.Optional.empty());
 
         int raised = service.raiseAlerts("2026-05");
 
@@ -143,15 +148,45 @@ class ItcRiskMonitorServiceTest {
         AiSuggestion s = cap.getValue();
         assertThat(s.getSuggestionType()).isEqualTo("ITC_AT_RISK");
         assertThat(s.getEntityId()).isEqualTo(laggardId);
-        assertThat(s.getPriority()).isEqualTo("HIGH"); // ₹12000 ≥ 10000
+        assertThat(s.getPriority()).isEqualTo("HIGH"); // ₹12000 + CRITICAL
         assertThat(s.getSuggestedValue()).containsKey("whatsappUrl");
 
-        // Second run with the alert already open → no duplicate.
-        when(aiSuggestionRepository.existsOpenSuggestion(
-                eq(orgId), eq("CONTACT"), eq(laggardId), isNull(), eq("ITC_AT_RISK"), any()))
-                .thenReturn(true);
+        // Second run with the same urgency already on an open alert → no duplicate, no bump.
+        when(aiSuggestionRepository
+                .findFirstByOrgIdAndEntityTypeAndEntityIdAndSuggestionTypeAndStatusInOrderByCreatedAtDesc(
+                        eq(orgId), eq("CONTACT"), eq(laggardId), eq("ITC_AT_RISK"), any()))
+                .thenReturn(java.util.Optional.of(s)); // already at score 95
         assertThat(service.raiseAlerts("2026-05")).isZero();
         verify(aiSuggestionService, times(1)).createSuggestion(any());
+    }
+
+    @Test
+    void raiseAlerts_escalatesExistingAlertAsDeadlineNears() {
+        // An open alert raised earlier at low urgency (NORMAL, score 50).
+        AiSuggestion stale = AiSuggestion.builder()
+                .id(UUID.randomUUID()).orgId(orgId).entityType("CONTACT").entityId(laggardId)
+                .suggestionType("ITC_AT_RISK").priority("MEDIUM")
+                .priorityScore(new BigDecimal("50")).status("PENDING").build();
+        when(entryRepository.findByOrgIdAndReturnPeriodOrderBySupplierGstinAscInvoiceNumberAsc(orgId, "2026-05"))
+                .thenReturn(List.of(filed("27AAAAA0000A1Z5", "INV-1")));
+        when(purchaseBillRepository.findPostedByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(List.of(bill(laggardId, "INV-9", "4000"))); // < ₹10k, so amount alone = MEDIUM
+        when(contactRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), any()))
+                .thenReturn(List.of(vendor(laggardId, "Laggard Traders", "29BBBBB1111B1Z5", "9822222222")));
+        when(aiSuggestionRepository
+                .findFirstByOrgIdAndEntityTypeAndEntityIdAndSuggestionTypeAndStatusInOrderByCreatedAtDesc(
+                        eq(orgId), eq("CONTACT"), eq(laggardId), eq("ITC_AT_RISK"), any()))
+                .thenReturn(java.util.Optional.of(stale));
+
+        int created = service.raiseAlerts("2026-05"); // clock = CRITICAL (3 days out)
+
+        assertThat(created).isZero(); // not a new alert — escalated in place
+        verify(aiSuggestionService, never()).createSuggestion(any());
+        ArgumentCaptor<AiSuggestion> cap = ArgumentCaptor.forClass(AiSuggestion.class);
+        verify(aiSuggestionRepository).save(cap.capture());
+        // ₹4000 (base 50) + CRITICAL (+25) = 75 → HIGH, bumped above the prior 50.
+        assertThat(cap.getValue().getPriority()).isEqualTo("HIGH");
+        assertThat(cap.getValue().getPriorityScore()).isEqualByComparingTo("75");
     }
 
     @Test

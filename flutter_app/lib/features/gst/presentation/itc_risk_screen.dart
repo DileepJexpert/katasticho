@@ -129,6 +129,7 @@ class _ItcRiskScreenState extends ConsumerState<ItcRiskScreen> {
           : ListView(
               padding: KSpacing.pagePadding,
               children: [
+                if (report != null) _deadlineBanner(report),
                 KCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -222,6 +223,43 @@ class _ItcRiskScreenState extends ConsumerState<ItcRiskScreen> {
                 ],
               ],
             ),
+    );
+  }
+
+  /// Countdown banner whose colour ramps with urgency as the 11th nears.
+  Widget _deadlineBanner(Map<String, dynamic> report) {
+    final urgency = report['urgency'] as String?;
+    final days = (report['daysToDeadline'] as num?)?.toInt() ?? 99;
+    final (color, label) = switch (urgency) {
+      'OVERDUE' => (KColors.error, 'Filing deadline passed ${days.abs()} day(s) ago'),
+      'CRITICAL' => (
+          KColors.error,
+          days == 0
+              ? 'Filing deadline is TODAY (11th)'
+              : '$days day(s) to the GSTR-1 deadline (11th)'
+        ),
+      'URGENT' => (KColors.warning, '$days days to the GSTR-1 deadline (11th)'),
+      _ => (KColors.textSecondary, '$days days to the GSTR-1 deadline (11th)'),
+    };
+    final emphatic = urgency == 'OVERDUE' || urgency == 'CRITICAL';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: emphatic ? 0.12 : 0.07),
+        borderRadius: KSpacing.borderRadiusMd,
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          Icon(emphatic ? Icons.alarm : Icons.schedule, color: color, size: 20),
+          KSpacing.hGapSm,
+          Expanded(
+            child: Text(label,
+                style: KTypography.labelLarge.copyWith(color: color)),
+          ),
+        ],
+      ),
     );
   }
 

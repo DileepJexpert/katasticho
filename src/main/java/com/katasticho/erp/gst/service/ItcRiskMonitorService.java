@@ -58,6 +58,7 @@ public class ItcRiskMonitorService {
     private final GspClient gspClient;
     private final Gstr2bReconService gstr2bReconService;
     private final com.katasticho.erp.gst.repository.GstFilingSnapshotRepository filingSnapshotRepository;
+    private final java.time.Clock clock;
 
     // ── Assess (read) ─────────────────────────────────────────────────────
 
@@ -66,6 +67,8 @@ public class ItcRiskMonitorService {
     public ItcRiskReport assessRisk(String period) {
         UUID orgId = requireOrgId();
         YearMonth ym = parsePeriod(period);
+        int daysToDeadline = daysToDeadline(ym);
+        String urgency = urgency(daysToDeadline);
 
         var snapshot = filingSnapshotRepository.findByOrgIdAndReturnPeriod(orgId, ym.toString());
         String source = snapshot.map(s -> s.getSource()).orElse(null);
@@ -78,7 +81,7 @@ public class ItcRiskMonitorService {
             return new ItcRiskReport(ym.toString(), false, BigDecimal.ZERO, 0, List.of(),
                     "No filing data yet for " + monthLabel(ym) + ". Connect a GSP to pull GSTR-2A, "
                             + "or upload it, so unfiled suppliers can be flagged before the cutoff.",
-                    source, refreshedAt);
+                    source, refreshedAt, daysToDeadline, urgency);
         }
         Set<String> filedKeys = new HashSet<>();
         for (Gstr2bEntry e : filed) {
@@ -119,9 +122,9 @@ public class ItcRiskMonitorService {
         String message = risks.isEmpty()
                 ? "All reported so far — no ITC at risk for " + monthLabel(ym) + " yet."
                 : risks.size() + " supplier(s) haven't filed — ₹" + plain(total)
-                        + " of ITC at risk for " + monthLabel(ym) + ".";
+                        + " of ITC at risk for " + monthLabel(ym) + deadlinePhrase(daysToDeadline) + ".";
         return new ItcRiskReport(ym.toString(), true, total, risks.size(), risks, message,
-                source, refreshedAt);
+                source, refreshedAt, daysToDeadline, urgency);
     }
 
     // ── Alert (write — Inbox suggestions only) ────────────────────────────
@@ -148,7 +151,11 @@ public class ItcRiskMonitorService {
         return raiseAlerts(period);
     }
 
-    /** One idempotent ITC_AT_RISK suggestion per at-risk supplier. Returns how many were raised. */
+    /**
+     * One ITC_AT_RISK suggestion per at-risk supplier — created if new, or
+     * <b>escalated</b> in place on re-run as the filing deadline nears (priority
+     * and reasoning are bumped, no duplicate is made). Returns how many were newly created.
+     */
     @Transactional
     public int raiseAlerts(String period) {
         UUID orgId = requireOrgId();
@@ -156,26 +163,31 @@ public class ItcRiskMonitorService {
         if (!report.dataAvailable()) {
             return 0;
         }
-        int created = 0;
+        int days = report.daysToDeadline();
+        String urgency = report.urgency();
+        int created = 0, escalated = 0;
         for (SupplierRisk r : report.suppliers()) {
-            if (aiSuggestionRepository.existsOpenSuggestion(
-                    orgId, "CONTACT", r.contactId(), null, SUGGESTION_TYPE, OPEN_STATUSES)) {
+            String priority = priorityFor(r.itcAtRisk(), urgency);
+            BigDecimal score = scoreFor(r.itcAtRisk(), urgency);
+            String reasoning = reasoning(r, report.period(), days);
+            Map<String, Object> value = suggestedValue(r, report.period(), days, urgency);
+
+            var existing = aiSuggestionRepository
+                    .findFirstByOrgIdAndEntityTypeAndEntityIdAndSuggestionTypeAndStatusInOrderByCreatedAtDesc(
+                            orgId, "CONTACT", r.contactId(), SUGGESTION_TYPE, OPEN_STATUSES);
+            if (existing.isPresent()) {
+                AiSuggestion s = existing.get();
+                // Escalate in place — only bump, never downgrade an owner-seen alert.
+                if (score.compareTo(nz(s.getPriorityScore())) > 0) {
+                    s.setPriority(priority);
+                    s.setPriorityScore(score);
+                    s.setReasoning(reasoning);
+                    s.setSuggestedValue(value);
+                    aiSuggestionRepository.save(s);
+                    escalated++;
+                }
                 continue;
             }
-            Map<String, Object> value = new LinkedHashMap<>();
-            value.put("period", report.period());
-            value.put("supplierName", r.supplierName());
-            value.put("gstin", r.gstin());
-            value.put("phone", r.phone());
-            value.put("itcAtRisk", plain(r.itcAtRisk()));
-            value.put("invoiceCount", r.invoiceCount());
-            value.put("invoiceNumbers", r.invoiceNumbers());
-            value.put("draftMessage", r.draftMessage());
-            if (r.whatsappUrl() != null && !r.whatsappUrl().isBlank()) {
-                value.put("whatsappUrl", r.whatsappUrl());
-            }
-
-            boolean high = r.itcAtRisk().compareTo(HIGH_VALUE) >= 0;
             aiSuggestionService.createSuggestion(AiSuggestion.builder()
                     .orgId(orgId)
                     .entityType("CONTACT")
@@ -183,26 +195,87 @@ public class ItcRiskMonitorService {
                     .suggestionType(SUGGESTION_TYPE)
                     .suggestedAction("NUDGE_SUPPLIER_TO_FILE")
                     .suggestedValue(value)
-                    .reasoning(r.supplierName() + " hasn't reported GSTR-1 for " + report.period()
-                            + " — ₹" + plain(r.itcAtRisk()) + " of your ITC across " + r.invoiceCount()
-                            + " invoice(s) is at risk and will be blocked under Sec 16(2)(c) if it isn't "
-                            + "filed before the cutoff. Forward the ready reminder to nudge them.")
+                    .reasoning(reasoning)
                     .confidence(new BigDecimal("0.950"))
                     .agentName("itc_risk_monitor")
                     .modelName("deterministic_rules")
                     .modelVersion("1")
                     .promptVersion("none")
-                    .priority(high ? "HIGH" : "MEDIUM")
-                    .priorityScore(high ? new BigDecimal("85") : new BigDecimal("65"))
+                    .priority(priority)
+                    .priorityScore(score)
                     .status("PENDING")
                     .build());
             created++;
         }
-        log.info("ITC-at-risk monitor: raised {} alert(s) for org {} period {}", created, orgId, period);
+        log.info("ITC-at-risk monitor: {} new + {} escalated alert(s) for org {} period {} ({})",
+                created, escalated, orgId, period, urgency);
         return created;
     }
 
+    private Map<String, Object> suggestedValue(SupplierRisk r, String period, int days, String urgency) {
+        Map<String, Object> value = new LinkedHashMap<>();
+        value.put("period", period);
+        value.put("supplierName", r.supplierName());
+        value.put("gstin", r.gstin());
+        value.put("phone", r.phone());
+        value.put("itcAtRisk", plain(r.itcAtRisk()));
+        value.put("invoiceCount", r.invoiceCount());
+        value.put("invoiceNumbers", r.invoiceNumbers());
+        value.put("draftMessage", r.draftMessage());
+        value.put("daysToDeadline", days);
+        value.put("urgency", urgency);
+        if (r.whatsappUrl() != null && !r.whatsappUrl().isBlank()) {
+            value.put("whatsappUrl", r.whatsappUrl());
+        }
+        return value;
+    }
+
+    private String reasoning(SupplierRisk r, String period, int days) {
+        return r.supplierName() + " hasn't reported GSTR-1 for " + period + " — ₹"
+                + plain(r.itcAtRisk()) + " of your ITC across " + r.invoiceCount()
+                + " invoice(s) is at risk and will be blocked under Sec 16(2)(c)"
+                + deadlinePhrase(days) + ". Forward the ready reminder to nudge them.";
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────
+
+    // ── Deadline urgency (escalates as the 11th approaches) ───────────────
+
+    /** GSTR-1 for invoice month P is due the 11th of P+1; days from today to that. */
+    private int daysToDeadline(YearMonth period) {
+        LocalDate today = LocalDate.now(clock);
+        LocalDate deadline = period.plusMonths(1).atDay(11);
+        return (int) java.time.temporal.ChronoUnit.DAYS.between(today, deadline);
+    }
+
+    private static String urgency(int days) {
+        if (days < 0) return "OVERDUE";
+        if (days <= 3) return "CRITICAL";
+        if (days <= 7) return "URGENT";
+        return "NORMAL";
+    }
+
+    private static String deadlinePhrase(int days) {
+        if (days < 0) return " — the " + Math.abs(days) + "-day-old filing deadline has passed";
+        if (days == 0) return " — the filing deadline is TODAY (11th)";
+        return " if it isn't filed in the next " + days + " day(s) (deadline 11th)";
+    }
+
+    /** Amount sets the floor; nearness to the deadline bumps it (capped at 99). */
+    private static BigDecimal scoreFor(BigDecimal itc, String urgency) {
+        int base = itc.compareTo(HIGH_VALUE) >= 0 ? 70 : 50;
+        int bonus = switch (urgency) {
+            case "OVERDUE" -> 29;
+            case "CRITICAL" -> 25;
+            case "URGENT" -> 15;
+            default -> 0;
+        };
+        return BigDecimal.valueOf(Math.min(99, base + bonus));
+    }
+
+    private static String priorityFor(BigDecimal itc, String urgency) {
+        return scoreFor(itc, urgency).intValue() >= 75 ? "HIGH" : "MEDIUM";
+    }
 
     private String supplierMessage(Agg a, YearMonth ym) {
         String nums = String.join(", ", a.invoiceNumbers);

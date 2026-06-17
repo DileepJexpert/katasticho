@@ -19,6 +19,10 @@ public interface AiSuggestionRepository extends JpaRepository<AiSuggestion, UUID
 
     Optional<AiSuggestion> findByIdAndOrgId(UUID id, UUID orgId);
 
+    /** The current open suggestion for an entity of a given type — for escalate-or-create. */
+    Optional<AiSuggestion> findFirstByOrgIdAndEntityTypeAndEntityIdAndSuggestionTypeAndStatusInOrderByCreatedAtDesc(
+            UUID orgId, String entityType, UUID entityId, String suggestionType, Collection<String> statuses);
+
     Page<AiSuggestion> findByOrgIdOrderByPriorityScoreDescCreatedAtDesc(UUID orgId, Pageable pageable);
 
     Page<AiSuggestion> findByOrgIdAndStatusOrderByPriorityScoreDescCreatedAtDesc(
