@@ -44,6 +44,7 @@ public class GspController {
         putIfPresent(orgId, body, "einvoicePath", GspClient.EINVOICE_PATH);
         putIfPresent(orgId, body, "ewaybillPath", GspClient.EWAYBILL_PATH);
         putIfPresent(orgId, body, "gstr2bPath", GspClient.GSTR2B_PATH);
+        putIfPresent(orgId, body, "gstr2aPath", GspClient.GSTR2A_PATH);
         putIfPresent(orgId, body, "gstin", GspClient.GSTIN);
         // Only overwrite the token when a non-blank value is supplied.
         if (body.get("token") != null && !body.get("token").isBlank()) {

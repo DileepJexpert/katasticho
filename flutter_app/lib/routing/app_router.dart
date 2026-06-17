@@ -56,6 +56,7 @@ import '../features/onboarding/presentation/sub_category_screen.dart';
 import '../features/onboarding/presentation/business_details_screen.dart';
 import '../features/onboarding/presentation/setup_complete_screen.dart';
 import '../features/gst/presentation/gst_dashboard_screen.dart';
+import '../features/gst/presentation/itc_risk_screen.dart';
 import '../features/credit_notes/presentation/credit_note_list_screen.dart';
 import '../features/credit_notes/presentation/credit_note_detail_screen.dart';
 import '../features/credit_notes/presentation/credit_note_create_screen.dart';
@@ -308,6 +309,7 @@ class Routes {
   static const aiChat = '/ai-chat';
   static const bankReconciliation = '/banking/reconciliation';
   static const gst = '/gst';
+  static const gstItcRisk = '/gst/itc-risk';
   static const reorder = '/reorder';
   static const shortbook = '/shortbook';
   static const nearExpiry = '/inventory/near-expiry';
@@ -1787,6 +1789,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => const NoTransitionPage(
               child: GstDashboardScreen(),
             ),
+          ),
+          GoRoute(
+            path: Routes.gstItcRisk,
+            builder: (context, state) => const ItcRiskScreen(),
           ),
           GoRoute(
             path: Routes.settings,

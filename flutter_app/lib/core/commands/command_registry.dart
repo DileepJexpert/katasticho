@@ -117,6 +117,13 @@ List<KCommand> buildAppCommands() {
       keywords: ['tax', 'india', 'gstr', 'compliance'],
     ),
     KCommand(
+      label: 'ITC at Risk',
+      icon: Icons.shield_outlined,
+      section: 'Navigate',
+      route: Routes.gstItcRisk,
+      keywords: ['itc', 'gstr-2a', '2a', 'supplier', 'input credit', 'unfiled', 'gst'],
+    ),
+    KCommand(
       label: 'Sales Orders',
       icon: Icons.shopping_cart_rounded,
       section: 'Navigate',

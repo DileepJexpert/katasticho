@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../routing/app_router.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
@@ -234,6 +236,34 @@ class _Gstr2bTabState extends ConsumerState<Gstr2bTab> {
                 label: Text(_uploading ? 'Uploading…' : 'Upload 2B JSON'),
               ),
             ],
+          ),
+        ),
+        KSpacing.vGapSm,
+        InkWell(
+          onTap: () => context.push(Routes.gstItcRisk),
+          borderRadius: KSpacing.borderRadiusMd,
+          child: KCard(
+            child: Row(
+              children: [
+                Icon(Icons.shield_outlined, color: KColors.warning),
+                KSpacing.hGapSm,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Catch it before the cutoff',
+                          style: KTypography.labelLarge),
+                      Text(
+                        'See which suppliers haven\'t filed yet and nudge them',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
           ),
         ),
         if (hasData) ...[

@@ -52,6 +52,7 @@ public class GspClient {
     public static final String EINVOICE_PATH = "gst.gsp_einvoice_path";
     public static final String EWAYBILL_PATH = "gst.gsp_ewaybill_path";
     public static final String GSTR2B_PATH = "gst.gsp_gstr2b_path";
+    public static final String GSTR2A_PATH = "gst.gsp_gstr2a_path";
     public static final String TOKEN = "gst.gsp_token";
     public static final String GSTIN = "gst.gsp_gstin";
 
@@ -83,8 +84,21 @@ public class GspClient {
      *         already tolerates the {@code data.docdata.b2b} and {@code entries[]} shapes
      */
     public Map<String, Object> fetchGstr2b(UUID orgId, String returnPeriod) {
+        return getReturn(orgId, path(orgId, GSTR2B_PATH, "/gstr2b/fetch"), returnPeriod);
+    }
+
+    /**
+     * Pull the GSTR-2A (the <em>real-time</em>, continuously-updating feed) for a
+     * return period. Unlike 2B — which freezes on the 14th, after the filing
+     * deadline — 2A reflects each supplier's GSTR-1 as it is filed, so it is the
+     * signal an ITC-at-risk monitor needs to warn before the cutoff locks.
+     */
+    public Map<String, Object> fetchGstr2a(UUID orgId, String returnPeriod) {
+        return getReturn(orgId, path(orgId, GSTR2A_PATH, "/gstr2a/fetch"), returnPeriod);
+    }
+
+    private Map<String, Object> getReturn(UUID orgId, String base, String returnPeriod) {
         Map<String, String> s = orgSettingsService.getAll(orgId);
-        String base = path(orgId, GSTR2B_PATH, "/gstr2b/fetch");
         StringBuilder url = new StringBuilder(base)
                 .append(base.contains("?") ? "&" : "?")
                 .append("rtnprd=").append(returnPeriod);
@@ -151,6 +165,7 @@ public class GspClient {
         out.put("einvoicePath", s.getOrDefault(EINVOICE_PATH, ""));
         out.put("ewaybillPath", s.getOrDefault(EWAYBILL_PATH, ""));
         out.put("gstr2bPath", s.getOrDefault(GSTR2B_PATH, ""));
+        out.put("gstr2aPath", s.getOrDefault(GSTR2A_PATH, ""));
         out.put("gstin", s.getOrDefault(GSTIN, ""));
         out.put("tokenSet", notBlank(s.get(TOKEN)));
         return out;

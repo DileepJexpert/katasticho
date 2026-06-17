@@ -556,6 +556,15 @@ Manufacturing tracker 43/101 remaining (Gantt, shop-floor mobile, maintenance, p
 - Tests: Gstr2bReconServiceTest +2 (not-configured throws; configured pulls "052026" + reconciles). 6 pass.
 - **GSP settings screen + test-connection (2026-06-17):** `GspSettingsScreen` (Settings → GSP Connection, `/settings/gsp`; sidebar tile + command palette) — enable toggle, provider/base-URL/GSTIN/write-only-token, optional endpoint paths, explainer. `gst_repository.getGspSettings/updateGspSettings`. `GspClient.testConnection(orgId)` — GETs the base URL; any HTTP status (incl. 401/404) = reachable, transport error = unreachable; never throws, returns `{ok,reachable,statusCode,message}`. `POST /api/v1/gst/gsp-settings/test` (OWNER/ADMIN) + "Test connection" button w/ inline result. Tests: GspClientTest (4 — not-configured / 200 / 401-still-reachable / transport-unreachable).
 
+#### ITC-at-Risk Monitor — preventive, pre-cutoff (2026-06-17)
+**The wedge incumbents skip:** every 2B recon tool is a *post-cutoff* autopsy (2B freezes the 14th, after the 11th GSTR-1 deadline). From Apr-2026 GSTR-3B can only claim ITC that 2B reflects, so one unfiled supplier blocks your credit (Sec 16(2)(c)). This monitors the **real-time GSTR-2A** in the window *before* the lock and nudges the owner to chase laggards.
+- `GspClient.fetchGstr2a(orgId, MMYYYY)` (new setting `gst.gsp_gstr2a_path`, default `/gstr2a/fetch`) — 2A is the live feed (updates as suppliers file); shared `getReturn()` helper with `fetchGstr2b`. `gstr2aPath` added to settings()/GspController.
+- `ItcRiskMonitorService` (`gst.service`): `assessRisk(period)` (read) — posted bills (registered suppliers w/ vendor bill no.) vs filed set from `gstr2b_entry` (reuses `Gstr2bReconService.matchKey`); per-supplier ₹ITC-at-risk + ready WhatsApp nudge + wa.me deep link, sorted desc. **Honest degradation:** empty filed set → `dataAvailable=false`, flags NOBODY (no crying wolf — doesn't even read books). `refreshAndAlert(period)` — best-effort 2A pull via GSP (ingested through `Gstr2bReconService.upload`), then `raiseAlerts`. `raiseAlerts` — idempotent `ITC_AT_RISK` AiSuggestion per supplier (entityType CONTACT), HIGH ≥₹10k.
+- `ItcRiskMonitorJob` (cron `app.automation.itc-risk-monitor.cron` default `0 0 9 5 * *` — 9am on the 5th) scans the PRIOR month (whose GSTR-1 deadline is the 11th), per active org.
+- Endpoints: `GET /api/v1/gst/itc-risk?period=` (assess) + `POST /api/v1/gst/itc-risk/alert?period=` (refresh+alert).
+- ERP Flutter: `ItcRiskScreen` (`/gst/itc-risk`; command palette + a "Catch it before the cutoff" card on the 2B tab) — month picker, "Check latest filings now", total + per-supplier cards w/ one-tap "Remind on WhatsApp" (url_launcher wa.me), dataAvailable empty state.
+- Tests: ItcRiskMonitorServiceTest (5 — no-data silent, flags unfiled-registered-only + aggregates, idempotent alerts + HIGH priority, 2A pull via GSP, GSP-failure still alerts on existing data).
+
 ### G. Marg first-timer master-data parity (2026-06-13)
 Goal: match Marg's "ready in minutes" preloaded masters. Audit found UoM already
 covered (UomService bootstrap seeds common + industry units incl. pharma Strip/

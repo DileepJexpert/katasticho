@@ -280,6 +280,21 @@ class GstRepository {
     return _data(response.data);
   }
 
+  // ── ITC-at-risk monitor (preventive) ─────────────────────────────────
+
+  Future<Map<String, dynamic>> getItcRisk(String period) async {
+    final response = await _api
+        .get(ApiConfig.gstItcRisk, queryParameters: {'period': period});
+    return _data(response.data);
+  }
+
+  /// Refresh real-time 2A (if GSP set) and raise an alert per at-risk supplier.
+  Future<Map<String, dynamic>> raiseItcRiskAlerts(String period) async {
+    final response = await _api
+        .post(ApiConfig.gstItcRiskAlert, queryParameters: {'period': period});
+    return _data(response.data);
+  }
+
   // ── GSP (GST Suvidha Provider) connection settings ────────────────────
 
   Future<Map<String, dynamic>> getGspSettings() async {
