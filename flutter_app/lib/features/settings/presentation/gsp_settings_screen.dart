@@ -32,7 +32,10 @@ class _GspSettingsScreenState extends ConsumerState<GspSettingsScreen> {
   bool _tokenSet = false;
   bool _loading = true;
   bool _saving = false;
+  bool _testing = false;
   String? _error;
+  String? _testMessage;
+  bool _testOk = false;
 
   @override
   void initState() {
@@ -109,6 +112,29 @@ class _GspSettingsScreenState extends ConsumerState<GspSettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Save failed: ${e.toString().replaceAll('Exception: ', '')}'),
       ));
+    }
+  }
+
+  Future<void> _test() async {
+    setState(() {
+      _testing = true;
+      _testMessage = null;
+    });
+    try {
+      final r = await ref.read(gstRepositoryProvider).testGspConnection();
+      if (!mounted) return;
+      setState(() {
+        _testOk = r['reachable'] == true;
+        _testMessage = (r['message'] ?? '').toString();
+        _testing = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _testOk = false;
+        _testMessage = 'Test failed: ${e.toString().replaceAll('Exception: ', '')}';
+        _testing = false;
+      });
     }
   }
 
@@ -239,6 +265,33 @@ class _GspSettingsScreenState extends ConsumerState<GspSettingsScreen> {
                       isLoading: _saving,
                       onPressed: _saving ? null : _save,
                     ),
+                    KSpacing.vGapSm,
+                    OutlinedButton.icon(
+                      onPressed: (_testing || _saving) ? null : _test,
+                      icon: const Icon(Icons.wifi_tethering),
+                      label: Text(_testing ? 'Testing…' : 'Test connection'),
+                    ),
+                    if (_testMessage != null) ...[
+                      KSpacing.vGapSm,
+                      Row(
+                        children: [
+                          Icon(
+                            _testOk ? Icons.check_circle : Icons.error_outline,
+                            color: _testOk ? KColors.success : KColors.error,
+                            size: 18,
+                          ),
+                          KSpacing.hGapSm,
+                          Expanded(
+                            child: Text(
+                              _testMessage!,
+                              style: KTypography.bodySmall.copyWith(
+                                color: _testOk ? KColors.success : KColors.error,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
     );

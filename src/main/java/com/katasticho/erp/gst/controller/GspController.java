@@ -52,6 +52,14 @@ public class GspController {
         return ResponseEntity.ok(ApiResponse.ok(gspClient.settings(orgId), "GSP settings updated"));
     }
 
+    /** Probe whether the configured GSP host is reachable. Never errors on a bad host. */
+    @PostMapping("/test")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> test() {
+        return ResponseEntity.ok(ApiResponse.ok(
+                gspClient.testConnection(TenantContext.getCurrentOrgId())));
+    }
+
     private void putIfPresent(UUID orgId, Map<String, String> body, String field, String key) {
         if (body.containsKey(field)) {
             orgSettingsService.set(orgId, key, body.get(field) == null ? "" : body.get(field).trim());

@@ -1010,6 +1010,7 @@ class ApiConfig {
 
   // GSP direct e-invoice / e-way bill generation
   static const String gspSettings = '/api/v1/gst/gsp-settings';
+  static const String gspSettingsTest = '/api/v1/gst/gsp-settings/test';
   static String einvoiceGenerateViaGsp(String id) =>
       '/api/v1/gst/einvoices/$id/generate-gsp';
   static String ewayBillGenerateViaGsp(String id) =>

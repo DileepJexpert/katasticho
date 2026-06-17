@@ -553,6 +553,7 @@ Manufacturing tracker 43/101 remaining (Gantt, shop-floor mobile, maintenance, p
 - `Gstr2bReconService.fetchAndReconcile(period)` — guards `GSP_NOT_CONFIGURED`, converts YYYY-MM→MMYYYY, pulls JSON, then runs the SAME `upload()` parse/match/dedupe path (no portal download). `POST /api/v1/gst/gstr2b/fetch?period=` (OWNER/ADMIN/ACCOUNTANT). `GspController` settings gained `gstr2bPath`.
 - ERP Flutter: GSTR-2B tab now has a primary "Fetch from GSP" button (manual JSON upload demoted to outlined fallback); `fetchGstr2bFromGsp` repo method + `gstr2bFetch` api_config. GSP_NOT_CONFIGURED → friendly "set up GSP / upload manually" snackbar.
 - Tests: Gstr2bReconServiceTest +2 (not-configured throws; configured pulls "052026" + reconciles). 6 pass.
+- **GSP settings screen + test-connection (2026-06-17):** `GspSettingsScreen` (Settings → GSP Connection, `/settings/gsp`; sidebar tile + command palette) — enable toggle, provider/base-URL/GSTIN/write-only-token, optional endpoint paths, explainer. `gst_repository.getGspSettings/updateGspSettings`. `GspClient.testConnection(orgId)` — GETs the base URL; any HTTP status (incl. 401/404) = reachable, transport error = unreachable; never throws, returns `{ok,reachable,statusCode,message}`. `POST /api/v1/gst/gsp-settings/test` (OWNER/ADMIN) + "Test connection" button w/ inline result. Tests: GspClientTest (4 — not-configured / 200 / 401-still-reachable / transport-unreachable).
 
 ### G. Marg first-timer master-data parity (2026-06-13)
 Goal: match Marg's "ready in minutes" preloaded masters. Audit found UoM already

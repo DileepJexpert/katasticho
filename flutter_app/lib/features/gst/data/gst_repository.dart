@@ -293,6 +293,12 @@ class GstRepository {
     return _data(response.data);
   }
 
+  /// Probe whether the configured GSP host is reachable.
+  Future<Map<String, dynamic>> testGspConnection() async {
+    final response = await _api.post(ApiConfig.gspSettingsTest);
+    return _data(response.data);
+  }
+
   Map<String, dynamic> _data(dynamic body) {
     final map = body as Map<String, dynamic>;
     return Map<String, dynamic>.from((map['data'] as Map?) ?? map);

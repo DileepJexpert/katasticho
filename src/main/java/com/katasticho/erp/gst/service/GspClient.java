@@ -94,6 +94,53 @@ public class GspClient {
         return get(orgId, url.toString());
     }
 
+    /**
+     * Probe whether the configured GSP host is reachable, without generating
+     * anything. A GET to the base URL: any HTTP response (even 401/404) means
+     * the host is up and the credentials reach it; only a transport error means
+     * unreachable. Never throws — returns a structured result for the UI.
+     */
+    public Map<String, Object> testConnection(UUID orgId) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        if (!isConfigured(orgId)) {
+            out.put("ok", false);
+            out.put("reachable", false);
+            out.put("message", "Enable GSP and set a base URL + token first.");
+            return out;
+        }
+        Map<String, String> s = orgSettingsService.getAll(orgId);
+        String base = s.getOrDefault(BASE_URL, "").trim();
+        if (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(s.getOrDefault(TOKEN, ""));
+        if (notBlank(s.get(GSTIN))) headers.set("gstin", s.get(GSTIN).trim());
+
+        try {
+            ResponseEntity<String> resp = gspRestTemplate.exchange(
+                    base, org.springframework.http.HttpMethod.GET,
+                    new HttpEntity<>(headers), String.class);
+            return reachable(out, resp.getStatusCode().value());
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            // The host answered with an error status — still up and addressable.
+            return reachable(out, e.getStatusCode().value());
+        } catch (RestClientException e) {
+            log.warn("GSP test-connection failed for org {}: {}", orgId, e.getMessage());
+            out.put("ok", false);
+            out.put("reachable", false);
+            out.put("message", "Could not reach the GSP host: " + e.getMessage());
+            return out;
+        }
+    }
+
+    private Map<String, Object> reachable(Map<String, Object> out, int statusCode) {
+        out.put("ok", true);
+        out.put("reachable", true);
+        out.put("statusCode", statusCode);
+        out.put("message", "GSP host reachable (HTTP " + statusCode + ").");
+        return out;
+    }
+
     /** Settings map for the UI; the token is masked, never echoed in full. */
     public Map<String, Object> settings(UUID orgId) {
         Map<String, String> s = orgSettingsService.getAll(orgId);
