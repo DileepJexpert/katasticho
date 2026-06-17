@@ -50,6 +50,7 @@ public class Gstr2bReconService {
     private final AiSuggestionService aiSuggestionService;
     private final GspClient gspClient;
     private final com.katasticho.erp.gst.repository.GstFilingSnapshotRepository filingSnapshotRepository;
+    private final Gstr2aParser gstr2aParser;
 
     // ── Auto-fetch via GSP ────────────────────────────────────────────────
 
@@ -97,7 +98,11 @@ public class Gstr2bReconService {
         UUID orgId = requireOrgId();
         YearMonth ym = parsePeriod(period);
 
-        List<Gstr2bEntry> parsed = parsePortalJson(orgId, ym.toString(), portalJson);
+        // 2A is the real-time feed with a different JSON shape; everything else
+        // (manual upload, GSP 2B fetch) is the frozen 2B shape.
+        List<Gstr2bEntry> parsed = "GSTR_2A".equals(source)
+                ? gstr2aParser.parse(orgId, ym.toString(), portalJson)
+                : parsePortalJson(orgId, ym.toString(), portalJson);
         if (parsed.isEmpty()) {
             throw new BusinessException(
                     "No B2B invoices found in the uploaded GSTR-2B JSON",

@@ -48,7 +48,7 @@ class Gstr2bReconServiceTest {
 
     private final Gstr2bReconService service = new Gstr2bReconService(
             entryRepository, purchaseBillRepository, contactRepository, aiSuggestionService, gspClient,
-            filingSnapshotRepository);
+            filingSnapshotRepository, new Gstr2aParser());
 
     private final UUID orgId = UUID.randomUUID();
     private final UUID vendorId = UUID.randomUUID();
