@@ -366,6 +366,12 @@ class ApiConfig {
   static String aiBillDraftReject(String suggestionId) =>
       '/api/v1/ai/bill-drafts/$suggestionId/reject';
 
+  // Auto-categorize transactions (vendor -> GL account, learned from history)
+  static String aiCategorize(String contactId, {String? hsn}) =>
+      '/api/v1/ai/categorize?contactId=$contactId'
+      '${hsn != null && hsn.isNotEmpty ? '&hsn=$hsn' : ''}';
+  static const String aiCategorizeBackfill = '/api/v1/ai/categorize/backfill';
+
   // Proactive agents (collections, month-close, anomalies)
   static const String aiProactiveRun = '/api/v1/ai/agents/proactive/run';
 
