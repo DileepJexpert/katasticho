@@ -48,6 +48,31 @@ public class Gstr2bReconService {
     private final PurchaseBillRepository purchaseBillRepository;
     private final ContactRepository contactRepository;
     private final AiSuggestionService aiSuggestionService;
+    private final GspClient gspClient;
+
+    // ── Auto-fetch via GSP ────────────────────────────────────────────────
+
+    /**
+     * Pull the period's GSTR-2B straight from the configured GSP and reconcile
+     * it — same parse/match/dedupe path as a manual upload, no portal download.
+     * Throws {@code GSP_NOT_CONFIGURED} when no GSP is set up, so the manual
+     * upload stays the fallback.
+     */
+    @Transactional
+    public Map<String, Object> fetchAndReconcile(String period) {
+        UUID orgId = requireOrgId();
+        if (!gspClient.isConfigured(orgId)) {
+            throw new BusinessException(
+                    "No GSP configured — set up GSP credentials or upload the 2B JSON manually",
+                    "GSP_NOT_CONFIGURED");
+        }
+        YearMonth ym = parsePeriod(period);
+        // GST portal return-period format is MMYYYY.
+        String returnPeriod = String.format("%02d%04d", ym.getMonthValue(), ym.getYear());
+        Map<String, Object> portalJson = gspClient.fetchGstr2b(orgId, returnPeriod);
+        log.info("GSTR-2B {} fetched from GSP for org {}", ym, orgId);
+        return upload(ym.toString(), portalJson);
+    }
 
     // ── Upload + reconcile ───────────────────────────────────────────────
 

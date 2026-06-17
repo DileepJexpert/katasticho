@@ -51,6 +51,7 @@ public class GspClient {
     public static final String BASE_URL = "gst.gsp_base_url";
     public static final String EINVOICE_PATH = "gst.gsp_einvoice_path";
     public static final String EWAYBILL_PATH = "gst.gsp_ewaybill_path";
+    public static final String GSTR2B_PATH = "gst.gsp_gstr2b_path";
     public static final String TOKEN = "gst.gsp_token";
     public static final String GSTIN = "gst.gsp_gstin";
 
@@ -73,6 +74,26 @@ public class GspClient {
         return post(orgId, path(orgId, EWAYBILL_PATH, "/ewaybill/generate"), payload);
     }
 
+    /**
+     * Pull the GSTR-2B JSON for a return period straight from the GSP, so the
+     * reconciliation can run without the manual portal-download → upload step.
+     *
+     * @param returnPeriod GST portal format {@code MMYYYY} (e.g. "052026")
+     * @return the aggregator's response — passed as-is to the 2B parser, which
+     *         already tolerates the {@code data.docdata.b2b} and {@code entries[]} shapes
+     */
+    public Map<String, Object> fetchGstr2b(UUID orgId, String returnPeriod) {
+        Map<String, String> s = orgSettingsService.getAll(orgId);
+        String base = path(orgId, GSTR2B_PATH, "/gstr2b/fetch");
+        StringBuilder url = new StringBuilder(base)
+                .append(base.contains("?") ? "&" : "?")
+                .append("rtnprd=").append(returnPeriod);
+        if (notBlank(s.get(GSTIN))) {
+            url.append("&gstin=").append(s.get(GSTIN).trim());
+        }
+        return get(orgId, url.toString());
+    }
+
     /** Settings map for the UI; the token is masked, never echoed in full. */
     public Map<String, Object> settings(UUID orgId) {
         Map<String, String> s = orgSettingsService.getAll(orgId);
@@ -82,6 +103,7 @@ public class GspClient {
         out.put("baseUrl", s.getOrDefault(BASE_URL, ""));
         out.put("einvoicePath", s.getOrDefault(EINVOICE_PATH, ""));
         out.put("ewaybillPath", s.getOrDefault(EWAYBILL_PATH, ""));
+        out.put("gstr2bPath", s.getOrDefault(GSTR2B_PATH, ""));
         out.put("gstin", s.getOrDefault(GSTIN, ""));
         out.put("tokenSet", notBlank(s.get(TOKEN)));
         return out;
@@ -110,6 +132,33 @@ public class GspClient {
             return body;
         } catch (RestClientException e) {
             log.warn("GSP call to {} failed for org {}: {}", url, orgId, e.getMessage());
+            throw new BusinessException(
+                    "Could not reach the GSP: " + e.getMessage(),
+                    "GSP_UNREACHABLE", HttpStatus.BAD_GATEWAY);
+        }
+    }
+
+    private Map<String, Object> get(UUID orgId, String url) {
+        Map<String, String> s = orgSettingsService.getAll(orgId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(s.getOrDefault(TOKEN, ""));
+        if (notBlank(s.get(GSTIN))) headers.set("gstin", s.get(GSTIN).trim());
+
+        try {
+            @SuppressWarnings("unchecked")
+            ResponseEntity<Map> resp = gspRestTemplate.exchange(
+                    url, org.springframework.http.HttpMethod.GET,
+                    new HttpEntity<>(headers), Map.class);
+            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
+                throw new BusinessException(
+                        "GSP returned " + resp.getStatusCode() + " with no usable body",
+                        "GSP_BAD_RESPONSE", HttpStatus.BAD_GATEWAY);
+            }
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = resp.getBody();
+            return body;
+        } catch (RestClientException e) {
+            log.warn("GSP GET {} failed for org {}: {}", url, orgId, e.getMessage());
             throw new BusinessException(
                     "Could not reach the GSP: " + e.getMessage(),
                     "GSP_UNREACHABLE", HttpStatus.BAD_GATEWAY);

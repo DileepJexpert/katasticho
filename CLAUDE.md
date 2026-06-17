@@ -546,7 +546,13 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 FCM service-account (`app.push.fcm.service-account-file`) · SMS provider keys · WhatsApp Business token · GSP creds (e-invoice/EWB one-click) · Redis.
 
 ### F. Bigger tracks (later)
-Manufacturing tracker 43/101 remaining (Gantt, shop-floor mobile, maintenance, pharma BMR/FSSAI) · GST polish (~~B2CL in GSTR-1~~ DONE · ~~2B re-upload dedupe~~ DONE 2026-06-13 · 2B auto-fetch via GSP) · POS catalog: full 254k source list importer.
+Manufacturing tracker 43/101 remaining (Gantt, shop-floor mobile, maintenance, pharma BMR/FSSAI) · GST polish (~~B2CL in GSTR-1~~ DONE · ~~2B re-upload dedupe~~ DONE 2026-06-13 · ~~2B auto-fetch via GSP~~ DONE 2026-06-17) · POS catalog: full 254k source list importer.
+
+#### GSTR-2B auto-fetch via GSP (2026-06-17)
+- `GspClient.fetchGstr2b(orgId, returnPeriod)` GETs the 2B JSON from the configured aggregator (new setting `gst.gsp_gstr2b_path`, default `/gstr2b/fetch`; `?rtnprd=MMYYYY&gstin=`). New `get()` helper mirrors `post()` (bearer+gstin headers, tolerant parse, GSP_UNREACHABLE/GSP_BAD_RESPONSE).
+- `Gstr2bReconService.fetchAndReconcile(period)` — guards `GSP_NOT_CONFIGURED`, converts YYYY-MM→MMYYYY, pulls JSON, then runs the SAME `upload()` parse/match/dedupe path (no portal download). `POST /api/v1/gst/gstr2b/fetch?period=` (OWNER/ADMIN/ACCOUNTANT). `GspController` settings gained `gstr2bPath`.
+- ERP Flutter: GSTR-2B tab now has a primary "Fetch from GSP" button (manual JSON upload demoted to outlined fallback); `fetchGstr2bFromGsp` repo method + `gstr2bFetch` api_config. GSP_NOT_CONFIGURED → friendly "set up GSP / upload manually" snackbar.
+- Tests: Gstr2bReconServiceTest +2 (not-configured throws; configured pulls "052026" + reconciles). 6 pass.
 
 ### G. Marg first-timer master-data parity (2026-06-13)
 Goal: match Marg's "ready in minutes" preloaded masters. Audit found UoM already

@@ -100,6 +100,7 @@ class ApiConfig {
   static const String gstr3bExport = '/api/v1/gst/gstr3b/export';
   // GSTR-2B reconciliation
   static const String gstr2bUpload = '/api/v1/gst/gstr2b/upload';
+  static const String gstr2bFetch = '/api/v1/gst/gstr2b/fetch';
   static const String gstr2b = '/api/v1/gst/gstr2b';
   static const String gstr2bSummary = '/api/v1/gst/gstr2b/summary';
   // e-Way bills

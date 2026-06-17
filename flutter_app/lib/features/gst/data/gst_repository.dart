@@ -67,6 +67,15 @@ class GstRepository {
     return _data(response.data);
   }
 
+  /// One-click: pull the period's 2B from the configured GSP and reconcile it.
+  Future<Map<String, dynamic>> fetchGstr2bFromGsp(String period) async {
+    final response = await _api.post(
+      ApiConfig.gstr2bFetch,
+      queryParameters: {'period': period},
+    );
+    return _data(response.data);
+  }
+
   Future<Map<String, dynamic>> getGstr2bSummary(String period) async {
     final response = await _api
         .get(ApiConfig.gstr2bSummary, queryParameters: {'period': period});

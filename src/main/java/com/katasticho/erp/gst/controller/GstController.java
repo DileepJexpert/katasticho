@@ -107,6 +107,15 @@ public class GstController {
                 "GSTR-2B uploaded and reconciled"));
     }
 
+    /** One-click: pull the period's 2B from the configured GSP and reconcile it. */
+    @PostMapping("/gstr2b/fetch")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> fetchGstr2b(@RequestParam String period) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                gstr2bReconService.fetchAndReconcile(period),
+                "GSTR-2B fetched from GSP and reconciled"));
+    }
+
     @GetMapping("/gstr2b")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<List<Gstr2bEntry>>> listGstr2b(@RequestParam String period) {

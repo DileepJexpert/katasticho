@@ -5,6 +5,7 @@ import com.katasticho.erp.ai.service.AiSuggestionService;
 import com.katasticho.erp.ap.entity.PurchaseBill;
 import com.katasticho.erp.ap.repository.PurchaseBillRepository;
 import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.entity.ContactType;
 import com.katasticho.erp.contact.repository.ContactRepository;
@@ -25,6 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -40,9 +42,10 @@ class Gstr2bReconServiceTest {
     private final PurchaseBillRepository purchaseBillRepository = mock(PurchaseBillRepository.class);
     private final ContactRepository contactRepository = mock(ContactRepository.class);
     private final AiSuggestionService aiSuggestionService = mock(AiSuggestionService.class);
+    private final GspClient gspClient = mock(GspClient.class);
 
     private final Gstr2bReconService service = new Gstr2bReconService(
-            entryRepository, purchaseBillRepository, contactRepository, aiSuggestionService);
+            entryRepository, purchaseBillRepository, contactRepository, aiSuggestionService, gspClient);
 
     private final UUID orgId = UUID.randomUUID();
     private final UUID vendorId = UUID.randomUUID();
@@ -143,6 +146,33 @@ class Gstr2bReconServiceTest {
         List<Map<String, Object>> notFiled = (List<Map<String, Object>>) summary.get("supplierNotFiled");
         assertThat(notFiled).extracting(m -> m.get("vendorBillNumber")).contains("INV-XYZ");
         assertThat((BigDecimal) summary.get("itcAtRisk")).isPositive();
+    }
+
+    @Test
+    void fetchAndReconcile_noGsp_throws() {
+        when(gspClient.isConfigured(orgId)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.fetchAndReconcile("2026-05"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo("GSP_NOT_CONFIGURED");
+        verify(gspClient, never()).fetchGstr2b(any(), anyString());
+    }
+
+    @Test
+    void fetchAndReconcile_pullsFromGspWithPortalPeriodAndReconciles() {
+        when(gspClient.isConfigured(orgId)).thenReturn(true);
+        when(purchaseBillRepository.findPostedByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(List.of());
+        Map<String, Object> portal = Map.of("entries", List.of(entry("INV-009", "1180")));
+        // GSP must be asked for the MMYYYY return period derived from 2026-05.
+        when(gspClient.fetchGstr2b(orgId, "052026")).thenReturn(portal);
+
+        Map<String, Object> summary = service.fetchAndReconcile("2026-05");
+
+        verify(gspClient).fetchGstr2b(orgId, "052026");
+        assertThat(summary.get("period")).isEqualTo("2026-05");
+        assertThat(summary.get("notInBooks")).isEqualTo(1L); // no books → unmatched
     }
 
     @Test
