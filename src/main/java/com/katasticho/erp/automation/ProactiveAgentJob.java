@@ -31,7 +31,8 @@ public class ProactiveAgentJob {
     @Scheduled(cron = "${app.automation.proactive-agents.cron:0 30 6 * * *}")
     public void run() {
         List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
-        int totalCollections = 0, totalMonthClose = 0, totalAnomalies = 0, totalFlux = 0, orgsTouched = 0;
+        int totalCollections = 0, totalMonthClose = 0, totalAnomalies = 0, totalFlux = 0,
+                totalCategorize = 0, orgsTouched = 0;
 
         for (Organisation org : orgs) {
             AppUser owner = userRepository
@@ -45,6 +46,7 @@ public class ProactiveAgentJob {
                 TenantContext.setCurrentRole("SYSTEM");
 
                 ProactiveRunResult r = proactiveAgentService.runAll();
+                totalCategorize += r.categorize();
                 if (r.collections() + r.monthClose() + r.anomalies() + r.flux() > 0) {
                     orgsTouched++;
                     totalCollections += r.collections();
@@ -59,9 +61,10 @@ public class ProactiveAgentJob {
             }
         }
 
-        if (orgsTouched > 0) {
-            log.info("Proactive sweep: {} collections, {} month-close, {} anomalies, {} flux across {} orgs",
-                    totalCollections, totalMonthClose, totalAnomalies, totalFlux, orgsTouched);
+        if (orgsTouched > 0 || totalCategorize > 0) {
+            log.info("Proactive sweep: {} collections, {} month-close, {} anomalies, {} flux, "
+                    + "{} categorize patterns across {} org(s)",
+                    totalCollections, totalMonthClose, totalAnomalies, totalFlux, totalCategorize, orgsTouched);
         }
     }
 }

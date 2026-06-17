@@ -53,8 +53,10 @@ public class ProactiveAgentService {
     private final AiSuggestionRepository aiSuggestionRepository;
     private final AiSuggestionService aiSuggestionService;
     private final FluxAnalysisService fluxAnalysisService;
+    private final TransactionCategorizationService transactionCategorizationService;
 
-    public record ProactiveRunResult(int collections, int monthClose, int anomalies, int flux) {}
+    public record ProactiveRunResult(int collections, int monthClose, int anomalies, int flux,
+                                     int categorize) {}
 
     /** Run all proactive agents for the current tenant. */
     @Transactional
@@ -68,9 +70,16 @@ public class ProactiveAgentService {
         } catch (Exception e) {
             log.warn("Flux agent failed: {}", e.getMessage());
         }
-        log.info("Proactive sweep: {} collections, {} month-close, {} anomalies, {} flux",
-                collections, monthClose, anomalies, flux);
-        return new ProactiveRunResult(collections, monthClose, anomalies, flux);
+        // Keep the vendor→account memory fresh so categorize suggestions stay current.
+        int categorize = 0;
+        try {
+            categorize = transactionCategorizationService.backfillFromHistory(365);
+        } catch (Exception e) {
+            log.warn("Categorization backfill failed: {}", e.getMessage());
+        }
+        log.info("Proactive sweep: {} collections, {} month-close, {} anomalies, {} flux, "
+                + "{} categorize patterns", collections, monthClose, anomalies, flux, categorize);
+        return new ProactiveRunResult(collections, monthClose, anomalies, flux, categorize);
     }
 
     // ── Collections reminders ───────────────────────────────────────────

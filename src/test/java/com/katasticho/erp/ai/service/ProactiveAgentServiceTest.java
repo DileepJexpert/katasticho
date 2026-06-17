@@ -34,10 +34,13 @@ class ProactiveAgentServiceTest {
     private final AiSuggestionService aiSuggestionService = mock(AiSuggestionService.class);
     private final com.katasticho.erp.ai.service.FluxAnalysisService fluxAnalysisService =
             mock(com.katasticho.erp.ai.service.FluxAnalysisService.class);
+    private final TransactionCategorizationService transactionCategorizationService =
+            mock(TransactionCategorizationService.class);
 
     private final ProactiveAgentService service = new ProactiveAgentService(
             creditReminderService, fiscalPeriodRepository, ruleBasedAiAgentService,
-            aiSuggestionRepository, aiSuggestionService, fluxAnalysisService);
+            aiSuggestionRepository, aiSuggestionService, fluxAnalysisService,
+            transactionCategorizationService);
 
     private final UUID orgId = UUID.randomUUID();
 
@@ -181,13 +184,16 @@ class ProactiveAgentServiceTest {
                 .thenReturn(Optional.empty());
         when(ruleBasedAiAgentService.runRuleChecks(30)).thenReturn(
                 new AiAgentRunResponse(LocalDate.now(), LocalDate.now(), 0, 0, 0, 4, 0));
+        when(transactionCategorizationService.backfillFromHistory(anyInt())).thenReturn(7);
 
         ProactiveRunResult r = service.runAll();
 
         assertThat(r.collections()).isEqualTo(1);
         assertThat(r.monthClose()).isZero();
         assertThat(r.anomalies()).isEqualTo(4);
+        assertThat(r.categorize()).isEqualTo(7);
         verify(ruleBasedAiAgentService).runRuleChecks(30);
+        verify(transactionCategorizationService).backfillFromHistory(365);
     }
 
     // ── Fixtures ──────────────────────────────────────────────────────────
