@@ -55,6 +55,10 @@ class ApiConfig {
       '/api/v1/accounting/periods/$year/$month/close';
   static String reopenFiscalPeriod(int year, int month) =>
       '/api/v1/accounting/periods/$year/$month/reopen';
+  static String closeChecklist(int year, int month) =>
+      '/api/v1/accounting/continuous-close/$year/$month/checklist';
+  static String guardedClose(int year, int month) =>
+      '/api/v1/accounting/continuous-close/$year/$month/close';
   static String lockFiscalPeriod(int year, int month) =>
       '/api/v1/accounting/periods/$year/$month/lock';
 
