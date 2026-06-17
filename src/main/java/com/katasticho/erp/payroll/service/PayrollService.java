@@ -167,6 +167,33 @@ public class PayrollService {
         existing.setPtApplicable(updates.isPtApplicable());
         existing.setLwfApplicable(updates.isLwfApplicable());
 
+        // V18 profile depth
+        existing.setDateOfBirth(updates.getDateOfBirth());
+        existing.setGender(updates.getGender());
+        existing.setMaritalStatus(updates.getMaritalStatus());
+        existing.setBloodGroup(updates.getBloodGroup());
+        existing.setNationality(updates.getNationality());
+        existing.setPersonalEmail(updates.getPersonalEmail());
+        existing.setCurrentAddressLine1(updates.getCurrentAddressLine1());
+        existing.setCurrentAddressLine2(updates.getCurrentAddressLine2());
+        existing.setCurrentCity(updates.getCurrentCity());
+        existing.setCurrentState(updates.getCurrentState());
+        existing.setCurrentPincode(updates.getCurrentPincode());
+        existing.setPermanentAddressLine1(updates.getPermanentAddressLine1());
+        existing.setPermanentAddressLine2(updates.getPermanentAddressLine2());
+        existing.setPermanentCity(updates.getPermanentCity());
+        existing.setPermanentState(updates.getPermanentState());
+        existing.setPermanentPincode(updates.getPermanentPincode());
+        existing.setEmergencyContactName(updates.getEmergencyContactName());
+        existing.setEmergencyContactRelationship(updates.getEmergencyContactRelationship());
+        existing.setEmergencyContactPhone(updates.getEmergencyContactPhone());
+        existing.setEmploymentType(updates.getEmploymentType());
+        existing.setWorkLocation(updates.getWorkLocation());
+        existing.setProbationEndDate(updates.getProbationEndDate());
+        existing.setConfirmationDate(updates.getConfirmationDate());
+        existing.setNoticePeriodDays(updates.getNoticePeriodDays());
+        existing.setPhotoAttachmentId(updates.getPhotoAttachmentId());
+
         existing = employeeRepository.save(existing);
         log.info("Employee {} updated", existing.getEmployeeCode());
         return existing;

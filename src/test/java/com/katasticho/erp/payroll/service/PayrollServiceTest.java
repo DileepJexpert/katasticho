@@ -365,4 +365,99 @@ class PayrollServiceTest {
         assertEquals(0, slip.getLopDays().compareTo(BigDecimal.ZERO));
         assertEquals(0, slip.getGrossPay().compareTo(new BigDecimal("30000")));
     }
+
+    // ─── V18: Employee profile depth ───
+
+    @Test
+    void updateEmployee_copiesDepthFields() {
+        UUID id = UUID.randomUUID();
+        Employee existing = Employee.builder()
+                .id(id).orgId(orgId).fullName("Old name")
+                .employmentStatus("ACTIVE").isDeleted(false)
+                .build();
+        when(employeeRepo.findByIdAndOrgIdAndIsDeletedFalse(id, orgId))
+                .thenReturn(Optional.of(existing));
+        when(employeeRepo.save(any(Employee.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        UUID photoId = UUID.randomUUID();
+        Employee updates = Employee.builder()
+                .fullName("New name")
+                .dateOfBirth(LocalDate.of(1990, 5, 12))
+                .gender("FEMALE")
+                .maritalStatus("MARRIED")
+                .bloodGroup("O+")
+                .nationality("Indian")
+                .personalEmail("priya@example.com")
+                .currentAddressLine1("12 MG Road")
+                .currentCity("Bengaluru")
+                .currentState("Karnataka")
+                .currentPincode("560001")
+                .permanentAddressLine1("Village Road")
+                .permanentCity("Mysuru")
+                .permanentState("Karnataka")
+                .permanentPincode("570001")
+                .emergencyContactName("Ravi")
+                .emergencyContactRelationship("Spouse")
+                .emergencyContactPhone("9876543210")
+                .employmentType("FULL_TIME")
+                .workLocation("HQ — Bengaluru")
+                .probationEndDate(LocalDate.of(2026, 12, 1))
+                .confirmationDate(LocalDate.of(2026, 12, 2))
+                .noticePeriodDays(60)
+                .photoAttachmentId(photoId)
+                .build();
+
+        Employee saved = service.updateEmployee(id, updates);
+
+        assertEquals("New name", saved.getFullName());
+        assertEquals(LocalDate.of(1990, 5, 12), saved.getDateOfBirth());
+        assertEquals("FEMALE", saved.getGender());
+        assertEquals("MARRIED", saved.getMaritalStatus());
+        assertEquals("O+", saved.getBloodGroup());
+        assertEquals("Indian", saved.getNationality());
+        assertEquals("priya@example.com", saved.getPersonalEmail());
+        assertEquals("12 MG Road", saved.getCurrentAddressLine1());
+        assertEquals("Bengaluru", saved.getCurrentCity());
+        assertEquals("Karnataka", saved.getCurrentState());
+        assertEquals("560001", saved.getCurrentPincode());
+        assertEquals("Village Road", saved.getPermanentAddressLine1());
+        assertEquals("Mysuru", saved.getPermanentCity());
+        assertEquals("570001", saved.getPermanentPincode());
+        assertEquals("Ravi", saved.getEmergencyContactName());
+        assertEquals("Spouse", saved.getEmergencyContactRelationship());
+        assertEquals("9876543210", saved.getEmergencyContactPhone());
+        assertEquals("FULL_TIME", saved.getEmploymentType());
+        assertEquals("HQ — Bengaluru", saved.getWorkLocation());
+        assertEquals(LocalDate.of(2026, 12, 1), saved.getProbationEndDate());
+        assertEquals(LocalDate.of(2026, 12, 2), saved.getConfirmationDate());
+        assertEquals(60, saved.getNoticePeriodDays());
+        assertEquals(photoId, saved.getPhotoAttachmentId());
+    }
+
+    @Test
+    void createEmployee_persistsDepthFields() {
+        when(employeeRepo.save(any(Employee.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Employee input = Employee.builder()
+                .fullName("Anita")
+                .dateOfBirth(LocalDate.of(1995, 1, 1))
+                .gender("FEMALE")
+                .employmentType("CONTRACT")
+                .currentCity("Pune")
+                .build();
+
+        Employee created = service.createEmployee(input);
+
+        ArgumentCaptor<Employee> captor = ArgumentCaptor.forClass(Employee.class);
+        verify(employeeRepo).save(captor.capture());
+        Employee persisted = captor.getValue();
+
+        assertEquals(orgId, persisted.getOrgId());
+        assertEquals("ACTIVE", persisted.getEmploymentStatus());
+        assertEquals(LocalDate.of(1995, 1, 1), persisted.getDateOfBirth());
+        assertEquals("FEMALE", persisted.getGender());
+        assertEquals("CONTRACT", persisted.getEmploymentType());
+        assertEquals("Pune", persisted.getCurrentCity());
+        assertSame(persisted, created);
+    }
 }

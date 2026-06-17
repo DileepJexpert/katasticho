@@ -70,29 +70,8 @@ public class PayrollController {
     @PostMapping("/employees")
     public ResponseEntity<ApiResponse<Employee>> createEmployee(
             @Valid @RequestBody EmployeeRequest request) {
-        Employee employee = Employee.builder()
-                .employeeCode(request.employeeCode())
-                .fullName(request.fullName())
-                .phone(request.phone())
-                .email(request.email())
-                .designation(request.designation())
-                .department(request.department())
-                .dateOfJoining(request.dateOfJoining())
-                .paymentMode(request.paymentMode())
-                .bankAccountName(request.bankAccountName())
-                .bankAccountNumber(request.bankAccountNumber())
-                .bankIfsc(request.bankIfsc())
-                .pan(request.pan())
-                .aadhaarLast4(request.aadhaarLast4())
-                .uan(request.uan())
-                .esiNumber(request.esiNumber())
-                .pfApplicable(request.isPfApplicable())
-                .esiApplicable(request.isEsiApplicable())
-                .ptApplicable(request.isPtApplicable())
-                .lwfApplicable(request.isLwfApplicable())
-                .userId(request.userId())
-                .build();
-        return ResponseEntity.ok(ApiResponse.ok(service.createEmployee(employee), "Employee created"));
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.createEmployee(buildEmployee(request)), "Employee created"));
     }
 
     @GetMapping("/employees/{id}")
@@ -104,7 +83,12 @@ public class PayrollController {
     public ResponseEntity<ApiResponse<Employee>> updateEmployee(
             @PathVariable UUID id,
             @Valid @RequestBody EmployeeRequest request) {
-        Employee updates = Employee.builder()
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.updateEmployee(id, buildEmployee(request)), "Employee updated"));
+    }
+
+    private static Employee buildEmployee(EmployeeRequest request) {
+        return Employee.builder()
                 .employeeCode(request.employeeCode())
                 .fullName(request.fullName())
                 .phone(request.phone())
@@ -125,8 +109,32 @@ public class PayrollController {
                 .ptApplicable(request.isPtApplicable())
                 .lwfApplicable(request.isLwfApplicable())
                 .userId(request.userId())
+                .dateOfBirth(request.dateOfBirth())
+                .gender(request.gender())
+                .maritalStatus(request.maritalStatus())
+                .bloodGroup(request.bloodGroup())
+                .nationality(request.nationality())
+                .personalEmail(request.personalEmail())
+                .currentAddressLine1(request.currentAddressLine1())
+                .currentAddressLine2(request.currentAddressLine2())
+                .currentCity(request.currentCity())
+                .currentState(request.currentState())
+                .currentPincode(request.currentPincode())
+                .permanentAddressLine1(request.permanentAddressLine1())
+                .permanentAddressLine2(request.permanentAddressLine2())
+                .permanentCity(request.permanentCity())
+                .permanentState(request.permanentState())
+                .permanentPincode(request.permanentPincode())
+                .emergencyContactName(request.emergencyContactName())
+                .emergencyContactRelationship(request.emergencyContactRelationship())
+                .emergencyContactPhone(request.emergencyContactPhone())
+                .employmentType(request.employmentType())
+                .workLocation(request.workLocation())
+                .probationEndDate(request.probationEndDate())
+                .confirmationDate(request.confirmationDate())
+                .noticePeriodDays(request.noticePeriodDays())
+                .photoAttachmentId(request.photoAttachmentId())
                 .build();
-        return ResponseEntity.ok(ApiResponse.ok(service.updateEmployee(id, updates), "Employee updated"));
     }
 
     @DeleteMapping("/employees/{id}")
