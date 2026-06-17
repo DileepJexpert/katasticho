@@ -1036,6 +1036,20 @@ class ApiConfig {
       '/api/v1/courier/settings/$partner';
   static String courierSettingsPartnerTest(String partner) =>
       '/api/v1/courier/settings/$partner/test';
+
+  // Transport (lorry receipts + freight rate cards)
+  static const String lorryReceipts = '/api/v1/transport/lorry-receipts';
+  static String lorryReceipt(String id) => '/api/v1/transport/lorry-receipts/$id';
+  static String lorryReceiptIssue(String id) =>
+      '/api/v1/transport/lorry-receipts/$id/issue';
+  static String lorryReceiptDeliver(String id) =>
+      '/api/v1/transport/lorry-receipts/$id/deliver';
+  static String lorryReceiptCancel(String id) =>
+      '/api/v1/transport/lorry-receipts/$id/cancel';
+  static String lorryReceiptBillFreight(String id) =>
+      '/api/v1/transport/lorry-receipts/$id/bill-freight';
+  static const String freightRateCards = '/api/v1/transport/rate-cards';
+  static String freightRateCard(String id) => '/api/v1/transport/rate-cards/$id';
   static String einvoiceGenerateViaGsp(String id) =>
       '/api/v1/gst/einvoices/$id/generate-gsp';
   static String ewayBillGenerateViaGsp(String id) =>

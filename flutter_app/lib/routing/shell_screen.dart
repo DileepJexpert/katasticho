@@ -671,12 +671,12 @@ const _manufacturingGroup = NavGroup(
 );
 
 const _courierGroup = NavGroup(
-  label: 'Courier',
+  label: 'Courier & Transport',
   icon: Icons.local_post_office_outlined,
   activeIcon: Icons.local_post_office,
   children: [
     NavItem(
-        label: 'Shipments',
+        label: 'Courier Shipments',
         icon: Icons.local_shipping_outlined,
         activeIcon: Icons.local_shipping_rounded,
         route: Routes.courierShipments),
@@ -685,6 +685,16 @@ const _courierGroup = NavGroup(
         icon: Icons.payments_outlined,
         activeIcon: Icons.payments_rounded,
         route: Routes.courierCod),
+    NavItem(
+        label: 'Lorry Receipts',
+        icon: Icons.receipt_long_outlined,
+        activeIcon: Icons.receipt_long_rounded,
+        route: Routes.lorryReceipts),
+    NavItem(
+        label: 'Freight Rate Cards',
+        icon: Icons.price_change_outlined,
+        activeIcon: Icons.price_change_rounded,
+        route: Routes.freightRateCards),
   ],
 );
 

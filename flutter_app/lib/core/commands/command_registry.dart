@@ -662,6 +662,20 @@ List<KCommand> buildAppCommands() {
       keywords: ['courier', 'bluedart', 'delhivery', 'shiprocket', 'india post', 'dtdc'],
     ),
     KCommand(
+      label: 'Lorry Receipts',
+      icon: Icons.receipt_long_rounded,
+      section: 'Navigate',
+      route: Routes.lorryReceipts,
+      keywords: ['lr', 'consignment', 'transport', 'freight', 'gta', 'transporter'],
+    ),
+    KCommand(
+      label: 'Freight Rate Cards',
+      icon: Icons.price_change_rounded,
+      section: 'Navigate',
+      route: Routes.freightRateCards,
+      keywords: ['freight', 'rate', 'transporter', 'lane', 'transport'],
+    ),
+    KCommand(
       label: 'Payroll Settings',
       icon: Icons.settings_rounded,
       section: 'Settings',

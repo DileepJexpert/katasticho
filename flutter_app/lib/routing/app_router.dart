@@ -60,6 +60,8 @@ import '../features/gst/presentation/itc_risk_screen.dart';
 import '../features/courier/presentation/courier_shipment_list_screen.dart';
 import '../features/courier/presentation/cod_remittance_list_screen.dart';
 import '../features/courier/presentation/courier_settings_screen.dart';
+import '../features/transport/presentation/lorry_receipt_list_screen.dart';
+import '../features/transport/presentation/freight_rate_card_screen.dart';
 import '../features/credit_notes/presentation/credit_note_list_screen.dart';
 import '../features/credit_notes/presentation/credit_note_detail_screen.dart';
 import '../features/credit_notes/presentation/credit_note_create_screen.dart';
@@ -316,6 +318,8 @@ class Routes {
   static const courierShipments = '/courier/shipments';
   static const courierCod = '/courier/cod-remittances';
   static const courierSettings = '/settings/couriers';
+  static const lorryReceipts = '/transport/lorry-receipts';
+  static const freightRateCards = '/transport/rate-cards';
   static const reorder = '/reorder';
   static const shortbook = '/shortbook';
   static const nearExpiry = '/inventory/near-expiry';
@@ -1811,6 +1815,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.courierSettings,
             builder: (context, state) => const CourierSettingsScreen(),
+          ),
+          GoRoute(
+            path: Routes.lorryReceipts,
+            builder: (context, state) => const LorryReceiptListScreen(),
+          ),
+          GoRoute(
+            path: Routes.freightRateCards,
+            builder: (context, state) => const FreightRateCardScreen(),
           ),
           GoRoute(
             path: Routes.settings,
