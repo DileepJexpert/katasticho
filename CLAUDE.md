@@ -518,7 +518,7 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 
 ---
 
-## PENDING BACKLOG (2026-06-12 — work top to bottom, update as items ship)
+## PENDING BACKLOG (updated 2026-06-17 — work top to bottom, update as items ship)
 
 ### A. Verification debt (FIRST)
 1. ~~BUG-2 residual~~ — RESOLVED in code: `PaymentService.voidPayment` line ~248 calls `adjustContactOutstandingAr(+amount)`; test assertion added to PaymentServiceTest.
@@ -547,7 +547,11 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 FCM service-account (`app.push.fcm.service-account-file`) · SMS provider keys · WhatsApp Business token · GSP creds (e-invoice/EWB one-click) · Redis.
 
 ### F. Bigger tracks (later)
-Manufacturing tracker 43/101 remaining (Gantt, shop-floor mobile, maintenance, pharma BMR/FSSAI) · GST polish (~~B2CL in GSTR-1~~ DONE · ~~2B re-upload dedupe~~ DONE 2026-06-13 · ~~2B auto-fetch via GSP~~ DONE 2026-06-17) · POS catalog: full 254k source list importer.
+- ~~GST polish (B2CL in GSTR-1, 2B re-upload dedupe, 2B auto-fetch via GSP)~~ ALL DONE 2026-06-17 — see sections below.
+- ~~Transport pillar (LR / transporter / freight billing / courier)~~ ALL DONE 2026-06-17 (V25 + V26) — see "Courier" + "Lorry Receipt" sections below.
+- ~~AI agent track (conversational tool-use, auto-categorize, nightly self-refresh)~~ DONE 2026-06-17 — see "AI agent track" section.
+- **Manufacturing tracker 43/101 remaining** — Gantt scheduling, shop-floor mobile, maintenance management, pharma BMR / FSSAI / FDA pack. The next-biggest unbuilt module after the closures above.
+- **POS catalog: full 254k source list importer** — Marg-parity preloaded medicine catalog currently uses the open A-Z dataset (~22.5k brands). A full importer of the larger source list is a one-shot data job, not a code project.
 
 #### GSTR-2B auto-fetch via GSP (2026-06-17)
 - `GspClient.fetchGstr2b(orgId, returnPeriod)` GETs the 2B JSON from the configured aggregator (new setting `gst.gsp_gstr2b_path`, default `/gstr2b/fetch`; `?rtnprd=MMYYYY&gstin=`). New `get()` helper mirrors `post()` (bearer+gstin headers, tolerant parse, GSP_UNREACHABLE/GSP_BAD_RESPONSE).
@@ -707,6 +711,69 @@ generic `AttachmentService`/`EntityAttachment` for documents.
 - **ERP Flutter:** sidebar group renamed "Courier & Transport" now also holds Lorry Receipts + Freight Rate Cards. `LorryReceiptListScreen` (status chips, freight/basis/RCM pills, inline Issue/Deliver + "Bill freight" → draft AP bill) + create form (transporter picker, route, freight [blank=rate card], basis/GST dropdowns); `FreightRateCardScreen` (per-lane rates + create sheet). Command palette: Lorry Receipts, Freight Rate Cards.
 - **Tests:** FreightRateCardServiceTest (5 — per-kg/min-charge/flat/slab-pick/no-match) + LorryReceiptServiceTest (6 — rate autofill, explicit-freight, billFreight RCM draft w/ HSN 9965+reverseCharge, TO_PAY rejected, double-bill rejected, lifecycle). Full suite 860 pass; V26 boot-verified clean.
 - **Deliberately conservative (same rule as courier):** billFreight produces a DRAFT — never auto-posts the freight journal or the RCM tax. TO_PAY freight is never billed to us.
+
+## AI Agent Track — DONE 2026-06-17
+Series of additions that pushed the AI layer from "drafts a transaction" to "acts on a tool plan, learns from history, runs proactively". All conservative — write tools only ever DRAFT.
+- **Auto-categorize transactions agent** (`ai.service.TransactionCategorizationService`): `suggest(contactId, hsn)` predicts the GL account for an un-categorized purchase line from history — EXACT vendor+HSN match preferred, VENDOR-only fallback; returns `{accountId, code, name, confidence, source, observations}` or empty. `backfillFromHistory(lookbackDays)` learns vendor→account patterns from posted bills (majority vote per `(vendor, HSN)` with confidence = consistency ratio, clamped 0.5–0.95). **Reads/writes the same `ai_pattern` rows `BillDraftingService` already writes** so the two flows share one learned memory. `GET /api/v1/ai/categorize` + `POST /api/v1/ai/categorize/backfill` (AI_INBOX). Tests: TransactionCategorizationServiceTest (5).
+- **Nightly self-refresh of the categorization memory:** `backfillFromHistory(365)` is wired into `ProactiveAgentService.runAll()` so patterns stay fresh from the last year of posted bills without manual triggering. Wrapped in try/catch like the flux agent. `ProactiveRunResult` gained `categorize`; `ProactiveAgentJob` logs it.
+- **Conversational agent with tool-use** (`ai.service.ConversationalAgentService`): the chat front door that *acts*, not just answers. `chat(message)` → the org's model (`VisionModelRouter`) returns `{tool, args}` JSON choosing ONE tool, then runs it through existing services: **query_data** → `NlpQueryService` NL→SQL; **draft_entry** → `ConversationalEntryService.draftFromText` (sets `actionRequired`+`draftSuggestionId`); **list_overdue** → `CreditReminderService.getOverdueCustomers`. If the model is unavailable/garbles, a keyword router takes over so offline intents (record a payment, who owes me) still work. Tolerant JSON extraction (first `{...}` block). **Safety:** write tools only ever DRAFT — never posts. `POST /api/v1/ai/agent`. Flutter: Assistant tab now calls `agent()` (was `query()`), shows the reply, renders query rows, and shows an "approve in AI Inbox" hint when `actionRequired`. Tests: ConversationalAgentServiceTest (8).
+
+## Three-Pillar Audit (2026-06-17)
+Triggered by the question "does an ERP need transport / HR / supply chain?". Answer: yes, all three are full-ERP pillars; depth varies a lot here. Audit summary, kept here so the next pass doesn't re-discover.
+
+**Transport — was the thinnest pillar; now closed end-to-end:**
+- ✅ Parcel courier (V25): courier_shipment + AWB tracking + lifecycle + RTO bucket + multi-courier credentials (BlueDart/Delhivery/India Post/DTDC/Shiprocket).
+- ✅ COD reconciliation (V25): the genuinely new accounting loop — courier payout ingests, AWBs match invoices, MATCHED auto-settles AR via `PaymentService.recordPayment`, ORPHANs raise AI Inbox alerts.
+- ✅ Road/GTA freight (V26): lorry_receipt + freight_rate_card + freight→AP billing via `PurchaseBillService` (SERVICE line on HSN 9965, reverseCharge for RCM). Auto-fills freight from rate cards.
+- ✅ Already there: e-way bills, delivery challans, van/route/GPS, landed cost.
+- ❌ Vehicle maintenance / fuel logs (own-fleet TCO) — optional, not blocking.
+- ❌ Proof-of-delivery (POD): signature/photo capture on DC dispatch — optional.
+- ❌ Dedicated Driver master separate from `Contact` — currently the salesperson/transporter contact stands in.
+- ❌ Live aggregator wiring (Shiprocket webhook receiver + poll job) — CourierClient is provider-agnostic and inert until creds set; manual AWB/event entry always works.
+
+**HR (HCM) — operational half is strong; talent half intentionally not built:**
+- ✅ Payroll (full Indian statutory): PF/ESI/PT/LWF/TDS, payslips, GL posting, LOP proration. Form 24Q + Form 16 via `SalaryTdsService`.
+- ✅ Leave (types/holidays/balances/approval) + Attendance (GPS punches + regularization + monthly summary) + Shifts + Timesheets + HR Help Desk + Employee Documents (expiry watchlist) + HR Analytics + Offboarding (clearance checklist + F&F + EXITED stamp) + Self-service profile + Org chart / reporting hierarchy (`reports_to_user_id`).
+- ✅ 9-item "HR" sidebar group + separate Payroll group (admin scope).
+- ❌ **Recruitment / ATS** (job requisitions, applicant pipeline, offer letters) — entire domain missing.
+- ❌ **Onboarding** (the symmetric counterpart of the existing offboarding: pre-boarding checklist, equipment allocation, training).
+- ❌ **Performance management** (appraisal cycles, goals, 360 feedback, ratings).
+- ❌ **Learning & Development** (training catalog, certifications, skill matrix).
+- ❌ **Compensation planning** (bonus/incentive modelling, benefits enrolment, variable pay).
+- Direction: these are deliberate gaps — the buyer (distributor / pharma SMB) doesn't need them first. Skip unless the buyer profile changes.
+
+**Supply Chain — depth is real, *discoverability* is the bug:**
+- ✅ Feature-complete for SMB SCM: multi-supplier sourcing, 3 forecast algorithms (moving avg / weighted / seasonal+trend), ABC classification (80/15/5), safety stock + EOQ + reorder point (statistical), purchase requisitions, return orders, supply-chain alerts, supplier scorecards, inventory analytics, dashboard. 40+ endpoints, ~1000-line `SupplyChainService`.
+- ✅ 7 Flutter screens behind one sidebar group: Dashboard, Requisitions, Shipments, Returns, Alerts, Supplier Rankings, Analytics.
+- ❌ **Discoverability** — one sidebar entry hides 7 screens; the owner's perception was "just one menu". UX fix (~1–2h, no code logic): expand by default + breadcrumb on sub-screens + dashboard cards for the 7 tools. **High-value, low-effort — do this next when SCM polish surfaces.**
+- ❌ Enterprise S&OP (sales & ops planning), DRP (multi-echelon distribution), supplier collaboration portal, procurement contracts, control tower, demand sensing — explicitly out of scope for SMB.
+
+## PENDING (post-2026-06-17) — net-new items to ship
+**Triaged by segment + seam + reach (see "Strategic insights" below).**
+1. **Supply Chain discoverability UX fix** — sidebar group default-expanded, breadcrumb, dashboard tiles for the 7 tools. ~1–2h Flutter only. Highest impact-to-effort right now.
+2. **Shiprocket adapter (live)** — a thin layer over `CourierClient`: webhook receiver that translates Shiprocket's status payload to our `RecordEventRequest`, a poll job for couriers without webhooks, and a Shiprocket-shaped COD-remittance pull. Wires real tracking + auto-COD-reconcile. ~1d.
+3. **Vehicle maintenance / fuel log** — own-fleet TCO: per-van service history, fuel logs, downtime. Closes the TMS analytics gap. ~½d.
+4. **Proof-of-delivery (POD)** — signature + photo capture on DC dispatch, stored via `AttachmentService`. ~½d.
+5. **Manufacturing tracker** (43/101 left) — Gantt scheduling, shop-floor mobile, maintenance, pharma BMR. Largest remaining track but only opens up if buyer is a manufacturer.
+6. **Onboarding (HR)** — symmetric to existing offboarding, only if buyer profile shifts toward HR-heavy mid-market.
+
+**Optional polish (not gating anything):**
+- True background GPS in field app (current is foreground Timer).
+- Optional Jan Aushadhi / NLEM merge into drug master.
+- Interest-on-overdue debit-note draft (engine done, draft generation optional).
+- Full Schedule H (500+ substances) — currently only Schedule H1 (46) flagged.
+
+## Strategic Insights (segment + seam + reach)
+**The framing that drove the last week's shipping order.** A genuine new ERP feature only matters if (a) a real buyer segment has the pain *recurringly*, (b) there's a *seam* in how incumbents serve them (wrong segment OR wrong half of the workflow), and (c) you can *reach* that buyer with your existing channel (CA network / pharma distributors). Each "yes" on all three is a real shot; missing one kills it.
+
+**Wedge examples this shipped on:**
+- **ITC-at-risk monitor** — the cleanest example. Incumbents (ClearTax/Zoho/etc.) are *post-cutoff reconcilers*; the seam is the *timing window before the 11th*. Segment is the SMB below the ClearTax line; reach is the CA network already in hand. Built: real-time 2A signal → preventive detection → owner alert + supplier WhatsApp nudge → provenance + freshness for trust → escalation as the deadline nears → "₹X recoverable this cycle" headline.
+- **Courier + COD reconciliation** — incumbents are courier-aggregator dashboards, not accounting-integrated. The seam is the *AR + RTO accounting loop* nobody fully closes. Segment is D2C/distributors fulfilling via 3PL.
+- **Lorry Receipt + freight billing** — incumbents have TMS, but it lives parallel to AP; the seam is *freight → AP / RCM auto-draft*. Built on the existing AP path so GST/RCM/TDS all apply on post.
+
+**Reusable lesson:** when an audit said "thinnest pillar", the seam was a timing window or workflow gap *adjacent to something we'd already built half of*. Look for the next seam in the half of a workflow we're not serving yet, *not* in an empty category.
+
+**Conservative posting rule (preserved across the agent layer):** AI never auto-posts a journal. Drafts go to the AI Inbox; humans approve. Examples — `billFreight` raises a DRAFT, `CodReconciliationService` only auto-settles MATCHED lines (mismatch/orphan → flag/alert), `pendingRtoReversal()` surfaces the bucket without issuing the credit note, ITC monitor raises suggestions but never deducts ITC, conversational agent's write tools only DRAFT. **This restraint is what makes the agent trustworthy enough to leave running.**
 
 ## Doc Files Index
 | Doc | Purpose | Read when |
