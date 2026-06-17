@@ -33,6 +33,10 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
 
     Page<Invoice> findByOrgIdAndStatusAndIsDeletedFalseOrderByInvoiceDateDesc(UUID orgId, String status, Pageable pageable);
 
+    /** DRAFT invoices dated within a period — for the close checklist. */
+    long countByOrgIdAndStatusAndIsDeletedFalseAndInvoiceDateBetween(
+            UUID orgId, String status, java.time.LocalDate from, java.time.LocalDate to);
+
     Page<Invoice> findByOrgIdAndContactIdAndIsDeletedFalseOrderByInvoiceDateDesc(UUID orgId, UUID contactId, Pageable pageable);
 
     @Query("""

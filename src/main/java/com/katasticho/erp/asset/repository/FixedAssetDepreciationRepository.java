@@ -14,6 +14,8 @@ public interface FixedAssetDepreciationRepository
     boolean existsByOrgIdAndFixedAssetIdAndPeriodYearAndPeriodMonth(
             UUID orgId, UUID fixedAssetId, int periodYear, int periodMonth);
 
+    boolean existsByOrgIdAndPeriodYearAndPeriodMonth(UUID orgId, int periodYear, int periodMonth);
+
     List<FixedAssetDepreciation> findByOrgIdAndFixedAssetIdOrderByPeriodYearAscPeriodMonthAsc(
             UUID orgId, UUID fixedAssetId);
 }

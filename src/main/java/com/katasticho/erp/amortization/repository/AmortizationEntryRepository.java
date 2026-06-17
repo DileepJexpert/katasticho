@@ -13,6 +13,8 @@ public interface AmortizationEntryRepository extends JpaRepository<AmortizationE
     boolean existsByOrgIdAndScheduleIdAndPeriodYearAndPeriodMonth(
             UUID orgId, UUID scheduleId, int periodYear, int periodMonth);
 
+    boolean existsByOrgIdAndPeriodYearAndPeriodMonth(UUID orgId, int periodYear, int periodMonth);
+
     List<AmortizationEntry> findByOrgIdAndScheduleIdOrderByPeriodYearAscPeriodMonthAsc(
             UUID orgId, UUID scheduleId);
 }
