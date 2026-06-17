@@ -883,6 +883,24 @@ class ApiConfig {
   static String manufacturingWorkOrderJobCards(String id) => '/api/v1/manufacturing/work-orders/$id/job-cards';
   static String manufacturingWorkOrderScrap(String id) => '/api/v1/manufacturing/work-orders/$id/scrap';
 
+  // Manufacturing — Maintenance management
+  static const String mfgMaintSchedules = '/api/v1/manufacturing/maintenance/schedules';
+  static const String mfgMaintSchedulesDue = '/api/v1/manufacturing/maintenance/schedules/due';
+  static const String mfgMaintGenerateDue = '/api/v1/manufacturing/maintenance/schedules/generate-due';
+  static String mfgMaintScheduleById(String id) =>
+      '/api/v1/manufacturing/maintenance/schedules/$id';
+  static const String mfgMaintWorkOrders = '/api/v1/manufacturing/maintenance/work-orders';
+  static String mfgMaintWorkOrderById(String id) =>
+      '/api/v1/manufacturing/maintenance/work-orders/$id';
+  static String mfgMaintWorkOrderStart(String id) =>
+      '/api/v1/manufacturing/maintenance/work-orders/$id/start';
+  static String mfgMaintWorkOrderComplete(String id) =>
+      '/api/v1/manufacturing/maintenance/work-orders/$id/complete';
+  static String mfgMaintWorkOrderCancel(String id) =>
+      '/api/v1/manufacturing/maintenance/work-orders/$id/cancel';
+  static const String mfgMaintDowntimeReport =
+      '/api/v1/manufacturing/maintenance/reports/downtime';
+
   // Manufacturing — Workstations & Operations & Routings
   static const String manufacturingWorkstations = '/api/v1/manufacturing/workstations';
   static String manufacturingWorkstationById(String id) => '/api/v1/manufacturing/workstations/$id';

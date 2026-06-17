@@ -187,6 +187,7 @@ import '../features/manufacturing/presentation/routing_create_screen.dart';
 import '../features/manufacturing/presentation/job_card_list_screen.dart';
 import '../features/manufacturing/presentation/qc_inspection_list_screen.dart';
 import '../features/manufacturing/presentation/qc_inspection_detail_screen.dart';
+import '../features/manufacturing/presentation/maintenance_screen.dart';
 import '../features/manufacturing/presentation/scrap_screen.dart';
 import '../features/supply_chain/presentation/supply_chain_dashboard_screen.dart';
 import '../features/supply_chain/presentation/requisition_list_screen.dart';
@@ -417,6 +418,7 @@ class Routes {
   static const manufacturingQcInspections = '/manufacturing/qc/inspections';
   static const manufacturingQcInspectionDetail = '/manufacturing/qc/inspections/:id';
   static const manufacturingScrap = '/manufacturing/scrap';
+  static const manufacturingMaintenance = '/manufacturing/maintenance';
 
   // Supply Chain
   static const supplyChainDashboard = '/supply-chain';
@@ -1337,6 +1339,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.manufacturingScrap,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: ScrapScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.manufacturingMaintenance,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: MaintenanceScreen(),
             ),
           ),
           // Supply Chain

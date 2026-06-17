@@ -638,6 +638,11 @@ const _manufacturingGroup = NavGroup(
         activeIcon: Icons.delete_sweep_rounded,
         route: Routes.manufacturingScrap),
     NavItem(
+        label: 'Maintenance',
+        icon: Icons.build_outlined,
+        activeIcon: Icons.build_rounded,
+        route: Routes.manufacturingMaintenance),
+    NavItem(
         label: 'MRP Runs',
         icon: Icons.calculate_outlined,
         activeIcon: Icons.calculate_rounded,

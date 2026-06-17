@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`, `gst_state_code`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. **Squashed 2026-06-12** (old V1-V71 chain deleted; DB is recreated from scratch): `V1__baseline_schema.sql` (full schema, CREATE-only, generated via pg_dump after applying the historical chain to PostgreSQL 16 and diff-verified identical) + `V2__seed_reference_data.sql` (drug/salt/manufacturer/HSN masters — deduped, post-GST-2.0 rates — substitutions, interactions, coa_template, currency, ai_model_registry) + `V3__seed_drug_master_extended.sql` (Marg-style preloaded medicine catalog: ~22.5k branded products from the open A-Z Indian medicine dataset, top-3 brands per salt composition with marquee-house preference, MRP/pack/manufacturer/composition, all HSN 3004 @ 5%). `V4__drug_schedule_h1_and_exempt_drugs.sql` (Schedule H1 overlay + 36 nil-rated lifesaving drugs) + `V5__detail_aids.sql` (e-detailing) + `V6__gst_state_code_master.sql` (38 official GST/TIN state codes — platform reference, Marg-parity dropdown/GSTIN-prefix lookup) + `V7__hsn_gst_directory_expansion.sql` (36 common kirana/FMCG/general HSN rows at post-GST-2.0 rates — dairy/produce/staples/oils/personal-care/etc; ambiguous codes salt 2501, tea/coffee, namkeen 2106 deliberately omitted) + `V8__field_reporting_hierarchy.sql` (app_user.reports_to_user_id — field MR→ABM→RBM hierarchy) + `V9__stockist_secondary_sales.sql` (stockist Stock & Sales Statement — secondary-sales loop) + `V10__rcpa_chemist_audit.sql` (Retail Chemist Prescription Audit — own-vs-competitor brand share) + `V11__hr_leave_management.sql` (HR portal leave: types/holidays/balances) + `V12__hr_attendance_regularization.sql` (HR attendance regularization) + `V13__hr_shift_management.sql` (HR shifts + assignments) + `V14__hr_timesheets.sql` (HR project/task timesheets) + `V15__hr_help_desk.sql` (HR help-desk tickets + comments) + `V16__hr_employee_documents.sql` (HR employee documents w/ category+expiry, reuses AttachmentService) + `V17__hr_offboarding.sql` (HR offboarding + clearance tasks) + `V18__hr_employee_depth.sql` (Zoho People profile depth ALTERs on payroll employee: personal info / addresses / emergency contact / employment type / probation / notice period / profile photo) + `V19__hr_employee_subresources.sql` (`hr_employee_family`/`_education`/`_experience` — family with relationship enum CHECK, education years, experience date-range CHECK). **Next new migration = V20.**
+- Location: `src/main/resources/db/migration/`. **Squashed 2026-06-12** (old V1-V71 chain deleted; DB is recreated from scratch): `V1__baseline_schema.sql` (full schema, CREATE-only, generated via pg_dump after applying the historical chain to PostgreSQL 16 and diff-verified identical) + `V2__seed_reference_data.sql` (drug/salt/manufacturer/HSN masters — deduped, post-GST-2.0 rates — substitutions, interactions, coa_template, currency, ai_model_registry) + `V3__seed_drug_master_extended.sql` (Marg-style preloaded medicine catalog: ~22.5k branded products from the open A-Z Indian medicine dataset, top-3 brands per salt composition with marquee-house preference, MRP/pack/manufacturer/composition, all HSN 3004 @ 5%). `V4__drug_schedule_h1_and_exempt_drugs.sql` (Schedule H1 overlay + 36 nil-rated lifesaving drugs) + `V5__detail_aids.sql` (e-detailing) + `V6__gst_state_code_master.sql` (38 official GST/TIN state codes — platform reference, Marg-parity dropdown/GSTIN-prefix lookup) + `V7__hsn_gst_directory_expansion.sql` (36 common kirana/FMCG/general HSN rows at post-GST-2.0 rates — dairy/produce/staples/oils/personal-care/etc; ambiguous codes salt 2501, tea/coffee, namkeen 2106 deliberately omitted) + `V8__field_reporting_hierarchy.sql` (app_user.reports_to_user_id — field MR→ABM→RBM hierarchy) + `V9__stockist_secondary_sales.sql` (stockist Stock & Sales Statement — secondary-sales loop) + `V10__rcpa_chemist_audit.sql` (Retail Chemist Prescription Audit — own-vs-competitor brand share) + `V11__hr_leave_management.sql` (HR portal leave: types/holidays/balances) + `V12__hr_attendance_regularization.sql` (HR attendance regularization) + `V13__hr_shift_management.sql` (HR shifts + assignments) + `V14__hr_timesheets.sql` (HR project/task timesheets) + `V15__hr_help_desk.sql` (HR help-desk tickets + comments) + `V16__hr_employee_documents.sql` (HR employee documents w/ category+expiry, reuses AttachmentService) + `V17__hr_offboarding.sql` (HR offboarding + clearance tasks) + `V18__hr_employee_depth.sql` (Zoho People profile depth ALTERs on payroll employee: personal info / addresses / emergency contact / employment type / probation / notice period / profile photo) + `V19__hr_employee_subresources.sql` (`hr_employee_family`/`_education`/`_experience` — family with relationship enum CHECK, education years, experience date-range CHECK) + `V20__maintenance_management.sql` (`maintenance_schedule` preventive PM master per workstation with frequency_days + next_due_date + active flag + unique-code partial index; `maintenance_work_order` PREVENTIVE/BREAKDOWN/INSPECTION events DRAFT→IN_PROGRESS→COMPLETED/CANCELLED with downtime_minutes + cost + linked schedule). **Next new migration = V21.**
 - Latent fresh-install bugs fixed during the squash: old V59 inserted into non-existent `account.system` (→ `is_system`); old V62's org-scoped `exchange_rate` collided with the V1 platform-level table (V62 shape kept — matches the JPA entity); old V62's currency-column DO-block guards checked the wrong column. The old chain only ever worked on incrementally-migrated DBs.
 - V-number references in the phase notes below (V42, V67, ...) are historical — those files now live only in git history (pre-squash commit).
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
@@ -533,7 +533,55 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 FCM service-account (`app.push.fcm.service-account-file`) · SMS provider keys · WhatsApp Business token · GSP creds (e-invoice/EWB one-click) · Redis.
 
 ### F. Bigger tracks (later)
-Manufacturing tracker 43/101 remaining (Gantt, shop-floor mobile, maintenance, pharma BMR/FSSAI) · GST polish (~~B2CL in GSTR-1~~ DONE · ~~2B re-upload dedupe~~ DONE 2026-06-13 · ~~2B auto-fetch via GSP~~ DONE 2026-06-17) · POS catalog: full 254k source list importer.
+Manufacturing tracker ~40/101 remaining after maintenance track (Gantt, shop-floor mobile, pharma BMR/FSSAI; ~~maintenance management~~ DONE 2026-06-17) · GST polish (~~B2CL in GSTR-1~~ DONE · ~~2B re-upload dedupe~~ DONE 2026-06-13 · ~~2B auto-fetch via GSP~~ DONE 2026-06-17) · POS catalog: full 254k source list importer.
+
+#### Manufacturing — Maintenance Management (2026-06-17)
+- **V20 migration:** `maintenance_schedule` (workstation_id + code uniq +
+  frequency_days CHECK > 0 + next_due_date NOT NULL + active flag + due-date
+  partial index for the daily sweep) + `maintenance_work_order` (mwo_number
+  uniq per org, schedule_id nullable for ad-hoc breakdowns, maintenance_type
+  PREVENTIVE/BREAKDOWN/INSPECTION CHECK, status DRAFT/IN_PROGRESS/COMPLETED/
+  CANCELLED CHECK, priority URGENT/HIGH/NORMAL/LOW CHECK, downtime_minutes +
+  cost + completion notes + 4 indexes).
+- **`MaintenanceService`:** schedule CRUD (default nextDueDate = today+freq
+  when null; `MAINTENANCE_DUPLICATE_CODE`/`MAINTENANCE_BAD_FREQUENCY`
+  guards); `listDueSchedules(cutoff)` for the homepage badge;
+  `generateWorkOrdersForDueSchedules(asOf)` creates a DRAFT WO per due
+  schedule but skips any schedule with an existing DRAFT/IN_PROGRESS WO
+  (idempotent sweep). WO lifecycle: `createWorkOrder` (BREAKDOWN/etc,
+  validates type + priority, auto-numbers `MWO-YYYY-NNNNN`), `startWorkOrder`
+  (DRAFT→IN_PROGRESS, stamps `startedAt`, `MAINTENANCE_NOT_DRAFT` guard),
+  `completeWorkOrder(notes, cost)` (IN_PROGRESS→COMPLETED, computes
+  `downtimeMinutes = completedAt − startedAt`, rolls linked schedule's
+  `lastCompletedDate`/`nextDueDate` forward by frequencyDays,
+  `MAINTENANCE_NOT_IN_PROGRESS` guard), `cancelWorkOrder(reason)` (blocks
+  COMPLETED/CANCELLED via `MAINTENANCE_FINAL_STATE`). All wall-clock via
+  injected `Clock` for testable date math.
+- **Downtime report:** `downtimeReport(from, to)` aggregates COMPLETED WOs in
+  the window per workstation — count, totalMinutes, totalCost, type
+  breakdown — sorted by totalMinutes desc (worst offenders first).
+- **`MaintenanceController`** @ `/api/v1/manufacturing/maintenance`
+  (`@RequiresModule(MANUFACTURING)`, OWNER/ADMIN/OPERATOR): schedules CRUD +
+  `/schedules/due` + `/schedules/generate-due`; work-orders CRUD + start +
+  complete + cancel + status/workstation filter; `/reports/downtime`.
+- **Flutter:** `MaintenanceScreen` (`/manufacturing/maintenance`, sidebar
+  "Maintenance" under Manufacturing group, capabilities gated via
+  `canUseManufacturing`) — 3 tabs:
+  - **Schedules**: list w/ workstation/due/active info, "Generate due"
+    button creates DRAFTs in one tap, add/edit dialog w/ workstation picker.
+  - **Work Orders**: list w/ status chip (DRAFT/IN_PROGRESS/COMPLETED/
+    CANCELLED), action menu (Start / Complete / Cancel) gated by status,
+    "Report issue" creates ad-hoc BREAKDOWN/INSPECTION WO, complete dialog
+    captures notes + cost.
+  - **Downtime**: date range picker + KPI strip (total minutes / WOs /
+    workstations) + per-workstation cards w/ type breakdown.
+- **Tests:** MaintenanceServiceTest (13) — schedule defaults next-due,
+  bad-frequency throws, duplicate-code conflict, generate-due creates DRAFT
+  per due schedule + skips when one already open, WO create assigns number
+  + DRAFT, bad type throws, start sets IN_PROGRESS + startedAt, start-not-
+  DRAFT throws, complete computes downtime + rolls schedule forward,
+  complete-not-IN_PROGRESS throws, cancel-COMPLETED throws, downtime report
+  aggregates + sorts desc. Manufacturing sweep 102/102.
 
 #### GSTR-2B auto-fetch via GSP (2026-06-17)
 - **`GspClient.fetch2b(orgId, returnPeriod)`** — GET against the aggregator
