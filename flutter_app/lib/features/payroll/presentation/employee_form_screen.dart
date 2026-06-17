@@ -53,6 +53,40 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
   bool _ptApplicable = false;
   bool _lwfApplicable = false;
 
+  // V18 Personal info
+  DateTime? _dateOfBirth;
+  String? _gender;
+  String? _maritalStatus;
+  final _bloodGroupCtrl = TextEditingController();
+  final _nationalityCtrl = TextEditingController();
+  final _personalEmailCtrl = TextEditingController();
+
+  // V18 Current address
+  final _currAddr1Ctrl = TextEditingController();
+  final _currAddr2Ctrl = TextEditingController();
+  final _currCityCtrl = TextEditingController();
+  final _currStateCtrl = TextEditingController();
+  final _currPincodeCtrl = TextEditingController();
+
+  // V18 Permanent address
+  final _permAddr1Ctrl = TextEditingController();
+  final _permAddr2Ctrl = TextEditingController();
+  final _permCityCtrl = TextEditingController();
+  final _permStateCtrl = TextEditingController();
+  final _permPincodeCtrl = TextEditingController();
+
+  // V18 Emergency contact
+  final _emerNameCtrl = TextEditingController();
+  final _emerRelCtrl = TextEditingController();
+  final _emerPhoneCtrl = TextEditingController();
+
+  // V18 Work info
+  String? _employmentType;
+  final _workLocationCtrl = TextEditingController();
+  DateTime? _probationEndDate;
+  DateTime? _confirmationDate;
+  final _noticePeriodDaysCtrl = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -77,6 +111,24 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
     _aadhaarLast4Ctrl.dispose();
     _uanCtrl.dispose();
     _esiNumberCtrl.dispose();
+    _bloodGroupCtrl.dispose();
+    _nationalityCtrl.dispose();
+    _personalEmailCtrl.dispose();
+    _currAddr1Ctrl.dispose();
+    _currAddr2Ctrl.dispose();
+    _currCityCtrl.dispose();
+    _currStateCtrl.dispose();
+    _currPincodeCtrl.dispose();
+    _permAddr1Ctrl.dispose();
+    _permAddr2Ctrl.dispose();
+    _permCityCtrl.dispose();
+    _permStateCtrl.dispose();
+    _permPincodeCtrl.dispose();
+    _emerNameCtrl.dispose();
+    _emerRelCtrl.dispose();
+    _emerPhoneCtrl.dispose();
+    _workLocationCtrl.dispose();
+    _noticePeriodDaysCtrl.dispose();
     super.dispose();
   }
 
@@ -118,6 +170,48 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
         _esiApplicable = data['esiApplicable'] as bool? ?? false;
         _ptApplicable = data['ptApplicable'] as bool? ?? false;
         _lwfApplicable = data['lwfApplicable'] as bool? ?? false;
+
+        // V18 depth
+        final dob = data['dateOfBirth'] as String?;
+        if (dob != null && dob.isNotEmpty) _dateOfBirth = DateTime.tryParse(dob);
+        _gender = data['gender'] as String?;
+        _maritalStatus = data['maritalStatus'] as String?;
+        _bloodGroupCtrl.text = data['bloodGroup'] as String? ?? '';
+        _nationalityCtrl.text = data['nationality'] as String? ?? '';
+        _personalEmailCtrl.text = data['personalEmail'] as String? ?? '';
+
+        _currAddr1Ctrl.text = data['currentAddressLine1'] as String? ?? '';
+        _currAddr2Ctrl.text = data['currentAddressLine2'] as String? ?? '';
+        _currCityCtrl.text = data['currentCity'] as String? ?? '';
+        _currStateCtrl.text = data['currentState'] as String? ?? '';
+        _currPincodeCtrl.text = data['currentPincode'] as String? ?? '';
+
+        _permAddr1Ctrl.text = data['permanentAddressLine1'] as String? ?? '';
+        _permAddr2Ctrl.text = data['permanentAddressLine2'] as String? ?? '';
+        _permCityCtrl.text = data['permanentCity'] as String? ?? '';
+        _permStateCtrl.text = data['permanentState'] as String? ?? '';
+        _permPincodeCtrl.text = data['permanentPincode'] as String? ?? '';
+
+        _emerNameCtrl.text = data['emergencyContactName'] as String? ?? '';
+        _emerRelCtrl.text =
+            data['emergencyContactRelationship'] as String? ?? '';
+        _emerPhoneCtrl.text =
+            data['emergencyContactPhone'] as String? ?? '';
+
+        _employmentType = data['employmentType'] as String?;
+        _workLocationCtrl.text = data['workLocation'] as String? ?? '';
+        final probEnd = data['probationEndDate'] as String?;
+        if (probEnd != null && probEnd.isNotEmpty) {
+          _probationEndDate = DateTime.tryParse(probEnd);
+        }
+        final confDate = data['confirmationDate'] as String?;
+        if (confDate != null && confDate.isNotEmpty) {
+          _confirmationDate = DateTime.tryParse(confDate);
+        }
+        final notice = data['noticePeriodDays'];
+        if (notice != null) {
+          _noticePeriodDaysCtrl.text = notice.toString();
+        }
 
         _initialLoading = false;
       });
@@ -181,6 +275,10 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
                 padding: KSpacing.pagePadding,
                 children: [
                   _buildBasicInfoSection(),
+                  _buildWorkInfoSection(),
+                  _buildPersonalInfoSection(),
+                  _buildAddressSection(),
+                  _buildEmergencyContactSection(),
                   _buildBankDetailsSection(),
                   _buildStatutoryIdsSection(),
                   _buildStatutoryApplicabilitySection(),
@@ -438,6 +536,254 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
     );
   }
 
+  // ── V18: Work Info ──
+
+  Widget _buildWorkInfoSection() {
+    return KCollapsibleSection(
+      title: 'Work Info',
+      icon: Icons.work_history_outlined,
+      children: [
+        DropdownButtonFormField<String>(
+          value: _employmentType,
+          decoration: const InputDecoration(
+            labelText: 'Employment type',
+            prefixIcon: Icon(Icons.work_outline),
+          ),
+          items: const [
+            DropdownMenuItem(value: 'FULL_TIME', child: Text('Full-time')),
+            DropdownMenuItem(value: 'PART_TIME', child: Text('Part-time')),
+            DropdownMenuItem(value: 'CONTRACT', child: Text('Contract')),
+            DropdownMenuItem(value: 'INTERN', child: Text('Intern')),
+            DropdownMenuItem(value: 'CONSULTANT', child: Text('Consultant')),
+          ],
+          onChanged: (v) => setState(() => _employmentType = v),
+        ),
+        KSpacing.vGapSm,
+        KTextField(
+          label: 'Work location',
+          controller: _workLocationCtrl,
+          prefixIcon: Icons.location_city_outlined,
+        ),
+        KSpacing.vGapSm,
+        KCompactRow(children: [
+          _datePickerTile(
+            label: 'Probation end',
+            value: _probationEndDate,
+            icon: Icons.timer_outlined,
+            onPick: (d) => setState(() => _probationEndDate = d),
+          ),
+          _datePickerTile(
+            label: 'Confirmation date',
+            value: _confirmationDate,
+            icon: Icons.verified_outlined,
+            onPick: (d) => setState(() => _confirmationDate = d),
+          ),
+        ]),
+        KSpacing.vGapSm,
+        KTextField(
+          label: 'Notice period (days)',
+          controller: _noticePeriodDaysCtrl,
+          prefixIcon: Icons.exit_to_app_outlined,
+          keyboardType: TextInputType.number,
+        ),
+      ],
+    );
+  }
+
+  // ── V18: Personal Info ──
+
+  Widget _buildPersonalInfoSection() {
+    return KCollapsibleSection(
+      title: 'Personal Info',
+      icon: Icons.badge_outlined,
+      children: [
+        _datePickerTile(
+          label: 'Date of birth',
+          value: _dateOfBirth,
+          icon: Icons.cake_outlined,
+          onPick: (d) => setState(() => _dateOfBirth = d),
+        ),
+        KSpacing.vGapSm,
+        KCompactRow(children: [
+          DropdownButtonFormField<String>(
+            value: _gender,
+            decoration: const InputDecoration(
+              labelText: 'Gender',
+              prefixIcon: Icon(Icons.person_outline),
+            ),
+            items: const [
+              DropdownMenuItem(value: 'MALE', child: Text('Male')),
+              DropdownMenuItem(value: 'FEMALE', child: Text('Female')),
+              DropdownMenuItem(value: 'OTHER', child: Text('Other')),
+              DropdownMenuItem(
+                value: 'PREFER_NOT_TO_SAY',
+                child: Text('Prefer not to say'),
+              ),
+            ],
+            onChanged: (v) => setState(() => _gender = v),
+          ),
+          DropdownButtonFormField<String>(
+            value: _maritalStatus,
+            decoration: const InputDecoration(
+              labelText: 'Marital status',
+              prefixIcon: Icon(Icons.favorite_border),
+            ),
+            items: const [
+              DropdownMenuItem(value: 'SINGLE', child: Text('Single')),
+              DropdownMenuItem(value: 'MARRIED', child: Text('Married')),
+              DropdownMenuItem(value: 'DIVORCED', child: Text('Divorced')),
+              DropdownMenuItem(value: 'WIDOWED', child: Text('Widowed')),
+            ],
+            onChanged: (v) => setState(() => _maritalStatus = v),
+          ),
+        ]),
+        KSpacing.vGapSm,
+        KCompactRow(children: [
+          KTextField(
+            label: 'Blood group',
+            controller: _bloodGroupCtrl,
+            prefixIcon: Icons.bloodtype_outlined,
+          ),
+          KTextField(
+            label: 'Nationality',
+            controller: _nationalityCtrl,
+            prefixIcon: Icons.flag_outlined,
+          ),
+        ]),
+        KSpacing.vGapSm,
+        KTextField(
+          label: 'Personal email',
+          controller: _personalEmailCtrl,
+          prefixIcon: Icons.alternate_email,
+          keyboardType: TextInputType.emailAddress,
+        ),
+      ],
+    );
+  }
+
+  // ── V18: Addresses ──
+
+  Widget _buildAddressSection() {
+    return KCollapsibleSection(
+      title: 'Address',
+      icon: Icons.home_outlined,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Text(
+            'Current address',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+        ),
+        KTextField(
+          label: 'Line 1',
+          controller: _currAddr1Ctrl,
+          prefixIcon: Icons.home_work_outlined,
+        ),
+        KSpacing.vGapSm,
+        KTextField(label: 'Line 2', controller: _currAddr2Ctrl),
+        KSpacing.vGapSm,
+        KCompactRow(children: [
+          KTextField(label: 'City', controller: _currCityCtrl),
+          KTextField(label: 'State', controller: _currStateCtrl),
+          KTextField(
+            label: 'Pincode',
+            controller: _currPincodeCtrl,
+            keyboardType: TextInputType.number,
+          ),
+        ]),
+        KSpacing.vGapMd,
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Text(
+            'Permanent address',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+        ),
+        KTextField(
+          label: 'Line 1',
+          controller: _permAddr1Ctrl,
+          prefixIcon: Icons.house_outlined,
+        ),
+        KSpacing.vGapSm,
+        KTextField(label: 'Line 2', controller: _permAddr2Ctrl),
+        KSpacing.vGapSm,
+        KCompactRow(children: [
+          KTextField(label: 'City', controller: _permCityCtrl),
+          KTextField(label: 'State', controller: _permStateCtrl),
+          KTextField(
+            label: 'Pincode',
+            controller: _permPincodeCtrl,
+            keyboardType: TextInputType.number,
+          ),
+        ]),
+      ],
+    );
+  }
+
+  // ── V18: Emergency Contact ──
+
+  Widget _buildEmergencyContactSection() {
+    return KCollapsibleSection(
+      title: 'Emergency Contact',
+      icon: Icons.contact_emergency_outlined,
+      children: [
+        KTextField(
+          label: 'Name',
+          controller: _emerNameCtrl,
+          prefixIcon: Icons.person_outline,
+        ),
+        KSpacing.vGapSm,
+        KCompactRow(children: [
+          KTextField(
+            label: 'Relationship',
+            controller: _emerRelCtrl,
+            prefixIcon: Icons.family_restroom,
+          ),
+          KTextField(
+            label: 'Phone',
+            controller: _emerPhoneCtrl,
+            prefixIcon: Icons.phone,
+            keyboardType: TextInputType.phone,
+          ),
+        ]),
+      ],
+    );
+  }
+
+  Widget _datePickerTile({
+    required String label,
+    required DateTime? value,
+    required IconData icon,
+    required void Function(DateTime?) onPick,
+  }) {
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        suffixIcon: value == null
+            ? IconButton(
+                icon: const Icon(Icons.calendar_today_outlined),
+                onPressed: () async {
+                  final now = DateTime.now();
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: value ?? now,
+                    firstDate: DateTime(1950),
+                    lastDate: DateTime(now.year + 5),
+                  );
+                  if (picked != null) onPick(picked);
+                },
+              )
+            : IconButton(
+                icon: const Icon(Icons.clear),
+                onPressed: () => onPick(null),
+              ),
+      ),
+      child: Text(value == null ? 'Not set' : _formatDate(value)),
+    );
+  }
+
   // ── Save ──
 
   Future<void> _save() async {
@@ -478,6 +824,56 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
         'uan': _uanCtrl.text.trim(),
       if (_esiNumberCtrl.text.trim().isNotEmpty)
         'esiNumber': _esiNumberCtrl.text.trim(),
+
+      // V18 depth — only send when set
+      if (_dateOfBirth != null) 'dateOfBirth': _formatDate(_dateOfBirth!),
+      if (_gender != null) 'gender': _gender,
+      if (_maritalStatus != null) 'maritalStatus': _maritalStatus,
+      if (_bloodGroupCtrl.text.trim().isNotEmpty)
+        'bloodGroup': _bloodGroupCtrl.text.trim(),
+      if (_nationalityCtrl.text.trim().isNotEmpty)
+        'nationality': _nationalityCtrl.text.trim(),
+      if (_personalEmailCtrl.text.trim().isNotEmpty)
+        'personalEmail': _personalEmailCtrl.text.trim(),
+
+      if (_currAddr1Ctrl.text.trim().isNotEmpty)
+        'currentAddressLine1': _currAddr1Ctrl.text.trim(),
+      if (_currAddr2Ctrl.text.trim().isNotEmpty)
+        'currentAddressLine2': _currAddr2Ctrl.text.trim(),
+      if (_currCityCtrl.text.trim().isNotEmpty)
+        'currentCity': _currCityCtrl.text.trim(),
+      if (_currStateCtrl.text.trim().isNotEmpty)
+        'currentState': _currStateCtrl.text.trim(),
+      if (_currPincodeCtrl.text.trim().isNotEmpty)
+        'currentPincode': _currPincodeCtrl.text.trim(),
+
+      if (_permAddr1Ctrl.text.trim().isNotEmpty)
+        'permanentAddressLine1': _permAddr1Ctrl.text.trim(),
+      if (_permAddr2Ctrl.text.trim().isNotEmpty)
+        'permanentAddressLine2': _permAddr2Ctrl.text.trim(),
+      if (_permCityCtrl.text.trim().isNotEmpty)
+        'permanentCity': _permCityCtrl.text.trim(),
+      if (_permStateCtrl.text.trim().isNotEmpty)
+        'permanentState': _permStateCtrl.text.trim(),
+      if (_permPincodeCtrl.text.trim().isNotEmpty)
+        'permanentPincode': _permPincodeCtrl.text.trim(),
+
+      if (_emerNameCtrl.text.trim().isNotEmpty)
+        'emergencyContactName': _emerNameCtrl.text.trim(),
+      if (_emerRelCtrl.text.trim().isNotEmpty)
+        'emergencyContactRelationship': _emerRelCtrl.text.trim(),
+      if (_emerPhoneCtrl.text.trim().isNotEmpty)
+        'emergencyContactPhone': _emerPhoneCtrl.text.trim(),
+
+      if (_employmentType != null) 'employmentType': _employmentType,
+      if (_workLocationCtrl.text.trim().isNotEmpty)
+        'workLocation': _workLocationCtrl.text.trim(),
+      if (_probationEndDate != null)
+        'probationEndDate': _formatDate(_probationEndDate!),
+      if (_confirmationDate != null)
+        'confirmationDate': _formatDate(_confirmationDate!),
+      if (_noticePeriodDaysCtrl.text.trim().isNotEmpty)
+        'noticePeriodDays': int.tryParse(_noticePeriodDaysCtrl.text.trim()),
     };
 
     try {
