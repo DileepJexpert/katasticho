@@ -57,6 +57,7 @@ public class ItcRiskMonitorService {
     private final AiSuggestionRepository aiSuggestionRepository;
     private final GspClient gspClient;
     private final Gstr2bReconService gstr2bReconService;
+    private final com.katasticho.erp.gst.repository.GstFilingSnapshotRepository filingSnapshotRepository;
 
     // ── Assess (read) ─────────────────────────────────────────────────────
 
@@ -66,13 +67,18 @@ public class ItcRiskMonitorService {
         UUID orgId = requireOrgId();
         YearMonth ym = parsePeriod(period);
 
+        var snapshot = filingSnapshotRepository.findByOrgIdAndReturnPeriod(orgId, ym.toString());
+        String source = snapshot.map(s -> s.getSource()).orElse(null);
+        java.time.Instant refreshedAt = snapshot.map(s -> s.getRefreshedAt()).orElse(null);
+
         // What suppliers have actually reported (from a 2A/2B fetch or upload).
         List<Gstr2bEntry> filed = entryRepository
                 .findByOrgIdAndReturnPeriodOrderBySupplierGstinAscInvoiceNumberAsc(orgId, ym.toString());
         if (filed.isEmpty()) {
             return new ItcRiskReport(ym.toString(), false, BigDecimal.ZERO, 0, List.of(),
                     "No filing data yet for " + monthLabel(ym) + ". Connect a GSP to pull GSTR-2A, "
-                            + "or upload it, so unfiled suppliers can be flagged before the cutoff.");
+                            + "or upload it, so unfiled suppliers can be flagged before the cutoff.",
+                    source, refreshedAt);
         }
         Set<String> filedKeys = new HashSet<>();
         for (Gstr2bEntry e : filed) {
@@ -114,7 +120,8 @@ public class ItcRiskMonitorService {
                 ? "All reported so far — no ITC at risk for " + monthLabel(ym) + " yet."
                 : risks.size() + " supplier(s) haven't filed — ₹" + plain(total)
                         + " of ITC at risk for " + monthLabel(ym) + ".";
-        return new ItcRiskReport(ym.toString(), true, total, risks.size(), risks, message);
+        return new ItcRiskReport(ym.toString(), true, total, risks.size(), risks, message,
+                source, refreshedAt);
     }
 
     // ── Alert (write — Inbox suggestions only) ────────────────────────────
@@ -131,8 +138,8 @@ public class ItcRiskMonitorService {
             if (gspClient.isConfigured(orgId)) {
                 String mmYYYY = String.format("%02d%04d", ym.getMonthValue(), ym.getYear());
                 Map<String, Object> portal = gspClient.fetchGstr2a(orgId, mmYYYY);
-                // Reuse the 2B ingest path to persist the filing snapshot for the period.
-                gstr2bReconService.upload(ym.toString(), portal);
+                // Reuse the ingest path, stamped as the real-time 2A source.
+                gstr2bReconService.upload(ym.toString(), portal, "GSTR_2A");
             }
         } catch (Exception e) {
             // GSP unreachable / nobody filed yet (GST_2B_EMPTY) — proceed on existing data.

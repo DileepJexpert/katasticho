@@ -43,9 +43,12 @@ class Gstr2bReconServiceTest {
     private final ContactRepository contactRepository = mock(ContactRepository.class);
     private final AiSuggestionService aiSuggestionService = mock(AiSuggestionService.class);
     private final GspClient gspClient = mock(GspClient.class);
+    private final com.katasticho.erp.gst.repository.GstFilingSnapshotRepository filingSnapshotRepository =
+            mock(com.katasticho.erp.gst.repository.GstFilingSnapshotRepository.class);
 
     private final Gstr2bReconService service = new Gstr2bReconService(
-            entryRepository, purchaseBillRepository, contactRepository, aiSuggestionService, gspClient);
+            entryRepository, purchaseBillRepository, contactRepository, aiSuggestionService, gspClient,
+            filingSnapshotRepository);
 
     private final UUID orgId = UUID.randomUUID();
     private final UUID vendorId = UUID.randomUUID();

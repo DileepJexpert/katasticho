@@ -34,7 +34,9 @@ public class ItcRiskDtos {
             BigDecimal totalItcAtRisk,
             int suppliersAtRisk,
             List<SupplierRisk> suppliers,
-            String message
+            String message,
+            String source,              // GSTR_2A | GSTR_2B | UPLOAD — provenance of the filing data
+            java.time.Instant lastRefreshedAt   // when that data was last pulled (null if never)
     ) {}
 
     private ItcRiskDtos() {}

@@ -161,6 +161,10 @@ class _ItcRiskScreenState extends ConsumerState<ItcRiskScreen> {
                         isLoading: _refreshing,
                         onPressed: _refreshing ? null : _refreshNow,
                       ),
+                      if (report != null) ...[
+                        KSpacing.vGapSm,
+                        _freshnessLine(report),
+                      ],
                     ],
                   ),
                 ),
@@ -219,6 +223,53 @@ class _ItcRiskScreenState extends ConsumerState<ItcRiskScreen> {
               ],
             ),
     );
+  }
+
+  /// "Signal: real-time GSTR-2A · refreshed 3h ago" — so the owner knows how
+  /// fresh, and how trustworthy, the data behind the alert is.
+  Widget _freshnessLine(Map<String, dynamic> report) {
+    final source = report['source'] as String?;
+    final refreshedRaw = report['lastRefreshedAt'] as String?;
+    if (source == null && refreshedRaw == null) {
+      return Text(
+        'No filing data pulled yet for this period.',
+        style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+      );
+    }
+    final sourceLabel = switch (source) {
+      'GSTR_2A' => 'real-time GSTR-2A',
+      'GSTR_2B' => 'GSTR-2B (frozen)',
+      'UPLOAD' => 'manual upload',
+      _ => source ?? 'unknown',
+    };
+    DateTime? refreshedAt;
+    if (refreshedRaw != null) {
+      refreshedAt = DateTime.tryParse(refreshedRaw)?.toLocal();
+    }
+    final age = refreshedAt == null ? null : DateTime.now().difference(refreshedAt);
+    final stale = age != null && age.inHours >= 24;
+    final color = stale ? KColors.warning : KColors.textSecondary;
+    final when = age == null ? '' : ' · refreshed ${_ago(age)}';
+    return Row(
+      children: [
+        Icon(stale ? Icons.history_toggle_off : Icons.sensors,
+            size: 14, color: color),
+        KSpacing.hGapXs,
+        Expanded(
+          child: Text(
+            'Signal: $sourceLabel$when${stale ? ' — may be outdated' : ''}',
+            style: KTypography.bodySmall.copyWith(color: color),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _ago(Duration d) {
+    if (d.inMinutes < 1) return 'just now';
+    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
+    if (d.inHours < 24) return '${d.inHours}h ago';
+    return '${d.inDays}d ago';
   }
 
   Widget _supplierCard(Map<String, dynamic> s) {

@@ -41,6 +41,7 @@ class ItcRiskMonitorServiceTest {
     @Mock private AiSuggestionRepository aiSuggestionRepository;
     @Mock private GspClient gspClient;
     @Mock private Gstr2bReconService gstr2bReconService;
+    @Mock private com.katasticho.erp.gst.repository.GstFilingSnapshotRepository filingSnapshotRepository;
     private ItcRiskMonitorService service;
 
     private final UUID orgId = UUID.randomUUID();
@@ -51,7 +52,8 @@ class ItcRiskMonitorServiceTest {
     @BeforeEach
     void setUp() {
         service = new ItcRiskMonitorService(purchaseBillRepository, contactRepository,
-                entryRepository, aiSuggestionService, aiSuggestionRepository, gspClient, gstr2bReconService);
+                entryRepository, aiSuggestionService, aiSuggestionRepository, gspClient, gstr2bReconService,
+                filingSnapshotRepository);
         TenantContext.setCurrentOrgId(orgId);
     }
 
@@ -153,6 +155,25 @@ class ItcRiskMonitorServiceTest {
     }
 
     @Test
+    void assess_surfacesProvenanceAndFreshness() {
+        var now = java.time.Instant.parse("2026-06-05T09:00:00Z");
+        when(filingSnapshotRepository.findByOrgIdAndReturnPeriod(orgId, "2026-05"))
+                .thenReturn(java.util.Optional.of(
+                        com.katasticho.erp.gst.entity.GstFilingSnapshot.builder()
+                                .orgId(orgId).returnPeriod("2026-05")
+                                .source("GSTR_2A").refreshedAt(now).entryCount(1).build()));
+        when(entryRepository.findByOrgIdAndReturnPeriodOrderBySupplierGstinAscInvoiceNumberAsc(orgId, "2026-05"))
+                .thenReturn(List.of(filed("27AAAAA0000A1Z5", "INV-1")));
+        when(purchaseBillRepository.findPostedByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(List.of());
+
+        ItcRiskReport r = service.assessRisk("2026-05");
+
+        assertThat(r.source()).isEqualTo("GSTR_2A");
+        assertThat(r.lastRefreshedAt()).isEqualTo(now);
+    }
+
+    @Test
     void refreshAndAlert_pullsRealtime2aWhenGspConfigured() {
         when(gspClient.isConfigured(orgId)).thenReturn(true);
         when(gspClient.fetchGstr2a(orgId, "052026")).thenReturn(java.util.Map.of("entries", List.of()));
@@ -163,9 +184,9 @@ class ItcRiskMonitorServiceTest {
 
         service.refreshAndAlert("2026-05");
 
-        // 2A pulled for the MMYYYY period and ingested via the existing 2B upload path.
+        // 2A pulled for the MMYYYY period and ingested, stamped as the GSTR_2A source.
         verify(gspClient).fetchGstr2a(orgId, "052026");
-        verify(gstr2bReconService).upload(eq("2026-05"), anyMap());
+        verify(gstr2bReconService).upload(eq("2026-05"), anyMap(), eq("GSTR_2A"));
     }
 
     @Test
