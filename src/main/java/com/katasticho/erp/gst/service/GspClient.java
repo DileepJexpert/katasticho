@@ -6,12 +6,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -51,6 +53,7 @@ public class GspClient {
     public static final String BASE_URL = "gst.gsp_base_url";
     public static final String EINVOICE_PATH = "gst.gsp_einvoice_path";
     public static final String EWAYBILL_PATH = "gst.gsp_ewaybill_path";
+    public static final String GSTR2B_PATH = "gst.gsp_gstr2b_path";
     public static final String TOKEN = "gst.gsp_token";
     public static final String GSTIN = "gst.gsp_gstin";
 
@@ -73,6 +76,23 @@ public class GspClient {
         return post(orgId, path(orgId, EWAYBILL_PATH, "/ewaybill/generate"), payload);
     }
 
+    /**
+     * GET the GSTR-2B JSON for a return period from the aggregator. The shape
+     * mirrors the portal-uploaded JSON so {@link Gstr2bReconService#upload}
+     * can ingest it unchanged. Common aggregator pattern: GET with gstin +
+     * period query params, bearer token + gstin header.
+     */
+    public Map<String, Object> fetch2b(UUID orgId, String returnPeriod) {
+        Map<String, String> s = orgSettingsService.getAll(orgId);
+        String url = UriComponentsBuilder
+                .fromHttpUrl(path(orgId, GSTR2B_PATH, "/gstr2b/fetch"))
+                .queryParam("gstin", s.getOrDefault(GSTIN, ""))
+                .queryParam("period", returnPeriod)
+                .build(true)
+                .toUriString();
+        return exchange(orgId, url, HttpMethod.GET, null);
+    }
+
     /** Settings map for the UI; the token is masked, never echoed in full. */
     public Map<String, Object> settings(UUID orgId) {
         Map<String, String> s = orgSettingsService.getAll(orgId);
@@ -82,6 +102,7 @@ public class GspClient {
         out.put("baseUrl", s.getOrDefault(BASE_URL, ""));
         out.put("einvoicePath", s.getOrDefault(EINVOICE_PATH, ""));
         out.put("ewaybillPath", s.getOrDefault(EWAYBILL_PATH, ""));
+        out.put("gstr2bPath", s.getOrDefault(GSTR2B_PATH, ""));
         out.put("gstin", s.getOrDefault(GSTIN, ""));
         out.put("tokenSet", notBlank(s.get(TOKEN)));
         return out;
@@ -90,16 +111,21 @@ public class GspClient {
     // ── internals ────────────────────────────────────────────────────────
 
     private Map<String, Object> post(UUID orgId, String url, Map<String, Object> payload) {
+        return exchange(orgId, url, HttpMethod.POST, payload);
+    }
+
+    private Map<String, Object> exchange(UUID orgId, String url, HttpMethod method,
+                                         Map<String, Object> payload) {
         Map<String, String> s = orgSettingsService.getAll(orgId);
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        if (payload != null) headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(s.getOrDefault(TOKEN, ""));
         if (notBlank(s.get(GSTIN))) headers.set("gstin", s.get(GSTIN).trim());
 
         try {
             @SuppressWarnings("unchecked")
-            ResponseEntity<Map> resp = gspRestTemplate.postForEntity(
-                    url, new HttpEntity<>(payload, headers), Map.class);
+            ResponseEntity<Map> resp = gspRestTemplate.exchange(
+                    url, method, new HttpEntity<>(payload, headers), Map.class);
             if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
                 throw new BusinessException(
                         "GSP returned " + resp.getStatusCode() + " with no usable body",
@@ -109,7 +135,7 @@ public class GspClient {
             Map<String, Object> body = resp.getBody();
             return body;
         } catch (RestClientException e) {
-            log.warn("GSP call to {} failed for org {}: {}", url, orgId, e.getMessage());
+            log.warn("GSP {} call to {} failed for org {}: {}", method, url, orgId, e.getMessage());
             throw new BusinessException(
                     "Could not reach the GSP: " + e.getMessage(),
                     "GSP_UNREACHABLE", HttpStatus.BAD_GATEWAY);

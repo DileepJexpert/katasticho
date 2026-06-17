@@ -5,6 +5,7 @@ import com.katasticho.erp.ai.service.AiSuggestionService;
 import com.katasticho.erp.ap.entity.PurchaseBill;
 import com.katasticho.erp.ap.repository.PurchaseBillRepository;
 import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.entity.ContactType;
 import com.katasticho.erp.contact.repository.ContactRepository;
@@ -40,9 +41,10 @@ class Gstr2bReconServiceTest {
     private final PurchaseBillRepository purchaseBillRepository = mock(PurchaseBillRepository.class);
     private final ContactRepository contactRepository = mock(ContactRepository.class);
     private final AiSuggestionService aiSuggestionService = mock(AiSuggestionService.class);
+    private final GspClient gspClient = mock(GspClient.class);
 
     private final Gstr2bReconService service = new Gstr2bReconService(
-            entryRepository, purchaseBillRepository, contactRepository, aiSuggestionService);
+            entryRepository, purchaseBillRepository, contactRepository, aiSuggestionService, gspClient);
 
     private final UUID orgId = UUID.randomUUID();
     private final UUID vendorId = UUID.randomUUID();
@@ -201,5 +203,50 @@ class Gstr2bReconServiceTest {
                 "cgst", "57",
                 "sgst", "57"
         );
+    }
+
+    // ── GSP auto-fetch ──
+
+    @Test
+    void fetchFromGsp_notConfigured_throwsGspNotConfigured() {
+        when(gspClient.isConfigured(orgId)).thenReturn(false);
+
+        BusinessException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                BusinessException.class, () -> service.fetchFromGsp("2026-05"));
+
+        assertThat(ex.getErrorCode()).isEqualTo("GSP_NOT_CONFIGURED");
+        verify(gspClient, never()).fetch2b(any(), anyString());
+        verify(entryRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void fetchFromGsp_configured_fetchesFromGspAndReconciles() {
+        when(gspClient.isConfigured(orgId)).thenReturn(true);
+        // Aggregator returns the same shape as the portal-uploaded JSON.
+        Map<String, Object> portalJson = Map.of("data", Map.of("docdata", Map.of("b2b", List.of(
+                Map.of("ctin", "27AABCT1234A1Z5", "trdnm", "ABC Pharma", "inv", List.of(
+                        Map.of("inum", "INV-101", "val", "1064", "txval", "950", "tx", List.of(
+                                Map.of("cgst", "57", "sgst", "57")))))))));
+        when(gspClient.fetch2b(eq(orgId), eq("2026-05"))).thenReturn(portalJson);
+        when(purchaseBillRepository.findPostedByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(List.of());
+        when(contactRepository.findAllById(any())).thenReturn(List.of());
+
+        Map<String, Object> summary = service.fetchFromGsp("2026-05");
+
+        verify(gspClient).fetch2b(orgId, "2026-05");
+        verify(entryRepository, org.mockito.Mockito.atLeastOnce()).saveAll(any());
+        assertThat(summary).isNotNull();
+    }
+
+    @Test
+    void fetchFromGsp_emptyResponse_throwsGst2bEmpty() {
+        when(gspClient.isConfigured(orgId)).thenReturn(true);
+        when(gspClient.fetch2b(eq(orgId), eq("2026-05"))).thenReturn(Map.of());
+
+        BusinessException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                BusinessException.class, () -> service.fetchFromGsp("2026-05"));
+
+        assertThat(ex.getErrorCode()).isEqualTo("GST_2B_EMPTY");
     }
 }

@@ -115,6 +115,7 @@ class Gstr2bTab extends ConsumerStatefulWidget {
 class _Gstr2bTabState extends ConsumerState<Gstr2bTab> {
   List<dynamic>? _entries;
   bool _uploading = false;
+  bool _fetching = false;
 
   Future<void> _loadEntries() async {
     try {
@@ -124,6 +125,34 @@ class _Gstr2bTabState extends ConsumerState<Gstr2bTab> {
       if (mounted) setState(() => _entries = entries);
     } catch (_) {
       if (mounted) setState(() => _entries = const []);
+    }
+  }
+
+  Future<void> _fetchFromGsp() async {
+    setState(() => _fetching = true);
+    try {
+      final summary =
+          await ref.read(gstRepositoryProvider).fetchGstr2bFromGsp(widget.period);
+      if (!mounted) return;
+      final mismatches = (summary['valueMismatch'] as num? ?? 0) +
+          (summary['notInBooks'] as num? ?? 0);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(mismatches > 0
+            ? '2B fetched — $mismatches issue(s) sent to your AI Inbox'
+            : '2B fetched — everything matched'),
+      ));
+      widget.onChanged();
+      await _loadEntries();
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString();
+      final friendly = msg.contains('GSP_NOT_CONFIGURED')
+          ? 'GSP not configured. Add your aggregator URL and token in '
+              'Settings → GST → GSP credentials, then try again.'
+          : 'Auto-fetch failed: ${msg.replaceAll('Exception: ', '')}';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendly)));
+    } finally {
+      if (mounted) setState(() => _fetching = false);
     }
   }
 
@@ -182,18 +211,34 @@ class _Gstr2bTabState extends ConsumerState<Gstr2bTab> {
               Text('GSTR-2B for ${widget.period}', style: KTypography.h3),
               KSpacing.vGapSm,
               Text(
-                'Download the GSTR-2B JSON from the GST portal (generated on the '
-                '14th) and upload it here. Bills are matched automatically; '
-                'mismatches and missed ITC land in your AI Inbox.',
+                'Auto-fetch from your GSP if configured, or download the GSTR-2B '
+                'JSON from the GST portal (generated on the 14th) and upload it '
+                'here. Bills are matched automatically; mismatches and missed '
+                'ITC land in your AI Inbox.',
                 style:
                     KTypography.bodySmall.copyWith(color: KColors.textSecondary),
               ),
               KSpacing.vGapMd,
-              KButton(
-                label: _uploading ? 'Uploading…' : 'Upload 2B JSON',
-                icon: Icons.upload_file,
-                isLoading: _uploading,
-                onPressed: _pickAndUpload,
+              Row(
+                children: [
+                  Expanded(
+                    child: KButton(
+                      label: _fetching ? 'Fetching…' : 'Auto-fetch from GSP',
+                      icon: Icons.cloud_download_outlined,
+                      isLoading: _fetching,
+                      onPressed: (_fetching || _uploading) ? null : _fetchFromGsp,
+                    ),
+                  ),
+                  KSpacing.hGapMd,
+                  Expanded(
+                    child: KButton(
+                      label: _uploading ? 'Uploading…' : 'Upload 2B JSON',
+                      icon: Icons.upload_file,
+                      isLoading: _uploading,
+                      onPressed: (_fetching || _uploading) ? null : _pickAndUpload,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

@@ -12,6 +12,7 @@ import com.katasticho.erp.gst.entity.Gstr2bEntry;
 import com.katasticho.erp.gst.repository.Gstr2bEntryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,6 +49,7 @@ public class Gstr2bReconService {
     private final PurchaseBillRepository purchaseBillRepository;
     private final ContactRepository contactRepository;
     private final AiSuggestionService aiSuggestionService;
+    private final GspClient gspClient;
 
     // ── Upload + reconcile ───────────────────────────────────────────────
 
@@ -84,6 +86,30 @@ public class Gstr2bReconService {
         log.info("GSTR-2B {}: {} entries uploaded and reconciled for org {}",
                 ym, saved.size(), orgId);
         return summary(period);
+    }
+
+    /**
+     * One-click auto-fetch: pull the 2B JSON for {@code period} from the
+     * configured GSP and reuse the {@link #upload} pipeline to parse, dedupe
+     * suggestions, and reconcile against posted bills. Inert until GSP creds
+     * are set — manual upload stays available.
+     */
+    @Transactional
+    public Map<String, Object> fetchFromGsp(String period) {
+        UUID orgId = requireOrgId();
+        if (!gspClient.isConfigured(orgId)) {
+            throw new BusinessException(
+                    "Set up GSP credentials in GST settings to enable auto-fetch",
+                    "GSP_NOT_CONFIGURED", HttpStatus.PRECONDITION_FAILED);
+        }
+        YearMonth ym = parsePeriod(period);
+        Map<String, Object> portalJson = gspClient.fetch2b(orgId, ym.toString());
+        if (portalJson == null || portalJson.isEmpty()) {
+            throw new BusinessException(
+                    "GSP returned an empty GSTR-2B for " + ym,
+                    "GST_2B_EMPTY");
+        }
+        return upload(period, portalJson);
     }
 
     @Transactional(readOnly = true)

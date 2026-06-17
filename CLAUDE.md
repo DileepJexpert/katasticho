@@ -533,7 +533,22 @@ Backend tests exist in `src/test/java/com/katasticho/erp/`:
 FCM service-account (`app.push.fcm.service-account-file`) · SMS provider keys · WhatsApp Business token · GSP creds (e-invoice/EWB one-click) · Redis.
 
 ### F. Bigger tracks (later)
-Manufacturing tracker 43/101 remaining (Gantt, shop-floor mobile, maintenance, pharma BMR/FSSAI) · GST polish (~~B2CL in GSTR-1~~ DONE · ~~2B re-upload dedupe~~ DONE 2026-06-13 · 2B auto-fetch via GSP) · POS catalog: full 254k source list importer.
+Manufacturing tracker 43/101 remaining (Gantt, shop-floor mobile, maintenance, pharma BMR/FSSAI) · GST polish (~~B2CL in GSTR-1~~ DONE · ~~2B re-upload dedupe~~ DONE 2026-06-13 · ~~2B auto-fetch via GSP~~ DONE 2026-06-17) · POS catalog: full 254k source list importer.
+
+#### GSTR-2B auto-fetch via GSP (2026-06-17)
+- **`GspClient.fetch2b(orgId, returnPeriod)`** — GET against the aggregator
+  with bearer token + `gstin` header. Path key `gst.gsp_gstr2b_path` (default
+  `/gstr2b/fetch`); query `?gstin=&period=YYYY-MM`. Refactored `post()`/GET
+  through a single `exchange()` so both flows share auth + error mapping.
+- **`Gstr2bReconService.fetchFromGsp(period)`** — gates on `gspClient.isConfigured`
+  (else `GSP_NOT_CONFIGURED`), pulls the JSON, and re-uses `upload()` so all
+  the existing parse / re-upload-dedupe / reconcile / suggestion-replace logic
+  is unchanged. Empty response → `GST_2B_EMPTY`.
+- **Endpoint:** `POST /api/v1/gst/gstr2b/fetch?period=` (OWNER/ADMIN/ACCOUNTANT).
+- **Flutter:** GSTR-2B tab now renders "Auto-fetch from GSP" + "Upload 2B JSON"
+  side-by-side; auto-fetch shows a friendly hint when GSP isn't configured.
+- **Tests:** Gstr2bReconServiceTest +3 — GSP not configured throws, configured
+  fetches+reconciles via shared pipeline, empty response throws. GST sweep 26/26.
 
 ### G. Marg first-timer master-data parity (2026-06-13)
 Goal: match Marg's "ready in minutes" preloaded masters. Audit found UoM already
