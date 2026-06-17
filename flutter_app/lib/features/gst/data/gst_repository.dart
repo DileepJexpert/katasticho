@@ -280,6 +280,19 @@ class GstRepository {
     return _data(response.data);
   }
 
+  // ── GSP (GST Suvidha Provider) connection settings ────────────────────
+
+  Future<Map<String, dynamic>> getGspSettings() async {
+    final response = await _api.get(ApiConfig.gspSettings);
+    return _data(response.data);
+  }
+
+  /// Update GSP settings. The token is only sent when non-empty (write-only).
+  Future<Map<String, dynamic>> updateGspSettings(Map<String, dynamic> body) async {
+    final response = await _api.put(ApiConfig.gspSettings, data: body);
+    return _data(response.data);
+  }
+
   Map<String, dynamic> _data(dynamic body) {
     final map = body as Map<String, dynamic>;
     return Map<String, dynamic>.from((map['data'] as Map?) ?? map);

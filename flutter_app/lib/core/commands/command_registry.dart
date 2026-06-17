@@ -627,6 +627,13 @@ List<KCommand> buildAppCommands() {
       keywords: ['mcp', 'integration'],
     ),
     KCommand(
+      label: 'GSP Connection',
+      icon: Icons.cloud_sync_rounded,
+      section: 'Settings',
+      route: Routes.gspSettings,
+      keywords: ['gsp', 'gst', 'e-invoice', 'irn', 'eway', '2b', 'suvidha'],
+    ),
+    KCommand(
       label: 'Payroll Settings',
       icon: Icons.settings_rounded,
       section: 'Settings',

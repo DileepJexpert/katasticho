@@ -243,6 +243,12 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push(Routes.apiKeys),
             ),
             _SettingsTile(
+              icon: Icons.cloud_sync_outlined,
+              title: 'GSP Connection',
+              subtitle: 'One-click e-invoice, e-way bill & GSTR-2B via your GSP',
+              onTap: () => context.push(Routes.gspSettings),
+            ),
+            _SettingsTile(
               icon: Icons.swap_horiz,
               title: 'Migrate from Tally',
               subtitle: 'Import ledgers, items & opening balances from Tally XML',

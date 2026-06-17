@@ -127,6 +127,7 @@ import '../features/inventory/presentation/reorder_screen.dart';
 import '../features/inventory/presentation/shortbook_screen.dart';
 import '../features/team/presentation/team_screen.dart';
 import '../features/settings/presentation/ai_model_settings_screen.dart';
+import '../features/settings/presentation/gsp_settings_screen.dart';
 import '../features/settings/presentation/api_keys_screen.dart';
 import '../features/settings/presentation/budgets_screen.dart';
 import '../features/settings/presentation/tally_import_screen.dart';
@@ -328,6 +329,7 @@ class Routes {
   static const inventoryFeatures = '/settings/inventory-features';
   static const teamMembers = '/settings/team';
   static const aiSettings = '/settings/ai';
+  static const gspSettings = '/settings/gsp';
   static const apiKeys = '/settings/api-keys';
   static const budgets = '/settings/budgets';
   static const tallyImport = '/settings/tally-import';
@@ -1837,6 +1839,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.aiSettings,
             builder: (context, state) => const AiModelSettingsScreen(),
+          ),
+          GoRoute(
+            path: Routes.gspSettings,
+            builder: (context, state) => const GspSettingsScreen(),
           ),
           GoRoute(
             path: Routes.apiKeys,
