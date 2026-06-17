@@ -1,5 +1,6 @@
 package com.katasticho.erp.ai.controller;
 
+import com.katasticho.erp.ai.dto.AgentChatDtos;
 import com.katasticho.erp.ai.dto.AiQueryRequest;
 import com.katasticho.erp.ai.dto.AiQueryResponse;
 import com.katasticho.erp.ai.dto.AiAgentRunResponse;
@@ -12,6 +13,7 @@ import com.katasticho.erp.ai.dto.ItemScanResponse;
 import com.katasticho.erp.ai.service.AiSuggestionService;
 import com.katasticho.erp.ai.service.AiTrainingExportService;
 import com.katasticho.erp.ai.service.BillScanService;
+import com.katasticho.erp.ai.service.ConversationalAgentService;
 import com.katasticho.erp.ai.service.ItemScanService;
 import com.katasticho.erp.ai.service.NlpQueryService;
 import com.katasticho.erp.ai.service.ProactiveAgentService;
@@ -42,6 +44,7 @@ public class AiController {
     private final RuleBasedAiAgentService ruleBasedAiAgentService;
     private final ProactiveAgentService proactiveAgentService;
     private final AiTrainingExportService aiTrainingExportService;
+    private final ConversationalAgentService conversationalAgentService;
 
     /** Summary of how much fine-tuning data has accumulated. */
     @GetMapping("/training/summary")
@@ -115,6 +118,19 @@ public class AiController {
             @Valid @RequestBody AiQueryRequest request) {
         AiQueryResponse response = nlpQueryService.processQuery(request.message());
         return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    /**
+     * POST /api/v1/ai/agent
+     * Conversational agent with tool-use: one message → the agent picks a tool
+     * (query your data, draft a transaction, list overdue customers) and runs it
+     * through existing services. Write tools only ever create DRAFTS for approval.
+     */
+    @PostMapping("/agent")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<AgentChatDtos.AgentChatResponse>> agent(
+            @Valid @RequestBody AgentChatDtos.AgentChatRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(conversationalAgentService.chat(request.message())));
     }
 
     /**

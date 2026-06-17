@@ -348,6 +348,7 @@ class ApiConfig {
 
   // AI
   static const String aiQuery = '/api/v1/ai/query';
+  static const String aiAgent = '/api/v1/ai/agent';
   static const String aiSuggestions = '/api/v1/ai/suggestions';
   static const String aiSuggestionsSummary = '/api/v1/ai/suggestions/summary';
   static String aiSuggestionById(String id) => '/api/v1/ai/suggestions/$id';
