@@ -750,7 +750,7 @@ Triggered by the question "does an ERP need transport / HR / supply chain?". Ans
 
 ## PENDING (post-2026-06-17) — net-new items to ship
 **Triaged by segment + seam + reach (see "Strategic insights" below).**
-1. **Supply Chain discoverability UX fix** — sidebar group default-expanded, breadcrumb, dashboard tiles for the 7 tools. ~1–2h Flutter only. Highest impact-to-effort right now.
+1. ~~**Supply Chain discoverability UX fix**~~ DONE 2026-06-17 (Flutter only): the sidebar uses a tap-to-popup paradigm app-wide (NOT inline-expand — left as-is). Instead (a) `scm_breadcrumb.dart` — a "Supply Chain › {screen}" bar added to all 6 sub-screens' AppBar `bottom:` ("Supply Chain" taps back to the dashboard hub, so a sub-screen never feels orphaned); (b) dashboard `_NavigationCards` rewritten into a responsive **tools grid** of all 6 tools (added the missing Shipments) — icon tile + title + subtitle, tappable, headed "Supply Chain Tools — six tools live here". So the hub now visibly surfaces everything the sidebar group hides behind one tap. analyze-clean.
 2. **Shiprocket adapter (live)** — a thin layer over `CourierClient`: webhook receiver that translates Shiprocket's status payload to our `RecordEventRequest`, a poll job for couriers without webhooks, and a Shiprocket-shaped COD-remittance pull. Wires real tracking + auto-COD-reconcile. ~1d.
 3. **Vehicle maintenance / fuel log** — own-fleet TCO: per-van service history, fuel logs, downtime. Closes the TMS analytics gap. ~½d.
 4. **Proof-of-delivery (POD)** — signature + photo capture on DC dispatch, stored via `AttachmentService`. ~½d.

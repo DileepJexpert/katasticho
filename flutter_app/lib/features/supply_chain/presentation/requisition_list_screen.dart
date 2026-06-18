@@ -7,6 +7,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../data/supply_chain_repository.dart';
+import 'widgets/scm_breadcrumb.dart';
 
 final _requisitionListProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
   return ref.watch(supplyChainRepositoryProvider).listRequisitions();
@@ -23,7 +24,10 @@ class RequisitionListScreen extends ConsumerWidget {
       itemCount: () => (listAsync.valueOrNull?['content'] as List?)?.length ?? 0,
       onRefresh: () => ref.invalidate(_requisitionListProvider),
       child: Scaffold(
-        appBar: AppBar(title: const Text('Purchase Requisitions')),
+        appBar: AppBar(
+          title: const Text('Purchase Requisitions'),
+          bottom: scmBreadcrumb(context, 'Requisitions'),
+        ),
         floatingActionButton: FloatingActionButton(
           tooltip: 'Auto-PR from Low Stock (N)',
           onPressed: () async {

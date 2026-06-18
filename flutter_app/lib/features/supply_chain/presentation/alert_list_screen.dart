@@ -6,6 +6,7 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../data/supply_chain_repository.dart';
+import 'widgets/scm_breadcrumb.dart';
 
 final _alertListProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
   return ref.watch(supplyChainRepositoryProvider).listAlerts(status: 'OPEN');
@@ -24,6 +25,7 @@ class SupplyChainAlertListScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Supply Chain Alerts'),
+          bottom: scmBreadcrumb(context, 'Alerts'),
           actions: [
             IconButton(
               tooltip: 'Scan for alerts',

@@ -7,6 +7,7 @@ import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../data/supply_chain_repository.dart';
+import 'widgets/scm_breadcrumb.dart';
 
 final _rankingsProvider = FutureProvider.autoDispose<List<dynamic>>((ref) {
   return ref.watch(supplyChainRepositoryProvider).getSupplierRankings();
@@ -23,7 +24,10 @@ class SupplierRankingsScreen extends ConsumerWidget {
       itemCount: () => rankingsAsync.valueOrNull?.length ?? 0,
       onRefresh: () => ref.invalidate(_rankingsProvider),
       child: Scaffold(
-        appBar: AppBar(title: const Text('Supplier Rankings')),
+        appBar: AppBar(
+          title: const Text('Supplier Rankings'),
+          bottom: scmBreadcrumb(context, 'Supplier Rankings'),
+        ),
         body: rankingsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),

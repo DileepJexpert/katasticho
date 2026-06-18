@@ -6,6 +6,7 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../data/supply_chain_repository.dart';
+import 'widgets/scm_breadcrumb.dart';
 
 final _shipmentListProvider =
     FutureProvider.autoDispose.family<List<dynamic>, String?>((ref, status) {
@@ -32,6 +33,7 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Shipments'),
+          bottom: scmBreadcrumb(context, 'Shipments'),
           actions: [
             PopupMenuButton<String?>(
               icon: const Icon(Icons.filter_list_outlined),
