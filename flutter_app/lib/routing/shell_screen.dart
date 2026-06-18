@@ -695,6 +695,16 @@ const _courierGroup = NavGroup(
         icon: Icons.price_change_outlined,
         activeIcon: Icons.price_change_rounded,
         route: Routes.freightRateCards),
+    NavItem(
+        label: 'Vehicle Log',
+        icon: Icons.directions_car_outlined,
+        activeIcon: Icons.directions_car,
+        route: Routes.vehicleLogs),
+    NavItem(
+        label: 'Proof of Delivery',
+        icon: Icons.verified_outlined,
+        activeIcon: Icons.verified,
+        route: Routes.proofOfDelivery),
   ],
 );
 

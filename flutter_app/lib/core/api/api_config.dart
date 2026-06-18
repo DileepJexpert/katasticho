@@ -1058,6 +1058,14 @@ class ApiConfig {
       '/api/v1/transport/lorry-receipts/$id/bill-freight';
   static const String freightRateCards = '/api/v1/transport/rate-cards';
   static String freightRateCard(String id) => '/api/v1/transport/rate-cards/$id';
+  // Vehicle log (own-fleet TCO)
+  static const String vehicleLogs = '/api/v1/transport/vehicle-logs';
+  static String vehicleLog(String id) => '/api/v1/transport/vehicle-logs/$id';
+  static const String vehicleLogSummary = '/api/v1/transport/vehicle-logs/summary';
+  // Proof of delivery
+  static const String proofOfDelivery = '/api/v1/transport/proof-of-delivery';
+  static String podAttachments(String id) =>
+      '/api/v1/transport/proof-of-delivery/$id/attachments';
   static String einvoiceGenerateViaGsp(String id) =>
       '/api/v1/gst/einvoices/$id/generate-gsp';
   static String ewayBillGenerateViaGsp(String id) =>

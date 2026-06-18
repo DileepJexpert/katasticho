@@ -676,6 +676,20 @@ List<KCommand> buildAppCommands() {
       keywords: ['freight', 'rate', 'transporter', 'lane', 'transport'],
     ),
     KCommand(
+      label: 'Vehicle Log',
+      icon: Icons.directions_car_rounded,
+      section: 'Navigate',
+      route: Routes.vehicleLogs,
+      keywords: ['vehicle', 'fuel', 'service', 'mileage', 'fleet', 'tco', 'maintenance'],
+    ),
+    KCommand(
+      label: 'Proof of Delivery',
+      icon: Icons.verified_rounded,
+      section: 'Navigate',
+      route: Routes.proofOfDelivery,
+      keywords: ['pod', 'delivery', 'signature', 'proof', 'recipient'],
+    ),
+    KCommand(
       label: 'Payroll Settings',
       icon: Icons.settings_rounded,
       section: 'Settings',

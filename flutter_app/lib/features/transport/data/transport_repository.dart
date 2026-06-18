@@ -64,6 +64,46 @@ class TransportRepository {
     await _api.delete(ApiConfig.freightRateCard(id));
   }
 
+  // ── Vehicle log (own-fleet TCO) ──────────────────────────────────────
+
+  Future<List<dynamic>> listVehicleLogs({String? vehicleNumber}) async {
+    final response = await _api.get(ApiConfig.vehicleLogs,
+        queryParameters:
+            vehicleNumber == null ? null : {'vehicleNumber': vehicleNumber});
+    return (response.data['data'] as List?) ?? const [];
+  }
+
+  Future<Map<String, dynamic>> createVehicleLog(
+      Map<String, dynamic> body) async {
+    final response = await _api.post(ApiConfig.vehicleLogs, data: body);
+    return _data(response.data);
+  }
+
+  Future<void> deleteVehicleLog(String id) async {
+    await _api.delete(ApiConfig.vehicleLog(id));
+  }
+
+  Future<Map<String, dynamic>> vehicleSummary(String vehicleNumber) async {
+    final response = await _api.get(ApiConfig.vehicleLogSummary,
+        queryParameters: {'vehicleNumber': vehicleNumber});
+    return _data(response.data);
+  }
+
+  // ── Proof of delivery ────────────────────────────────────────────────
+
+  Future<List<dynamic>> listPod({String? deliveryChallanId}) async {
+    final response = await _api.get(ApiConfig.proofOfDelivery,
+        queryParameters: deliveryChallanId == null
+            ? null
+            : {'deliveryChallanId': deliveryChallanId});
+    return (response.data['data'] as List?) ?? const [];
+  }
+
+  Future<Map<String, dynamic>> createPod(Map<String, dynamic> body) async {
+    final response = await _api.post(ApiConfig.proofOfDelivery, data: body);
+    return _data(response.data);
+  }
+
   Map<String, dynamic> _data(dynamic body) {
     final map = body as Map<String, dynamic>;
     return Map<String, dynamic>.from((map['data'] as Map?) ?? map);
