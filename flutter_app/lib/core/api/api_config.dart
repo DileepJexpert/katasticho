@@ -551,6 +551,12 @@ class ApiConfig {
   static String challansBySalesOrder(String soId) =>
       '/api/v1/delivery-challans/by-sales-order/$soId';
 
+  // Proof of Delivery
+  static const String proofOfDelivery = '/api/v1/proof-of-delivery';
+  static String proofOfDeliveryById(String id) => '/api/v1/proof-of-delivery/$id';
+  static String proofOfDeliveryAttachments(String id) =>
+      '/api/v1/proof-of-delivery/$id/attachments';
+
   // Pricing (v2 — F3 price lists)
   static const String priceLists = '/api/v1/price-lists';
   static String priceListById(String id) => '/api/v1/price-lists/$id';

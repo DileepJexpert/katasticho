@@ -27,7 +27,7 @@ cd flutter_app && flutter test
 - **Platform-level reference tables** (NO org_id, NO BaseEntity): `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`, `gst_state_code`. `rack_location` IS org-scoped.
 
 ## Flyway Migrations
-- Location: `src/main/resources/db/migration/`. **Squashed 2026-06-12** (old V1-V71 chain deleted; DB is recreated from scratch): `V1__baseline_schema.sql` (full schema, CREATE-only, generated via pg_dump after applying the historical chain to PostgreSQL 16 and diff-verified identical) + `V2__seed_reference_data.sql` (drug/salt/manufacturer/HSN masters — deduped, post-GST-2.0 rates — substitutions, interactions, coa_template, currency, ai_model_registry) + `V3__seed_drug_master_extended.sql` (Marg-style preloaded medicine catalog: ~22.5k branded products from the open A-Z Indian medicine dataset, top-3 brands per salt composition with marquee-house preference, MRP/pack/manufacturer/composition, all HSN 3004 @ 5%). `V4__drug_schedule_h1_and_exempt_drugs.sql` (Schedule H1 overlay + 36 nil-rated lifesaving drugs) + `V5__detail_aids.sql` (e-detailing) + `V6__gst_state_code_master.sql` (38 official GST/TIN state codes — platform reference, Marg-parity dropdown/GSTIN-prefix lookup) + `V7__hsn_gst_directory_expansion.sql` (36 common kirana/FMCG/general HSN rows at post-GST-2.0 rates — dairy/produce/staples/oils/personal-care/etc; ambiguous codes salt 2501, tea/coffee, namkeen 2106 deliberately omitted) + `V8__field_reporting_hierarchy.sql` (app_user.reports_to_user_id — field MR→ABM→RBM hierarchy) + `V9__stockist_secondary_sales.sql` (stockist Stock & Sales Statement — secondary-sales loop) + `V10__rcpa_chemist_audit.sql` (Retail Chemist Prescription Audit — own-vs-competitor brand share) + `V11__hr_leave_management.sql` (HR portal leave: types/holidays/balances) + `V12__hr_attendance_regularization.sql` (HR attendance regularization) + `V13__hr_shift_management.sql` (HR shifts + assignments) + `V14__hr_timesheets.sql` (HR project/task timesheets) + `V15__hr_help_desk.sql` (HR help-desk tickets + comments) + `V16__hr_employee_documents.sql` (HR employee documents w/ category+expiry, reuses AttachmentService) + `V17__hr_offboarding.sql` (HR offboarding + clearance tasks) + `V18__hr_employee_depth.sql` (Zoho People profile depth ALTERs on payroll employee: personal info / addresses / emergency contact / employment type / probation / notice period / profile photo) + `V19__hr_employee_subresources.sql` (`hr_employee_family`/`_education`/`_experience` — family with relationship enum CHECK, education years, experience date-range CHECK) + `V20__maintenance_management.sql` (`maintenance_schedule` preventive PM master per workstation with frequency_days + next_due_date + active flag + unique-code partial index; `maintenance_work_order` PREVENTIVE/BREAKDOWN/INSPECTION events DRAFT→IN_PROGRESS→COMPLETED/CANCELLED with downtime_minutes + cost + linked schedule). **Next new migration = V21.**
+- Location: `src/main/resources/db/migration/`. **Squashed 2026-06-12** (old V1-V71 chain deleted; DB is recreated from scratch): `V1__baseline_schema.sql` (full schema, CREATE-only, generated via pg_dump after applying the historical chain to PostgreSQL 16 and diff-verified identical) + `V2__seed_reference_data.sql` (drug/salt/manufacturer/HSN masters — deduped, post-GST-2.0 rates — substitutions, interactions, coa_template, currency, ai_model_registry) + `V3__seed_drug_master_extended.sql` (Marg-style preloaded medicine catalog: ~22.5k branded products from the open A-Z Indian medicine dataset, top-3 brands per salt composition with marquee-house preference, MRP/pack/manufacturer/composition, all HSN 3004 @ 5%). `V4__drug_schedule_h1_and_exempt_drugs.sql` (Schedule H1 overlay + 36 nil-rated lifesaving drugs) + `V5__detail_aids.sql` (e-detailing) + `V6__gst_state_code_master.sql` (38 official GST/TIN state codes — platform reference, Marg-parity dropdown/GSTIN-prefix lookup) + `V7__hsn_gst_directory_expansion.sql` (36 common kirana/FMCG/general HSN rows at post-GST-2.0 rates — dairy/produce/staples/oils/personal-care/etc; ambiguous codes salt 2501, tea/coffee, namkeen 2106 deliberately omitted) + `V8__field_reporting_hierarchy.sql` (app_user.reports_to_user_id — field MR→ABM→RBM hierarchy) + `V9__stockist_secondary_sales.sql` (stockist Stock & Sales Statement — secondary-sales loop) + `V10__rcpa_chemist_audit.sql` (Retail Chemist Prescription Audit — own-vs-competitor brand share) + `V11__hr_leave_management.sql` (HR portal leave: types/holidays/balances) + `V12__hr_attendance_regularization.sql` (HR attendance regularization) + `V13__hr_shift_management.sql` (HR shifts + assignments) + `V14__hr_timesheets.sql` (HR project/task timesheets) + `V15__hr_help_desk.sql` (HR help-desk tickets + comments) + `V16__hr_employee_documents.sql` (HR employee documents w/ category+expiry, reuses AttachmentService) + `V17__hr_offboarding.sql` (HR offboarding + clearance tasks) + `V18__hr_employee_depth.sql` (Zoho People profile depth ALTERs on payroll employee: personal info / addresses / emergency contact / employment type / probation / notice period / profile photo) + `V19__hr_employee_subresources.sql` (`hr_employee_family`/`_education`/`_experience` — family with relationship enum CHECK, education years, experience date-range CHECK) + `V20__maintenance_management.sql` (`maintenance_schedule` preventive PM master per workstation with frequency_days + next_due_date + active flag + unique-code partial index; `maintenance_work_order` PREVENTIVE/BREAKDOWN/INSPECTION events DRAFT→IN_PROGRESS→COMPLETED/CANCELLED with downtime_minutes + cost + linked schedule) + `V21__proof_of_delivery.sql` (proof_of_delivery — recipient + GPS + timestamp linked to a DC and/or invoice; signature/photo files reuse AttachmentService with entityType='POD'; CHECK enforces at least one of delivery_challan_id / invoice_id). **Next new migration = V22.**
 - Latent fresh-install bugs fixed during the squash: old V59 inserted into non-existent `account.system` (→ `is_system`); old V62's org-scoped `exchange_rate` collided with the V1 platform-level table (V62 shape kept — matches the JPA entity); old V62's currency-column DO-block guards checked the wrong column. The old chain only ever worked on incrementally-migrated DBs.
 - V-number references in the phase notes below (V42, V67, ...) are historical — those files now live only in git history (pre-squash commit).
 - Use `TIMESTAMPTZ` (not `TIMESTAMP`) for timestamp columns.
@@ -607,6 +607,36 @@ Manufacturing tracker ~37/101 remaining after maintenance + shop-floor mobile tr
   DRAFT throws, complete computes downtime + rolls schedule forward,
   complete-not-IN_PROGRESS throws, cancel-COMPLETED throws, downtime report
   aggregates + sorts desc. Manufacturing sweep 102/102.
+
+#### Proof of Delivery (2026-06-18)
+- **V21 migration:** `proof_of_delivery` (org-scoped, soft-delete) — linkable to
+  delivery_challan and/or invoice (CHECK enforces at least one), recipient name/
+  phone/relation, delivered_at, GPS lat/lng (numeric 10,7), notes, recorded_by.
+  Four partial indexes (org+DC, org+invoice, org+contact, org+date).
+- **`ProofOfDeliveryService`** (sales package): record (`POD_LINK_REQUIRED` 400
+  if neither DC nor invoice; `POD_RECIPIENT_REQUIRED` 400 if no name; defaults
+  deliveredAt = now if absent; stamps orgId + recordedBy from TenantContext),
+  get / listByChallan / listByInvoice / listByContact / recent (top 50),
+  soft delete. Signature + photo attachments delegated to the shared
+  `AttachmentService` with `entityType = "POD"` — same per-org storage layout
+  as employee documents, single backup target.
+- **`ProofOfDeliveryController`** @ `/api/v1/proof-of-delivery` — record/list/
+  attach/list-attachments allow OPERATOR (delivery boys can capture from
+  the field), delete is OWNER/ADMIN/ACCOUNTANT only. Attachments accept
+  multipart `file`.
+- **Flutter `ProofOfDeliveryScreen`** (`/proof-of-delivery`, sidebar "Proof
+  of Delivery" between Delivery Challans and Receipts) — list of recent
+  PODs (recipient/link/delivered-at + Attach/View/Delete actions),
+  "Record POD" FAB opens a dialog (DC/invoice id paste-in, recipient
+  name/phone/relation, deliveredAt picker, GPS lat+lng, notes). File
+  picker → multipart `file` → POST to the attachments endpoint. View
+  attachments via bottom sheet.
+- **Tests:** ProofOfDeliveryServiceTest (8) — link-required + recipient-
+  required guards, orgId+recordedBy stamping, deliveredAt default vs.
+  caller-supplied, attach routes through AttachmentService with the "POD"
+  entityType, listAttachments routes likewise, attach against unknown
+  POD throws + never reaches AttachmentService, soft-delete sets isDeleted.
+  26/26 POD + DC + SalesCycle sweep green.
 
 #### GSTR-2B auto-fetch via GSP (2026-06-17)
 - **`GspClient.fetch2b(orgId, returnPeriod)`** — GET against the aggregator

@@ -93,6 +93,7 @@ import '../features/sales_orders/presentation/sales_order_list_screen.dart';
 import '../features/sales_orders/presentation/sales_order_create_screen.dart';
 import '../features/sales_orders/presentation/sales_order_detail_screen.dart';
 import '../features/delivery_challans/presentation/delivery_challan_list_screen.dart';
+import '../features/sales/presentation/proof_of_delivery_screen.dart';
 import '../features/delivery_challans/presentation/delivery_challan_create_screen.dart';
 import '../features/delivery_challans/presentation/delivery_challan_detail_screen.dart';
 import '../features/delivery_challans/presentation/delivery_challan_pdf_screen.dart';
@@ -290,6 +291,7 @@ class Routes {
   static const deliveryChallanCreate = '/delivery-challans/create';
   static const deliveryChallanDetail = '/delivery-challans/:id';
   static const deliveryChallanPdf = '/delivery-challans/:id/pdf';
+  static const proofOfDelivery = '/proof-of-delivery';
   // POS
   static const pos = '/pos';
   static const salesReceipts = '/sales-receipts';
@@ -918,6 +920,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               final challan = state.extra as Map<String, dynamic>? ?? {};
               return DeliveryChallanPdfScreen(challan: challan);
             },
+          ),
+          GoRoute(
+            path: Routes.proofOfDelivery,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ProofOfDeliveryScreen(),
+            ),
           ),
           // Sales Receipts
           GoRoute(

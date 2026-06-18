@@ -152,6 +152,11 @@ const _salesGroup = NavGroup(
         activeIcon: Icons.local_shipping_rounded,
         route: Routes.deliveryChallans),
     NavItem(
+        label: 'Proof of Delivery',
+        icon: Icons.assignment_turned_in_outlined,
+        activeIcon: Icons.assignment_turned_in_rounded,
+        route: Routes.proofOfDelivery),
+    NavItem(
         label: 'Receipts',
         icon: Icons.receipt_long_outlined,
         activeIcon: Icons.receipt_long_rounded,
