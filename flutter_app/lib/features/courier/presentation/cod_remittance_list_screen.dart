@@ -65,6 +65,39 @@ class _CodRemittanceListScreenState extends ConsumerState<CodRemittanceListScree
     }
   }
 
+  Future<void> _pullFromCourier() async {
+    final partner = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Pull COD remittance from'),
+        children: [
+          for (final p in const ['SHIPROCKET', 'DELHIVERY', 'BLUEDART', 'DTDC', 'INDIA_POST'])
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, p),
+              child: Text(p.replaceAll('_', ' ')),
+            ),
+        ],
+      ),
+    );
+    if (partner == null) return;
+    try {
+      final r = await ref.read(courierRepositoryProvider).pullCod(partner);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Pulled ${r['remittanceNumber'] ?? 'remittance'} — review and reconcile'),
+      ));
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().replaceAll('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg.contains('NOT_CONFIGURED')
+            ? 'Connect that courier first (Settings → Courier Connections), or enter manually'
+            : 'Pull failed: $msg'),
+      ));
+    }
+  }
+
   Future<void> _openCreate() async {
     final created = await Navigator.of(context).push<bool>(MaterialPageRoute(
         builder: (_) => const _CreateCodRemittanceScreen()));
@@ -77,6 +110,11 @@ class _CodRemittanceListScreenState extends ConsumerState<CodRemittanceListScree
       appBar: AppBar(
         title: const Text('COD Remittances'),
         actions: [
+          TextButton.icon(
+            onPressed: _pullFromCourier,
+            icon: const Icon(Icons.cloud_download, size: 18),
+            label: const Text('Pull'),
+          ),
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
       ),

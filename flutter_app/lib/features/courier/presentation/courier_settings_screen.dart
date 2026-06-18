@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
@@ -193,6 +194,51 @@ class _PartnerCardState extends ConsumerState<_PartnerCard> {
     }
   }
 
+  Future<void> _showWebhookUrl() async {
+    try {
+      final r = await ref
+          .read(courierRepositoryProvider)
+          .webhookUrl(widget.partner);
+      if (!mounted) return;
+      final path = (r['path'] ?? '').toString();
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Webhook URL'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                  'Paste this path (prefixed with your server host) into the '
+                  'courier dashboard\'s webhook config:'),
+              const SizedBox(height: 12),
+              SelectableText(path,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: path));
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Webhook path copied')));
+              },
+              child: const Text('Copy'),
+            ),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Could not get URL: ${e.toString().replaceAll('Exception: ', '')}')));
+    }
+  }
+
   Future<void> _test() async {
     setState(() {
       _testing = true;
@@ -290,6 +336,15 @@ class _PartnerCardState extends ConsumerState<_PartnerCard> {
                   label: Text(_testing ? 'Testing…' : 'Test'),
                 ),
               ],
+            ),
+            KSpacing.vGapSm,
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _showWebhookUrl,
+                icon: const Icon(Icons.webhook, size: 16),
+                label: const Text('Webhook URL'),
+              ),
             ),
             if (_testMessage != null) ...[
               KSpacing.vGapSm,

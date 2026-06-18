@@ -1036,6 +1036,14 @@ class ApiConfig {
       '/api/v1/courier/settings/$partner';
   static String courierSettingsPartnerTest(String partner) =>
       '/api/v1/courier/settings/$partner/test';
+  // Live tracking (poll / webhook URL / COD pull)
+  static String courierTrackingSync(String id) =>
+      '/api/v1/courier/tracking/shipments/$id/sync';
+  static const String courierTrackingSyncAll = '/api/v1/courier/tracking/sync-all';
+  static const String courierTrackingCodPull =
+      '/api/v1/courier/tracking/cod-remittances/pull';
+  static String courierTrackingWebhookUrl(String partner) =>
+      '/api/v1/courier/tracking/webhook-url?partner=$partner';
 
   // Transport (lorry receipts + freight rate cards)
   static const String lorryReceipts = '/api/v1/transport/lorry-receipts';

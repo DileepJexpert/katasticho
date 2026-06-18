@@ -23,6 +23,28 @@ class _CourierShipmentListScreenState
   int _pendingRto = 0;
   String? _statusFilter;
   bool _loading = true;
+  bool _syncing = false;
+
+  Future<void> _syncAll() async {
+    setState(() => _syncing = true);
+    try {
+      final r = await ref.read(courierRepositoryProvider).syncAll();
+      if (!mounted) return;
+      final updated = r['updated'] as int? ?? 0;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(updated > 0
+            ? '$updated shipment(s) updated from courier tracking'
+            : 'Tracking checked — nothing new'),
+      ));
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Sync failed: ${e.toString().replaceAll('Exception: ', '')}')));
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
 
   @override
   void initState() {
@@ -61,6 +83,14 @@ class _CourierShipmentListScreenState
       appBar: AppBar(
         title: const Text('Courier Shipments'),
         actions: [
+          IconButton(
+            tooltip: 'Sync tracking from couriers',
+            onPressed: _syncing ? null : _syncAll,
+            icon: _syncing
+                ? const SizedBox(
+                    width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.cloud_sync),
+          ),
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
       ),

@@ -55,6 +55,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/portal/auth/**",
+                                // Courier webhooks authenticate by a per-org token in the URL path.
+                                "/api/v1/courier/webhooks/**",
                                 "/api/v1/health",
                                 "/api/platform-admin/v1/auth/login",
                                 "/actuator/health",

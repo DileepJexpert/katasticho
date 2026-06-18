@@ -73,9 +73,26 @@ public class CourierClient {
             row.put("trackPath", s.getOrDefault(prefix + ".track_path", ""));
             row.put("codRemittancePath", s.getOrDefault(prefix + ".cod_remittance_path", ""));
             row.put("tokenSet", notBlank(s.get(prefix + ".token")));
+            row.put("webhookToken", s.getOrDefault(prefix + ".webhook_token", ""));
             out.put(p, row);
         }
         return out;
+    }
+
+    public static final String WEBHOOK_TOKEN_SUFFIX = ".webhook_token";
+
+    /**
+     * Ensure a per-org webhook token exists for a partner and return it. The token
+     * goes in the inbound webhook URL ({@code /api/v1/courier/webhooks/{partner}/{token}})
+     * so the public receiver can resolve which org an event belongs to.
+     */
+    public String ensureWebhookToken(UUID orgId, String partner) {
+        String key = prefix(partner) + WEBHOOK_TOKEN_SUFFIX;
+        String existing = orgSettingsService.getAll(orgId).get(key);
+        if (notBlank(existing)) return existing;
+        String token = "cwh_" + java.util.UUID.randomUUID().toString().replace("-", "");
+        orgSettingsService.set(orgId, key, token);
+        return token;
     }
 
     public void updateSettings(UUID orgId, String partner, Map<String, String> body) {

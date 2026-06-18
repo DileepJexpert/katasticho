@@ -15,6 +15,9 @@ public interface OrgSettingsRepository extends JpaRepository<OrgSetting, UUID> {
 
     Optional<OrgSetting> findByOrgIdAndKey(UUID orgId, String key);
 
+    /** Reverse lookup — resolve the org for an inbound webhook by its per-org token. */
+    Optional<OrgSetting> findFirstByKeyAndValue(String key, String value);
+
     @Modifying
     void deleteByOrgIdAndKey(UUID orgId, String key);
 

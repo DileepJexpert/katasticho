@@ -70,6 +70,34 @@ class CourierRepository {
     return _data(response.data);
   }
 
+  // ── Live tracking ────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> syncShipment(String id) async {
+    final response = await _api.post(ApiConfig.courierTrackingSync(id));
+    return _data(response.data);
+  }
+
+  Future<Map<String, dynamic>> syncAll() async {
+    final response = await _api.post(ApiConfig.courierTrackingSyncAll);
+    return _data(response.data);
+  }
+
+  Future<Map<String, dynamic>> pullCod(String partner,
+      {String? from, String? to}) async {
+    final response = await _api.post(ApiConfig.courierTrackingCodPull,
+        queryParameters: {
+          'partner': partner,
+          if (from != null) 'from': from,
+          if (to != null) 'to': to,
+        });
+    return _data(response.data);
+  }
+
+  Future<Map<String, dynamic>> webhookUrl(String partner) async {
+    final response = await _api.get(ApiConfig.courierTrackingWebhookUrl(partner));
+    return _data(response.data);
+  }
+
   // ── Settings ─────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> getCourierSettings() async {
