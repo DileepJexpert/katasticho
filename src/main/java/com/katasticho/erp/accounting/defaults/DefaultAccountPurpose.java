@@ -34,6 +34,9 @@ public enum DefaultAccountPurpose {
     DISCOUNT_GIVEN      ("5290", "Discount Allowed"),
     DISCOUNT_RECEIVED   ("4120", "Discount Received"),
 
+    // ── Other income ──────────────────────────────────────────
+    INTEREST_INCOME     ("4110", "Interest Income"),
+
     // ── Adjustments ───────────────────────────────────────────
     ROUNDING_OFF        ("5600", "Rounding Adjustment"),
     BANK_CHARGES        ("5280", "Bank Charges"),

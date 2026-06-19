@@ -96,8 +96,13 @@ public class ManufacturingController {
             @PathVariable UUID id,
             @RequestBody Map<String, Object> body) {
         BigDecimal qty = new BigDecimal(body.get("quantityReceived").toString());
+        String batchNumber = body.get("batchNumber") == null
+                ? null : body.get("batchNumber").toString();
+        java.time.LocalDate expiry = body.get("expiryDate") == null
+                ? null : java.time.LocalDate.parse(body.get("expiryDate").toString());
         return ResponseEntity.ok(ApiResponse.ok(
-                service.receiveFinishedGoods(id, qty), "Finished goods received"));
+                service.receiveFinishedGoods(id, qty, batchNumber, expiry),
+                "Finished goods received"));
     }
 
     @PutMapping("/work-orders/{id}/costs")
@@ -656,6 +661,13 @@ public class ManufacturingController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
         return ResponseEntity.ok(ApiResponse.ok(service.getProductionSummary(fromDate, toDate)));
+    }
+
+    @GetMapping("/reports/production-trends")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getProductionTrends(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        return ResponseEntity.ok(ApiResponse.ok(service.productionTrends(fromDate, toDate)));
     }
 
     // ── MRP ──────────────────────────────────────────────────────────────────

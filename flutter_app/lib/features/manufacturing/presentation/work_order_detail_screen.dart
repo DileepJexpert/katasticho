@@ -228,35 +228,90 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
   Future<void> _showReceiveDialog() async {
     final qtyCtl = TextEditingController();
-    final result = await showDialog<double>(
+    final batchCtl = TextEditingController();
+    DateTime? expiry;
+
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Receive Finished Goods'),
-        content: TextField(
-          controller: qtyCtl,
-          decoration: const InputDecoration(labelText: 'Quantity Received'),
-          keyboardType: TextInputType.number,
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              final qty = double.tryParse(qtyCtl.text.trim());
-              if (qty != null && qty > 0) Navigator.pop(ctx, qty);
-            },
-            child: const Text('Receive'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => AlertDialog(
+          title: const Text('Receive Finished Goods'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: qtyCtl,
+                  decoration: const InputDecoration(labelText: 'Quantity Received'),
+                  keyboardType: TextInputType.number,
+                  autofocus: true,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Batch (required when the FG item tracks batches — '
+                  'mandatory for pharma + food)',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+                TextField(
+                  controller: batchCtl,
+                  decoration: const InputDecoration(labelText: 'Batch number'),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: ctx,
+                            initialDate: DateTime.now().add(const Duration(days: 730)),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
+                          );
+                          if (picked != null) setSt(() => expiry = picked);
+                        },
+                        icon: const Icon(Icons.event),
+                        label: Text(expiry == null
+                            ? 'Expiry date (optional)'
+                            : 'Expiry: ${expiry!.toIso8601String().split("T").first}'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                final qty = double.tryParse(qtyCtl.text.trim());
+                if (qty != null && qty > 0) {
+                  Navigator.pop(ctx, {
+                    'qty': qty,
+                    'batch': batchCtl.text.trim(),
+                    'expiry': expiry?.toIso8601String().split('T').first,
+                  });
+                }
+              },
+              child: const Text('Receive'),
+            ),
+          ],
+        ),
       ),
     );
 
     if (result == null) return;
 
     try {
-      await ref.read(manufacturingRepositoryProvider)
-          .receiveFinishedGoods(widget.workOrderId, result);
-      _invalidateAndReload('Received $result finished goods');
+      await ref.read(manufacturingRepositoryProvider).receiveFinishedGoods(
+            widget.workOrderId,
+            result['qty'] as double,
+            batchNumber: result['batch'] as String?,
+            expiryDate: result['expiry'] as String?,
+          );
+      _invalidateAndReload('Received ${result['qty']} finished goods');
     } catch (e) {
       _showError(e);
     }

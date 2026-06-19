@@ -72,9 +72,16 @@ class ManufacturingRepository {
     return _unwrap(res);
   }
 
-  Future<Map<String, dynamic>> receiveFinishedGoods(String id, double quantity) async {
+  Future<Map<String, dynamic>> receiveFinishedGoods(
+    String id,
+    double quantity, {
+    String? batchNumber,
+    String? expiryDate, // ISO yyyy-MM-dd
+  }) async {
     final res = await _api.post(ApiConfig.manufacturingWorkOrderReceive(id), data: {
       'quantityReceived': quantity,
+      if (batchNumber != null && batchNumber.isNotEmpty) 'batchNumber': batchNumber,
+      if (expiryDate != null && expiryDate.isNotEmpty) 'expiryDate': expiryDate,
     });
     return _unwrap(res);
   }

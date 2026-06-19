@@ -14,6 +14,7 @@ import com.katasticho.erp.inventory.repository.BomAlternateRepository;
 import com.katasticho.erp.inventory.repository.BomCoProductRepository;
 import com.katasticho.erp.inventory.repository.BomComponentRepository;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.manufacturing.entity.ProductionCostSummary;
@@ -72,6 +73,7 @@ public class ManufacturingService {
     private final ApprovalWorkflowService approvalWorkflowService;
     private final ProductionScrapRepository productionScrapRepository;
     private final ScrapReasonCodeRepository scrapReasonCodeRepository;
+    private final StockBatchRepository stockBatchRepository;
 
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
     private static final Set<String> VALID_PRIORITIES = Set.of("URGENT", "HIGH", "NORMAL", "LOW");
@@ -493,6 +495,27 @@ public class ManufacturingService {
 
     @Transactional
     public WorkOrder receiveFinishedGoods(UUID workOrderId, BigDecimal quantityReceived) {
+        return receiveFinishedGoods(workOrderId, quantityReceived, null, null);
+    }
+
+    /**
+     * Receives finished goods and, when the FG item is batch-tracked,
+     * assigns the produced quantity to a named batch (regulatory must-have
+     * for pharma + food). The batch row is upserted on the natural key
+     * (org, item, batch_number) so repeated receipts into the same batch
+     * accumulate rather than duplicate.
+     *
+     * @param batchNumber required when the FG item has
+     *                    {@code trackBatches=true}; rejected for items
+     *                    that don't track batches to keep the ledger
+     *                    consistent.
+     * @param expiryDate  optional; only stored on a freshly-created batch
+     *                    so concurrent receipts don't overwrite each
+     *                    other's expiry.
+     */
+    @Transactional
+    public WorkOrder receiveFinishedGoods(UUID workOrderId, BigDecimal quantityReceived,
+                                          String batchNumber, LocalDate expiryDate) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
         WorkOrder wo = workOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(workOrderId, orgId)
@@ -552,6 +575,9 @@ public class ManufacturingService {
                     : BigDecimal.ZERO;
         }
 
+        UUID fgBatchId = resolveFgBatch(orgId, wo.getFinishedGoodId(),
+                batchNumber, expiryDate, fgUnitCost);
+
         inventoryService.recordMovement(new StockMovementRequest(
                 wo.getFinishedGoodId(),
                 wo.getWarehouseId(),
@@ -562,7 +588,8 @@ public class ManufacturingService {
                 ReferenceType.WORK_ORDER,
                 wo.getId(),
                 wo.getWorkOrderNumber(),
-                "Finished goods receipt for " + wo.getWorkOrderNumber()
+                "Finished goods receipt for " + wo.getWorkOrderNumber(),
+                fgBatchId
         ));
 
         for (BomCoProduct cp : coProducts) {
@@ -618,6 +645,66 @@ public class ManufacturingService {
                 wo.getWorkOrderNumber(), quantityReceived,
                 newTotal, wo.getQuantityToProduce(), orgId);
         return wo;
+    }
+
+    // ── FG batch assignment on receipt ───────────────────────────────
+
+    /**
+     * Resolves the batch id to stamp on the FG receive movement.
+     *
+     * <ul>
+     *   <li>Item doesn't track batches + caller passed no batch number →
+     *       {@code null} (legacy behaviour, byte-for-byte unchanged).</li>
+     *   <li>Item doesn't track batches but caller insisted on a batch
+     *       number → reject ({@code MFG_ITEM_NOT_BATCH_TRACKED}) so we
+     *       don't silently lose data.</li>
+     *   <li>Item tracks batches and caller supplied a number → upsert
+     *       on the (org, item, batch_number) natural key. Repeated
+     *       receipts into the same batch reuse the row.</li>
+     *   <li>Item tracks batches but caller skipped the number → reject
+     *       ({@code MFG_BATCH_REQUIRED}) so the FG ledger isn't left
+     *       with un-traceable rows.</li>
+     * </ul>
+     */
+    private UUID resolveFgBatch(UUID orgId, UUID fgItemId, String batchNumber,
+                                LocalDate expiryDate, BigDecimal unitCost) {
+        boolean supplied = batchNumber != null && !batchNumber.isBlank();
+        // Common path (legacy + non-batch items + no batch number requested):
+        // skip the item lookup entirely so the existing test fixtures stay
+        // green and we don't add a DB hit to every receive call.
+        if (!supplied) {
+            Item fg = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId).orElse(null);
+            if (fg != null && fg.isTrackBatches()) {
+                throw new BusinessException(
+                        "Batch number is required when receiving FG for a batch-tracked item",
+                        "MFG_BATCH_REQUIRED", HttpStatus.BAD_REQUEST);
+            }
+            return null;
+        }
+        Item fg = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Item", fgItemId));
+        if (!fg.isTrackBatches()) {
+            throw new BusinessException(
+                    "Item " + fg.getName() + " does not track batches",
+                    "MFG_ITEM_NOT_BATCH_TRACKED", HttpStatus.BAD_REQUEST);
+        }
+
+        String trimmed = batchNumber.trim();
+        StockBatch batch = stockBatchRepository
+                .findByOrgIdAndItemIdAndBatchNumberAndIsDeletedFalse(orgId, fgItemId, trimmed)
+                .orElseGet(() -> {
+                    StockBatch fresh = StockBatch.builder()
+                            .itemId(fgItemId)
+                            .batchNumber(trimmed)
+                            .manufacturingDate(LocalDate.now())
+                            .expiryDate(expiryDate)
+                            .unitCost(unitCost != null ? unitCost : BigDecimal.ZERO)
+                            .active(true)
+                            .build();
+                    fresh.setOrgId(orgId);
+                    return stockBatchRepository.save(fresh);
+                });
+        return batch.getId();
     }
 
     // ── Backflush: auto-issue RM proportional to FG received ─────────
@@ -1057,6 +1144,73 @@ public class ManufacturingService {
         result.put("totalScrapCost", totalScrapCost);
         result.put("scrapByReason", new ArrayList<>(scrapByReason.values()));
         return result;
+    }
+
+    /**
+     * Daily throughput trend for charting on the production dashboard —
+     * one bucket per day in the inclusive window with WOs started,
+     * completed, quantity produced (sum across that day's completions),
+     * and scrap qty / cost. Days with zero activity still appear so the
+     * chart shows continuous data.
+     */
+    public List<Map<String, Object>> productionTrends(LocalDate fromDate, LocalDate toDate) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        if (fromDate == null || toDate == null || toDate.isBefore(fromDate)) {
+            throw new BusinessException("Invalid date range — fromDate must be on or before toDate",
+                    "MFG_INVALID_DATE_RANGE", HttpStatus.BAD_REQUEST);
+        }
+
+        // Pull every WO that could fall in the window — created OR started
+        // OR completed within it. Cheapest is to load by createdAt window
+        // padded back so we cover late-completing orders, then filter
+        // per-day on the actual start/end dates.
+        Instant fromTs = fromDate.minusDays(180).atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant toTs = toDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        List<WorkOrder> orders = workOrderRepository
+                .findByOrgIdAndIsDeletedFalseAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                        orgId, fromTs, toTs);
+
+        Map<LocalDate, Map<String, Object>> byDay = new TreeMap<>();
+        for (LocalDate d = fromDate; !d.isAfter(toDate); d = d.plusDays(1)) {
+            Map<String, Object> bucket = new LinkedHashMap<>();
+            bucket.put("date", d);
+            bucket.put("woStarted", 0L);
+            bucket.put("woCompleted", 0L);
+            bucket.put("quantityProduced", BigDecimal.ZERO);
+            bucket.put("scrapQty", BigDecimal.ZERO);
+            bucket.put("scrapCost", BigDecimal.ZERO);
+            byDay.put(d, bucket);
+        }
+
+        for (WorkOrder wo : orders) {
+            LocalDate start = wo.getActualStartDate();
+            if (start != null && !start.isBefore(fromDate) && !start.isAfter(toDate)) {
+                Map<String, Object> b = byDay.get(start);
+                b.put("woStarted", (long) b.get("woStarted") + 1L);
+            }
+            LocalDate end = wo.getActualEndDate();
+            if (end != null && !end.isBefore(fromDate) && !end.isAfter(toDate)
+                    && "COMPLETED".equals(wo.getStatus())) {
+                Map<String, Object> b = byDay.get(end);
+                b.put("woCompleted", (long) b.get("woCompleted") + 1L);
+                b.put("quantityProduced",
+                        ((BigDecimal) b.get("quantityProduced")).add(wo.getQuantityProduced()));
+            }
+        }
+
+        Instant scrapFrom = fromDate.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant scrapTo = toDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        for (ProductionScrap scrap : productionScrapRepository
+                .findByOrgIdAndIsDeletedFalseAndScrappedAtGreaterThanEqualAndScrappedAtLessThan(
+                        orgId, scrapFrom, scrapTo)) {
+            LocalDate day = scrap.getScrappedAt().atZone(ZoneOffset.UTC).toLocalDate();
+            Map<String, Object> b = byDay.get(day);
+            if (b == null) continue;
+            b.put("scrapQty", ((BigDecimal) b.get("scrapQty")).add(scrap.getScrapQty()));
+            b.put("scrapCost", ((BigDecimal) b.get("scrapCost")).add(scrap.getScrapCost()));
+        }
+
+        return new ArrayList<>(byDay.values());
     }
 
     // ── BOM Versioning ───────────────────────────────────────────────

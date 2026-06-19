@@ -2,6 +2,7 @@ package com.katasticho.erp.accounting.controller;
 
 import com.katasticho.erp.accounting.dto.report.*;
 import com.katasticho.erp.accounting.service.FinancialReportService;
+import com.katasticho.erp.accounting.service.InterestChargeService;
 import com.katasticho.erp.accounting.service.OperationalReportService;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.module.ModuleCode;
@@ -23,6 +24,7 @@ public class FinancialReportController {
 
     private final FinancialReportService reportService;
     private final OperationalReportService operationalReportService;
+    private final InterestChargeService interestChargeService;
 
     @GetMapping("/trial-balance")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
@@ -118,6 +120,21 @@ public class FinancialReportController {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<OperationalReportResponse>> getOverdueInterest() {
         return ResponseEntity.ok(ApiResponse.ok(operationalReportService.overdueInterest()));
+    }
+
+    /**
+     * Drafts an interest-claim journal (Tally's "interest debit note") on a
+     * specific overdue invoice — DR AR / CR Interest Income at
+     * {@code ar.interest_rate_pa}. The entry stays DRAFT until an admin
+     * reviews and posts it from the journal screen.
+     */
+    @PostMapping("/overdue-interest/{invoiceId}/draft-debit-note")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<InterestChargeService.InterestDraftResult>> draftInterestDebitNote(
+            @PathVariable UUID invoiceId) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                interestChargeService.draftInterestDebitNote(invoiceId),
+                "Interest debit note drafted"));
     }
 
     @GetMapping("/stock-ageing")

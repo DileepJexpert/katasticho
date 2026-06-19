@@ -61,6 +61,7 @@ class ManufacturingServiceTest {
     @Mock private com.katasticho.erp.common.workflow.ApprovalWorkflowService approvalWorkflowService;
     @Mock private com.katasticho.erp.manufacturing.repository.ProductionScrapRepository productionScrapRepo;
     @Mock private com.katasticho.erp.manufacturing.repository.ScrapReasonCodeRepository scrapReasonCodeRepo;
+    @Mock private com.katasticho.erp.inventory.repository.StockBatchRepository stockBatchRepo;
 
     private ManufacturingService service;
 
@@ -76,7 +77,7 @@ class ManufacturingServiceTest {
                 workOrderRepo, workOrderLineRepo, bomComponentRepo, itemRepo, inventoryService,
                 salesOrderRepo, warehouseRepo, journalService, wipPostingRule, costSummaryRepo,
                 bomAlternateRepo, bomCoProductRepo, approvalWorkflowService,
-                productionScrapRepo, scrapReasonCodeRepo);
+                productionScrapRepo, scrapReasonCodeRepo, stockBatchRepo);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
@@ -262,6 +263,145 @@ class ManufacturingServiceTest {
         assertNotNull(result.getJournalEntryId());
         verify(inventoryService).recordMovement(any());
         verify(costSummaryRepo).save(any());
+    }
+
+    @Test
+    void receiveFinishedGoods_withBatchNumber_upsertsBatch_andStampsMovement() {
+        WorkOrder wo = createTestWorkOrder("IN_PROGRESS");
+        com.katasticho.erp.inventory.entity.Item fg = com.katasticho.erp.inventory.entity.Item.builder()
+                .name("Tab Atorva 10mg").trackBatches(true).build();
+        fg.setId(fgItemId);
+        fg.setOrgId(orgId);
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(wo));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
+        when(stockBatchRepo.findByOrgIdAndItemIdAndBatchNumberAndIsDeletedFalse(orgId, fgItemId, "ATV-2026-07"))
+                .thenReturn(Optional.empty());
+        when(stockBatchRepo.save(any())).thenAnswer(inv -> {
+            com.katasticho.erp.inventory.entity.StockBatch b = inv.getArgument(0);
+            b.setId(UUID.randomUUID());
+            return b;
+        });
+        when(inventoryService.recordMovement(any())).thenReturn(null);
+        when(workOrderRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        // Skip journal/cost-summary side effects (covered by sibling tests).
+        when(wipPostingRule.generate(any())).thenReturn(
+                new com.katasticho.erp.accounting.dto.JournalPostRequest(
+                        java.time.LocalDate.now(), "x", "MANUFACTURING", wo.getId(),
+                        List.of(new com.katasticho.erp.accounting.dto.JournalLineRequest(
+                                "1200", BigDecimal.ONE, BigDecimal.ZERO, "x", null, null),
+                                new com.katasticho.erp.accounting.dto.JournalLineRequest(
+                                        "1210", BigDecimal.ZERO, BigDecimal.ONE, "x", null, null)),
+                        true));
+        JournalEntry je = new JournalEntry();
+        je.setId(UUID.randomUUID());
+        when(journalService.postJournal(any())).thenReturn(je);
+        when(costSummaryRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        java.time.LocalDate expiry = java.time.LocalDate.now().plusYears(2);
+        service.receiveFinishedGoods(wo.getId(), BigDecimal.TEN, "ATV-2026-07", expiry);
+
+        org.mockito.ArgumentCaptor<com.katasticho.erp.inventory.entity.StockBatch> batchCap =
+                org.mockito.ArgumentCaptor.forClass(com.katasticho.erp.inventory.entity.StockBatch.class);
+        verify(stockBatchRepo).save(batchCap.capture());
+        assertEquals("ATV-2026-07", batchCap.getValue().getBatchNumber());
+        assertEquals(expiry, batchCap.getValue().getExpiryDate());
+        assertEquals(orgId, batchCap.getValue().getOrgId());
+
+        org.mockito.ArgumentCaptor<com.katasticho.erp.inventory.dto.StockMovementRequest> movCap =
+                org.mockito.ArgumentCaptor.forClass(com.katasticho.erp.inventory.dto.StockMovementRequest.class);
+        verify(inventoryService).recordMovement(movCap.capture());
+        assertNotNull(movCap.getValue().batchId(), "FG movement must carry the resolved batch id");
+    }
+
+    @Test
+    void receiveFinishedGoods_batchTrackedItem_withoutBatchNumber_throws() {
+        WorkOrder wo = createTestWorkOrder("IN_PROGRESS");
+        com.katasticho.erp.inventory.entity.Item fg = com.katasticho.erp.inventory.entity.Item.builder()
+                .name("Tab Atorva 10mg").trackBatches(true).build();
+        fg.setId(fgItemId);
+        fg.setOrgId(orgId);
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(wo));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
+
+        com.katasticho.erp.common.exception.BusinessException ex =
+                assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                        () -> service.receiveFinishedGoods(wo.getId(), BigDecimal.TEN, null, null));
+        assertEquals("MFG_BATCH_REQUIRED", ex.getErrorCode());
+        verify(stockBatchRepo, org.mockito.Mockito.never()).save(any());
+        verify(inventoryService, org.mockito.Mockito.never()).recordMovement(any());
+    }
+
+    @Test
+    void receiveFinishedGoods_nonBatchItem_withBatchNumber_throws() {
+        WorkOrder wo = createTestWorkOrder("IN_PROGRESS");
+        com.katasticho.erp.inventory.entity.Item fg = com.katasticho.erp.inventory.entity.Item.builder()
+                .name("Plain Tea Powder").trackBatches(false).build();
+        fg.setId(fgItemId);
+        fg.setOrgId(orgId);
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(wo));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
+
+        com.katasticho.erp.common.exception.BusinessException ex =
+                assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                        () -> service.receiveFinishedGoods(wo.getId(), BigDecimal.TEN, "BX-1", null));
+        assertEquals("MFG_ITEM_NOT_BATCH_TRACKED", ex.getErrorCode());
+    }
+
+    @Test
+    void productionTrends_emitsBucketPerDay_inWindow_evenWithZeroActivity() {
+        java.time.LocalDate from = java.time.LocalDate.now().minusDays(2);
+        java.time.LocalDate to = java.time.LocalDate.now();
+        when(workOrderRepo.findByOrgIdAndIsDeletedFalseAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                org.mockito.ArgumentMatchers.eq(orgId),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class)))
+                .thenReturn(List.of());
+        when(productionScrapRepo.findByOrgIdAndIsDeletedFalseAndScrappedAtGreaterThanEqualAndScrappedAtLessThan(
+                org.mockito.ArgumentMatchers.eq(orgId),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class)))
+                .thenReturn(List.of());
+
+        List<java.util.Map<String, Object>> trends = service.productionTrends(from, to);
+
+        assertEquals(3, trends.size(), "3 days inclusive");
+        assertEquals(from, trends.get(0).get("date"));
+        assertEquals(to, trends.get(2).get("date"));
+        assertEquals(0L, trends.get(0).get("woStarted"));
+        assertEquals(0L, trends.get(0).get("woCompleted"));
+    }
+
+    @Test
+    void productionTrends_attributesCompletedWoToActualEndDate() {
+        java.time.LocalDate from = java.time.LocalDate.now().minusDays(3);
+        java.time.LocalDate to = java.time.LocalDate.now();
+        WorkOrder wo = createTestWorkOrder("COMPLETED");
+        wo.setActualStartDate(from.plusDays(1));
+        wo.setActualEndDate(from.plusDays(2));
+        wo.setQuantityProduced(BigDecimal.valueOf(50));
+        when(workOrderRepo.findByOrgIdAndIsDeletedFalseAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                org.mockito.ArgumentMatchers.eq(orgId),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class)))
+                .thenReturn(List.of(wo));
+        when(productionScrapRepo.findByOrgIdAndIsDeletedFalseAndScrappedAtGreaterThanEqualAndScrappedAtLessThan(
+                org.mockito.ArgumentMatchers.eq(orgId),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class)))
+                .thenReturn(List.of());
+
+        List<java.util.Map<String, Object>> trends = service.productionTrends(from, to);
+
+        java.util.Map<String, Object> startedDay = trends.get(1); // from + 1
+        java.util.Map<String, Object> endedDay = trends.get(2);   // from + 2
+        assertEquals(1L, startedDay.get("woStarted"));
+        assertEquals(0L, startedDay.get("woCompleted"));
+        assertEquals(0L, endedDay.get("woStarted"));
+        assertEquals(1L, endedDay.get("woCompleted"));
+        assertEquals(0, ((BigDecimal) endedDay.get("quantityProduced")).compareTo(BigDecimal.valueOf(50)));
     }
 
     @Test
