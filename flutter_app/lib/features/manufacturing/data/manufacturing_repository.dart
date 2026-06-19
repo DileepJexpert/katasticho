@@ -237,6 +237,27 @@ class ManufacturingRepository {
     return _unwrapList(res);
   }
 
+  Future<List<Map<String, dynamic>>> getProductionTrends(
+      {required String fromDate, required String toDate}) async {
+    final res = await _api.get(ApiConfig.manufacturingProductionTrends,
+        queryParameters: {'fromDate': fromDate, 'toDate': toDate});
+    return _unwrapList(res);
+  }
+
+  Future<List<Map<String, dynamic>>> getWorkOrderProfitability(
+      {required String fromDate, required String toDate}) async {
+    final res = await _api.get(ApiConfig.manufacturingWoProfitability,
+        queryParameters: {'fromDate': fromDate, 'toDate': toDate});
+    return _unwrapList(res);
+  }
+
+  Future<Map<String, dynamic>> getScrapRateDashboard(
+      {required String fromDate, required String toDate}) async {
+    final res = await _api.get(ApiConfig.manufacturingScrapRate,
+        queryParameters: {'fromDate': fromDate, 'toDate': toDate});
+    return _unwrap(res);
+  }
+
   // ---------------------------------------------------------------------------
   // MRP (Material Requirements Planning)
   // ---------------------------------------------------------------------------

@@ -1155,6 +1155,179 @@ public class ManufacturingService {
     }
 
     /**
+     * Work-order profitability report (tracker #53). For every completed
+     * WO whose finished good was sold via a linked Sales Order, joins the
+     * SO line's unit rate with the {@link ProductionCostSummary}'s
+     * actual total to compute revenue / cost / profit / margin per WO.
+     * Worst-margin first so loss-making WOs surface to the top.
+     */
+    public List<Map<String, Object>> workOrderProfitability(LocalDate fromDate, LocalDate toDate) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        if (fromDate == null || toDate == null || toDate.isBefore(fromDate)) {
+            throw new BusinessException("Invalid date range — fromDate must be on or before toDate",
+                    "MFG_INVALID_DATE_RANGE", HttpStatus.BAD_REQUEST);
+        }
+        Instant fromTs = fromDate.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant toTs = toDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+
+        List<WorkOrder> orders = workOrderRepository
+                .findByOrgIdAndIsDeletedFalseAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                        orgId, fromTs, toTs);
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (WorkOrder wo : orders) {
+            if (!"COMPLETED".equals(wo.getStatus())) continue;
+
+            BigDecimal cost = costSummaryRepository
+                    .findByWorkOrderIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId)
+                    .map(ProductionCostSummary::getActualTotal)
+                    .orElse(BigDecimal.ZERO);
+            if (cost == null) cost = BigDecimal.ZERO;
+
+            BigDecimal revenue = BigDecimal.ZERO;
+            String revenueSource = "NONE";
+            if (wo.getSalesOrderId() != null) {
+                SalesOrder so = salesOrderRepository
+                        .findByIdAndOrgIdAndIsDeletedFalse(wo.getSalesOrderId(), orgId)
+                        .orElse(null);
+                if (so != null) {
+                    for (SalesOrderLine line : so.getLines()) {
+                        if (line.getItemId() == null) continue;
+                        if (!line.getItemId().equals(wo.getFinishedGoodId())) continue;
+                        BigDecimal rate = line.getRate() != null ? line.getRate() : BigDecimal.ZERO;
+                        revenue = revenue.add(rate.multiply(wo.getQuantityProduced())
+                                .setScale(2, RoundingMode.HALF_UP));
+                    }
+                    if (revenue.signum() > 0) revenueSource = "SO_LINE";
+                }
+            }
+
+            BigDecimal profit = revenue.subtract(cost).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal margin = revenue.signum() > 0
+                    ? profit.multiply(HUNDRED).divide(revenue, 2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("workOrderId", wo.getId());
+            row.put("workOrderNumber", wo.getWorkOrderNumber());
+            row.put("finishedGoodId", wo.getFinishedGoodId());
+            row.put("quantityProduced", wo.getQuantityProduced());
+            row.put("revenue", revenue);
+            row.put("cost", cost);
+            row.put("profit", profit);
+            row.put("marginPercent", margin);
+            row.put("revenueSource", revenueSource);
+            row.put("salesOrderId", wo.getSalesOrderId());
+            row.put("completedOn", wo.getActualEndDate());
+            rows.add(row);
+        }
+        // Worst-margin first so loss-making WOs surface to the top.
+        rows.sort((a, b) -> ((BigDecimal) a.get("marginPercent"))
+                .compareTo((BigDecimal) b.get("marginPercent")));
+        return rows;
+    }
+
+    /**
+     * Scrap rate dashboard (tracker #54). Aggregates production scrap in
+     * the window by both reason code (sorted by cost desc) and finished-
+     * good item (sorted by scrap rate desc, so the worst products bubble
+     * up). Rate uses scrapQty / (producedQty + scrapQty) so it stays
+     * between 0 and 100% even when every produced unit was scrapped.
+     */
+    public Map<String, Object> scrapRateDashboard(LocalDate fromDate, LocalDate toDate) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        if (fromDate == null || toDate == null || toDate.isBefore(fromDate)) {
+            throw new BusinessException("Invalid date range — fromDate must be on or before toDate",
+                    "MFG_INVALID_DATE_RANGE", HttpStatus.BAD_REQUEST);
+        }
+        Instant fromTs = fromDate.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant toTs = toDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+
+        // Produced qty per FG item — denominator for the per-item scrap
+        // rate. Pulled from completed WOs whose finished_good_id matches.
+        Map<UUID, BigDecimal> producedByItem = new HashMap<>();
+        for (WorkOrder wo : workOrderRepository
+                .findByOrgIdAndIsDeletedFalseAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                        orgId, fromTs, toTs)) {
+            if (!"COMPLETED".equals(wo.getStatus())) continue;
+            producedByItem.merge(wo.getFinishedGoodId(),
+                    wo.getQuantityProduced(), BigDecimal::add);
+        }
+
+        List<ProductionScrap> scrapRows = productionScrapRepository
+                .findByOrgIdAndIsDeletedFalseAndScrappedAtGreaterThanEqualAndScrappedAtLessThan(
+                        orgId, fromTs, toTs);
+
+        Map<UUID, Map<String, Object>> byReason = new LinkedHashMap<>();
+        Map<UUID, Map<String, Object>> byItem = new LinkedHashMap<>();
+        BigDecimal totalScrapQty = BigDecimal.ZERO;
+        BigDecimal totalScrapCost = BigDecimal.ZERO;
+        for (ProductionScrap s : scrapRows) {
+            totalScrapQty = totalScrapQty.add(s.getScrapQty());
+            totalScrapCost = totalScrapCost.add(s.getScrapCost());
+
+            Map<String, Object> rb = byReason.computeIfAbsent(s.getReasonCodeId(), reasonId -> {
+                Map<String, Object> r = new LinkedHashMap<>();
+                String code = "UNSPECIFIED";
+                if (reasonId != null) {
+                    ScrapReasonCode rc = scrapReasonCodeRepository
+                            .findByIdAndOrgIdAndIsDeletedFalse(reasonId, orgId).orElse(null);
+                    if (rc != null) code = rc.getCode();
+                }
+                r.put("reasonCodeId", reasonId);
+                r.put("reasonCode", code);
+                r.put("scrapQty", BigDecimal.ZERO);
+                r.put("scrapCost", BigDecimal.ZERO);
+                return r;
+            });
+            rb.put("scrapQty", ((BigDecimal) rb.get("scrapQty")).add(s.getScrapQty()));
+            rb.put("scrapCost", ((BigDecimal) rb.get("scrapCost")).add(s.getScrapCost()));
+
+            Map<String, Object> ri = byItem.computeIfAbsent(s.getItemId(), itemId -> {
+                Map<String, Object> r = new LinkedHashMap<>();
+                String name = null;
+                if (itemId != null) {
+                    Item it = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(itemId, orgId).orElse(null);
+                    if (it != null) name = it.getName();
+                }
+                r.put("itemId", itemId);
+                r.put("itemName", name);
+                r.put("scrapQty", BigDecimal.ZERO);
+                r.put("scrapCost", BigDecimal.ZERO);
+                return r;
+            });
+            ri.put("scrapQty", ((BigDecimal) ri.get("scrapQty")).add(s.getScrapQty()));
+            ri.put("scrapCost", ((BigDecimal) ri.get("scrapCost")).add(s.getScrapCost()));
+        }
+
+        for (Map.Entry<UUID, Map<String, Object>> entry : byItem.entrySet()) {
+            BigDecimal scrapQty = (BigDecimal) entry.getValue().get("scrapQty");
+            BigDecimal produced = producedByItem.getOrDefault(entry.getKey(), BigDecimal.ZERO);
+            BigDecimal denom = produced.add(scrapQty);
+            BigDecimal rate = denom.signum() > 0
+                    ? scrapQty.multiply(HUNDRED).divide(denom, 2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+            entry.getValue().put("producedQty", produced);
+            entry.getValue().put("scrapRatePercent", rate);
+        }
+        List<Map<String, Object>> itemRows = new ArrayList<>(byItem.values());
+        itemRows.sort((a, b) -> ((BigDecimal) b.get("scrapRatePercent"))
+                .compareTo((BigDecimal) a.get("scrapRatePercent")));
+        List<Map<String, Object>> reasonRows = new ArrayList<>(byReason.values());
+        reasonRows.sort((a, b) -> ((BigDecimal) b.get("scrapCost"))
+                .compareTo((BigDecimal) a.get("scrapCost")));
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("fromDate", fromDate);
+        out.put("toDate", toDate);
+        out.put("totalScrapQty", totalScrapQty);
+        out.put("totalScrapCost", totalScrapCost);
+        out.put("byItem", itemRows);
+        out.put("byReason", reasonRows);
+        return out;
+    }
+
+    /**
      * Daily throughput trend for charting on the production dashboard —
      * one bucket per day in the inclusive window with WOs started,
      * completed, quantity produced (sum across that day's completions),

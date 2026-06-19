@@ -954,6 +954,12 @@ class ApiConfig {
       '/api/v1/manufacturing/reports/cost-variance/$woId';
   static const String manufacturingWipValuation = '/api/v1/manufacturing/reports/wip-valuation';
   static const String manufacturingConsumption = '/api/v1/manufacturing/reports/consumption';
+  static const String manufacturingProductionTrends =
+      '/api/v1/manufacturing/reports/production-trends';
+  static const String manufacturingWoProfitability =
+      '/api/v1/manufacturing/reports/work-order-profitability';
+  static const String manufacturingScrapRate =
+      '/api/v1/manufacturing/reports/scrap-rate';
 
   // POS — Cash Register / Day Close
   static const String cashRegister = '/api/v1/pos/cash-register';

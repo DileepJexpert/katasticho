@@ -406,6 +406,152 @@ class ManufacturingServiceTest {
     }
 
     @Test
+    void workOrderProfitability_completedWoWithSoLink_computesRevenueCostMargin() {
+        WorkOrder wo = createTestWorkOrder("COMPLETED");
+        wo.setActualEndDate(java.time.LocalDate.now());
+        wo.setQuantityProduced(BigDecimal.valueOf(10));
+        UUID soId = UUID.randomUUID();
+        wo.setSalesOrderId(soId);
+
+        com.katasticho.erp.sales.entity.SalesOrderLine line =
+                com.katasticho.erp.sales.entity.SalesOrderLine.builder()
+                        .itemId(fgItemId)
+                        .rate(new BigDecimal("250.00"))
+                        .build();
+        com.katasticho.erp.sales.entity.SalesOrder so =
+                com.katasticho.erp.sales.entity.SalesOrder.builder()
+                        .lines(new java.util.ArrayList<>(List.of(line)))
+                        .build();
+
+        com.katasticho.erp.manufacturing.entity.ProductionCostSummary cs =
+                com.katasticho.erp.manufacturing.entity.ProductionCostSummary.builder()
+                        .workOrderId(wo.getId())
+                        .actualTotal(new BigDecimal("1800.00"))
+                        .build();
+
+        when(workOrderRepo.findByOrgIdAndIsDeletedFalseAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                org.mockito.ArgumentMatchers.eq(orgId),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class)))
+                .thenReturn(List.of(wo));
+        when(costSummaryRepo.findByWorkOrderIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(cs));
+        when(salesOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(soId, orgId))
+                .thenReturn(Optional.of(so));
+
+        java.time.LocalDate from = java.time.LocalDate.now().minusDays(7);
+        java.time.LocalDate to = java.time.LocalDate.now();
+        List<java.util.Map<String, Object>> rows = service.workOrderProfitability(from, to);
+
+        assertEquals(1, rows.size());
+        // 10 produced × ₹250 = ₹2500 revenue − ₹1800 cost = ₹700 profit @ 28% margin.
+        assertEquals(0, ((BigDecimal) rows.get(0).get("revenue")).compareTo(new BigDecimal("2500.00")));
+        assertEquals(0, ((BigDecimal) rows.get(0).get("cost")).compareTo(new BigDecimal("1800.00")));
+        assertEquals(0, ((BigDecimal) rows.get(0).get("profit")).compareTo(new BigDecimal("700.00")));
+        assertEquals(0, ((BigDecimal) rows.get(0).get("marginPercent")).compareTo(new BigDecimal("28.00")));
+        assertEquals("SO_LINE", rows.get(0).get("revenueSource"));
+    }
+
+    @Test
+    void workOrderProfitability_completedWoWithoutSoLink_revenueZero_sourceNONE() {
+        WorkOrder wo = createTestWorkOrder("COMPLETED");
+        wo.setQuantityProduced(BigDecimal.valueOf(5));
+        wo.setSalesOrderId(null);
+        com.katasticho.erp.manufacturing.entity.ProductionCostSummary cs =
+                com.katasticho.erp.manufacturing.entity.ProductionCostSummary.builder()
+                        .workOrderId(wo.getId())
+                        .actualTotal(new BigDecimal("500.00"))
+                        .build();
+        when(workOrderRepo.findByOrgIdAndIsDeletedFalseAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                org.mockito.ArgumentMatchers.eq(orgId),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class)))
+                .thenReturn(List.of(wo));
+        when(costSummaryRepo.findByWorkOrderIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(cs));
+
+        List<java.util.Map<String, Object>> rows = service.workOrderProfitability(
+                java.time.LocalDate.now().minusDays(7), java.time.LocalDate.now());
+        assertEquals(1, rows.size());
+        assertEquals("NONE", rows.get(0).get("revenueSource"));
+        assertEquals(0, ((BigDecimal) rows.get(0).get("revenue")).compareTo(BigDecimal.ZERO));
+        assertEquals(0, ((BigDecimal) rows.get(0).get("profit")).compareTo(new BigDecimal("-500.00")));
+    }
+
+    @Test
+    void scrapRateDashboard_aggregatesByItemAndReason_withRateOverProducedPlusScrap() {
+        WorkOrder wo = createTestWorkOrder("COMPLETED");
+        wo.setQuantityProduced(BigDecimal.valueOf(90));
+        UUID reasonId = UUID.randomUUID();
+        com.katasticho.erp.manufacturing.entity.ScrapReasonCode reason =
+                com.katasticho.erp.manufacturing.entity.ScrapReasonCode.builder()
+                        .code("CONT").description("Contamination").build();
+        com.katasticho.erp.manufacturing.entity.ProductionScrap scrap =
+                com.katasticho.erp.manufacturing.entity.ProductionScrap.builder()
+                        .workOrderId(wo.getId())
+                        .itemId(fgItemId)
+                        .reasonCodeId(reasonId)
+                        .scrapQty(BigDecimal.TEN)
+                        .scrapCost(new BigDecimal("200.00"))
+                        .build();
+        com.katasticho.erp.inventory.entity.Item fg = com.katasticho.erp.inventory.entity.Item.builder()
+                .name("Tab Atorva 10mg").build();
+        fg.setId(fgItemId);
+
+        when(workOrderRepo.findByOrgIdAndIsDeletedFalseAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                org.mockito.ArgumentMatchers.eq(orgId),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class)))
+                .thenReturn(List.of(wo));
+        when(productionScrapRepo.findByOrgIdAndIsDeletedFalseAndScrappedAtGreaterThanEqualAndScrappedAtLessThan(
+                org.mockito.ArgumentMatchers.eq(orgId),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class)))
+                .thenReturn(List.of(scrap));
+        when(scrapReasonCodeRepo.findByIdAndOrgIdAndIsDeletedFalse(reasonId, orgId))
+                .thenReturn(Optional.of(reason));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
+
+        java.util.Map<String, Object> dash = service.scrapRateDashboard(
+                java.time.LocalDate.now().minusDays(7), java.time.LocalDate.now());
+
+        @SuppressWarnings("unchecked")
+        List<java.util.Map<String, Object>> byItem =
+                (List<java.util.Map<String, Object>>) dash.get("byItem");
+        assertEquals(1, byItem.size());
+        assertEquals(0, ((BigDecimal) byItem.get(0).get("scrapQty")).compareTo(BigDecimal.TEN));
+        assertEquals(0, ((BigDecimal) byItem.get(0).get("producedQty")).compareTo(BigDecimal.valueOf(90)));
+        // 10 / (90 + 10) = 10%
+        assertEquals(0, ((BigDecimal) byItem.get(0).get("scrapRatePercent"))
+                .compareTo(new BigDecimal("10.00")));
+
+        @SuppressWarnings("unchecked")
+        List<java.util.Map<String, Object>> byReason =
+                (List<java.util.Map<String, Object>>) dash.get("byReason");
+        assertEquals(1, byReason.size());
+        assertEquals("CONT", byReason.get(0).get("reasonCode"));
+    }
+
+    @Test
+    void scrapRateDashboard_emptyWindow_returnsZeros() {
+        when(workOrderRepo.findByOrgIdAndIsDeletedFalseAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                org.mockito.ArgumentMatchers.eq(orgId),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class)))
+                .thenReturn(List.of());
+        when(productionScrapRepo.findByOrgIdAndIsDeletedFalseAndScrappedAtGreaterThanEqualAndScrappedAtLessThan(
+                org.mockito.ArgumentMatchers.eq(orgId),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class),
+                org.mockito.ArgumentMatchers.any(java.time.Instant.class)))
+                .thenReturn(List.of());
+
+        java.util.Map<String, Object> dash = service.scrapRateDashboard(
+                java.time.LocalDate.now().minusDays(1), java.time.LocalDate.now());
+        assertEquals(0, ((BigDecimal) dash.get("totalScrapQty")).compareTo(BigDecimal.ZERO));
+        assertEquals(0, ((BigDecimal) dash.get("totalScrapCost")).compareTo(BigDecimal.ZERO));
+    }
+
+    @Test
     void receiveFinishedGoods_partialQuantity_staysInProgress() {
         WorkOrder wo = createTestWorkOrder("IN_PROGRESS");
 

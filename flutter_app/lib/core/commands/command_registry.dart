@@ -391,6 +391,14 @@ List<KCommand> buildAppCommands() {
       keywords: ['production', 'wo', 'manufacturing'],
     ),
     KCommand(
+      label: 'Production Analytics',
+      icon: Icons.insights_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingAnalytics,
+      keywords: ['throughput', 'profitability', 'scrap', 'rate', 'dashboard',
+                 'manufacturing', 'reports'],
+    ),
+    KCommand(
       label: 'Job Work',
       icon: Icons.engineering_rounded,
       section: 'Navigate',

@@ -670,6 +670,20 @@ public class ManufacturingController {
         return ResponseEntity.ok(ApiResponse.ok(service.productionTrends(fromDate, toDate)));
     }
 
+    @GetMapping("/reports/work-order-profitability")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getWorkOrderProfitability(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        return ResponseEntity.ok(ApiResponse.ok(service.workOrderProfitability(fromDate, toDate)));
+    }
+
+    @GetMapping("/reports/scrap-rate")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getScrapRateDashboard(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        return ResponseEntity.ok(ApiResponse.ok(service.scrapRateDashboard(fromDate, toDate)));
+    }
+
     // ── MRP ──────────────────────────────────────────────────────────────────
 
     @PostMapping("/mrp/run")
