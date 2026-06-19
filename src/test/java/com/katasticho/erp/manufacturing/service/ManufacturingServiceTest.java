@@ -155,6 +155,52 @@ class ManufacturingServiceTest {
     }
 
     @Test
+    void createWorkOrder_variantFg_dropsBomLinesWhoseFilterDoesNotMatch() {
+        // FG carries variantAttributes {color=Red, size=M}. BOM has two
+        // lines for the same RM child: one filtered to color=Red (kept),
+        // one filtered to color=Blue (dropped).
+        Item fg = buildCompositeItem();
+        fg.setVariantAttributes(java.util.Map.of("color", "Red", "size", "M"));
+        Item rm = buildRawMaterial();
+
+        UUID redChild = UUID.randomUUID();
+        UUID blueChild = UUID.randomUUID();
+        BomComponent redLine = BomComponent.builder()
+                .parentItemId(fgItemId).childItemId(redChild)
+                .quantity(BigDecimal.valueOf(3))
+                .variantFilter(java.util.Map.of("color", "Red"))
+                .build();
+        BomComponent blueLine = BomComponent.builder()
+                .parentItemId(fgItemId).childItemId(blueChild)
+                .quantity(BigDecimal.valueOf(3))
+                .variantFilter(java.util.Map.of("color", "Blue"))
+                .build();
+        Item redItem = Item.builder().sku("RM-RED").name("Red dye")
+                .itemType(ItemType.GOODS).purchasePrice(BigDecimal.TEN).build();
+        redItem.setId(redChild);
+        redItem.setOrgId(orgId);
+
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+                .thenReturn(List.of(redLine, blueLine));
+        when(bomComponentRepo.findMaxVersion(orgId, fgItemId)).thenReturn(1);
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(redChild, orgId)).thenReturn(Optional.of(redItem));
+        when(workOrderRepo.findMaxWorkOrderNumber(orgId)).thenReturn(0);
+        when(workOrderRepo.save(any())).thenAnswer(inv -> {
+            WorkOrder wo = inv.getArgument(0);
+            if (wo.getId() == null) wo.setId(UUID.randomUUID());
+            return wo;
+        });
+
+        WorkOrder result = service.createWorkOrder(
+                fgItemId, warehouseId, BigDecimal.TEN,
+                null, null, null, null, "Variant WO");
+
+        assertEquals(1, result.getLines().size(), "Only the color=Red BOM line should survive");
+        assertEquals(redChild, result.getLines().get(0).getItemId());
+    }
+
+    @Test
     void createWorkOrder_nonComposite_throws() {
         Item goods = Item.builder().sku("ITEM-01").itemType(ItemType.GOODS).build();
         goods.setId(fgItemId);

@@ -28,10 +28,23 @@ public record BomComponentRequest(
 
         @DecimalMin(value = "0", message = "scrapPercent cannot be negative")
         @DecimalMax(value = "99.99", message = "scrapPercent must be below 100")
-        BigDecimal scrapPercent
+        BigDecimal scrapPercent,
+
+        /**
+         * Parameterized-BOM filter (tracker #42). Map of required
+         * key=value variant attribute pairs. When set, the line only
+         * applies to variants whose {@code variantAttributes} contain
+         * every entry. NULL/empty means applies to all variants.
+         */
+        java.util.Map<String, String> variantFilter
 ) {
     /** Backwards-compatible two-arg form — scrapPercent defaults to 0. */
     public BomComponentRequest(UUID childItemId, BigDecimal quantity) {
-        this(childItemId, quantity, null);
+        this(childItemId, quantity, null, null);
+    }
+
+    /** Three-arg form (scrapPercent set, no variant filter). */
+    public BomComponentRequest(UUID childItemId, BigDecimal quantity, BigDecimal scrapPercent) {
+        this(childItemId, quantity, scrapPercent, null);
     }
 }

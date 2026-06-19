@@ -3,9 +3,13 @@ package com.katasticho.erp.inventory.entity;
 import com.katasticho.erp.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -67,4 +71,19 @@ public class BomComponent extends BaseEntity {
 
     @Column(name = "change_notes")
     private String changeNotes;
+
+    /**
+     * Parameterized BOM filter (tracker #42). Map of required
+     * key=value attribute pairs — the line ONLY applies to variants
+     * whose {@code Item.variantAttributes} contain every entry.
+     * NULL means "applies to every variant" (legacy/default).
+     *
+     * <p>Example: {@code {"color":"Red","size":"M"}} → only the
+     * Red-M variant uses this BOM line. Equality match, no ranges
+     * or "in-set" logic — keep the filter simple, planners can
+     * always add a second line for a second combination.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "variant_filter", columnDefinition = "jsonb")
+    private Map<String, String> variantFilter;
 }

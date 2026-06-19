@@ -406,6 +406,14 @@ List<KCommand> buildAppCommands() {
       keywords: ['bom', 'diff', 'compare', 'engineering', 'revision', 'change'],
     ),
     KCommand(
+      label: 'Parameterized BOM',
+      icon: Icons.filter_alt_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingParameterizedBom,
+      keywords: ['variant', 'size', 'color', 'configurable', 'bom', 'garment',
+                 'footwear', 'parameter'],
+    ),
+    KCommand(
       label: 'Operation Work Instructions',
       icon: Icons.description_rounded,
       section: 'Navigate',

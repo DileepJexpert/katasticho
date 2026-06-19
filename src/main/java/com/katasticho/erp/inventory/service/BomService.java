@@ -116,7 +116,13 @@ public class BomService {
                     "BOM_SCRAP_PERCENT_INVALID", HttpStatus.BAD_REQUEST);
         }
 
-        if (bomRepository.existsByOrgIdAndParentItemIdAndChildItemIdAndIsDeletedFalse(
+        // Duplicate-child guard. We only enforce it for the LEGACY null-
+        // filter case — parameterized BOMs (#42) deliberately allow
+        // multiple lines for the same child with distinct variant
+        // filters (e.g., same dye item with different colour filters).
+        boolean isParameterized = request.variantFilter() != null
+                && !request.variantFilter().isEmpty();
+        if (!isParameterized && bomRepository.existsByOrgIdAndParentItemIdAndChildItemIdAndIsDeletedFalse(
                 orgId, parentItemId, request.childItemId())) {
             throw new BusinessException(
                     "Child " + child.getSku() + " is already part of this BOM — edit its quantity instead",
@@ -128,6 +134,7 @@ public class BomService {
                 .childItemId(request.childItemId())
                 .quantity(qty)
                 .scrapPercent(scrapPercent)
+                .variantFilter(request.variantFilter())
                 .build();
 
         BomComponent saved = bomRepository.save(row);
@@ -144,6 +151,48 @@ public class BomService {
                 .orElseThrow(() -> BusinessException.notFound("Item", parentItemId));
         return bomRepository
                 .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentItemId);
+    }
+
+    /**
+     * Parameterized-BOM resolver (tracker #42). Returns the BOM lines
+     * for {@code parentItemId} filtered to the lines that apply to a
+     * variant whose attributes are {@code variantAttributes}.
+     *
+     * <p>Match rule: a line passes when its {@code variantFilter} is
+     * NULL/empty (applies to all) OR every key=value pair in the
+     * filter is present and equal in {@code variantAttributes}.
+     *
+     * <p>Equality only — no range, no "any-of" sets. Planners can
+     * always declare two lines for two combinations. Keeps the
+     * matcher simple and predictable.
+     */
+    @Transactional(readOnly = true)
+    public List<BomComponent> resolveBomForVariant(UUID parentItemId,
+                                                   java.util.Map<String, String> variantAttributes) {
+        List<BomComponent> all = listComponents(parentItemId);
+        if (all.isEmpty()) return all;
+        java.util.Map<String, String> attrs = variantAttributes != null
+                ? variantAttributes : java.util.Collections.emptyMap();
+        return all.stream()
+                .filter(c -> matchesVariant(c.getVariantFilter(), attrs))
+                .toList();
+    }
+
+    /**
+     * True when every {@code key=value} pair in {@code filter} is
+     * matched in {@code attrs}. NULL/empty filter passes everything.
+     * Public so {@code ManufacturingService.createWorkOrder} can call
+     * it inline when filtering a variant FG's BOM.
+     */
+    public static boolean matchesVariant(java.util.Map<String, String> filter,
+                                         java.util.Map<String, String> attrs) {
+        if (filter == null || filter.isEmpty()) return true;
+        for (var entry : filter.entrySet()) {
+            String want = entry.getValue();
+            String have = attrs.get(entry.getKey());
+            if (!java.util.Objects.equals(want, have)) return false;
+        }
+        return true;
     }
 
     /**

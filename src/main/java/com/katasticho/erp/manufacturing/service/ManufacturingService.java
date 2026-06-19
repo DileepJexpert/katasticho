@@ -149,6 +149,25 @@ public class ManufacturingService {
             resolvedVersion = bomComponentRepository.findMaxVersion(orgId, finishedGoodId);
         }
 
+        // Parameterized BOM filter (tracker #42) — when the FG is a
+        // variant (carries variantAttributes), drop any BOM line whose
+        // variant_filter doesn't match. Lines with a null filter pass
+        // through, so legacy non-parameterized BOMs are byte-for-byte
+        // unchanged.
+        if (fg.getVariantAttributes() != null && !fg.getVariantAttributes().isEmpty()) {
+            bom = bom.stream()
+                    .filter(c -> com.katasticho.erp.inventory.service.BomService
+                            .matchesVariant(c.getVariantFilter(), fg.getVariantAttributes()))
+                    .toList();
+        } else {
+            // Even when the FG isn't a variant, drop lines that DO carry
+            // a filter — those are variant-specific and shouldn't apply
+            // to the non-variant build.
+            bom = bom.stream()
+                    .filter(c -> c.getVariantFilter() == null || c.getVariantFilter().isEmpty())
+                    .toList();
+        }
+
         if (bom.isEmpty()) {
             throw new BusinessException(
                     "No BOM components defined for item " + fg.getSku(),

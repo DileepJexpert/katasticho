@@ -156,6 +156,7 @@ class ApiConfig {
   // itemType=COMPOSITE parents; the resolver at invoice-send time is
   // server-side and never hit over HTTP).
   static String itemBom(String parentId) => '/api/v1/items/$parentId/bom';
+  static String itemBomResolve(String parentId) => '/api/v1/items/$parentId/bom/resolve';
   static String itemBomComponentById(String componentId) =>
       '/api/v1/items/bom/$componentId';
 

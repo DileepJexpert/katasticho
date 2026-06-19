@@ -155,6 +155,29 @@ public class ItemController {
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 
+    /**
+     * Parameterized-BOM resolver (tracker #42). Returns the BOM lines
+     * for a parent item filtered by a query-string attribute map —
+     * e.g. {@code ?attr.size=M&attr.color=Red}. Lines whose
+     * {@code variantFilter} is null pass through; lines whose filter
+     * matches every supplied attribute pass too.
+     */
+    @GetMapping("/{id}/bom/resolve")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<List<com.katasticho.erp.inventory.entity.BomComponent>>>
+            resolveBomForVariant(@PathVariable UUID id,
+                                 @RequestParam(required = false)
+                                     java.util.Map<String, String> attrs) {
+        // Spring binds every query param into the map. Callers send the
+        // attributes they want to match directly, e.g.
+        //   ?size=M&color=Red
+        // (this endpoint does not paginate, so there are no reserved
+        // keys to filter.)
+        return ResponseEntity.ok(ApiResponse.ok(
+                bomService.resolveBomForVariant(id,
+                        attrs != null ? attrs : java.util.Collections.emptyMap())));
+    }
+
     @DeleteMapping("/bom/{componentId}")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<Void>> deleteBomComponent(

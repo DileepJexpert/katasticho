@@ -338,6 +338,136 @@ class BomServiceTest {
     }
 
 
+    // ── tracker #42 — parameterized BOMs ───────────────────────────
+
+    private BomComponent componentWithFilter(UUID parentId, UUID childId,
+                                             BigDecimal qty,
+                                             java.util.Map<String, String> filter) {
+        BomComponent row = component(parentId, childId, qty);
+        row.setVariantFilter(filter);
+        return row;
+    }
+
+    @Test
+    void resolveBomForVariant_nullFilter_appliesToAllVariants() {
+        UUID parentId = UUID.randomUUID();
+        UUID childId = UUID.randomUUID();
+        BomComponent universal = component(parentId, childId, BigDecimal.ONE);
+        // No filter → universal line.
+
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(parentId, orgId))
+                .thenReturn(Optional.of(item("PARENT", ItemType.COMPOSITE, false)));
+        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentId))
+                .thenReturn(java.util.List.of(universal));
+
+        java.util.List<BomComponent> result = service.resolveBomForVariant(parentId,
+                java.util.Map.of("size", "M", "color", "Red"));
+
+        assertEquals(1, result.size());
+        assertEquals(childId, result.get(0).getChildItemId());
+    }
+
+    @Test
+    void resolveBomForVariant_filterMatchesAllAttributes_includesLine() {
+        UUID parentId = UUID.randomUUID();
+        UUID redDyeId = UUID.randomUUID();
+        BomComponent redOnly = componentWithFilter(parentId, redDyeId,
+                BigDecimal.valueOf(20), java.util.Map.of("color", "Red"));
+
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(parentId, orgId))
+                .thenReturn(Optional.of(item("PARENT", ItemType.COMPOSITE, false)));
+        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentId))
+                .thenReturn(java.util.List.of(redOnly));
+
+        java.util.List<BomComponent> matched = service.resolveBomForVariant(parentId,
+                java.util.Map.of("color", "Red", "size", "M"));
+        assertEquals(1, matched.size(), "color=Red filter should match a Red variant");
+
+        java.util.List<BomComponent> unmatched = service.resolveBomForVariant(parentId,
+                java.util.Map.of("color", "Blue"));
+        assertTrue(unmatched.isEmpty(), "color=Red filter must NOT match Blue variant");
+    }
+
+    @Test
+    void resolveBomForVariant_multiKeyFilter_requiresAllKeysToMatch() {
+        UUID parentId = UUID.randomUUID();
+        UUID redMediumPart = UUID.randomUUID();
+        BomComponent both = componentWithFilter(parentId, redMediumPart, BigDecimal.ONE,
+                java.util.Map.of("color", "Red", "size", "M"));
+
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(parentId, orgId))
+                .thenReturn(Optional.of(item("PARENT", ItemType.COMPOSITE, false)));
+        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentId))
+                .thenReturn(java.util.List.of(both));
+
+        // Both axes match → included.
+        assertEquals(1, service.resolveBomForVariant(parentId,
+                java.util.Map.of("color", "Red", "size", "M")).size());
+
+        // Only one axis matches → excluded (AND semantics).
+        assertTrue(service.resolveBomForVariant(parentId,
+                java.util.Map.of("color", "Red", "size", "L")).isEmpty());
+        assertTrue(service.resolveBomForVariant(parentId,
+                java.util.Map.of("color", "Blue", "size", "M")).isEmpty());
+    }
+
+    @Test
+    void resolveBomForVariant_mixedFilters_filtersIndependently() {
+        // Realistic case: universal cotton + red-only dye + size-M-only pattern.
+        UUID parentId = UUID.randomUUID();
+        UUID cotton = UUID.randomUUID();
+        UUID redDye = UUID.randomUUID();
+        UUID sizeMpattern = UUID.randomUUID();
+
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(parentId, orgId))
+                .thenReturn(Optional.of(item("PARENT", ItemType.COMPOSITE, false)));
+        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentId))
+                .thenReturn(java.util.List.of(
+                        component(parentId, cotton, BigDecimal.valueOf(1.5)),
+                        componentWithFilter(parentId, redDye, BigDecimal.valueOf(20),
+                                java.util.Map.of("color", "Red")),
+                        componentWithFilter(parentId, sizeMpattern, BigDecimal.ONE,
+                                java.util.Map.of("size", "M"))));
+
+        // Red-M variant: gets all three lines.
+        assertEquals(3, service.resolveBomForVariant(parentId,
+                java.util.Map.of("color", "Red", "size", "M")).size());
+
+        // Blue-M variant: gets cotton + size-M pattern (NO red dye).
+        java.util.List<BomComponent> blueM = service.resolveBomForVariant(parentId,
+                java.util.Map.of("color", "Blue", "size", "M"));
+        assertEquals(2, blueM.size());
+        assertTrue(blueM.stream().noneMatch(c -> c.getChildItemId().equals(redDye)));
+
+        // Red-L variant: gets cotton + red dye (NO size-M pattern).
+        java.util.List<BomComponent> redL = service.resolveBomForVariant(parentId,
+                java.util.Map.of("color", "Red", "size", "L"));
+        assertEquals(2, redL.size());
+        assertTrue(redL.stream().noneMatch(c -> c.getChildItemId().equals(sizeMpattern)));
+    }
+
+    @Test
+    void resolveBomForVariant_emptyAttributes_keepsOnlyUnfilteredLines() {
+        UUID parentId = UUID.randomUUID();
+        UUID universal = UUID.randomUUID();
+        UUID variantOnly = UUID.randomUUID();
+
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(parentId, orgId))
+                .thenReturn(Optional.of(item("PARENT", ItemType.COMPOSITE, false)));
+        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentId))
+                .thenReturn(java.util.List.of(
+                        component(parentId, universal, BigDecimal.ONE),
+                        componentWithFilter(parentId, variantOnly, BigDecimal.ONE,
+                                java.util.Map.of("color", "Red"))));
+
+        // No attributes supplied → variant-specific lines should drop out;
+        // only the universal-line remains.
+        java.util.List<BomComponent> result =
+                service.resolveBomForVariant(parentId, java.util.Map.of());
+        assertEquals(1, result.size());
+        assertEquals(universal, result.get(0).getChildItemId());
+    }
+
     private Item item(String sku, ItemType type, boolean batch) {
         Item item = Item.builder()
                 .sku(sku)
