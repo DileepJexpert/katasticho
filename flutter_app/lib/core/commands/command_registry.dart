@@ -447,6 +447,15 @@ List<KCommand> buildAppCommands() {
                  'root cause', 'effectiveness'],
     ),
     KCommand(
+      label: 'Equipment Reliability',
+      icon: Icons.precision_manufacturing_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingReliability,
+      keywords: ['mtbf', 'mttr', 'reliability', 'availability', 'uptime',
+                 'breakdown', 'failure', 'maintenance', 'reliability',
+                 'oee', 'equipment', 'machine', 'history'],
+    ),
+    KCommand(
       label: 'Batch Manufacturing Record',
       icon: Icons.science_rounded,
       section: 'Navigate',

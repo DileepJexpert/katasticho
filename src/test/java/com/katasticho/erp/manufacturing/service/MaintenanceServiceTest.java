@@ -341,6 +341,101 @@ class MaintenanceServiceTest {
         assertEquals(30L, items.get(1).get("totalMinutes"));
     }
 
+    // ─────── Reliability report (#86 MTBF/MTTR) ───────
+
+    @Test
+    void reliabilityReport_computesMttrMtbfAndAvailability() {
+        // Workstation has 1 BREAKDOWN (90 min) + 1 PREVENTIVE (30 min) in the window
+        Workstation ws = Workstation.builder().code("WS-01").name("CNC Lathe").build();
+        ws.setId(wsId); ws.setOrgId(orgId);
+        when(workstationRepo.findByOrgIdAndIsDeletedFalseOrderByNameAsc(orgId))
+                .thenReturn(List.of(ws));
+
+        MaintenanceWorkOrder breakdown = completed(wsId, "BREAKDOWN", 90, "500");
+        MaintenanceWorkOrder preventive = completed(wsId, "PREVENTIVE", 30, "100");
+        when(woRepo
+                .findByOrgIdAndStatusAndCompletedAtBetweenAndIsDeletedFalseOrderByCompletedAtAsc(
+                        any(), any(), any(), any()))
+                .thenReturn(List.of(breakdown, preventive));
+
+        // 1-day window = 1440 minutes
+        Map<String, Object> report = service.reliabilityReport(
+                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 1));
+
+        assertEquals(1440L, report.get("windowMinutes"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> items = (List<Map<String, Object>>) report.get("items");
+        assertEquals(1, items.size());
+        Map<String, Object> row = items.get(0);
+
+        assertEquals(1, row.get("breakdownCount"));
+        assertEquals(1, row.get("preventiveCount"));
+        // Downtime = 90 + 30 = 120 min
+        assertEquals(120L, row.get("totalDowntimeMinutes"));
+        // Uptime = 1440 − 120 = 1320 min
+        assertEquals(1320L, row.get("uptimeMinutes"));
+        // MTTR = 90 / 1 = 90 (uses BREAKDOWN downtime only)
+        assertEquals(90L, row.get("mttrMinutes"));
+        // MTBF = 1320 / 1 = 1320
+        assertEquals(1320L, row.get("mtbfMinutes"));
+        // Availability = 1320 / 1440 * 100 = 91.67
+        assertEquals(0, ((BigDecimal) row.get("availabilityPct"))
+                .compareTo(new BigDecimal("91.67")));
+    }
+
+    @Test
+    void reliabilityReport_workstationWithNoBreakdowns_returns100PctAvailabilityAndNullMtbf() {
+        Workstation ws = Workstation.builder().code("WS-01").name("CNC Lathe").build();
+        ws.setId(wsId); ws.setOrgId(orgId);
+        when(workstationRepo.findByOrgIdAndIsDeletedFalseOrderByNameAsc(orgId))
+                .thenReturn(List.of(ws));
+        when(woRepo
+                .findByOrgIdAndStatusAndCompletedAtBetweenAndIsDeletedFalseOrderByCompletedAtAsc(
+                        any(), any(), any(), any()))
+                .thenReturn(List.of());
+
+        Map<String, Object> report = service.reliabilityReport(
+                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30));
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> items = (List<Map<String, Object>>) report.get("items");
+        assertEquals(1, items.size());
+        assertEquals(0, items.get(0).get("breakdownCount"));
+        assertNull(items.get(0).get("mttrMinutes"));
+        assertNull(items.get(0).get("mtbfMinutes"));
+        assertEquals(0, ((BigDecimal) items.get(0).get("availabilityPct"))
+                .compareTo(new BigDecimal("100.00")));
+    }
+
+    @Test
+    void reliabilityReport_sortsByAvailabilityAsc_worstMachineFirst() {
+        UUID wsB = UUID.randomUUID();
+        Workstation a = Workstation.builder().code("WS-A").name("A").build();
+        a.setId(wsId); a.setOrgId(orgId);
+        Workstation b = Workstation.builder().code("WS-B").name("B").build();
+        b.setId(wsB); b.setOrgId(orgId);
+        when(workstationRepo.findByOrgIdAndIsDeletedFalseOrderByNameAsc(orgId))
+                .thenReturn(List.of(a, b));
+
+        // A: 240 min downtime (worse)
+        // B: 60 min downtime
+        MaintenanceWorkOrder aBreak = completed(wsId, "BREAKDOWN", 240, "100");
+        MaintenanceWorkOrder bBreak = completed(wsB, "BREAKDOWN", 60, "50");
+        when(woRepo
+                .findByOrgIdAndStatusAndCompletedAtBetweenAndIsDeletedFalseOrderByCompletedAtAsc(
+                        any(), any(), any(), any()))
+                .thenReturn(List.of(aBreak, bBreak));
+
+        Map<String, Object> report = service.reliabilityReport(
+                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 1));
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> items = (List<Map<String, Object>>) report.get("items");
+        // Worst (lowest availability) first → A
+        assertEquals(wsId, items.get(0).get("workstationId"));
+        assertEquals(wsB, items.get(1).get("workstationId"));
+    }
+
     // ─────── Helpers ───────
 
     private MaintenanceSchedule scheduleWithId(UUID id, String code, int freq, LocalDate due) {

@@ -136,4 +136,10 @@ public class MaintenanceController {
             @RequestParam LocalDate from, @RequestParam LocalDate to) {
         return ResponseEntity.ok(ApiResponse.ok(service.downtimeReport(from, to)));
     }
+
+    @GetMapping("/reports/reliability")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> reliabilityReport(
+            @RequestParam LocalDate from, @RequestParam LocalDate to) {
+        return ResponseEntity.ok(ApiResponse.ok(service.reliabilityReport(from, to)));
+    }
 }

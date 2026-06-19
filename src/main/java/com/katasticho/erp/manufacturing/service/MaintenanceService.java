@@ -322,6 +322,116 @@ public class MaintenanceService {
         return out;
     }
 
+    /**
+     * Tracker #86: reliability metrics per workstation (MTBF + MTTR +
+     * availability). The two questions every plant manager actually
+     * asks about a machine: how long can we run it before the next
+     * breakdown, and how long does it take to come back online?
+     *
+     * <ul>
+     *   <li>MTTR (Mean Time To Repair) = totalDowntimeMinutes ÷ breakdownCount</li>
+     *   <li>MTBF (Mean Time Between Failures) = uptimeMinutes ÷ breakdownCount,
+     *       where uptime = windowMinutes − totalDowntime</li>
+     *   <li>availabilityPct = uptime ÷ windowMinutes × 100</li>
+     * </ul>
+     *
+     * <p>Only BREAKDOWN MWOs count toward MTBF/MTTR — scheduled
+     * preventive maintenance is planned downtime, not a failure.
+     * Workstations with zero breakdowns in the window appear with null
+     * MTBF/MTTR (can't divide by zero) but 100% availability.
+     */
+    public Map<String, Object> reliabilityReport(LocalDate from, LocalDate to) {
+        UUID org = orgId();
+        Instant fromI = from.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant toI = to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        long windowMinutes = java.time.Duration.between(fromI, toI).toMinutes();
+
+        // Pull every completed MWO in the window once; group by ws.
+        List<MaintenanceWorkOrder> completed = workOrderRepository
+                .findByOrgIdAndStatusAndCompletedAtBetweenAndIsDeletedFalseOrderByCompletedAtAsc(
+                        org, "COMPLETED", fromI, toI);
+
+        // Include all org workstations so equipment with no incidents
+        // still shows up — that's good news worth surfacing.
+        Map<UUID, Workstation> wsCache = new HashMap<>();
+        for (Workstation ws : workstationRepository.findByOrgIdAndIsDeletedFalseOrderByNameAsc(org)) {
+            wsCache.put(ws.getId(), ws);
+        }
+
+        Map<UUID, ReliabilityBucket> byWs = new LinkedHashMap<>();
+        for (UUID wsId : wsCache.keySet()) {
+            byWs.put(wsId, new ReliabilityBucket());
+        }
+
+        for (MaintenanceWorkOrder wo : completed) {
+            ReliabilityBucket b = byWs.computeIfAbsent(wo.getWorkstationId(),
+                    id -> new ReliabilityBucket());
+            int dt = wo.getDowntimeMinutes() != null ? wo.getDowntimeMinutes() : 0;
+            b.totalDowntime += dt;
+            if ("BREAKDOWN".equals(wo.getMaintenanceType())) {
+                b.breakdownCount++;
+                b.breakdownDowntime += dt;
+            } else if ("PREVENTIVE".equals(wo.getMaintenanceType())) {
+                b.preventiveCount++;
+            } else {
+                b.inspectionCount++;
+            }
+        }
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map.Entry<UUID, ReliabilityBucket> e : byWs.entrySet()) {
+            UUID wsId = e.getKey();
+            Workstation ws = wsCache.get(wsId);
+            if (ws == null) continue;
+            ReliabilityBucket b = e.getValue();
+            long uptime = Math.max(0L, windowMinutes - b.totalDowntime);
+
+            Long mttr = b.breakdownCount > 0
+                    ? b.breakdownDowntime / b.breakdownCount : null;
+            Long mtbf = b.breakdownCount > 0
+                    ? uptime / b.breakdownCount : null;
+            java.math.BigDecimal availability = windowMinutes > 0
+                    ? java.math.BigDecimal.valueOf(uptime)
+                            .multiply(java.math.BigDecimal.valueOf(100))
+                            .divide(java.math.BigDecimal.valueOf(windowMinutes),
+                                    2, java.math.RoundingMode.HALF_UP)
+                    : java.math.BigDecimal.ZERO;
+
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("workstationId", wsId);
+            row.put("workstationCode", ws.getCode());
+            row.put("workstationName", ws.getName());
+            row.put("breakdownCount", b.breakdownCount);
+            row.put("preventiveCount", b.preventiveCount);
+            row.put("inspectionCount", b.inspectionCount);
+            row.put("totalDowntimeMinutes", b.totalDowntime);
+            row.put("windowMinutes", windowMinutes);
+            row.put("uptimeMinutes", uptime);
+            row.put("mttrMinutes", mttr);
+            row.put("mtbfMinutes", mtbf);
+            row.put("availabilityPct", availability);
+            rows.add(row);
+        }
+        // Worst availability first — that's the rank order operators care about.
+        rows.sort((a, bRow) -> ((java.math.BigDecimal) a.get("availabilityPct"))
+                .compareTo((java.math.BigDecimal) bRow.get("availabilityPct")));
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("from", from);
+        out.put("to", to);
+        out.put("windowMinutes", windowMinutes);
+        out.put("items", rows);
+        return out;
+    }
+
+    private static class ReliabilityBucket {
+        long totalDowntime = 0;
+        long breakdownDowntime = 0;
+        int breakdownCount = 0;
+        int preventiveCount = 0;
+        int inspectionCount = 0;
+    }
+
     // ─────────── Helpers ───────────
 
     private Workstation ensureWorkstation(UUID workstationId, UUID org) {

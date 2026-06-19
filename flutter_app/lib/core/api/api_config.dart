@@ -950,6 +950,8 @@ class ApiConfig {
       '/api/v1/manufacturing/maintenance/work-orders/$id/cancel';
   static const String mfgMaintDowntimeReport =
       '/api/v1/manufacturing/maintenance/reports/downtime';
+  static const String mfgMaintReliabilityReport =
+      '/api/v1/manufacturing/maintenance/reports/reliability';
 
   // Manufacturing — Workstations & Operations & Routings
   static const String manufacturingWorkstations = '/api/v1/manufacturing/workstations';
