@@ -111,6 +111,19 @@ public class Item extends BaseEntity {
     @Builder.Default
     private BigDecimal reorderQuantity = BigDecimal.ZERO;
 
+    /**
+     * Tracker #34: how this composite item gets replenished.
+     * <ul>
+     *   <li>{@code MTO} — build on sale order only (SO→WO fires;
+     *       reorder sweep skips).</li>
+     *   <li>{@code MTS} — build to stock from reorder level
+     *       (reorder sweep fires; SO→WO skips).</li>
+     *   <li>{@code null} — legacy: both automations run.</li>
+     * </ul>
+     */
+    @Column(name = "production_mode", length = 10)
+    private String productionMode;
+
     @Column(name = "revenue_account_code", length = 20)
     private String revenueAccountCode;
 

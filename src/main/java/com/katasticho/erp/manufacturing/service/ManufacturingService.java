@@ -1234,6 +1234,11 @@ public class ManufacturingService {
                     .orElse(null);
             if (item == null || item.getItemType() != ItemType.COMPOSITE) continue;
 
+            // Tracker #34: MTS items are built from reorder, not on
+            // sale — stock should already be there. Skip them on the
+            // SO→WO path. MTO + null (legacy default) both fire.
+            if ("MTS".equals(item.getProductionMode())) continue;
+
             List<BomComponent> bom = bomComponentRepository
                     .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, line.getItemId());
             if (bom.isEmpty()) continue;
@@ -1385,6 +1390,12 @@ public class ManufacturingService {
             // Only manufactured items qualify — purchased low-stock rows
             // belong on a purchase requisition, not a work order.
             if (item == null || item.getItemType() != ItemType.COMPOSITE) continue;
+
+            // Tracker #34: MTO items only build on a sale order — the
+            // reorder sweep must not touch them or stock will pile up
+            // for an order that never comes. MTS + null (legacy
+            // default) both qualify for the sweep.
+            if ("MTO".equals(item.getProductionMode())) continue;
 
             // Skip if there's already an open WO for this FG so the
             // sweep is safe to run on a cron. A planner who needs more
@@ -2420,6 +2431,28 @@ public class ManufacturingService {
 
         costSummaryRepository.save(summary);
         log.info("Cost summary built for work order {} — variance={}", wo.getWorkOrderNumber(), totalVariance);
+    }
+
+    /**
+     * Tracker #34: set an item's production mode. {@code null} clears the
+     * setting (legacy: both automations fire). {@code MTO} and {@code MTS}
+     * are the two real values — validated at the DB CHECK as well.
+     */
+    @Transactional
+    public Item setProductionMode(UUID itemId, String mode) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Item item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(itemId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Item", itemId));
+        String normalised = mode == null || mode.isBlank()
+                ? null : mode.trim().toUpperCase();
+        if (normalised != null
+                && !"MTO".equals(normalised) && !"MTS".equals(normalised)) {
+            throw new BusinessException(
+                    "productionMode must be MTO, MTS, or null",
+                    "MFG_INVALID_PRODUCTION_MODE", HttpStatus.BAD_REQUEST);
+        }
+        item.setProductionMode(normalised);
+        return itemRepository.save(item);
     }
 
     @Transactional(readOnly = true)

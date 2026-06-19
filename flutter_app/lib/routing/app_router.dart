@@ -199,6 +199,7 @@ import '../features/manufacturing/presentation/actual_cost_preview_screen.dart';
 import '../features/manufacturing/presentation/workstation_load_screen.dart';
 import '../features/manufacturing/presentation/capa_screen.dart';
 import '../features/manufacturing/presentation/reliability_screen.dart';
+import '../features/manufacturing/presentation/production_mode_screen.dart';
 import '../features/manufacturing/presentation/workstation_alternates_screen.dart';
 import '../features/manufacturing/presentation/production_analytics_screen.dart';
 import '../features/manufacturing/presentation/scrap_screen.dart';
@@ -449,6 +450,7 @@ class Routes {
   static const manufacturingWorkstationLoad = '/manufacturing/workstation-load';
   static const manufacturingCapa = '/manufacturing/capa';
   static const manufacturingReliability = '/manufacturing/reliability';
+  static const manufacturingProductionMode = '/manufacturing/production-mode';
 
   // Supply Chain
   static const supplyChainDashboard = '/supply-chain';
@@ -1425,6 +1427,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.manufacturingReliability,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: ReliabilityScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.manufacturingProductionMode,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ProductionModeScreen(),
             ),
           ),
           GoRoute(

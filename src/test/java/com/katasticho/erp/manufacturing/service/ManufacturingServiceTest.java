@@ -1974,4 +1974,107 @@ class ManufacturingServiceTest {
         assertEquals(0, actual.totalHours().compareTo(new BigDecimal("1.0000")));
         assertEquals(1, actual.jobCardCount());
     }
+
+    // ── Tracker #34: MTO vs MTS production modes ─────────────────────
+
+    @Test
+    void autoCreateWorkOrdersFromReorder_skipsMtoItems() {
+        Item fg = buildCompositeItem();
+        fg.setReorderLevel(new BigDecimal("100"));
+        fg.setProductionMode("MTO"); // build only on sale → reorder must skip
+
+        com.katasticho.erp.inventory.entity.StockBalance bal =
+                com.katasticho.erp.inventory.entity.StockBalance.builder()
+                        .itemId(fgItemId).warehouseId(warehouseId)
+                        .quantityOnHand(new BigDecimal("30"))
+                        .build();
+        com.katasticho.erp.inventory.entity.Warehouse wh =
+                com.katasticho.erp.inventory.entity.Warehouse.builder()
+                        .code("MAIN").name("Main").isDefault(true).build();
+        wh.setId(warehouseId);
+
+        when(stockBalanceRepo.findLowStock(orgId)).thenReturn(List.of(bal));
+        when(warehouseRepo.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId))
+                .thenReturn(Optional.of(wh));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId))
+                .thenReturn(Optional.of(fg));
+
+        List<WorkOrder> created = service.autoCreateWorkOrdersFromReorder();
+
+        assertTrue(created.isEmpty(), "MTO items must not be replenished by reorder sweep");
+        // Crucial: should NOT have queried open-WO existence — the MTO
+        // guard short-circuits before the dedupe check.
+        org.mockito.Mockito.verify(workOrderRepo, org.mockito.Mockito.never())
+                .existsByOrgIdAndFinishedGoodIdAndStatusInAndIsDeletedFalse(
+                        any(), any(), org.mockito.ArgumentMatchers.anyList());
+    }
+
+    @Test
+    void createWorkOrdersFromSalesOrder_skipsMtsItems() {
+        UUID soId = UUID.randomUUID();
+        Item fg = buildCompositeItem();
+        fg.setProductionMode("MTS"); // build to stock → SO→WO must skip
+
+        SalesOrder so = SalesOrder.builder()
+                .salesorderNumber("SO-00099")
+                .contactId(UUID.randomUUID())
+                .orderDate(java.time.LocalDate.now())
+                .status("CONFIRMED")
+                .lines(new java.util.ArrayList<>())
+                .build();
+        so.setId(soId);
+        so.setOrgId(orgId);
+        SalesOrderLine soLine = SalesOrderLine.builder()
+                .salesOrder(so).lineNumber(1).itemId(fgItemId)
+                .quantity(BigDecimal.valueOf(5))
+                .rate(BigDecimal.valueOf(500))
+                .amount(BigDecimal.valueOf(2500)).build();
+        soLine.setId(UUID.randomUUID());
+        so.getLines().add(soLine);
+
+        Warehouse wh = Warehouse.builder().name("Main").isDefault(true).build();
+        wh.setId(warehouseId); wh.setOrgId(orgId);
+
+        when(salesOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(soId, orgId))
+                .thenReturn(Optional.of(so));
+        when(warehouseRepo.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId))
+                .thenReturn(Optional.of(wh));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId))
+                .thenReturn(Optional.of(fg));
+
+        // SO→WO must throw MFG_SO_NO_COMPOSITE_ITEMS because the only
+        // composite line is MTS and gets filtered out before BOM lookup.
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.createWorkOrdersFromSalesOrder(soId, null));
+        assertEquals("MFG_SO_NO_COMPOSITE_ITEMS", ex.getErrorCode());
+
+        // Crucial: must not have hit the BOM lookup either — MTS skip
+        // happens BEFORE BOM resolution.
+        org.mockito.Mockito.verify(bomComponentRepo, org.mockito.Mockito.never())
+                .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId);
+    }
+
+    @Test
+    void setProductionMode_validatesEnum() {
+        Item fg = buildCompositeItem();
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId))
+                .thenReturn(Optional.of(fg));
+        when(itemRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Valid
+        Item r1 = service.setProductionMode(fgItemId, "mto");
+        assertEquals("MTO", r1.getProductionMode());
+        Item r2 = service.setProductionMode(fgItemId, "MTS");
+        assertEquals("MTS", r2.getProductionMode());
+        // null clears
+        Item r3 = service.setProductionMode(fgItemId, null);
+        assertNull(r3.getProductionMode());
+        Item r4 = service.setProductionMode(fgItemId, "  ");
+        assertNull(r4.getProductionMode());
+
+        // Invalid
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.setProductionMode(fgItemId, "FLEXIBLE"));
+        assertEquals("MFG_INVALID_PRODUCTION_MODE", ex.getErrorCode());
+    }
 }

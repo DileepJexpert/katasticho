@@ -1036,6 +1036,8 @@ class ApiConfig {
       '/api/v1/manufacturing/capa/overdue';
   static const String manufacturingCapaDashboard =
       '/api/v1/manufacturing/capa/dashboard';
+  static String manufacturingItemProductionMode(String itemId) =>
+      '/api/v1/manufacturing/items/$itemId/production-mode';
   static const String manufacturingWipValuation = '/api/v1/manufacturing/reports/wip-valuation';
   static const String manufacturingConsumption = '/api/v1/manufacturing/reports/consumption';
   static const String manufacturingProductionTrends =

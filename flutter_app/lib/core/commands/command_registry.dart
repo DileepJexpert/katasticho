@@ -456,6 +456,15 @@ List<KCommand> buildAppCommands() {
                  'oee', 'equipment', 'machine', 'history'],
     ),
     KCommand(
+      label: 'Production Mode (MTO/MTS)',
+      icon: Icons.tune_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingProductionMode,
+      keywords: ['mto', 'mts', 'make to order', 'make to stock',
+                 'production mode', 'replenishment', 'reorder',
+                 'auto wo', 'sales order'],
+    ),
+    KCommand(
       label: 'Batch Manufacturing Record',
       icon: Icons.science_rounded,
       section: 'Navigate',

@@ -842,6 +842,21 @@ public class ManufacturingController {
         return ResponseEntity.ok(ApiResponse.ok(service.previewActualCost(workOrderId)));
     }
 
+    /**
+     * Tracker #34: set/clear an item's production mode (MTO/MTS/null).
+     * Drives which auto-WO path (SO→WO vs reorder sweep) creates work
+     * orders for this composite. Body: {@code {"productionMode": "MTO"}}.
+     */
+    @PatchMapping("/items/{itemId}/production-mode")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<com.katasticho.erp.inventory.entity.Item>> setProductionMode(
+            @PathVariable UUID itemId, @RequestBody Map<String, Object> body) {
+        String mode = body == null ? null : (String) body.get("productionMode");
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.setProductionMode(itemId, mode),
+                "Production mode updated"));
+    }
+
     @GetMapping("/reports/workstation-load")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> workstationLoad() {
         return ResponseEntity.ok(ApiResponse.ok(bottleneckService.workstationLoadReport()));
