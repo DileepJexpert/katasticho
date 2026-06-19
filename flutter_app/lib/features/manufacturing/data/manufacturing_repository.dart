@@ -99,6 +99,18 @@ class ManufacturingRepository {
     return _unwrap(res);
   }
 
+  /// Cascade sub-assembly child WOs (tracker #60). Idempotent on the
+  /// server — safe to tap again if the planner already triggered it.
+  Future<List<Map<String, dynamic>>> createSubAssemblyWos(String id) async {
+    final res = await _api.post(ApiConfig.manufacturingWorkOrderSubAssemblyWos(id));
+    return _unwrapList(res);
+  }
+
+  Future<List<Map<String, dynamic>>> getChildWorkOrders(String id) async {
+    final res = await _api.get(ApiConfig.manufacturingWorkOrderChildren(id));
+    return _unwrapList(res);
+  }
+
   // ---------------------------------------------------------------------------
   // Job Work Orders
   // ---------------------------------------------------------------------------

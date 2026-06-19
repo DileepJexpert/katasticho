@@ -555,6 +555,97 @@ class ManufacturingServiceTest {
     }
 
     @Test
+    void createChildWorkOrdersForSubAssemblies_compositeRm_spawnsChildLinkedToParent() {
+        WorkOrder parent = createTestWorkOrder("DRAFT");
+        Item subAssembly = Item.builder()
+                .sku("SUB-1").name("Sub-assembly").itemType(ItemType.COMPOSITE).build();
+        subAssembly.setId(rmItemId);
+        Item subAssemblyRm = Item.builder()
+                .sku("LEAF").name("Raw leaf").itemType(ItemType.GOODS)
+                .purchasePrice(BigDecimal.valueOf(5)).build();
+        subAssemblyRm.setId(UUID.randomUUID());
+        BomComponent subBom = BomComponent.builder()
+                .parentItemId(rmItemId).childItemId(subAssemblyRm.getId())
+                .quantity(BigDecimal.ONE).build();
+
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(parent.getId(), orgId))
+                .thenReturn(Optional.of(parent));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId))
+                .thenReturn(Optional.of(subAssembly));
+        when(workOrderRepo.existsByOrgIdAndFinishedGoodIdAndStatusInAndIsDeletedFalse(
+                org.mockito.ArgumentMatchers.eq(orgId),
+                org.mockito.ArgumentMatchers.eq(rmItemId),
+                org.mockito.ArgumentMatchers.anyList())).thenReturn(false);
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, rmItemId))
+                .thenReturn(List.of(subBom));
+        when(bomComponentRepo.findMaxVersion(orgId, rmItemId)).thenReturn(1);
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(subAssemblyRm.getId(), orgId))
+                .thenReturn(Optional.of(subAssemblyRm));
+        when(workOrderRepo.findMaxWorkOrderNumber(orgId)).thenReturn(0);
+        when(workOrderRepo.save(any())).thenAnswer(inv -> {
+            WorkOrder w = inv.getArgument(0);
+            if (w.getId() == null) w.setId(UUID.randomUUID());
+            return w;
+        });
+
+        List<WorkOrder> created = service.createChildWorkOrdersForSubAssemblies(parent.getId());
+
+        assertEquals(1, created.size());
+        WorkOrder child = created.get(0);
+        assertEquals(parent.getId(), child.getParentWorkOrderId());
+        assertEquals(rmItemId, child.getFinishedGoodId());
+        // Parent line required 30 units of the sub-assembly → child WO produces 30.
+        assertEquals(0, child.getQuantityToProduce().compareTo(new BigDecimal("30")));
+    }
+
+    @Test
+    void createChildWorkOrdersForSubAssemblies_nonComposite_returnsEmpty() {
+        WorkOrder parent = createTestWorkOrder("DRAFT");
+        Item plainRm = Item.builder().sku("RM-X").name("Plain RM")
+                .itemType(ItemType.GOODS).build();
+        plainRm.setId(rmItemId);
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(parent.getId(), orgId))
+                .thenReturn(Optional.of(parent));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId))
+                .thenReturn(Optional.of(plainRm));
+
+        List<WorkOrder> created = service.createChildWorkOrdersForSubAssemblies(parent.getId());
+
+        assertEquals(0, created.size());
+        verify(workOrderRepo, org.mockito.Mockito.never())
+                .existsByOrgIdAndFinishedGoodIdAndStatusInAndIsDeletedFalse(any(), any(), any());
+    }
+
+    @Test
+    void createChildWorkOrdersForSubAssemblies_parentNotDraft_throws() {
+        WorkOrder parent = createTestWorkOrder("IN_PROGRESS");
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(parent.getId(), orgId))
+                .thenReturn(Optional.of(parent));
+
+        com.katasticho.erp.common.exception.BusinessException ex =
+                assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                        () -> service.createChildWorkOrdersForSubAssemblies(parent.getId()));
+        assertEquals("MFG_PARENT_NOT_DRAFT", ex.getErrorCode());
+    }
+
+    @Test
+    void issueToProduction_blocksWhenChildSubAssemblyStillOpen() {
+        WorkOrder parent = createTestWorkOrder("DRAFT");
+        WorkOrder child = createTestWorkOrder("IN_PROGRESS");
+        child.setWorkOrderNumber("WO-CHILD");
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(parent.getId(), orgId))
+                .thenReturn(Optional.of(parent));
+        when(workOrderRepo.findByOrgIdAndParentWorkOrderIdAndIsDeletedFalse(orgId, parent.getId()))
+                .thenReturn(List.of(child));
+
+        com.katasticho.erp.common.exception.BusinessException ex =
+                assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                        () -> service.issueToProduction(parent.getId()));
+        assertEquals("MFG_CHILD_WO_PENDING", ex.getErrorCode());
+        verify(inventoryService, org.mockito.Mockito.never()).recordMovement(any());
+    }
+
+    @Test
     void issueToProduction_batchTrackedRm_splitsAcrossFefoBatches() {
         WorkOrder wo = createTestWorkOrder("DRAFT");
         // Make the RM batch-tracked so the FEFO path activates.

@@ -63,4 +63,12 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, UUID> {
      */
     boolean existsByOrgIdAndFinishedGoodIdAndStatusInAndIsDeletedFalse(
             UUID orgId, UUID finishedGoodId, List<String> statuses);
+
+    /**
+     * Child WOs for a sub-assembly tree (tracker #60). Used both to list
+     * dependents on the parent WO detail screen and to enforce the
+     * "all children complete before parent can issue" gate.
+     */
+    List<WorkOrder> findByOrgIdAndParentWorkOrderIdAndIsDeletedFalse(
+            UUID orgId, UUID parentWorkOrderId);
 }

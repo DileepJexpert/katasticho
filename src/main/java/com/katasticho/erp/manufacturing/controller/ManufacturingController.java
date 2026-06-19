@@ -167,6 +167,27 @@ public class ManufacturingController {
                 "Created " + created.size() + " work order(s) from reorder sweep"));
     }
 
+    /**
+     * Cascade child DRAFT work orders for every COMPOSITE sub-assembly
+     * in this WO's BOM (tracker #60). Run by the planner after
+     * reviewing the parent's BOM. Idempotent — skips sub-assemblies
+     * that already have an open WO.
+     */
+    @PostMapping("/work-orders/{id}/create-sub-assembly-wos")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<List<WorkOrder>>> createSubAssemblyWos(
+            @PathVariable UUID id) {
+        List<WorkOrder> created = service.createChildWorkOrdersForSubAssemblies(id);
+        return ResponseEntity.ok(ApiResponse.ok(created,
+                "Created " + created.size() + " sub-assembly work order(s)"));
+    }
+
+    @GetMapping("/work-orders/{id}/children")
+    public ResponseEntity<ApiResponse<List<WorkOrder>>> listChildWorkOrders(
+            @PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(service.listChildWorkOrders(id)));
+    }
+
     // ── Workstations ──────────────────────────────────────────────
 
     @PostMapping("/workstations")

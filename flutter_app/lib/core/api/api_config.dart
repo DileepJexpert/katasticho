@@ -887,6 +887,10 @@ class ApiConfig {
   static String manufacturingWorkOrderReceive(String id) => '/api/v1/manufacturing/work-orders/$id/receive';
   static String manufacturingWorkOrderCosts(String id) => '/api/v1/manufacturing/work-orders/$id/costs';
   static String manufacturingWorkOrderCancel(String id) => '/api/v1/manufacturing/work-orders/$id/cancel';
+  static String manufacturingWorkOrderSubAssemblyWos(String id) =>
+      '/api/v1/manufacturing/work-orders/$id/create-sub-assembly-wos';
+  static String manufacturingWorkOrderChildren(String id) =>
+      '/api/v1/manufacturing/work-orders/$id/children';
   static String manufacturingWorkOrderFromSo = '/api/v1/manufacturing/work-orders/from-sales-order';
   static String manufacturingWorkOrderJobCards(String id) => '/api/v1/manufacturing/work-orders/$id/job-cards';
   static String manufacturingWorkOrderScrap(String id) => '/api/v1/manufacturing/work-orders/$id/scrap';

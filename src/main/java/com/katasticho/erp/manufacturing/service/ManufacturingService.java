@@ -419,6 +419,21 @@ public class ManufacturingService {
                     "MFG_NOT_DRAFT", HttpStatus.BAD_REQUEST);
         }
 
+        // Sub-assembly gating (tracker #60). If this WO has spawned child
+        // sub-assembly WOs, the floor can't issue until every child has
+        // delivered its FG into inventory — otherwise the parent's RM
+        // pick would short on the sub-assembly that doesn't exist yet.
+        List<WorkOrder> children = workOrderRepository
+                .findByOrgIdAndParentWorkOrderIdAndIsDeletedFalse(orgId, wo.getId());
+        for (WorkOrder child : children) {
+            if (!"COMPLETED".equals(child.getStatus()) && !"CANCELLED".equals(child.getStatus())) {
+                throw new BusinessException(
+                        "Sub-assembly " + child.getWorkOrderNumber() + " is "
+                                + child.getStatus() + " — complete or cancel it before issuing parent",
+                        "MFG_CHILD_WO_PENDING", HttpStatus.CONFLICT);
+            }
+        }
+
         if (!wo.isBackflushMode()) {
             issueMaterials(wo);
         }
@@ -1018,6 +1033,86 @@ public class ManufacturingService {
         log.info("Created {} work orders from SO {} for org {}",
                 created.size(), so.getSalesorderNumber(), orgId);
         return created;
+    }
+
+    // ── Linked / dependent WOs for sub-assemblies (tracker #60) ──────
+
+    /**
+     * Walks the parent WO's BOM lines and spawns a child DRAFT work
+     * order for every component whose item is itself a COMPOSITE
+     * (i.e. an in-house manufactured sub-assembly). The child WO is
+     * linked back to the parent via {@code parentWorkOrderId} so the
+     * detail screen can render the dependency tree.
+     *
+     * <p>Idempotent on the same parent — items that already have an
+     * open child WO are skipped via the
+     * {@link WorkOrderRepository#existsByOrgIdAndFinishedGoodIdAndStatusInAndIsDeletedFalse}
+     * check (same guard used by the reorder sweep). Lines whose
+     * sub-assembly item has no BOM, no default account, etc., are
+     * logged and skipped so one broken item doesn't kill the whole
+     * cascade.
+     *
+     * <p>Quantity carries through directly — required qty for the
+     * parent line becomes the child WO's quantity to produce. The
+     * planner can edit before issuing.
+     */
+    @Transactional
+    public List<WorkOrder> createChildWorkOrdersForSubAssemblies(UUID parentWorkOrderId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        WorkOrder parent = workOrderRepository
+                .findByIdAndOrgIdAndIsDeletedFalse(parentWorkOrderId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("WorkOrder", parentWorkOrderId));
+
+        if (!"DRAFT".equals(parent.getStatus()) && !"PENDING_APPROVAL".equals(parent.getStatus())) {
+            throw new BusinessException(
+                    "Sub-assembly WOs can only be cascaded while the parent is DRAFT/PENDING_APPROVAL",
+                    "MFG_PARENT_NOT_DRAFT", HttpStatus.BAD_REQUEST);
+        }
+
+        List<WorkOrder> created = new ArrayList<>();
+        List<String> openStatuses = List.of("DRAFT", "PENDING_APPROVAL", "IN_PROGRESS");
+
+        for (WorkOrderLine line : parent.getLines()) {
+            if (line.isDeleted()) continue;
+            Item childItem = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(line.getItemId(), orgId)
+                    .orElse(null);
+            if (childItem == null) continue;
+            if (childItem.getItemType() != ItemType.COMPOSITE) continue;
+
+            if (workOrderRepository.existsByOrgIdAndFinishedGoodIdAndStatusInAndIsDeletedFalse(
+                    orgId, line.getItemId(), openStatuses)) {
+                continue;
+            }
+
+            try {
+                WorkOrder childWo = createWorkOrder(line.getItemId(), parent.getWarehouseId(),
+                        line.getRequiredQty(),
+                        parent.getPlannedStartDate(), parent.getPlannedEndDate(),
+                        BigDecimal.ZERO, BigDecimal.ZERO,
+                        "Sub-assembly for " + parent.getWorkOrderNumber());
+                childWo.setParentWorkOrderId(parent.getId());
+                childWo = workOrderRepository.save(childWo);
+                created.add(childWo);
+            } catch (BusinessException ex) {
+                log.warn("Skipped sub-assembly WO for item {} on parent {}: {}",
+                        line.getItemId(), parent.getWorkOrderNumber(), ex.getMessage());
+            }
+        }
+
+        log.info("Created {} child WOs for parent {} for org {}",
+                created.size(), parent.getWorkOrderNumber(), orgId);
+        return created;
+    }
+
+    /**
+     * List the child / dependent WOs for a parent. Returned in WO-number
+     * order so the detail screen renders deterministically.
+     */
+    @Transactional(readOnly = true)
+    public List<WorkOrder> listChildWorkOrders(UUID parentWorkOrderId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        return workOrderRepository
+                .findByOrgIdAndParentWorkOrderIdAndIsDeletedFalse(orgId, parentWorkOrderId);
     }
 
     // ── Auto-create WOs from reorder points ──────────────────────────

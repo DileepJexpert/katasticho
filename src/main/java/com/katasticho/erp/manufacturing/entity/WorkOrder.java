@@ -75,6 +75,15 @@ public class WorkOrder extends BaseEntity {
     @Column(name = "sales_order_id")
     private UUID salesOrderId;
 
+    /**
+     * Parent WO when this work order was auto-created as a sub-assembly
+     * build for a higher-level WO (tracker #60). NULL for top-level WOs
+     * — the ones a planner or one of the SO/reorder automations creates
+     * directly.
+     */
+    @Column(name = "parent_work_order_id")
+    private UUID parentWorkOrderId;
+
     @Column(name = "routing_id")
     private UUID routingId;
 

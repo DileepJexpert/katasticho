@@ -179,12 +179,18 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
           switch (action) {
             case 'costs':
               _showCostsDialog();
+            case 'sub_assembly':
+              _cascadeSubAssemblyWos();
             case 'cancel':
               _confirmAction('Cancel Work Order', _cancelWorkOrder);
           }
         },
         itemBuilder: (_) => [
           const PopupMenuItem(value: 'costs', child: Text('Update Costs')),
+          if (status == 'DRAFT')
+            const PopupMenuItem(
+                value: 'sub_assembly',
+                child: Text('Cascade sub-assembly WOs')),
           const PopupMenuItem(value: 'cancel', child: Text('Cancel Order')),
         ],
       ));
@@ -221,6 +227,24 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     try {
       await ref.read(manufacturingRepositoryProvider).cancelWorkOrder(widget.workOrderId);
       _invalidateAndReload('Work order cancelled');
+    } catch (e) {
+      _showError(e);
+    }
+  }
+
+  /// Cascade DRAFT child WOs for any COMPOSITE sub-assembly in this WO's
+  /// BOM (tracker #60). Idempotent on the server — skips sub-assemblies
+  /// that already have an open WO, so repeated taps are safe.
+  Future<void> _cascadeSubAssemblyWos() async {
+    try {
+      final created = await ref
+          .read(manufacturingRepositoryProvider)
+          .createSubAssemblyWos(widget.workOrderId);
+      if (!mounted) return;
+      final msg = created.isEmpty
+          ? 'No new sub-assemblies — none in BOM or all already drafted'
+          : 'Created ${created.length} sub-assembly work order(s)';
+      _invalidateAndReload(msg);
     } catch (e) {
       _showError(e);
     }
