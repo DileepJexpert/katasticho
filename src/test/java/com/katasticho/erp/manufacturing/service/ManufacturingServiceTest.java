@@ -555,6 +555,125 @@ class ManufacturingServiceTest {
     }
 
     @Test
+    void splitWorkOrder_draftWithValidQty_returnsSourceAndSiblingWithScaledLines() {
+        WorkOrder source = createTestWorkOrder("DRAFT");
+        source.setQuantityToProduce(BigDecimal.TEN);            // headline 10 units
+        source.getLines().get(0).setRequiredQty(BigDecimal.valueOf(30));   // 3/unit BOM
+        source.getLines().get(0).setUnitCost(BigDecimal.valueOf(50));
+        source.getLines().get(0).setLineCost(BigDecimal.valueOf(1500));
+
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(source.getId(), orgId))
+                .thenReturn(Optional.of(source));
+        when(workOrderRepo.findMaxWorkOrderNumber(orgId)).thenReturn(1);
+        when(workOrderRepo.save(any())).thenAnswer(inv -> {
+            WorkOrder w = inv.getArgument(0);
+            if (w.getId() == null) w.setId(UUID.randomUUID());
+            return w;
+        });
+
+        List<WorkOrder> out = service.splitWorkOrder(source.getId(), new BigDecimal("3"));
+
+        assertEquals(2, out.size());
+        WorkOrder src = out.get(0);
+        WorkOrder sib = out.get(1);
+        assertEquals(0, src.getQuantityToProduce().compareTo(new BigDecimal("3")));
+        assertEquals(0, sib.getQuantityToProduce().compareTo(new BigDecimal("7")));
+        // BOM line scales: original required 30 for 10 units → 9 for 3 units, 21 for 7.
+        assertEquals(0, src.getLines().get(0).getRequiredQty().compareTo(new BigDecimal("9.0000")));
+        assertEquals(0, sib.getLines().get(0).getRequiredQty().compareTo(new BigDecimal("21.0000")));
+    }
+
+    @Test
+    void splitWorkOrder_nonDraft_throws() {
+        WorkOrder src = createTestWorkOrder("IN_PROGRESS");
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(src.getId(), orgId))
+                .thenReturn(Optional.of(src));
+
+        com.katasticho.erp.common.exception.BusinessException ex =
+                assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                        () -> service.splitWorkOrder(src.getId(), BigDecimal.ONE));
+        assertEquals("MFG_SPLIT_NOT_DRAFT", ex.getErrorCode());
+    }
+
+    @Test
+    void splitWorkOrder_qtyEqualToTotal_throws() {
+        WorkOrder src = createTestWorkOrder("DRAFT");
+        src.setQuantityToProduce(BigDecimal.TEN);
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(src.getId(), orgId))
+                .thenReturn(Optional.of(src));
+
+        com.katasticho.erp.common.exception.BusinessException ex =
+                assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                        () -> service.splitWorkOrder(src.getId(), BigDecimal.TEN));
+        assertEquals("MFG_SPLIT_INVALID_QTY", ex.getErrorCode());
+    }
+
+    @Test
+    void mergeWorkOrders_twoSameFgWarehouseDrafts_consolidatesIntoOne() {
+        WorkOrder a = createTestWorkOrder("DRAFT");
+        a.setQuantityToProduce(new BigDecimal("4"));
+        a.setBomVersion(1);
+        WorkOrder b = createTestWorkOrder("DRAFT");
+        b.setQuantityToProduce(new BigDecimal("6"));
+        b.setBomVersion(1);
+        b.setId(UUID.randomUUID());
+        b.setWorkOrderNumber("WO-00002");
+
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(a.getId(), orgId))
+                .thenReturn(Optional.of(a));
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(b.getId(), orgId))
+                .thenReturn(Optional.of(b));
+        when(workOrderRepo.findByOrgIdAndParentWorkOrderIdAndIsDeletedFalse(orgId, a.getId()))
+                .thenReturn(List.of());
+        when(workOrderRepo.findByOrgIdAndParentWorkOrderIdAndIsDeletedFalse(orgId, b.getId()))
+                .thenReturn(List.of());
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId))
+                .thenReturn(Optional.of(buildCompositeItem()));
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndVersionAndIsDeletedFalseOrderByCreatedAtAsc(
+                orgId, fgItemId, 1)).thenReturn(List.of(buildBomComponent()));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId))
+                .thenReturn(Optional.of(buildRawMaterial()));
+        when(workOrderRepo.findMaxWorkOrderNumber(orgId)).thenReturn(2);
+        when(workOrderRepo.save(any())).thenAnswer(inv -> {
+            WorkOrder w = inv.getArgument(0);
+            if (w.getId() == null) w.setId(UUID.randomUUID());
+            return w;
+        });
+
+        WorkOrder merged = service.mergeWorkOrders(List.of(a.getId(), b.getId()));
+
+        assertEquals(0, merged.getQuantityToProduce().compareTo(new BigDecimal("10")));
+        assertEquals("DRAFT", merged.getStatus());
+        assertTrue(a.isDeleted(), "Source A must be soft-deleted after merge");
+        assertTrue(b.isDeleted(), "Source B must be soft-deleted after merge");
+    }
+
+    @Test
+    void mergeWorkOrders_oneSource_throws() {
+        com.katasticho.erp.common.exception.BusinessException ex =
+                assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                        () -> service.mergeWorkOrders(List.of(UUID.randomUUID())));
+        assertEquals("MFG_MERGE_NEEDS_TWO", ex.getErrorCode());
+    }
+
+    @Test
+    void mergeWorkOrders_differentFg_throws() {
+        WorkOrder a = createTestWorkOrder("DRAFT");
+        WorkOrder b = createTestWorkOrder("DRAFT");
+        b.setId(UUID.randomUUID());
+        b.setFinishedGoodId(UUID.randomUUID());
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(a.getId(), orgId))
+                .thenReturn(Optional.of(a));
+        when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(b.getId(), orgId))
+                .thenReturn(Optional.of(b));
+
+        com.katasticho.erp.common.exception.BusinessException ex =
+                assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                        () -> service.mergeWorkOrders(List.of(a.getId(), b.getId())));
+        assertEquals("MFG_MERGE_DIFFERENT_FG", ex.getErrorCode());
+    }
+
+    @Test
     void createChildWorkOrdersForSubAssemblies_compositeRm_spawnsChildLinkedToParent() {
         WorkOrder parent = createTestWorkOrder("DRAFT");
         Item subAssembly = Item.builder()

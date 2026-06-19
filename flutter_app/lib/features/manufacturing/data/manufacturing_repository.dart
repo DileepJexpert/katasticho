@@ -111,6 +111,27 @@ class ManufacturingRepository {
     return _unwrapList(res);
   }
 
+  /// Split a DRAFT WO into two pieces (tracker #64). Returns
+  /// [source-with-firstQty, sibling-with-residual].
+  Future<List<Map<String, dynamic>>> splitWorkOrder(
+      String id, double firstQty) async {
+    final res = await _api.post(
+      ApiConfig.manufacturingWorkOrderSplit(id),
+      data: {'firstQty': firstQty},
+    );
+    return _unwrapList(res);
+  }
+
+  /// Merge several DRAFT WOs into one (tracker #64). All sources must
+  /// share finished good, warehouse, BOM version.
+  Future<Map<String, dynamic>> mergeWorkOrders(List<String> ids) async {
+    final res = await _api.post(
+      ApiConfig.manufacturingWorkOrderMerge,
+      data: {'workOrderIds': ids},
+    );
+    return _unwrap(res);
+  }
+
   // ---------------------------------------------------------------------------
   // Job Work Orders
   // ---------------------------------------------------------------------------

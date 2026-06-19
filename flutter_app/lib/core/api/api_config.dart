@@ -891,6 +891,10 @@ class ApiConfig {
       '/api/v1/manufacturing/work-orders/$id/create-sub-assembly-wos';
   static String manufacturingWorkOrderChildren(String id) =>
       '/api/v1/manufacturing/work-orders/$id/children';
+  static String manufacturingWorkOrderSplit(String id) =>
+      '/api/v1/manufacturing/work-orders/$id/split';
+  static const String manufacturingWorkOrderMerge =
+      '/api/v1/manufacturing/work-orders/merge';
   static String manufacturingWorkOrderFromSo = '/api/v1/manufacturing/work-orders/from-sales-order';
   static String manufacturingWorkOrderJobCards(String id) => '/api/v1/manufacturing/work-orders/$id/job-cards';
   static String manufacturingWorkOrderScrap(String id) => '/api/v1/manufacturing/work-orders/$id/scrap';

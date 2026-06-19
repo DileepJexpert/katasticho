@@ -181,6 +181,8 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
               _showCostsDialog();
             case 'sub_assembly':
               _cascadeSubAssemblyWos();
+            case 'split':
+              _showSplitDialog();
             case 'cancel':
               _confirmAction('Cancel Work Order', _cancelWorkOrder);
           }
@@ -191,6 +193,10 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
             const PopupMenuItem(
                 value: 'sub_assembly',
                 child: Text('Cascade sub-assembly WOs')),
+          if (status == 'DRAFT')
+            const PopupMenuItem(
+                value: 'split',
+                child: Text('Split work order')),
           const PopupMenuItem(value: 'cancel', child: Text('Cancel Order')),
         ],
       ));
@@ -227,6 +233,57 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     try {
       await ref.read(manufacturingRepositoryProvider).cancelWorkOrder(widget.workOrderId);
       _invalidateAndReload('Work order cancelled');
+    } catch (e) {
+      _showError(e);
+    }
+  }
+
+  /// Prompts for the qty to keep on the original WO; the residual goes
+  /// to a new sibling DRAFT (tracker #64). Refuses zero or the full
+  /// quantity server-side, but we let the server be the source of
+  /// truth — just collect the number and POST.
+  Future<void> _showSplitDialog() async {
+    final ctl = TextEditingController();
+    final qty = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Split Work Order'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Quantity to keep on this WO; the residual goes to a new sibling DRAFT.',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: ctl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Quantity to keep'),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              final v = double.tryParse(ctl.text.trim());
+              if (v != null && v > 0) Navigator.pop(ctx, v);
+            },
+            child: const Text('Split'),
+          ),
+        ],
+      ),
+    );
+    if (qty == null) return;
+    try {
+      final result = await ref
+          .read(manufacturingRepositoryProvider)
+          .splitWorkOrder(widget.workOrderId, qty);
+      _invalidateAndReload(
+          'Split into ${result.length} work orders — refresh the list to see the sibling');
     } catch (e) {
       _showError(e);
     }

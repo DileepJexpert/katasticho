@@ -188,6 +188,38 @@ public class ManufacturingController {
         return ResponseEntity.ok(ApiResponse.ok(service.listChildWorkOrders(id)));
     }
 
+    /**
+     * Split a DRAFT WO into two pieces (tracker #64). Original keeps
+     * {@code firstQty}; a new sibling DRAFT carries the residual. BOM
+     * lines are scaled proportionally on each side.
+     */
+    @PostMapping("/work-orders/{id}/split")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<List<WorkOrder>>> splitWorkOrder(
+            @PathVariable UUID id, @RequestBody Map<String, Object> body) {
+        BigDecimal firstQty = new BigDecimal(body.get("firstQty").toString());
+        List<WorkOrder> result = service.splitWorkOrder(id, firstQty);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Work order split"));
+    }
+
+    /**
+     * Merge two-or-more DRAFT WOs for the same finished good + warehouse
+     * into a single DRAFT WO (tracker #64). Sources get soft-deleted
+     * with a note pointing at the merged WO. Throws if any source isn't
+     * DRAFT, has a different FG / warehouse / BOM version, or
+     * participates in a parent/child relationship.
+     */
+    @SuppressWarnings("unchecked")
+    @PostMapping("/work-orders/merge")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<WorkOrder>> mergeWorkOrders(
+            @RequestBody Map<String, Object> body) {
+        List<String> ids = (List<String>) body.get("workOrderIds");
+        List<UUID> uuids = ids.stream().map(UUID::fromString).toList();
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.mergeWorkOrders(uuids), "Work orders merged"));
+    }
+
     // ── Workstations ──────────────────────────────────────────────
 
     @PostMapping("/workstations")

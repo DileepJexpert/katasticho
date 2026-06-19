@@ -356,6 +356,202 @@ public class ManufacturingService {
         return clone;
     }
 
+    // ── Split + Merge work orders (tracker #64) ──────────────────────
+
+    /**
+     * Splits a DRAFT WO into two pieces. The original WO's quantity is
+     * reduced to {@code firstQty}, and a sibling DRAFT WO is created
+     * with the residual (original − first). Both WOs end up DRAFT;
+     * BOM lines are scaled proportionally on each side so the per-line
+     * required qty matches the new headline qty exactly.
+     *
+     * <p>Used by planners juggling capacity — e.g. "100 units was too
+     * big for one shift; split into 60 + 40 across two days/machines".
+     *
+     * <p>Refuses to split anything past DRAFT — once materials are
+     * issued the qty is locked. Refuses to split when {@code firstQty}
+     * isn't strictly between 0 and the original quantity, since either
+     * extreme is a no-op.
+     */
+    @Transactional
+    public List<WorkOrder> splitWorkOrder(UUID workOrderId, BigDecimal firstQty) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        WorkOrder source = workOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(workOrderId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("WorkOrder", workOrderId));
+
+        if (!"DRAFT".equals(source.getStatus())) {
+            throw new BusinessException(
+                    "Only DRAFT work orders can be split — this one is " + source.getStatus(),
+                    "MFG_SPLIT_NOT_DRAFT", HttpStatus.BAD_REQUEST);
+        }
+        if (firstQty == null || firstQty.signum() <= 0
+                || firstQty.compareTo(source.getQuantityToProduce()) >= 0) {
+            throw new BusinessException(
+                    "Split quantity must be > 0 and < the original quantity ("
+                            + source.getQuantityToProduce() + ")",
+                    "MFG_SPLIT_INVALID_QTY", HttpStatus.BAD_REQUEST);
+        }
+
+        BigDecimal originalQty = source.getQuantityToProduce();
+        BigDecimal residualQty = originalQty.subtract(firstQty);
+
+        int nextNum = workOrderRepository.findMaxWorkOrderNumber(orgId) + 1;
+        String siblingNumber = String.format("WO-%05d", nextNum);
+
+        WorkOrder sibling = WorkOrder.builder()
+                .workOrderNumber(siblingNumber)
+                .finishedGoodId(source.getFinishedGoodId())
+                .warehouseId(source.getWarehouseId())
+                .quantityToProduce(residualQty)
+                .plannedStartDate(source.getPlannedStartDate())
+                .plannedEndDate(source.getPlannedEndDate())
+                .directLaborCost(source.getDirectLaborCost())
+                .overheadCost(source.getOverheadCost())
+                .notes("Split from " + source.getWorkOrderNumber() + " (residual " + residualQty + ")")
+                .status("DRAFT")
+                .backflushMode(source.isBackflushMode())
+                .bomVersion(source.getBomVersion())
+                .routingId(source.getRoutingId())
+                .priority(source.getPriority() != null ? source.getPriority() : "NORMAL")
+                .disassembly(source.isDisassembly())
+                .parentWorkOrderId(source.getParentWorkOrderId())
+                .lines(new ArrayList<>())
+                .build();
+        sibling = workOrderRepository.save(sibling);
+
+        BigDecimal siblingRmCost = BigDecimal.ZERO;
+        for (WorkOrderLine line : source.getLines()) {
+            if (line.isDeleted()) continue;
+            BigDecimal perUnit = line.getRequiredQty().divide(originalQty, 8, RoundingMode.HALF_UP);
+            BigDecimal siblingReq = perUnit.multiply(residualQty).setScale(4, RoundingMode.HALF_UP);
+            BigDecimal siblingLineCost = line.getUnitCost().multiply(siblingReq)
+                    .setScale(2, RoundingMode.HALF_UP);
+            sibling.getLines().add(WorkOrderLine.builder()
+                    .workOrder(sibling)
+                    .itemId(line.getItemId())
+                    .requiredQty(siblingReq)
+                    .issuedQty(BigDecimal.ZERO)
+                    .unitCost(line.getUnitCost())
+                    .lineCost(siblingLineCost)
+                    .status("PENDING")
+                    .build());
+            siblingRmCost = siblingRmCost.add(siblingLineCost);
+        }
+        sibling.setRawMaterialCost(siblingRmCost);
+        recalculateTotalCost(sibling);
+        sibling = workOrderRepository.save(sibling);
+
+        // Shrink the source's lines proportionally too.
+        BigDecimal sourceRmCost = BigDecimal.ZERO;
+        for (WorkOrderLine line : source.getLines()) {
+            if (line.isDeleted()) continue;
+            BigDecimal perUnit = line.getRequiredQty().divide(originalQty, 8, RoundingMode.HALF_UP);
+            BigDecimal newReq = perUnit.multiply(firstQty).setScale(4, RoundingMode.HALF_UP);
+            line.setRequiredQty(newReq);
+            BigDecimal newLineCost = line.getUnitCost().multiply(newReq)
+                    .setScale(2, RoundingMode.HALF_UP);
+            line.setLineCost(newLineCost);
+            sourceRmCost = sourceRmCost.add(newLineCost);
+        }
+        source.setQuantityToProduce(firstQty);
+        source.setRawMaterialCost(sourceRmCost);
+        recalculateTotalCost(source);
+        source = workOrderRepository.save(source);
+
+        log.info("Work order {} split into {} ({}) + {} ({}) for org {}",
+                source.getWorkOrderNumber(), source.getWorkOrderNumber(), firstQty,
+                sibling.getWorkOrderNumber(), residualQty, orgId);
+        return List.of(source, sibling);
+    }
+
+    /**
+     * Merges two-or-more DRAFT WOs for the same finished good + warehouse
+     * into a single DRAFT WO with the summed quantity. All sources must
+     * be DRAFT, same finished good, same warehouse, same BOM version,
+     * no parent / child relationship. Sources get soft-deleted with a
+     * note pointing at the merged WO.
+     *
+     * <p>Used when a planner consolidates several small orders into one
+     * production run to amortise setup time.
+     */
+    @Transactional
+    public WorkOrder mergeWorkOrders(List<UUID> workOrderIds) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        if (workOrderIds == null || workOrderIds.size() < 2) {
+            throw new BusinessException("Merge needs at least 2 work orders",
+                    "MFG_MERGE_NEEDS_TWO", HttpStatus.BAD_REQUEST);
+        }
+        List<WorkOrder> sources = new ArrayList<>();
+        for (UUID id : workOrderIds) {
+            sources.add(workOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
+                    .orElseThrow(() -> BusinessException.notFound("WorkOrder", id)));
+        }
+        WorkOrder ref = sources.get(0);
+        for (WorkOrder s : sources) {
+            if (!"DRAFT".equals(s.getStatus())) {
+                throw new BusinessException(
+                        "All sources must be DRAFT — " + s.getWorkOrderNumber() + " is " + s.getStatus(),
+                        "MFG_MERGE_NOT_DRAFT", HttpStatus.BAD_REQUEST);
+            }
+            if (!ref.getFinishedGoodId().equals(s.getFinishedGoodId())) {
+                throw new BusinessException(
+                        "All sources must produce the same finished good",
+                        "MFG_MERGE_DIFFERENT_FG", HttpStatus.BAD_REQUEST);
+            }
+            if (!ref.getWarehouseId().equals(s.getWarehouseId())) {
+                throw new BusinessException(
+                        "All sources must share the same warehouse",
+                        "MFG_MERGE_DIFFERENT_WAREHOUSE", HttpStatus.BAD_REQUEST);
+            }
+            // BOM version compare tolerates nulls (a DRAFT with no version
+            // set falls back to "latest at issue time" which still must
+            // match the reference's null/value).
+            if (!java.util.Objects.equals(ref.getBomVersion(), s.getBomVersion())) {
+                throw new BusinessException(
+                        "All sources must use the same BOM version",
+                        "MFG_MERGE_BOM_VERSION_MISMATCH", HttpStatus.BAD_REQUEST);
+            }
+            if (s.getParentWorkOrderId() != null) {
+                throw new BusinessException(
+                        "Cannot merge " + s.getWorkOrderNumber() + " — it's a sub-assembly child",
+                        "MFG_MERGE_CHILD_LOCKED", HttpStatus.BAD_REQUEST);
+            }
+            if (!workOrderRepository.findByOrgIdAndParentWorkOrderIdAndIsDeletedFalse(orgId, s.getId()).isEmpty()) {
+                throw new BusinessException(
+                        "Cannot merge " + s.getWorkOrderNumber() + " — it has child sub-assembly WOs",
+                        "MFG_MERGE_HAS_CHILDREN", HttpStatus.BAD_REQUEST);
+            }
+        }
+
+        BigDecimal totalQty = sources.stream()
+                .map(WorkOrder::getQuantityToProduce)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        WorkOrder merged = createWorkOrder(ref.getFinishedGoodId(), ref.getWarehouseId(),
+                totalQty, ref.getPlannedStartDate(), ref.getPlannedEndDate(),
+                BigDecimal.ZERO, BigDecimal.ZERO,
+                "Merged from " + sources.stream()
+                        .map(WorkOrder::getWorkOrderNumber)
+                        .collect(Collectors.joining(", ")),
+                ref.isBackflushMode(), ref.getBomVersion(), false, ref.getPriority());
+
+        // Soft-delete the sources with a note. We don't go through the
+        // cancel-workflow path because cancelled WOs would write
+        // reversal movements; sources here haven't issued anything so
+        // there's nothing to reverse.
+        for (WorkOrder s : sources) {
+            s.setStatus("CANCELLED");
+            s.setNotes("Merged into " + merged.getWorkOrderNumber()
+                    + (s.getNotes() != null ? " | " + s.getNotes() : ""));
+            s.setDeleted(true);
+            workOrderRepository.save(s);
+        }
+
+        log.info("Merged {} work orders into {} (qty {}) for org {}",
+                sources.size(), merged.getWorkOrderNumber(), totalQty, orgId);
+        return merged;
+    }
+
     @Transactional(readOnly = true)
     public WorkOrder getWorkOrder(UUID id) {
         UUID orgId = TenantContext.getCurrentOrgId();
