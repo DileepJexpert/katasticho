@@ -6,6 +6,7 @@ import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.manufacturing.entity.BmrDeviation;
 import com.katasticho.erp.manufacturing.entity.BmrSignoff;
 import com.katasticho.erp.manufacturing.entity.BmrStepRecord;
+import com.katasticho.erp.manufacturing.service.BmrPdfService;
 import com.katasticho.erp.manufacturing.service.BmrService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,8 @@ import java.util.UUID;
 public class BmrController {
 
     private final BmrService service;
+    private final BmrPdfService pdfService;
+    private final com.katasticho.erp.manufacturing.repository.WorkOrderRepository workOrderRepository;
 
     // ── Step records ─────────────────────────────────────────────────
 
@@ -122,5 +125,26 @@ public class BmrController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> bmrSnapshot(
             @PathVariable UUID workOrderId) {
         return ResponseEntity.ok(ApiResponse.ok(service.bmrSnapshot(workOrderId)));
+    }
+
+    /**
+     * Regulator-ready BMR PDF. Pulls the snapshot, resolves display
+     * names, renders the standard Schedule M / WHO-GMP layout, and
+     * returns the document as a download.
+     */
+    @GetMapping("/work-orders/{workOrderId}/pdf")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR','ACCOUNTANT','VIEWER')")
+    public ResponseEntity<byte[]> downloadBmrPdf(@PathVariable UUID workOrderId) {
+        com.katasticho.erp.manufacturing.entity.WorkOrder wo = workOrderRepository
+                .findByIdAndOrgIdAndIsDeletedFalse(workOrderId,
+                        com.katasticho.erp.common.context.TenantContext.getCurrentOrgId())
+                .orElseThrow(() -> com.katasticho.erp.common.exception.BusinessException
+                        .notFound("WorkOrder", workOrderId));
+        byte[] pdf = pdfService.generatePdf(workOrderId);
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + BmrPdfService.filename(wo) + "\"")
+                .body(pdf);
     }
 }

@@ -1,5 +1,9 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:printing/printing.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
@@ -244,6 +248,34 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
     ref.invalidate(_deviationsProvider(_woId!));
   }
 
+  /// Pulls the regulator-ready BMR PDF from the server and pops it
+  /// through the native share/save sheet (or print preview on
+  /// desktop). Uses the existing Dio client so the bearer token is
+  /// attached automatically.
+  Future<void> _downloadPdf() async {
+    final woId = _woId;
+    if (woId == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Generating BMR PDF…')),
+    );
+    try {
+      final res = await ref.read(apiClientProvider).get(
+            ApiConfig.bmrWorkOrderPdf(woId),
+            options: Options(responseType: ResponseType.bytes),
+          );
+      final bytes = res.data as List<int>;
+      await Printing.sharePdf(
+        bytes: Uint8List.fromList(bytes),
+        filename: 'BMR-$woId.pdf',
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(ApiErrorParser.message(e))),
+      );
+    }
+  }
+
   void _showError(Object e) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -256,6 +288,15 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Batch Manufacturing Record'),
+        actions: _woId == null
+            ? null
+            : [
+                IconButton(
+                  tooltip: 'Download regulator-ready BMR PDF',
+                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  onPressed: _downloadPdf,
+                ),
+              ],
         bottom: _woId == null
             ? null
             : TabBar(

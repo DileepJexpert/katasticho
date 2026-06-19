@@ -909,6 +909,8 @@ class ApiConfig {
   static const String bmrOpenDeviations = '/api/v1/manufacturing/bmr/deviations/open';
   static String bmrWorkOrderSnapshot(String woId) =>
       '/api/v1/manufacturing/bmr/work-orders/$woId/snapshot';
+  static String bmrWorkOrderPdf(String woId) =>
+      '/api/v1/manufacturing/bmr/work-orders/$woId/pdf';
   static String bmrWorkOrderYield(String woId) =>
       '/api/v1/manufacturing/bmr/work-orders/$woId/yield-reconciliation';
   static String bmrWorkOrderStepRecords(String woId) =>
