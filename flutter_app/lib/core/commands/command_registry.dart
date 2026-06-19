@@ -680,6 +680,14 @@ List<KCommand> buildAppCommands() {
       keywords: ['pf', 'esi', 'salary'],
     ),
     KCommand(
+      label: 'Labor Pay Preview',
+      icon: Icons.calculate_rounded,
+      section: 'Navigate',
+      route: Routes.payrollLaborPayPreview,
+      keywords: ['hourly', 'piece-rate', 'production', 'payroll', 'job card',
+                 'manufacturing', 'wage', 'labour'],
+    ),
+    KCommand(
       label: 'POS Receipt Settings',
       icon: Icons.receipt_rounded,
       section: 'Settings',

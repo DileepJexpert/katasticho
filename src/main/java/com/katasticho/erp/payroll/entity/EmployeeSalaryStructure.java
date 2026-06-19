@@ -49,6 +49,23 @@ public class EmployeeSalaryStructure {
     @Column(name = "gross_monthly")
     private BigDecimal grossMonthly;
 
+    /**
+     * Pay model — drives whether the payslip pulls from production data
+     * (tracker #57): SALARY = fixed-monthly from structure (default,
+     * legacy behaviour), HOURLY = pay = hours × {@link #hourlyRate} from
+     * the period's completed job cards, PIECE_RATE = pay = completed
+     * pieces × {@link #pieceRate}.
+     */
+    @Column(name = "pay_type", length = 20)
+    @Builder.Default
+    private String payType = "SALARY";
+
+    @Column(name = "hourly_rate")
+    private BigDecimal hourlyRate;
+
+    @Column(name = "piece_rate")
+    private BigDecimal pieceRate;
+
     @Column(length = 20)
     @Builder.Default
     private String status = "ACTIVE";

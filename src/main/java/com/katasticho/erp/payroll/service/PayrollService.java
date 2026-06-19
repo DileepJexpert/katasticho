@@ -41,6 +41,7 @@ public class PayrollService {
     private final JournalService journalService;
     private final AccountRepository accountRepository;
     private final com.katasticho.erp.attendance.LeaveRequestRepository leaveRequestRepository;
+    private final ProductionPayrollService productionPayrollService;
 
     // ──────────────────────────────── Settings ────────────────────────────────
 
@@ -796,6 +797,25 @@ public class PayrollService {
                     case "DEDUCTION" -> totalDeductions = totalDeductions.add(amount);
                     case "EMPLOYER_CONTRIBUTION" -> employerContributions = employerContributions.add(amount);
                 }
+            }
+        }
+
+        // Production→payroll bridge (tracker #57). For HOURLY / PIECE_RATE
+        // structures we add a LABOR_PAY earning computed from the worker's
+        // completed job cards in the period. SALARY structures hit the
+        // SALARY short-circuit inside computeLaborPay and return zero,
+        // so this whole block is a no-op for the legacy path.
+        if (productionPayrollService != null
+                && structure.getPayType() != null
+                && !"SALARY".equals(structure.getPayType())) {
+            ProductionPayrollService.LaborPay laborPay = productionPayrollService
+                    .computeLaborPay(employee, structure, run.getPeriodStart(), run.getPeriodEnd());
+            if (laborPay.amount().signum() > 0) {
+                BigDecimal laborAmount = laborPay.amount();
+                addStatutoryLine(payslip, orgId, componentsByCode,
+                        "LABOR_PAY", "EARNING", laborAmount);
+                grossPay = grossPay.add(laborAmount);
+                computedAmounts.put("LABOR_PAY", laborAmount);
             }
         }
 

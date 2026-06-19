@@ -26,6 +26,7 @@ import java.util.UUID;
 public class PayrollController {
 
     private final PayrollService service;
+    private final com.katasticho.erp.payroll.service.ProductionPayrollService productionPayrollService;
 
     // ── Settings ──
 
@@ -193,9 +194,33 @@ public class PayrollController {
                 .effectiveFrom(request.effectiveFrom())
                 .ctcMonthly(request.ctcMonthly())
                 .grossMonthly(request.grossMonthly())
+                .payType(request.payType() != null ? request.payType() : "SALARY")
+                .hourlyRate(request.hourlyRate())
+                .pieceRate(request.pieceRate())
                 .build();
         return ResponseEntity.ok(ApiResponse.ok(
                 service.createStructure(employeeId, structure), "Salary structure saved"));
+    }
+
+    /**
+     * Production→payroll preview (tracker #57). Given an employee + a
+     * period, returns the total hours, pieces, and computed labour pay
+     * driven by completed job cards. Useful for HR validation before
+     * running the actual payroll.
+     */
+    @GetMapping("/employees/{employeeId}/labor-pay-preview")
+    public ResponseEntity<ApiResponse<com.katasticho.erp.payroll.service.ProductionPayrollService.LaborPay>>
+            previewLaborPay(@PathVariable UUID employeeId,
+                            @RequestParam @org.springframework.format.annotation.DateTimeFormat(
+                                    iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                                java.time.LocalDate periodStart,
+                            @RequestParam @org.springframework.format.annotation.DateTimeFormat(
+                                    iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                                java.time.LocalDate periodEnd) {
+        EmployeeSalaryStructure structure = service.getCurrentStructure(employeeId);
+        return ResponseEntity.ok(ApiResponse.ok(
+                productionPayrollService.previewByEmployeeId(employeeId, structure,
+                        periodStart, periodEnd)));
     }
 
     // ── Payroll Runs ──

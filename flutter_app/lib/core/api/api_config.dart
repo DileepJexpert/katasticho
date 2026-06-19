@@ -716,6 +716,8 @@ class ApiConfig {
   static String payrollEmployee(String id) => '/api/v1/payroll/employees/$id';
   static String employeeSalaryStructure(String employeeId) =>
       '/api/v1/payroll/employees/$employeeId/salary-structure';
+  static String employeeLaborPayPreview(String employeeId) =>
+      '/api/v1/payroll/employees/$employeeId/labor-pay-preview';
   static const String salaryComponents = '/api/v1/payroll/salary-components';
   static String salaryComponent(String id) =>
       '/api/v1/payroll/salary-components/$id';
