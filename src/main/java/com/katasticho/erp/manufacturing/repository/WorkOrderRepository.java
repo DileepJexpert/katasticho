@@ -56,4 +56,11 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, UUID> {
 
     @Query("SELECT COALESCE(MAX(CAST(SUBSTRING(w.workOrderNumber, 4) AS int)), 0) FROM WorkOrder w WHERE w.orgId = :orgId")
     int findMaxWorkOrderNumber(UUID orgId);
+
+    /**
+     * Dedupe guard for the reorder-point auto-WO sweep — don't spawn a
+     * second DRAFT for an FG that already has an open one.
+     */
+    boolean existsByOrgIdAndFinishedGoodIdAndStatusInAndIsDeletedFalse(
+            UUID orgId, UUID finishedGoodId, List<String> statuses);
 }

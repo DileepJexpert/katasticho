@@ -36,8 +36,15 @@ class _WorkOrderListScreenState extends ConsumerState<WorkOrderListScreen> {
       child: Scaffold(
       body: Column(
         children: [
-          const KListPageHeader(
+          KListPageHeader(
             title: 'Work Orders',
+            actions: [
+              IconButton(
+                tooltip: 'Auto-create WOs from low-stock composites',
+                icon: const Icon(Icons.replay_outlined),
+                onPressed: _replenishFromReorder,
+              ),
+            ],
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -104,6 +111,28 @@ class _WorkOrderListScreenState extends ConsumerState<WorkOrderListScreen> {
 
   void _setFilter(String? status) {
     setState(() => _statusFilter = status);
+  }
+
+  /// Sweeps low-stock composite items and drafts a WO per item.
+  /// Idempotent on the server — safe to tap repeatedly.
+  Future<void> _replenishFromReorder() async {
+    try {
+      final created = await ref
+          .read(manufacturingRepositoryProvider)
+          .autoCreateWoFromReorder();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(created.isEmpty
+            ? 'No low-stock composite items — nothing to draft'
+            : 'Created ${created.length} draft work order(s) from reorder sweep'),
+      ));
+      ref.invalidate(workOrdersProvider(_statusFilter));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Replenish failed: $e')),
+      );
+    }
   }
 }
 

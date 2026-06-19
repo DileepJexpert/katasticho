@@ -63,6 +63,7 @@ class ManufacturingServiceTest {
     @Mock private com.katasticho.erp.manufacturing.repository.ScrapReasonCodeRepository scrapReasonCodeRepo;
     @Mock private com.katasticho.erp.inventory.repository.StockBatchRepository stockBatchRepo;
     @Mock private com.katasticho.erp.inventory.service.BatchTraceService batchTraceService;
+    @Mock private com.katasticho.erp.inventory.repository.StockBalanceRepository stockBalanceRepo;
 
     private ManufacturingService service;
 
@@ -78,7 +79,8 @@ class ManufacturingServiceTest {
                 workOrderRepo, workOrderLineRepo, bomComponentRepo, itemRepo, inventoryService,
                 salesOrderRepo, warehouseRepo, journalService, wipPostingRule, costSummaryRepo,
                 bomAlternateRepo, bomCoProductRepo, approvalWorkflowService,
-                productionScrapRepo, scrapReasonCodeRepo, stockBatchRepo, batchTraceService);
+                productionScrapRepo, scrapReasonCodeRepo, stockBatchRepo, batchTraceService,
+                stockBalanceRepo);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
@@ -549,6 +551,124 @@ class ManufacturingServiceTest {
                 java.time.LocalDate.now().minusDays(1), java.time.LocalDate.now());
         assertEquals(0, ((BigDecimal) dash.get("totalScrapQty")).compareTo(BigDecimal.ZERO));
         assertEquals(0, ((BigDecimal) dash.get("totalScrapCost")).compareTo(BigDecimal.ZERO));
+    }
+
+    @Test
+    void autoCreateWorkOrdersFromReorder_createsDraftWoForLowStockComposite() {
+        Item fg = buildCompositeItem();
+        fg.setReorderLevel(new BigDecimal("100"));
+        Item rm = buildRawMaterial();
+        BomComponent bom = buildBomComponent();
+
+        com.katasticho.erp.inventory.entity.StockBalance bal =
+                com.katasticho.erp.inventory.entity.StockBalance.builder()
+                        .itemId(fgItemId).warehouseId(warehouseId)
+                        .quantityOnHand(new BigDecimal("30"))
+                        .build();
+
+        com.katasticho.erp.inventory.entity.Warehouse wh =
+                com.katasticho.erp.inventory.entity.Warehouse.builder()
+                        .code("MAIN").name("Main").isDefault(true).build();
+        wh.setId(warehouseId);
+
+        when(stockBalanceRepo.findLowStock(orgId)).thenReturn(List.of(bal));
+        when(warehouseRepo.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId))
+                .thenReturn(Optional.of(wh));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
+        when(workOrderRepo.existsByOrgIdAndFinishedGoodIdAndStatusInAndIsDeletedFalse(
+                org.mockito.ArgumentMatchers.eq(orgId),
+                org.mockito.ArgumentMatchers.eq(fgItemId),
+                org.mockito.ArgumentMatchers.anyList())).thenReturn(false);
+        // createWorkOrder internals — same shape as createWorkOrder_compositeItem_succeeds
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+                .thenReturn(List.of(bom));
+        when(bomComponentRepo.findMaxVersion(orgId, fgItemId)).thenReturn(1);
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId)).thenReturn(Optional.of(rm));
+        when(workOrderRepo.findMaxWorkOrderNumber(orgId)).thenReturn(0);
+        when(workOrderRepo.save(any())).thenAnswer(inv -> {
+            WorkOrder w = inv.getArgument(0);
+            if (w.getId() == null) w.setId(UUID.randomUUID());
+            return w;
+        });
+
+        List<WorkOrder> created = service.autoCreateWorkOrdersFromReorder();
+
+        assertEquals(1, created.size());
+        WorkOrder wo = created.get(0);
+        assertEquals(fgItemId, wo.getFinishedGoodId());
+        // deficit = 100 reorder − 30 on hand = 70
+        assertEquals(0, wo.getQuantityToProduce().compareTo(new BigDecimal("70.00")));
+        assertEquals("DRAFT", wo.getStatus());
+    }
+
+    @Test
+    void autoCreateWorkOrdersFromReorder_skipsItemsWithOpenWo() {
+        Item fg = buildCompositeItem();
+        fg.setReorderLevel(new BigDecimal("100"));
+        com.katasticho.erp.inventory.entity.StockBalance bal =
+                com.katasticho.erp.inventory.entity.StockBalance.builder()
+                        .itemId(fgItemId).warehouseId(warehouseId)
+                        .quantityOnHand(new BigDecimal("30"))
+                        .build();
+        com.katasticho.erp.inventory.entity.Warehouse wh =
+                com.katasticho.erp.inventory.entity.Warehouse.builder()
+                        .code("MAIN").name("Main").isDefault(true).build();
+        wh.setId(warehouseId);
+
+        when(stockBalanceRepo.findLowStock(orgId)).thenReturn(List.of(bal));
+        when(warehouseRepo.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId))
+                .thenReturn(Optional.of(wh));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
+        // The dedupe guard fires — an open WO already exists.
+        when(workOrderRepo.existsByOrgIdAndFinishedGoodIdAndStatusInAndIsDeletedFalse(
+                org.mockito.ArgumentMatchers.eq(orgId),
+                org.mockito.ArgumentMatchers.eq(fgItemId),
+                org.mockito.ArgumentMatchers.anyList())).thenReturn(true);
+
+        List<WorkOrder> created = service.autoCreateWorkOrdersFromReorder();
+
+        assertEquals(0, created.size());
+        verify(workOrderRepo, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void autoCreateWorkOrdersFromReorder_skipsNonCompositeItems() {
+        Item rm = buildRawMaterial();        // STORAGE, not COMPOSITE
+        rm.setReorderLevel(new BigDecimal("100"));
+        com.katasticho.erp.inventory.entity.StockBalance bal =
+                com.katasticho.erp.inventory.entity.StockBalance.builder()
+                        .itemId(rmItemId).warehouseId(warehouseId)
+                        .quantityOnHand(new BigDecimal("10"))
+                        .build();
+        com.katasticho.erp.inventory.entity.Warehouse wh =
+                com.katasticho.erp.inventory.entity.Warehouse.builder()
+                        .code("MAIN").name("Main").isDefault(true).build();
+        wh.setId(warehouseId);
+
+        when(stockBalanceRepo.findLowStock(orgId)).thenReturn(List.of(bal));
+        when(warehouseRepo.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId))
+                .thenReturn(Optional.of(wh));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId)).thenReturn(Optional.of(rm));
+
+        List<WorkOrder> created = service.autoCreateWorkOrdersFromReorder();
+
+        // RM low stock is the purchase-requisition flow's job, not WOs.
+        assertEquals(0, created.size());
+        verify(workOrderRepo, org.mockito.Mockito.never())
+                .existsByOrgIdAndFinishedGoodIdAndStatusInAndIsDeletedFalse(any(), any(), any());
+    }
+
+    @Test
+    void autoCreateWorkOrdersFromReorder_noLowStock_returnsEmpty_withoutTouchingWarehouse() {
+        when(stockBalanceRepo.findLowStock(orgId)).thenReturn(List.of());
+
+        List<WorkOrder> created = service.autoCreateWorkOrdersFromReorder();
+
+        assertEquals(0, created.size());
+        // Important: don't blow up on missing default warehouse when there's
+        // nothing to do — sweep should be a no-op cost on quiet orgs.
+        verify(warehouseRepo, org.mockito.Mockito.never())
+                .findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(any());
     }
 
     @Test

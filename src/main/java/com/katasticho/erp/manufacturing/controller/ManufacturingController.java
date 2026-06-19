@@ -153,6 +153,20 @@ public class ManufacturingController {
                 "Work orders created from sales order"));
     }
 
+    /**
+     * Auto-create DRAFT work orders for every COMPOSITE item below its
+     * reorder level (tracker #66). Idempotent — skips items that
+     * already have an open WO. Run from an admin "Replenish now"
+     * button or hook to an MRP cron later.
+     */
+    @PostMapping("/work-orders/from-reorder")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<List<WorkOrder>>> createFromReorder() {
+        List<WorkOrder> created = service.autoCreateWorkOrdersFromReorder();
+        return ResponseEntity.ok(ApiResponse.ok(created,
+                "Created " + created.size() + " work order(s) from reorder sweep"));
+    }
+
     // ── Workstations ──────────────────────────────────────────────
 
     @PostMapping("/workstations")

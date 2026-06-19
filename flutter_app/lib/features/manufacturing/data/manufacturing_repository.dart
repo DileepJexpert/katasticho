@@ -222,6 +222,14 @@ class ManufacturingRepository {
     return _unwrap(res);
   }
 
+  /// Auto-create DRAFT work orders for every COMPOSITE item below its
+  /// reorder level. Idempotent — skips items with an open WO already.
+  /// Returns the list of created WOs (may be empty).
+  Future<List<Map<String, dynamic>>> autoCreateWoFromReorder() async {
+    final res = await _api.post(ApiConfig.manufacturingWoFromReorder);
+    return _unwrapList(res);
+  }
+
   // ---------------------------------------------------------------------------
   // Tier 2: Production Reports
   // ---------------------------------------------------------------------------

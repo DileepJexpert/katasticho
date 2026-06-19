@@ -95,7 +95,7 @@ class MrpServiceTest {
                 workOrderRepo, workOrderLineRepo, bomComponentRepo, itemRepo, inventoryService,
                 salesOrderRepo, warehouseRepo, journalService, wipPostingRule, costSummaryRepo,
                 bomAlternateRepo, bomCoProductRepo, approvalWorkflowService,
-                productionScrapRepo, scrapReasonCodeRepo, null, null);
+                productionScrapRepo, scrapReasonCodeRepo, null, null, null);
 
         mrpService = new MrpService(
                 mrpRunRepo, mrpDemandRepo, mrpSupplyRepo, plannedOrderRepo,

@@ -14,6 +14,7 @@ import com.katasticho.erp.inventory.repository.BomAlternateRepository;
 import com.katasticho.erp.inventory.repository.BomCoProductRepository;
 import com.katasticho.erp.inventory.repository.BomComponentRepository;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.BatchTraceService;
@@ -78,6 +79,7 @@ public class ManufacturingService {
     private final ScrapReasonCodeRepository scrapReasonCodeRepository;
     private final StockBatchRepository stockBatchRepository;
     private final BatchTraceService batchTraceService;
+    private final StockBalanceRepository stockBalanceRepository;
 
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
     private static final Set<String> VALID_PRIORITIES = Set.of("URGENT", "HIGH", "NORMAL", "LOW");
@@ -954,6 +956,86 @@ public class ManufacturingService {
 
         log.info("Created {} work orders from SO {} for org {}",
                 created.size(), so.getSalesorderNumber(), orgId);
+        return created;
+    }
+
+    // ── Auto-create WOs from reorder points ──────────────────────────
+
+    /**
+     * Auto-WO sweep (tracker #66). Walks every batch-balance row whose
+     * on-hand quantity is at or below the item's reorder level, keeps
+     * only COMPOSITE items (those we can manufacture), aggregates the
+     * deficit across warehouses, and creates one DRAFT work order per
+     * FG with the missing quantity. Idempotent — skips any FG that
+     * already has an open DRAFT / PENDING_APPROVAL / IN_PROGRESS WO
+     * so the cron can run every hour without piling up draft tickets.
+     *
+     * <p>Designed to be called by an MRP cron or by an admin "Replenish
+     * now" button. The created WOs land in DRAFT so a planner reviews
+     * BOMs / dates before issuing materials.
+     *
+     * @return list of newly-created DRAFT work orders
+     */
+    @Transactional
+    public List<WorkOrder> autoCreateWorkOrdersFromReorder() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        // Total on-hand per item across warehouses. The default
+        // warehouse becomes the WO's home warehouse below.
+        Map<UUID, BigDecimal> onHandByItem = new LinkedHashMap<>();
+        Map<UUID, BigDecimal> reorderByItem = new HashMap<>();
+        for (StockBalance b : stockBalanceRepository.findLowStock(orgId)) {
+            onHandByItem.merge(b.getItemId(),
+                    b.getQuantityOnHand() == null ? BigDecimal.ZERO : b.getQuantityOnHand(),
+                    BigDecimal::add);
+        }
+        if (onHandByItem.isEmpty()) return List.of();
+
+        UUID defaultWarehouseId = warehouseRepository
+                .findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
+                .orElseThrow(() -> new BusinessException("No default warehouse configured",
+                        "WAREHOUSE_NOT_FOUND", HttpStatus.BAD_REQUEST))
+                .getId();
+
+        List<WorkOrder> created = new ArrayList<>();
+        List<String> openStatuses = List.of("DRAFT", "PENDING_APPROVAL", "IN_PROGRESS");
+
+        for (Map.Entry<UUID, BigDecimal> entry : onHandByItem.entrySet()) {
+            UUID itemId = entry.getKey();
+            Item item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(itemId, orgId).orElse(null);
+            // Only manufactured items qualify — purchased low-stock rows
+            // belong on a purchase requisition, not a work order.
+            if (item == null || item.getItemType() != ItemType.COMPOSITE) continue;
+
+            // Skip if there's already an open WO for this FG so the
+            // sweep is safe to run on a cron. A planner who needs more
+            // can edit the existing draft instead of stacking new ones.
+            if (workOrderRepository.existsByOrgIdAndFinishedGoodIdAndStatusInAndIsDeletedFalse(
+                    orgId, itemId, openStatuses)) {
+                continue;
+            }
+            BigDecimal reorderLevel = item.getReorderLevel() != null
+                    ? item.getReorderLevel() : BigDecimal.ZERO;
+            reorderByItem.put(itemId, reorderLevel);
+            BigDecimal deficit = reorderLevel.subtract(entry.getValue());
+            if (deficit.signum() <= 0) continue;     // changed since the query
+            BigDecimal qty = deficit.setScale(2, RoundingMode.HALF_UP);
+
+            try {
+                WorkOrder wo = createWorkOrder(itemId, defaultWarehouseId, qty,
+                        LocalDate.now(), LocalDate.now().plusDays(7),
+                        BigDecimal.ZERO, BigDecimal.ZERO,
+                        "Auto-created from reorder sweep (on hand "
+                                + entry.getValue() + " ≤ reorder " + reorderLevel + ")");
+                created.add(wo);
+            } catch (BusinessException ex) {
+                // Composite item with no BOM, no default account, etc. —
+                // log and continue so one bad item doesn't kill the sweep.
+                log.warn("Skipped reorder WO for item {}: {}", itemId, ex.getMessage());
+            }
+        }
+
+        log.info("Reorder sweep created {} draft work orders for org {}", created.size(), orgId);
         return created;
     }
 
