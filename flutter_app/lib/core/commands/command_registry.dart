@@ -438,6 +438,15 @@ List<KCommand> buildAppCommands() {
                  'utilisation', 'utilization', 'planning', 'machine'],
     ),
     KCommand(
+      label: 'CAPA',
+      icon: Icons.fact_check_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingCapa,
+      keywords: ['capa', 'corrective', 'preventive', 'action', 'ncr',
+                 'iso 9001', '13485', 'iatf', 'quality', 'audit',
+                 'root cause', 'effectiveness'],
+    ),
+    KCommand(
       label: 'Batch Manufacturing Record',
       icon: Icons.science_rounded,
       section: 'Navigate',

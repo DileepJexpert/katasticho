@@ -1024,6 +1024,16 @@ class ApiConfig {
       '/api/v1/manufacturing/reports/workstation-load';
   static const String manufacturingBottlenecks =
       '/api/v1/manufacturing/reports/bottlenecks';
+  static const String manufacturingCapa = '/api/v1/manufacturing/capa';
+  static String manufacturingCapaById(String id) =>
+      '/api/v1/manufacturing/capa/$id';
+  static String manufacturingCapaAction(String id, String action) =>
+      '/api/v1/manufacturing/capa/$id/$action';
+  static const String manufacturingCapaMine = '/api/v1/manufacturing/capa/me';
+  static const String manufacturingCapaOverdue =
+      '/api/v1/manufacturing/capa/overdue';
+  static const String manufacturingCapaDashboard =
+      '/api/v1/manufacturing/capa/dashboard';
   static const String manufacturingWipValuation = '/api/v1/manufacturing/reports/wip-valuation';
   static const String manufacturingConsumption = '/api/v1/manufacturing/reports/consumption';
   static const String manufacturingProductionTrends =
