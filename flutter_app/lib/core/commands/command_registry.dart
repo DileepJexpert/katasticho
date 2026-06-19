@@ -414,6 +414,14 @@ List<KCommand> buildAppCommands() {
                  'footwear', 'parameter'],
     ),
     KCommand(
+      label: 'Batch Manufacturing Record',
+      icon: Icons.science_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingBmr,
+      keywords: ['bmr', 'pharma', 'compliance', 'schedule m', 'gmp', 'who',
+                 'cdsco', 'batch record', 'deviation', 'yield', 'audit'],
+    ),
+    KCommand(
       label: 'Operation Work Instructions',
       icon: Icons.description_rounded,
       section: 'Navigate',

@@ -900,6 +900,23 @@ class ApiConfig {
       '/api/v1/manufacturing/work-orders/merge';
   static String manufacturingWorkOrderFromSo = '/api/v1/manufacturing/work-orders/from-sales-order';
   static String manufacturingWorkOrderJobCards(String id) => '/api/v1/manufacturing/work-orders/$id/job-cards';
+
+  // ── Pharma BMR (Batch Manufacturing Record) ─────────────────────────────
+  static const String bmrStepRecords = '/api/v1/manufacturing/bmr/step-records';
+  static const String bmrSignoffs = '/api/v1/manufacturing/bmr/signoffs';
+  static const String bmrDeviations = '/api/v1/manufacturing/bmr/deviations';
+  static String bmrDeviation(String id) => '/api/v1/manufacturing/bmr/deviations/$id';
+  static const String bmrOpenDeviations = '/api/v1/manufacturing/bmr/deviations/open';
+  static String bmrWorkOrderSnapshot(String woId) =>
+      '/api/v1/manufacturing/bmr/work-orders/$woId/snapshot';
+  static String bmrWorkOrderYield(String woId) =>
+      '/api/v1/manufacturing/bmr/work-orders/$woId/yield-reconciliation';
+  static String bmrWorkOrderStepRecords(String woId) =>
+      '/api/v1/manufacturing/bmr/work-orders/$woId/step-records';
+  static String bmrWorkOrderSignoffs(String woId) =>
+      '/api/v1/manufacturing/bmr/work-orders/$woId/signoffs';
+  static String bmrWorkOrderDeviations(String woId) =>
+      '/api/v1/manufacturing/bmr/work-orders/$woId/deviations';
   static String manufacturingWorkOrderScrap(String id) => '/api/v1/manufacturing/work-orders/$id/scrap';
 
   // Manufacturing — Maintenance management
