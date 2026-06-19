@@ -1,5 +1,9 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:printing/printing.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
@@ -174,6 +178,28 @@ class _ItemComplianceFormState extends ConsumerState<_ItemComplianceForm> {
     }
   }
 
+  Future<void> _printLabel() async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Rendering FSSAI food label…')),
+    );
+    try {
+      final res = await ref.read(apiClientProvider).get(
+            ApiConfig.fssaiFoodLabelPdf(widget.itemId),
+            options: Options(responseType: ResponseType.bytes),
+          );
+      final bytes = res.data as List<int>;
+      await Printing.sharePdf(
+        bytes: Uint8List.fromList(bytes),
+        filename: 'food-label-${widget.itemId}.pdf',
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(ApiErrorParser.message(e))),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final itemAsync = ref.watch(_itemFssaiProvider(widget.itemId));
@@ -282,10 +308,22 @@ class _ItemComplianceFormState extends ConsumerState<_ItemComplianceForm> {
               ),
             ),
             const SizedBox(height: KSpacing.lg),
-            FilledButton.icon(
-              onPressed: _save,
-              icon: const Icon(Icons.save),
-              label: const Text('Save FSSAI declarations'),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _save,
+                    icon: const Icon(Icons.save),
+                    label: const Text('Save FSSAI declarations'),
+                  ),
+                ),
+                const SizedBox(width: KSpacing.sm),
+                OutlinedButton.icon(
+                  onPressed: _printLabel,
+                  icon: const Icon(Icons.print_outlined),
+                  label: const Text('Print food label'),
+                ),
+              ],
             ),
           ],
         );

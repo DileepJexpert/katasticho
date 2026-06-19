@@ -2,6 +2,7 @@ package com.katasticho.erp.inventory.controller;
 
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.inventory.entity.Item;
+import com.katasticho.erp.inventory.service.FoodLabelPdfService;
 import com.katasticho.erp.inventory.service.FssaiService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,9 @@ import java.util.UUID;
 public class FssaiController {
 
     private final FssaiService service;
+    private final FoodLabelPdfService labelPdfService;
+    private final com.katasticho.erp.inventory.repository.ItemRepository itemRepository;
+    private final com.katasticho.erp.inventory.repository.StockBatchRepository stockBatchRepository;
 
     @GetMapping("/items/{itemId}")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR','ACCOUNTANT','VIEWER')")
@@ -53,5 +57,34 @@ public class FssaiController {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<List<String>>> majorAllergens() {
         return ResponseEntity.ok(ApiResponse.ok(service.majorAllergens()));
+    }
+
+    /**
+     * Regulator-ready FSSAI food-label PDF. When {@code batchId} is
+     * supplied the label carries that batch's MFG date, expiry, and
+     * lot number; otherwise renders the "master label" with the
+     * item's shelf-life-driven date marking.
+     */
+    @GetMapping("/items/{itemId}/label")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR','ACCOUNTANT','VIEWER')")
+    public ResponseEntity<byte[]> downloadFoodLabel(
+            @PathVariable UUID itemId,
+            @RequestParam(required = false) UUID batchId) {
+        UUID orgId = com.katasticho.erp.common.context.TenantContext.getCurrentOrgId();
+        com.katasticho.erp.inventory.entity.Item item = itemRepository
+                .findByIdAndOrgIdAndIsDeletedFalse(itemId, orgId)
+                .orElseThrow(() -> com.katasticho.erp.common.exception.BusinessException
+                        .notFound("Item", itemId));
+        com.katasticho.erp.inventory.entity.StockBatch batch = batchId == null
+                ? null
+                : stockBatchRepository.findByIdAndOrgIdAndIsDeletedFalse(batchId, orgId)
+                        .orElseThrow(() -> com.katasticho.erp.common.exception.BusinessException
+                                .notFound("StockBatch", batchId));
+        byte[] pdf = labelPdfService.generateLabel(itemId, batchId);
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + FoodLabelPdfService.filename(item, batch) + "\"")
+                .body(pdf);
     }
 }

@@ -158,6 +158,10 @@ class ApiConfig {
       '/api/v1/fssai/reports/allergen-exposure';
   static const String fssaiLicenseRenewal =
       '/api/v1/fssai/reports/license-renewal';
+  static String fssaiFoodLabelPdf(String itemId, {String? batchId}) {
+    final qs = batchId == null ? '' : '?batchId=$batchId';
+    return '/api/v1/fssai/items/$itemId/label$qs';
+  }
   static const String itemImportPreview = '/api/v1/items/import/preview';
   static const String itemImportTemplate = '/api/v1/items/import/template';
   // F4 BOM — composite item bill of materials (only valid for
