@@ -7,7 +7,9 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -221,4 +223,42 @@ public class Item extends BaseEntity {
     @Column(name = "variant_attributes", columnDefinition = "jsonb", nullable = false)
     @Builder.Default
     private Map<String, String> variantAttributes = new HashMap<>();
+
+    // ── FSSAI / food compliance (V28) ────────────────────────────────
+
+    /** 14-digit FSSAI license printed on the item's retail pack. */
+    @Column(name = "fssai_license", length = 20)
+    private String fssaiLicense;
+
+    /** {@code VEGETARIAN | NON_VEGETARIAN | VEGAN | EGG} — drives the mandatory dot/triangle on the label. */
+    @Column(name = "veg_classification", length = 20)
+    private String vegClassification;
+
+    /**
+     * FSSAI / Codex major-allergen codes declared on the label, e.g.
+     * {@code ["MILK","WHEAT_GLUTEN","SOY"]}. Empty = explicitly
+     * "none of the major allergens"; NULL = not yet declared.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "allergens", columnDefinition = "jsonb")
+    private List<String> allergens;
+
+    /**
+     * Per-serving / per-100g nutritional facts, e.g.
+     * {@code {"calories_kcal":250, "protein_g":8, "fat_g":12,
+     *         "carbs_g":30, "sugars_g":5, "sodium_mg":120}}.
+     * FSSAI 2.2.2.1 spec — units are part of the key so callers
+     * can render them directly.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "nutritional_info", columnDefinition = "jsonb")
+    private Map<String, Object> nutritionalInfo;
+
+    /** {@code BEST_BEFORE | USE_BY | EXPIRY}. */
+    @Column(name = "date_marking_type", length = 20)
+    private String dateMarkingType;
+
+    /** Shelf life in days from manufacture — drives auto-expiry on a new batch. */
+    @Column(name = "shelf_life_days")
+    private Integer shelfLifeDays;
 }

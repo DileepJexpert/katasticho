@@ -150,6 +150,14 @@ class ApiConfig {
   static const String items = '/api/v1/items';
   static String itemById(String id) => '/api/v1/items/$id';
   static const String itemImport = '/api/v1/items/import';
+
+  // ── FSSAI / Food compliance ─────────────────────────────────────────────
+  static String fssaiItem(String itemId) => '/api/v1/fssai/items/$itemId';
+  static const String fssaiAllergens = '/api/v1/fssai/allergens';
+  static const String fssaiAllergenExposure =
+      '/api/v1/fssai/reports/allergen-exposure';
+  static const String fssaiLicenseRenewal =
+      '/api/v1/fssai/reports/license-renewal';
   static const String itemImportPreview = '/api/v1/items/import/preview';
   static const String itemImportTemplate = '/api/v1/items/import/template';
   // F4 BOM — composite item bill of materials (only valid for

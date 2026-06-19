@@ -222,6 +222,14 @@ List<KCommand> buildAppCommands() {
       keywords: ['expiry', 'batch', 'pharma'],
     ),
     KCommand(
+      label: 'FSSAI Compliance',
+      icon: Icons.restaurant_rounded,
+      section: 'Navigate',
+      route: Routes.fssaiCompliance,
+      keywords: ['fssai', 'food', 'allergen', 'veg', 'license', 'label',
+                 'compliance', 'codex', 'nutrition'],
+    ),
+    KCommand(
       label: 'Batch Recall',
       icon: Icons.health_and_safety_rounded,
       section: 'Navigate',

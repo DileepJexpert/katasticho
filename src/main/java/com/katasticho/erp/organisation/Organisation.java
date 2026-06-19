@@ -63,6 +63,14 @@ public class Organisation {
     @Column(length = 15)
     private String gstin;
 
+    /** 14-digit FSSAI license — the FBO number printed on every food label produced by this facility (V28). */
+    @Column(name = "fssai_license", length = 20)
+    private String fssaiLicense;
+
+    /** Date the FBO license expires — drives the licence-renewal-due report. */
+    @Column(name = "fssai_license_expiry")
+    private java.time.LocalDate fssaiLicenseExpiry;
+
     // -- Generic tax ID for non-India countries (KRA PIN, FIRS TIN, TRN) --
     @Column(name = "tax_id", length = 50)
     private String taxId;

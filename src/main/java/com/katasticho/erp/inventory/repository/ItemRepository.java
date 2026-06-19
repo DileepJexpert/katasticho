@@ -41,6 +41,14 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
 
     List<Item> findByOrgIdAndIsDeletedFalseAndTrackInventoryTrue(UUID orgId);
 
+    /**
+     * Every active item for the org, name-sorted. Currently used by
+     * the FSSAI allergen-exposure report (filters in Java after
+     * pulling the list, so it doesn't need a JSONB-contains query
+     * yet).
+     */
+    List<Item> findByOrgIdAndIsDeletedFalseOrderByNameAsc(UUID orgId);
+
     /** Bulk id lookup used by services that need to enrich DTOs with item
      * name/SKU in one round trip — see {@code PriceListService.listItemsEnriched}. */
     List<Item> findByOrgIdAndIsDeletedFalseAndIdIn(UUID orgId, Collection<UUID> ids);
