@@ -210,6 +210,18 @@ class ManufacturingRepository {
     return data['version'] as int? ?? 1;
   }
 
+  Future<Map<String, dynamic>> getBomDiff(
+    String parentItemId, {
+    required int fromVersion,
+    required int toVersion,
+  }) async {
+    final res = await _api.get(
+      ApiConfig.manufacturingBomDiff(parentItemId),
+      queryParameters: {'fromVersion': fromVersion, 'toVersion': toVersion},
+    );
+    return _unwrap(res);
+  }
+
   // ---------------------------------------------------------------------------
   // Tier 2: Production Reports
   // ---------------------------------------------------------------------------

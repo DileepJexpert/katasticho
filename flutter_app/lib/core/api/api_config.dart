@@ -949,6 +949,8 @@ class ApiConfig {
       '/api/v1/manufacturing/bom/$itemId/version/$version';
   static String manufacturingBomLatestVersion(String itemId) =>
       '/api/v1/manufacturing/bom/$itemId/latest-version';
+  static String manufacturingBomDiff(String itemId) =>
+      '/api/v1/manufacturing/bom/$itemId/diff';
   static const String manufacturingCostVariance = '/api/v1/manufacturing/reports/cost-variance';
   static String manufacturingCostVarianceById(String woId) =>
       '/api/v1/manufacturing/reports/cost-variance/$woId';

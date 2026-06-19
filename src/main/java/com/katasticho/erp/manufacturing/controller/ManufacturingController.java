@@ -562,6 +562,20 @@ public class ManufacturingController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("version", version)));
     }
 
+    /**
+     * Diff two BOM versions of the same parent item (tracker #41).
+     * Returns added / removed / changed sections so the UI can render
+     * a single diff table.
+     */
+    @GetMapping("/bom/{parentItemId}/diff")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> diffBomVersions(
+            @PathVariable UUID parentItemId,
+            @RequestParam int fromVersion,
+            @RequestParam int toVersion) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.diffBomVersions(parentItemId, fromVersion, toVersion)));
+    }
+
     // ── BOM Alternates (substitute materials) ────────────────────────
 
     @GetMapping("/bom-alternates")

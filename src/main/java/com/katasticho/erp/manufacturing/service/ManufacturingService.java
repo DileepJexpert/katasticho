@@ -46,6 +46,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +54,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -1451,6 +1453,116 @@ public class ManufacturingService {
         UUID orgId = TenantContext.getCurrentOrgId();
         return bomComponentRepository.findMaxVersion(orgId, parentItemId);
     }
+
+    /**
+     * BOM version diff (tracker #41) — compares two snapshots of the same
+     * parent's BOM and groups the differences into ADDED / REMOVED /
+     * CHANGED. Components matched by child item id.
+     *
+     * <p>"CHANGED" picks up rows whose quantity OR scrap percent moved.
+     * Both numbers are returned so the UI can show "5 → 7 (+40%)" style
+     * deltas. Item names are resolved once per child so a 50-line BOM
+     * doesn't fan out into 50 lookups inside the comparator.
+     *
+     * <p>Returns ordered lists keyed by section so the response is
+     * directly renderable as a single screen — the front-end doesn't
+     * need to re-sort.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> diffBomVersions(UUID parentItemId, int fromVersion, int toVersion) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        if (fromVersion == toVersion) {
+            throw new BusinessException("Choose two different versions to diff",
+                    "BOM_DIFF_SAME_VERSION", HttpStatus.BAD_REQUEST);
+        }
+
+        List<BomComponent> fromComps = bomComponentRepository
+                .findByOrgIdAndParentItemIdAndVersionAndIsDeletedFalseOrderByCreatedAtAsc(
+                        orgId, parentItemId, fromVersion);
+        List<BomComponent> toComps = bomComponentRepository
+                .findByOrgIdAndParentItemIdAndVersionAndIsDeletedFalseOrderByCreatedAtAsc(
+                        orgId, parentItemId, toVersion);
+        if (fromComps.isEmpty() && toComps.isEmpty()) {
+            throw new BusinessException(
+                    "Neither version " + fromVersion + " nor " + toVersion + " has any components",
+                    "BOM_DIFF_VERSIONS_EMPTY", HttpStatus.NOT_FOUND);
+        }
+
+        Map<UUID, BomComponent> fromByChild = fromComps.stream()
+                .collect(Collectors.toMap(BomComponent::getChildItemId, c -> c, (a, b) -> a, LinkedHashMap::new));
+        Map<UUID, BomComponent> toByChild = toComps.stream()
+                .collect(Collectors.toMap(BomComponent::getChildItemId, c -> c, (a, b) -> a, LinkedHashMap::new));
+
+        // Resolve every child item name in one pass — single map shared
+        // by the three sections so we don't hit itemRepository per row.
+        Set<UUID> allChildIds = new HashSet<>();
+        allChildIds.addAll(fromByChild.keySet());
+        allChildIds.addAll(toByChild.keySet());
+        Map<UUID, String> nameByChild = new HashMap<>();
+        for (UUID childId : allChildIds) {
+            itemRepository.findByIdAndOrgIdAndIsDeletedFalse(childId, orgId)
+                    .ifPresent(it -> nameByChild.put(childId, it.getName()));
+        }
+
+        List<Map<String, Object>> added = new ArrayList<>();
+        List<Map<String, Object>> removed = new ArrayList<>();
+        List<Map<String, Object>> changed = new ArrayList<>();
+
+        for (Map.Entry<UUID, BomComponent> e : toByChild.entrySet()) {
+            UUID childId = e.getKey();
+            BomComponent t = e.getValue();
+            BomComponent f = fromByChild.get(childId);
+            if (f == null) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("childItemId", childId);
+                row.put("childItemName", nameByChild.get(childId));
+                row.put("toQty", t.getQuantity());
+                row.put("toScrapPercent", t.getScrapPercent());
+                added.add(row);
+            } else {
+                BigDecimal fq = nz(f.getQuantity());
+                BigDecimal tq = nz(t.getQuantity());
+                BigDecimal fs = nz(f.getScrapPercent());
+                BigDecimal ts = nz(t.getScrapPercent());
+                if (fq.compareTo(tq) != 0 || fs.compareTo(ts) != 0) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("childItemId", childId);
+                    row.put("childItemName", nameByChild.get(childId));
+                    row.put("fromQty", fq);
+                    row.put("toQty", tq);
+                    row.put("qtyDelta", tq.subtract(fq));
+                    row.put("fromScrapPercent", fs);
+                    row.put("toScrapPercent", ts);
+                    changed.add(row);
+                }
+            }
+        }
+        for (Map.Entry<UUID, BomComponent> e : fromByChild.entrySet()) {
+            if (toByChild.containsKey(e.getKey())) continue;
+            BomComponent f = e.getValue();
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("childItemId", e.getKey());
+            row.put("childItemName", nameByChild.get(e.getKey()));
+            row.put("fromQty", f.getQuantity());
+            row.put("fromScrapPercent", f.getScrapPercent());
+            removed.add(row);
+        }
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("parentItemId", parentItemId);
+        out.put("fromVersion", fromVersion);
+        out.put("toVersion", toVersion);
+        out.put("added", added);
+        out.put("removed", removed);
+        out.put("changed", changed);
+        out.put("addedCount", added.size());
+        out.put("removedCount", removed.size());
+        out.put("changedCount", changed.size());
+        out.put("unchangedCount", toByChild.size() - added.size() - changed.size());
+        return out;
+    }
+
+    private static BigDecimal nz(BigDecimal v) { return v == null ? BigDecimal.ZERO : v; }
 
     // ── BOM Alternates (substitute materials) ────────────────────────
 

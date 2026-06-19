@@ -552,6 +552,128 @@ class ManufacturingServiceTest {
     }
 
     @Test
+    void diffBomVersions_groupsAddedRemovedChanged_andResolvesNames() {
+        UUID parent = UUID.randomUUID();
+        UUID rmA = UUID.randomUUID();
+        UUID rmB = UUID.randomUUID();
+        UUID rmC = UUID.randomUUID();
+
+        com.katasticho.erp.inventory.entity.BomComponent v1A =
+                com.katasticho.erp.inventory.entity.BomComponent.builder()
+                        .parentItemId(parent).childItemId(rmA)
+                        .quantity(new BigDecimal("5"))
+                        .scrapPercent(new BigDecimal("2"))
+                        .version(1).build();
+        com.katasticho.erp.inventory.entity.BomComponent v1B =
+                com.katasticho.erp.inventory.entity.BomComponent.builder()
+                        .parentItemId(parent).childItemId(rmB)
+                        .quantity(new BigDecimal("3"))
+                        .version(1).build();
+        com.katasticho.erp.inventory.entity.BomComponent v2A =
+                com.katasticho.erp.inventory.entity.BomComponent.builder()
+                        .parentItemId(parent).childItemId(rmA)
+                        .quantity(new BigDecimal("7"))      // qty changed 5 → 7
+                        .scrapPercent(new BigDecimal("2"))
+                        .version(2).build();
+        com.katasticho.erp.inventory.entity.BomComponent v2C =
+                com.katasticho.erp.inventory.entity.BomComponent.builder()
+                        .parentItemId(parent).childItemId(rmC)
+                        .quantity(new BigDecimal("1"))
+                        .version(2).build();
+
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndVersionAndIsDeletedFalseOrderByCreatedAtAsc(
+                orgId, parent, 1)).thenReturn(List.of(v1A, v1B));
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndVersionAndIsDeletedFalseOrderByCreatedAtAsc(
+                orgId, parent, 2)).thenReturn(List.of(v2A, v2C));
+
+        com.katasticho.erp.inventory.entity.Item nameA =
+                com.katasticho.erp.inventory.entity.Item.builder().name("Atorva API").build();
+        com.katasticho.erp.inventory.entity.Item nameB =
+                com.katasticho.erp.inventory.entity.Item.builder().name("Lactose").build();
+        com.katasticho.erp.inventory.entity.Item nameC =
+                com.katasticho.erp.inventory.entity.Item.builder().name("Maize Starch").build();
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmA, orgId)).thenReturn(Optional.of(nameA));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmB, orgId)).thenReturn(Optional.of(nameB));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmC, orgId)).thenReturn(Optional.of(nameC));
+
+        java.util.Map<String, Object> diff = service.diffBomVersions(parent, 1, 2);
+
+        assertEquals(1, diff.get("addedCount"));
+        assertEquals(1, diff.get("removedCount"));
+        assertEquals(1, diff.get("changedCount"));
+
+        @SuppressWarnings("unchecked")
+        List<java.util.Map<String, Object>> added =
+                (List<java.util.Map<String, Object>>) diff.get("added");
+        assertEquals("Maize Starch", added.get(0).get("childItemName"));
+
+        @SuppressWarnings("unchecked")
+        List<java.util.Map<String, Object>> removed =
+                (List<java.util.Map<String, Object>>) diff.get("removed");
+        assertEquals("Lactose", removed.get(0).get("childItemName"));
+
+        @SuppressWarnings("unchecked")
+        List<java.util.Map<String, Object>> changed =
+                (List<java.util.Map<String, Object>>) diff.get("changed");
+        assertEquals("Atorva API", changed.get(0).get("childItemName"));
+        assertEquals(0, ((BigDecimal) changed.get(0).get("fromQty")).compareTo(new BigDecimal("5")));
+        assertEquals(0, ((BigDecimal) changed.get(0).get("toQty")).compareTo(new BigDecimal("7")));
+        assertEquals(0, ((BigDecimal) changed.get(0).get("qtyDelta")).compareTo(new BigDecimal("2")));
+    }
+
+    @Test
+    void diffBomVersions_identicalVersions_returnsAllUnchanged() {
+        UUID parent = UUID.randomUUID();
+        UUID rmA = UUID.randomUUID();
+        com.katasticho.erp.inventory.entity.BomComponent comp =
+                com.katasticho.erp.inventory.entity.BomComponent.builder()
+                        .parentItemId(parent).childItemId(rmA)
+                        .quantity(new BigDecimal("5"))
+                        .scrapPercent(new BigDecimal("2"))
+                        .version(1).build();
+        com.katasticho.erp.inventory.entity.BomComponent comp2 =
+                com.katasticho.erp.inventory.entity.BomComponent.builder()
+                        .parentItemId(parent).childItemId(rmA)
+                        .quantity(new BigDecimal("5"))
+                        .scrapPercent(new BigDecimal("2"))
+                        .version(2).build();
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndVersionAndIsDeletedFalseOrderByCreatedAtAsc(
+                orgId, parent, 1)).thenReturn(List.of(comp));
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndVersionAndIsDeletedFalseOrderByCreatedAtAsc(
+                orgId, parent, 2)).thenReturn(List.of(comp2));
+        when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmA, orgId)).thenReturn(Optional.empty());
+
+        java.util.Map<String, Object> diff = service.diffBomVersions(parent, 1, 2);
+
+        assertEquals(0, diff.get("addedCount"));
+        assertEquals(0, diff.get("removedCount"));
+        assertEquals(0, diff.get("changedCount"));
+        assertEquals(1, diff.get("unchangedCount"));
+    }
+
+    @Test
+    void diffBomVersions_sameVersionNumber_throws() {
+        com.katasticho.erp.common.exception.BusinessException ex =
+                assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                        () -> service.diffBomVersions(UUID.randomUUID(), 1, 1));
+        assertEquals("BOM_DIFF_SAME_VERSION", ex.getErrorCode());
+    }
+
+    @Test
+    void diffBomVersions_bothVersionsEmpty_throwsNotFound() {
+        UUID parent = UUID.randomUUID();
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndVersionAndIsDeletedFalseOrderByCreatedAtAsc(
+                orgId, parent, 1)).thenReturn(List.of());
+        when(bomComponentRepo.findByOrgIdAndParentItemIdAndVersionAndIsDeletedFalseOrderByCreatedAtAsc(
+                orgId, parent, 2)).thenReturn(List.of());
+
+        com.katasticho.erp.common.exception.BusinessException ex =
+                assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                        () -> service.diffBomVersions(parent, 1, 2));
+        assertEquals("BOM_DIFF_VERSIONS_EMPTY", ex.getErrorCode());
+    }
+
+    @Test
     void receiveFinishedGoods_partialQuantity_staysInProgress() {
         WorkOrder wo = createTestWorkOrder("IN_PROGRESS");
 

@@ -399,6 +399,13 @@ List<KCommand> buildAppCommands() {
                  'manufacturing', 'reports'],
     ),
     KCommand(
+      label: 'BOM Version Diff',
+      icon: Icons.compare_arrows_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingBomDiff,
+      keywords: ['bom', 'diff', 'compare', 'engineering', 'revision', 'change'],
+    ),
+    KCommand(
       label: 'Job Work',
       icon: Icons.engineering_rounded,
       section: 'Navigate',
