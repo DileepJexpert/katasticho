@@ -422,6 +422,14 @@ List<KCommand> buildAppCommands() {
                  'footwear', 'parameter'],
     ),
     KCommand(
+      label: 'Actual Cost Preview',
+      icon: Icons.timer_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingActualCostPreview,
+      keywords: ['labor', 'labour', 'overhead', 'time', 'tracking', 'actual',
+                 'cost', 'variance', 'work order', 'job card', 'rate'],
+    ),
+    KCommand(
       label: 'Batch Manufacturing Record',
       icon: Icons.science_rounded,
       section: 'Navigate',

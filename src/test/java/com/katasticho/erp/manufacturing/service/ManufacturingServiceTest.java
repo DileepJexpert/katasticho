@@ -65,6 +65,9 @@ class ManufacturingServiceTest {
     @Mock private com.katasticho.erp.inventory.service.BatchTraceService batchTraceService;
     @Mock private com.katasticho.erp.inventory.repository.StockBalanceRepository stockBalanceRepo;
     @Mock private com.katasticho.erp.inventory.service.BatchService batchService;
+    @Mock private com.katasticho.erp.manufacturing.repository.JobCardRepository jobCardRepo;
+    @Mock private com.katasticho.erp.manufacturing.repository.WorkstationRepository workstationRepo;
+    @Mock private com.katasticho.erp.organisation.OrgSettingsService orgSettingsService;
 
     private ManufacturingService service;
 
@@ -81,7 +84,7 @@ class ManufacturingServiceTest {
                 salesOrderRepo, warehouseRepo, journalService, wipPostingRule, costSummaryRepo,
                 bomAlternateRepo, bomCoProductRepo, approvalWorkflowService,
                 productionScrapRepo, scrapReasonCodeRepo, stockBatchRepo, batchTraceService,
-                stockBalanceRepo, batchService);
+                stockBalanceRepo, batchService, jobCardRepo, workstationRepo, orgSettingsService);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
@@ -1846,5 +1849,129 @@ class ManufacturingServiceTest {
 
         assertThrows(BusinessException.class,
                 () -> service.getWorkOrderByNumber("WO-99999"));
+    }
+
+    // ── Tracker #80: actual costing from time tracking ──────────────────
+
+    private com.katasticho.erp.manufacturing.entity.JobCard makeJobCard(
+            UUID workstationId, int loggedMinutes) {
+        com.katasticho.erp.manufacturing.entity.JobCard jc =
+                com.katasticho.erp.manufacturing.entity.JobCard.builder()
+                        .workOrderId(UUID.randomUUID())
+                        .workstationId(workstationId)
+                        .timeLoggedMinutes(loggedMinutes)
+                        .status("COMPLETED")
+                        .build();
+        jc.setOrgId(orgId);
+        return jc;
+    }
+
+    private com.katasticho.erp.manufacturing.entity.Workstation makeWorkstation(
+            UUID id, BigDecimal hourlyRate) {
+        com.katasticho.erp.manufacturing.entity.Workstation ws =
+                com.katasticho.erp.manufacturing.entity.Workstation.builder()
+                        .code("WS-" + id.toString().substring(0, 4))
+                        .name("Workstation")
+                        .hourlyRate(hourlyRate)
+                        .build();
+        ws.setId(id);
+        ws.setOrgId(orgId);
+        return ws;
+    }
+
+    @Test
+    void computeActualLabor_sumsHoursTimesWorkstationRate() {
+        UUID ws1 = UUID.randomUUID();
+        UUID ws2 = UUID.randomUUID();
+        var jc1 = makeJobCard(ws1, 120); // 2h
+        var jc2 = makeJobCard(ws2, 90);  // 1.5h
+        WorkOrder wo = WorkOrder.builder()
+                .workOrderNumber("WO-1")
+                .directLaborCost(BigDecimal.ZERO)
+                .overheadCost(BigDecimal.ZERO)
+                .build();
+        wo.setId(UUID.randomUUID());
+        wo.setOrgId(orgId);
+
+        when(jobCardRepo.findByWorkOrderIdAndOrgIdAndIsDeletedFalseOrderBySequenceNumberAsc(
+                wo.getId(), orgId)).thenReturn(java.util.List.of(jc1, jc2));
+        when(workstationRepo.findByIdAndOrgIdAndIsDeletedFalse(ws1, orgId))
+                .thenReturn(java.util.Optional.of(makeWorkstation(ws1, new BigDecimal("250.00"))));
+        when(workstationRepo.findByIdAndOrgIdAndIsDeletedFalse(ws2, orgId))
+                .thenReturn(java.util.Optional.of(makeWorkstation(ws2, new BigDecimal("400.00"))));
+        when(orgSettingsService.get(org.mockito.ArgumentMatchers.eq(orgId), org.mockito.ArgumentMatchers.eq("manufacturing.overhead_rate_per_hour"), any()))
+                .thenReturn(null);
+
+        var actual = service.computeActualLaborAndOverhead(wo);
+
+        // 2h × 250 + 1.5h × 400 = 500 + 600 = 1100
+        assertEquals(0, actual.labor().compareTo(new BigDecimal("1100.00")));
+        // 3.5 total hours
+        assertEquals(0, actual.totalHours().compareTo(new BigDecimal("3.5000")));
+        assertEquals(2, actual.jobCardCount());
+        assertNull(actual.overhead()); // No org overhead rate configured
+    }
+
+    @Test
+    void computeActualOverhead_appliesOrgRatePerHour() {
+        UUID ws1 = UUID.randomUUID();
+        var jc = makeJobCard(ws1, 240); // 4h
+        WorkOrder wo = WorkOrder.builder().workOrderNumber("WO-2")
+                .directLaborCost(BigDecimal.ZERO).overheadCost(BigDecimal.ZERO).build();
+        wo.setId(UUID.randomUUID()); wo.setOrgId(orgId);
+
+        when(jobCardRepo.findByWorkOrderIdAndOrgIdAndIsDeletedFalseOrderBySequenceNumberAsc(
+                wo.getId(), orgId)).thenReturn(java.util.List.of(jc));
+        when(workstationRepo.findByIdAndOrgIdAndIsDeletedFalse(ws1, orgId))
+                .thenReturn(java.util.Optional.of(makeWorkstation(ws1, new BigDecimal("300.00"))));
+        when(orgSettingsService.get(org.mockito.ArgumentMatchers.eq(orgId), org.mockito.ArgumentMatchers.eq("manufacturing.overhead_rate_per_hour"), any()))
+                .thenReturn("150");
+
+        var actual = service.computeActualLaborAndOverhead(wo);
+
+        // 4h × 150 = 600 overhead absorbed
+        assertEquals(0, actual.overhead().compareTo(new BigDecimal("600.00")));
+        assertEquals(0, actual.labor().compareTo(new BigDecimal("1200.00")));
+    }
+
+    @Test
+    void computeActualLabor_noJobCardsLogged_returnsNullsForFallback() {
+        WorkOrder wo = WorkOrder.builder().workOrderNumber("WO-3")
+                .directLaborCost(new BigDecimal("500"))
+                .overheadCost(new BigDecimal("200")).build();
+        wo.setId(UUID.randomUUID()); wo.setOrgId(orgId);
+
+        when(jobCardRepo.findByWorkOrderIdAndOrgIdAndIsDeletedFalseOrderBySequenceNumberAsc(
+                wo.getId(), orgId)).thenReturn(java.util.List.of());
+
+        var actual = service.computeActualLaborAndOverhead(wo);
+
+        // No tracking → caller must fall back to plannedLabor/plannedOverhead
+        assertNull(actual.labor());
+        assertNull(actual.overhead());
+        assertEquals(0, actual.totalHours().signum());
+        assertEquals(0, actual.jobCardCount());
+    }
+
+    @Test
+    void computeActualLabor_jobCardLoggedButNoWorkstationRate_returnsNullLaborButHoursStillTracked() {
+        UUID ws1 = UUID.randomUUID();
+        var jc = makeJobCard(ws1, 60);
+        WorkOrder wo = WorkOrder.builder().workOrderNumber("WO-4")
+                .directLaborCost(BigDecimal.ZERO).overheadCost(BigDecimal.ZERO).build();
+        wo.setId(UUID.randomUUID()); wo.setOrgId(orgId);
+
+        when(jobCardRepo.findByWorkOrderIdAndOrgIdAndIsDeletedFalseOrderBySequenceNumberAsc(
+                wo.getId(), orgId)).thenReturn(java.util.List.of(jc));
+        when(workstationRepo.findByIdAndOrgIdAndIsDeletedFalse(ws1, orgId))
+                .thenReturn(java.util.Optional.of(makeWorkstation(ws1, null))); // no rate
+        when(orgSettingsService.get(org.mockito.ArgumentMatchers.eq(orgId), org.mockito.ArgumentMatchers.eq("manufacturing.overhead_rate_per_hour"), any()))
+                .thenReturn(null);
+
+        var actual = service.computeActualLaborAndOverhead(wo);
+
+        assertNull(actual.labor()); // No rate seen → null so caller falls back
+        assertEquals(0, actual.totalHours().compareTo(new BigDecimal("1.0000")));
+        assertEquals(1, actual.jobCardCount());
     }
 }

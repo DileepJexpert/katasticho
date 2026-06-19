@@ -25,11 +25,16 @@ import com.katasticho.erp.manufacturing.entity.ProductionScrap;
 import com.katasticho.erp.manufacturing.entity.ScrapReasonCode;
 import com.katasticho.erp.manufacturing.entity.WorkOrder;
 import com.katasticho.erp.manufacturing.entity.WorkOrderLine;
+import com.katasticho.erp.manufacturing.entity.JobCard;
+import com.katasticho.erp.manufacturing.entity.Workstation;
+import com.katasticho.erp.manufacturing.repository.JobCardRepository;
 import com.katasticho.erp.manufacturing.repository.ProductionCostSummaryRepository;
 import com.katasticho.erp.manufacturing.repository.ProductionScrapRepository;
 import com.katasticho.erp.manufacturing.repository.ScrapReasonCodeRepository;
 import com.katasticho.erp.manufacturing.repository.WorkOrderLineRepository;
 import com.katasticho.erp.manufacturing.repository.WorkOrderRepository;
+import com.katasticho.erp.manufacturing.repository.WorkstationRepository;
+import com.katasticho.erp.organisation.OrgSettingsService;
 import com.katasticho.erp.sales.entity.SalesOrder;
 import com.katasticho.erp.sales.entity.SalesOrderLine;
 import com.katasticho.erp.sales.repository.SalesOrderRepository;
@@ -82,6 +87,9 @@ public class ManufacturingService {
     private final BatchTraceService batchTraceService;
     private final StockBalanceRepository stockBalanceRepository;
     private final BatchService batchService;
+    private final JobCardRepository jobCardRepository;
+    private final WorkstationRepository workstationRepository;
+    private final OrgSettingsService orgSettingsService;
 
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
     private static final Set<String> VALID_PRIORITIES = Set.of("URGENT", "HIGH", "NORMAL", "LOW");
@@ -2361,8 +2369,18 @@ public class ManufacturingService {
         BigDecimal plannedLabor = wo.getDirectLaborCost();
         BigDecimal plannedOverhead = wo.getOverheadCost();
         BigDecimal actualRm = wo.getRawMaterialCost();
-        BigDecimal actualLabor = wo.getDirectLaborCost();
-        BigDecimal actualOverhead = wo.getOverheadCost();
+
+        // Tracker #80: actual labor + overhead from time-tracking. Walks the
+        // WO's job cards (any with logged minutes), multiplies by the
+        // workstation's hourly rate to get real labour cost; multiplies the
+        // same total hours by the org-level overhead rate setting
+        // `manufacturing.overhead_rate_per_hour` for absorbed overhead. Falls
+        // back to the WO's planned figures when no job-card has logged time
+        // OR no rate is configured — so legacy WOs without routing keep
+        // their estimated cost untouched.
+        ActualCost actual = computeActualLaborAndOverhead(wo);
+        BigDecimal actualLabor = actual.labor() != null ? actual.labor() : plannedLabor;
+        BigDecimal actualOverhead = actual.overhead() != null ? actual.overhead() : plannedOverhead;
 
         BigDecimal plannedTotal = plannedRm.add(plannedLabor).add(plannedOverhead);
         BigDecimal actualTotal = actualRm.add(actualLabor).add(actualOverhead);
@@ -2402,6 +2420,94 @@ public class ManufacturingService {
 
         costSummaryRepository.save(summary);
         log.info("Cost summary built for work order {} — variance={}", wo.getWorkOrderNumber(), totalVariance);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> previewActualCost(UUID workOrderId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        WorkOrder wo = workOrderRepository
+                .findByIdAndOrgIdAndIsDeletedFalse(workOrderId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("WorkOrder", workOrderId));
+        ActualCost a = computeActualLaborAndOverhead(wo);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("workOrderId", wo.getId());
+        out.put("workOrderNumber", wo.getWorkOrderNumber());
+        out.put("totalHours", a.totalHours());
+        out.put("jobCardCount", a.jobCardCount());
+        out.put("trackedLaborCost", a.labor());
+        out.put("trackedOverheadCost", a.overhead());
+        out.put("plannedLaborCost", wo.getDirectLaborCost());
+        out.put("plannedOverheadCost", wo.getOverheadCost());
+        out.put("rawMaterialCost", wo.getRawMaterialCost());
+        return out;
+    }
+
+    /**
+     * Roll-up of tracked labour + overhead from job cards. Used both by
+     * `buildCostSummary` on completion and by the public preview endpoint
+     * before completion. Returns nulls when there's nothing to track so the
+     * caller can fall back to the WO's estimated cost.
+     */
+    public record ActualCost(BigDecimal labor, BigDecimal overhead,
+                             BigDecimal totalHours, int jobCardCount) {}
+
+    @Transactional(readOnly = true)
+    public ActualCost computeActualLaborAndOverhead(WorkOrder wo) {
+        UUID orgId = wo.getOrgId();
+        // Defensive: older test fixtures construct this service with null
+        // repos for the tracker #80 wiring. Honouring null here keeps the
+        // legacy estimate-only cost path byte-for-byte intact for them.
+        if (jobCardRepository == null || workstationRepository == null
+                || orgSettingsService == null) {
+            return new ActualCost(null, null, BigDecimal.ZERO, 0);
+        }
+        List<JobCard> cards = jobCardRepository
+                .findByWorkOrderIdAndOrgIdAndIsDeletedFalseOrderBySequenceNumberAsc(
+                        wo.getId(), orgId);
+
+        BigDecimal labor = BigDecimal.ZERO;
+        BigDecimal totalHours = BigDecimal.ZERO;
+        int counted = 0;
+        boolean rateSeen = false;
+
+        for (JobCard jc : cards) {
+            if (jc.getTimeLoggedMinutes() <= 0) continue;
+            BigDecimal hours = BigDecimal.valueOf(jc.getTimeLoggedMinutes())
+                    .divide(BigDecimal.valueOf(60), 4, RoundingMode.HALF_UP);
+            totalHours = totalHours.add(hours);
+            counted++;
+            if (jc.getWorkstationId() == null) continue;
+            Workstation ws = workstationRepository
+                    .findByIdAndOrgIdAndIsDeletedFalse(jc.getWorkstationId(), orgId)
+                    .orElse(null);
+            if (ws == null || ws.getHourlyRate() == null) continue;
+            rateSeen = true;
+            labor = labor.add(ws.getHourlyRate().multiply(hours)
+                    .setScale(2, RoundingMode.HALF_UP));
+        }
+
+        if (counted == 0) {
+            return new ActualCost(null, null, BigDecimal.ZERO, 0);
+        }
+
+        BigDecimal overhead = null;
+        String overheadRateRaw = orgSettingsService.get(
+                orgId, "manufacturing.overhead_rate_per_hour", null);
+        if (overheadRateRaw != null && !overheadRateRaw.isBlank()) {
+            try {
+                BigDecimal rate = new BigDecimal(overheadRateRaw.trim());
+                overhead = rate.multiply(totalHours).setScale(2, RoundingMode.HALF_UP);
+            } catch (NumberFormatException nfe) {
+                log.warn("Bad manufacturing.overhead_rate_per_hour={} for org {}",
+                        overheadRateRaw, orgId);
+            }
+        }
+
+        // No workstation rates configured at all → leave labor null so caller
+        // falls back to estimate. Total hours / overhead stay populated when
+        // the org has set its overhead rate even without workstation rates.
+        BigDecimal trackedLabor = rateSeen ? labor : null;
+        return new ActualCost(trackedLabor, overhead, totalHours, counted);
     }
 
     // ── Internal ──────────────────────────────────────────────────────

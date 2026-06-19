@@ -835,6 +835,12 @@ public class ManufacturingController {
         return ResponseEntity.ok(ApiResponse.ok(service.getCostVariance(workOrderId)));
     }
 
+    @GetMapping("/work-orders/{workOrderId}/actual-cost-preview")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> previewActualCost(
+            @PathVariable UUID workOrderId) {
+        return ResponseEntity.ok(ApiResponse.ok(service.previewActualCost(workOrderId)));
+    }
+
     @GetMapping("/reports/wip-valuation")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getWipValuation() {
         return ResponseEntity.ok(ApiResponse.ok(service.getWipValuation()));
