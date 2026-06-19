@@ -31,6 +31,7 @@ public class RoutingService {
     private final RoutingOperationRepository routingOperationRepository;
     private final JobCardRepository jobCardRepository;
     private final AttachmentService attachmentService;
+    private final RoutingOperationDependencyRepository operationDependencyRepository;
 
     /**
      * AttachmentService entityType key for operation work-instruction
@@ -179,6 +180,118 @@ public class RoutingService {
     public Routing getRouting(UUID id) {
         return routingRepository.findByIdAndOrgIdAndIsDeletedFalse(id, TenantContext.getCurrentOrgId())
                 .orElseThrow(() -> BusinessException.notFound("Routing", id));
+    }
+
+    // ── Operation dependencies (tracker #16) ─────────────────────────
+
+    /**
+     * Adds a "{@code successor} cannot start until {@code predecessor}
+     * is complete" edge to the routing-op DAG. Both ids refer to rows
+     * in {@code routing_operation} (not the master {@code operation}
+     * table — each routing has its own op instances).
+     *
+     * <p>Cycle detection: walks the predecessor's existing ancestor
+     * chain breadth-first; if the proposed successor already appears
+     * anywhere in that chain, adding this edge would close a loop.
+     * Refuses with {@code ROUTING_DEP_CYCLE}.
+     *
+     * <p>Idempotent — re-adding an existing edge is a silent no-op
+     * (returns the existing row).
+     */
+    @Transactional
+    public RoutingOperationDependency addOperationDependency(UUID successorRoutingOpId,
+                                                             UUID predecessorRoutingOpId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        if (successorRoutingOpId.equals(predecessorRoutingOpId)) {
+            throw new BusinessException("An operation cannot depend on itself",
+                    "ROUTING_DEP_SELF_LOOP", HttpStatus.BAD_REQUEST);
+        }
+
+        RoutingOperation succ = routingOperationRepository.findById(successorRoutingOpId)
+                .orElseThrow(() -> BusinessException.notFound("RoutingOperation", successorRoutingOpId));
+        RoutingOperation pred = routingOperationRepository.findById(predecessorRoutingOpId)
+                .orElseThrow(() -> BusinessException.notFound("RoutingOperation", predecessorRoutingOpId));
+        if (succ.isDeleted() || pred.isDeleted()) {
+            throw BusinessException.notFound("RoutingOperation", predecessorRoutingOpId);
+        }
+        // Both ops must belong to the same routing — cross-routing
+        // dependencies aren't meaningful (each routing is independent).
+        if (!succ.getRoutingId().equals(pred.getRoutingId())) {
+            throw new BusinessException(
+                    "Predecessor and successor must belong to the same routing",
+                    "ROUTING_DEP_CROSS_ROUTING", HttpStatus.BAD_REQUEST);
+        }
+
+        if (operationDependencyRepository
+                .existsByOrgIdAndRoutingOperationIdAndPredecessorRoutingOperationIdAndIsDeletedFalse(
+                        orgId, successorRoutingOpId, predecessorRoutingOpId)) {
+            // Idempotent: return the existing row.
+            return operationDependencyRepository
+                    .findByOrgIdAndRoutingOperationIdAndIsDeletedFalse(orgId, successorRoutingOpId)
+                    .stream()
+                    .filter(d -> d.getPredecessorRoutingOperationId().equals(predecessorRoutingOpId))
+                    .findFirst()
+                    .orElseThrow();
+        }
+
+        // Cycle check: BFS from the proposed predecessor walking BACK up
+        // its existing predecessor chain. If the proposed successor
+        // appears, the new edge would close a loop.
+        if (wouldFormCycle(orgId, successorRoutingOpId, predecessorRoutingOpId)) {
+            throw new BusinessException(
+                    "Adding this dependency would form a cycle in the operation graph",
+                    "ROUTING_DEP_CYCLE", HttpStatus.BAD_REQUEST);
+        }
+
+        RoutingOperationDependency dep = RoutingOperationDependency.builder()
+                .routingOperationId(successorRoutingOpId)
+                .predecessorRoutingOperationId(predecessorRoutingOpId)
+                .build();
+        dep.setOrgId(orgId);
+        return operationDependencyRepository.save(dep);
+    }
+
+    private boolean wouldFormCycle(UUID orgId, UUID proposedSuccessor, UUID proposedPredecessor) {
+        // BFS up from the predecessor through its own predecessors. If we
+        // ever hit the proposed successor, the new edge would close a loop.
+        java.util.Deque<UUID> stack = new java.util.ArrayDeque<>();
+        java.util.Set<UUID> seen = new java.util.HashSet<>();
+        stack.push(proposedPredecessor);
+        while (!stack.isEmpty()) {
+            UUID cur = stack.pop();
+            if (!seen.add(cur)) continue;
+            if (cur.equals(proposedSuccessor)) return true;
+            for (RoutingOperationDependency d : operationDependencyRepository
+                    .findByOrgIdAndRoutingOperationIdAndIsDeletedFalse(orgId, cur)) {
+                stack.push(d.getPredecessorRoutingOperationId());
+            }
+        }
+        return false;
+    }
+
+    @Transactional
+    public void removeOperationDependency(UUID dependencyId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        RoutingOperationDependency dep = operationDependencyRepository
+                .findByIdAndOrgIdAndIsDeletedFalse(dependencyId, orgId)
+                .orElseThrow(() -> BusinessException.notFound(
+                        "RoutingOperationDependency", dependencyId));
+        dep.setDeleted(true);
+        operationDependencyRepository.save(dep);
+    }
+
+    @Transactional(readOnly = true)
+    public List<RoutingOperationDependency> listPredecessors(UUID routingOperationId) {
+        return operationDependencyRepository
+                .findByOrgIdAndRoutingOperationIdAndIsDeletedFalse(
+                        TenantContext.getCurrentOrgId(), routingOperationId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<RoutingOperationDependency> listSuccessors(UUID routingOperationId) {
+        return operationDependencyRepository
+                .findByOrgIdAndPredecessorRoutingOperationIdAndIsDeletedFalse(
+                        TenantContext.getCurrentOrgId(), routingOperationId);
     }
 
     // ── Job Cards ─────────────────────────────────────────────────

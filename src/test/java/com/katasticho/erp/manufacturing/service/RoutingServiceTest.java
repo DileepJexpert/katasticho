@@ -31,6 +31,7 @@ class RoutingServiceTest {
     @Mock private RoutingOperationRepository routingOperationRepo;
     @Mock private JobCardRepository jobCardRepo;
     @Mock private com.katasticho.erp.common.service.AttachmentService attachmentService;
+    @Mock private com.katasticho.erp.manufacturing.repository.RoutingOperationDependencyRepository operationDependencyRepo;
 
     private RoutingService service;
 
@@ -41,7 +42,7 @@ class RoutingServiceTest {
     void setUp() {
         service = new RoutingService(
                 workstationRepo, operationRepo, routingRepo, routingOperationRepo, jobCardRepo,
-                attachmentService);
+                attachmentService, operationDependencyRepo);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
@@ -383,5 +384,132 @@ class RoutingServiceTest {
 
         assertTrue(service.listOperationAttachments(opId).isEmpty());
         verify(attachmentService).list("OPERATION", opId);
+    }
+
+    // ── tracker #16 — operation dependencies ───────────────────────
+
+    private RoutingOperation buildRoutingOp(UUID id, UUID routingId) {
+        RoutingOperation ro = RoutingOperation.builder()
+                .operationId(UUID.randomUUID())
+                .sequenceNumber(1)
+                .build();
+        ro.setId(id);
+        ro.setOrgId(orgId);
+        // routingId is read-only on the entity (FK column has insertable=false),
+        // so we reflectively set it for the test fixture.
+        try {
+            java.lang.reflect.Field f = RoutingOperation.class.getDeclaredField("routingId");
+            f.setAccessible(true);
+            f.set(ro, routingId);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+        return ro;
+    }
+
+    @Test
+    void addOperationDependency_normalEdge_savesWithCorrectIds() {
+        UUID routingId = UUID.randomUUID();
+        UUID succId = UUID.randomUUID();
+        UUID predId = UUID.randomUUID();
+        when(routingOperationRepo.findById(succId))
+                .thenReturn(Optional.of(buildRoutingOp(succId, routingId)));
+        when(routingOperationRepo.findById(predId))
+                .thenReturn(Optional.of(buildRoutingOp(predId, routingId)));
+        when(operationDependencyRepo
+                .existsByOrgIdAndRoutingOperationIdAndPredecessorRoutingOperationIdAndIsDeletedFalse(
+                        orgId, succId, predId)).thenReturn(false);
+        when(operationDependencyRepo
+                .findByOrgIdAndRoutingOperationIdAndIsDeletedFalse(orgId, predId))
+                .thenReturn(List.of());        // predecessor has no upstream deps → no cycle
+        when(operationDependencyRepo.save(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        com.katasticho.erp.manufacturing.entity.RoutingOperationDependency dep =
+                service.addOperationDependency(succId, predId);
+
+        assertEquals(succId, dep.getRoutingOperationId());
+        assertEquals(predId, dep.getPredecessorRoutingOperationId());
+        assertEquals(orgId, dep.getOrgId());
+    }
+
+    @Test
+    void addOperationDependency_selfLoop_throws() {
+        UUID id = UUID.randomUUID();
+        com.katasticho.erp.common.exception.BusinessException ex = assertThrows(
+                com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.addOperationDependency(id, id));
+        assertEquals("ROUTING_DEP_SELF_LOOP", ex.getErrorCode());
+        verify(operationDependencyRepo, org.mockito.Mockito.never())
+                .save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void addOperationDependency_crossRouting_throws() {
+        UUID succ = UUID.randomUUID();
+        UUID pred = UUID.randomUUID();
+        when(routingOperationRepo.findById(succ))
+                .thenReturn(Optional.of(buildRoutingOp(succ, UUID.randomUUID())));
+        when(routingOperationRepo.findById(pred))
+                .thenReturn(Optional.of(buildRoutingOp(pred, UUID.randomUUID())));   // different routing
+
+        com.katasticho.erp.common.exception.BusinessException ex = assertThrows(
+                com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.addOperationDependency(succ, pred));
+        assertEquals("ROUTING_DEP_CROSS_ROUTING", ex.getErrorCode());
+    }
+
+    @Test
+    void addOperationDependency_wouldFormCycle_throws() {
+        // Graph: A → B already exists. Adding B → A would close a loop.
+        UUID routingId = UUID.randomUUID();
+        UUID a = UUID.randomUUID();
+        UUID b = UUID.randomUUID();
+        when(routingOperationRepo.findById(a)).thenReturn(Optional.of(buildRoutingOp(a, routingId)));
+        when(routingOperationRepo.findById(b)).thenReturn(Optional.of(buildRoutingOp(b, routingId)));
+        when(operationDependencyRepo
+                .existsByOrgIdAndRoutingOperationIdAndPredecessorRoutingOperationIdAndIsDeletedFalse(
+                        orgId, a, b)).thenReturn(false);
+        // Walking up from b: b has predecessor a → cycle.
+        com.katasticho.erp.manufacturing.entity.RoutingOperationDependency existing =
+                com.katasticho.erp.manufacturing.entity.RoutingOperationDependency.builder()
+                        .routingOperationId(b)
+                        .predecessorRoutingOperationId(a)
+                        .build();
+        when(operationDependencyRepo
+                .findByOrgIdAndRoutingOperationIdAndIsDeletedFalse(orgId, b))
+                .thenReturn(List.of(existing));
+
+        com.katasticho.erp.common.exception.BusinessException ex = assertThrows(
+                com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.addOperationDependency(a, b));
+        assertEquals("ROUTING_DEP_CYCLE", ex.getErrorCode());
+    }
+
+    @Test
+    void addOperationDependency_duplicate_returnsExisting_withoutSaving() {
+        UUID routingId = UUID.randomUUID();
+        UUID succ = UUID.randomUUID();
+        UUID pred = UUID.randomUUID();
+        when(routingOperationRepo.findById(succ))
+                .thenReturn(Optional.of(buildRoutingOp(succ, routingId)));
+        when(routingOperationRepo.findById(pred))
+                .thenReturn(Optional.of(buildRoutingOp(pred, routingId)));
+        when(operationDependencyRepo
+                .existsByOrgIdAndRoutingOperationIdAndPredecessorRoutingOperationIdAndIsDeletedFalse(
+                        orgId, succ, pred)).thenReturn(true);
+        com.katasticho.erp.manufacturing.entity.RoutingOperationDependency existing =
+                com.katasticho.erp.manufacturing.entity.RoutingOperationDependency.builder()
+                        .routingOperationId(succ)
+                        .predecessorRoutingOperationId(pred)
+                        .build();
+        existing.setOrgId(orgId);
+        when(operationDependencyRepo
+                .findByOrgIdAndRoutingOperationIdAndIsDeletedFalse(orgId, succ))
+                .thenReturn(List.of(existing));
+
+        assertSame(existing, service.addOperationDependency(succ, pred));
+        verify(operationDependencyRepo, org.mockito.Mockito.never())
+                .save(org.mockito.ArgumentMatchers.any());
     }
 }

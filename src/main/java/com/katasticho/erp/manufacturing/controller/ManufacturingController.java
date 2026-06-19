@@ -293,6 +293,43 @@ public class ManufacturingController {
         return ResponseEntity.ok(ApiResponse.ok(null, "Attachment deleted"));
     }
 
+    // ── Operation dependencies (tracker #16) ─────────────────────────
+
+    /**
+     * Adds a predecessor → successor edge to the routing-op DAG.
+     * Body: { successorRoutingOperationId, predecessorRoutingOperationId }.
+     * Cycle prevention + idempotency live in the service.
+     */
+    @PostMapping("/routing-operation-dependencies")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<com.katasticho.erp.manufacturing.entity.RoutingOperationDependency>>
+            addOperationDependency(@RequestBody Map<String, Object> body) {
+        UUID successor = UUID.fromString((String) body.get("successorRoutingOperationId"));
+        UUID predecessor = UUID.fromString((String) body.get("predecessorRoutingOperationId"));
+        return ResponseEntity.ok(ApiResponse.ok(
+                routingService.addOperationDependency(successor, predecessor),
+                "Dependency added"));
+    }
+
+    @DeleteMapping("/routing-operation-dependencies/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> removeOperationDependency(@PathVariable UUID id) {
+        routingService.removeOperationDependency(id);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Dependency removed"));
+    }
+
+    @GetMapping("/routing-operations/{id}/predecessors")
+    public ResponseEntity<ApiResponse<List<com.katasticho.erp.manufacturing.entity.RoutingOperationDependency>>>
+            listPredecessors(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(routingService.listPredecessors(id)));
+    }
+
+    @GetMapping("/routing-operations/{id}/successors")
+    public ResponseEntity<ApiResponse<List<com.katasticho.erp.manufacturing.entity.RoutingOperationDependency>>>
+            listSuccessors(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(routingService.listSuccessors(id)));
+    }
+
     // ── Routings ──────────────────────────────────────────────────
 
     @SuppressWarnings("unchecked")

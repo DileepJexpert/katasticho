@@ -116,6 +116,33 @@ class RoutingRepository {
     await _api.delete(ApiConfig.manufacturingOperationAttachment(attachmentId));
   }
 
+  // ---- Operation dependencies (tracker #16) --------------------------------
+
+  Future<List<Map<String, dynamic>>> listPredecessors(String routingOpId) async {
+    final res = await _api.get(ApiConfig.manufacturingRoutingOpPredecessors(routingOpId));
+    return _unwrapList(res.data);
+  }
+
+  Future<List<Map<String, dynamic>>> listSuccessors(String routingOpId) async {
+    final res = await _api.get(ApiConfig.manufacturingRoutingOpSuccessors(routingOpId));
+    return _unwrapList(res.data);
+  }
+
+  Future<Map<String, dynamic>> addDependency({
+    required String successorRoutingOperationId,
+    required String predecessorRoutingOperationId,
+  }) async {
+    final res = await _api.post(ApiConfig.manufacturingRoutingOpDependencies, data: {
+      'successorRoutingOperationId': successorRoutingOperationId,
+      'predecessorRoutingOperationId': predecessorRoutingOperationId,
+    });
+    return _unwrap(res.data);
+  }
+
+  Future<void> removeDependency(String dependencyId) async {
+    await _api.delete(ApiConfig.manufacturingRoutingOpDependency(dependencyId));
+  }
+
   // ---- Routings ------------------------------------------------------------
 
   Future<List<Map<String, dynamic>>> listRoutings() async {

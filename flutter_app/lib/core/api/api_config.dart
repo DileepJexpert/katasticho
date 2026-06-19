@@ -926,6 +926,14 @@ class ApiConfig {
       '/api/v1/manufacturing/operations/$id/attachments';
   static String manufacturingOperationAttachment(String attachmentId) =>
       '/api/v1/manufacturing/operations/attachments/$attachmentId';
+  static const String manufacturingRoutingOpDependencies =
+      '/api/v1/manufacturing/routing-operation-dependencies';
+  static String manufacturingRoutingOpDependency(String id) =>
+      '/api/v1/manufacturing/routing-operation-dependencies/$id';
+  static String manufacturingRoutingOpPredecessors(String routingOpId) =>
+      '/api/v1/manufacturing/routing-operations/$routingOpId/predecessors';
+  static String manufacturingRoutingOpSuccessors(String routingOpId) =>
+      '/api/v1/manufacturing/routing-operations/$routingOpId/successors';
   static const String manufacturingRoutings = '/api/v1/manufacturing/routings';
   static String manufacturingRoutingById(String id) => '/api/v1/manufacturing/routings/$id';
 

@@ -414,6 +414,14 @@ List<KCommand> buildAppCommands() {
                  'work', 'manual'],
     ),
     KCommand(
+      label: 'Operation Dependencies',
+      icon: Icons.account_tree_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingOperationDependencies,
+      keywords: ['predecessor', 'successor', 'dependency', 'gantt', 'sequence',
+                 'dag', 'critical', 'path', 'routing'],
+    ),
+    KCommand(
       label: 'Job Work',
       icon: Icons.engineering_rounded,
       section: 'Navigate',
