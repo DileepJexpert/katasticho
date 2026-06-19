@@ -1,7 +1,9 @@
 package com.katasticho.erp.manufacturing.service;
 
 import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.common.entity.EntityAttachment;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.service.AttachmentService;
 import com.katasticho.erp.manufacturing.entity.*;
 import com.katasticho.erp.manufacturing.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -27,6 +30,15 @@ public class RoutingService {
     private final RoutingRepository routingRepository;
     private final RoutingOperationRepository routingOperationRepository;
     private final JobCardRepository jobCardRepository;
+    private final AttachmentService attachmentService;
+
+    /**
+     * AttachmentService entityType key for operation work-instruction
+     * uploads (tracker #13). Stable string — used in {@code
+     * entity_attachment.entity_type} rows so don't rename without a
+     * migration.
+     */
+    public static final String OPERATION_ATTACHMENT_ENTITY_TYPE = "OPERATION";
 
     // ── Workstation CRUD ──────────────────────────────────────────
 
@@ -90,6 +102,35 @@ public class RoutingService {
     public Operation getOperation(UUID id) {
         return operationRepository.findByIdAndOrgIdAndIsDeletedFalse(id, TenantContext.getCurrentOrgId())
                 .orElseThrow(() -> BusinessException.notFound("Operation", id));
+    }
+
+    // ── Operation work instructions / attachments (tracker #13) ──────
+
+    /**
+     * Attach a work-instruction file (SOP PDF, drawing, video, etc.) to
+     * an operation so floor staff can pull it up from the job card.
+     * Uses the shared {@link AttachmentService} so storage / per-org
+     * isolation / backup tooling matches every other attachment in the
+     * system. {@code getOperation} runs first to enforce org ownership
+     * before the file ever hits storage.
+     */
+    @Transactional
+    public EntityAttachment attachOperationFile(UUID operationId, MultipartFile file) {
+        Operation op = getOperation(operationId);
+        return attachmentService.upload(OPERATION_ATTACHMENT_ENTITY_TYPE, op.getId(), file);
+    }
+
+    @Transactional(readOnly = true)
+    public List<EntityAttachment> listOperationAttachments(UUID operationId) {
+        Operation op = getOperation(operationId);
+        return attachmentService.list(OPERATION_ATTACHMENT_ENTITY_TYPE, op.getId());
+    }
+
+    @Transactional
+    public void deleteOperationAttachment(UUID attachmentId) {
+        // AttachmentService.delete already does the org-scope check via
+        // its own tenant-aware lookup. Nothing extra to enforce here.
+        attachmentService.delete(attachmentId);
     }
 
     // ── Routing CRUD ──────────────────────────────────────────────

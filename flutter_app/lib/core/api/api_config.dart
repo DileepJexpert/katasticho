@@ -914,6 +914,10 @@ class ApiConfig {
   static String manufacturingWorkstationById(String id) => '/api/v1/manufacturing/workstations/$id';
   static const String manufacturingOperations = '/api/v1/manufacturing/operations';
   static String manufacturingOperationById(String id) => '/api/v1/manufacturing/operations/$id';
+  static String manufacturingOperationAttachments(String id) =>
+      '/api/v1/manufacturing/operations/$id/attachments';
+  static String manufacturingOperationAttachment(String attachmentId) =>
+      '/api/v1/manufacturing/operations/attachments/$attachmentId';
   static const String manufacturingRoutings = '/api/v1/manufacturing/routings';
   static String manufacturingRoutingById(String id) => '/api/v1/manufacturing/routings/$id';
 

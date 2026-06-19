@@ -30,6 +30,7 @@ class RoutingServiceTest {
     @Mock private RoutingRepository routingRepo;
     @Mock private RoutingOperationRepository routingOperationRepo;
     @Mock private JobCardRepository jobCardRepo;
+    @Mock private com.katasticho.erp.common.service.AttachmentService attachmentService;
 
     private RoutingService service;
 
@@ -39,7 +40,8 @@ class RoutingServiceTest {
     @BeforeEach
     void setUp() {
         service = new RoutingService(
-                workstationRepo, operationRepo, routingRepo, routingOperationRepo, jobCardRepo);
+                workstationRepo, operationRepo, routingRepo, routingOperationRepo, jobCardRepo,
+                attachmentService);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
@@ -323,5 +325,63 @@ class RoutingServiceTest {
         card.setId(id);
         card.setOrgId(orgId);
         return card;
+    }
+
+    // ── tracker #13 — operation work instructions ──────────────────
+
+    @Test
+    void attachOperationFile_delegatesToAttachmentService_withOperationEntityType() {
+        UUID opId = UUID.randomUUID();
+        Operation op = Operation.builder().code("OP-MIX").name("Mix").build();
+        op.setId(opId);
+        op.setOrgId(orgId);
+        when(operationRepo.findByIdAndOrgIdAndIsDeletedFalse(opId, orgId)).thenReturn(Optional.of(op));
+        org.springframework.web.multipart.MultipartFile file =
+                org.mockito.Mockito.mock(org.springframework.web.multipart.MultipartFile.class);
+        com.katasticho.erp.common.entity.EntityAttachment stored =
+                com.katasticho.erp.common.entity.EntityAttachment.builder()
+                        .entityType(RoutingService.OPERATION_ATTACHMENT_ENTITY_TYPE)
+                        .entityId(opId)
+                        .build();
+        when(attachmentService.upload(RoutingService.OPERATION_ATTACHMENT_ENTITY_TYPE, opId, file))
+                .thenReturn(stored);
+
+        com.katasticho.erp.common.entity.EntityAttachment result =
+                service.attachOperationFile(opId, file);
+
+        assertSame(stored, result);
+        verify(attachmentService).upload(
+                org.mockito.ArgumentMatchers.eq("OPERATION"),
+                org.mockito.ArgumentMatchers.eq(opId),
+                org.mockito.ArgumentMatchers.eq(file));
+    }
+
+    @Test
+    void attachOperationFile_unknownOperation_throwsBeforeUpload() {
+        UUID opId = UUID.randomUUID();
+        when(operationRepo.findByIdAndOrgIdAndIsDeletedFalse(opId, orgId))
+                .thenReturn(Optional.empty());
+        org.springframework.web.multipart.MultipartFile file =
+                org.mockito.Mockito.mock(org.springframework.web.multipart.MultipartFile.class);
+
+        assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.attachOperationFile(opId, file));
+        verify(attachmentService, org.mockito.Mockito.never())
+                .upload(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void listOperationAttachments_filtersByOperationEntityType() {
+        UUID opId = UUID.randomUUID();
+        Operation op = Operation.builder().code("OP-DRY").name("Dry").build();
+        op.setId(opId);
+        op.setOrgId(orgId);
+        when(operationRepo.findByIdAndOrgIdAndIsDeletedFalse(opId, orgId)).thenReturn(Optional.of(op));
+        when(attachmentService.list("OPERATION", opId)).thenReturn(List.of());
+
+        assertTrue(service.listOperationAttachments(opId).isEmpty());
+        verify(attachmentService).list("OPERATION", opId);
     }
 }

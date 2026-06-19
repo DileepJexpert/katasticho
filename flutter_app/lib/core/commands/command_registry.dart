@@ -406,6 +406,14 @@ List<KCommand> buildAppCommands() {
       keywords: ['bom', 'diff', 'compare', 'engineering', 'revision', 'change'],
     ),
     KCommand(
+      label: 'Operation Work Instructions',
+      icon: Icons.description_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingOperationAttachments,
+      keywords: ['sop', 'instruction', 'attachment', 'operation', 'drawing',
+                 'work', 'manual'],
+    ),
+    KCommand(
       label: 'Job Work',
       icon: Icons.engineering_rounded,
       section: 'Navigate',

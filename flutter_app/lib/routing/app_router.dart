@@ -190,6 +190,7 @@ import '../features/manufacturing/presentation/qc_inspection_list_screen.dart';
 import '../features/manufacturing/presentation/qc_inspection_detail_screen.dart';
 import '../features/manufacturing/presentation/maintenance_screen.dart';
 import '../features/manufacturing/presentation/bom_version_diff_screen.dart';
+import '../features/manufacturing/presentation/operation_attachments_screen.dart';
 import '../features/manufacturing/presentation/production_analytics_screen.dart';
 import '../features/manufacturing/presentation/scrap_screen.dart';
 import '../features/manufacturing/presentation/shop_floor_screen.dart';
@@ -426,6 +427,7 @@ class Routes {
   static const manufacturingScrap = '/manufacturing/scrap';
   static const manufacturingAnalytics = '/manufacturing/analytics';
   static const manufacturingBomDiff = '/manufacturing/bom-diff';
+  static const manufacturingOperationAttachments = '/manufacturing/operation-attachments';
   static const manufacturingMaintenance = '/manufacturing/maintenance';
   static const manufacturingShopFloor = '/manufacturing/shop-floor';
 
@@ -1367,6 +1369,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.manufacturingBomDiff,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: BomVersionDiffScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.manufacturingOperationAttachments,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: OperationAttachmentsScreen(),
             ),
           ),
           GoRoute(

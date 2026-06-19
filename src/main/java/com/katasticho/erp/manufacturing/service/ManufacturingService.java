@@ -17,6 +17,7 @@ import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
+import com.katasticho.erp.inventory.service.BatchService;
 import com.katasticho.erp.inventory.service.BatchTraceService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.manufacturing.entity.ProductionCostSummary;
@@ -80,6 +81,7 @@ public class ManufacturingService {
     private final StockBatchRepository stockBatchRepository;
     private final BatchTraceService batchTraceService;
     private final StockBalanceRepository stockBalanceRepository;
+    private final BatchService batchService;
 
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
     private static final Set<String> VALID_PRIORITIES = Set.of("URGENT", "HIGH", "NORMAL", "LOW");
@@ -451,18 +453,7 @@ public class ManufacturingService {
                         .setScale(4, RoundingMode.HALF_UP);
             }
 
-            inventoryService.recordMovement(new StockMovementRequest(
-                    line.getItemId(),
-                    wo.getWarehouseId(),
-                    MovementType.PRODUCTION_ISSUE,
-                    issueQty.negate(),
-                    line.getUnitCost(),
-                    LocalDate.now(),
-                    ReferenceType.WORK_ORDER,
-                    wo.getId(),
-                    wo.getWorkOrderNumber(),
-                    "Production issue for " + wo.getWorkOrderNumber()
-            ));
+            issueRawMaterialToProduction(wo, line.getItemId(), issueQty, line.getUnitCost());
 
             line.setIssuedQty(issueQty);
             line.setStatus("ISSUED");
@@ -719,6 +710,87 @@ public class ManufacturingService {
         return batch.getId();
     }
 
+    // ── FEFO-aware production issue (tracker #45) ────────────────────
+
+    /**
+     * Issues a single line's worth of raw material to a work order,
+     * honouring FEFO when the item is batch-tracked. For non-batch
+     * items this collapses to a single {@code recordMovement} that's
+     * byte-for-byte identical to the legacy path.
+     *
+     * <p>Why this matters: before #45 the production-issue path passed
+     * {@code batchId=null} for every item — including batch-tracked
+     * pharma RM. The system fell into the {@code isBatchOptionalMovement}
+     * escape hatch and the per-batch ledger never deducted, so:
+     *   <ul>
+     *     <li>Recall traces (#47) couldn't link to the actual RM batch
+     *         consumed, because the movement didn't carry one.</li>
+     *     <li>FEFO order wasn't enforced — oldest expiry could sit
+     *         while later receipts got used.</li>
+     *     <li>Per-batch balances drifted away from on-hand totals.</li>
+     *   </ul>
+     *
+     * <p>FEFO loop walks {@link BatchService#findFefoBatches} (expiry
+     * ascending, NULL last), greedy-consumes each batch up to its
+     * on-hand, and emits one {@code recordMovement} per slice. If the
+     * total available across batches doesn't cover the required qty,
+     * throws {@code MFG_INSUFFICIENT_BATCH_STOCK} — the caller is
+     * better off seeing the shortage at issue time than discovering
+     * it at QC.
+     */
+    private void issueRawMaterialToProduction(WorkOrder wo, UUID itemId,
+                                              BigDecimal issueQty,
+                                              BigDecimal unitCost) {
+        Item rm = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(itemId, wo.getOrgId())
+                .orElse(null);
+        if (rm == null || !rm.isTrackBatches()) {
+            inventoryService.recordMovement(new StockMovementRequest(
+                    itemId,
+                    wo.getWarehouseId(),
+                    MovementType.PRODUCTION_ISSUE,
+                    issueQty.negate(),
+                    unitCost,
+                    LocalDate.now(),
+                    ReferenceType.WORK_ORDER,
+                    wo.getId(),
+                    wo.getWorkOrderNumber(),
+                    "Production issue for " + wo.getWorkOrderNumber()
+            ));
+            return;
+        }
+
+        BigDecimal remaining = issueQty.setScale(4, RoundingMode.HALF_UP);
+        List<com.katasticho.erp.inventory.entity.StockBatch> batches =
+                batchService.findFefoBatches(itemId, wo.getWarehouseId());
+        for (com.katasticho.erp.inventory.entity.StockBatch batch : batches) {
+            if (remaining.signum() <= 0) break;
+            BigDecimal available = batchService.getBatchBalance(batch.getId(), wo.getWarehouseId());
+            if (available.signum() <= 0) continue;
+            BigDecimal consume = available.min(remaining);
+            inventoryService.recordMovement(new StockMovementRequest(
+                    itemId,
+                    wo.getWarehouseId(),
+                    MovementType.PRODUCTION_ISSUE,
+                    consume.negate(),
+                    unitCost,
+                    LocalDate.now(),
+                    ReferenceType.WORK_ORDER,
+                    wo.getId(),
+                    wo.getWorkOrderNumber(),
+                    "Production issue (FEFO " + batch.getBatchNumber() + ") for "
+                            + wo.getWorkOrderNumber(),
+                    batch.getId()
+            ));
+            remaining = remaining.subtract(consume);
+        }
+        if (remaining.signum() > 0) {
+            throw new BusinessException(
+                    "Insufficient batch stock for " + rm.getName() + " — short by "
+                            + remaining + ". Receive more stock or split the WO.",
+                    "MFG_INSUFFICIENT_BATCH_STOCK", HttpStatus.CONFLICT);
+        }
+    }
+
     // ── Backflush: auto-issue RM proportional to FG received ─────────
 
     private void backflushMaterials(WorkOrder wo, BigDecimal quantityReceived) {
@@ -731,18 +803,7 @@ public class ManufacturingService {
             BigDecimal issueQty = line.getRequiredQty().multiply(ratio)
                     .setScale(4, RoundingMode.HALF_UP);
 
-            inventoryService.recordMovement(new StockMovementRequest(
-                    line.getItemId(),
-                    wo.getWarehouseId(),
-                    MovementType.PRODUCTION_ISSUE,
-                    issueQty.negate(),
-                    line.getUnitCost(),
-                    LocalDate.now(),
-                    ReferenceType.WORK_ORDER,
-                    wo.getId(),
-                    wo.getWorkOrderNumber(),
-                    "Backflush issue for " + wo.getWorkOrderNumber()
-            ));
+            issueRawMaterialToProduction(wo, line.getItemId(), issueQty, line.getUnitCost());
 
             BigDecimal newIssued = line.getIssuedQty().add(issueQty);
             line.setIssuedQty(newIssued);

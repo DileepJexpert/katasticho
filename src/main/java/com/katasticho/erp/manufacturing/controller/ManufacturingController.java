@@ -214,6 +214,32 @@ public class ManufacturingController {
         return ResponseEntity.ok(ApiResponse.ok(routingService.getOperation(id)));
     }
 
+    // ── Operation work-instruction attachments (tracker #13) ─────────
+
+    @PostMapping(value = "/operations/{id}/attachments", consumes = "multipart/form-data")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<com.katasticho.erp.common.entity.EntityAttachment>>
+            attachOperationFile(@PathVariable UUID id,
+                                @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                routingService.attachOperationFile(id, file),
+                "Attachment uploaded"));
+    }
+
+    @GetMapping("/operations/{id}/attachments")
+    public ResponseEntity<ApiResponse<List<com.katasticho.erp.common.entity.EntityAttachment>>>
+            listOperationAttachments(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(routingService.listOperationAttachments(id)));
+    }
+
+    @DeleteMapping("/operations/attachments/{attachmentId}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteOperationAttachment(
+            @PathVariable UUID attachmentId) {
+        routingService.deleteOperationAttachment(attachmentId);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Attachment deleted"));
+    }
+
     // ── Routings ──────────────────────────────────────────────────
 
     @SuppressWarnings("unchecked")

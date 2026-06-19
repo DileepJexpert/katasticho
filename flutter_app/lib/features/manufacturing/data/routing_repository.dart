@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/api/api_config.dart';
 
 // ---------------------------------------------------------------------------
 // Providers
@@ -89,6 +91,29 @@ class RoutingRepository {
       if (runTimePerUnit != null) 'runTimePerUnit': runTimePerUnit,
     });
     return _unwrap(res.data);
+  }
+
+  // ---- Operation work instructions (tracker #13) ---------------------------
+
+  Future<List<Map<String, dynamic>>> listOperationAttachments(String operationId) async {
+    final res = await _api.get(ApiConfig.manufacturingOperationAttachments(operationId));
+    return _unwrapList(res.data);
+  }
+
+  Future<Map<String, dynamic>> uploadOperationAttachment(
+      String operationId, List<int> bytes, String filename) async {
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    final res = await _api.post(
+      ApiConfig.manufacturingOperationAttachments(operationId),
+      data: form,
+    );
+    return _unwrap(res.data);
+  }
+
+  Future<void> deleteOperationAttachment(String attachmentId) async {
+    await _api.delete(ApiConfig.manufacturingOperationAttachment(attachmentId));
   }
 
   // ---- Routings ------------------------------------------------------------
