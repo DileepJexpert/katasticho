@@ -35,4 +35,16 @@ public class BatchTraceController {
             @PathVariable UUID batchId) {
         return ResponseEntity.ok(ApiResponse.ok(service.getTraceHistory(batchId)));
     }
+
+    /**
+     * Batch recall report — given a (potentially defective) raw-material
+     * batch id, returns every finished-goods batch it was mixed into and
+     * every downstream sales movement of those FG batches with the
+     * customer name + invoice number. Sorted most-recent shipment first
+     * so the recall team can phone today's customers before yesterday's.
+     */
+    @GetMapping("/recall/{rmBatchId}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> recall(@PathVariable UUID rmBatchId) {
+        return ResponseEntity.ok(ApiResponse.ok(service.recallReport(rmBatchId)));
+    }
 }

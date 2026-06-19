@@ -222,6 +222,13 @@ List<KCommand> buildAppCommands() {
       keywords: ['expiry', 'batch', 'pharma'],
     ),
     KCommand(
+      label: 'Batch Recall',
+      icon: Icons.health_and_safety_rounded,
+      section: 'Navigate',
+      route: Routes.batchRecall,
+      keywords: ['recall', 'batch', 'trace', 'pharma', 'food', 'fda'],
+    ),
+    KCommand(
       label: 'Sales Receipts',
       icon: Icons.receipt_rounded,
       section: 'Navigate',

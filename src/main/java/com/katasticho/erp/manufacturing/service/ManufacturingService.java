@@ -16,6 +16,7 @@ import com.katasticho.erp.inventory.repository.BomComponentRepository;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
+import com.katasticho.erp.inventory.service.BatchTraceService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.manufacturing.entity.ProductionCostSummary;
 import com.katasticho.erp.manufacturing.entity.ProductionScrap;
@@ -74,6 +75,7 @@ public class ManufacturingService {
     private final ProductionScrapRepository productionScrapRepository;
     private final ScrapReasonCodeRepository scrapReasonCodeRepository;
     private final StockBatchRepository stockBatchRepository;
+    private final BatchTraceService batchTraceService;
 
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
     private static final Set<String> VALID_PRIORITIES = Set.of("URGENT", "HIGH", "NORMAL", "LOW");
@@ -591,6 +593,12 @@ public class ManufacturingService {
                 "Finished goods receipt for " + wo.getWorkOrderNumber(),
                 fgBatchId
         ));
+
+        // Wire RM↔FG traces so the batch-recall report can walk them.
+        // Idempotent inside BatchTraceService — safe across partial receipts.
+        if (fgBatchId != null && batchTraceService != null) {
+            batchTraceService.linkTracesForFgReceipt(wo.getId(), fgBatchId, wo.getFinishedGoodId());
+        }
 
         for (BomCoProduct cp : coProducts) {
             BigDecimal cpQty = quantityReceived.multiply(cp.getQuantityPerUnit())

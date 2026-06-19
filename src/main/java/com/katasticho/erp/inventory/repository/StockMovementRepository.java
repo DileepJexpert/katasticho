@@ -29,6 +29,25 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, UU
     List<StockMovement> findByReferenceTypeAndReferenceId(ReferenceType referenceType, UUID referenceId);
 
     /**
+     * SALE movements of a specific batch — feeds the batch-recall report
+     * so we know exactly which customers received goods produced from a
+     * suspect raw-material batch. Reversals (and reversed originals) are
+     * excluded so a void doesn't generate a phantom shipment.
+     */
+    @Query("""
+            SELECT m
+              FROM StockMovement m
+             WHERE m.orgId         = :orgId
+               AND m.batchId       = :batchId
+               AND m.movementType  = 'SALE'
+               AND m.reversal      = false
+               AND m.reversed      = false
+             ORDER BY m.movementDate DESC, m.createdAt DESC
+            """)
+    List<StockMovement> findSaleMovementsByBatch(@Param("orgId") UUID orgId,
+                                                 @Param("batchId") UUID batchId);
+
+    /**
      * All incoming (positive, non-reversal) movements for the org, newest
      * first per item — feeds the stock-ageing report's FIFO allocation
      * (what's left on hand is assumed to be the most recent receipts).

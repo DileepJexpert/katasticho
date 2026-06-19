@@ -1005,6 +1005,8 @@ class ApiConfig {
       '/api/v1/inventory/batch-trace/forward/$batchId';
   static String batchTraceBackward(String batchId) =>
       '/api/v1/inventory/batch-trace/backward/$batchId';
+  static String batchRecall(String rmBatchId) =>
+      '/api/v1/inventory/batch-trace/recall/$rmBatchId';
 
   // Currencies
   static const String currencies = '/api/v1/currencies';

@@ -87,7 +87,7 @@ class WorkOrderEnhancementsTest {
                 workOrderRepo, workOrderLineRepo, bomComponentRepo, itemRepo, inventoryService,
                 salesOrderRepo, warehouseRepo, journalService, wipPostingRule, costSummaryRepo,
                 bomAlternateRepo, bomCoProductRepo, approvalWorkflowService,
-                productionScrapRepo, scrapReasonCodeRepo, null);
+                productionScrapRepo, scrapReasonCodeRepo, null, null);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }

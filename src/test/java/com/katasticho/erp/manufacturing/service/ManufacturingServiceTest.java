@@ -62,6 +62,7 @@ class ManufacturingServiceTest {
     @Mock private com.katasticho.erp.manufacturing.repository.ProductionScrapRepository productionScrapRepo;
     @Mock private com.katasticho.erp.manufacturing.repository.ScrapReasonCodeRepository scrapReasonCodeRepo;
     @Mock private com.katasticho.erp.inventory.repository.StockBatchRepository stockBatchRepo;
+    @Mock private com.katasticho.erp.inventory.service.BatchTraceService batchTraceService;
 
     private ManufacturingService service;
 
@@ -77,7 +78,7 @@ class ManufacturingServiceTest {
                 workOrderRepo, workOrderLineRepo, bomComponentRepo, itemRepo, inventoryService,
                 salesOrderRepo, warehouseRepo, journalService, wipPostingRule, costSummaryRepo,
                 bomAlternateRepo, bomCoProductRepo, approvalWorkflowService,
-                productionScrapRepo, scrapReasonCodeRepo, stockBatchRepo);
+                productionScrapRepo, scrapReasonCodeRepo, stockBatchRepo, batchTraceService);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }

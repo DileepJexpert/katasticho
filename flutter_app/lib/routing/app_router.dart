@@ -200,6 +200,7 @@ import '../features/supply_chain/presentation/turnover_screen.dart';
 import '../features/supply_chain/presentation/shipment_list_screen.dart';
 import '../features/manufacturing/presentation/mrp_run_screen.dart';
 import '../features/inventory/presentation/warehouse_zone_screen.dart';
+import '../features/inventory/presentation/batch_recall_screen.dart';
 import '../features/inventory/presentation/batch_trace_screen.dart';
 import '../features/currency/presentation/currency_screen.dart';
 import '../features/integrations/presentation/integration_list_screen.dart';
@@ -439,6 +440,7 @@ class Routes {
   // Inventory additions
   static const warehouseZones = '/inventory/warehouse-zones';
   static const batchTrace = '/inventory/batch-trace';
+  static const batchRecall = '/inventory/batch-recall';
 
   // Currency
   static const currencies = '/currencies';
@@ -1424,6 +1426,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.batchTrace,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: BatchTraceScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.batchRecall,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: BatchRecallScreen(),
             ),
           ),
           // Currency

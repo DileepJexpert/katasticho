@@ -92,4 +92,13 @@ class InventoryRepository {
       return {'movements': [], 'batchId': batchId};
     }
   }
+
+  /// Batch recall — given a suspect RM batch id, returns every affected
+  /// FG batch and every downstream customer shipment.
+  Future<Map<String, dynamic>> getBatchRecall(String rmBatchId) async {
+    final res = await _api.get(ApiConfig.batchRecall(rmBatchId));
+    final data = res.data['data'];
+    if (data is Map<String, dynamic>) return data;
+    return {'affectedFgBatches': [], 'affectedShipments': [], 'rmBatch': {}};
+  }
 }

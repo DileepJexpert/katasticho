@@ -15,4 +15,12 @@ public interface BatchTraceRepository extends JpaRepository<BatchTrace, UUID> {
     List<BatchTrace> findByOrgIdAndSourceBatchIdAndIsDeletedFalseOrderByTracedAtAsc(UUID orgId, UUID sourceBatchId);
 
     List<BatchTrace> findByOrgIdAndWorkOrderIdAndIsDeletedFalse(UUID orgId, UUID workOrderId);
+
+    /**
+     * Dedupe guard so partial FG receipts on the same WO don't insert the
+     * same (fgBatch, rmBatch, wo) trace row twice. Restricted to BACKWARD
+     * rows because that's the direction the auto-recorder writes.
+     */
+    boolean existsByOrgIdAndBatchIdAndSourceBatchIdAndWorkOrderIdAndTraceTypeAndIsDeletedFalse(
+            UUID orgId, UUID batchId, UUID sourceBatchId, UUID workOrderId, String traceType);
 }
