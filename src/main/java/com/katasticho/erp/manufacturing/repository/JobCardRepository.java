@@ -40,4 +40,17 @@ public interface JobCardRepository extends JpaRepository<JobCard, UUID> {
                                                   @Param("assignedTo") UUID assignedTo,
                                                   @Param("from") Instant from,
                                                   @Param("to") Instant to);
+
+    /**
+     * Open job cards (PENDING + IN_PROGRESS) across the org — the input
+     * to bottleneck identification (tracker #92). The capacity-planning
+     * roll-up sums these by workstation and compares to daily capacity.
+     */
+    @Query("""
+            SELECT jc FROM JobCard jc
+             WHERE jc.orgId     = :orgId
+               AND jc.isDeleted = false
+               AND jc.status IN ('PENDING', 'IN_PROGRESS')
+            """)
+    List<JobCard> findOpenForOrg(@Param("orgId") UUID orgId);
 }

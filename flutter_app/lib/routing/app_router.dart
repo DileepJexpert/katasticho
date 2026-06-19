@@ -196,6 +196,7 @@ import '../features/manufacturing/presentation/operation_dependencies_screen.dar
 import '../features/manufacturing/presentation/bmr_screen.dart';
 import '../features/manufacturing/presentation/parameterized_bom_screen.dart';
 import '../features/manufacturing/presentation/actual_cost_preview_screen.dart';
+import '../features/manufacturing/presentation/workstation_load_screen.dart';
 import '../features/manufacturing/presentation/workstation_alternates_screen.dart';
 import '../features/manufacturing/presentation/production_analytics_screen.dart';
 import '../features/manufacturing/presentation/scrap_screen.dart';
@@ -443,6 +444,7 @@ class Routes {
   static const manufacturingMaintenance = '/manufacturing/maintenance';
   static const manufacturingShopFloor = '/manufacturing/shop-floor';
   static const manufacturingActualCostPreview = '/manufacturing/actual-cost-preview';
+  static const manufacturingWorkstationLoad = '/manufacturing/workstation-load';
 
   // Supply Chain
   static const supplyChainDashboard = '/supply-chain';
@@ -1401,6 +1403,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.manufacturingActualCostPreview,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: ActualCostPreviewScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.manufacturingWorkstationLoad,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: WorkstationLoadScreen(),
             ),
           ),
           GoRoute(

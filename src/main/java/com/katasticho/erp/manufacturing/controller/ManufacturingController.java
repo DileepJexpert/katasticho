@@ -35,6 +35,7 @@ public class ManufacturingController {
     private final QualityControlService qcService;
     private final ScrapService scrapService;
     private final MrpService mrpService;
+    private final BottleneckService bottleneckService;
 
     @PostMapping("/work-orders")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
@@ -839,6 +840,17 @@ public class ManufacturingController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> previewActualCost(
             @PathVariable UUID workOrderId) {
         return ResponseEntity.ok(ApiResponse.ok(service.previewActualCost(workOrderId)));
+    }
+
+    @GetMapping("/reports/workstation-load")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> workstationLoad() {
+        return ResponseEntity.ok(ApiResponse.ok(bottleneckService.workstationLoadReport()));
+    }
+
+    @GetMapping("/reports/bottlenecks")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> topBottlenecks(
+            @RequestParam(defaultValue = "5") int limit) {
+        return ResponseEntity.ok(ApiResponse.ok(bottleneckService.topBottlenecks(limit)));
     }
 
     @GetMapping("/reports/wip-valuation")

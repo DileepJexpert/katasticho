@@ -430,6 +430,14 @@ List<KCommand> buildAppCommands() {
                  'cost', 'variance', 'work order', 'job card', 'rate'],
     ),
     KCommand(
+      label: 'Workstation Load',
+      icon: Icons.show_chart_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingWorkstationLoad,
+      keywords: ['bottleneck', 'capacity', 'workstation', 'load', 'queue',
+                 'utilisation', 'utilization', 'planning', 'machine'],
+    ),
+    KCommand(
       label: 'Batch Manufacturing Record',
       icon: Icons.science_rounded,
       section: 'Navigate',

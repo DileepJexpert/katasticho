@@ -1020,6 +1020,10 @@ class ApiConfig {
       '/api/v1/manufacturing/reports/cost-variance/$woId';
   static String manufacturingActualCostPreview(String woId) =>
       '/api/v1/manufacturing/work-orders/$woId/actual-cost-preview';
+  static const String manufacturingWorkstationLoad =
+      '/api/v1/manufacturing/reports/workstation-load';
+  static const String manufacturingBottlenecks =
+      '/api/v1/manufacturing/reports/bottlenecks';
   static const String manufacturingWipValuation = '/api/v1/manufacturing/reports/wip-valuation';
   static const String manufacturingConsumption = '/api/v1/manufacturing/reports/consumption';
   static const String manufacturingProductionTrends =
