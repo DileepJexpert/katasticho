@@ -26,7 +26,6 @@ class _WorkOrderListScreenState extends ConsumerState<WorkOrderListScreen> {
   @override
   Widget build(BuildContext context) {
     final ordersAsync = ref.watch(workOrdersProvider(_statusFilter));
-    final theme = Theme.of(context);
 
     return KKeyboardListWrapper(
       itemCount: () => _currentOrders.length,

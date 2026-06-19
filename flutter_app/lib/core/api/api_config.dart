@@ -37,11 +37,28 @@ class ApiConfig {
   // Accounting
   static const String chartOfAccounts = '/api/v1/accounts';
   static const String journalEntries = '/api/v1/journal-entries';
+
+  // Fixed assets + depreciation
+  static const String fixedAssets = '/api/v1/fixed-assets';
+  static String fixedAssetById(String id) => '/api/v1/fixed-assets/$id';
+  static const String fixedAssetDepreciationRun = '/api/v1/fixed-assets/depreciation/run';
+  static String fixedAssetDispose(String id) => '/api/v1/fixed-assets/$id/dispose';
+  static const String fixedAssetIncomeTaxSchedule = '/api/v1/fixed-assets/income-tax-schedule';
+
+  // Recurring amortization (prepaids / deferred income / accruals)
+  static const String amortization = '/api/v1/amortization';
+  static String amortizationById(String id) => '/api/v1/amortization/$id';
+  static const String amortizationRun = '/api/v1/amortization/run';
+  static String amortizationCancel(String id) => '/api/v1/amortization/$id/cancel';
   static const String fiscalPeriods = '/api/v1/accounting/periods';
   static String closeFiscalPeriod(int year, int month) =>
       '/api/v1/accounting/periods/$year/$month/close';
   static String reopenFiscalPeriod(int year, int month) =>
       '/api/v1/accounting/periods/$year/$month/reopen';
+  static String closeChecklist(int year, int month) =>
+      '/api/v1/accounting/continuous-close/$year/$month/checklist';
+  static String guardedClose(int year, int month) =>
+      '/api/v1/accounting/continuous-close/$year/$month/close';
   static String lockFiscalPeriod(int year, int month) =>
       '/api/v1/accounting/periods/$year/$month/lock';
 
@@ -86,6 +103,9 @@ class ApiConfig {
   static const String gstr2bFetch = '/api/v1/gst/gstr2b/fetch';
   static const String gstr2b = '/api/v1/gst/gstr2b';
   static const String gstr2bSummary = '/api/v1/gst/gstr2b/summary';
+  static const String gstItcRisk = '/api/v1/gst/itc-risk';
+  static const String gstItcRiskRollup = '/api/v1/gst/itc-risk/rollup';
+  static const String gstItcRiskAlert = '/api/v1/gst/itc-risk/alert';
   // e-Way bills
   static const String ewayBills = '/api/v1/gst/eway-bills';
   static String ewayBillRecord(String id) => '/api/v1/gst/eway-bills/$id/record';
@@ -106,6 +126,10 @@ class ApiConfig {
   // TDS
   static const String tdsRegister = '/api/v1/tds/register';
   static const String tds26q = '/api/v1/tds/26q';
+  // Salary TDS (Form 24Q quarterly + Form 16 per-employee, from posted payroll)
+  static const String tds24q = '/api/v1/tds/24q';
+  static const String tdsSalaryRegister = '/api/v1/tds/salary-register';
+  static String tdsForm16(String employeeId) => '/api/v1/tds/form16/$employeeId';
 
   // TCS 206C(1H) (auto-collected on invoices past ₹50L/buyer/FY)
   static const String tcsRegister = '/api/v1/tcs/register';
@@ -133,12 +157,34 @@ class ApiConfig {
   static String cashRegisterDeleteExpense(String id) => '/api/v1/pos/cash-register/expense/$id';
   static String cashRegisterByDate(String date) => '/api/v1/pos/cash-register/$date';
 
+  // POS catalog delta sync (local-first POS)
+  static const String posSync = '/api/v1/items/pos-sync';
+
+  // Customer/Vendor portal accounts (admin management)
+  static const String portalUsers = '/api/v1/portal-users';
+  static String portalUserResendInvite(String id) => '/api/v1/portal-users/$id/resend-invite';
+  static String portalUserSuspend(String id) => '/api/v1/portal-users/$id/suspend';
+  static String portalUserReactivate(String id) => '/api/v1/portal-users/$id/reactivate';
+  static String portalUserById(String id) => '/api/v1/portal-users/$id';
+
+  // External portal (customer/vendor self-service login)
+  static const String portalLogin = '/api/v1/portal/auth/login';
+  static const String portalAcceptInvite = '/api/v1/portal/auth/accept-invite';
+  static const String portalMe = '/api/v1/portal/me';
+  static const String portalDashboard = '/api/v1/portal/dashboard';
+  static const String portalInvoices = '/api/v1/portal/invoices';
+  static const String portalStatement = '/api/v1/portal/statement';
+  static const String portalPurchaseOrders = '/api/v1/portal/purchase-orders';
+  static const String portalBills = '/api/v1/portal/bills';
+  static const String portalChangePassword = '/api/v1/portal/change-password';
+
   // AI Model Settings
   static const String orgSettings = '/api/v1/settings';
   static const String upiSettings = '/api/v1/settings/upi';
   static const String smsSettings = '/api/v1/settings/sms';
   static const String aiSettings = '/api/v1/settings/ai';
   static const String aiSettingsTest = '/api/v1/settings/ai/test';
+  static const String aiSettingsModels = '/api/v1/settings/ai/models';
 
   // Contact Ledger
   static String contactLedger(String id) => '/api/v1/contacts/$id/ledger';
@@ -318,6 +364,7 @@ class ApiConfig {
 
   // AI
   static const String aiQuery = '/api/v1/ai/query';
+  static const String aiAgent = '/api/v1/ai/agent';
   static const String aiSuggestions = '/api/v1/ai/suggestions';
   static const String aiSuggestionsSummary = '/api/v1/ai/suggestions/summary';
   static String aiSuggestionById(String id) => '/api/v1/ai/suggestions/$id';
@@ -336,6 +383,12 @@ class ApiConfig {
       '/api/v1/ai/bill-drafts/$suggestionId/approve';
   static String aiBillDraftReject(String suggestionId) =>
       '/api/v1/ai/bill-drafts/$suggestionId/reject';
+
+  // Auto-categorize transactions (vendor -> GL account, learned from history)
+  static String aiCategorize(String contactId, {String? hsn}) =>
+      '/api/v1/ai/categorize?contactId=$contactId'
+      '${hsn != null && hsn.isNotEmpty ? '&hsn=$hsn' : ''}';
+  static const String aiCategorizeBackfill = '/api/v1/ai/categorize/backfill';
 
   // Proactive agents (collections, month-close, anomalies)
   static const String aiProactiveRun = '/api/v1/ai/agents/proactive/run';
@@ -852,6 +905,35 @@ class ApiConfig {
   static String fieldSamplesTransactions(String salespersonId) =>
       '/api/v1/field-sales/samples/transactions/$salespersonId';
 
+  // Stockist secondary sales (SSS)
+  static const String secondarySalesStatements =
+      '/api/v1/field-sales/secondary-sales/statements';
+  static String secondarySalesStatementById(String id) =>
+      '/api/v1/field-sales/secondary-sales/statements/$id';
+  static String secondarySalesStatementSubmit(String id) =>
+      '/api/v1/field-sales/secondary-sales/statements/$id/submit';
+  static const String secondarySalesReport =
+      '/api/v1/field-sales/secondary-sales/reports/secondary-sales';
+  static const String secondarySalesStockOnHand =
+      '/api/v1/field-sales/secondary-sales/reports/stock-on-hand';
+
+  // RCPA (retail chemist prescription audit)
+  static const String mrRcpa = '/api/v1/mr/rcpa';
+  static const String mrRcpaMine = '/api/v1/mr/rcpa/me';
+  static String mrRcpaById(String id) => '/api/v1/mr/rcpa/$id';
+  static String mrRcpaByChemist(String chemistId) =>
+      '/api/v1/mr/rcpa/by-chemist/$chemistId';
+  static const String mrRcpaShareReport = '/api/v1/mr/rcpa/reports/share';
+  static const String mrRcpaCompetitors = '/api/v1/mr/rcpa/reports/competitors';
+
+  // Field reporting hierarchy (org chart + manager assignment)
+  static const String fieldHierarchyOrgChart =
+      '/api/v1/field-sales/hierarchy/org-chart';
+  static const String fieldHierarchyMyTeam =
+      '/api/v1/field-sales/hierarchy/my-team';
+  static String fieldHierarchySetManager(String userId) =>
+      '/api/v1/field-sales/hierarchy/users/$userId/manager';
+
   // Coverage reports
   static const String mrTeamDashboard = '/api/v1/mr/reports/team-dashboard';
   static const String mrDeviationReport = '/api/v1/mr/reports/deviation';
@@ -1063,6 +1145,58 @@ class ApiConfig {
 
   // GSP direct e-invoice / e-way bill generation
   static const String gspSettings = '/api/v1/gst/gsp-settings';
+  static const String gspSettingsTest = '/api/v1/gst/gsp-settings/test';
+
+  // Courier (dispatch tracking + COD reconciliation)
+  static const String courierShipments = '/api/v1/courier/shipments';
+  static String courierShipment(String id) => '/api/v1/courier/shipments/$id';
+  static String courierShipmentBook(String id) =>
+      '/api/v1/courier/shipments/$id/book';
+  static String courierShipmentCancel(String id) =>
+      '/api/v1/courier/shipments/$id/cancel';
+  static String courierShipmentEvents(String id) =>
+      '/api/v1/courier/shipments/$id/events';
+  static const String courierShipmentsPendingRto =
+      '/api/v1/courier/shipments/pending-rto';
+  static const String codRemittances = '/api/v1/courier/cod-remittances';
+  static String codRemittance(String id) => '/api/v1/courier/cod-remittances/$id';
+  static String codRemittanceReconcile(String id) =>
+      '/api/v1/courier/cod-remittances/$id/reconcile';
+  static const String courierSettings = '/api/v1/courier/settings';
+  static String courierSettingsPartner(String partner) =>
+      '/api/v1/courier/settings/$partner';
+  static String courierSettingsPartnerTest(String partner) =>
+      '/api/v1/courier/settings/$partner/test';
+  // Live tracking (poll / webhook URL / COD pull)
+  static String courierTrackingSync(String id) =>
+      '/api/v1/courier/tracking/shipments/$id/sync';
+  static const String courierTrackingSyncAll = '/api/v1/courier/tracking/sync-all';
+  static const String courierTrackingCodPull =
+      '/api/v1/courier/tracking/cod-remittances/pull';
+  static String courierTrackingWebhookUrl(String partner) =>
+      '/api/v1/courier/tracking/webhook-url?partner=$partner';
+
+  // Transport (lorry receipts + freight rate cards)
+  static const String lorryReceipts = '/api/v1/transport/lorry-receipts';
+  static String lorryReceipt(String id) => '/api/v1/transport/lorry-receipts/$id';
+  static String lorryReceiptIssue(String id) =>
+      '/api/v1/transport/lorry-receipts/$id/issue';
+  static String lorryReceiptDeliver(String id) =>
+      '/api/v1/transport/lorry-receipts/$id/deliver';
+  static String lorryReceiptCancel(String id) =>
+      '/api/v1/transport/lorry-receipts/$id/cancel';
+  static String lorryReceiptBillFreight(String id) =>
+      '/api/v1/transport/lorry-receipts/$id/bill-freight';
+  static const String freightRateCards = '/api/v1/transport/rate-cards';
+  static String freightRateCard(String id) => '/api/v1/transport/rate-cards/$id';
+  // Vehicle log (own-fleet TCO)
+  static const String vehicleLogs = '/api/v1/transport/vehicle-logs';
+  static String vehicleLog(String id) => '/api/v1/transport/vehicle-logs/$id';
+  static const String vehicleLogSummary = '/api/v1/transport/vehicle-logs/summary';
+  // Proof of delivery
+  static const String proofOfDelivery = '/api/v1/transport/proof-of-delivery';
+  static String podAttachments(String id) =>
+      '/api/v1/transport/proof-of-delivery/$id/attachments';
   static String einvoiceGenerateViaGsp(String id) =>
       '/api/v1/gst/einvoices/$id/generate-gsp';
   static String ewayBillGenerateViaGsp(String id) =>

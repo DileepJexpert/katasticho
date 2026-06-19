@@ -22,6 +22,7 @@ public class JwtService {
 
     private final SecretKey key;
     private final SecretKey platformAdminKey;
+    private final SecretKey portalKey;
     private final long accessTokenExpiryMinutes;
     private final long refreshTokenExpiryDays;
     private final long platformAdminExpiryHours;
@@ -36,6 +37,10 @@ public class JwtService {
     ) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.platformAdminKey = Keys.hmacShaKeyFor(platformAdminSecret.getBytes(StandardCharsets.UTF_8));
+        // Portal tokens are signed with a key derived from (but distinct from) the
+        // main secret, so the app's JWT filter can never accept a portal token and
+        // vice versa — no extra config required.
+        this.portalKey = Keys.hmacShaKeyFor((secret + "::portal-v1").getBytes(StandardCharsets.UTF_8));
         this.accessTokenExpiryMinutes = accessTokenExpiryMinutes;
         this.refreshTokenExpiryDays = refreshTokenExpiryDays;
         this.platformAdminExpiryHours = platformAdminExpiryHours;
@@ -96,6 +101,37 @@ public class JwtService {
 
     public Claims parseCustomerToken(String token) {
         return validateAndExtract(token);
+    }
+
+    /** Portal (external customer/vendor) access token, signed with the isolated portal key. */
+    public String generatePortalToken(UUID portalUserId, UUID orgId, UUID contactId,
+                                      String kind, int tokenVersion, long expiryMinutes) {
+        Instant now = Instant.now();
+        Instant expiry = now.plusSeconds(expiryMinutes * 60);
+        return Jwts.builder()
+                .subject(portalUserId.toString())
+                .claim("org_id", orgId.toString())
+                .claim("contact_id", contactId.toString())
+                .claim("kind", kind)
+                .claim("portal", true)
+                .claim("tokenVersion", tokenVersion)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(expiry))
+                .signWith(portalKey)
+                .compact();
+    }
+
+    public Claims parsePortalToken(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(portalKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            return Boolean.TRUE.equals(claims.get("portal", Boolean.class)) ? claims : null;
+        } catch (JwtException e) {
+            return null;
+        }
     }
 
     public String generateRefreshToken() {

@@ -1,8 +1,20 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/api/api_client.dart';
+import '../../../core/storage/pos_database.dart';
+import 'offline_pos_service.dart';
 import 'pos_favourites.dart';
 import 'pos_repository.dart';
+
+bool _isNetworkError(Object e) {
+  if (e is! DioException) return false;
+  return e.type == DioExceptionType.connectionTimeout ||
+      e.type == DioExceptionType.sendTimeout ||
+      e.type == DioExceptionType.receiveTimeout ||
+      e.type == DioExceptionType.connectionError ||
+      e.type == DioExceptionType.unknown;
+}
 
 /// Drug-master catalog fallback for POS — medicines not yet in the org's
 /// item master. Only fetched when the catalog section is actually built.
@@ -13,12 +25,48 @@ final posCatalogSearchProvider = FutureProvider.autoDispose
   return repo.catalogSearch(query: query.trim());
 });
 
-/// POS search results — re-fetches when query changes.
+/// POS search — **local-first**. Searches the local SQLite catalog (instant,
+/// <5ms typical) and serves the result with no network in the hot path. A
+/// background catalog sync ([PosCatalogSyncService]) keeps the cache fresh, so
+/// the cashier never waits for the server.
+///
+/// If the local cache is empty (first-time setup or a wiped DB), we fall back
+/// to the live API once so the cashier isn't stuck — the sync service then
+/// fills the cache for next time.
+///
+/// Stock here is "last known": the **authoritative** check happens at receipt
+/// post-time on the server, so multi-terminal selling can't oversell.
 final posSearchProvider = FutureProvider.autoDispose
     .family<List<Map<String, dynamic>>, String?>((ref, query) async {
   if (query == null || query.trim().isEmpty) return [];
-  final repo = ref.watch(posRepositoryProvider);
-  return repo.posSearch(query: query.trim());
+  final q = query.trim();
+  final offline = OfflinePosService.instance;
+
+  if (posOfflineSupported) {
+    final local = await offline.searchLocalItems(q);
+    if (local.isNotEmpty) return local;
+    // Empty local cache → one-time online fallback so the counter still works
+    // before the first background sync completes.
+    final cached = await offline.cachedItemCount();
+    if (cached > 0) {
+      // Cache is populated but this query has no match locally — return empty
+      // so the UI shows the "no items" state rather than masking it with a
+      // possibly-stale network call.
+      return const [];
+    }
+  }
+
+  // Cold cache (web build, or first POS open with nothing synced yet).
+  try {
+    final results = await ref.watch(posRepositoryProvider).posSearch(query: q);
+    offline.cacheItems(results); // warm the cache for next time
+    return results;
+  } catch (e) {
+    if (_isNetworkError(e)) {
+      return offline.searchLocalItems(q);
+    }
+    rethrow;
+  }
 });
 
 /// Fetches UPI payment settings (upiId, displayName) from org settings.

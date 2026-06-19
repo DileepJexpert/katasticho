@@ -45,4 +45,12 @@ public class OrgAiSettingsController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("success", ok,
                 "message", ok ? "Connected successfully" : "Cannot reach Ollama server")));
     }
+
+    /** Lists models installed on the given local server (Ollama /api/tags). */
+    @GetMapping("/models")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<java.util.List<String>>> installedModels(
+            @RequestParam String baseUrl) {
+        return ResponseEntity.ok(ApiResponse.ok(service.listInstalledModels(baseUrl)));
+    }
 }

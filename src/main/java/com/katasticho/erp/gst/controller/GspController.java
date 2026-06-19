@@ -43,12 +43,22 @@ public class GspController {
         putIfPresent(orgId, body, "baseUrl", GspClient.BASE_URL);
         putIfPresent(orgId, body, "einvoicePath", GspClient.EINVOICE_PATH);
         putIfPresent(orgId, body, "ewaybillPath", GspClient.EWAYBILL_PATH);
+        putIfPresent(orgId, body, "gstr2bPath", GspClient.GSTR2B_PATH);
+        putIfPresent(orgId, body, "gstr2aPath", GspClient.GSTR2A_PATH);
         putIfPresent(orgId, body, "gstin", GspClient.GSTIN);
         // Only overwrite the token when a non-blank value is supplied.
         if (body.get("token") != null && !body.get("token").isBlank()) {
             orgSettingsService.set(orgId, GspClient.TOKEN, body.get("token").trim());
         }
         return ResponseEntity.ok(ApiResponse.ok(gspClient.settings(orgId), "GSP settings updated"));
+    }
+
+    /** Probe whether the configured GSP host is reachable. Never errors on a bad host. */
+    @PostMapping("/test")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> test() {
+        return ResponseEntity.ok(ApiResponse.ok(
+                gspClient.testConnection(TenantContext.getCurrentOrgId())));
     }
 
     private void putIfPresent(UUID orgId, Map<String, String> body, String field, String key) {

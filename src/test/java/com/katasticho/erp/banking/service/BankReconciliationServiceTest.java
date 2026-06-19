@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
 import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.entity.Account;
-import com.katasticho.erp.ai.service.ClaudeApiClient;
+import com.katasticho.erp.ai.service.VisionModelRouter;
 import com.katasticho.erp.ap.dto.VendorPaymentRequest;
 import com.katasticho.erp.ap.dto.VendorPaymentResponse;
 import com.katasticho.erp.ap.entity.PurchaseBill;
@@ -54,7 +54,7 @@ class BankReconciliationServiceTest {
     @Mock private PaymentService paymentService;
     @Mock private VendorPaymentService vendorPaymentService;
     @Mock private DefaultAccountService defaultAccountService;
-    @Mock private ClaudeApiClient claudeApiClient;
+    @Mock private VisionModelRouter claudeApiClient;
 
     private BankReconciliationService service;
     private UUID orgId;

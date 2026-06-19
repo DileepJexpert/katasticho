@@ -52,8 +52,11 @@ public class ProactiveAgentService {
     private final RuleBasedAiAgentService ruleBasedAiAgentService;
     private final AiSuggestionRepository aiSuggestionRepository;
     private final AiSuggestionService aiSuggestionService;
+    private final FluxAnalysisService fluxAnalysisService;
+    private final TransactionCategorizationService transactionCategorizationService;
 
-    public record ProactiveRunResult(int collections, int monthClose, int anomalies) {}
+    public record ProactiveRunResult(int collections, int monthClose, int anomalies, int flux,
+                                     int categorize) {}
 
     /** Run all proactive agents for the current tenant. */
     @Transactional
@@ -61,9 +64,22 @@ public class ProactiveAgentService {
         int collections = draftCollectionsReminders();
         int monthClose = draftMonthCloseChecklist(LocalDate.now());
         int anomalies = ruleBasedAiAgentService.runRuleChecks(30).createdSuggestions();
-        log.info("Proactive sweep: {} collections, {} month-close, {} anomalies",
-                collections, monthClose, anomalies);
-        return new ProactiveRunResult(collections, monthClose, anomalies);
+        int flux = 0;
+        try {
+            flux = fluxAnalysisService.draftForLastMonth(LocalDate.now());
+        } catch (Exception e) {
+            log.warn("Flux agent failed: {}", e.getMessage());
+        }
+        // Keep the vendor→account memory fresh so categorize suggestions stay current.
+        int categorize = 0;
+        try {
+            categorize = transactionCategorizationService.backfillFromHistory(365);
+        } catch (Exception e) {
+            log.warn("Categorization backfill failed: {}", e.getMessage());
+        }
+        log.info("Proactive sweep: {} collections, {} month-close, {} anomalies, {} flux, "
+                + "{} categorize patterns", collections, monthClose, anomalies, flux, categorize);
+        return new ProactiveRunResult(collections, monthClose, anomalies, flux, categorize);
     }
 
     // ── Collections reminders ───────────────────────────────────────────

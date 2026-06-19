@@ -28,6 +28,23 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
 
     Page<Item> findByOrgIdAndIsDeletedFalseAndActiveTrue(UUID orgId, Pageable pageable);
 
+    /**
+     * Items changed since the cursor — feeds the POS catalog delta sync.
+     * Cursor is composite ({@code updatedAt}, {@code id}) so a full pre-sync of
+     * tens of thousands of rows that share a clock tick paginates correctly
+     * (a pure timestamp cursor would re-fetch / stall on ties).
+     */
+    @Query("SELECT i FROM Item i WHERE i.orgId = :orgId " +
+            "AND (i.updatedAt > :since OR (i.updatedAt = :since AND i.id > :sinceId)) " +
+            "ORDER BY i.updatedAt ASC, i.id ASC")
+    Page<Item> findChangedSince(@Param("orgId") UUID orgId,
+                                @Param("since") java.time.Instant since,
+                                @Param("sinceId") UUID sinceId,
+                                Pageable pageable);
+
+    /** Total active+deleted item count for the org — fuels pre-sync progress. */
+    long countByOrgId(UUID orgId);
+
     @Query("""
             SELECT i FROM Item i
             WHERE i.orgId = :orgId

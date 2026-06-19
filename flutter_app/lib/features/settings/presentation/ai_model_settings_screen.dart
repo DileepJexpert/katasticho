@@ -13,14 +13,12 @@ class _ModelInfo {
   final String id;
   final String label;
   final String description;
-  final String? size;
   final bool isCloud;
 
   const _ModelInfo({
     required this.id,
     required this.label,
     required this.description,
-    this.size,
     this.isCloud = false,
   });
 }
@@ -40,56 +38,6 @@ const _claudeModels = [
   ),
 ];
 
-const _ollamaModels = [
-  _ModelInfo(
-    id: 'llama3.2-vision:11b',
-    label: 'Llama 3.2 Vision 11B',
-    description: 'Best open-source choice. Excellent for Indian bills with GST.',
-    size: '7.9 GB',
-  ),
-  _ModelInfo(
-    id: 'qwen2.5vl:7b',
-    label: 'Qwen 2.5 VL 7B',
-    description: 'Outstanding document OCR. Strong for multi-language text.',
-    size: '4.5 GB',
-  ),
-  _ModelInfo(
-    id: 'minicpm-v:8b',
-    label: 'MiniCPM-V 8B',
-    description: 'Great balance of speed and accuracy for receipts.',
-    size: '5.4 GB',
-  ),
-  _ModelInfo(
-    id: 'llava:13b',
-    label: 'LLaVA 13B',
-    description: 'Widely tested multimodal model. Reliable general-purpose OCR.',
-    size: '8.0 GB',
-  ),
-  _ModelInfo(
-    id: 'llava:7b',
-    label: 'LLaVA 7B',
-    description: 'Lightweight variant. Good for high-volume scanning.',
-    size: '3.8 GB',
-  ),
-  _ModelInfo(
-    id: 'llava-llama3:8b',
-    label: 'LLaVA-Llama3 8B',
-    description: 'LLaVA on Llama 3 base. Better reasoning than original LLaVA.',
-    size: '5.5 GB',
-  ),
-  _ModelInfo(
-    id: 'moondream:1.8b',
-    label: 'Moondream 1.8B',
-    description: 'Smallest model. Very fast but limited to simple text extraction.',
-    size: '1.1 GB',
-  ),
-  _ModelInfo(
-    id: 'bakllava:7b',
-    label: 'BakLLaVA 7B',
-    description: 'Alternative LLaVA architecture. Good for printed receipts.',
-    size: '4.0 GB',
-  ),
-];
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -170,14 +118,16 @@ class _AiModelSettingsScreenState extends ConsumerState<AiModelSettingsScreen> {
         if (s.baseUrl != null) _baseUrlController.text = s.baseUrl!;
         _state = _state.copyWith(settings: s, isLoading: false);
       });
+      // If already on a local provider, pre-fill the installed-models picker.
+      if (s.provider != 'CLAUDE') _detectModels(silent: true);
     } catch (e) {
       setState(() => _state = _state.copyWith(isLoading: false, error: 'Failed to load settings'));
     }
   }
 
   Future<void> _save() async {
-    if (_provider == 'OLLAMA' && _baseUrlController.text.trim().isEmpty) {
-      setState(() => _state = _state.copyWith(error: 'Ollama server URL is required'));
+    if (_provider != 'CLAUDE' && _baseUrlController.text.trim().isEmpty) {
+      setState(() => _state = _state.copyWith(error: 'Server URL is required'));
       return;
     }
     setState(() => _state = _state.copyWith(isSaving: true, error: null, testResult: null));
@@ -186,7 +136,7 @@ class _AiModelSettingsScreenState extends ConsumerState<AiModelSettingsScreen> {
       final updated = await repo.updateSettings(AiModelSettings(
         provider: _provider,
         modelName: _modelName,
-        baseUrl: _provider == 'OLLAMA' ? _baseUrlController.text.trim() : null,
+        baseUrl: _provider != 'CLAUDE' ? _baseUrlController.text.trim() : null,
       ));
       setState(() => _state = _state.copyWith(settings: updated, isSaving: false));
       if (mounted) {
@@ -202,17 +152,45 @@ class _AiModelSettingsScreenState extends ConsumerState<AiModelSettingsScreen> {
   Future<void> _testConnection() async {
     final url = _baseUrlController.text.trim();
     if (url.isEmpty) {
-      setState(() => _state = _state.copyWith(error: 'Enter Ollama server URL first'));
+      setState(() => _state = _state.copyWith(error: 'Enter the server URL first'));
       return;
     }
     setState(() => _state = _state.copyWith(isTesting: true, testResult: null, error: null));
     final repo = ref.read(aiSettingsRepositoryProvider);
     final ok = await repo.testConnection(url);
+    // On a successful test, also pull the installed model list for the picker.
+    if (ok) await _detectModels(silent: true);
     setState(() => _state = _state.copyWith(
       isTesting: false,
-      testResult: ok ? 'Connected successfully to Ollama' : 'Cannot reach Ollama server at $url',
+      testResult: ok ? 'Connected — found ${_detectedModels.length} installed model(s)'
+                     : 'Cannot reach the server at $url',
       testSuccess: ok,
     ));
+  }
+
+  // Models installed on the local server (what `ollama list` shows).
+  List<String> _detectedModels = [];
+  bool _detecting = false;
+
+  Future<void> _detectModels({bool silent = false}) async {
+    final url = _baseUrlController.text.trim();
+    if (url.isEmpty) {
+      if (!silent) {
+        setState(() => _state = _state.copyWith(error: 'Enter the server URL first'));
+      }
+      return;
+    }
+    if (!silent) setState(() => _detecting = true);
+    final repo = ref.read(aiSettingsRepositoryProvider);
+    final models = await repo.listInstalledModels(url);
+    if (!mounted) return;
+    setState(() {
+      _detectedModels = models;
+      _detecting = false;
+      if (!silent && models.isEmpty) {
+        _state = _state.copyWith(error: 'No models found — is the server running? (try "ollama serve")');
+      }
+    });
   }
 
   bool get _canEdit {
@@ -224,7 +202,7 @@ class _AiModelSettingsScreenState extends ConsumerState<AiModelSettingsScreen> {
     final s = _state.settings;
     if (s == null) return false;
     if (_provider != s.provider || _modelName != s.modelName) return true;
-    if (_provider == 'OLLAMA') {
+    if (_provider != 'CLAUDE') {
       final savedUrl = s.baseUrl ?? 'http://localhost:11434';
       return _baseUrlController.text.trim() != savedUrl;
     }
@@ -270,7 +248,10 @@ class _AiModelSettingsScreenState extends ConsumerState<AiModelSettingsScreen> {
                       _provider = p;
                       _modelName = p == 'CLAUDE'
                           ? 'claude-sonnet-4-20250514'
-                          : 'llama3.2-vision:11b';
+                          : (_detectedModels.isNotEmpty
+                              ? _detectedModels.first
+                              : 'llama3.2:3b');
+                      _detectedModels = [];
                       _state = _state.copyWith(testResult: null, error: null);
                     }),
                   ),
@@ -286,17 +267,22 @@ class _AiModelSettingsScreenState extends ConsumerState<AiModelSettingsScreen> {
                           enabled: _canEdit,
                           onSelect: (m) => setState(() => _modelName = m),
                         )
-                      : _ModelList(
-                          models: _ollamaModels,
-                          selected: _modelName,
+                      : _LocalModelPicker(
+                          modelName: _modelName,
+                          detected: _detectedModels,
+                          detecting: _detecting,
                           enabled: _canEdit,
-                          onSelect: (m) => setState(() => _modelName = m),
+                          onDetect: _canEdit ? () => _detectModels() : null,
+                          onModelChanged: (m) => setState(() => _modelName = m),
                         ),
                   KSpacing.vGapLg,
 
-                  // Ollama config
-                  if (_provider == 'OLLAMA') ...[
-                    Text('Ollama Server', style: KTypography.h3),
+                  // Local server config (Ollama / OpenAI-compatible)
+                  if (_provider != 'CLAUDE') ...[
+                    Text(_provider == 'OLLAMA'
+                            ? 'Ollama Server'
+                            : 'Local Server (OpenAI-compatible)',
+                        style: KTypography.h3),
                     KSpacing.vGapSm,
                     _OllamaConfig(
                       controller: _baseUrlController,
@@ -423,6 +409,94 @@ class _ProviderSelector extends StatelessWidget {
             onTap: () => onChanged('OLLAMA'),
           ),
         ),
+        KSpacing.hGapSm,
+        Expanded(
+          child: _ProviderCard(
+            label: 'OpenAI-compat',
+            subtitle: 'vLLM / LM Studio\nllama.cpp',
+            icon: Icons.dns_outlined,
+            iconColor: KColors.warning,
+            selected: selected == 'OPENAI_COMPAT',
+            enabled: enabled,
+            onTap: () => onChanged('OPENAI_COMPAT'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Model picker for a local provider — a free-text model name plus a
+/// "Detect installed models" button that lists what's actually on the server
+/// (Ollama's `/api/tags`) as tappable chips.
+class _LocalModelPicker extends StatelessWidget {
+  final String modelName;
+  final List<String> detected;
+  final bool detecting;
+  final bool enabled;
+  final VoidCallback? onDetect;
+  final ValueChanged<String> onModelChanged;
+
+  const _LocalModelPicker({
+    required this.modelName,
+    required this.detected,
+    required this.detecting,
+    required this.enabled,
+    required this.onDetect,
+    required this.onModelChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                key: ValueKey(modelName),
+                initialValue: modelName,
+                enabled: enabled,
+                decoration: const InputDecoration(
+                  labelText: 'Model name',
+                  hintText: 'e.g. qwen2.5-coder:7b',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: onModelChanged,
+              ),
+            ),
+            KSpacing.hGapSm,
+            OutlinedButton.icon(
+              onPressed: enabled && !detecting ? onDetect : null,
+              icon: detecting
+                  ? const SizedBox(
+                      width: 14, height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.search, size: 16),
+              label: const Text('Detect'),
+            ),
+          ],
+        ),
+        if (detected.isNotEmpty) ...[
+          KSpacing.vGapSm,
+          Text('Installed on your server — tap to use:',
+              style: KTypography.bodySmall.copyWith(color: KColors.textHint)),
+          KSpacing.vGapXs,
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final m in detected)
+                ChoiceChip(
+                  label: Text(m),
+                  selected: m == modelName,
+                  onSelected: enabled ? (_) => onModelChanged(m) : null,
+                ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -499,15 +573,21 @@ class _ModelList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: models
-          .map((m) => _ModelTile(
-                model: m,
-                selected: m.id == selected,
-                enabled: enabled,
-                onSelect: () => onSelect(m.id),
-              ))
-          .toList(),
+    return RadioGroup<String>(
+      groupValue: selected,
+      onChanged: (value) {
+        if (enabled && value != null) onSelect(value);
+      },
+      child: Column(
+        children: models
+            .map((m) => _ModelTile(
+                  model: m,
+                  selected: m.id == selected,
+                  enabled: enabled,
+                  onSelect: () => onSelect(m.id),
+                ))
+            .toList(),
+      ),
     );
   }
 }
@@ -547,8 +627,7 @@ class _ModelTile extends StatelessWidget {
             children: [
               Radio<String>(
                 value: model.id,
-                groupValue: selected ? model.id : '',
-                onChanged: enabled ? (_) => onSelect() : null,
+                enabled: enabled,
                 activeColor: KColors.primary,
               ),
               Expanded(
@@ -560,18 +639,6 @@ class _ModelTile extends StatelessWidget {
                         Expanded(
                           child: Text(model.label, style: KTypography.labelMedium),
                         ),
-                        if (model.size != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: KColors.textHint.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(model.size!,
-                                style: KTypography.labelSmall
-                                    .copyWith(color: KColors.textHint)),
-                          ),
                         if (model.isCloud)
                           Container(
                             padding: const EdgeInsets.symmetric(

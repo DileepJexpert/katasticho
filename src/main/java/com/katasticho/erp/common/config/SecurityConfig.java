@@ -4,6 +4,7 @@ import com.katasticho.erp.auth.filter.ApiKeyAuthenticationFilter;
 import com.katasticho.erp.auth.filter.JwtAuthenticationFilter;
 import com.katasticho.erp.common.idempotency.IdempotencyFilter;
 import com.katasticho.erp.platform.filter.PlatformAdminJwtFilter;
+import com.katasticho.erp.portal.filter.PortalAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -33,6 +34,7 @@ public class SecurityConfig {
     private final ApiKeyAuthenticationFilter apiKeyAuthenticationFilter;
     private final PlatformAdminJwtFilter platformAdminJwtFilter;
     private final IdempotencyFilter idempotencyFilter;
+    private final PortalAuthenticationFilter portalAuthenticationFilter;
 
     @Value("${app.cors.allowed-origins:*}")
     private List<String> allowedOrigins;
@@ -54,6 +56,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/v1/auth/**",
+                                "/api/v1/portal/auth/**",
+                                // Courier webhooks authenticate by a per-org token in the URL path.
+                                "/api/v1/courier/webhooks/**",
                                 "/api/v1/health",
                                 "/api/platform-admin/v1/auth/login",
                                 "/actuator/health",
@@ -77,10 +82,12 @@ public class SecurityConfig {
                 // API-key filter runs before JWT: it authenticates X-API-Key / Bearer kat_…
                 // requests; everything else falls through to the JWT filter untouched.
                 .addFilterBefore(apiKeyAuthenticationFilter, JwtAuthenticationFilter.class)
+                // Portal filter authenticates external customers/vendors on /api/v1/portal/**
+                // (it self-skips all other paths, including /api/v1/portal/auth/**).
+                .addFilterBefore(portalAuthenticationFilter, JwtAuthenticationFilter.class)
                 // Idempotency runs after the auth filters (needs TenantContext org):
-                // registered at this anchor, so it sits between the JWT filter and
-                // UsernamePasswordAuthenticationFilter. Commands with an Idempotency-Key
-                // header are replayed on retry instead of re-executed.
+                // sits between the JWT filter and UsernamePasswordAuthenticationFilter.
+                // Commands with an Idempotency-Key header are replayed on retry.
                 .addFilterBefore(idempotencyFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

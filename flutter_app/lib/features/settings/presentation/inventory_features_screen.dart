@@ -153,7 +153,7 @@ class _InventoryFeaturesScreenState
                   style: KTypography.bodySmall
                       .copyWith(color: KColors.textSecondary),
                 ),
-                activeColor: KColors.primary,
+                activeThumbColor: KColors.primary,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 secondary: isToggling

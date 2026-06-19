@@ -1,5 +1,6 @@
 package com.katasticho.erp.ai.controller;
 
+import com.katasticho.erp.ai.dto.AgentChatDtos;
 import com.katasticho.erp.ai.dto.AiQueryRequest;
 import com.katasticho.erp.ai.dto.AiQueryResponse;
 import com.katasticho.erp.ai.dto.AiAgentRunResponse;
@@ -10,7 +11,9 @@ import com.katasticho.erp.ai.dto.BillScanResponse;
 import com.katasticho.erp.ai.dto.AiInboxSummaryResponse;
 import com.katasticho.erp.ai.dto.ItemScanResponse;
 import com.katasticho.erp.ai.service.AiSuggestionService;
+import com.katasticho.erp.ai.service.AiTrainingExportService;
 import com.katasticho.erp.ai.service.BillScanService;
+import com.katasticho.erp.ai.service.ConversationalAgentService;
 import com.katasticho.erp.ai.service.ItemScanService;
 import com.katasticho.erp.ai.service.NlpQueryService;
 import com.katasticho.erp.ai.service.ProactiveAgentService;
@@ -40,6 +43,27 @@ public class AiController {
     private final AiSuggestionService aiSuggestionService;
     private final RuleBasedAiAgentService ruleBasedAiAgentService;
     private final ProactiveAgentService proactiveAgentService;
+    private final AiTrainingExportService aiTrainingExportService;
+    private final ConversationalAgentService conversationalAgentService;
+
+    /** Summary of how much fine-tuning data has accumulated. */
+    @GetMapping("/training/summary")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> trainingSummary() {
+        return ResponseEntity.ok(ApiResponse.ok(aiTrainingExportService.summary()));
+    }
+
+    /** Export human-reviewed AI decisions as chat-format JSONL for LoRA/SFT fine-tuning. */
+    @GetMapping(value = "/training/export", produces = "application/x-ndjson")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<String> exportTraining(
+            @RequestParam(required = false) String taskType,
+            @RequestParam(defaultValue = "true") boolean goodOnly) {
+        String jsonl = aiTrainingExportService.exportJsonl(taskType, goodOnly);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"katasticho-finetune.jsonl\"")
+                .body(jsonl);
+    }
 
     @GetMapping("/suggestions")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
@@ -94,6 +118,19 @@ public class AiController {
             @Valid @RequestBody AiQueryRequest request) {
         AiQueryResponse response = nlpQueryService.processQuery(request.message());
         return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    /**
+     * POST /api/v1/ai/agent
+     * Conversational agent with tool-use: one message → the agent picks a tool
+     * (query your data, draft a transaction, list overdue customers) and runs it
+     * through existing services. Write tools only ever create DRAFTS for approval.
+     */
+    @PostMapping("/agent")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<AgentChatDtos.AgentChatResponse>> agent(
+            @Valid @RequestBody AgentChatDtos.AgentChatRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(conversationalAgentService.chat(request.message())));
     }
 
     /**

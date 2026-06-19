@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
 @Slf4j
 public class NlpQueryService {
 
-    private final ClaudeApiClient claudeApiClient;
+    private final VisionModelRouter modelRouter;
     private final SqlValidator sqlValidator;
     private final SchemaProvider schemaProvider;
     private final AiConfig aiConfig;
@@ -106,7 +106,7 @@ public class NlpQueryService {
                 %s
                 """.formatted(orgId, schemaProvider.getSchemaDescription());
 
-        String response = claudeApiClient.sendMessage(systemPrompt, userMessage);
+        String response = modelRouter.sendMessage(systemPrompt, userMessage);
         return extractSql(response);
     }
 
@@ -172,6 +172,6 @@ public class NlpQueryService {
 
         String userPrompt = "Question: %s\n\nQuery results:\n%s".formatted(userMessage, resultsJson);
 
-        return claudeApiClient.sendMessage(systemPrompt, userPrompt);
+        return modelRouter.sendMessage(systemPrompt, userPrompt);
     }
 }

@@ -61,4 +61,17 @@ class AiSettingsRepository {
       return false;
     }
   }
+
+  /// The models actually installed on the local server (what `ollama list`
+  /// shows). Empty list if the server is unreachable.
+  Future<List<String>> listInstalledModels(String baseUrl) async {
+    try {
+      final resp = await _api.get(ApiConfig.aiSettingsModels,
+          queryParameters: {'baseUrl': baseUrl});
+      final data = (resp.data as Map<String, dynamic>)['data'] as List?;
+      return (data ?? const []).map((e) => e.toString()).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
 }

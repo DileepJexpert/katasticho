@@ -7,6 +7,7 @@ import '../../../core/widgets/k_keyboard_list_wrapper.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../data/supply_chain_repository.dart';
+import 'widgets/scm_breadcrumb.dart';
 
 final _turnoverProvider = FutureProvider.autoDispose<List<dynamic>>((ref) {
   return ref.watch(supplyChainRepositoryProvider).getInventoryTurnover();
@@ -31,7 +32,10 @@ class InventoryTurnoverScreen extends ConsumerWidget {
         ref.invalidate(_policiesProvider);
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Inventory Analytics')),
+        appBar: AppBar(
+          title: const Text('Inventory Analytics'),
+          bottom: scmBreadcrumb(context, 'Analytics'),
+        ),
         body: ListView(
           padding: KSpacing.pagePadding,
           children: [

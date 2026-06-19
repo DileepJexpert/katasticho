@@ -84,6 +84,10 @@ public class SalesReceipt extends BaseEntity {
     @Column(length = 500)
     private String notes;
 
+    /** Client temp number (OFF-xxxx) if this sale was rung up offline. */
+    @Column(name = "offline_receipt_number", length = 30)
+    private String offlineReceiptNumber;
+
     @Column(name = "gst_invoice", nullable = false)
     @Builder.Default
     private boolean gstInvoice = false;

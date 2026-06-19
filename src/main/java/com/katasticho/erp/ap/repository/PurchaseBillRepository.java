@@ -24,6 +24,10 @@ public interface PurchaseBillRepository extends JpaRepository<PurchaseBill, UUID
     Page<PurchaseBill> findByOrgIdAndStatusAndIsDeletedFalseOrderByBillDateDesc(
             UUID orgId, String status, Pageable pageable);
 
+    /** DRAFT bills dated within a period — for the close checklist. */
+    long countByOrgIdAndStatusAndIsDeletedFalseAndBillDateBetween(
+            UUID orgId, String status, java.time.LocalDate from, java.time.LocalDate to);
+
     Page<PurchaseBill> findByOrgIdAndContactIdAndIsDeletedFalseOrderByBillDateDesc(
             UUID orgId, UUID contactId, Pageable pageable);
 

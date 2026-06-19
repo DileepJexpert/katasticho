@@ -202,45 +202,107 @@ class _NavigationCards extends StatelessWidget {
   final BuildContext ctx;
   const _NavigationCards(this.ctx);
 
+  // All six tools that live under the Supply Chain module — surfaced here so the
+  // dashboard reads as a hub, not a dead-end (the sidebar group hides these
+  // behind one tap).
+  static const _tools = [
+    _Tool('Requisitions', Icons.receipt_long,
+        'Raise & approve purchase requests', '/supply-chain/requisitions'),
+    _Tool('Shipments', Icons.local_shipping,
+        'Track inbound & outbound shipments', '/supply-chain/shipments'),
+    _Tool('Return Orders', Icons.assignment_return,
+        'Purchase & sales returns', '/supply-chain/returns'),
+    _Tool('Alerts', Icons.notifications_active,
+        'Stockout risk & low-stock alerts', '/supply-chain/alerts'),
+    _Tool('Supplier Rankings', Icons.leaderboard,
+        'Supplier performance scorecards', '/supply-chain/supplier-rankings'),
+    _Tool('Inventory Analytics', Icons.rotate_right,
+        'Turnover, days-on-hand & ABC', '/supply-chain/turnover'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Modules', style: KTypography.titleMedium),
+        Text('Supply Chain Tools', style: KTypography.titleMedium),
+        const SizedBox(height: KSpacing.xs),
+        Text('Six tools live here — jump to any one.',
+            style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
         const SizedBox(height: KSpacing.sm),
-        _NavCard('Purchase Requisitions', Icons.receipt_long,
-            'Create and manage purchase requests', '/supply-chain/requisitions'),
-        _NavCard('Return Orders', Icons.assignment_return,
-            'Manage purchase and sales returns', '/supply-chain/returns'),
-        _NavCard('Alerts', Icons.notifications_active,
-            'Supply chain alerts and notifications', '/supply-chain/alerts'),
-        _NavCard('Supplier Rankings', Icons.leaderboard,
-            'Supplier performance scorecards', '/supply-chain/supplier-rankings'),
-        _NavCard('Inventory Turnover', Icons.rotate_right,
-            'Inventory analytics and ABC analysis', '/supply-chain/turnover'),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const spacing = KSpacing.md;
+            final cols = (constraints.maxWidth / 260).floor().clamp(1, 4);
+            final tileW = (constraints.maxWidth - spacing * (cols - 1)) / cols;
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: _tools
+                  .map((t) => SizedBox(width: tileW, child: _NavCard(t)))
+                  .toList(),
+            );
+          },
+        ),
       ],
     );
   }
 }
 
-class _NavCard extends StatelessWidget {
+class _Tool {
   final String title;
   final IconData icon;
   final String subtitle;
   final String route;
-  const _NavCard(this.title, this.icon, this.subtitle, this.route);
+  const _Tool(this.title, this.icon, this.subtitle, this.route);
+}
+
+class _NavCard extends StatelessWidget {
+  final _Tool tool;
+  const _NavCard(this.tool);
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: KSpacing.sm),
-      child: ListTile(
-        leading: Icon(icon, color: KColors.primary),
-        title: Text(title),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => context.go(route),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.go(tool.route),
+        child: Padding(
+          padding: const EdgeInsets.all(KSpacing.md),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: KColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+                ),
+                child: Icon(tool.icon, color: KColors.primary, size: 22),
+              ),
+              const SizedBox(width: KSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(tool.title,
+                        style: KTypography.titleSmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 2),
+                    Text(tool.subtitle,
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right,
+                  size: 18, color: KColors.textSecondary),
+            ],
+          ),
+        ),
       ),
     );
   }

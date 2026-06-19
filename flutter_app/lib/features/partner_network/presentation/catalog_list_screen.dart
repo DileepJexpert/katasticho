@@ -10,7 +10,6 @@ class CatalogListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final catalogAsync = ref.watch(catalogProvider);
-    final theme = Theme.of(context);
 
     return KKeyboardListWrapper(
       itemCount: () => catalogAsync.valueOrNull?.length ?? 0,

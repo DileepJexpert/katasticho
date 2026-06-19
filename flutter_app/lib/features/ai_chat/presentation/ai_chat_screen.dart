@@ -1071,11 +1071,12 @@ class _AiAssistantTabState extends ConsumerState<_AiAssistantTab> {
     _messages.add(
       _ChatMessage(
         text:
-            "Hi! I'm your AI assistant. Ask me anything about your business finances.\n\n"
+            "Hi! I'm your AI assistant. Ask about your data, record a payment, or "
+            "check who owes you — I'll handle it.\n\n"
             "Try:\n"
             "- \"What's my total revenue this month?\"\n"
-            "- \"Show me overdue invoices\"\n"
-            "- \"What's my cash balance?\"\n"
+            "- \"Paid 5000 cash for shop rent\"\n"
+            "- \"Who owes me money?\"\n"
             "- \"Compare this month vs last month\"",
         isUser: false,
       ),
@@ -1102,16 +1103,22 @@ class _AiAssistantTabState extends ConsumerState<_AiAssistantTab> {
 
     try {
       final aiRepo = ref.read(aiRepositoryProvider);
-      final response = await aiRepo.query(text);
-      final data = response['data'] as Map<String, dynamic>?;
+      final result = await aiRepo.agent(text);
+
+      // For data queries, the tool payload carries the result rows to render.
+      Map<String, dynamic>? rows;
+      if (result['tool'] == 'query_data' && result['data'] is Map) {
+        final q = result['data'] as Map<String, dynamic>;
+        rows = q['results'] as Map<String, dynamic>?;
+      }
 
       setState(() {
         _messages.add(
           _ChatMessage(
-            text:
-                data?['answer'] as String? ?? 'I couldn\'t process that query.',
+            text: result['reply'] as String? ?? 'I couldn\'t process that.',
             isUser: false,
-            data: data?['results'] as Map<String, dynamic>?,
+            data: rows,
+            actionRequired: result['actionRequired'] == true,
           ),
         );
       });
@@ -1255,12 +1262,14 @@ class _ChatMessage {
   final bool isUser;
   final DateTime timestamp;
   final Map<String, dynamic>? data;
+  final bool actionRequired;
 
   _ChatMessage({
     required this.text,
     required this.isUser,
     DateTime? timestamp,
     this.data,
+    this.actionRequired = false,
   }) : timestamp = timestamp ?? DateTime.now();
 }
 
@@ -1343,6 +1352,24 @@ class _ChatBubble extends StatelessWidget {
                           fontFamily: 'monospace',
                         ),
                       ),
+                    ),
+                  ],
+                  if (message.actionRequired) ...[
+                    KSpacing.vGapSm,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.inbox_outlined,
+                            size: 14, color: KColors.warning),
+                        KSpacing.hGapXs,
+                        Flexible(
+                          child: Text(
+                            'Draft created — approve it in the AI Inbox tab',
+                            style: KTypography.bodySmall
+                                .copyWith(color: KColors.warning),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ],

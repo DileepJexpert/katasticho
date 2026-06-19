@@ -1,7 +1,7 @@
 package com.katasticho.erp.banking.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.katasticho.erp.ai.service.ClaudeApiClient;
+import com.katasticho.erp.ai.service.VisionModelRouter;
 import com.katasticho.erp.banking.service.BankStatementParser.ParsedBankRow;
 import org.junit.jupiter.api.Test;
 
@@ -18,7 +18,7 @@ import static org.mockito.Mockito.when;
 
 class BankStatementParserTest {
 
-    private final ClaudeApiClient claudeApiClient = mock(ClaudeApiClient.class);
+    private final VisionModelRouter claudeApiClient = mock(VisionModelRouter.class);
     private final BankStatementParser parser =
             new BankStatementParser(claudeApiClient, new ObjectMapper());
 

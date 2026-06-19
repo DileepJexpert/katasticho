@@ -26,4 +26,8 @@ public interface PayrollRunRepository extends JpaRepository<PayrollRun, UUID> {
             "AND pr.status NOT IN ('CANCELLED') " +
             "AND ((pr.periodStart <= :end AND pr.periodEnd >= :start))")
     List<PayrollRun> findOverlapping(UUID orgId, LocalDate start, LocalDate end);
+
+    /** Runs of a given status whose period starts within [from, to] — salary-TDS by quarter/FY. */
+    List<PayrollRun> findByOrgIdAndStatusAndPeriodStartBetweenOrderByPeriodStart(
+            UUID orgId, String status, LocalDate from, LocalDate to);
 }

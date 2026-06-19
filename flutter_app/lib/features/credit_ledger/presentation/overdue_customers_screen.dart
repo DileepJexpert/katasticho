@@ -166,7 +166,6 @@ class _OverdueCustomersScreenState
           : response;
 
       final message = data['message']?.toString() ?? '';
-      final whatsappUrl = data['whatsappUrl']?.toString() ?? '';
       String phone = data['phone']?.toString() ?? '';
 
       if (!mounted) return;
@@ -344,8 +343,6 @@ class _OverdueCustomerCard extends StatelessWidget {
     final phone = customer['phone'] as String? ?? '';
     final totalOutstanding =
         (customer['totalOutstanding'] as num?)?.toDouble() ?? 0;
-    final overdueAmount =
-        (customer['overdueAmount'] as num?)?.toDouble() ?? 0;
     final maxDaysOverdue =
         (customer['maxDaysOverdue'] as num?)?.toInt() ?? 0;
     final invoiceCount = (customer['invoiceCount'] as num?)?.toInt() ?? 0;

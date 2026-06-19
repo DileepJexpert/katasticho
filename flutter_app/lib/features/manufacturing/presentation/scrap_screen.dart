@@ -34,7 +34,6 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final isReasonTab = _tabs.index == 1;
 
     return Scaffold(

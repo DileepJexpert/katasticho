@@ -4,6 +4,7 @@ import com.katasticho.erp.payroll.entity.Payslip;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,4 +17,6 @@ public interface PayslipRepository extends JpaRepository<Payslip, UUID> {
     List<Payslip> findByOrgIdAndPayrollRunId(UUID orgId, UUID payrollRunId);
 
     Optional<Payslip> findByOrgIdAndPayrollRunIdAndEmployeeId(UUID orgId, UUID payrollRunId, UUID employeeId);
+
+    List<Payslip> findByOrgIdAndPayrollRunIdIn(UUID orgId, Collection<UUID> payrollRunIds);
 }

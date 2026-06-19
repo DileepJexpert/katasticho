@@ -115,6 +115,18 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push(Routes.teamMembers),
             ),
             _SettingsTile(
+              icon: Icons.badge_outlined,
+              title: 'Portal Users',
+              subtitle: 'Invite customers & vendors to the self-service portal',
+              onTap: () => context.push(Routes.portalUsers),
+            ),
+            _SettingsTile(
+              icon: Icons.auto_awesome_outlined,
+              title: 'AI Models',
+              subtitle: 'Use a local model (Ollama / vLLM) or Claude for AI features',
+              onTap: () => context.push(Routes.aiSettings),
+            ),
+            _SettingsTile(
               icon: Icons.fact_check_outlined,
               title: 'Approval Inbox',
               subtitle: 'Review pending workflow approvals',
@@ -229,6 +241,19 @@ class SettingsScreen extends ConsumerWidget {
               title: 'API Keys',
               subtitle: 'Connect Claude Desktop, the MCP server & integrations',
               onTap: () => context.push(Routes.apiKeys),
+            ),
+            _SettingsTile(
+              icon: Icons.cloud_sync_outlined,
+              title: 'GSP Connection',
+              subtitle: 'One-click e-invoice, e-way bill & GSTR-2B via your GSP',
+              onTap: () => context.push(Routes.gspSettings),
+            ),
+            _SettingsTile(
+              icon: Icons.local_post_office_outlined,
+              title: 'Courier Connections',
+              subtitle:
+                  'BlueDart, Delhivery, India Post, DTDC, Shiprocket — tracking & COD',
+              onTap: () => context.push(Routes.courierSettings),
             ),
             _SettingsTile(
               icon: Icons.swap_horiz,

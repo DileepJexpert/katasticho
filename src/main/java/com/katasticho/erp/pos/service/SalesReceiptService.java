@@ -119,6 +119,7 @@ public class SalesReceiptService {
                 .amountReceived(request.amountReceived())
                 .upiReference(request.upiReference())
                 .notes(request.notes())
+                .offlineReceiptNumber(request.offlineReceiptNumber())
                 .build();
         receipt.setOrgId(orgId);
         receipt.setCreatedBy(userId);

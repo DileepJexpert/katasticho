@@ -17,26 +17,35 @@ public class VisionModelRouter {
 
     private final ClaudeApiClient claudeApiClient;
     private final OllamaVisionClient ollamaVisionClient;
+    private final OpenAiCompatibleChatClient openAiCompatibleChatClient;
     private final OrgAiSettingsRepository settingsRepository;
     private final AiConfig aiConfig;
 
     public String sendMessage(String systemPrompt, String userMessage) {
         OrgAiSettings s = getSettings();
-        if ("OLLAMA".equals(s.getProvider())) {
-            return ollamaVisionClient.callOllamaFull(s.getBaseUrl(), s.getModelName(),
+        return switch (provider(s)) {
+            case "OLLAMA" -> ollamaVisionClient.callOllamaFull(s.getBaseUrl(), s.getModelName(),
                     systemPrompt + "\n\n" + userMessage, null);
-        }
-        return claudeApiClient.sendMessage(systemPrompt, userMessage);
+            case "OPENAI_COMPAT" -> openAiCompatibleChatClient.complete(
+                    s.getBaseUrl(), s.getModelName(), null, systemPrompt, userMessage);
+            default -> claudeApiClient.sendMessage(systemPrompt, userMessage);
+        };
     }
 
     public String sendMessageWithImage(String systemPrompt, String textMessage,
                                        String base64Image, String mediaType) {
         OrgAiSettings s = getSettings();
-        if ("OLLAMA".equals(s.getProvider())) {
+        // Vision: Ollama handles images natively; OPENAI_COMPAT vision varies by
+        // server, so route it through the Ollama-style path too when local.
+        if ("OLLAMA".equals(provider(s)) || "OPENAI_COMPAT".equals(provider(s))) {
             return ollamaVisionClient.callOllamaFull(s.getBaseUrl(), s.getModelName(),
                     systemPrompt + "\n\n" + textMessage, base64Image);
         }
         return claudeApiClient.sendMessageWithImage(systemPrompt, textMessage, base64Image, mediaType);
+    }
+
+    private static String provider(OrgAiSettings s) {
+        return s.getProvider() == null ? "CLAUDE" : s.getProvider().toUpperCase();
     }
 
     private OrgAiSettings getSettings() {

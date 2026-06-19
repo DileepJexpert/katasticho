@@ -360,6 +360,16 @@ const _accountingGroup = NavGroup(
         activeIcon: Icons.event_busy_rounded,
         route: Routes.periodClose),
     NavItem(
+        label: 'Fixed Assets',
+        icon: Icons.precision_manufacturing_outlined,
+        activeIcon: Icons.precision_manufacturing,
+        route: Routes.fixedAssets),
+    NavItem(
+        label: 'Amortization',
+        icon: Icons.schedule_outlined,
+        activeIcon: Icons.schedule,
+        route: Routes.amortization),
+    NavItem(
         label: 'GST',
         icon: Icons.percent_outlined,
         activeIcon: Icons.percent_rounded,
@@ -464,6 +474,11 @@ const _hrGroup = NavGroup(
   activeIcon: Icons.groups_rounded,
   children: [
     NavItem(
+        label: 'My Profile',
+        icon: Icons.badge_outlined,
+        activeIcon: Icons.badge,
+        route: Routes.hrProfile),
+    NavItem(
         label: 'Leave',
         icon: Icons.beach_access_outlined,
         activeIcon: Icons.beach_access_rounded,
@@ -551,6 +566,21 @@ const _fieldSalesGroup = NavGroup(
         icon: Icons.auto_stories_outlined,
         activeIcon: Icons.auto_stories,
         route: Routes.fieldSalesDetailAids),
+    NavItem(
+        label: 'Secondary Sales',
+        icon: Icons.inventory_2_outlined,
+        activeIcon: Icons.inventory_2,
+        route: Routes.fieldSalesSecondarySales),
+    NavItem(
+        label: 'RCPA',
+        icon: Icons.fact_check_outlined,
+        activeIcon: Icons.fact_check,
+        route: Routes.fieldSalesRcpa),
+    NavItem(
+        label: 'Org Chart',
+        icon: Icons.account_tree_outlined,
+        activeIcon: Icons.account_tree,
+        route: Routes.fieldSalesOrgChart),
     NavItem(
         label: 'Beats',
         icon: Icons.location_on_outlined,
@@ -660,6 +690,44 @@ const _manufacturingGroup = NavGroup(
   ],
 );
 
+const _courierGroup = NavGroup(
+  label: 'Courier & Transport',
+  icon: Icons.local_post_office_outlined,
+  activeIcon: Icons.local_post_office,
+  children: [
+    NavItem(
+        label: 'Courier Shipments',
+        icon: Icons.local_shipping_outlined,
+        activeIcon: Icons.local_shipping_rounded,
+        route: Routes.courierShipments),
+    NavItem(
+        label: 'COD Remittances',
+        icon: Icons.payments_outlined,
+        activeIcon: Icons.payments_rounded,
+        route: Routes.courierCod),
+    NavItem(
+        label: 'Lorry Receipts',
+        icon: Icons.receipt_long_outlined,
+        activeIcon: Icons.receipt_long_rounded,
+        route: Routes.lorryReceipts),
+    NavItem(
+        label: 'Freight Rate Cards',
+        icon: Icons.price_change_outlined,
+        activeIcon: Icons.price_change_rounded,
+        route: Routes.freightRateCards),
+    NavItem(
+        label: 'Vehicle Log',
+        icon: Icons.directions_car_outlined,
+        activeIcon: Icons.directions_car,
+        route: Routes.vehicleLogs),
+    NavItem(
+        label: 'Proof of Delivery',
+        icon: Icons.verified_outlined,
+        activeIcon: Icons.verified,
+        route: Routes.proofOfDelivery),
+  ],
+);
+
 const _supplyChainGroup = NavGroup(
   label: 'Supply Chain',
   icon: Icons.hub_outlined,
@@ -716,6 +784,7 @@ const _allGroups = [
   _partnerNetworkGroup,
   _manufacturingGroup,
   _supplyChainGroup,
+  _courierGroup,
 ];
 
 /// Flat list of every route across top-level items and groups (for active-state matching).

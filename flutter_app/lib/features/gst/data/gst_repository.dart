@@ -222,6 +222,20 @@ class GstRepository {
     return _data(response.data);
   }
 
+  /// Quarterly Form 24Q data (salary TDS). [fy] = FY start year.
+  Future<Map<String, dynamic>> tds24q(int fy, int quarter) async {
+    final response = await _api.get(ApiConfig.tds24q,
+        queryParameters: {'fy': fy, 'quarter': quarter});
+    return _data(response.data);
+  }
+
+  /// Annual Form 16 (employee TDS certificate). [fy] = FY start year.
+  Future<Map<String, dynamic>> tdsForm16(String employeeId, int fy) async {
+    final response = await _api.get(ApiConfig.tdsForm16(employeeId),
+        queryParameters: {'fy': fy});
+    return _data(response.data);
+  }
+
   // ── TCS 206C(1H) ─────────────────────────────────────────────────────
 
   /// Quarterly Form 27EQ data (collectee-wise TCS summary).
@@ -264,6 +278,47 @@ class GstRepository {
       if (enabled != null) 'enabled': enabled,
       if (rate != null) 'rate': rate,
     });
+    return _data(response.data);
+  }
+
+  // ── ITC-at-risk monitor (preventive) ─────────────────────────────────
+
+  Future<Map<String, dynamic>> getItcRisk(String period) async {
+    final response = await _api
+        .get(ApiConfig.gstItcRisk, queryParameters: {'period': period});
+    return _data(response.data);
+  }
+
+  /// Cross-period money rollup: ₹ITC still recoverable vs already lost.
+  Future<Map<String, dynamic>> getItcRiskRollup({int months = 3}) async {
+    final response = await _api.get(ApiConfig.gstItcRiskRollup,
+        queryParameters: {'months': months});
+    return _data(response.data);
+  }
+
+  /// Refresh real-time 2A (if GSP set) and raise an alert per at-risk supplier.
+  Future<Map<String, dynamic>> raiseItcRiskAlerts(String period) async {
+    final response = await _api
+        .post(ApiConfig.gstItcRiskAlert, queryParameters: {'period': period});
+    return _data(response.data);
+  }
+
+  // ── GSP (GST Suvidha Provider) connection settings ────────────────────
+
+  Future<Map<String, dynamic>> getGspSettings() async {
+    final response = await _api.get(ApiConfig.gspSettings);
+    return _data(response.data);
+  }
+
+  /// Update GSP settings. The token is only sent when non-empty (write-only).
+  Future<Map<String, dynamic>> updateGspSettings(Map<String, dynamic> body) async {
+    final response = await _api.put(ApiConfig.gspSettings, data: body);
+    return _data(response.data);
+  }
+
+  /// Probe whether the configured GSP host is reachable.
+  Future<Map<String, dynamic>> testGspConnection() async {
+    final response = await _api.post(ApiConfig.gspSettingsTest);
     return _data(response.data);
   }
 

@@ -1,6 +1,7 @@
 package com.katasticho.erp.tax.controller;
 
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.tax.service.SalaryTdsService;
 import com.katasticho.erp.tax.service.TdsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -11,11 +12,15 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * TDS compliance: deduction register (for the monthly deposit challan) and
  * quarterly Form 26Q data prep. Deduction itself happens automatically on
  * vendor bills via the vendor master (tdsApplicable/section/rate).
+ *
+ * <p>Salary-side TDS (Form 24Q / Form 16 / salary register) is derived from
+ * posted payroll runs via {@link SalaryTdsService}.
  */
 @RestController
 @RequestMapping("/api/v1/tds")
@@ -23,6 +28,7 @@ import java.util.Map;
 public class TdsController {
 
     private final TdsService tdsService;
+    private final SalaryTdsService salaryTdsService;
 
     /** Bills with TDS deducted in the range — what to deposit via ITNS-281. */
     @GetMapping("/register")
@@ -40,5 +46,32 @@ public class TdsController {
             @RequestParam int fy,
             @RequestParam int quarter) {
         return ResponseEntity.ok(ApiResponse.ok(tdsService.form26q(fy, quarter)));
+    }
+
+    /** Quarterly Form 24Q data (salary TDS): deductee-wise summary from posted payroll runs. */
+    @GetMapping("/24q")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> form24q(
+            @RequestParam int fy,
+            @RequestParam int quarter) {
+        return ResponseEntity.ok(ApiResponse.ok(salaryTdsService.form24q(fy, quarter)));
+    }
+
+    /** Annual Form 16 (employee TDS certificate): Part A (quarter-wise) + Part B (salary breakup). */
+    @GetMapping("/form16/{employeeId}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> form16(
+            @PathVariable UUID employeeId,
+            @RequestParam int fy) {
+        return ResponseEntity.ok(ApiResponse.ok(salaryTdsService.form16(employeeId, fy)));
+    }
+
+    /** Employee-wise salary TDS deducted in the range — for the monthly ITNS-281 deposit. */
+    @GetMapping("/salary-register")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> salaryRegister(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(ApiResponse.ok(salaryTdsService.register(from, to)));
     }
 }

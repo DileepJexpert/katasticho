@@ -268,7 +268,6 @@ class _EntryTile extends StatelessWidget {
     final date = entry['date']?.toString() ?? '';
     final type = entry['type']?.toString() ?? '';
     final number = entry['number']?.toString() ?? '';
-    final description = entry['description']?.toString() ?? '';
     final debit = (entry['debit'] as num?)?.toDouble() ?? 0;
     final credit = (entry['credit'] as num?)?.toDouble() ?? 0;
     final running = (entry['runningBalance'] as num?)?.toDouble() ?? 0;

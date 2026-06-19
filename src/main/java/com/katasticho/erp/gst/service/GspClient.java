@@ -54,6 +54,7 @@ public class GspClient {
     public static final String EINVOICE_PATH = "gst.gsp_einvoice_path";
     public static final String EWAYBILL_PATH = "gst.gsp_ewaybill_path";
     public static final String GSTR2B_PATH = "gst.gsp_gstr2b_path";
+    public static final String GSTR2A_PATH = "gst.gsp_gstr2a_path";
     public static final String TOKEN = "gst.gsp_token";
     public static final String GSTIN = "gst.gsp_gstin";
 
@@ -93,6 +94,83 @@ public class GspClient {
         return exchange(orgId, url, HttpMethod.GET, null);
     }
 
+    /**
+     * Pull the GSTR-2B JSON for a return period via the aggregator-style API
+     * shape (rtnprd/gstin query params, GET with bearer + gstin header).
+     * Companion to {@link #fetch2b} which uses the simpler period= shape.
+     */
+    public Map<String, Object> fetchGstr2b(UUID orgId, String returnPeriod) {
+        return getReturn(orgId, path(orgId, GSTR2B_PATH, "/gstr2b/fetch"), returnPeriod);
+    }
+
+    /**
+     * Pull the GSTR-2A (the <em>real-time</em>, continuously-updating feed) for a
+     * return period. Unlike 2B — which freezes on the 14th, after the filing
+     * deadline — 2A reflects each supplier's GSTR-1 as it is filed, so it is the
+     * signal an ITC-at-risk monitor needs to warn before the cutoff locks.
+     */
+    public Map<String, Object> fetchGstr2a(UUID orgId, String returnPeriod) {
+        return getReturn(orgId, path(orgId, GSTR2A_PATH, "/gstr2a/fetch"), returnPeriod);
+    }
+
+    private Map<String, Object> getReturn(UUID orgId, String base, String returnPeriod) {
+        Map<String, String> s = orgSettingsService.getAll(orgId);
+        StringBuilder url = new StringBuilder(base)
+                .append(base.contains("?") ? "&" : "?")
+                .append("rtnprd=").append(returnPeriod);
+        if (notBlank(s.get(GSTIN))) {
+            url.append("&gstin=").append(s.get(GSTIN).trim());
+        }
+        return get(orgId, url.toString());
+    }
+
+    /**
+     * Probe whether the configured GSP host is reachable, without generating
+     * anything. A GET to the base URL: any HTTP response (even 401/404) means
+     * the host is up and the credentials reach it; only a transport error means
+     * unreachable. Never throws — returns a structured result for the UI.
+     */
+    public Map<String, Object> testConnection(UUID orgId) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        if (!isConfigured(orgId)) {
+            out.put("ok", false);
+            out.put("reachable", false);
+            out.put("message", "Enable GSP and set a base URL + token first.");
+            return out;
+        }
+        Map<String, String> s = orgSettingsService.getAll(orgId);
+        String base = s.getOrDefault(BASE_URL, "").trim();
+        if (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(s.getOrDefault(TOKEN, ""));
+        if (notBlank(s.get(GSTIN))) headers.set("gstin", s.get(GSTIN).trim());
+
+        try {
+            ResponseEntity<String> resp = gspRestTemplate.exchange(
+                    base, org.springframework.http.HttpMethod.GET,
+                    new HttpEntity<>(headers), String.class);
+            return reachable(out, resp.getStatusCode().value());
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            // The host answered with an error status — still up and addressable.
+            return reachable(out, e.getStatusCode().value());
+        } catch (RestClientException e) {
+            log.warn("GSP test-connection failed for org {}: {}", orgId, e.getMessage());
+            out.put("ok", false);
+            out.put("reachable", false);
+            out.put("message", "Could not reach the GSP host: " + e.getMessage());
+            return out;
+        }
+    }
+
+    private Map<String, Object> reachable(Map<String, Object> out, int statusCode) {
+        out.put("ok", true);
+        out.put("reachable", true);
+        out.put("statusCode", statusCode);
+        out.put("message", "GSP host reachable (HTTP " + statusCode + ").");
+        return out;
+    }
+
     /** Settings map for the UI; the token is masked, never echoed in full. */
     public Map<String, Object> settings(UUID orgId) {
         Map<String, String> s = orgSettingsService.getAll(orgId);
@@ -103,6 +181,7 @@ public class GspClient {
         out.put("einvoicePath", s.getOrDefault(EINVOICE_PATH, ""));
         out.put("ewaybillPath", s.getOrDefault(EWAYBILL_PATH, ""));
         out.put("gstr2bPath", s.getOrDefault(GSTR2B_PATH, ""));
+        out.put("gstr2aPath", s.getOrDefault(GSTR2A_PATH, ""));
         out.put("gstin", s.getOrDefault(GSTIN, ""));
         out.put("tokenSet", notBlank(s.get(TOKEN)));
         return out;
@@ -136,6 +215,33 @@ public class GspClient {
             return body;
         } catch (RestClientException e) {
             log.warn("GSP {} call to {} failed for org {}: {}", method, url, orgId, e.getMessage());
+            throw new BusinessException(
+                    "Could not reach the GSP: " + e.getMessage(),
+                    "GSP_UNREACHABLE", HttpStatus.BAD_GATEWAY);
+        }
+    }
+
+    private Map<String, Object> get(UUID orgId, String url) {
+        Map<String, String> s = orgSettingsService.getAll(orgId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(s.getOrDefault(TOKEN, ""));
+        if (notBlank(s.get(GSTIN))) headers.set("gstin", s.get(GSTIN).trim());
+
+        try {
+            @SuppressWarnings("unchecked")
+            ResponseEntity<Map> resp = gspRestTemplate.exchange(
+                    url, org.springframework.http.HttpMethod.GET,
+                    new HttpEntity<>(headers), Map.class);
+            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
+                throw new BusinessException(
+                        "GSP returned " + resp.getStatusCode() + " with no usable body",
+                        "GSP_BAD_RESPONSE", HttpStatus.BAD_GATEWAY);
+            }
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = resp.getBody();
+            return body;
+        } catch (RestClientException e) {
+            log.warn("GSP GET {} failed for org {}: {}", url, orgId, e.getMessage());
             throw new BusinessException(
                     "Could not reach the GSP: " + e.getMessage(),
                     "GSP_UNREACHABLE", HttpStatus.BAD_GATEWAY);

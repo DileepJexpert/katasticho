@@ -25,7 +25,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class NlpQueryServiceTest {
 
-    @Mock private ClaudeApiClient claudeApiClient;
+    @Mock private VisionModelRouter claudeApiClient;
     @Mock private JdbcTemplate jdbcTemplate;
 
     private NlpQueryService nlpQueryService;

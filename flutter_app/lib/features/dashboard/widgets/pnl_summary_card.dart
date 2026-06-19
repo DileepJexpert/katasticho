@@ -25,7 +25,6 @@ class PnlSummaryCard extends ConsumerWidget {
         child: KErrorBanner(message: 'Failed to load: $err'),
       ),
       data: (data) {
-        final cs = Theme.of(context).colorScheme;
         final isProfit = data.netProfit >= 0;
 
         return KCard(

@@ -14,6 +14,7 @@ import '../../../core/widgets/widgets.dart';
 import '../data/pos_cart_state.dart';
 import '../data/pos_held_carts.dart';
 import '../data/pos_recent_transactions.dart';
+import '../data/pos_catalog_sync_service.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_repository.dart';
 import '../data/sales_receipt_providers.dart';
@@ -32,6 +33,7 @@ import 'widgets/pos_recent_bills.dart';
 import 'widgets/pos_weight_popup.dart';
 import '../../inventory/data/batch_repository.dart';
 import '../../../core/shortcuts/k_shortcuts.dart';
+import '../../../core/storage/pos_database.dart';
 import '../data/thermal_print_service.dart';
 import '../data/offline_pos_service.dart';
 import 'pos_receipt_settings_screen.dart';
@@ -72,7 +74,19 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   String? _walletRedeemContactId; // matches the cart's contactId
 
   @override
+  void initState() {
+    super.initState();
+    // Start the local-first catalog sync as soon as POS opens. Runs an
+    // immediate delta sync + a ~60s background timer; never blocks the UI.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(posCatalogSyncProvider).start();
+    });
+  }
+
+  @override
   void dispose() {
+    ref.read(posCatalogSyncProvider).stop();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _debounce?.cancel();
@@ -503,6 +517,16 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     }
   }
 
+  /// Open the catalog pre-sync sheet (one-tap "Download the whole catalog for
+  /// offline" + progress bar). Cashier triggers it once on a fresh terminal.
+  void _showCatalogSyncSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _CatalogSyncSheet(),
+    );
+  }
+
   Future<void> _showNotesDialog() async {
     final current = ref.read(posCartProvider).notes ?? '';
     final controller = TextEditingController(text: current);
@@ -622,6 +646,17 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final repo = ref.read(posRepositoryProvider);
     final requestBody = _buildReceiptRequest(cart, paymentResult);
 
+    // Upfront offline detection — when there's no network at all, go straight
+    // to the offline sale (no multi-second connection-timeout hang per bill).
+    if (posOfflineSupported) {
+      final online = await OfflinePosService.instance.isOnline();
+      if (!online && mounted) {
+        await _completeSaleOffline(repo, requestBody, cart, paymentResult);
+        if (mounted) setState(() => _isSubmitting = false);
+        return;
+      }
+    }
+
     try {
       final response = await repo.createReceipt(requestBody);
 
@@ -702,7 +737,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     } catch (e) {
       if (!mounted) return;
       if (_isNetworkError(e)) {
-        await _queueOffline(requestBody, cart);
+        // Connected but the server was unreachable — same as offline.
+        await _completeSaleOffline(repo, requestBody, cart, paymentResult);
       } else {
         final message =
             e is DioException ? ApiErrorParser.message(e) : e.toString();
@@ -735,22 +771,152 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     return false;
   }
 
-  Future<void> _queueOffline(Map<String, dynamic> requestBody, PosCartState cart) async {
+  /// Completes a sale fully OFFLINE: assigns a temp receipt number, queues the
+  /// receipt for sync, optimistically drops local stock, prints (thermal), and
+  /// shows the same success sheet as an online sale — so the cashier hands the
+  /// customer a real printed bill with no network.
+  Future<void> _completeSaleOffline(
+    PosRepository repo,
+    Map<String, dynamic> requestBody,
+    PosCartState cart,
+    Map<String, dynamic> paymentResult,
+  ) async {
     final offline = OfflinePosService.instance;
-    await offline.queueReceipt(requestBody);
-    if (!mounted) return;
+    final tempNumber = await offline.nextOfflineReceiptNumber();
 
+    // Tag the queued request so the server can tie its real receipt back to the
+    // number the customer was given offline.
+    requestBody['offlineReceiptNumber'] = tempNumber;
+    await offline.queueReceipt(requestBody);
+
+    // Optimistic local stock decrement (single-counter).
+    await offline.decrementCachedStock([
+      for (final it in cart.items)
+        if (it.itemId != null)
+          {'itemId': it.itemId, 'qty': it.requestedStockQuantity},
+    ]);
+
+    if (!mounted) return;
     HapticFeedback.mediumImpact();
+
+    final receiptData = _buildLocalReceiptData(cart, paymentResult, tempNumber);
+    final response = {'data': receiptData};
+
+    // Thermal auto-print works fully offline (rendered client-side). The
+    // online _autoPrintIfEnabled needs a server id, so trigger it directly.
+    final autoPrint = await ThermalPrintService.instance.autoPrintEnabled;
+    if (autoPrint && mounted) {
+      await _handleOfflinePrint(receiptData);
+    }
+
+    if (!mounted) return;
+    final action = await showPosSuccessSheet(
+      context,
+      receipt: response,
+      customerPhone: cart.contactPhone,
+    );
+    if (mounted) {
+      if (action == SuccessAction.print) {
+        await _handleOfflinePrint(receiptData);
+      } else if (action == SuccessAction.whatsapp ||
+          action == SuccessAction.email) {
+        _showInfoSnackBar('Available once this bill syncs online');
+      }
+    }
+
+    // Track in recent transactions with the temp number.
+    ref.read(recentTransactionsProvider.notifier).add(
+          RecentTransaction(
+            receiptId: tempNumber,
+            receiptNumber: tempNumber,
+            total: cart.total,
+            paymentMode: paymentResult['paymentMode']?.toString() ?? 'CASH',
+            customerName: cart.contactName,
+            completedAt: DateTime.now(),
+          ),
+        );
+
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Saved offline — will sync when connection returns'),
-        backgroundColor: Color(0xFF4CAF50),
-        duration: Duration(seconds: 3),
+      SnackBar(
+        content: Text('Offline sale $tempNumber saved — will sync when online'),
+        backgroundColor: const Color(0xFF4CAF50),
+        duration: const Duration(seconds: 3),
       ),
     );
-
     ref.read(posCartProvider.notifier).clear();
     _searchFocusNode.requestFocus();
+  }
+
+  /// Builds a receipt map (shaped like the server response `data`) from the
+  /// cart + payment, for offline print + the success sheet. Tax is split
+  /// intra-state (CGST=SGST) — the authoritative receipt comes from the server
+  /// on sync; this is the cashier's working copy.
+  Map<String, dynamic> _buildLocalReceiptData(
+      PosCartState cart, Map<String, dynamic> paymentResult, String tempNumber) {
+    final now = DateTime.now();
+    final tax = cart.taxAmount;
+    return {
+      'id': null,
+      'offline': true,
+      'receiptNumber': tempNumber,
+      'receiptDate':
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
+      'paymentMode': paymentResult['paymentMode'],
+      'amountReceived': paymentResult['amountReceived'] ?? cart.total,
+      'changeReturned': paymentResult['changeReturned'] ?? cart.changeReturned,
+      'subtotal': cart.subtotal,
+      'discountTotal': cart.items
+          .fold<double>(0, (s, it) => s + (it.rate * it.quantity - it.lineTotal)),
+      'cgst': tax / 2,
+      'sgst': tax / 2,
+      'igst': 0,
+      'total': cart.total,
+      if (cart.contactName != null) 'contactName': cart.contactName,
+      'lines': cart.items
+          .map((it) => {
+                'itemName': it.name,
+                'description': it.name,
+                'quantity': it.quantity,
+                if (it.unit != null) 'unit': it.unit,
+                'rate': it.effectiveRate,
+                'amount': it.lineTotal,
+                if (it.hsnCode != null) 'hsnCode': it.hsnCode,
+              })
+          .toList(),
+    };
+  }
+
+  /// Offline print path — thermal only (the server-PDF fallback can't run
+  /// without a connection). If no printer is connected, tell the cashier.
+  Future<void> _handleOfflinePrint(Map<String, dynamic> receiptData) async {
+    final printer = ThermalPrintService.instance;
+    if (!printer.isConnected && !await printer.reconnectSaved()) {
+      if (mounted) {
+        _showInfoSnackBar('Connect a thermal printer to print offline');
+      }
+      return;
+    }
+    try {
+      if (mounted) _showInfoSnackBar('Printing...');
+      final auth = ref.read(authProvider);
+      final settings = ref.read(receiptSettingsProvider);
+      await printer.printReceipt(
+        receipt: receiptData,
+        org: {'name': auth.orgName ?? ''},
+        settings: ReceiptPrintSettings(
+          paperSize: settings.paperSize,
+          showStoreAddress: settings.showStoreAddress,
+          showGstin: settings.showGstin,
+          showHsnCode: settings.showHsnCode,
+          showTaxBreakdown: settings.showTaxBreakdown,
+          footerText: settings.footerText,
+        ),
+      );
+      if (mounted) _showInfoSnackBar('Receipt printed');
+    } catch (e) {
+      if (mounted) _showErrorSnackBar('Print failed: $e');
+    }
   }
 
   Map<String, dynamic> _buildReceiptRequest(
@@ -1431,6 +1597,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 context.push('/pos/cash-register');
               case _PosOverflowAction.printerSetup:
                 context.push('/pos/printer-setup');
+              case _PosOverflowAction.catalogSync:
+                _showCatalogSyncSheet();
               case _PosOverflowAction.discount:
                 _showCartDiscount();
               case _PosOverflowAction.notes:
@@ -1481,6 +1649,16 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               child: ListTile(
                 leading: Icon(Icons.print),
                 title: Text('Printer Setup'),
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              ),
+            ),
+            const PopupMenuItem(
+              value: _PosOverflowAction.catalogSync,
+              child: ListTile(
+                leading: Icon(Icons.cloud_download_outlined),
+                title: Text('Catalog sync'),
+                subtitle: Text('Download for offline'),
                 contentPadding: EdgeInsets.zero,
                 dense: true,
               ),
@@ -1763,7 +1941,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       color: Theme.of(context).colorScheme.outlineVariant, fontSize: 10);
 }
 
-enum _PosOverflowAction { clear, settings, discount, notes, cashRegister, printerSetup }
+enum _PosOverflowAction {
+  clear,
+  settings,
+  discount,
+  notes,
+  cashRegister,
+  printerSetup,
+  catalogSync,
+}
 
 /// AppBar title showing "Quick POS" + live session sales summary.
 class _PosSessionTitle extends ConsumerWidget {
@@ -1957,54 +2143,105 @@ class _HeldCartsBadge extends ConsumerWidget {
   }
 }
 
+/// Persistent POS connection indicator: a small pill the cashier can always
+/// glance at — Online (green) / Syncing (spinner) / Offline (red) — with the
+/// count of receipts still waiting to sync. Tapping opens the sync dialog.
 class _OfflineSyncBadge extends ConsumerWidget {
   const _OfflineSyncBadge();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final countAsync = ref.watch(offlinePendingCountProvider);
-    final count = countAsync.valueOrNull ?? 0;
-    if (count == 0) return const SizedBox.shrink();
+    if (!posOfflineSupported) return const SizedBox.shrink();
 
-    final syncAsync = ref.watch(offlineSyncStatusProvider);
-    final syncing = syncAsync.valueOrNull == SyncStatus.syncing;
+    final count = ref.watch(offlinePendingCountProvider).valueOrNull ?? 0;
+    final online = ref.watch(posOnlineProvider).valueOrNull ?? true;
+    final syncing =
+        ref.watch(offlineSyncStatusProvider).valueOrNull == SyncStatus.syncing;
 
-    return Badge(
-      label: Text('$count'),
-      backgroundColor: syncing ? KColors.primary : KColors.warning,
-      child: IconButton(
-        icon: syncing
-            ? const SizedBox(
-                width: 20, height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2))
-            : const Icon(Icons.cloud_upload_outlined, size: 20),
-        onPressed: () => _showSyncDialog(context, ref, count),
-        tooltip: '$count receipts pending sync',
+    final (Color color, IconData icon, String label) = !online
+        ? (KColors.error, Icons.cloud_off_outlined, 'Offline')
+        : syncing
+            ? (KColors.primary, Icons.sync, 'Syncing')
+            : count > 0
+                ? (KColors.warning, Icons.cloud_upload_outlined, '$count pending')
+                : (KColors.success, Icons.cloud_done_outlined, 'Online');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Tooltip(
+        message: !online
+            ? 'No network — sales are saved offline and printed locally'
+            : count > 0
+                ? '$count receipt(s) waiting to sync'
+                : 'Online — sales post live',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _showSyncDialog(context, ref, count, online),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: color.withValues(alpha: 0.35)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                syncing
+                    ? SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: color),
+                      )
+                    : Icon(icon, size: 16, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  void _showSyncDialog(BuildContext context, WidgetRef ref, int count) {
+  void _showSyncDialog(
+      BuildContext context, WidgetRef ref, int count, bool online) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Offline Receipts'),
-        content: Text('$count receipt(s) saved offline and waiting to sync.\n\n'
-            'They will be uploaded automatically when the connection returns, '
-            'or tap Sync Now to try immediately.'),
+        title: Text(online ? 'Sync status' : 'Offline mode'),
+        content: Text(
+          !online
+              ? 'No network. Sales are saved on this terminal and printed '
+                  'locally${count > 0 ? ' ($count waiting)' : ''}. They upload '
+                  'automatically when the connection returns.'
+              : count > 0
+                  ? '$count receipt(s) saved offline and waiting to sync. They '
+                      'upload automatically, or tap Sync Now to try immediately.'
+                  : 'Online — sales are posting live. Nothing is waiting to sync.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Close'),
           ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              OfflinePosService.instance.setApiClient(ref.read(apiClientProvider));
-              OfflinePosService.instance.syncPendingReceipts();
-            },
-            child: const Text('Sync Now'),
-          ),
+          if (count > 0)
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                OfflinePosService.instance
+                    .setApiClient(ref.read(apiClientProvider));
+                OfflinePosService.instance.syncPendingReceipts();
+              },
+              child: const Text('Sync Now'),
+            ),
         ],
       ),
     );
@@ -2087,6 +2324,126 @@ class _PosCatalogSection extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+
+/// Cashier-facing pre-sync sheet — downloads the whole catalog into the local
+/// store so a fresh terminal can search instantly without waiting for the
+/// background sync to page through. Resumable: re-running just continues from
+/// the persisted cursor.
+class _CatalogSyncSheet extends ConsumerStatefulWidget {
+  const _CatalogSyncSheet();
+
+  @override
+  ConsumerState<_CatalogSyncSheet> createState() => _CatalogSyncSheetState();
+}
+
+class _CatalogSyncSheetState extends ConsumerState<_CatalogSyncSheet> {
+  bool _running = false;
+  int _cached = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshCount();
+  }
+
+  Future<void> _refreshCount() async {
+    final n = await OfflinePosService.instance.cachedItemCount();
+    if (mounted) setState(() => _cached = n);
+  }
+
+  Future<void> _start() async {
+    setState(() => _running = true);
+    try {
+      await ref.read(posCatalogSyncProvider).fullPreSync();
+    } finally {
+      if (mounted) {
+        setState(() => _running = false);
+        await _refreshCount();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final progressAsync = ref.watch(posCatalogSyncProgressProvider);
+    final progress = progressAsync.value;
+    final supported = posOfflineSupported;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.cloud_download_outlined),
+                const SizedBox(width: 8),
+                Text("Catalog sync",
+                    style: Theme.of(context).textTheme.titleLarge),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              supported
+                  ? "Download the full item catalog to this terminal. Search runs "
+                      "instantly from the local store — no network in the hot path. "
+                      "Resumable: re-running continues from where it left off."
+                  : "Offline catalog is available only on the desktop / mobile build "
+                      "of this app, not on web.",
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.inventory_2_outlined),
+                title: const Text("Items cached locally"),
+                trailing: Text(
+                  '$_cached',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            ),
+            if (_running || progress != null) ...[
+              const SizedBox(height: 16),
+              LinearProgressIndicator(
+                value: progress == null || progress.total <= 0
+                    ? null
+                    : progress.fraction,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                progress == null
+                    ? "Starting…"
+                    : progress.total <= 0
+                        ? '${progress.processed} downloaded…'
+                        : '${progress.processed} of ${progress.total} downloaded',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: !supported || _running ? null : _start,
+              icon: const Icon(Icons.play_arrow),
+              label: Text(_running ? "Syncing…" : "Sync now"),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Close"),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

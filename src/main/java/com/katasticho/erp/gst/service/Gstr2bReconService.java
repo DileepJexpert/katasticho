@@ -50,19 +50,60 @@ public class Gstr2bReconService {
     private final ContactRepository contactRepository;
     private final AiSuggestionService aiSuggestionService;
     private final GspClient gspClient;
+    private final com.katasticho.erp.gst.repository.GstFilingSnapshotRepository filingSnapshotRepository;
+    private final Gstr2aParser gstr2aParser;
+
+    // ── Auto-fetch via GSP ────────────────────────────────────────────────
+
+    /**
+     * Pull the period's GSTR-2B straight from the configured GSP and reconcile
+     * it — same parse/match/dedupe path as a manual upload, no portal download.
+     * Throws {@code GSP_NOT_CONFIGURED} when no GSP is set up, so the manual
+     * upload stays the fallback.
+     */
+    @Transactional
+    public Map<String, Object> fetchAndReconcile(String period) {
+        UUID orgId = requireOrgId();
+        if (!gspClient.isConfigured(orgId)) {
+            throw new BusinessException(
+                    "No GSP configured — set up GSP credentials or upload the 2B JSON manually",
+                    "GSP_NOT_CONFIGURED");
+        }
+        YearMonth ym = parsePeriod(period);
+        // GST portal return-period format is MMYYYY.
+        String returnPeriod = String.format("%02d%04d", ym.getMonthValue(), ym.getYear());
+        Map<String, Object> portalJson = gspClient.fetchGstr2b(orgId, returnPeriod);
+        log.info("GSTR-2B {} fetched from GSP for org {}", ym, orgId);
+        return upload(ym.toString(), portalJson, "GSTR_2B");
+    }
 
     // ── Upload + reconcile ───────────────────────────────────────────────
 
     /**
      * Replace the period's entries with rows parsed from the portal JSON,
-     * reconcile them against purchase bills, and return the summary.
+     * reconcile them against purchase bills, and return the summary. Defaults the
+     * provenance to a manual UPLOAD.
      */
     @Transactional
     public Map<String, Object> upload(String period, Map<String, Object> portalJson) {
+        return upload(period, portalJson, "UPLOAD");
+    }
+
+    /**
+     * Same as {@link #upload(String, Map)} but stamps the filing-data provenance
+     * ({@code GSTR_2A} real-time / {@code GSTR_2B} frozen / {@code UPLOAD}) and a
+     * refresh timestamp, so the ITC-at-risk view can show how fresh the signal is.
+     */
+    @Transactional
+    public Map<String, Object> upload(String period, Map<String, Object> portalJson, String source) {
         UUID orgId = requireOrgId();
         YearMonth ym = parsePeriod(period);
 
-        List<Gstr2bEntry> parsed = parsePortalJson(orgId, ym.toString(), portalJson);
+        // 2A is the real-time feed with a different JSON shape; everything else
+        // (manual upload, GSP 2B fetch) is the frozen 2B shape.
+        List<Gstr2bEntry> parsed = "GSTR_2A".equals(source)
+                ? gstr2aParser.parse(orgId, ym.toString(), portalJson)
+                : parsePortalJson(orgId, ym.toString(), portalJson);
         if (parsed.isEmpty()) {
             throw new BusinessException(
                     "No B2B invoices found in the uploaded GSTR-2B JSON",
@@ -82,9 +123,10 @@ public class Gstr2bReconService {
         List<Gstr2bEntry> saved = entryRepository.saveAll(parsed);
         reconcile(orgId, ym, saved);
         entryRepository.saveAll(saved);
+        recordSnapshot(orgId, ym.toString(), source, saved.size());
 
-        log.info("GSTR-2B {}: {} entries uploaded and reconciled for org {}",
-                ym, saved.size(), orgId);
+        log.info("GSTR-2B {}: {} entries from {} reconciled for org {}",
+                ym, saved.size(), source, orgId);
         return summary(period);
     }
 
@@ -110,6 +152,17 @@ public class Gstr2bReconService {
                     "GST_2B_EMPTY");
         }
         return upload(period, portalJson);
+    }
+
+    /** Upsert the (org, period) filing-data provenance + refresh time. */
+    private void recordSnapshot(UUID orgId, String period, String source, int count) {
+        var existing = filingSnapshotRepository.findByOrgIdAndReturnPeriod(orgId, period);
+        var snap = existing.orElseGet(() -> com.katasticho.erp.gst.entity.GstFilingSnapshot.builder()
+                .orgId(orgId).returnPeriod(period).build());
+        snap.setSource(source);
+        snap.setEntryCount(count);
+        snap.setRefreshedAt(java.time.Instant.now());
+        filingSnapshotRepository.save(snap);
     }
 
     @Transactional(readOnly = true)

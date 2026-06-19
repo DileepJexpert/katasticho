@@ -7,6 +7,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../data/supply_chain_repository.dart';
+import 'widgets/scm_breadcrumb.dart';
 
 final _returnListProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
   return ref.watch(supplyChainRepositoryProvider).listReturnOrders();
@@ -23,7 +24,10 @@ class ReturnOrderListScreen extends ConsumerWidget {
       itemCount: () => (listAsync.valueOrNull?['content'] as List?)?.length ?? 0,
       onRefresh: () => ref.invalidate(_returnListProvider),
       child: Scaffold(
-        appBar: AppBar(title: const Text('Return Orders')),
+        appBar: AppBar(
+          title: const Text('Return Orders'),
+          bottom: scmBreadcrumb(context, 'Returns'),
+        ),
         body: listAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
@@ -59,13 +63,6 @@ class _ReturnCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = ro['status'] as String? ?? 'DRAFT';
     final returnType = ro['returnType'] as String? ?? '';
-    final color = switch (status) {
-      'DRAFT' => KColors.draft,
-      'APPROVED' => KColors.success,
-      'PROCESSED' => KColors.info,
-      'CANCELLED' => KColors.error,
-      _ => KColors.draft,
-    };
 
     return Card(
       margin: const EdgeInsets.only(bottom: KSpacing.sm),

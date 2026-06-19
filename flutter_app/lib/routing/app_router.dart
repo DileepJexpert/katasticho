@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../core/auth/business_capabilities.dart';
 import '../core/auth/auth_state.dart';
 import '../features/auth/presentation/login_screen.dart';
+import '../features/portal_app/presentation/portal_login_screen.dart';
+import '../features/portal_app/presentation/portal_accept_invite_screen.dart';
+import '../features/portal_app/presentation/portal_home_screen.dart';
 import '../features/auth/presentation/otp_screen.dart';
 import '../features/auth/presentation/signup_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
@@ -53,6 +56,14 @@ import '../features/onboarding/presentation/sub_category_screen.dart';
 import '../features/onboarding/presentation/business_details_screen.dart';
 import '../features/onboarding/presentation/setup_complete_screen.dart';
 import '../features/gst/presentation/gst_dashboard_screen.dart';
+import '../features/gst/presentation/itc_risk_screen.dart';
+import '../features/courier/presentation/courier_shipment_list_screen.dart';
+import '../features/courier/presentation/cod_remittance_list_screen.dart';
+import '../features/courier/presentation/courier_settings_screen.dart';
+import '../features/transport/presentation/lorry_receipt_list_screen.dart';
+import '../features/transport/presentation/freight_rate_card_screen.dart';
+import '../features/transport/presentation/vehicle_log_screen.dart';
+import '../features/transport/presentation/proof_of_delivery_screen.dart';
 import '../features/credit_notes/presentation/credit_note_list_screen.dart';
 import '../features/credit_notes/presentation/credit_note_detail_screen.dart';
 import '../features/credit_notes/presentation/credit_note_create_screen.dart';
@@ -110,6 +121,8 @@ import '../features/journals/presentation/journal_detail_screen.dart';
 import '../features/journals/presentation/journal_create_screen.dart';
 import '../features/journals/presentation/guided_transaction_screen.dart';
 import '../features/accounting_periods/presentation/period_close_screen.dart';
+import '../features/fixed_assets/presentation/fixed_assets_screen.dart';
+import '../features/amortization/presentation/amortization_screen.dart';
 import '../features/contacts/presentation/contact_statement_screen.dart';
 import '../features/inventory/presentation/near_expiry_screen.dart';
 import '../features/inventory/presentation/stock_count_list_screen.dart';
@@ -123,10 +136,12 @@ import '../features/inventory/presentation/reorder_screen.dart';
 import '../features/inventory/presentation/shortbook_screen.dart';
 import '../features/team/presentation/team_screen.dart';
 import '../features/settings/presentation/ai_model_settings_screen.dart';
+import '../features/settings/presentation/gsp_settings_screen.dart';
 import '../features/settings/presentation/api_keys_screen.dart';
 import '../features/settings/presentation/budgets_screen.dart';
 import '../features/settings/presentation/tally_import_screen.dart';
 import '../features/settings/presentation/business_policy_settings_screen.dart';
+import '../features/portal/presentation/portal_users_screen.dart';
 import '../features/ca_console/presentation/ca_console_screen.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/auth/presentation/reset_password_screen.dart';
@@ -150,6 +165,7 @@ import '../features/payroll/presentation/payroll_run_list_screen.dart';
 import '../features/payroll/presentation/payroll_run_detail_screen.dart';
 import '../features/payroll/presentation/labor_pay_preview_screen.dart';
 import '../features/payroll/presentation/payroll_settings_screen.dart';
+import '../features/hr/presentation/my_profile_screen.dart';
 import '../features/hr/presentation/leave_management_screen.dart';
 import '../features/hr/presentation/hr_attendance_screen.dart';
 import '../features/hr/presentation/shift_management_screen.dart';
@@ -164,6 +180,9 @@ import '../features/field_sales/presentation/live_tracking_screen.dart';
 import '../features/field_sales/presentation/mr_approvals_screen.dart';
 import '../features/field_sales/presentation/field_samples_screen.dart';
 import '../features/field_sales/presentation/field_coverage_screen.dart';
+import '../features/field_sales/presentation/secondary_sales_screen.dart';
+import '../features/field_sales/presentation/rcpa_screen.dart';
+import '../features/field_sales/presentation/field_org_chart_screen.dart';
 import '../features/field_sales/presentation/attendance_screen.dart';
 import '../features/field_sales/presentation/detail_aids_screen.dart';
 import '../features/field_sales/presentation/route_list_screen.dart';
@@ -317,6 +336,14 @@ class Routes {
   static const aiChat = '/ai-chat';
   static const bankReconciliation = '/banking/reconciliation';
   static const gst = '/gst';
+  static const gstItcRisk = '/gst/itc-risk';
+  static const courierShipments = '/courier/shipments';
+  static const courierCod = '/courier/cod-remittances';
+  static const courierSettings = '/settings/couriers';
+  static const lorryReceipts = '/transport/lorry-receipts';
+  static const freightRateCards = '/transport/rate-cards';
+  static const vehicleLogs = '/transport/vehicle-logs';
+  static const proofOfDelivery = '/transport/proof-of-delivery';
   static const reorder = '/reorder';
   static const shortbook = '/shortbook';
   static const nearExpiry = '/inventory/near-expiry';
@@ -338,9 +365,11 @@ class Routes {
   static const inventoryFeatures = '/settings/inventory-features';
   static const teamMembers = '/settings/team';
   static const aiSettings = '/settings/ai';
+  static const gspSettings = '/settings/gsp';
   static const apiKeys = '/settings/api-keys';
   static const budgets = '/settings/budgets';
   static const tallyImport = '/settings/tally-import';
+  static const portalUsers = '/settings/portal-users';
   // Onboarding wizard
   static const onboardingBusinessType = '/onboarding/business-type';
   static const onboardingIndustry = '/onboarding/industry';
@@ -362,6 +391,8 @@ class Routes {
   static const journalEntryCreate = '/accounting/journal-entries/create';
   static const journalEntryDetail = '/accounting/journal-entries/:id';
   static const periodClose = '/accounting/period-close';
+  static const fixedAssets = '/accounting/fixed-assets';
+  static const amortization = '/accounting/amortization';
   static const caConsole = '/ca';
   static const caCalendar = '/ca/calendar';
   static const caAlerts = '/ca/alerts';
@@ -391,6 +422,7 @@ class Routes {
   static const payrollLaborPayPreview = '/payroll/labor-pay-preview';
 
   // HR portal
+  static const hrProfile = '/hr/profile';
   static const hrLeave = '/hr/leave';
   static const hrAttendance = '/hr/attendance';
   static const hrShifts = '/hr/shifts';
@@ -415,6 +447,9 @@ class Routes {
   static const fieldSalesCoverage = '/field-sales/coverage';
   static const fieldSalesAttendance = '/field-sales/attendance';
   static const fieldSalesDetailAids = '/field-sales/detail-aids';
+  static const fieldSalesSecondarySales = '/field-sales/secondary-sales';
+  static const fieldSalesRcpa = '/field-sales/rcpa';
+  static const fieldSalesOrgChart = '/field-sales/org-chart';
 
   // Partner Network (B2B)
   static const partnerNetworkPartners = '/partner-network/partners';
@@ -478,6 +513,11 @@ class Routes {
 
   static const platformAdmin = '/platform-admin';
   static const platformAdminLogin = '/platform-admin/login';
+
+  // External customer/vendor portal (separate from admin app)
+  static const portalLogin = '/portal/login';
+  static const portalAccept = '/portal/accept';
+  static const portalHome = '/portal/home';
   static const platformAdminDashboard = '/platform-admin/dashboard';
   static const platformAdminPending = '/platform-admin/pending';
   static const platformAdminOrgs = '/platform-admin/orgs';
@@ -520,6 +560,12 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Platform admin routes handle their own auth — skip main auth redirect
       if (isPlatformAdminRoute) {
+        return null;
+      }
+
+      // External portal routes authenticate independently (portal JWT) — the
+      // admin auth guard must never redirect them to the admin login.
+      if (loc.startsWith('/portal/')) {
         return null;
       }
 
@@ -578,6 +624,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.login,
         builder: (context, state) => const LoginScreen(),
+      ),
+      // ── External customer/vendor portal (no admin shell, own auth) ──
+      GoRoute(
+        path: Routes.portalLogin,
+        builder: (context, state) => const PortalLoginScreen(),
+      ),
+      GoRoute(
+        path: Routes.portalAccept,
+        builder: (context, state) =>
+            PortalAcceptInviteScreen(token: state.uri.queryParameters['token']),
+      ),
+      GoRoute(
+        path: Routes.portalHome,
+        builder: (context, state) => const PortalHomeScreen(),
       ),
       GoRoute(
         path: Routes.otp,
@@ -844,6 +904,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.periodClose,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: PeriodCloseScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fixedAssets,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: FixedAssetsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.amortization,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: AmortizationScreen(),
             ),
           ),
           // Chart of Accounts
@@ -1139,6 +1211,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: Routes.hrProfile,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: MyProfileScreen(),
+            ),
+          ),
+          GoRoute(
             path: Routes.hrLeave,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: LeaveManagementScreen(),
@@ -1257,6 +1335,24 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.fieldSalesCoverage,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: FieldCoverageScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesSecondarySales,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SecondarySalesScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesRcpa,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RcpaScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesOrgChart,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: FieldOrgChartScreen(),
             ),
           ),
           GoRoute(
@@ -1861,6 +1957,38 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: Routes.gstItcRisk,
+            builder: (context, state) => const ItcRiskScreen(),
+          ),
+          GoRoute(
+            path: Routes.courierShipments,
+            builder: (context, state) => const CourierShipmentListScreen(),
+          ),
+          GoRoute(
+            path: Routes.courierCod,
+            builder: (context, state) => const CodRemittanceListScreen(),
+          ),
+          GoRoute(
+            path: Routes.courierSettings,
+            builder: (context, state) => const CourierSettingsScreen(),
+          ),
+          GoRoute(
+            path: Routes.lorryReceipts,
+            builder: (context, state) => const LorryReceiptListScreen(),
+          ),
+          GoRoute(
+            path: Routes.freightRateCards,
+            builder: (context, state) => const FreightRateCardScreen(),
+          ),
+          GoRoute(
+            path: Routes.vehicleLogs,
+            builder: (context, state) => const VehicleLogScreen(),
+          ),
+          GoRoute(
+            path: Routes.proofOfDelivery,
+            builder: (context, state) => const ProofOfDeliveryScreen(),
+          ),
+          GoRoute(
             path: Routes.settings,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: SettingsScreen(),
@@ -1913,6 +2041,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const AiModelSettingsScreen(),
           ),
           GoRoute(
+            path: Routes.gspSettings,
+            builder: (context, state) => const GspSettingsScreen(),
+          ),
+          GoRoute(
             path: Routes.apiKeys,
             builder: (context, state) => const ApiKeysScreen(),
           ),
@@ -1923,6 +2055,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.tallyImport,
             builder: (context, state) => const TallyImportScreen(),
+          ),
+          GoRoute(
+            path: Routes.portalUsers,
+            builder: (context, state) => const PortalUsersScreen(),
           ),
         ],
       ),

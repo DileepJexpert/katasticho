@@ -21,6 +21,18 @@ class AiRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  /// Conversational agent with tool-use: one message → the agent picks a tool
+  /// (query data / draft a transaction / list overdue) and runs it. Returns the
+  /// `data` payload: {reply, tool, draftSuggestionId, actionRequired, ...}.
+  Future<Map<String, dynamic>> agent(String message) async {
+    final response = await _api.post(
+      ApiConfig.aiAgent,
+      data: {'message': message},
+    );
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? body);
+  }
+
   /// Upload a bill image for scanning via Claude Vision.
   Future<Map<String, dynamic>> scanBill(String base64Image) async {
     final response = await _api.post(

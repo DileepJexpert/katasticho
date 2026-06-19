@@ -95,9 +95,6 @@ class _AddPrescriptionScreenState
     if (picked != null) setState(() => _validUntil = picked);
   }
 
-  String _fmtDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-
   // ── Submit ───────────────────────────────────────────────────
 
   Future<void> _submit() async {

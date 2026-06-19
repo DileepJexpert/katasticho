@@ -15,6 +15,8 @@ import com.katasticho.erp.gst.service.GstComplianceCalendarService;
 import com.katasticho.erp.gst.service.GstReviewService;
 import com.katasticho.erp.gst.service.GstService;
 import com.katasticho.erp.gst.service.Gstr2bReconService;
+import com.katasticho.erp.gst.service.ItcRiskMonitorService;
+import com.katasticho.erp.gst.dto.ItcRiskDtos.ItcRiskReport;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -37,6 +39,7 @@ public class GstController {
     private final GstService gstService;
     private final GstReviewService gstReviewService;
     private final Gstr2bReconService gstr2bReconService;
+    private final ItcRiskMonitorService itcRiskMonitorService;
     private final EwayBillService ewayBillService;
     private final GstComplianceCalendarService complianceCalendarService;
     private final ObjectMapper objectMapper;
@@ -127,6 +130,33 @@ public class GstController {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> gstr2bSummary(@RequestParam String period) {
         return ResponseEntity.ok(ApiResponse.ok(gstr2bReconService.summary(period)));
+    }
+
+    // ── ITC-at-risk monitor (preventive, pre-cutoff) ──────────────────────
+
+    /** Per-supplier ITC at risk for a month: whose unfiled GSTR-1 would block your credit. */
+    @GetMapping("/itc-risk")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
+    public ResponseEntity<ApiResponse<ItcRiskReport>> itcRisk(@RequestParam String period) {
+        return ResponseEntity.ok(ApiResponse.ok(itcRiskMonitorService.assessRisk(period)));
+    }
+
+    /** Money rollup across recent cycles: ₹ITC still recoverable vs already lost. */
+    @GetMapping("/itc-risk/rollup")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
+    public ResponseEntity<ApiResponse<com.katasticho.erp.gst.dto.ItcRiskDtos.RecoverableRollup>> itcRiskRollup(
+            @RequestParam(defaultValue = "3") int months) {
+        return ResponseEntity.ok(ApiResponse.ok(itcRiskMonitorService.recoverableRollup(months)));
+    }
+
+    /** Refresh real-time 2A via GSP (if configured) and raise an AI-Inbox alert per at-risk supplier. */
+    @PostMapping("/itc-risk/alert")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> itcRiskAlert(@RequestParam String period) {
+        int raised = itcRiskMonitorService.refreshAndAlert(period);
+        return ResponseEntity.ok(ApiResponse.ok(
+                Map.of("period", period, "alertsRaised", raised),
+                raised + " ITC-at-risk alert(s) raised"));
     }
 
     // ── e-Way bills ──────────────────────────────────────────────────────
