@@ -330,6 +330,52 @@ public class ManufacturingController {
         return ResponseEntity.ok(ApiResponse.ok(routingService.listSuccessors(id)));
     }
 
+    // ── Alternative work centers (tracker #15) ───────────────────────
+
+    /**
+     * Register a fallback workstation for a routing operation.
+     * Body: { routingOperationId, workstationId, priority?, notes? }.
+     */
+    @PostMapping("/workstation-alternates")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<com.katasticho.erp.manufacturing.entity.WorkstationAlternate>>
+            addWorkstationAlternate(@RequestBody Map<String, Object> body) {
+        UUID routingOperationId = UUID.fromString((String) body.get("routingOperationId"));
+        UUID workstationId = UUID.fromString((String) body.get("workstationId"));
+        Integer priority = body.get("priority") != null
+                ? Integer.parseInt(body.get("priority").toString()) : null;
+        String notes = (String) body.get("notes");
+        return ResponseEntity.ok(ApiResponse.ok(
+                routingService.addWorkstationAlternate(routingOperationId, workstationId, priority, notes),
+                "Alternate work center registered"));
+    }
+
+    @GetMapping("/routing-operations/{id}/workstation-alternates")
+    public ResponseEntity<ApiResponse<List<com.katasticho.erp.manufacturing.entity.WorkstationAlternate>>>
+            listWorkstationAlternates(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(routingService.listWorkstationAlternates(id)));
+    }
+
+    @DeleteMapping("/workstation-alternates/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteWorkstationAlternate(@PathVariable UUID id) {
+        routingService.deleteWorkstationAlternate(id);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Alternate work center removed"));
+    }
+
+    /**
+     * Pick the first work center (primary then alternates by priority)
+     * able to absorb {@code requiredHours} of daily load for an
+     * operation. Returns the chosen workstation or 409 if none qualify.
+     */
+    @GetMapping("/routing-operations/{id}/available-workstation")
+    public ResponseEntity<ApiResponse<com.katasticho.erp.manufacturing.entity.Workstation>>
+            pickAvailableWorkstation(@PathVariable UUID id,
+                                     @RequestParam(required = false) BigDecimal requiredHours) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                routingService.pickAvailableWorkstation(id, requiredHours)));
+    }
+
     // ── Routings ──────────────────────────────────────────────────
 
     @SuppressWarnings("unchecked")

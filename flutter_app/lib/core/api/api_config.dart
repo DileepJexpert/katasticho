@@ -934,6 +934,14 @@ class ApiConfig {
       '/api/v1/manufacturing/routing-operations/$routingOpId/predecessors';
   static String manufacturingRoutingOpSuccessors(String routingOpId) =>
       '/api/v1/manufacturing/routing-operations/$routingOpId/successors';
+  static const String manufacturingWorkstationAlternates =
+      '/api/v1/manufacturing/workstation-alternates';
+  static String manufacturingWorkstationAlternate(String id) =>
+      '/api/v1/manufacturing/workstation-alternates/$id';
+  static String manufacturingRoutingOpWorkstationAlternates(String routingOpId) =>
+      '/api/v1/manufacturing/routing-operations/$routingOpId/workstation-alternates';
+  static String manufacturingRoutingOpAvailableWorkstation(String routingOpId) =>
+      '/api/v1/manufacturing/routing-operations/$routingOpId/available-workstation';
   static const String manufacturingRoutings = '/api/v1/manufacturing/routings';
   static String manufacturingRoutingById(String id) => '/api/v1/manufacturing/routings/$id';
 

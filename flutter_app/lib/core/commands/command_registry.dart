@@ -422,6 +422,14 @@ List<KCommand> buildAppCommands() {
                  'dag', 'critical', 'path', 'routing'],
     ),
     KCommand(
+      label: 'Alternate Work Centers',
+      icon: Icons.swap_horiz_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingWorkstationAlternates,
+      keywords: ['workstation', 'machine', 'fallback', 'capacity', 'alternate',
+                 'work center', 'routing'],
+    ),
+    KCommand(
       label: 'Job Work',
       icon: Icons.engineering_rounded,
       section: 'Navigate',

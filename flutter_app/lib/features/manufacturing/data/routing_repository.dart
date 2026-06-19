@@ -143,6 +143,44 @@ class RoutingRepository {
     await _api.delete(ApiConfig.manufacturingRoutingOpDependency(dependencyId));
   }
 
+  // ---- Alternative work centers (tracker #15) ------------------------------
+
+  Future<List<Map<String, dynamic>>> listWorkstationAlternates(String routingOpId) async {
+    final res =
+        await _api.get(ApiConfig.manufacturingRoutingOpWorkstationAlternates(routingOpId));
+    return _unwrapList(res.data);
+  }
+
+  Future<Map<String, dynamic>> addWorkstationAlternate({
+    required String routingOperationId,
+    required String workstationId,
+    int? priority,
+    String? notes,
+  }) async {
+    final res = await _api.post(ApiConfig.manufacturingWorkstationAlternates, data: {
+      'routingOperationId': routingOperationId,
+      'workstationId': workstationId,
+      if (priority != null) 'priority': priority,
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
+    });
+    return _unwrap(res.data);
+  }
+
+  Future<void> removeWorkstationAlternate(String id) async {
+    await _api.delete(ApiConfig.manufacturingWorkstationAlternate(id));
+  }
+
+  /// Resolve the first work center (primary then alternates) able to
+  /// absorb [requiredHours] of daily load for an operation.
+  Future<Map<String, dynamic>> pickAvailableWorkstation(
+      String routingOpId, double requiredHours) async {
+    final res = await _api.get(
+      ApiConfig.manufacturingRoutingOpAvailableWorkstation(routingOpId),
+      queryParameters: {'requiredHours': requiredHours},
+    );
+    return _unwrap(res.data);
+  }
+
   // ---- Routings ------------------------------------------------------------
 
   Future<List<Map<String, dynamic>>> listRoutings() async {

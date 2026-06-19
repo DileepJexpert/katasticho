@@ -32,6 +32,7 @@ class RoutingServiceTest {
     @Mock private JobCardRepository jobCardRepo;
     @Mock private com.katasticho.erp.common.service.AttachmentService attachmentService;
     @Mock private com.katasticho.erp.manufacturing.repository.RoutingOperationDependencyRepository operationDependencyRepo;
+    @Mock private com.katasticho.erp.manufacturing.repository.WorkstationAlternateRepository workstationAlternateRepo;
 
     private RoutingService service;
 
@@ -42,7 +43,7 @@ class RoutingServiceTest {
     void setUp() {
         service = new RoutingService(
                 workstationRepo, operationRepo, routingRepo, routingOperationRepo, jobCardRepo,
-                attachmentService, operationDependencyRepo);
+                attachmentService, operationDependencyRepo, workstationAlternateRepo);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
@@ -511,5 +512,146 @@ class RoutingServiceTest {
         assertSame(existing, service.addOperationDependency(succ, pred));
         verify(operationDependencyRepo, org.mockito.Mockito.never())
                 .save(org.mockito.ArgumentMatchers.any());
+    }
+
+    // ── tracker #15 — alternative work centers ─────────────────────
+
+    private Workstation buildWorkstation(UUID id, boolean active, double capacityHours) {
+        Workstation ws = Workstation.builder()
+                .code("WS-" + id.toString().substring(0, 4))
+                .name("Machine")
+                .capacityHoursPerDay(java.math.BigDecimal.valueOf(capacityHours))
+                .isActive(active)
+                .build();
+        ws.setId(id);
+        ws.setOrgId(orgId);
+        return ws;
+    }
+
+    @Test
+    void addWorkstationAlternate_happyPath_savesWithOrgAndPriority() {
+        UUID routingId = UUID.randomUUID();
+        UUID opId = UUID.randomUUID();
+        UUID primaryWs = UUID.randomUUID();
+        UUID altWs = UUID.randomUUID();
+        RoutingOperation op = buildRoutingOp(opId, routingId);
+        op.setWorkstationId(primaryWs);
+        when(routingOperationRepo.findById(opId)).thenReturn(Optional.of(op));
+        when(workstationRepo.findByIdAndOrgIdAndIsDeletedFalse(altWs, orgId))
+                .thenReturn(Optional.of(buildWorkstation(altWs, true, 8)));
+        when(workstationAlternateRepo
+                .existsByOrgIdAndRoutingOperationIdAndWorkstationIdAndIsDeletedFalse(orgId, opId, altWs))
+                .thenReturn(false);
+        when(workstationAlternateRepo.save(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        com.katasticho.erp.manufacturing.entity.WorkstationAlternate row =
+                service.addWorkstationAlternate(opId, altWs, 2, "Backup mixer");
+
+        assertEquals(opId, row.getRoutingOperationId());
+        assertEquals(altWs, row.getWorkstationId());
+        assertEquals(2, row.getPriority());
+        assertEquals(orgId, row.getOrgId());
+    }
+
+    @Test
+    void addWorkstationAlternate_sameAsPrimary_throws() {
+        UUID routingId = UUID.randomUUID();
+        UUID opId = UUID.randomUUID();
+        UUID primaryWs = UUID.randomUUID();
+        RoutingOperation op = buildRoutingOp(opId, routingId);
+        op.setWorkstationId(primaryWs);
+        when(routingOperationRepo.findById(opId)).thenReturn(Optional.of(op));
+        when(workstationRepo.findByIdAndOrgIdAndIsDeletedFalse(primaryWs, orgId))
+                .thenReturn(Optional.of(buildWorkstation(primaryWs, true, 8)));
+
+        com.katasticho.erp.common.exception.BusinessException ex = assertThrows(
+                com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.addWorkstationAlternate(opId, primaryWs, 1, null));
+        assertEquals("MFG_WS_ALT_SAME_AS_PRIMARY", ex.getErrorCode());
+    }
+
+    @Test
+    void addWorkstationAlternate_duplicate_throws() {
+        UUID routingId = UUID.randomUUID();
+        UUID opId = UUID.randomUUID();
+        UUID altWs = UUID.randomUUID();
+        RoutingOperation op = buildRoutingOp(opId, routingId);
+        op.setWorkstationId(UUID.randomUUID());
+        when(routingOperationRepo.findById(opId)).thenReturn(Optional.of(op));
+        when(workstationRepo.findByIdAndOrgIdAndIsDeletedFalse(altWs, orgId))
+                .thenReturn(Optional.of(buildWorkstation(altWs, true, 8)));
+        when(workstationAlternateRepo
+                .existsByOrgIdAndRoutingOperationIdAndWorkstationIdAndIsDeletedFalse(orgId, opId, altWs))
+                .thenReturn(true);
+
+        com.katasticho.erp.common.exception.BusinessException ex = assertThrows(
+                com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.addWorkstationAlternate(opId, altWs, 1, null));
+        assertEquals("MFG_WS_ALT_DUPLICATE", ex.getErrorCode());
+    }
+
+    @Test
+    void pickAvailableWorkstation_primaryHasCapacity_returnsPrimary() {
+        UUID routingId = UUID.randomUUID();
+        UUID opId = UUID.randomUUID();
+        UUID primaryWs = UUID.randomUUID();
+        RoutingOperation op = buildRoutingOp(opId, routingId);
+        op.setWorkstationId(primaryWs);
+        when(routingOperationRepo.findById(opId)).thenReturn(Optional.of(op));
+        when(workstationRepo.findByIdAndOrgIdAndIsDeletedFalse(primaryWs, orgId))
+                .thenReturn(Optional.of(buildWorkstation(primaryWs, true, 8)));
+        when(workstationAlternateRepo
+                .findByOrgIdAndRoutingOperationIdAndIsDeletedFalseOrderByPriorityAsc(orgId, opId))
+                .thenReturn(List.of());
+
+        Workstation chosen = service.pickAvailableWorkstation(opId, java.math.BigDecimal.valueOf(6));
+        assertEquals(primaryWs, chosen.getId());
+    }
+
+    @Test
+    void pickAvailableWorkstation_primaryDown_fallsBackToAlternate() {
+        UUID routingId = UUID.randomUUID();
+        UUID opId = UUID.randomUUID();
+        UUID primaryWs = UUID.randomUUID();
+        UUID altWs = UUID.randomUUID();
+        RoutingOperation op = buildRoutingOp(opId, routingId);
+        op.setWorkstationId(primaryWs);
+        when(routingOperationRepo.findById(opId)).thenReturn(Optional.of(op));
+        // Primary is inactive (down).
+        when(workstationRepo.findByIdAndOrgIdAndIsDeletedFalse(primaryWs, orgId))
+                .thenReturn(Optional.of(buildWorkstation(primaryWs, false, 8)));
+        when(workstationRepo.findByIdAndOrgIdAndIsDeletedFalse(altWs, orgId))
+                .thenReturn(Optional.of(buildWorkstation(altWs, true, 8)));
+        com.katasticho.erp.manufacturing.entity.WorkstationAlternate alt =
+                com.katasticho.erp.manufacturing.entity.WorkstationAlternate.builder()
+                        .routingOperationId(opId).workstationId(altWs).priority(1).build();
+        when(workstationAlternateRepo
+                .findByOrgIdAndRoutingOperationIdAndIsDeletedFalseOrderByPriorityAsc(orgId, opId))
+                .thenReturn(List.of(alt));
+
+        Workstation chosen = service.pickAvailableWorkstation(opId, java.math.BigDecimal.valueOf(6));
+        assertEquals(altWs, chosen.getId());
+    }
+
+    @Test
+    void pickAvailableWorkstation_noneQualify_throws() {
+        UUID routingId = UUID.randomUUID();
+        UUID opId = UUID.randomUUID();
+        UUID primaryWs = UUID.randomUUID();
+        RoutingOperation op = buildRoutingOp(opId, routingId);
+        op.setWorkstationId(primaryWs);
+        when(routingOperationRepo.findById(opId)).thenReturn(Optional.of(op));
+        // Primary active but only 4h capacity; required is 6h.
+        when(workstationRepo.findByIdAndOrgIdAndIsDeletedFalse(primaryWs, orgId))
+                .thenReturn(Optional.of(buildWorkstation(primaryWs, true, 4)));
+        when(workstationAlternateRepo
+                .findByOrgIdAndRoutingOperationIdAndIsDeletedFalseOrderByPriorityAsc(orgId, opId))
+                .thenReturn(List.of());
+
+        com.katasticho.erp.common.exception.BusinessException ex = assertThrows(
+                com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.pickAvailableWorkstation(opId, java.math.BigDecimal.valueOf(6)));
+        assertEquals("MFG_NO_AVAILABLE_WORKSTATION", ex.getErrorCode());
     }
 }
