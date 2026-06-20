@@ -27,6 +27,7 @@ public class PayrollController {
 
     private final PayrollService service;
     private final com.katasticho.erp.payroll.service.ProductionPayrollService productionPayrollService;
+    private final com.katasticho.erp.payroll.service.PayslipPdfService payslipPdfService;
 
     // ── Settings ──
 
@@ -275,6 +276,25 @@ public class PayrollController {
     @GetMapping("/payslips/{id}")
     public ResponseEntity<ApiResponse<Payslip>> getPayslip(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.getPayslip(id)));
+    }
+
+    /**
+     * Statutorily-compliant pay slip PDF download. Open to OWNER/ADMIN/ACCOUNTANT
+     * to match every other payroll endpoint here. Self-service download
+     * ("my pay slip") is a separate /api/v1/payroll/payslips/me/{id} concern
+     * — added when we wire YTD + Form 16 (next step in the P0 lane).
+     */
+    @GetMapping("/payslips/{id}/pdf")
+    public ResponseEntity<byte[]> getPayslipPdf(@PathVariable UUID id) {
+        Payslip ps = service.getPayslip(id);
+        com.katasticho.erp.payroll.entity.PayrollRun run = service.getRun(ps.getPayrollRunId());
+        byte[] pdf = payslipPdfService.generatePdf(id);
+        String filename = payslipPdfService.filename(ps, run, ps.getEmployee());
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"" + filename + "\"")
+                .body(pdf);
     }
 
     // ── Payments ──

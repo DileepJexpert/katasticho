@@ -1,8 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
@@ -475,6 +478,33 @@ class _PayrollRunDetailScreenState
   // Payslip detail bottom sheet
   // ---------------------------------------------------------------------------
 
+  /// Download the statutorily-compliant pay slip PDF for the given payslip id
+  /// and hand it to the OS share/save sheet via the printing plugin. Same
+  /// pattern as invoice/bill/BMR/food-label downloads elsewhere in the app.
+  Future<void> _downloadPayslipPdf(Map<String, dynamic> payslip) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final id = payslip['id']?.toString();
+    if (id == null || id.isEmpty) {
+      messenger.showSnackBar(const SnackBar(content: Text('Missing payslip id')));
+      return;
+    }
+    final name = payslip['employeeName']?.toString() ?? 'Employee';
+    messenger.showSnackBar(SnackBar(content: Text('Rendering pay slip for $name…')));
+    try {
+      final res = await ref.read(apiClientProvider).get(
+            ApiConfig.payslipPdf(id),
+            options: Options(responseType: ResponseType.bytes),
+          );
+      final bytes = res.data as List<int>;
+      await Printing.sharePdf(
+        bytes: Uint8List.fromList(bytes),
+        filename: 'payslip-$id.pdf',
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Pay slip download failed: $e')));
+    }
+  }
+
   void _showPayslipDetail(Map<String, dynamic> payslip) {
     final employeeName =
         payslip['employeeName']?.toString() ?? 'Employee';
@@ -525,6 +555,11 @@ class _PayrollRunDetailScreenState
                 children: [
                   Expanded(
                     child: Text(employeeName, style: KTypography.h3),
+                  ),
+                  IconButton(
+                    tooltip: 'Download PDF',
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                    onPressed: () => _downloadPayslipPdf(payslip),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),

@@ -799,6 +799,7 @@ class ApiConfig {
   static String payrollRunPayslips(String runId) =>
       '/api/v1/payroll/runs/$runId/payslips';
   static String payslip(String id) => '/api/v1/payroll/payslips/$id';
+  static String payslipPdf(String id) => '/api/v1/payroll/payslips/$id/pdf';
   static String payrollRunPayment(String runId) =>
       '/api/v1/payroll/runs/$runId/payment';
   static const String statutoryPayments = '/api/v1/payroll/statutory-payments';
