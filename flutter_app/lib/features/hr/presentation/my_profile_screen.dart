@@ -21,6 +21,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   bool _loading = true;
   String? _error;
   Map<String, dynamic>? _profile;
+  // When the /me lookup returns HR_EMPLOYEE_NOT_LINKED we render a friendly
+  // empty-state with a "Create my profile" button instead of a dead error —
+  // a fresh shop owner has no HR admin to ask.
+  bool _notLinked = false;
+  bool _claiming = false;
 
   Map<String, dynamic> get _employee =>
       (_profile?['employee'] as Map?)?.cast<String, dynamic>() ?? {};
@@ -44,6 +49,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _notLinked = false;
     });
     final api = ref.read(apiClientProvider);
     try {
@@ -54,15 +60,32 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       if (!mounted) return;
       final body = e.response?.data;
       final code = (body is Map ? body['errorCode'] : null) ?? '';
-      setState(() => _error = code == 'HR_EMPLOYEE_NOT_LINKED'
-          ? 'Your account is not linked to an employee record yet. '
-              'Ask your HR admin to link you in Payroll → Employees.'
-          : 'Failed to load profile: ${e.message ?? e}');
+      if (code == 'HR_EMPLOYEE_NOT_LINKED') {
+        setState(() => _notLinked = true);
+      } else {
+        setState(() => _error = 'Failed to load profile: ${e.message ?? e}');
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = 'Failed to load profile: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _claimProfile() async {
+    setState(() => _claiming = true);
+    final api = ref.read(apiClientProvider);
+    try {
+      await api.post('${ApiConfig.hrMyProfile}/claim');
+      if (!mounted) return;
+      _toast('Employee profile created');
+      await _load();
+    } on DioException catch (e) {
+      if (!mounted) return;
+      _toast('Could not create profile: ${e.message ?? e}');
+    } finally {
+      if (mounted) setState(() => _claiming = false);
     }
   }
 
@@ -86,7 +109,12 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
+          : _notLinked
+              ? _NotLinkedView(
+                  busy: _claiming,
+                  onCreate: _claimProfile,
+                )
+              : _error != null
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
@@ -1132,4 +1160,58 @@ int? _intOrNull(String s) {
   final t = s.trim();
   if (t.isEmpty) return null;
   return int.tryParse(t);
+}
+
+/// Friendly empty-state shown when the logged-in user has no payroll Employee
+/// linked yet. Lets them claim a fresh profile in one tap — the typical case
+/// for a shop owner who signed up as OWNER and has no HR admin to ask.
+class _NotLinkedView extends StatelessWidget {
+  final bool busy;
+  final VoidCallback onCreate;
+
+  const _NotLinkedView({required this.busy, required this.onCreate});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.badge_outlined, size: 64, color: cs.primary),
+              const SizedBox(height: 16),
+              Text(
+                'Set up your employee profile',
+                style: Theme.of(context).textTheme.titleLarge,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Your login is not linked to an employee record yet. '
+                'Tap the button below to create one using your account '
+                'name and email — it takes a second.',
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: busy ? null : onCreate,
+                icon: busy
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.person_add_outlined),
+                label: Text(busy ? 'Creating…' : 'Create my employee profile'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

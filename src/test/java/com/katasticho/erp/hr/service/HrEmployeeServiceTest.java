@@ -33,6 +33,7 @@ class HrEmployeeServiceTest {
     @Mock private EmployeeFamilyRepository familyRepo;
     @Mock private EmployeeEducationRepository educationRepo;
     @Mock private EmployeeExperienceRepository experienceRepo;
+    @Mock private com.katasticho.erp.auth.repository.AppUserRepository appUserRepo;
     private HrEmployeeService service;
 
     private final UUID orgId = UUID.randomUUID();
@@ -41,7 +42,7 @@ class HrEmployeeServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new HrEmployeeService(employeeRepo, familyRepo, educationRepo, experienceRepo);
+        service = new HrEmployeeService(employeeRepo, familyRepo, educationRepo, experienceRepo, appUserRepo);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
 

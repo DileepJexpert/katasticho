@@ -41,6 +41,19 @@ public class MyProfileController {
         return ResponseEntity.ok(ApiResponse.ok(service.updateMe(body), "Profile updated"));
     }
 
+    /**
+     * One-tap self-service: create a minimal Employee row linked to the
+     * current app-user, so a fresh shop owner who signed up as OWNER can
+     * open "My Profile" without first asking an HR admin to link them.
+     * Idempotent — returns the existing row if already claimed.
+     */
+    @PostMapping("/claim")
+    public ResponseEntity<ApiResponse<Employee>> claim() {
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.claimMyProfile(),
+                "Employee profile created"));
+    }
+
     // ── Family ──
 
     @PostMapping("/family")

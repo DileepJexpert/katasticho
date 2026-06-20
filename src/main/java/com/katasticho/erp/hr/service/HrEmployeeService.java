@@ -34,6 +34,7 @@ public class HrEmployeeService {
     private final EmployeeFamilyRepository familyRepository;
     private final EmployeeEducationRepository educationRepository;
     private final EmployeeExperienceRepository experienceRepository;
+    private final com.katasticho.erp.auth.repository.AppUserRepository appUserRepository;
 
     // ───── Family ─────
 
@@ -172,6 +173,49 @@ public class HrEmployeeService {
                 .orElseThrow(() -> new BusinessException(
                         "No employee profile is linked to your account. Ask HR to link your employee record.",
                         "HR_EMPLOYEE_NOT_LINKED", HttpStatus.NOT_FOUND));
+    }
+
+    /**
+     * One-tap self-service: create a minimal Employee row for the currently
+     * authenticated app-user, pulling name + email from AppUser. Used by a
+     * fresh shop owner who signed up as OWNER and was sent here from "My
+     * Profile" — they don't have an HR admin to ask. Idempotent: if an
+     * Employee already exists for this user it's returned as-is.
+     */
+    @Transactional
+    public Employee claimMyProfile() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        UUID userId = TenantContext.getCurrentUserId();
+        var existing = employeeRepository
+                .findByOrgIdAndUserIdAndIsDeletedFalse(orgId, userId);
+        if (existing.isPresent()) return existing.get();
+
+        var user = appUserRepository
+                .findByIdAndOrgIdAndIsDeletedFalse(userId, orgId)
+                .orElseThrow(() -> new BusinessException(
+                        "Your user account could not be found.",
+                        "AUTH_USER_NOT_FOUND", HttpStatus.NOT_FOUND));
+
+        Employee e = new Employee();
+        e.setOrgId(orgId);
+        e.setUserId(userId);
+        e.setFullName(user.getFullName());
+        e.setEmail(user.getEmail());
+        e.setEmployeeCode(nextEmployeeCode(orgId));
+        return employeeRepository.save(e);
+    }
+
+    /** Sequential EMP-NNNN code, scoped per org, dedupe-safe via lookup. */
+    private String nextEmployeeCode(UUID orgId) {
+        for (int n = 1; n < 10_000; n++) {
+            String code = String.format("EMP-%04d", n);
+            if (employeeRepository
+                    .findByOrgIdAndEmployeeCodeAndIsDeletedFalse(orgId, code)
+                    .isEmpty()) {
+                return code;
+            }
+        }
+        return "EMP-" + java.util.UUID.randomUUID().toString().substring(0, 8);
     }
 
     /** Full self-service view: profile + family + education + experience. */
