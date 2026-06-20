@@ -66,7 +66,7 @@ class _ProofOfDeliveryScreenState extends ConsumerState<ProofOfDeliveryScreen> {
       await ref
           .read(apiClientProvider)
           .dio
-          .post(ApiConfig.podAttachments(podId), data: form);
+          .post(ApiConfig.proofOfDeliveryAttachments(podId), data: form);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Evidence attached')));

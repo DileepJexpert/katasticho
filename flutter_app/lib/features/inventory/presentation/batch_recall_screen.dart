@@ -191,7 +191,7 @@ class _Stat extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(value, style: KTypography.headlineSmall),
+        Text(value, style: KTypography.h3),
         Text(label, style: KTypography.bodySmall),
       ],
     );

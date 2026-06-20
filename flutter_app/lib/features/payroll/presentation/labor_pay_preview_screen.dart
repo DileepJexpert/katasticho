@@ -163,7 +163,7 @@ class _PreviewView extends ConsumerWidget {
                       ),
                     if (!salary) ...[
                       Text('₹${pay['amount']}',
-                          style: KTypography.headlineSmall),
+                          style: KTypography.h3),
                       const SizedBox(height: 4),
                       Text('over the selected period from production data',
                           style: KTypography.bodySmall),

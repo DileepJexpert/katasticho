@@ -63,7 +63,10 @@ import '../features/courier/presentation/courier_settings_screen.dart';
 import '../features/transport/presentation/lorry_receipt_list_screen.dart';
 import '../features/transport/presentation/freight_rate_card_screen.dart';
 import '../features/transport/presentation/vehicle_log_screen.dart';
-import '../features/transport/presentation/proof_of_delivery_screen.dart';
+// Transport POD screen is a stale duplicate of the documented sales POD —
+// hidden here to disambiguate; delete the transport file once confirmed unused.
+import '../features/transport/presentation/proof_of_delivery_screen.dart'
+    hide ProofOfDeliveryScreen;
 import '../features/credit_notes/presentation/credit_note_list_screen.dart';
 import '../features/credit_notes/presentation/credit_note_detail_screen.dart';
 import '../features/credit_notes/presentation/credit_note_create_screen.dart';
@@ -343,7 +346,8 @@ class Routes {
   static const lorryReceipts = '/transport/lorry-receipts';
   static const freightRateCards = '/transport/rate-cards';
   static const vehicleLogs = '/transport/vehicle-logs';
-  static const proofOfDelivery = '/transport/proof-of-delivery';
+  // (transport proofOfDelivery const removed — duplicate of the sales POD route
+  //  declared earlier in this class; transport variant was undocumented)
   static const reorder = '/reorder';
   static const shortbook = '/shortbook';
   static const nearExpiry = '/inventory/near-expiry';
@@ -1983,10 +1987,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.vehicleLogs,
             builder: (context, state) => const VehicleLogScreen(),
-          ),
-          GoRoute(
-            path: Routes.proofOfDelivery,
-            builder: (context, state) => const ProofOfDeliveryScreen(),
           ),
           GoRoute(
             path: Routes.settings,

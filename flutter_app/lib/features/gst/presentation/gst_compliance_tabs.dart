@@ -200,35 +200,6 @@ class _Gstr2bTabState extends ConsumerState<Gstr2bTab> {
     }
   }
 
-  Future<void> _fetchFromGsp() async {
-    setState(() => _fetching = true);
-    try {
-      final summary = await ref
-          .read(gstRepositoryProvider)
-          .fetchGstr2bFromGsp(widget.period);
-      if (!mounted) return;
-      final mismatches = (summary['valueMismatch'] as num? ?? 0) +
-          (summary['notInBooks'] as num? ?? 0);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(mismatches > 0
-            ? '2B fetched from GSP — $mismatches issue(s) sent to your AI Inbox'
-            : '2B fetched from GSP — everything matched'),
-      ));
-      widget.onChanged();
-      await _loadEntries();
-    } catch (e) {
-      if (!mounted) return;
-      final msg = e.toString().replaceAll('Exception: ', '');
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(msg.contains('GSP_NOT_CONFIGURED')
-            ? 'No GSP configured — set it up in GSP Settings, or upload the 2B JSON manually'
-            : 'Fetch failed: $msg'),
-      ));
-    } finally {
-      if (mounted) setState(() => _fetching = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final summary = widget.summary;
