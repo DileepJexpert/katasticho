@@ -12,6 +12,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../contacts/presentation/contact_picker_sheet.dart';
+import '../../inventory/data/item_repository.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../pricing/data/price_list_repository.dart';
@@ -701,7 +702,7 @@ class _LineItem {
   double get lineTotal => taxableAmount + taxAmount;
 }
 
-class _LineItemCard extends StatefulWidget {
+class _LineItemCard extends ConsumerStatefulWidget {
   final _LineItem item;
   final int index;
   final VoidCallback? onRemove;
@@ -715,10 +716,10 @@ class _LineItemCard extends StatefulWidget {
   });
 
   @override
-  State<_LineItemCard> createState() => _LineItemCardState();
+  ConsumerState<_LineItemCard> createState() => _LineItemCardState();
 }
 
-class _LineItemCardState extends State<_LineItemCard> {
+class _LineItemCardState extends ConsumerState<_LineItemCard> {
   late final TextEditingController _descCtl;
   late final TextEditingController _hsnCtl;
   late final TextEditingController _qtyCtl;
@@ -745,6 +746,12 @@ class _LineItemCardState extends State<_LineItemCard> {
   Future<void> _pickItem() async {
     final picked = await showItemPicker(context);
     if (picked == null) return;
+    await _applyPickedItem(picked);
+  }
+
+  /// Shared item-fill: called by both the modal picker and the inline
+  /// typeahead so they stay in lockstep.
+  Future<void> _applyPickedItem(Map<String, dynamic> picked) async {
     setState(() {
       widget.item.itemId = picked['id']?.toString();
       widget.item.description = picked['name']?.toString() ?? '';
@@ -785,6 +792,16 @@ class _LineItemCardState extends State<_LineItemCard> {
     if (widget.item.trackBatches && widget.item.itemId != null && mounted) {
       await _pickBatch();
     }
+  }
+
+  Future<List<Map<String, dynamic>>> _searchItems(String query) async {
+    final repo = ref.read(itemRepositoryProvider);
+    final raw = await repo.listItems(search: query);
+    final content = raw['data'];
+    final list = content is List
+        ? content
+        : (content is Map ? (content['content'] as List?) ?? [] : []);
+    return list.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
   }
 
   Future<void> _pickBatch() async {
@@ -994,6 +1011,37 @@ class _LineItemCardState extends State<_LineItemCard> {
                 ),
             ],
           ),
+          if (!isLinked) ...[
+            KSpacing.vGapXs,
+            // Keyboard-first item picker. Type → ↓/↑ → Enter to pick.
+            // The "Pick Item" button above stays as a mouse-friendly browse path.
+            KTypeaheadField<Map<String, dynamic>>(
+              label: 'Search item',
+              hint: 'Type item name or SKU…',
+              onSearch: _searchItems,
+              displayString: (m) => m['name']?.toString() ?? '',
+              itemBuilder: (m) {
+                final sku = m['sku']?.toString();
+                final onHand = m['totalOnHand'];
+                final parts = <String>[
+                  if (sku != null && sku.isNotEmpty) 'SKU: $sku',
+                  if (onHand != null) '$onHand on hand',
+                ];
+                final price = (m['salePrice'] as num?)?.toDouble();
+                return KTypeaheadItem(
+                  title: m['name']?.toString() ?? '',
+                  subtitle: parts.isEmpty ? null : parts.join(' • '),
+                  trailing: price == null
+                      ? null
+                      : CurrencyFormatter.formatIndian(price),
+                  leading: m['itemType'] == 'SERVICE'
+                      ? Icons.build_outlined
+                      : Icons.inventory_2_outlined,
+                );
+              },
+              onSelected: (m) => _applyPickedItem(m),
+            ),
+          ],
           if (widget.item.trackBatches) ...[
             KSpacing.vGapSm,
             _buildBatchRow(),

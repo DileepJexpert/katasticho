@@ -26,4 +26,5 @@ export 'k_saved_view_button.dart';
 export 'k_status_chip.dart';
 export 'k_text_field.dart';
 export 'k_top_bar.dart';
+export 'k_typeahead_field.dart';
 export 'theme_mode_switcher.dart';
