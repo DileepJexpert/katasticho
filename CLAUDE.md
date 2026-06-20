@@ -7,6 +7,10 @@ Reference for working in this repo efficiently. Read this first; avoid re-explor
 - **Frontend:** Flutter (`flutter_app/`) — Riverpod + GoRouter + Dio.
 - **Root layout:** `src/` (backend), `flutter_app/` (mobile/web), `docs/`, `scripts/`, `samples/`, `test-data/`.
 
+## Design system (read before touching UI)
+**All UI must follow `docs/design-system.md`.** Use only its tokens — never invent colours, spacing, or radii. Build screens by composing the primitives in §7 (KButton, KTextField, KBadge/KStatusChip, KDataTable, KCard, KPageHeader, KEmptyState, toast); do not style raw elements per screen. Before writing a component, restate which tokens you are using. North star: Linear / Stripe Dashboard / Campfire / Zoho Books — calm, dense, trustworthy. The implementation lives in `flutter_app/lib/core/theme/{k_colors,k_spacing,k_typography,k_theme}.dart` and `flutter_app/lib/core/widgets/k_*.dart`; if a token/primitive is missing, extend those files (don't fork them in feature code).
+
+
 ## Build & Test
 ```bash
 # Backend compile / test (run from repo root)
