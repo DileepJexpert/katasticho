@@ -136,7 +136,7 @@ except very sparingly. Use sentence case for everything ("Add invoice", not
 
   /* Density */
   --row-h:        40px;  /* table rows, list items */
-  --row-h-compact:32px;
+  --row-h-compact:36px;
   --control-h:    36px;  /* inputs, buttons, selects */
 
   /* Motion — subtle */
@@ -218,8 +218,10 @@ no shadow.
 * Destructive: `--neg-text` fill (use rarely — only delete/void).
 
 **Input / Select** — height `--control-h`, 1px `--border-strong`, radius
-`--radius`, `--text-base`. Focus: 1px `--brand-600` border + faint `--brand-50`
-ring. Label above in `--text-sm` `--fw-medium` `--text-secondary`. Error:
+`--radius`, `--text-base`. Focus: `--brand-600` border (≈1.5px); an outer
+`--brand-50` ring is optional polish (Flutter can't paint it on a bare
+`TextField` without a wrapping `Focus` + faint shadow — don't block on it).
+Label above in `--text-sm` `--fw-medium` `--text-secondary`. Error:
 `--neg-border` border + `--neg-text` helper line. Money/qty inputs right-align
 with tabular numerals.
 
@@ -239,9 +241,11 @@ semantic bg+text+border pair from §2. e.g. Paid → `--pos-*`; Overdue →
 `--neg-*`; GST pending/Mismatch → `--warn-*`; Draft → neutral
 `--bg-subtle`/`--text-muted`.
 
-**Card / section** — `--bg-surface`, 1px `--border`, `--radius`, padding
-`--space-6`, no shadow. Title `--text-md` `--fw-semibold`; optional
-`--text-sm` `--text-muted` description.
+**Card / section** — `--bg-surface`, 1px `--border`, `--radius`, no shadow.
+Padding `--space-5` (20) for content cards, `--space-4` (16) for small/KPI
+tiles — `--space-6` (24) is a touch roomy for a dense ERP (Linear/Campfire sit
+~16–20). Title `--text-md` `--fw-semibold`; optional `--text-sm` `--text-muted`
+description.
 
 **Page header** — left-aligned (never centered) `--text-xl` title, optional
 breadcrumb in `--text-sm` `--text-muted`, primary action button on the right.

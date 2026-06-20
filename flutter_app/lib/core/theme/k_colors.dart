@@ -124,7 +124,7 @@ class KColors {
       'PARTIALLY_SHIPPED' => warning,
       'SHIPPED' => const Color(0xFF0D9488),
       'INVOICED' => paid,
-      _ => textSecondary,
+      _ => _statusKeywordColor(status),
     };
   }
 
@@ -143,8 +143,34 @@ class KColors {
       'PARTIALLY_SHIPPED' => warningLight,
       'SHIPPED' => const Color(0xFFCCFBF1),
       'INVOICED' => paidBg,
-      _ => draftBg,
+      _ => _statusKeywordBg(status),
     };
+  }
+
+  // Keyword fallbacks — applied ONLY when the exact-match switches above miss,
+  // so existing statuses keep their exact colours and previously-grey statuses
+  // (e.g. "Reconciled", "GST mismatch", "Pending", "Rejected") now read
+  // semantically instead of falling to neutral. Purely additive.
+  static Color _statusKeywordColor(String status) {
+    final s = status.toLowerCase();
+    if (RegExp(r'paid|received|reconcil|filed|approved|cleared|posted|active|completed|success|accept')
+        .hasMatch(s)) return success;
+    if (RegExp(r'overdue|fail|reject|error|cancel|void|bounce|expired|blocked')
+        .hasMatch(s)) return error;
+    if (RegExp(r'pending|due|mismatch|partial|hold|review|awaiting|draft|unpaid')
+        .hasMatch(s)) return warning;
+    return textSecondary;
+  }
+
+  static Color _statusKeywordBg(String status) {
+    final s = status.toLowerCase();
+    if (RegExp(r'paid|received|reconcil|filed|approved|cleared|posted|active|completed|success|accept')
+        .hasMatch(s)) return successLight;
+    if (RegExp(r'overdue|fail|reject|error|cancel|void|bounce|expired|blocked')
+        .hasMatch(s)) return errorLight;
+    if (RegExp(r'pending|due|mismatch|partial|hold|review|awaiting|draft|unpaid')
+        .hasMatch(s)) return warningLight;
+    return draftBg;
   }
 }
 

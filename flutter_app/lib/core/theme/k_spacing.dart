@@ -71,6 +71,16 @@ class KSpacing {
   static final BorderRadius borderRadiusXl = BorderRadius.circular(radiusXl);
   static final BorderRadius borderRadius2xl = BorderRadius.circular(radius2xl);
 
+  // ── Motion (per design-system.md §4 — subtle, finance-grade) ──
+  static const Duration durFast = Duration(milliseconds: 120);
+  static const Duration durBase = Duration(milliseconds: 180);
+  static const Curve ease = Cubic(0.2, 0, 0, 1);
+
+  // ── Density (per design-system.md §4) ──
+  static const double rowH = 40;          // table rows, list items
+  static const double rowHCompact = 36;
+  static const double controlH = 36;      // inputs, buttons, selects
+
   // ── Responsive Breakpoints ──
   static const double mobileBreakpoint = 600;
   static const double tabletBreakpoint = 900;

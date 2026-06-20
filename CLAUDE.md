@@ -9,6 +9,11 @@ Reference for working in this repo efficiently. Read this first; avoid re-explor
 
 ## Design system (read before touching UI)
 **All UI must follow `docs/design-system.md`.** Use only its tokens — never invent colours, spacing, or radii. Build screens by composing the primitives in §7 (KButton, KTextField, KBadge/KStatusChip, KDataTable, KCard, KPageHeader, KEmptyState, toast); do not style raw elements per screen. Before writing a component, restate which tokens you are using. North star: Linear / Stripe Dashboard / Campfire / Zoho Books — calm, dense, trustworthy. The implementation lives in `flutter_app/lib/core/theme/{k_colors,k_spacing,k_typography,k_theme}.dart` and `flutter_app/lib/core/widgets/k_*.dart`; if a token/primitive is missing, extend those files (don't fork them in feature code).
+- **Money cells:** use `KMoney(amount)` (widget, `k_money.dart`) — it enforces ₹ Indian grouping + tabular figures + right-align by construction (wraps `CurrencyFormatter`). `colorBySign` is OFF by default (a debit is not "bad" — only colour genuinely negative states). Migrate raw money `Text(...)` to `KMoney` whenever you touch a screen.
+- **IDs/codes** (GSTIN, invoice no, HSN, UTR): `KTypography.mono(...)` (IBM Plex Mono).
+- **Status pills:** `KStatusChip(status: '...')` — `KColors.statusColor/statusBgColor` now keyword-infer tone (paid/overdue/pending/...) when the exact-match list misses, so new statuses read semantically instead of grey.
+- **Density/motion tokens:** `KSpacing.rowH(40)/rowHCompact(36)/controlH(36)`, `KSpacing.durFast/durBase/ease`.
+- **Token re-skin pending (do as ONE reviewable commit, not piecemeal):** brand blue `#4A7FE0`→teal `#0F8576`, app bg→warm `#F7F7F5`, error→muted `#BE3A34` in `k_colors.dart`; cap radii at 8 (`radiusXl/2xl` used in ~5 files — fix call sites in the same commit); borders-first card/table (drop card shadows) is a separate later visual pass.
 
 
 ## Build & Test

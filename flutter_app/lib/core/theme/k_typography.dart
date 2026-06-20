@@ -139,4 +139,19 @@ class KTypography {
         letterSpacing: 0.1,
         height: 1.2,
       );
+
+  // ── Mono — IDs & codes (GSTIN, invoice no, HSN, UTR) ──
+  // IBM Plex Mono so fixed-width codes line up and read scannably; never use
+  // for prose. Per design-system.md §3.
+  static TextStyle mono({
+    double size = 13,
+    Color? color,
+    FontWeight weight = FontWeight.w400,
+  }) =>
+      GoogleFonts.ibmPlexMono(
+        fontSize: size,
+        color: color,
+        fontWeight: weight,
+        height: 1.4,
+      );
 }
