@@ -42,6 +42,7 @@ public class PayrollService {
     private final AccountRepository accountRepository;
     private final com.katasticho.erp.attendance.LeaveRequestRepository leaveRequestRepository;
     private final ProductionPayrollService productionPayrollService;
+    private final ProfessionalTaxCalculator ptCalculator;
 
     // ──────────────────────────────── Settings ────────────────────────────────
 
@@ -861,11 +862,16 @@ public class PayrollService {
             employerContributions = employerContributions.add(esiEmployer);
         }
 
-        // PT: fixed 200 default
+        // PT: state-wise slab (V3 pt_slab master). Returns ZERO for non-PT states
+        // (Delhi/Haryana/UP/…), for orgs with no resolvable state, and when the
+        // employee's monthly gross is below the nil bracket.
         if (settings.isPtEnabled() && employee.isPtApplicable()) {
-            BigDecimal ptAmount = new BigDecimal("200.00");
-            addStatutoryLine(payslip, orgId, componentsByCode, "PT", "DEDUCTION", ptAmount);
-            totalDeductions = totalDeductions.add(ptAmount);
+            BigDecimal ptAmount = ptCalculator.calculate(
+                    orgId, employee, grossPay, run.getPeriodEnd());
+            if (ptAmount != null && ptAmount.signum() > 0) {
+                addStatutoryLine(payslip, orgId, componentsByCode, "PT", "DEDUCTION", ptAmount);
+                totalDeductions = totalDeductions.add(ptAmount);
+            }
         }
 
         // LWF: fixed 25 employee + 75 employer

@@ -66,8 +66,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **DoD** = definition of
 *Table stakes: can't onboard any distributor-with-employees without these. Started this week.*
 
 - [x] **A0. Pay slip PDF** — `PayslipPdfService` + `GET /payroll/payslips/{id}/pdf` + Flutter download. *(done 2026-06-21, commit 10e48ac)*
-- [ ] **A1. State-wise Professional Tax slabs.** Replace flat ₹200 PT with per-state slabs (MH ₹175/200/300, KA ₹200>₹15k, WB/TN/AP/TS/GJ/MP/OR/KL + others).
-  - DoD: `pt_slab` reference seed (state + from/to gross + monthly amount + Feb-extra for MH); `PayrollService.calculatePayslip` picks slab by employee `workLocation` state → org state fallback; nil for no-PT states; unit test per major state.
+- [x] **A1. State-wise Professional Tax slabs.** Replaces flat ₹200 PT with statutory slabs across 14 states. *(done 2026-06-21)*
+  - V3 `pt_slab` master + 60 seed rows (MH gender-split + Feb top-up, KA, WB, TN, AP/TS, GJ, MP, OR, KL, BR/JH, AS, PY). Non-PT states (Delhi, Haryana, UP, …) deliberately absent — calculator returns ₹0 when no slab matches.
+  - `ProfessionalTaxCalculator` service resolves org's 2-digit GST code → alphaCode → slab; unknown gender defaults to MALE (more conservative bracket). Wired into `PayrollService.calculatePayslip` (line ~866) — only line that changed in the existing service. Tests: 13 unit (`ProfessionalTaxCalculatorTest`) + zero regression in `PayrollServiceTest` (13/13) + `PayslipPdfServiceTest` (4/4).
 - [ ] **A2. State-wise LWF.** Currently single rate. Make state-aware (different employee/employer split + frequency: monthly/half-yearly/annual per state).
   - DoD: `lwf_rule` seed (state + employee + employer + frequency); calc honours it; test MH/KA/GJ.
 - [ ] **A3. PF ECR file generator.** UAN-wise EE/ER/EPS/EDLI breakdown in EPFO ECR text format for a payroll run.
