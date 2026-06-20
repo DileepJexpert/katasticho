@@ -1474,6 +1474,20 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     final hasModifier = KShortcuts.isControlOrMetaPressed();
 
+    // "/" — focus the product search. The universal web-app convention
+    // (GitHub/YouTube/Twitter) and the documented KShortcuts.globalSearch
+    // binding. Used instead of Ctrl+F because browsers reserve Ctrl+F at the
+    // OS level (find-in-page) and Flutter Web can't pre-empt it. This Focus
+    // widget only sees the key when no text field owns focus, so typing "/"
+    // inside the search box still types a literal slash.
+    if (!hasModifier && event.logicalKey == LogicalKeyboardKey.slash) {
+      _searchFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+
+    // Ctrl/Cmd+F kept as a best-effort fallback — works on the desktop build
+    // (Windows/macOS/Linux native Flutter) where the browser is not in the
+    // loop. Browsers will steal it; use "/" there.
     if (hasModifier && event.logicalKey == LogicalKeyboardKey.keyF) {
       _searchFocusNode.requestFocus();
       return KeyEventResult.handled;

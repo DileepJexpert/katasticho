@@ -32,7 +32,10 @@ class KShortcuts {
   static const formCancel = 'Esc';
 
   // ── POS ───────────────────────────────────────────────────────
-  static const posSearch = 'Ctrl/Cmd F';
+  // "/" (slash) is the search key — universal web-app convention. Ctrl+F is
+  // kept as a best-effort fallback in code but browsers reserve it for
+  // find-in-page at the OS level and Flutter Web cannot pre-empt it.
+  static const posSearch = '/';
   static const posCompleteCurrent = 'Ctrl/Cmd Enter';
   static const posClearCart = 'Ctrl/Cmd Delete';
   static const posCash = 'F1';
