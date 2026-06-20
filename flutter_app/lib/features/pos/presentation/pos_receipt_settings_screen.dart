@@ -207,6 +207,8 @@ class PosReceiptSettingsScreen extends ConsumerWidget {
                 _update(ref, settings.copyWith(footerText: v)),
           ),
           KSpacing.vGapLg,
+          const _BillingPolicySection(),
+          KSpacing.vGapLg,
           const _UpiSettingsSection(),
           KSpacing.vGapLg,
           const _SmsSettingsSection(),
@@ -557,6 +559,77 @@ class _WhatsAppSettingsSectionState
                   ),
                 ],
               ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Counter billing policy — toggles `pos.allow_negative_stock`. When on (the
+/// default), the POS adds a medicine in one tap and sells any quantity even at
+/// 0 stock (stock goes negative, reconciled later). Off = strict stock control.
+class _BillingPolicySection extends ConsumerStatefulWidget {
+  const _BillingPolicySection();
+
+  @override
+  ConsumerState<_BillingPolicySection> createState() =>
+      _BillingPolicySectionState();
+}
+
+class _BillingPolicySectionState extends ConsumerState<_BillingPolicySection> {
+  bool _saving = false;
+
+  Future<void> _setAllowNegative(bool value) async {
+    setState(() => _saving = true);
+    try {
+      final client = ref.read(apiClientProvider);
+      await client.put('${ApiConfig.orgSettings}/pos.allow_negative_stock',
+          data: {'value': value.toString()});
+      ref.invalidate(posAllowNegativeStockProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(value
+                ? 'Bill freely is on — counter sells even at 0 stock'
+                : 'Strict stock control is on — short sales are blocked')));
+      }
+    } catch (e) {
+      ref.invalidate(posAllowNegativeStockProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final role = ref.watch(authProvider).role?.toUpperCase() ?? '';
+    final canEdit = role == 'OWNER' || role == 'ADMIN';
+    final allow = ref.watch(posAllowNegativeStockProvider).valueOrNull ?? true;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Billing', style: KTypography.h3),
+        KSpacing.vGapSm,
+        Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Bill freely (sell without stock)'),
+              subtitle: const Text(
+                  'Add a medicine in one tap and sell any quantity even when '
+                  'stock shows 0. Stock can go negative and is corrected later '
+                  'with a stock receipt. Turn off for strict stock control.'),
+              value: allow,
+              onChanged:
+                  (canEdit && !_saving) ? (v) => _setAllowNegative(v) : null,
             ),
           ),
         ),

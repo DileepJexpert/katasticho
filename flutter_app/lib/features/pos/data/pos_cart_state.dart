@@ -191,6 +191,11 @@ class PosCartState {
   final String? contactPhone;
   final String? notes;
 
+  /// When true the counter bills freely — quantities are never clamped to
+  /// recorded stock (stock may go negative). Driven by the org setting
+  /// `pos.allow_negative_stock` via [PosCartNotifier.setAllowNegativeStock].
+  final bool allowNegativeStock;
+
   const PosCartState({
     this.items = const [],
     this.paymentMode = 'CASH',
@@ -201,6 +206,7 @@ class PosCartState {
     this.contactName,
     this.contactPhone,
     this.notes,
+    this.allowNegativeStock = false,
   });
 
   /// Net subtotal (excl. tax) — sum of back-calculated taxable bases.
@@ -272,6 +278,7 @@ class PosCartState {
     String? contactName,
     String? contactPhone,
     String? notes,
+    bool? allowNegativeStock,
   }) {
     return PosCartState(
       items: items ?? this.items,
@@ -283,6 +290,7 @@ class PosCartState {
       contactName: clearContact ? null : (contactName ?? this.contactName),
       contactPhone: clearContact ? null : (contactPhone ?? this.contactPhone),
       notes: notes ?? this.notes,
+      allowNegativeStock: allowNegativeStock ?? this.allowNegativeStock,
     );
   }
 }
@@ -464,7 +472,15 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
 
   /// Clear cart — after successful sale.
   void clear() {
-    state = const PosCartState();
+    // Preserve the bill-freely flag across sales — it's an org policy, not
+    // a per-cart choice, so it must survive a checkout/clear.
+    state = PosCartState(allowNegativeStock: state.allowNegativeStock);
+  }
+
+  /// Set from the org setting `pos.allow_negative_stock` when POS loads.
+  void setAllowNegativeStock(bool value) {
+    if (state.allowNegativeStock == value) return;
+    state = state.copyWith(allowNegativeStock: value);
   }
 
   /// Restore a held cart.
@@ -473,6 +489,8 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
   }
 
   double _clampToStock(CartItem item, double quantity) {
+    // Bill-freely orgs never clamp — the counter sells what it physically has.
+    if (state.allowNegativeStock) return quantity;
     if (item.currentStock <= 0) return quantity;
     final maxQty = item.maxSellQuantity;
     if (maxQty <= 0) return quantity;

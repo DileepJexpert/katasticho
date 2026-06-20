@@ -334,6 +334,12 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Seller speed:** debounce 300→200ms; stale-while-loading (last results shown dimmed instead of shimmer flicker between keystrokes); Enter-to-add-top-result now awaits the in-flight request (`.future`) instead of no-oping during loading.
 - **Tests:** PosCatalogServiceTest (3 — field mapping incl. openingStock, idempotency, SKU collision). 690 total pass.
 
+#### POS Bill-Freely mode (2026-06-20)
+- **Org setting `pos.allow_negative_stock`** (default **true** — unset key 404s → treated as true). When on, the POS counter sells retail-style: catalog quick-add is a single tap (no opening-stock dialog — item is created at 0 stock and goes negative, reconciled later via a stock receipt), quantities are never clamped to recorded stock, and a sale is never blocked for being short. The cart's red "0 available" pill stays as a soft cue. When off, the old strict path is byte-for-byte preserved (catalog quick-add shows the opening-stock dialog so the item is sellable, stepper caps at stock, checkout blocks on `hasStockExceededItems`).
+- **Why:** a fresh shop has zero items, so every POS search fell through to the catalog quick-add, which forced an opening-stock popup on every medicine AND capped the cart quantity at that opening stock (default 1) — the `+` button hard-disabled at `maxSellQuantity`, so the cashier was frozen at 1. Bill-freely removes both frictions.
+- **Backend:** `SalesReceiptService.create` skips `inventoryService.validateStockForSale` when the setting is on (the non-batch SALE movement itself never blocks negative; only the pre-flight validator + the batch gate do — batch-tracked items still can't sell from a non-existent batch). Reads via `OrgSettingsService.get(orgId, "pos.allow_negative_stock", "true")`.
+- **Flutter:** `posAllowNegativeStockProvider` (GET `/api/v1/settings/pos.allow_negative_stock`, default true) → mirrored into `PosCartState.allowNegativeStock` (drives `_clampToStock` + the `_QuantityStepper` `+` enable + the checkout `hasStockExceededItems` gate + the `_addToCart` stock<=0 short-circuit). Toggle in POS Receipt Settings → "Billing" → "Bill freely (sell without stock)" (OWNER/ADMIN; writes via generic `PUT /api/v1/settings/{key}`). **No Flutter SDK in the cloud env — `flutter analyze`/`test` must be run locally.**
+
 ### Kirana Retail Production Gaps (2026-06-10)
 **Goal:** Make the POS + core flows production-ready for Indian small grocery/pharmacy shops.
 

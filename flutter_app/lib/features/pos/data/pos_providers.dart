@@ -107,6 +107,30 @@ final whatsappSettingsProvider =
   }
 });
 
+/// Whether this org bills freely at the POS counter — i.e. a sale is never
+/// blocked for being short on stock; quantities can exceed (or start below)
+/// recorded stock and simply go negative, reconciled later via a stock
+/// receipt. Reads `pos.allow_negative_stock` from org settings.
+///
+/// Defaults to **true** (unset key returns HTTP 404 → caught here) so a fresh
+/// shop can search a medicine, tap it, and bill immediately without first
+/// loading opening stock for every item. A distributor that wants strict
+/// stock control turns it off in POS Receipt Settings.
+final posAllowNegativeStockProvider =
+    FutureProvider.autoDispose<bool>((ref) async {
+  final client = ref.watch(apiClientProvider);
+  try {
+    final response =
+        await client.get('${ApiConfig.orgSettings}/pos.allow_negative_stock');
+    final data = response.data as Map<String, dynamic>? ?? {};
+    final raw = data['pos.allow_negative_stock']?.toString();
+    if (raw == null || raw.isEmpty) return true;
+    return raw.toLowerCase() != 'false';
+  } catch (_) {
+    return true; // unset / network error → bill freely
+  }
+});
+
 /// Fetches item details for all favourite item IDs.
 final posFavouriteItemsProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {

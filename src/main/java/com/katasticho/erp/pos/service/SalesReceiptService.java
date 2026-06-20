@@ -94,6 +94,7 @@ public class SalesReceiptService {
     private final DocumentSnapshotService documentSnapshotService;
     private final ContactLedgerService contactLedgerService;
     private final SmsService smsService;
+    private final com.katasticho.erp.organisation.OrgSettingsService orgSettingsService;
     // @Lazy: WhatsAppDocumentService renders receipts (via ReceiptPdfService)
     // which depend back on this service - the common edge of both cycles.
     @org.springframework.context.annotation.Lazy
@@ -267,13 +268,21 @@ public class SalesReceiptService {
                 request.amountReceived().subtract(total).max(BigDecimal.ZERO)
                         .setScale(2, RoundingMode.HALF_UP));
 
-        // 3b. Validate stock availability before committing anything
-        List<Map.Entry<UUID, BigDecimal>> stockCheckLines = receipt.getLines().stream()
-                .filter(l -> l.getItemId() != null)
-                .map(l -> Map.entry(l.getItemId(),
-                        l.getBaseQuantity() != null ? l.getBaseQuantity() : l.getQuantity()))
-                .toList();
-        inventoryService.validateStockForSale(orgId, itemMap, stockCheckLines);
+        // 3b. Validate stock availability before committing anything — unless the
+        // org bills freely (retail counter style). When pos.allow_negative_stock is
+        // on, the sale is never blocked for being short; stock simply goes negative
+        // and is reconciled later via a stock receipt. Defaults to true so a fresh
+        // shop can bill immediately without first loading opening stock for every item.
+        boolean allowNegativeStock = Boolean.parseBoolean(
+                orgSettingsService.get(orgId, "pos.allow_negative_stock", "true"));
+        if (!allowNegativeStock) {
+            List<Map.Entry<UUID, BigDecimal>> stockCheckLines = receipt.getLines().stream()
+                    .filter(l -> l.getItemId() != null)
+                    .map(l -> Map.entry(l.getItemId(),
+                            l.getBaseQuantity() != null ? l.getBaseQuantity() : l.getQuantity()))
+                    .toList();
+            inventoryService.validateStockForSale(orgId, itemMap, stockCheckLines);
+        }
 
         // 4. Persist receipt + lines
         receipt = receiptRepository.save(receipt);

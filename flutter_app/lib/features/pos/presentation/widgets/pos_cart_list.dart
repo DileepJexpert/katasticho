@@ -97,9 +97,14 @@ class _PosCartListState extends ConsumerState<PosCartList> {
               return PosCartItemTile(
                 item: item,
                 index: index,
+                allowOverSell: cart.allowNegativeStock,
                 onQuantityChanged: item.isFreeItem ? null : (qty) {
                   final maxQty = item.maxSellQuantity;
-                  if (item.currentStock > 0 && qty > maxQty) {
+                  // Bill-freely orgs: no blocking warning — the tile's red
+                  // "available" pill is the soft cue and the sale goes through.
+                  if (!cart.allowNegativeStock &&
+                      item.currentStock > 0 &&
+                      qty > maxQty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(

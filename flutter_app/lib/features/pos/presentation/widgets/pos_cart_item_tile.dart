@@ -17,6 +17,11 @@ class PosCartItemTile extends StatelessWidget {
       double? customPrice)? onUnitChanged;
   final ValueChanged<double>? onDiscountChanged;
 
+  /// When true the quantity stepper never disables "+" at recorded stock —
+  /// the counter bills freely (stock may go negative). The red "available"
+  /// pill still shows as a soft warning.
+  final bool allowOverSell;
+
   const PosCartItemTile({
     super.key,
     required this.item,
@@ -25,6 +30,7 @@ class PosCartItemTile extends StatelessWidget {
     required this.onRemove,
     this.onUnitChanged,
     this.onDiscountChanged,
+    this.allowOverSell = false,
   });
 
   static bool _isBlocked(CartItem item) {
@@ -149,6 +155,7 @@ class PosCartItemTile extends StatelessWidget {
                 maxQuantity: item.maxSellQuantity,
                 unit: item.stockUnitLabel,
                 onChanged: onQuantityChanged!,
+                allowOverSell: allowOverSell,
               ),
             KSpacing.hGapMd,
 
@@ -326,12 +333,14 @@ class _QuantityStepper extends StatelessWidget {
   final double maxQuantity;
   final String unit;
   final ValueChanged<double> onChanged;
+  final bool allowOverSell;
 
   const _QuantityStepper({
     required this.quantity,
     required this.maxQuantity,
     required this.unit,
     required this.onChanged,
+    this.allowOverSell = false,
   });
 
   String _fmtQty(double qty) {
@@ -374,7 +383,7 @@ class _QuantityStepper extends StatelessWidget {
                   setDialogState(() => errorText = 'Enter a valid quantity');
                   return;
                 }
-                if (maxQuantity > 0 && qty > maxQuantity) {
+                if (!allowOverSell && maxQuantity > 0 && qty > maxQuantity) {
                   setDialogState(() => errorText =
                       'Only ${_fmtQty(maxQuantity)} $unit available');
                   return;
@@ -395,7 +404,7 @@ class _QuantityStepper extends StatelessWidget {
                 if (qty == null || qty <= 0) {
                   return;
                 }
-                if (maxQuantity > 0 && qty > maxQuantity) {
+                if (!allowOverSell && maxQuantity > 0 && qty > maxQuantity) {
                   onChanged(maxQuantity);
                 } else {
                   onChanged(qty);
@@ -445,7 +454,7 @@ class _QuantityStepper extends StatelessWidget {
           ),
           _StepButton(
             icon: Icons.add,
-            onTap: maxQuantity > 0 && quantity >= maxQuantity
+            onTap: !allowOverSell && maxQuantity > 0 && quantity >= maxQuantity
                 ? null
                 : () => onChanged(quantity + 1),
           ),

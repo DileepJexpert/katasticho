@@ -130,8 +130,17 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   void _addToCart(Map<String, dynamic> itemData) async {
     var item = itemData; // mutable local — may be overridden by batch picker
+    // Bill-freely orgs (retail counter) sell even at 0 stock — the cart shows a
+    // soft "0 available" pill instead of blocking. Defaults to true while the
+    // org setting is still loading so the counter never feels stuck.
+    final allowNegStock = ref
+        .read(posAllowNegativeStockProvider)
+        .maybeWhen(data: (v) => v, orElse: () => true);
+    // Keep the cart's clamp/stepper in sync regardless of when the setting
+    // provider resolved (ref.listen may not fire if it was already cached).
+    ref.read(posCartProvider.notifier).setAllowNegativeStock(allowNegStock);
     final stock = (item['currentStock'] as num?)?.toDouble() ?? 0;
-    if (stock <= 0) {
+    if (stock <= 0 && !allowNegStock) {
       final outOfStockName = item['name']?.toString() ?? 'Item';
       _showErrorSnackBar('$outOfStockName is out of stock');
       return;
@@ -260,7 +269,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         break;
       }
     }
-    if (existing != null &&
+    if (!allowNegStock &&
+        existing != null &&
         existing.quantity + cartItem.quantity > existing.maxSellQuantity) {
       _showErrorSnackBar(
         'Only ${_fmtQty(existing.maxSellQuantity)} ${existing.stockUnitLabel} available for ${existing.name}',
@@ -613,7 +623,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       return;
     }
 
-    if (cart.hasStockExceededItems) {
+    // Strict-stock orgs only: block checkout when a line exceeds stock.
+    // Bill-freely orgs sell through — stock simply goes negative.
+    if (!cart.allowNegativeStock && cart.hasStockExceededItems) {
       final item = cart.firstStockExceededItem!;
       _showErrorSnackBar(
         'Only ${_fmtQty(item.maxSellQuantity)} ${item.stockUnitLabel} available for ${item.name}',
@@ -1704,6 +1716,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final cart = ref.watch(posCartProvider);
     final isSearching = _searchQuery != null && _searchQuery!.isNotEmpty;
 
+    // Mirror the org's bill-freely policy into the cart so the quantity
+    // stepper + clamp know not to cap at recorded stock. ref.listen keeps the
+    // setting provider alive and fires once it resolves.
+    ref.listen<AsyncValue<bool>>(posAllowNegativeStockProvider, (_, next) {
+      ref
+          .read(posCartProvider.notifier)
+          .setAllowNegativeStock(next.valueOrNull ?? true);
+    });
+
     return Focus(
       onKeyEvent: _handleKeyEvent,
       child: Stack(
@@ -1819,12 +1840,43 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     );
   }
 
-  /// One-tap add from the medicine catalog: asks the qty on shelf
-  /// (recorded as opening stock so the item is billable immediately),
-  /// creates the org item, and drops it straight into the cart.
+  /// Add a medicine from the platform catalog. In the default bill-freely mode
+  /// this is a single tap: create the org item (stock starts at 0, goes
+  /// negative, reconciled later via a stock receipt) and drop it straight into
+  /// the cart — fast counter flow, search → tap → adjust qty with +/-. Only a
+  /// strict-stock org (pos.allow_negative_stock off) sees the opening-stock
+  /// prompt, because there the item must have stock to be sellable.
   Future<void> _addFromCatalog(Map<String, dynamic> drug) async {
+    final allowNegStock = ref
+        .read(posAllowNegativeStockProvider)
+        .maybeWhen(data: (v) => v, orElse: () => true);
+
+    double? openingStock; // null → no opening movement (bill-freely)
+    if (!allowNegStock) {
+      openingStock = await _askCatalogOpeningStock(drug);
+      if (openingStock == null) return; // cancelled
+    }
+
+    try {
+      final item = await ref
+          .read(posRepositoryProvider)
+          .createItemFromDrug(drug['id'].toString(), openingStock: openingStock);
+      if (!mounted) return;
+      // Refresh the current search so the new item shows as an org item.
+      if (_searchQuery != null) {
+        ref.invalidate(posSearchProvider(_searchQuery));
+      }
+      _addToCart(item);
+    } catch (e) {
+      _showErrorSnackBar('Could not add from catalog: $e');
+    }
+  }
+
+  /// Strict-stock only: ask the qty on shelf (opening stock) so the freshly
+  /// created catalog item is billable. Returns null if cancelled.
+  Future<double?> _askCatalogOpeningStock(Map<String, dynamic> drug) async {
     final qtyController = TextEditingController(text: '1');
-    final qty = await showDialog<double>(
+    return showDialog<double>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(drug['brandName']?.toString() ?? 'Add from catalog'),
@@ -1864,21 +1916,6 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         ],
       ),
     );
-    if (qty == null) return;
-
-    try {
-      final item = await ref
-          .read(posRepositoryProvider)
-          .createItemFromDrug(drug['id'].toString(), openingStock: qty);
-      if (!mounted) return;
-      // Refresh the current search so the new item shows as an org item.
-      if (_searchQuery != null) {
-        ref.invalidate(posSearchProvider(_searchQuery));
-      }
-      _addToCart(item);
-    } catch (e) {
-      _showErrorSnackBar('Could not add from catalog: $e');
-    }
   }
 
   Widget _buildCartView(PosCartState cart) {
