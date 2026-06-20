@@ -960,6 +960,7 @@ generic `AttachmentService`/`EntityAttachment` for documents.
 | `docs/PAYROLL_IMPLEMENTATION_SPEC.md` | Full payroll spec: tables, APIs, Flutter screens, accounting | Phase 5 payroll work |
 | `docs/AI_APPROACH_AND_ROADMAP.md` | AI architecture: tables, agents, safety rules, 7 phases | Phase 6 AI work |
 | `docs/AI_FIRST_ACCOUNTING_PRODUCT_VISION.md` | **North-star vision:** AI-first (not "typewriter") accounting for India, Campfire benchmark, MCP server, India moat (GST/TDS/e-invoice), solo-dev roadmap A–G | Strategic direction, AI-first product work |
+| `docs/AI_NATIVE_COMPETITIVE_ROADMAP.md` | **Live build backlog (2026-06-21):** competitive teardown (DualEntry/Campfire/Digits vs Tally/Marg/Busy/Zoho) → checkbox task lanes A–F (finish P0 payroll → IMS Accept/Reject/Pending → AI Tally migration → WhatsApp order-to-ledger → anomaly/continuous-close → embedded lending). What's already built vs the 3 sharp gaps. | Picking the next feature to build; weekly planning |
 | `docs/TALLY_PARITY_AND_MIGRATION_PLAN.md` | **Tally battle plan:** full TallyPrime feature matrix vs us (parity backlog §1), workflow strengths/pains, 5 wedges to beat them, Tally XML migration slices 1–3 | Tally parity work, migration importer, competitive positioning |
 | `docs/PARTNER_NETWORK_MODULE_PLAN.md` | B2B ordering: data model, flows, 10 implementation phases | Phase 8 partner network |
 | `docs/WORKFLOW_CONTEXT_HINTS_PLAN.md` | Context hints: resolver, widget, hint text per vertical | Adding workflow hints |
