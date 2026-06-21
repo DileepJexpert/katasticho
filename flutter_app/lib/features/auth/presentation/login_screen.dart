@@ -9,6 +9,7 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/auth_repository.dart';
+import 'widgets/demo_credentials_card.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -293,6 +294,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       textAlign: TextAlign.center,
                     ),
                     KSpacing.vGapXl,
+
+                    // Demo-mode credentials — hides itself when the backend
+                    // reports demo mode off, so production users never see it.
+                    DemoCredentialsCard(
+                      onPick: (phone, password) {
+                        setState(() {
+                          _useOtp = false;
+                          _identifierController.text = phone;
+                          _passwordController.text = password;
+                          _errorMessage = null;
+                        });
+                      },
+                    ),
 
                     if (_errorMessage != null) ...[
                       KErrorBanner(

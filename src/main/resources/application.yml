@@ -123,6 +123,21 @@ app:
     email: ${PLATFORM_ADMIN_EMAIL:admin@katixo.com}
     password: ${PLATFORM_ADMIN_PASSWORD:Admin@123}
 
+  demo:
+    # "Log in without registering" mode — provisions a fully-bootstrapped demo
+    # org + 8 demo users (one per role) on first boot. See
+    # com.katasticho.erp.demo.DemoSeederProperties.
+    #
+    # Off by default. ALSO gated by @Profile("!prod") on every seeder, so an
+    # accidental DEMO_ENABLED=true on a prod build is inert.
+    enabled: ${DEMO_ENABLED:false}
+    org-name: ${DEMO_ORG_NAME:Demo Distributor}
+    business-type: ${DEMO_BUSINESS_TYPE:DISTRIBUTOR}
+    industry-code: ${DEMO_INDUSTRY_CODE:OTHER_RETAIL}
+    owner-phone: ${DEMO_OWNER_PHONE:9000000001}
+    # ≥ 8 chars to satisfy RegisterRequest's @Size on password.
+    shared-password: ${DEMO_PASSWORD:Demo@1234}
+
 logging:
   level:
     com.katasticho.erp: DEBUG

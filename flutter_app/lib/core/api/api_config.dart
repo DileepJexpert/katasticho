@@ -25,6 +25,11 @@ class ApiConfig {
   static const String verifyEmail = '/api/v1/auth/verify-email';
   static const String resendVerification = '/api/v1/auth/verify-email/resend';
   static const String changePassword = '/api/v1/auth/change-password';
+
+  /// Demo-mode info — returns `{enabled, orgName, users}` so the login screen
+  /// can render a "Demo credentials" card with one-tap fill. Public (no auth).
+  /// When the server has demo mode off, `enabled` is false and the card hides.
+  static const String demoInfo = '/api/v1/auth/demo-info';
   static const String me = '/api/v1/auth/me';
   static const String myOrgs = '/api/v1/users/me/organisations';
   static const String switchOrg = '/api/v1/users/me/switch-org';
