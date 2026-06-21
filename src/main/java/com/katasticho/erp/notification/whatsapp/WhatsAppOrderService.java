@@ -1,11 +1,17 @@
 package com.katasticho.erp.notification.whatsapp;
 
 import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.repository.ItemRepository;
+import com.katasticho.erp.sales.dto.CreateSalesOrderRequest;
+import com.katasticho.erp.sales.dto.SalesOrderLineRequest;
+import com.katasticho.erp.sales.dto.SalesOrderResponse;
+import com.katasticho.erp.sales.service.SalesOrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,6 +71,7 @@ public class WhatsAppOrderService {
             "chahiye", "want", "need", "order", "tikis", "pieces", "pcs", "pkts");
 
     private final ItemRepository itemRepository;
+    private final SalesOrderService salesOrderService;
 
     /** One parsed order line + its item match. */
     public record ParsedLine(
@@ -222,6 +229,88 @@ public class WhatsAppOrderService {
         // Penalise when there are many close candidates — top might not be right.
         if (totalCandidates > 3) base *= 0.85;
         return Math.min(1.0, Math.max(0.0, base));
+    }
+
+    /**
+     * Turn a parsed order into a real DRAFT Sales Order. Only lines marked
+     * {@code matched=true} are included — unmatched lines surface as
+     * warnings and require the user to pick the item before confirmation.
+     *
+     * <p>Behaviour:
+     * <ul>
+     *   <li>contactId is mandatory; the parser already supports
+     *       per-contact alias matching via {@link #parseForContact}.</li>
+     *   <li>If no lines matched, throws {@code WA_ORDER_NO_MATCH} so the
+     *       caller can prompt the customer for clarification.</li>
+     *   <li>Stamps a WhatsApp reference number so the SO is traceable back
+     *       to the originating message.</li>
+     *   <li>Uses {@code allowBackorder=true} — incoming WhatsApp orders
+     *       routinely run ahead of stock; the existing SO→DC→Invoice flow
+     *       handles backorders correctly.</li>
+     * </ul>
+     */
+    @Transactional
+    public SalesOrderResponse confirmAndCreate(ParsedOrder parsed, UUID contactId,
+                                               String referenceTag) {
+        if (contactId == null) {
+            throw new BusinessException(
+                    "contactId is required to draft a sales order from a WhatsApp message",
+                    "WA_ORDER_NO_CONTACT", HttpStatus.BAD_REQUEST);
+        }
+        if (parsed == null || parsed.lines() == null || parsed.lines().isEmpty()) {
+            throw new BusinessException(
+                    "Parsed order is empty",
+                    "WA_ORDER_EMPTY", HttpStatus.BAD_REQUEST);
+        }
+
+        List<SalesOrderLineRequest> soLines = new ArrayList<>();
+        for (ParsedLine line : parsed.lines()) {
+            if (!line.matched() || line.itemId() == null) continue;
+            BigDecimal rate = line.salePrice() == null ? BigDecimal.ZERO : line.salePrice();
+            soLines.add(new SalesOrderLineRequest(
+                    line.itemId(),
+                    null,                  // description — leave blank, use item name
+                    line.quantity(),
+                    rate,
+                    null,                  // unit
+                    null,                  // discountPct
+                    null,                  // taxGroupId — invoiced at item's default
+                    null                   // hsnCode — derived from item
+            ));
+        }
+        if (soLines.isEmpty()) {
+            throw new BusinessException(
+                    "No order lines could be matched to items. Ask the customer to clarify "
+                            + "the product names.",
+                    "WA_ORDER_NO_MATCH", HttpStatus.CONFLICT);
+        }
+
+        String ref = referenceTag == null || referenceTag.isBlank()
+                ? "WA-" + java.time.LocalDate.now()
+                : referenceTag.trim();
+
+        CreateSalesOrderRequest req = new CreateSalesOrderRequest(
+                contactId,
+                soLines,
+                java.time.LocalDate.now(),
+                null,                       // expectedShipmentDate
+                ref,
+                null,                       // discountType
+                null,                       // discountAmount
+                null,                       // shippingCharge
+                null,                       // adjustment
+                null,                       // adjustmentDescription
+                null,                       // deliveryMethod
+                null,                       // placeOfSupply
+                "Source: WhatsApp inbound — original message:\n" + parsed.rawMessage(),
+                null,                       // terms
+                null,                       // billingAddress
+                null,                       // shippingAddress
+                Boolean.TRUE                // allowBackorder
+        );
+        SalesOrderResponse so = salesOrderService.create(req);
+        log.info("WhatsApp inbound order → DRAFT SO {} for contact {}", so.id(), contactId);
+        return so;
     }
 
     /** Render the parsed order as a flat Map for JSON responses without breaking generics. */

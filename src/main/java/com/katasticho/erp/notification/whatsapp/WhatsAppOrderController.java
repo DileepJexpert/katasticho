@@ -32,5 +32,20 @@ public class WhatsAppOrderController {
         return ResponseEntity.ok(ApiResponse.ok(orderService.toResponse(parsed)));
     }
 
+    /**
+     * Parse the message AND create a DRAFT Sales Order in one step.
+     * Used by the confirm-on-WhatsApp flow once the customer (or owner) has
+     * approved the parsed lines.
+     */
+    @PostMapping("/confirm")
+    public ResponseEntity<ApiResponse<com.katasticho.erp.sales.dto.SalesOrderResponse>> confirm(
+            @RequestBody ConfirmRequest req) {
+        var parsed = orderService.parseForContact(req.message(), req.contactId());
+        return ResponseEntity.ok(ApiResponse.ok(
+                orderService.confirmAndCreate(parsed, req.contactId(), req.referenceTag()),
+                "Sales order drafted from WhatsApp message"));
+    }
+
     public record ParseRequest(String message, UUID contactId) {}
+    public record ConfirmRequest(String message, UUID contactId, String referenceTag) {}
 }

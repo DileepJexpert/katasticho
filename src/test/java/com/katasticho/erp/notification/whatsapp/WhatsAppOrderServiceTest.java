@@ -20,18 +20,20 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class WhatsAppOrderServiceTest {
 
     @Mock private ItemRepository itemRepository;
+    @Mock private com.katasticho.erp.sales.service.SalesOrderService salesOrderService;
     private WhatsAppOrderService service;
     private final UUID orgId = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
-        service = new WhatsAppOrderService(itemRepository);
+        service = new WhatsAppOrderService(itemRepository, salesOrderService);
         TenantContext.setCurrentOrgId(orgId);
     }
 
@@ -179,6 +181,61 @@ class WhatsAppOrderServiceTest {
         double single = WhatsAppOrderService.confidenceScore("dolo", "Dolo 650", 1);
         double many = WhatsAppOrderService.confidenceScore("dolo", "Dolo 650", 5);
         assertTrue(many < single, "5 candidates should reduce confidence vs 1");
+    }
+
+    // ── confirmAndCreate ─────────────────────────────────────────
+
+    @Test
+    void confirmAndCreate_throws_when_no_contactId() {
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.confirmAndCreate(
+                        new WhatsAppOrderService.ParsedOrder("", 0, 0, BigDecimal.ZERO, List.of(), List.of()),
+                        null, "ref"));
+        assertEquals("WA_ORDER_NO_CONTACT", ex.getErrorCode());
+    }
+
+    @Test
+    void confirmAndCreate_throws_when_no_lines_matched() {
+        Item amul = item("Amul Milk", "55");
+        when(itemRepository.search(eq(orgId), any(String.class), any(Pageable.class)))
+                .thenReturn(page(List.of()));
+        var parsed = service.parse("200 unknown thing");
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.confirmAndCreate(parsed, UUID.randomUUID(), null));
+        assertEquals("WA_ORDER_NO_MATCH", ex.getErrorCode());
+    }
+
+    @Test
+    void confirmAndCreate_drafts_SO_only_from_matched_lines() {
+        Item amul = item("Amul Milk", "55");
+        when(itemRepository.search(eq(orgId), any(String.class), any(Pageable.class)))
+                .thenAnswer(inv -> {
+                    String q = inv.getArgument(1);
+                    if (q.contains("amul")) return page(List.of(amul));
+                    return page(List.of());
+                });
+        com.katasticho.erp.sales.dto.SalesOrderResponse fakeSo =
+                org.mockito.Mockito.mock(com.katasticho.erp.sales.dto.SalesOrderResponse.class);
+        when(fakeSo.id()).thenReturn(UUID.randomUUID());
+        when(salesOrderService.create(any())).thenReturn(fakeSo);
+
+        var parsed = service.parse("200 amul\n5 mystery thing");
+        UUID contactId = UUID.randomUUID();
+        var so = service.confirmAndCreate(parsed, contactId, "WA-test");
+
+        assertNotNull(so);
+        // Verify the request only carried the matched (amul) line
+        var captor = org.mockito.ArgumentCaptor
+                .forClass(com.katasticho.erp.sales.dto.CreateSalesOrderRequest.class);
+        verify(salesOrderService).create(captor.capture());
+        var req = captor.getValue();
+        assertEquals(1, req.lines().size());
+        assertEquals(amul.getId(), req.lines().get(0).itemId());
+        assertEquals(contactId, req.contactId());
+        assertEquals("WA-test", req.referenceNumber());
+        assertEquals(Boolean.TRUE, req.allowBackorder());
+        assertTrue(req.notes().contains("Source: WhatsApp"));
     }
 
     // ── helpers ───────────────────────────────────────────────────
