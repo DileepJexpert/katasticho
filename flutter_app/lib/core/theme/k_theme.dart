@@ -54,8 +54,9 @@ class KTheme {
     textButtonRadius: 8.0,
     toggleButtonsRadius: 8.0,
 
-    // Cards & containers — border-based, no shadow
-    cardRadius: 10.0,
+    // Cards & containers — border-based, no shadow (radius capped at 8 per
+    // design-system.md §4 — cards/inputs/buttons stay 6-8px).
+    cardRadius: 8.0,
     cardElevation: 0,
     chipRadius: 999.0, // fully pill
     popupMenuRadius: 10.0,
@@ -131,7 +132,7 @@ class KTheme {
       fontFamily: _fontFamily,
       useMaterial3: true,
       swapLegacyOnMaterial3: true,
-      scaffoldBackground: const Color(0xFFF8FAFC),
+      scaffoldBackground: KColors.bgApp, // warm #F7F7F5 (design-system.md --bg-app)
     );
 
     return theme.copyWith(
@@ -156,7 +157,7 @@ class KTheme {
         titleTextStyle: GoogleFonts.inter(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: const Color(0xFF0F172A),
+          color: KColors.textPrimary, // warm #1A1A18
           letterSpacing: -0.2,
         ),
       ),
@@ -170,12 +171,12 @@ class KTheme {
         headingTextStyle: GoogleFonts.inter(
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          color: const Color(0xFF475569),
+          color: KColors.textSecondary, // warm #5F5F59
         ),
         dataTextStyle: GoogleFonts.inter(
           fontSize: 13,
           fontWeight: FontWeight.w400,
-          color: const Color(0xFF0F172A),
+          color: KColors.textPrimary, // warm #1A1A18
         ),
       ),
     );

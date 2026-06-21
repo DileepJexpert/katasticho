@@ -55,13 +55,17 @@ class KSpacing {
   static const SizedBox hGapLg = SizedBox(width: lg);
   static const SizedBox hGapXl = SizedBox(width: xl);
 
-  // ── Border Radius — **Katasticho 2026** (tighter, finance-grade) ──
+  // ── Border Radius — capped at 8 per design-system.md §4 ──
+  // "Stay at 6-8px. NOT 16-24px." radiusXl/2xl are kept as token names so the
+  // ~5 existing call sites keep compiling, but their VALUE is clamped to 8 so
+  // nothing renders the old 14/18px "blobby" corners. radiusLg stays 10 (the
+  // largest still-acceptable radius for big drawers/sheets).
   static const double radiusXs = 4;
   static const double radiusSm = 6;
   static const double radiusMd = 8;
   static const double radiusLg = 10;
-  static const double radiusXl = 14;
-  static const double radius2xl = 18;
+  static const double radiusXl = 8;   // was 14 — capped
+  static const double radius2xl = 8;  // was 18 — capped
   static const double radiusRound = 999;
 
   static final BorderRadius borderRadiusXs = BorderRadius.circular(radiusXs);

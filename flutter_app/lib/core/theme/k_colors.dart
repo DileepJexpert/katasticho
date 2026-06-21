@@ -17,9 +17,14 @@ class KColors {
   KColors._();
 
   // ── Brand seeds — change THESE to re-theme the entire app ─────────
-  static const Color brandSeed = Color(0xFF4A7FE0);     // cornflower+ (accessible)
-  static const Color secondarySeed = Color(0xFF0EA5E9); // sky-500
-  static const Color accentSeed = Color(0xFFF59E0B);    // amber-500
+  // Deep teal — reads "money / ledger / trust", clear of the overused
+  // SaaS-blue and purple (design-system.md §2, --brand-600).
+  static const Color brandSeed = Color(0xFF0F8576);     // teal-600 (PRIMARY)
+  static const Color secondarySeed = Color(0xFF14A08C); // teal-500 (analogous accent)
+  static const Color accentSeed = Color(0xFFB45309);    // muted amber (warn family)
+
+  // ── Warm-neutral app background (design-system.md §2, --bg-app) ──
+  static const Color bgApp = Color(0xFFF7F7F5);
 
   // ── Sidebar seed — independent from brand. Admin chrome (sidebar,
   //    nav rail) runs on its own palette so the content area can
@@ -41,44 +46,45 @@ class KColors {
   static const Color accent = accentSeed;
   static final Color accentDark = _lighten(accentSeed, 0.10);
 
-  // ── Semantic — fixed across all themes ──
-  static const Color success = Color(0xFF059669);        // emerald-600
-  static const Color successLight = Color(0xFFD1FAE5);   // emerald-100
-  static const Color warning = Color(0xFFD97706);        // amber-600
-  static const Color warningLight = Color(0xFFFEF3C7);   // amber-100
-  static const Color error = Color(0xFFDC2626);          // rose-600
-  static const Color errorLight = Color(0xFFFEE2E2);     // rose-100
-  static const Color info = Color(0xFF2563EB);           // blue-600
-  static const Color infoLight = Color(0xFFDBEAFE);      // blue-100
+  // ── Semantic — muted, not alarm-bright (design-system.md §2) ──
+  static const Color success = Color(0xFF15803D);        // pos-text
+  static const Color successLight = Color(0xFFE9F6EC);   // pos-bg
+  static const Color warning = Color(0xFFB45309);        // warn-text
+  static const Color warningLight = Color(0xFFFEF3E2);   // warn-bg
+  static const Color error = Color(0xFFBE3A34);          // neg-text (muted brick, not rose)
+  static const Color errorLight = Color(0xFFFCEBEA);     // neg-bg
+  static const Color info = Color(0xFF1D4ED8);           // info-text
+  static const Color infoLight = Color(0xFFE8EEFD);      // info-bg
 
-  // ── Financial Status ──
-  static const Color paid = Color(0xFF059669);
-  static const Color paidBg = Color(0xFFD1FAE5);
-  static const Color partiallyPaid = Color(0xFFD97706);
-  static const Color partiallyPaidBg = Color(0xFFFEF3C7);
-  static const Color overdue = Color(0xFFDC2626);
-  static const Color overdueBg = Color(0xFFFEE2E2);
-  static const Color draft = Color(0xFF64748B);
-  static const Color draftBg = Color(0xFFF1F5F9);
+  // ── Financial Status (aligned to the muted semantic palette) ──
+  static const Color paid = Color(0xFF15803D);
+  static const Color paidBg = Color(0xFFE9F6EC);
+  static const Color partiallyPaid = Color(0xFFB45309);
+  static const Color partiallyPaidBg = Color(0xFFFEF3E2);
+  static const Color overdue = Color(0xFFBE3A34);
+  static const Color overdueBg = Color(0xFFFCEBEA);
+  static const Color draft = Color(0xFF5F5F59);          // warm text-secondary
+  static const Color draftBg = Color(0xFFF3F3F1);        // warm bg-subtle
   static const Color sent = brandSeed;
   static final Color sentBg = _tint(brandSeed, 0.92);
-  static const Color cancelled = Color(0xFF475569);
-  static const Color cancelledBg = Color(0xFFE2E8F0);
+  static const Color cancelled = Color(0xFF5F5F59);
+  static const Color cancelledBg = Color(0xFFEFEFEC);
 
-  // ── Ageing Report Colors ──
-  static const Color ageingCurrent = Color(0xFF059669);
-  static const Color ageing1to30 = Color(0xFF2563EB);
-  static const Color ageing31to60 = Color(0xFFD97706);
-  static const Color ageing61to90 = Color(0xFFEA580C);
-  static const Color ageing90Plus = Color(0xFFDC2626);
+  // ── Ageing Report Colors (muted ramp) ──
+  static const Color ageingCurrent = Color(0xFF15803D);
+  static const Color ageing1to30 = Color(0xFF1D4ED8);
+  static const Color ageing31to60 = Color(0xFFB45309);
+  static const Color ageing61to90 = Color(0xFFC2410C);
+  static const Color ageing90Plus = Color(0xFFBE3A34);
 
-  // ── Neutral aliases — light-mode values ──
+  // ── Neutral aliases — warm-tinted (design-system.md §2) ──
   // For dark-mode support, use context.cs.surface / context.cs.onSurface.
   static const Color surface = Colors.white;
-  static const Color divider = Color(0xFFE2E8F0);        // slate-200
-  static const Color textPrimary = Color(0xFF0F172A);    // slate-900
-  static const Color textSecondary = Color(0xFF475569);  // slate-600
-  static const Color textHint = Color(0xFF94A3B8);       // slate-400
+  static const Color divider = Color(0xFFE5E5E1);        // --border
+  static const Color borderStrong = Color(0xFFD4D4CF);   // --border-strong
+  static const Color textPrimary = Color(0xFF1A1A18);    // warm near-black
+  static const Color textSecondary = Color(0xFF5F5F59);  // warm grey
+  static const Color textHint = Color(0xFF94948D);       // warm muted
 
   // ── Gradients (derived from seeds) ──
   static final LinearGradient primaryGradient = LinearGradient(
@@ -96,7 +102,7 @@ class KColors {
   static const LinearGradient successGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF10B981), Color(0xFF059669)],
+    colors: [Color(0xFF1A9D4C), Color(0xFF15803D)],
   );
 
   // ── Palette helpers ──────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/k_colors.dart';
 import '../theme/k_spacing.dart';
 import '../theme/k_typography.dart';
 
@@ -355,7 +356,7 @@ class _TrendPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = positive ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    final c = positive ? KColors.success : KColors.error;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
