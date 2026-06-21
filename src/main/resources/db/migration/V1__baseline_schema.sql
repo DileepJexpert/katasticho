@@ -1,17 +1,16 @@
--- V1: Consolidated baseline schema (re-squashed 2026-06-20).
+-- V1: Consolidated baseline schema (re-squashed 2026-06-21).
 --
--- The migration chain had diverged into two parallel V18-V27 lines — a documented
--- feature stream (HR depth, maintenance, manufacturing, pharma BMR, ...) and an
--- undocumented transport/fixed-assets stream (fixed assets, amortization, courier,
--- lorry receipt, vehicle log, ...). Flyway rejected the duplicate version numbers
--- ("Found more than one migration with version 18"). Because the database is
--- disposable (Docker-only, never deployed), every historical migration was applied
--- to a throwaway PostgreSQL 16 instance and the resulting schema dumped here.
--- CREATE-only, guaranteed to match what the full chain produced.
+-- Folds the post-2026-06-20 migrations into the baseline:
+--   V3 pt_slab (state-wise Professional Tax slabs)
+--   V4 lwf_rule (state-wise Labour Welfare Fund)
+--   V5 employee_tax_declaration (Form 12BB + old/new tax regime)
+--   V6 gstr2b_entry IMS columns (Accept/Reject/Pending action + AI rec)
 --
--- De-duplication during the squash: proof_of_delivery was created twice (V21 sales
--- shape + V27 transport shape). The V21 sales shape was kept (its JPA entity is the
--- surviving one); the transport POD scaffold was removed.
+-- Generated via pg_dump after applying the full historical chain to a
+-- throwaway PostgreSQL 16 instance. CREATE-only, no ALTERs scattered.
+-- pg_dump 16.13 \restrict/\unrestrict meta-commands stripped (Flyway runs
+-- SQL over JDBC where backslash meta-commands are illegal). --inserts
+-- format (not COPY) for the same reason. CREATE EXTENSION pg_trgm kept.
 --
 -- PostgreSQL database dump
 --
@@ -687,8 +686,8 @@ CREATE TABLE public.bmr_deviation (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_by uuid,
     is_deleted boolean DEFAULT false NOT NULL,
-    CONSTRAINT bmr_deviation_severity_chk CHECK (((severity)::text = ANY ((ARRAY['MINOR'::character varying, 'MAJOR'::character varying, 'CRITICAL'::character varying])::text[]))),
-    CONSTRAINT bmr_deviation_status_chk CHECK (((status)::text = ANY ((ARRAY['OPEN'::character varying, 'INVESTIGATING'::character varying, 'RESOLVED'::character varying, 'ACCEPTED'::character varying])::text[])))
+    CONSTRAINT bmr_deviation_severity_chk CHECK (((severity)::text = ANY (ARRAY[('MINOR'::character varying)::text, ('MAJOR'::character varying)::text, ('CRITICAL'::character varying)::text]))),
+    CONSTRAINT bmr_deviation_status_chk CHECK (((status)::text = ANY (ARRAY[('OPEN'::character varying)::text, ('INVESTIGATING'::character varying)::text, ('RESOLVED'::character varying)::text, ('ACCEPTED'::character varying)::text])))
 );
 
 
@@ -710,7 +709,7 @@ CREATE TABLE public.bmr_signoff (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_by uuid,
     is_deleted boolean DEFAULT false NOT NULL,
-    CONSTRAINT bmr_signoff_role_chk CHECK (((role)::text = ANY ((ARRAY['OPERATOR'::character varying, 'SUPERVISOR'::character varying, 'QA'::character varying, 'QC'::character varying])::text[])))
+    CONSTRAINT bmr_signoff_role_chk CHECK (((role)::text = ANY (ARRAY[('OPERATOR'::character varying)::text, ('SUPERVISOR'::character varying)::text, ('QA'::character varying)::text, ('QC'::character varying)::text])))
 );
 
 
@@ -1033,9 +1032,9 @@ CREATE TABLE public.capa_action (
     verified_at timestamp with time zone,
     verified_by uuid,
     effectiveness_notes text,
-    CONSTRAINT capa_priority_check CHECK (((priority)::text = ANY ((ARRAY['URGENT'::character varying, 'HIGH'::character varying, 'NORMAL'::character varying, 'LOW'::character varying])::text[]))),
-    CONSTRAINT capa_status_check CHECK (((status)::text = ANY ((ARRAY['OPEN'::character varying, 'IN_PROGRESS'::character varying, 'COMPLETED'::character varying, 'VERIFIED'::character varying, 'CANCELLED'::character varying])::text[]))),
-    CONSTRAINT capa_type_check CHECK (((capa_type)::text = ANY ((ARRAY['CORRECTIVE'::character varying, 'PREVENTIVE'::character varying])::text[])))
+    CONSTRAINT capa_priority_check CHECK (((priority)::text = ANY (ARRAY[('URGENT'::character varying)::text, ('HIGH'::character varying)::text, ('NORMAL'::character varying)::text, ('LOW'::character varying)::text]))),
+    CONSTRAINT capa_status_check CHECK (((status)::text = ANY (ARRAY[('OPEN'::character varying)::text, ('IN_PROGRESS'::character varying)::text, ('COMPLETED'::character varying)::text, ('VERIFIED'::character varying)::text, ('CANCELLED'::character varying)::text]))),
+    CONSTRAINT capa_type_check CHECK (((capa_type)::text = ANY (ARRAY[('CORRECTIVE'::character varying)::text, ('PREVENTIVE'::character varying)::text])))
 );
 
 
@@ -1897,9 +1896,9 @@ CREATE TABLE public.employee (
     confirmation_date date,
     notice_period_days integer,
     photo_attachment_id uuid,
-    CONSTRAINT employee_employment_type_check CHECK (((employment_type IS NULL) OR ((employment_type)::text = ANY ((ARRAY['FULL_TIME'::character varying, 'PART_TIME'::character varying, 'CONTRACT'::character varying, 'INTERN'::character varying, 'CONSULTANT'::character varying])::text[])))),
-    CONSTRAINT employee_gender_check CHECK (((gender IS NULL) OR ((gender)::text = ANY ((ARRAY['MALE'::character varying, 'FEMALE'::character varying, 'OTHER'::character varying, 'PREFER_NOT_TO_SAY'::character varying])::text[])))),
-    CONSTRAINT employee_marital_status_check CHECK (((marital_status IS NULL) OR ((marital_status)::text = ANY ((ARRAY['SINGLE'::character varying, 'MARRIED'::character varying, 'DIVORCED'::character varying, 'WIDOWED'::character varying])::text[]))))
+    CONSTRAINT employee_employment_type_check CHECK (((employment_type IS NULL) OR ((employment_type)::text = ANY (ARRAY[('FULL_TIME'::character varying)::text, ('PART_TIME'::character varying)::text, ('CONTRACT'::character varying)::text, ('INTERN'::character varying)::text, ('CONSULTANT'::character varying)::text])))),
+    CONSTRAINT employee_gender_check CHECK (((gender IS NULL) OR ((gender)::text = ANY (ARRAY[('MALE'::character varying)::text, ('FEMALE'::character varying)::text, ('OTHER'::character varying)::text, ('PREFER_NOT_TO_SAY'::character varying)::text])))),
+    CONSTRAINT employee_marital_status_check CHECK (((marital_status IS NULL) OR ((marital_status)::text = ANY (ARRAY[('SINGLE'::character varying)::text, ('MARRIED'::character varying)::text, ('DIVORCED'::character varying)::text, ('WIDOWED'::character varying)::text]))))
 );
 
 
@@ -1938,7 +1937,46 @@ CREATE TABLE public.employee_salary_structure (
     pay_type character varying(20) DEFAULT 'SALARY'::character varying NOT NULL,
     hourly_rate numeric(12,2),
     piece_rate numeric(12,2),
-    CONSTRAINT employee_salary_structure_pay_type_chk CHECK (((pay_type)::text = ANY ((ARRAY['SALARY'::character varying, 'HOURLY'::character varying, 'PIECE_RATE'::character varying])::text[])))
+    CONSTRAINT employee_salary_structure_pay_type_chk CHECK (((pay_type)::text = ANY (ARRAY[('SALARY'::character varying)::text, ('HOURLY'::character varying)::text, ('PIECE_RATE'::character varying)::text])))
+);
+
+
+--
+-- Name: employee_tax_declaration; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.employee_tax_declaration (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    employee_id uuid NOT NULL,
+    fiscal_year character varying(9) NOT NULL,
+    tax_regime character varying(10) NOT NULL,
+    hra_rent_paid numeric(12,2),
+    hra_metro_city boolean DEFAULT false NOT NULL,
+    landlord_pan character varying(20),
+    deduction_80c numeric(12,2),
+    deduction_80ccd_1b numeric(12,2),
+    deduction_80d_self numeric(12,2),
+    deduction_80d_parents numeric(12,2),
+    deduction_80e numeric(12,2),
+    deduction_80g numeric(12,2),
+    deduction_80tta numeric(12,2),
+    deduction_80ttb numeric(12,2),
+    home_loan_interest numeric(12,2),
+    lta_claim numeric(12,2),
+    other_income numeric(12,2),
+    status character varying(20) DEFAULT 'DRAFT'::character varying NOT NULL,
+    submitted_at timestamp with time zone,
+    verified_at timestamp with time zone,
+    verified_by uuid,
+    notes text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by uuid,
+    updated_by uuid,
+    is_deleted boolean DEFAULT false NOT NULL,
+    CONSTRAINT etd_regime_check CHECK (((tax_regime)::text = ANY ((ARRAY['OLD'::character varying, 'NEW'::character varying])::text[]))),
+    CONSTRAINT etd_status_check CHECK (((status)::text = ANY ((ARRAY['DRAFT'::character varying, 'SUBMITTED'::character varying, 'VERIFIED'::character varying])::text[])))
 );
 
 
@@ -2450,7 +2488,15 @@ CREATE TABLE public.gstr2b_entry (
     matched_bill_id uuid,
     match_note text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    ims_action character varying(20),
+    ims_action_at timestamp with time zone,
+    ims_action_by uuid,
+    ims_remarks text,
+    ims_ai_recommendation character varying(20),
+    ims_ai_reason text,
+    CONSTRAINT gstr2b_entry_ims_action_check CHECK (((ims_action IS NULL) OR ((ims_action)::text = ANY ((ARRAY['ACCEPT'::character varying, 'REJECT'::character varying, 'PENDING'::character varying])::text[])))),
+    CONSTRAINT gstr2b_entry_ims_ai_check CHECK (((ims_ai_recommendation IS NULL) OR ((ims_ai_recommendation)::text = ANY ((ARRAY['ACCEPT'::character varying, 'REJECT'::character varying, 'PENDING'::character varying])::text[]))))
 );
 
 
@@ -2535,7 +2581,7 @@ CREATE TABLE public.hr_employee_family (
     is_deleted boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT hr_employee_family_rel_check CHECK (((relationship)::text = ANY ((ARRAY['SPOUSE'::character varying, 'CHILD'::character varying, 'FATHER'::character varying, 'MOTHER'::character varying, 'SIBLING'::character varying, 'OTHER'::character varying])::text[])))
+    CONSTRAINT hr_employee_family_rel_check CHECK (((relationship)::text = ANY (ARRAY[('SPOUSE'::character varying)::text, ('CHILD'::character varying)::text, ('FATHER'::character varying)::text, ('MOTHER'::character varying)::text, ('SIBLING'::character varying)::text, ('OTHER'::character varying)::text])))
 );
 
 
@@ -2616,7 +2662,7 @@ CREATE TABLE public.hr_leave_type (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     created_by uuid,
-    CONSTRAINT hr_leave_type_accrual_check CHECK (((accrual_method)::text = ANY ((ARRAY['ANNUAL'::character varying, 'MONTHLY'::character varying, 'NONE'::character varying])::text[])))
+    CONSTRAINT hr_leave_type_accrual_check CHECK (((accrual_method)::text = ANY (ARRAY[('ANNUAL'::character varying)::text, ('MONTHLY'::character varying)::text, ('NONE'::character varying)::text])))
 );
 
 
@@ -2639,7 +2685,7 @@ CREATE TABLE public.hr_offboarding (
     is_deleted boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT hr_offboarding_status_check CHECK (((status)::text = ANY ((ARRAY['INITIATED'::character varying, 'COMPLETED'::character varying, 'CANCELLED'::character varying])::text[])))
+    CONSTRAINT hr_offboarding_status_check CHECK (((status)::text = ANY (ARRAY[('INITIATED'::character varying)::text, ('COMPLETED'::character varying)::text, ('CANCELLED'::character varying)::text])))
 );
 
 
@@ -2717,8 +2763,8 @@ CREATE TABLE public.hr_ticket (
     is_deleted boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT hr_ticket_priority_check CHECK (((priority)::text = ANY ((ARRAY['LOW'::character varying, 'NORMAL'::character varying, 'HIGH'::character varying])::text[]))),
-    CONSTRAINT hr_ticket_status_check CHECK (((status)::text = ANY ((ARRAY['OPEN'::character varying, 'IN_PROGRESS'::character varying, 'RESOLVED'::character varying, 'CLOSED'::character varying])::text[])))
+    CONSTRAINT hr_ticket_priority_check CHECK (((priority)::text = ANY (ARRAY[('LOW'::character varying)::text, ('NORMAL'::character varying)::text, ('HIGH'::character varying)::text]))),
+    CONSTRAINT hr_ticket_status_check CHECK (((status)::text = ANY (ARRAY[('OPEN'::character varying)::text, ('IN_PROGRESS'::character varying)::text, ('RESOLVED'::character varying)::text, ('CLOSED'::character varying)::text])))
 );
 
 
@@ -3039,11 +3085,11 @@ CREATE TABLE public.item (
     shelf_life_days integer,
     production_mode character varying(10),
     CONSTRAINT chk_item_variant_attrs_not_empty CHECK (((group_id IS NULL) OR ((variant_attributes IS NOT NULL) AND (jsonb_typeof(variant_attributes) = 'object'::text) AND (variant_attributes <> '{}'::jsonb)))),
-    CONSTRAINT item_date_marking_type_chk CHECK (((date_marking_type IS NULL) OR ((date_marking_type)::text = ANY ((ARRAY['BEST_BEFORE'::character varying, 'USE_BY'::character varying, 'EXPIRY'::character varying])::text[])))),
+    CONSTRAINT item_date_marking_type_chk CHECK (((date_marking_type IS NULL) OR ((date_marking_type)::text = ANY (ARRAY[('BEST_BEFORE'::character varying)::text, ('USE_BY'::character varying)::text, ('EXPIRY'::character varying)::text])))),
     CONSTRAINT item_item_type_check CHECK (((item_type)::text = ANY (ARRAY[('GOODS'::character varying)::text, ('SERVICE'::character varying)::text, ('COMPOSITE'::character varying)::text]))),
-    CONSTRAINT item_production_mode_check CHECK (((production_mode IS NULL) OR ((production_mode)::text = ANY ((ARRAY['MTO'::character varying, 'MTS'::character varying])::text[])))),
+    CONSTRAINT item_production_mode_check CHECK (((production_mode IS NULL) OR ((production_mode)::text = ANY (ARRAY[('MTO'::character varying)::text, ('MTS'::character varying)::text])))),
     CONSTRAINT item_shelf_life_days_chk CHECK (((shelf_life_days IS NULL) OR (shelf_life_days > 0))),
-    CONSTRAINT item_veg_classification_chk CHECK (((veg_classification IS NULL) OR ((veg_classification)::text = ANY ((ARRAY['VEGETARIAN'::character varying, 'NON_VEGETARIAN'::character varying, 'VEGAN'::character varying, 'EGG'::character varying])::text[]))))
+    CONSTRAINT item_veg_classification_chk CHECK (((veg_classification IS NULL) OR ((veg_classification)::text = ANY (ARRAY[('VEGETARIAN'::character varying)::text, ('NON_VEGETARIAN'::character varying)::text, ('VEGAN'::character varying)::text, ('EGG'::character varying)::text]))))
 );
 
 
@@ -3315,6 +3361,27 @@ CREATE TABLE public.lorry_receipt (
 
 
 --
+-- Name: lwf_rule; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lwf_rule (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    state_code character varying(2) NOT NULL,
+    frequency character varying(20) NOT NULL,
+    collection_months character varying(50) NOT NULL,
+    gross_from numeric(12,2) DEFAULT 0 NOT NULL,
+    gross_to numeric(12,2),
+    employee_amount numeric(8,2) NOT NULL,
+    employer_amount numeric(8,2) NOT NULL,
+    effective_from date DEFAULT '2024-04-01'::date NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    notes text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT lwf_rule_frequency_check CHECK (((frequency)::text = ANY ((ARRAY['MONTHLY'::character varying, 'HALF_YEARLY'::character varying, 'ANNUAL'::character varying])::text[])))
+);
+
+
+--
 -- Name: maintenance_schedule; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3366,9 +3433,9 @@ CREATE TABLE public.maintenance_work_order (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     created_by uuid,
-    CONSTRAINT maintenance_work_order_priority_check CHECK (((priority)::text = ANY ((ARRAY['URGENT'::character varying, 'HIGH'::character varying, 'NORMAL'::character varying, 'LOW'::character varying])::text[]))),
-    CONSTRAINT maintenance_work_order_status_check CHECK (((status)::text = ANY ((ARRAY['DRAFT'::character varying, 'IN_PROGRESS'::character varying, 'COMPLETED'::character varying, 'CANCELLED'::character varying])::text[]))),
-    CONSTRAINT maintenance_work_order_type_check CHECK (((maintenance_type)::text = ANY ((ARRAY['PREVENTIVE'::character varying, 'BREAKDOWN'::character varying, 'INSPECTION'::character varying])::text[])))
+    CONSTRAINT maintenance_work_order_priority_check CHECK (((priority)::text = ANY (ARRAY[('URGENT'::character varying)::text, ('HIGH'::character varying)::text, ('NORMAL'::character varying)::text, ('LOW'::character varying)::text]))),
+    CONSTRAINT maintenance_work_order_status_check CHECK (((status)::text = ANY (ARRAY[('DRAFT'::character varying)::text, ('IN_PROGRESS'::character varying)::text, ('COMPLETED'::character varying)::text, ('CANCELLED'::character varying)::text]))),
+    CONSTRAINT maintenance_work_order_type_check CHECK (((maintenance_type)::text = ANY (ARRAY[('PREVENTIVE'::character varying)::text, ('BREAKDOWN'::character varying)::text, ('INSPECTION'::character varying)::text])))
 );
 
 
@@ -4281,6 +4348,26 @@ CREATE TABLE public.proof_of_delivery (
 
 
 --
+-- Name: pt_slab; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pt_slab (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    state_code character varying(2) NOT NULL,
+    gender character varying(10),
+    gross_from numeric(12,2) NOT NULL,
+    gross_to numeric(12,2),
+    monthly_amount numeric(8,2) NOT NULL,
+    feb_amount numeric(8,2),
+    effective_from date DEFAULT '2024-04-01'::date NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    notes text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT pt_slab_gender_check CHECK (((gender IS NULL) OR ((gender)::text = ANY ((ARRAY['MALE'::character varying, 'FEMALE'::character varying])::text[]))))
+);
+
+
+--
 -- Name: published_catalog_item; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4642,7 +4729,7 @@ CREATE TABLE public.rcpa_line (
     value numeric(18,2) DEFAULT 0 NOT NULL,
     is_deleted boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT rcpa_line_brand_type_check CHECK (((brand_type)::text = ANY ((ARRAY['OWN'::character varying, 'COMPETITOR'::character varying])::text[])))
+    CONSTRAINT rcpa_line_brand_type_check CHECK (((brand_type)::text = ANY (ARRAY[('OWN'::character varying)::text, ('COMPETITOR'::character varying)::text])))
 );
 
 
@@ -6954,6 +7041,14 @@ ALTER TABLE ONLY public.employee_salary_structure
 
 
 --
+-- Name: employee_tax_declaration employee_tax_declaration_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.employee_tax_declaration
+    ADD CONSTRAINT employee_tax_declaration_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: entity_attachment entity_attachment_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7506,6 +7601,14 @@ ALTER TABLE ONLY public.lorry_receipt
 
 
 --
+-- Name: lwf_rule lwf_rule_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lwf_rule
+    ADD CONSTRAINT lwf_rule_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: maintenance_schedule maintenance_schedule_code_uniq; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7951,6 +8054,14 @@ ALTER TABLE ONLY public.production_scrap
 
 ALTER TABLE ONLY public.proof_of_delivery
     ADD CONSTRAINT proof_of_delivery_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pt_slab pt_slab_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pt_slab
+    ADD CONSTRAINT pt_slab_pkey PRIMARY KEY (id);
 
 
 --
@@ -9003,7 +9114,7 @@ CREATE INDEX capa_org_assignee_idx ON public.capa_action USING btree (org_id, as
 -- Name: capa_org_due_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX capa_org_due_idx ON public.capa_action USING btree (org_id, due_date) WHERE ((is_deleted = false) AND ((status)::text = ANY ((ARRAY['OPEN'::character varying, 'IN_PROGRESS'::character varying])::text[])));
+CREATE INDEX capa_org_due_idx ON public.capa_action USING btree (org_id, due_date) WHERE ((is_deleted = false) AND ((status)::text = ANY (ARRAY[('OPEN'::character varying)::text, ('IN_PROGRESS'::character varying)::text])));
 
 
 --
@@ -9017,7 +9128,7 @@ CREATE INDEX capa_org_ncr_idx ON public.capa_action USING btree (org_id, ncr_id)
 -- Name: capa_org_open_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX capa_org_open_idx ON public.capa_action USING btree (org_id, status) WHERE ((is_deleted = false) AND ((status)::text = ANY ((ARRAY['OPEN'::character varying, 'IN_PROGRESS'::character varying])::text[])));
+CREATE INDEX capa_org_open_idx ON public.capa_action USING btree (org_id, status) WHERE ((is_deleted = false) AND ((status)::text = ANY (ARRAY[('OPEN'::character varying)::text, ('IN_PROGRESS'::character varying)::text])));
 
 
 --
@@ -9227,7 +9338,7 @@ CREATE INDEX idx_beat_org ON public.beat USING btree (org_id) WHERE (NOT is_dele
 -- Name: idx_bmr_deviation_open; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_bmr_deviation_open ON public.bmr_deviation USING btree (org_id, status) WHERE ((is_deleted = false) AND ((status)::text = ANY ((ARRAY['OPEN'::character varying, 'INVESTIGATING'::character varying])::text[])));
+CREATE INDEX idx_bmr_deviation_open ON public.bmr_deviation USING btree (org_id, status) WHERE ((is_deleted = false) AND ((status)::text = ANY (ARRAY[('OPEN'::character varying)::text, ('INVESTIGATING'::character varying)::text])));
 
 
 --
@@ -9931,6 +10042,20 @@ CREATE INDEX idx_estimate_org_status ON public.estimate USING btree (org_id, sta
 
 
 --
+-- Name: idx_etd_by_employee; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etd_by_employee ON public.employee_tax_declaration USING btree (org_id, employee_id) WHERE (is_deleted = false);
+
+
+--
+-- Name: idx_etd_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_etd_unique ON public.employee_tax_declaration USING btree (org_id, employee_id, fiscal_year) WHERE (is_deleted = false);
+
+
+--
 -- Name: idx_evt_user_used; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -10096,6 +10221,13 @@ CREATE INDEX idx_generic_substitution_drug ON public.generic_substitution USING 
 --
 
 CREATE INDEX idx_gstr2b_match_status ON public.gstr2b_entry USING btree (org_id, return_period, match_status);
+
+
+--
+-- Name: idx_gstr2b_no_action; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_gstr2b_no_action ON public.gstr2b_entry USING btree (org_id, return_period) WHERE (ims_action IS NULL);
 
 
 --
@@ -10628,6 +10760,13 @@ CREATE INDEX idx_lorry_receipt_status ON public.lorry_receipt USING btree (org_i
 --
 
 CREATE INDEX idx_lorry_receipt_transporter ON public.lorry_receipt USING btree (org_id, transporter_contact_id) WHERE (is_deleted = false);
+
+
+--
+-- Name: idx_lwf_rule_lookup; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_lwf_rule_lookup ON public.lwf_rule USING btree (state_code, gross_from) WHERE (is_active = true);
 
 
 --
@@ -11195,6 +11334,13 @@ CREATE INDEX idx_production_scrap_org_scrapped_at ON public.production_scrap USI
 --
 
 CREATE INDEX idx_prt_user_used ON public.password_reset_token USING btree (user_id, used);
+
+
+--
+-- Name: idx_pt_slab_lookup; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pt_slab_lookup ON public.pt_slab USING btree (state_code, gender, gross_from) WHERE (is_active = true);
 
 
 --
