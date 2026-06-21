@@ -37,6 +37,7 @@ public class TallyImportController {
     private final TallyImportService tallyImportService;
     private final TallyVoucherImportService tallyVoucherImportService;
     private final TallyCaBridgeService tallyCaBridgeService;
+    private final LlmTallyMapper llmTallyMapper;
 
     @PostMapping(value = "/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
@@ -134,4 +135,39 @@ public class TallyImportController {
                     "TALLY_FILE_UNREADABLE", HttpStatus.BAD_REQUEST);
         }
     }
+
+    /**
+     * AI-assisted mapping for ledgers the rule-based classifier couldn't place.
+     * Caller sends the unmatched names+groups from a preview; LLM returns a
+     * suggested kind + confidence + reason per row. Nothing is persisted; the
+     * UI shows the suggestions for human review.
+     */
+    @PostMapping(value = "/suggest-mapping",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> suggestMapping(
+            @org.springframework.web.bind.annotation.RequestBody SuggestMappingRequest req) {
+        java.util.List<LlmTallyMapper.UnclassifiedLedger> input = req.ledgers() == null
+                ? java.util.List.of()
+                : req.ledgers().stream()
+                        .map(r -> new LlmTallyMapper.UnclassifiedLedger(
+                                r.name(), r.parentGroup(), r.gstin()))
+                        .toList();
+        java.util.List<LlmTallyMapper.Suggestion> suggestions = llmTallyMapper.suggest(input);
+        java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("available", llmTallyMapper.isAvailable());
+        out.put("inputCount", input.size());
+        out.put("suggestionCount", suggestions.size());
+        out.put("suggestions", suggestions);
+        out.put("bucketCounts", llmTallyMapper.bucketCounts(suggestions));
+        if (!llmTallyMapper.isAvailable()) {
+            out.put("warning", "LLM is not configured (app.ai.anthropic-api-key). "
+                    + "Falling back to the rule-based classifier; unclassified rows remain SKIPPED.");
+        }
+        return ResponseEntity.ok(ApiResponse.ok(out));
+    }
+
+    public record SuggestMappingRequest(java.util.List<UnclassifiedRow> ledgers) {}
+    public record UnclassifiedRow(String name, String parentGroup, String gstin) {}
 }
