@@ -28,6 +28,7 @@ public class PayrollController {
     private final PayrollService service;
     private final com.katasticho.erp.payroll.service.ProductionPayrollService productionPayrollService;
     private final com.katasticho.erp.payroll.service.PayslipPdfService payslipPdfService;
+    private final com.katasticho.erp.payroll.service.PfEcrFileGenerator pfEcrFileGenerator;
 
     // ── Settings ──
 
@@ -295,6 +296,24 @@ public class PayrollController {
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
                         "inline; filename=\"" + filename + "\"")
                 .body(pdf);
+    }
+
+    /**
+     * EPFO Electronic Challan-cum-Return (ECR) text file for a payroll run —
+     * the file the employer uploads to the EPFO unified portal each month
+     * to remit PF contributions.
+     */
+    @GetMapping("/runs/{id}/ecr")
+    public ResponseEntity<byte[]> getEcrFile(@PathVariable UUID id) {
+        com.katasticho.erp.payroll.entity.PayrollRun run = service.getRun(id);
+        String body = pfEcrFileGenerator.generate(id);
+        String filename = pfEcrFileGenerator.filename(run);
+        byte[] bytes = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.TEXT_PLAIN)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + filename + "\"")
+                .body(bytes);
     }
 
     // ── Payments ──
