@@ -1,6 +1,7 @@
 package com.katasticho.erp.tax.controller;
 
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.tax.service.Form24QExporter;
 import com.katasticho.erp.tax.service.SalaryTdsService;
 import com.katasticho.erp.tax.service.TdsService;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class TdsController {
 
     private final TdsService tdsService;
     private final SalaryTdsService salaryTdsService;
+    private final Form24QExporter form24QExporter;
 
     /** Bills with TDS deducted in the range — what to deposit via ITNS-281. */
     @GetMapping("/register")
@@ -55,6 +57,30 @@ public class TdsController {
             @RequestParam int fy,
             @RequestParam int quarter) {
         return ResponseEntity.ok(ApiResponse.ok(salaryTdsService.form24q(fy, quarter)));
+    }
+
+    /** Form 24Q downloadable CSV — register for auditors. */
+    @GetMapping(value = "/24q/csv")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<byte[]> form24qCsv(@RequestParam int fy, @RequestParam int quarter) {
+        String body = form24QExporter.csv(fy, quarter);
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType("text/csv"))
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + form24QExporter.filename(fy, quarter, "csv") + "\"")
+                .body(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    /** Form 24Q FVU deductee-detail (DD) block — `^`-separated, prepend FH/BH/CH in your FVU tool. */
+    @GetMapping(value = "/24q/fvu")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<byte[]> form24qFvu(@RequestParam int fy, @RequestParam int quarter) {
+        String body = form24QExporter.fvuDeducteeDetail(fy, quarter);
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.TEXT_PLAIN)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + form24QExporter.filename(fy, quarter, "txt") + "\"")
+                .body(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     /** Annual Form 16 (employee TDS certificate): Part A (quarter-wise) + Part B (salary breakup). */
