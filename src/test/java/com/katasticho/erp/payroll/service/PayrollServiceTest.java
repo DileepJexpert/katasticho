@@ -41,6 +41,7 @@ class PayrollServiceTest {
     @Mock private com.katasticho.erp.attendance.LeaveRequestRepository leaveRequestRepo;
     @Mock private com.katasticho.erp.payroll.service.ProductionPayrollService productionPayrollService;
     @Mock private com.katasticho.erp.payroll.service.ProfessionalTaxCalculator ptCalculator;
+    @Mock private com.katasticho.erp.payroll.service.LabourWelfareFundCalculator lwfCalculator;
 
     private PayrollService service;
 
@@ -57,7 +58,7 @@ class PayrollServiceTest {
                 settingsRepo, employeeRepo, componentRepo, structureRepo,
                 runRepo, payslipRepo, paymentRepo, statutoryPaymentRepo,
                 journalService, accountRepo, leaveRequestRepo, productionPayrollService,
-                ptCalculator);
+                ptCalculator, lwfCalculator);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
 

@@ -43,6 +43,7 @@ public class PayrollService {
     private final com.katasticho.erp.attendance.LeaveRequestRepository leaveRequestRepository;
     private final ProductionPayrollService productionPayrollService;
     private final ProfessionalTaxCalculator ptCalculator;
+    private final LabourWelfareFundCalculator lwfCalculator;
 
     // ──────────────────────────────── Settings ────────────────────────────────
 
@@ -874,26 +875,33 @@ public class PayrollService {
             }
         }
 
-        // LWF: fixed 25 employee + 75 employer
+        // LWF: state-wise rule (V4 lwf_rule master). Returns ZERO for non-LWF
+        // states AND for months outside the rule's collection_months — so a
+        // half-yearly ₹25 only hits June+December salaries, not all twelve.
         if (settings.isLwfEnabled() && employee.isLwfApplicable()) {
-            BigDecimal lwfEmployee = new BigDecimal("25.00");
-            addStatutoryLine(payslip, orgId, componentsByCode, "LWF", "DEDUCTION", lwfEmployee);
-            totalDeductions = totalDeductions.add(lwfEmployee);
-
-            // LWF employer contribution: 75
-            BigDecimal lwfEmployer = new BigDecimal("75.00");
-            SalaryComponent lwfComp = componentsByCode.get("LWF");
-            if (lwfComp != null) {
-                PayslipLine lwfEmployerLine = PayslipLine.builder()
-                        .orgId(orgId)
-                        .salaryComponent(lwfComp)
-                        .componentType("EMPLOYER_CONTRIBUTION")
-                        .amount(lwfEmployer)
-                        .build();
-                lwfEmployerLine.setPayslip(payslip);
-                payslip.getLines().add(lwfEmployerLine);
+            LabourWelfareFundCalculator.Contribution lwf =
+                    lwfCalculator.calculate(orgId, grossPay, run.getPeriodEnd());
+            if (lwf != null && lwf.hasAny()) {
+                if (lwf.employee().signum() > 0) {
+                    addStatutoryLine(payslip, orgId, componentsByCode,
+                            "LWF", "DEDUCTION", lwf.employee());
+                    totalDeductions = totalDeductions.add(lwf.employee());
+                }
+                if (lwf.employer().signum() > 0) {
+                    SalaryComponent lwfComp = componentsByCode.get("LWF");
+                    if (lwfComp != null) {
+                        PayslipLine lwfEmployerLine = PayslipLine.builder()
+                                .orgId(orgId)
+                                .salaryComponent(lwfComp)
+                                .componentType("EMPLOYER_CONTRIBUTION")
+                                .amount(lwf.employer())
+                                .build();
+                        lwfEmployerLine.setPayslip(payslip);
+                        payslip.getLines().add(lwfEmployerLine);
+                    }
+                    employerContributions = employerContributions.add(lwf.employer());
+                }
             }
-            employerContributions = employerContributions.add(lwfEmployer);
         }
 
         BigDecimal netPay = grossPay.subtract(totalDeductions);
