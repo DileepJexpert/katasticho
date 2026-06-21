@@ -87,6 +87,30 @@ public class Gstr2bEntry {
     @Column(name = "match_note", columnDefinition = "text")
     private String matchNote;
 
+    // ── IMS lifecycle (per amended Sec 38 CGST, eff. 1 Oct 2025) ──
+    // Buyer must Accept / Reject / Pending each row; null = no action taken
+    // = deemed-accepted into GSTR-2B at portal cutoff.
+
+    /** ACCEPT | REJECT | PENDING; null until buyer acts. */
+    @Column(name = "ims_action", length = 20)
+    private String imsAction;
+
+    @Column(name = "ims_action_at")
+    private Instant imsActionAt;
+
+    @Column(name = "ims_action_by")
+    private UUID imsActionBy;
+
+    @Column(name = "ims_remarks", columnDefinition = "text")
+    private String imsRemarks;
+
+    /** AI's suggested action (ACCEPT/REJECT/PENDING). Human still applies it. */
+    @Column(name = "ims_ai_recommendation", length = 20)
+    private String imsAiRecommendation;
+
+    @Column(name = "ims_ai_reason", columnDefinition = "text")
+    private String imsAiReason;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

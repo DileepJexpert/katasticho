@@ -16,4 +16,14 @@ public interface Gstr2bEntryRepository extends JpaRepository<Gstr2bEntry, UUID> 
     void deleteByOrgIdAndReturnPeriod(UUID orgId, String returnPeriod);
 
     long countByOrgIdAndReturnPeriod(UUID orgId, String returnPeriod);
+
+    java.util.Optional<Gstr2bEntry> findByIdAndOrgId(UUID id, UUID orgId);
+
+    /** Rows in the period with no IMS action yet — deemed-accepted at portal cutoff. */
+    List<Gstr2bEntry> findByOrgIdAndReturnPeriodAndImsActionIsNullOrderBySupplierGstinAsc(
+            UUID orgId, String returnPeriod);
+
+    long countByOrgIdAndReturnPeriodAndImsActionIsNull(UUID orgId, String returnPeriod);
+
+    long countByOrgIdAndReturnPeriodAndImsAction(UUID orgId, String returnPeriod, String imsAction);
 }
