@@ -4,6 +4,7 @@ import 'l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/config/env_config.dart';
 import 'core/storage/pos_database.dart';
+import 'core/theme/brand_palette.dart';
 import 'core/theme/k_theme.dart';
 import 'core/theme/theme_mode_controller.dart';
 import 'features/pos/data/offline_pos_service.dart';
@@ -35,11 +36,12 @@ class KatastichoApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final palette = ref.watch(brandPaletteProvider);
 
     return MaterialApp.router(
       title: EnvConfig.appName,
-      theme: KTheme.light,
-      darkTheme: KTheme.dark,
+      theme: KTheme.light(palette.seed),
+      darkTheme: KTheme.dark(palette.seed),
       themeMode: themeMode,
       routerConfig: router,
       debugShowCheckedModeBanner: EnvConfig.showDebugBanner,

@@ -244,6 +244,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Transparent bar carrying just the brand-palette + dark-mode toggles,
+      // top-right, so the user can recolour the app from the sign-in page
+      // (matches the hospital-os layout).
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        actions: const [
+          BrandPaletteSwitcher(),
+          ThemeModeIconButton(),
+          SizedBox(width: 8),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

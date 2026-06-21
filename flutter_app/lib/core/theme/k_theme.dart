@@ -102,11 +102,15 @@ class KTheme {
     drawerIndicatorRadius: 8.0,
   );
 
-  /// LIGHT theme — soft slate background, sky-blue primary, white surfaces.
-  static ThemeData get light {
+  /// LIGHT theme. [brandSeed] overrides the primary so the user-switchable
+  /// brand palette (see `brand_palette.dart`) can repaint the app live; null
+  /// falls back to [KColors.brandSeed] (the default teal), keeping every
+  /// existing call site byte-for-byte unchanged.
+  static ThemeData light([Color? brandSeed]) {
+    final seed = brandSeed ?? KColors.brandSeed;
     final theme = FlexThemeData.light(
       colors: FlexSchemeColor.from(
-        primary: KColors.brandSeed,
+        primary: seed,
         secondary: KColors.secondary,
         tertiary: KColors.accent,
         error: KColors.error,
@@ -182,11 +186,18 @@ class KTheme {
     );
   }
 
-  /// DARK theme — soft slate-900 background (not pure black), indigo primary.
-  static ThemeData get dark {
+  /// DARK theme. [brandSeed] (the chosen brand palette) is lightened for dark
+  /// surfaces; null falls back to [KColors.primaryDark] (the default).
+  static ThemeData dark([Color? brandSeed]) {
+    final primaryDark = brandSeed == null
+        ? KColors.primaryDark
+        : HSLColor.fromColor(brandSeed)
+            .withLightness(
+                (HSLColor.fromColor(brandSeed).lightness + 0.25).clamp(0.0, 1.0))
+            .toColor();
     final theme = FlexThemeData.dark(
       colors: FlexSchemeColor.from(
-        primary: KColors.primaryDark,
+        primary: primaryDark,
         secondary: KColors.secondaryDark,
         tertiary: KColors.accentDark,
         error: const Color(0xFFF87171),

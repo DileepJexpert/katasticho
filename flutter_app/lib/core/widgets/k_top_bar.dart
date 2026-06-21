@@ -5,6 +5,7 @@ import '../shortcuts/k_shortcuts.dart';
 import '../shell/shell_providers.dart';
 import '../theme/k_spacing.dart';
 import '../theme/k_typography.dart';
+import 'brand_palette_switcher.dart';
 import 'k_command_palette.dart';
 import 'k_quick_create_menu.dart';
 import 'theme_mode_switcher.dart';
@@ -199,7 +200,8 @@ class KTopBar extends ConsumerWidget implements PreferredSizeWidget {
                 ],
               ),
 
-            // Theme toggle
+            // Brand palette + theme toggle
+            const BrandPaletteSwitcher(),
             const ThemeModeIconButton(),
           ],
         ),

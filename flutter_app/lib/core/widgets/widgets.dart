@@ -1,4 +1,5 @@
 // Barrel file for all shared widgets.
+export 'brand_palette_switcher.dart';
 export 'k_activity_timeline.dart';
 export 'k_assistant_fab.dart';
 export 'k_button.dart';
