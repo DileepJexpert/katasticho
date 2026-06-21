@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../theme/component_color_controller.dart';
 import '../theme/k_colors.dart';
 import '../theme/k_spacing.dart';
 import '../theme/k_typography.dart';
@@ -23,6 +25,14 @@ class KCard extends StatelessWidget {
   final List<BoxShadow>? shadow;
   final double? radius;
 
+  /// Optional stable id that opts this card into per-component colour
+  /// overrides (see [componentColorProvider]). When the user has painted
+  /// this id a colour, the card tints its border + surface to match and
+  /// shows a left accent bar. When null (the default) the card is a plain
+  /// [StatelessWidget] with no provider read — zero cost for the 99% of
+  /// cards that don't opt in.
+  final String? colorKey;
+
   const KCard({
     super.key,
     required this.child,
@@ -39,10 +49,25 @@ class KCard extends StatelessWidget {
     this.gradient,
     this.shadow,
     this.radius,
+    this.colorKey,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Only cards that opted in (colorKey != null) subscribe to the override
+    // provider; everything else renders straight through with no Consumer.
+    if (colorKey == null) return _build(context, null);
+    return Consumer(
+      builder: (context, ref, _) {
+        final override = ref.watch(
+          componentColorProvider.select((m) => m[colorKey]),
+        );
+        return _build(context, override);
+      },
+    );
+  }
+
+  Widget _build(BuildContext context, Color? override) {
     final cs = Theme.of(context).colorScheme;
     final r = radius ?? KSpacing.radiusMd;
     final br = BorderRadius.circular(r);
@@ -105,19 +130,32 @@ class KCard extends StatelessWidget {
       ),
     );
 
+    // A per-component override (when opted in) tints the surface + border and
+    // adds a left accent bar, so the card reads as deliberately re-coloured
+    // without losing the borders-first look. Gradient cards opt out.
+    final bool tinted = override != null && gradient == null;
+    final Color tintedSurface = tinted
+        ? (backgroundColor ?? Color.lerp(cs.surface, override, 0.06)!)
+        : (backgroundColor ?? cs.surface);
+    final BoxBorder? cardBorder = gradient != null
+        ? null
+        : tinted
+            ? Border(
+                left: BorderSide(color: override, width: 3),
+                top: BorderSide(color: borderColor ?? override, width: 1),
+                right: BorderSide(color: borderColor ?? override, width: 1),
+                bottom: BorderSide(color: borderColor ?? override, width: 1),
+              )
+            : Border.all(color: borderColor ?? cs.outlineVariant, width: 1);
+
     final card = AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       margin: margin ?? EdgeInsets.zero,
       decoration: BoxDecoration(
-        color: gradient == null ? (backgroundColor ?? cs.surface) : null,
+        color: gradient == null ? tintedSurface : null,
         gradient: gradient,
         borderRadius: br,
-        border: gradient == null
-            ? Border.all(
-                color: borderColor ?? cs.outlineVariant,
-                width: 1,
-              )
-            : null,
+        border: cardBorder,
         boxShadow: shadow ?? defaultShadow,
       ),
       child: content,
@@ -156,8 +194,14 @@ class KKpiCard extends StatelessWidget {
   final bool? trendPositive;
   final Widget? sparkline;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final bool showChevron;
   final bool expanded;
+
+  /// Opt into per-component colour overrides (see [componentColorProvider]).
+  /// When set and the user has painted this id, the tile recolours its icon
+  /// accent + border to match. Null = plain tile, no provider read.
+  final String? colorKey;
 
   const KKpiCard({
     super.key,
@@ -170,14 +214,28 @@ class KKpiCard extends StatelessWidget {
     this.trendPositive,
     this.sparkline,
     this.onTap,
+    this.onLongPress,
     this.showChevron = false,
     this.expanded = false,
+    this.colorKey,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (colorKey == null) return _build(context, null);
+    return Consumer(
+      builder: (context, ref, _) {
+        final override = ref.watch(
+          componentColorProvider.select((m) => m[colorKey]),
+        );
+        return _build(context, override);
+      },
+    );
+  }
+
+  Widget _build(BuildContext context, Color? override) {
     final cs = Theme.of(context).colorScheme;
-    final accent = iconColor ?? cs.primary;
+    final accent = override ?? iconColor ?? cs.primary;
     final tile = backgroundColor ?? accent.withValues(alpha: 0.10);
 
     // NOTE: fixed-height SizedBox gaps (not Spacer). KCard wraps us in a
@@ -185,6 +243,8 @@ class KKpiCard extends StatelessWidget {
     // there throws "non-zero flex with unbounded height".
     return KCard(
       onTap: onTap,
+      onLongPress: onLongPress,
+      colorKey: colorKey,
       backgroundColor: accent.withValues(alpha: 0.03),
       padding: const EdgeInsets.all(10),
       child: Column(

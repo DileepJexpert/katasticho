@@ -1384,16 +1384,23 @@ class _KpiGrid extends ConsumerWidget {
         onTap: onTap,
       );
     }
-    return KKpiCard(
-      title: title,
-      value: value,
-      icon: icon,
-      iconColor: iconColor,
-      trend: trend,
-      trendPositive: trendPositive,
-      showChevron: showChevron,
-      expanded: expanded,
-      onTap: onTap,
+    // Stable id per metric so the user's colour choice sticks to this KPI.
+    final colorKey = 'dashboard.kpi.${title.toLowerCase().trim()}';
+    return Builder(
+      builder: (context) => KKpiCard(
+        title: title,
+        value: value,
+        icon: icon,
+        iconColor: iconColor,
+        trend: trend,
+        trendPositive: trendPositive,
+        showChevron: showChevron,
+        expanded: expanded,
+        onTap: onTap,
+        colorKey: colorKey,
+        // Long-press a tile to paint it a colour different from the theme.
+        onLongPress: () => KComponentColorPicker.show(context, colorKey),
+      ),
     );
   }
 

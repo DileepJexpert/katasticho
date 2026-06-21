@@ -5,6 +5,7 @@ export 'k_button.dart';
 export 'k_card.dart';
 export 'k_collapsible_section.dart';
 export 'k_command_palette.dart';
+export 'k_component_color_picker.dart';
 export 'k_compact_row.dart';
 export 'k_keyboard_form_wrapper.dart';
 export 'k_keyboard_list_wrapper.dart';
