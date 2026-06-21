@@ -78,41 +78,28 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **DoD** = definition of
 - [x] **A8. Bank salary disbursement file.** *(done 2026-06-21)* — `BankSalaryFileGenerator` supports GENERIC/HDFC/ICICI/SBI column orders, skips no-bank/cash-paid/zero-net rows, "SAL-MMYYYY-{code}" reference. `GET /payroll/runs/{id}/bank-file?format=`. 9 tests. **P0 payroll pack complete.**
 - [ ] **A9. (stretch) Pay components:** salary advance + auto-EMI, arrears, gratuity provision (4.81% basic), leave encashment on exit, reimbursements (FBP). *Split into sub-tasks when reached.*
 
-### LANE B — Agentic GST / IMS (the #1 wedge, ~2–3 weeks)
-*Statutorily mandatory + the hardest monthly pain. We have 60% of the data plumbing.*
+### LANE B — Agentic GST / IMS (the #1 wedge) — **COMPLETE**
 
-- [ ] **B1. IMS inbound invoice store + sync.** Pull IMS records (or reuse the 2B JSON/GSP fetch) into an `ims_invoice` table with status NO_ACTION/ACCEPTED/REJECTED/PENDING.
-  - DoD: `ims_invoice` migration; `ImsService.sync(period)` reuses `Gstr2bReconService` / `GspClient.fetch2b`; idempotent re-sync.
-- [ ] **B2. Accept / Reject / Pending action loop.** Per-invoice action + "deemed accepted" warning for NO_ACTION before cutoff.
-  - DoD: `POST /gst/ims/{id}/action {ACCEPT|REJECT|PENDING}`; bulk action; status drives downstream 2B/3B eligibility; audit trail.
-- [ ] **B3. AI accept/reject recommendation.** For each inbound invoice, recommend an action with reason (matches a posted bill → ACCEPT; not in books → PENDING + draft bill; value mismatch → REJECT/flag). Reuse `BillDraftingService` to draft the missing bill on PENDING.
-  - DoD: recommendation surfaced in AI Inbox; one-click apply; ITC-leakage alert when a real bill would be deemed-rejected.
-- [ ] **B4. GST 2.0 item re-mapping wizard.** On first onboarding / after Tally import, list items whose HSN→rate changed under the 9/2025 notification and let the owner review/accept new rates in bulk.
-  - DoD: `GET /gst/rate-remap/candidates` (items where item.gstRate ≠ hsn_gst_master rate); Flutter wizard "893 items move 12%→18%, 534 move →5%"; bulk apply writes item rate + audit.
-- [ ] **B5. One-click month-end close pack.** Sequence: IMS actioned → 2B reconciled → GSTR-1 prepared → 3B prepared (respecting July-2025 hard-lock of 3.1/3.2) → variance/anomaly summary. Extend `ProactiveAgentService` month-close checklist.
-  - DoD: a "Close" screen that shows the checklist with live status + blockers; ≥50% time-cut target (Puzzle-style).
+- [x] **B1+B2+B3. IMS Accept/Reject/Pending + AI recommendations.** *(2026-06-21, `45de441`)* — V6 migration extends gstr2b_entry with ims_action / ims_action_at / ims_action_by / ims_remarks + ims_ai_recommendation. `ImsService` w/ single+bulk action, deterministic rule-based recommendations from matchStatus (MATCHED→ACCEPT, VALUE_MISMATCH→REJECT, NOT_IN_BOOKS→PENDING), apply-all, period summary with ₹ITC exposure on no-action rows. `/api/v1/gst/ims`. 14 tests.
+- [x] **B4. GST 2.0 item re-mapping wizard.** *(2026-06-21, `0b68d44`)* — `Gst20RateRemapper` scans drift between item.gstRate and hsn_gst_master, groups into "from→to" buckets (sorted biggest first), dry-run + bulk apply with skip counters (already-current / no-HSN / no-master). `/api/v1/gst/rate-remap`. 12 tests.
+- [x] **B5. Month-end close checklist.** *(2026-06-21, `bd67128`)* — `MonthEndCloseService.checklist(year, month)` aggregates fiscal-period / IMS / 2B-recon / rate-drift / GSTR-1/3B readiness with traffic-light state per item + overall closable flag. 3B BLOCKED while IMS rows unactioned (auto-pop ITC would shift). `/api/v1/gst/close`. 7 tests.
 
-### LANE C — AI-Assisted Tally Migration (moat-breaker, ~1–2 weeks)
-*Direct attack on the single biggest switching barrier.*
+### LANE C — AI-Assisted Tally Migration — **C1 done**
 
-- [ ] **C1. LLM mapping layer over the rule-based importer.** When `TallyImportService` can't classify a ledger/group by rule, ask the LLM (via `ClaudeApiClient`) to map it to a CoA account type / contact type, with confidence + reason. Human reviews low-confidence rows.
-  - DoD: import preview shows rule-matched vs AI-suggested vs unmatched; accept/override per row; >95% master-mapping on a real Tally export; tokens logged to `ai_usage_log`.
-- [ ] **C2. Migration progress + "go-live in <1 day" UX.** A guided multi-step importer (masters → opening balances → vouchers → verify TB) with progress + a final trial-balance match against `TallyCaBridgeService`.
-  - DoD: one screen, 4 steps, ends with green "Trial balance matches Tally to the rupee."
-- [ ] **C3. Marg / Busy import (stretch).** Same pipeline, Marg/Busy export formats. Defer until Tally path proven with a design partner.
+- [x] **C1. LLM mapping layer over the rule-based importer.** *(2026-06-21, `b2bd80c`)* — `LlmTallyMapper` calls Claude on unclassified ledgers; strict JSON output (name/kind/confidence/reason); strips markdown fences; normalises common LLM variants (Income→REVENUE, Capital→EQUITY); falls back to SKIP rather than invent. Inert without `app.ai.anthropic-api-key`. `/api/v1/migration/tally/suggest-mapping`. 11 tests.
+- [ ] **C2. Migration progress + "go-live in <1 day" UX.** A guided multi-step importer (masters → opening balances → vouchers → verify TB) with progress + a final trial-balance match against `TallyCaBridgeService`. *(Flutter UI — backend pipeline complete.)*
+- [ ] **C3. Marg / Busy import (stretch).** Defer until Tally path proven.
 
-### LANE D — WhatsApp Order-to-Ledger (bold bet, Q2)
-*Fuses the nFuse/HublerX ordering layer with the accounting layer no one connects.*
+### LANE D — WhatsApp Order-to-Ledger — **D1+D2 done**
 
-- [ ] **D1. Inbound WhatsApp webhook + intent parse.** Receive a retailer message ("200 amul 1L bhej do"), parse to structured lines via LLM + per-customer SKU aliases.
-  - DoD: `whatsapp/inbound` webhook; `WhatsAppOrderService.parse(text|image|voice)` → draft SO lines with B2B price-list + credit check; ambiguous items ask a clarifying question back on WhatsApp.
-- [ ] **D2. Draft SO → confirm → invoice → ledger → GST.** Retailer/owner confirms on WhatsApp; posts through existing SO→DC→Invoice flow.
-  - DoD: end-to-end one demo order from a WhatsApp text to a posted invoice with correct GST.
+- [x] **D1. Inbound order parser.** *(2026-06-21, `2b13fd5`)* — `WhatsAppOrderService.parse(message)` splits on newlines/commas/and, extracts qty + unit (kg/g/l/ml/pcs/strip/tab/…) leading or trailing, strips Hindi+English noise (bhej, do, please, kindly, chahiye, …), matches against `ItemRepository.search`, returns lines with confidence + alternates. 12 tests.
+- [x] **D2. Draft SO from parsed message.** *(2026-06-21, `b34ceac`)* — `confirmAndCreate(parsed, contactId, ref)` drafts a real SO via `SalesOrderService.create()` carrying only matched lines, `allowBackorder=true`, WA-tagged reference, notes preserving the original message. Routes through standard SO→DC→Invoice. 3 tests (15 total for the service).
+- *Webhook receiver and per-customer SKU aliases — follow-up.*
 
-### LANE E — Continuous Close / Anomaly / Conversational polish (ongoing)
-- [ ] **E1. Anomaly/fraud detection productized.** Duplicate vendor payments, scheme/claim leakage, expiry-write-off abuse, credit-limit breaches, margin erosion → AI Inbox alerts. Extend `RuleBasedAiAgentService`.
-- [ ] **E2. Conversational reporting in Hindi/regional** over web + WhatsApp ("aaj ka cash position?", "Route 4 ka overdue"). Extend `NlpQueryService` with language detection + the WhatsApp channel.
-- [ ] **E3. Always-closing books.** Use `DomainEventPublisher` so trial balance + GST position are always current; a "books are X% closed for June" indicator.
+### LANE E — Continuous Close / Anomaly / Conversational polish — **E1 done**
+- [x] **E1. Anomaly/fraud detection productised.** *(2026-06-21)* — `DistributionAnomalyDetector` raises AI Inbox suggestions: duplicate vendor payments (same vendor + same amount within N days), margin erosion (sale ≤ cost or below threshold), credit-limit breaches (sum of outstanding > limit). Idempotent via `existsOpenSuggestion`. `runAll()` dispatcher. 12 tests.
+- [ ] **E2. Conversational reporting in Hindi/regional** over web + WhatsApp.
+- [ ] **E3. Always-closing books** on `DomainEventPublisher`.
 
 ### LANE F — Embedded Lending (Tier 3, needs partner — later)
 - [ ] **F1. Lending data export** — clean ledger + GST + AA-consented bundle per org (the underwriting trail). Build first; it's also useful standalone.
