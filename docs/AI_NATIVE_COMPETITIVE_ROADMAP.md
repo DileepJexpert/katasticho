@@ -69,20 +69,13 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **DoD** = definition of
 - [x] **A1. State-wise Professional Tax slabs.** Replaces flat ₹200 PT with statutory slabs across 14 states. *(done 2026-06-21)*
   - V3 `pt_slab` master + 60 seed rows (MH gender-split + Feb top-up, KA, WB, TN, AP/TS, GJ, MP, OR, KL, BR/JH, AS, PY). Non-PT states (Delhi, Haryana, UP, …) deliberately absent — calculator returns ₹0 when no slab matches.
   - `ProfessionalTaxCalculator` service resolves org's 2-digit GST code → alphaCode → slab; unknown gender defaults to MALE (more conservative bracket). Wired into `PayrollService.calculatePayslip` (line ~866) — only line that changed in the existing service. Tests: 13 unit (`ProfessionalTaxCalculatorTest`) + zero regression in `PayrollServiceTest` (13/13) + `PayslipPdfServiceTest` (4/4).
-- [ ] **A2. State-wise LWF.** Currently single rate. Make state-aware (different employee/employer split + frequency: monthly/half-yearly/annual per state).
-  - DoD: `lwf_rule` seed (state + employee + employer + frequency); calc honours it; test MH/KA/GJ.
-- [ ] **A3. PF ECR file generator.** UAN-wise EE/ER/EPS/EDLI breakdown in EPFO ECR text format for a payroll run.
-  - DoD: `GET /payroll/runs/{id}/ecr` → downloadable `#~#`-delimited ECR txt; test asserts column layout + totals.
-- [ ] **A4. ESI contribution file.** Employee+employer ESI for ≤₹21k gross, ESIC return format.
-  - DoD: `GET /payroll/runs/{id}/esi-return`; test.
-- [ ] **A5. Form 12BB + old/new tax regime.** Employee FY investment declaration (HRA/80C/80D/LTA/home-loan) + regime flag that drives monthly TDS.
-  - DoD: `employee_tax_declaration` table; regime locked per FY; TDS calc respects regime (new = no 80C/HRA, std deduction only); Flutter declaration form on My Profile.
-- [ ] **A6. Form 24Q quarterly TDS return.** TXT for NSDL FVU. (Note: `PayslipLineRepository.findLineRowsForRuns` + `SalaryTdsLineRow` already exist — wiring is half-done.)
-  - DoD: `GET /tds/24q?quarter=&fy=` → FVU-importable txt; per-employee salary-TDS aggregation; test.
-- [ ] **A7. Form 16 (Part A + B) PDF** per employee, annual. Builds on the PDF pipeline from A0.
-  - DoD: `GET /payroll/employees/{id}/form16?fy=`; YTD aggregation across the FY's payslips; test.
-- [ ] **A8. Bank salary disbursement file** (NACH/H2H for HDFC/ICICI/SBI corporate banking).
-  - DoD: `GET /payroll/runs/{id}/bank-file?format=HDFC|ICICI|SBI`; test per format.
+- [x] **A2. State-wise LWF.** *(done 2026-06-21, commit `084bccd`)* — V4 `lwf_rule` master, 14 state rules, `LabourWelfareFundCalculator` w/ collection-month gating (Maharashtra Jun/Dec only, Chhattisgarh Mar/Sep, Kerala monthly, …). 10 unit tests.
+- [x] **A3. PF ECR file generator.** *(done 2026-06-21, commit `c9c0994`)* — `PfEcrFileGenerator` produces EPFO `#~#`-delimited file at `GET /payroll/runs/{id}/ecr`; ₹15k wage cap, EPS 8.33% recompute, age-58 ceiling, NCP days. 9 tests.
+- [x] **A4. ESI contribution file.** *(done 2026-06-21, commit `3f088b6`)* — `EsiReturnFileGenerator` outputs ESIC CSV at `GET /payroll/runs/{id}/esi-return`; days-paid math, last-working-day on exit, name sanitisation. 9 tests.
+- [x] **A5. Form 12BB + old/new tax regime.** *(done 2026-06-21, commit `4d69907`)* — V5 `employee_tax_declaration` (DRAFT→SUBMITTED→VERIFIED), regime flag, HRA + 80C/80CCD(1B)/80D/80E/80G/80TTA/80TTB + Sec 24(b) + LTA + other income, statutory cap logic, HRA least-of-three. `/api/v1/payroll/tax-declarations/me` + admin. 16 tests.
+- [x] **A6. Form 24Q quarterly TDS return.** *(done 2026-06-21, commit `b5f0dc2`)* — Discovered `SalaryTdsService.form24q()` already existed; added `Form24QExporter` (CSV + NSDL FVU deductee-detail block) at `GET /tds/24q/csv` and `/fvu`. 7 tests.
+- [x] **A7. Form 16 (Part A + B) PDF.** *(done 2026-06-21, commit `b0c2ade`)* — `Form16PdfService` renders CBDT layout (Sec 203 banner, deductor/employee header, quarter-wise Part A, salary-breakup Part B, Sec 16(iii) PT line, amount-in-words). `GET /tds/form16/{id}/pdf?fy=`. 7 tests.
+- [x] **A8. Bank salary disbursement file.** *(done 2026-06-21)* — `BankSalaryFileGenerator` supports GENERIC/HDFC/ICICI/SBI column orders, skips no-bank/cash-paid/zero-net rows, "SAL-MMYYYY-{code}" reference. `GET /payroll/runs/{id}/bank-file?format=`. 9 tests. **P0 payroll pack complete.**
 - [ ] **A9. (stretch) Pay components:** salary advance + auto-EMI, arrears, gratuity provision (4.81% basic), leave encashment on exit, reimbursements (FBP). *Split into sub-tasks when reached.*
 
 ### LANE B — Agentic GST / IMS (the #1 wedge, ~2–3 weeks)

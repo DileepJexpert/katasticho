@@ -30,6 +30,7 @@ public class PayrollController {
     private final com.katasticho.erp.payroll.service.PayslipPdfService payslipPdfService;
     private final com.katasticho.erp.payroll.service.PfEcrFileGenerator pfEcrFileGenerator;
     private final com.katasticho.erp.payroll.service.EsiReturnFileGenerator esiReturnFileGenerator;
+    private final com.katasticho.erp.payroll.service.BankSalaryFileGenerator bankSalaryFileGenerator;
 
     // ── Settings ──
 
@@ -312,6 +313,27 @@ public class PayrollController {
         byte[] bytes = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         return ResponseEntity.ok()
                 .contentType(org.springframework.http.MediaType.TEXT_PLAIN)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + filename + "\"")
+                .body(bytes);
+    }
+
+    /**
+     * Bulk-payment CSV for the org's corporate banking portal — disburses net
+     * pay for a payroll run via NACH/IMPS/RTGS. {@code format} is one of
+     * GENERIC, HDFC, ICICI, SBI. Defaults to GENERIC.
+     */
+    @GetMapping("/runs/{id}/bank-file")
+    public ResponseEntity<byte[]> getBankSalaryFile(
+            @PathVariable UUID id,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "GENERIC")
+                    com.katasticho.erp.payroll.service.BankSalaryFileGenerator.BankFormat format) {
+        com.katasticho.erp.payroll.entity.PayrollRun run = service.getRun(id);
+        String body = bankSalaryFileGenerator.generate(id, format);
+        String filename = bankSalaryFileGenerator.filename(run, format);
+        byte[] bytes = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType("text/csv"))
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"" + filename + "\"")
                 .body(bytes);
