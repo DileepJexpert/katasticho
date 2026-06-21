@@ -1,6 +1,7 @@
 package com.katasticho.erp.tax.controller;
 
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.tax.service.Form16PdfService;
 import com.katasticho.erp.tax.service.Form24QExporter;
 import com.katasticho.erp.tax.service.SalaryTdsService;
 import com.katasticho.erp.tax.service.TdsService;
@@ -31,6 +32,7 @@ public class TdsController {
     private final TdsService tdsService;
     private final SalaryTdsService salaryTdsService;
     private final Form24QExporter form24QExporter;
+    private final Form16PdfService form16PdfService;
 
     /** Bills with TDS deducted in the range — what to deposit via ITNS-281. */
     @GetMapping("/register")
@@ -90,6 +92,23 @@ public class TdsController {
             @PathVariable UUID employeeId,
             @RequestParam int fy) {
         return ResponseEntity.ok(ApiResponse.ok(salaryTdsService.form16(employeeId, fy)));
+    }
+
+    /** Form 16 PDF — the annual TDS certificate handed to the employee. */
+    @GetMapping("/form16/{employeeId}/pdf")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<byte[]> form16Pdf(@PathVariable UUID employeeId, @RequestParam int fy) {
+        byte[] pdf = form16PdfService.generatePdf(employeeId, fy);
+        @SuppressWarnings("unchecked")
+        var data = (java.util.Map<String, Object>) salaryTdsService.form16(employeeId, fy);
+        @SuppressWarnings("unchecked")
+        var emp = (java.util.Map<String, Object>) data.getOrDefault("employee", java.util.Map.of());
+        String filename = form16PdfService.filename(fy, String.valueOf(emp.get("name")));
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"" + filename + "\"")
+                .body(pdf);
     }
 
     /** Employee-wise salary TDS deducted in the range — for the monthly ITNS-281 deposit. */
