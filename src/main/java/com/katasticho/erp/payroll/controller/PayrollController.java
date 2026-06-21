@@ -29,6 +29,7 @@ public class PayrollController {
     private final com.katasticho.erp.payroll.service.ProductionPayrollService productionPayrollService;
     private final com.katasticho.erp.payroll.service.PayslipPdfService payslipPdfService;
     private final com.katasticho.erp.payroll.service.PfEcrFileGenerator pfEcrFileGenerator;
+    private final com.katasticho.erp.payroll.service.EsiReturnFileGenerator esiReturnFileGenerator;
 
     // ── Settings ──
 
@@ -311,6 +312,23 @@ public class PayrollController {
         byte[] bytes = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         return ResponseEntity.ok()
                 .contentType(org.springframework.http.MediaType.TEXT_PLAIN)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + filename + "\"")
+                .body(bytes);
+    }
+
+    /**
+     * ESIC monthly contribution CSV for a payroll run — uploaded to the ESIC
+     * portal each month for the Employees' State Insurance return.
+     */
+    @GetMapping("/runs/{id}/esi-return")
+    public ResponseEntity<byte[]> getEsiReturn(@PathVariable UUID id) {
+        com.katasticho.erp.payroll.entity.PayrollRun run = service.getRun(id);
+        String body = esiReturnFileGenerator.generate(id);
+        String filename = esiReturnFileGenerator.filename(run);
+        byte[] bytes = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType("text/csv"))
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"" + filename + "\"")
                 .body(bytes);
