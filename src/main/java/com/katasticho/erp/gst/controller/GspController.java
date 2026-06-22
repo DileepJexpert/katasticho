@@ -1,5 +1,6 @@
 package com.katasticho.erp.gst.controller;
 
+import com.katasticho.erp.common.country.RequiresCountry;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.module.ModuleCode;
@@ -23,6 +24,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/gst/gsp-settings")
 @RequiredArgsConstructor
 @RequiresModule(ModuleCode.GST)
+@RequiresCountry("IN")
 public class GspController {
 
     private final GspClient gspClient;

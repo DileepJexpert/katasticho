@@ -1,5 +1,6 @@
 package com.katasticho.erp.gst.controller;
 
+import com.katasticho.erp.common.country.RequiresCountry;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.gst.entity.Gstr2bEntry;
 import com.katasticho.erp.gst.service.ImsService;
@@ -22,6 +23,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/gst/ims")
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+@RequiresCountry("IN")
 public class ImsController {
 
     private final ImsService imsService;

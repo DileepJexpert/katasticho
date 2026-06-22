@@ -1,5 +1,6 @@
 package com.katasticho.erp.migration.tally;
 
+import com.katasticho.erp.common.country.RequiresCountry;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.migration.tally.TallyImportDtos.TallyImportPreview;
@@ -32,6 +33,7 @@ import java.time.LocalDate;
 @RestController
 @RequestMapping("/api/v1/migration/tally")
 @RequiredArgsConstructor
+@RequiresCountry("IN")
 public class TallyImportController {
 
     private final TallyImportService tallyImportService;

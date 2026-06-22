@@ -1,5 +1,6 @@
 package com.katasticho.erp.gst.controller;
 
+import com.katasticho.erp.common.country.RequiresCountry;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.gst.service.CompositionService;
@@ -21,6 +22,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/gst/composition")
 @RequiredArgsConstructor
+@RequiresCountry("IN")
 public class CompositionController {
 
     private final CompositionService compositionService;

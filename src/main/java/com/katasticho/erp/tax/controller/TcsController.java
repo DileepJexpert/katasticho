@@ -1,5 +1,6 @@
 package com.katasticho.erp.tax.controller;
 
+import com.katasticho.erp.common.country.RequiresCountry;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.organisation.OrgSettingsService;
@@ -25,6 +26,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/tcs")
 @RequiredArgsConstructor
+@RequiresCountry("IN")
 public class TcsController {
 
     private final TcsService tcsService;

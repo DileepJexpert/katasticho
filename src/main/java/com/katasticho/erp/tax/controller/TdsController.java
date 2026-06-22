@@ -1,5 +1,6 @@
 package com.katasticho.erp.tax.controller;
 
+import com.katasticho.erp.common.country.RequiresCountry;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.tax.service.Form16PdfService;
 import com.katasticho.erp.tax.service.Form24QExporter;
@@ -27,6 +28,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/tds")
 @RequiredArgsConstructor
+@RequiresCountry("IN")
 public class TdsController {
 
     private final TdsService tdsService;

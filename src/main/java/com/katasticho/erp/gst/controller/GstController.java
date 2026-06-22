@@ -1,5 +1,6 @@
 package com.katasticho.erp.gst.controller;
 
+import com.katasticho.erp.common.country.RequiresCountry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.module.ModuleCode;
@@ -34,6 +35,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/gst")
 @RequiredArgsConstructor
 @RequiresModule(ModuleCode.GST)
+@RequiresCountry("IN")
 public class GstController {
 
     private final GstService gstService;

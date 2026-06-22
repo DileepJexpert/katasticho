@@ -1,5 +1,6 @@
 package com.katasticho.erp.gst.controller;
 
+import com.katasticho.erp.common.country.RequiresCountry;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.gst.service.Gst20RateRemapper;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/gst/rate-remap")
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+@RequiresCountry("IN")
 public class Gst20RemapController {
 
     private final Gst20RateRemapper remapper;
