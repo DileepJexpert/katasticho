@@ -96,6 +96,48 @@ class AiRepository {
     );
   }
 
+  /// Photo-to-GRN: one-shot vision OCR of a supplier's invoice / challan.
+  /// Returns the parsed shape (`supplierName`, `lines`, etc.) for the client
+  /// to optionally edit before calling [draftGrnFromScan].
+  Future<Map<String, dynamic>> scanGrn(String base64Image,
+      {String? mediaType}) async {
+    final response = await _api.post(
+      ApiConfig.aiGrnDraftScan,
+      data: {
+        'base64Image': base64Image,
+        if (mediaType != null) 'mediaType': mediaType
+      },
+    );
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
+  }
+
+  /// Draft a stock receipt (GRN) + AI Inbox suggestion from scanned data.
+  /// When [purchaseOrderId] is set, scan lines fuzzy-match against the PO.
+  Future<Map<String, dynamic>> draftGrnFromScan(
+      Map<String, dynamic> grnData) async {
+    final response = await _api.post(ApiConfig.aiGrnDrafts, data: grnData);
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
+  }
+
+  /// Approve a drafted GRN — calls StockReceiptService.receive (posts stock).
+  Future<Map<String, dynamic>> approveGrnDraft(String suggestionId) async {
+    final response = await _api.post(ApiConfig.aiGrnDraftApprove(suggestionId));
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
+  }
+
+  /// Reject a drafted GRN — cancels the DRAFT receipt (audit trail preserved).
+  Future<void> rejectGrnDraft(String suggestionId, {String? reason}) async {
+    await _api.post(
+      ApiConfig.aiGrnDraftReject(suggestionId),
+      data: reason != null && reason.trim().isNotEmpty
+          ? {'reason': reason.trim()}
+          : null,
+    );
+  }
+
   /// Conversational entry: turn a sentence ("paid 5000 cash for shop rent")
   /// into a DRAFT journal entry + AI Inbox suggestion. Returns the `data`
   /// payload: `drafted`, `suggestionId`, `voucherType`, `lines`, `warnings`,

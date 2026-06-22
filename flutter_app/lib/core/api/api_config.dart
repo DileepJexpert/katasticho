@@ -393,6 +393,13 @@ class ApiConfig {
   static String aiBillDraftReject(String suggestionId) =>
       '/api/v1/ai/bill-drafts/$suggestionId/reject';
 
+  // Photo-to-GRN — vision-OCR of a supplier's invoice / challan into a DRAFT
+  // stock receipt + AI Inbox suggestion. Approve posts via StockReceiptService.receive.
+  static const String aiGrnDrafts = '/api/v1/ai/grn-drafts';
+  static const String aiGrnDraftScan = '/api/v1/ai/grn-drafts/scan';
+  static String aiGrnDraftApprove(String id) => '/api/v1/ai/grn-drafts/$id/approve';
+  static String aiGrnDraftReject(String id) => '/api/v1/ai/grn-drafts/$id/reject';
+
   // Auto-categorize transactions (vendor -> GL account, learned from history)
   static String aiCategorize(String contactId, {String? hsn}) =>
       '/api/v1/ai/categorize?contactId=$contactId'

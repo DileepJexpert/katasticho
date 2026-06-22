@@ -12,6 +12,7 @@ Replace the thin 7-item "Inventory" submenu with a 10-pillar supply chain suite.
 
 ## Recently shipped (this session)
 
+- [x] **Photo-to-GRN (tracker task #4)** — `GrnScanService` (vision OCR tailored to goods-receipt fields: batch / expiry / received-qty / unit-cost, distinct from `BillScanService`'s tax-block prompt), `GrnDraftingService` (PO-line fuzzy match by item name with longest-match-wins + exact-beats-contains + no-double-binding, stamps `itemId` + `purchaseOrderLineId` end-to-end so the P2P FKs survive; standalone-no-PO path uses caller-supplied warehouse + supplier with item-master name lookup; unmatched lines drop from the draft + raise the suggestion priority + carry an `unmatchedCount` warning), DTOs (`GrnScanResponse` / `GrnDraftFromScanRequest` / `GrnDraftResult`), new `DRAFT_GRN` AiSuggestion type, `GrnDraftingController` @ `/api/v1/ai/grn-drafts` (OWNER/ADMIN/OPERATOR — operators record receipts). Approve calls `StockReceiptService.receive` (fires inventory + provisional-COGS reconciliation paths); reject calls `StockReceiptService.cancel` so the audit trail keeps the failed attempt instead of hard-deleting. Flutter: `aiGrnDrafts` / `aiGrnDraftScan` / approve / reject endpoints in `api_config.dart`, repo methods on `AiRepository`, PO detail screen overflow-menu "Scan invoice → draft GRN" entry (camera→gallery fallback for desktop, base64 + media-type plumbing, navigates to drafted GRN), AI Inbox accept/reject routing for `DRAFT_GRN` (mirrors `DRAFT_BILL`). 8 new tests (`GrnDraftingServiceTest` — PO match + FK stamping w/ MEDIUM priority, unmatched-line HIGH priority + skip, standalone-no-PO w/ warehouse + supplierId, no-PO + no-warehouse throws `GRN_DRAFT_WAREHOUSE_REQUIRED`, two scan lines mapping to same PO line first-wins + second-unmatched, approve calls `receive` + ACCEPT, reject calls `cancel` + REJECT, non-DRAFT_GRN suggestion throws `AI_NOT_DRAFT_GRN`). **1313/1313 backend tests pass.** Flutter analyze/test require local SDK (no Flutter SDK on PATH in cloud env). Commit: pending.
 - [x] **AI local/remote toggle** (Ollama vs Claude) — commit `cf16715`, merged to main. `app.ai.use-local` flag.
 - [x] **Bill-freely UX**: negative-stock items surfaced on items list — commit `aee6055`. Red −1 styling + filter chip.
 - [x] **Provisional COGS + GRN true-up** (Option B) — commit `2c00301`. New `Stock-Out Suspense (2042)`, `CostResolverService`, `ProvisionalCostReconciler`, V5 migration, 14 new tests. Books self-heal at GRN time. **1273/1273 backend tests pass.**
@@ -44,15 +45,7 @@ exist but are buried under "Inventory > 7 items". Pure UX, no backend.
 - Verify command palette still works
 - Add `(coming soon)` stubs ONLY for what doesn't exist yet (avoid)
 
-### 4. [ ] Photo-to-GRN (AI invoice → draft GRN)
-**Why:** Highest-ROI AI feature for distributors per the blueprint. Marg has
-this. We already have `BillScanService` (photo → draft bill) so 80% is built.
-**Scope:**
-- Extend `BillScanService` → `GrnScanService.draftGrnFromPhoto(image, poId)`:
-  matches PO lines by item name fuzzy, fills batch/expiry/qty/cost from photo
-- New `DRAFT_GRN` AiSuggestion type — approve posts via `StockReceiptService.receive`
-- Endpoint: `POST /api/v1/ai/grn-drafts`
-- Tests: line-match by name, missing PO → standalone GRN draft
+### 4. [x] Photo-to-GRN (AI invoice → draft GRN) — shipped 2026-06-22, see Recently shipped above
 
 ---
 

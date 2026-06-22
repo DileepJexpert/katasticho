@@ -252,6 +252,29 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
         await _load(reset: true);
         return;
       }
+      // Drafted GRNs are received/cancelled via the GRN-drafting endpoints —
+      // the generic review only flips status and would leave stock unposted.
+      if (item.suggestionType == 'DRAFT_GRN' && action == 'ACCEPT') {
+        final received = await repo.approveGrnDraft(item.id);
+        if (!mounted) return;
+        final grnNumber = received['grnNumber']?.toString() ?? '';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(grnNumber.isEmpty
+              ? 'GRN received — stock posted.'
+              : 'GRN $grnNumber received — stock posted.')),
+        );
+        await _load(reset: true);
+        return;
+      }
+      if (item.suggestionType == 'DRAFT_GRN' && action == 'REJECT') {
+        await repo.rejectGrnDraft(item.id, reason: correctionReason);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Drafted GRN rejected.')),
+        );
+        await _load(reset: true);
+        return;
+      }
       // Conversational entries post/delete via the entry endpoints.
       if (item.suggestionType == 'DRAFT_ENTRY' && action == 'ACCEPT') {
         final posted = await repo.approveEntryDraft(item.id);
