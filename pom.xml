@@ -157,6 +157,12 @@
             <artifactId>openhtmltopdf-pdfbox</artifactId>
             <version>1.0.10</version>
         </dependency>
+        <!-- RTL / bidi + Arabic shaping (ICU-based) for Gulf invoice PDFs -->
+        <dependency>
+            <groupId>com.openhtmltopdf</groupId>
+            <artifactId>openhtmltopdf-rtl-support</artifactId>
+            <version>1.0.10</version>
+        </dependency>
 
         <!-- Excel parsing for bulk import -->
         <dependency>
