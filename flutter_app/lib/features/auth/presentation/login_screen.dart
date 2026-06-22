@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_state.dart';
+import '../../../core/intl/phone_rules.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -345,16 +346,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               RegExp(r'[+\d\s]')),
                           LengthLimitingTextInputFormatter(15),
                         ],
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) {
-                            return 'Phone number is required';
-                          }
-                          final digits = v.replaceAll(RegExp(r'[^\d]'), '');
-                          if (digits.length < 10) {
-                            return 'Enter a valid phone number';
-                          }
-                          return null;
-                        },
+                        // Country is unknown pre-login, so use the permissive
+                        // fallback rule (a valid Indian 10-digit number still
+                        // passes; the server validates definitively).
+                        validator: (v) => PhoneRules.validate(v, null),
                         textInputAction: TextInputAction.done,
                         onFieldSubmitted: (_) => _handleOtpRequest(),
                       ),

@@ -9,6 +9,7 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/auth_repository.dart';
+import '../../../core/intl/phone_rules.dart';
 import '../../onboarding/data/onboarding_state.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
@@ -221,16 +222,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                               RegExp(r'[+\d\s]')),
                           LengthLimitingTextInputFormatter(15),
                         ],
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) {
-                            return 'Phone number is required';
-                          }
-                          final digits = v.replaceAll(RegExp(r'[^\d]'), '');
-                          if (digits.length < 10) {
-                            return 'Enter a valid phone number';
-                          }
-                          return null;
-                        },
+                        validator: (v) => PhoneRules.validate(
+                            v, ref.read(onboardingProvider).countryCode),
                       ),
                       KSpacing.vGapMd,
                       KTextField(

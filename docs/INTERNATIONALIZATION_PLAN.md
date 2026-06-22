@@ -319,7 +319,11 @@ First-class M-Pesa reconciliation + eTIMS + KE payroll (PAYE/NSSF/SHIF/Housing/H
 - [ ] `StatutoryDeductionCalculator` registry + India calcs behind it + `GratuityCalculator` + `WpsFileGenerator`
 - [ ] Full string extraction sweep (~2,250) + professional Arabic translation
 - [ ] Full RTL sweep (EdgeInsetsDirectional + 98 directional icons + KDataTable + POS)
-- [~] Field localization — **weekend Fri–Sat DONE** (2026-06-22): `CountryAccessService.weekendDays()/isWeekend()` (via `CountryRegistry`); `LeaveManagementService.workingDays` + `AttendanceManagementService.monthlySummary` now read the org's country weekend instead of hardcoded Sat/Sun (payroll LOP flows through automatically — unpaid-leave working-days computed there). India byte-identical (Sat+Sun); test proves Oman Fri = non-working. *Remaining: phone rules, tax-id label, state→region.*
+- [~] Field localization (2026-06-22) — **3 of 4 done:**
+  - **Weekend Fri–Sat DONE:** `CountryAccessService.weekendDays()/isWeekend()` (via `CountryRegistry`); `LeaveManagementService.workingDays` + `AttendanceManagementService.monthlySummary` read the org's country weekend instead of hardcoded Sat/Sun (payroll LOP flows through automatically). India byte-identical; test proves Oman Fri = non-working.
+  - **Tax-id label DONE (contact create form):** label + 15-char GSTIN check resolve from `countryProfileProvider` (GSTIN/TRN/VAT No/PIN). *Display-only spots (contact detail/list, org details) still show 'GSTIN' — follow-up.*
+  - **Phone rules DONE:** `core/intl/phone_rules.dart` — min national-digit length per country (IN 10 / AE 9 / OM 8 / KE 9, unknown→7). Signup uses the onboarding country; login uses the permissive fallback (country unknown pre-auth). India `<10` byte-identical. `test/phone_rules_test.dart` (pure Dart, 6 tests).
+  - *Remaining: state→region gating (38 backend files, deferred — risky); PAN field India-gating.*
 - [ ] UAE VAT 201 return builder
 - [ ] Oman PINT-OM variant + Fri–Sat weekend
 - [ ] (Kenya, gated) M-Pesa recon + eTIMS + KE payroll + Swahili
