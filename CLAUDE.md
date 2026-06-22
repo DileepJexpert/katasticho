@@ -975,3 +975,4 @@ generic `AttachmentService`/`EntityAttachment` for documents.
 | `docs/WORKFLOW_CONTEXT_HINTS_PLAN.md` | Context hints: resolver, widget, hint text per vertical | Adding workflow hints |
 | `docs/plans/week-2-ap-module.md` | AP module spec (already implemented) | Debugging AP flows |
 | `docs/MANUFACTURING_FEATURE_TRACKER.md` | 101 missing features, prioritized tiers, daily progress log | Manufacturing work |
+| `docs/INTERNATIONALIZATION_PLAN.md` | **Multi-country plan (IN→UAE→Oman→Kenya):** code-grounded audit of every i18n/RTL/VAT/payroll/e-invoice gap + 6-week Phase-0 refactor checklist. Tax engine + module-gating already abstracted; Arabic/RTL + Gulf payroll + PINT-AE are the real builds. **Read before any multi-country / Arabic / VAT work.** | Internationalization, Gulf/Africa expansion |
