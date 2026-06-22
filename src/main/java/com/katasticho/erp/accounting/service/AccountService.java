@@ -101,12 +101,33 @@ public class AccountService {
      */
     @Transactional
     public SeedResult seedFromTemplate(UUID orgId, String industry) {
-        String templateIndustry = resolveIndustry(industry);
+        // Backward-compatible entry point — India template (current behaviour).
+        return seedFromTemplate(orgId, industry, "IN");
+    }
 
-        // Fetch template rows
+    /**
+     * Seed accounts from a country + industry template. Falls back to the India
+     * ('IN') template for that industry when no country-specific template exists,
+     * so an unmapped industry/country combination still gets a usable CoA.
+     */
+    @Transactional
+    public SeedResult seedFromTemplate(UUID orgId, String industry, String countryCode) {
+        String templateIndustry = resolveIndustry(industry);
+        String country = (countryCode == null || countryCode.isBlank())
+                ? "IN" : countryCode.toUpperCase();
+
+        // Fetch template rows for (country, industry); fall back to ('IN', industry).
         List<Map<String, Object>> templates = jdbcTemplate.queryForList(
-                "SELECT code, name, type, sub_type, parent_code, level, is_system FROM coa_template WHERE industry = ? ORDER BY code",
-                templateIndustry);
+                "SELECT code, name, type, sub_type, parent_code, level, is_system "
+                        + "FROM coa_template WHERE country = ? AND industry = ? ORDER BY code",
+                country, templateIndustry);
+        if (templates.isEmpty() && !"IN".equals(country)) {
+            log.info("No CoA template for country {} industry {} — falling back to IN", country, templateIndustry);
+            templates = jdbcTemplate.queryForList(
+                    "SELECT code, name, type, sub_type, parent_code, level, is_system "
+                            + "FROM coa_template WHERE country = 'IN' AND industry = ? ORDER BY code",
+                    templateIndustry);
+        }
 
         if (templates.isEmpty()) {
             log.warn("No CoA template found for industry: {}", industry);

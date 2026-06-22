@@ -133,7 +133,7 @@ public class OrgBootstrapService {
                 : runStep("UoMs", orgId, () -> uomService.seedDefaultsForOrg(orgId, industryCode));
 
         StepOutcome accounts = runStep("CoA", orgId,
-                () -> accountService.seedFromTemplate(orgId, org.getIndustry()));
+                () -> accountService.seedFromTemplate(orgId, org.getIndustry(), org.getCountryCode()));
 
         StepOutcome defaults = runStep("DefaultAccounts", orgId,
                 () -> defaultAccountService.seedDefaultsForOrg(orgId));
