@@ -20,6 +20,7 @@ public class AiConfig {
     private String model = "claude-sonnet-4-20250514";
     private int maxTokens = 4096;
     private int maxSqlRows = 100;
+    private boolean useLocal = true;
     private String defaultProvider = "OLLAMA";
     private String ollamaBaseUrl = "http://localhost:11434";
     private String ollamaModel = "llava";

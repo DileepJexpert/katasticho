@@ -54,10 +54,15 @@ public class VisionModelRouter {
         return settingsRepository.findById(orgId).orElseGet(this::defaultSettings);
     }
 
+    public boolean isUsingLocal() {
+        return aiConfig.isUseLocal();
+    }
+
     private OrgAiSettings defaultSettings() {
         OrgAiSettings s = new OrgAiSettings();
-        s.setProvider(aiConfig.getDefaultProvider());
-        if ("OLLAMA".equals(s.getProvider())) {
+        String provider = aiConfig.isUseLocal() ? "OLLAMA" : aiConfig.getDefaultProvider();
+        s.setProvider(provider);
+        if ("OLLAMA".equals(provider)) {
             s.setModelName(aiConfig.getOllamaModel());
             s.setBaseUrl(aiConfig.getOllamaBaseUrl());
         } else {
