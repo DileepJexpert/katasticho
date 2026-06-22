@@ -290,26 +290,28 @@ First-class M-Pesa reconciliation + eTIMS + KE payroll (PAYE/NSSF/SHIF/Housing/H
 
 ## 16. Master checklist (tick as shipped)
 
-**Phase 0 — foundation**
-- [ ] `Country` enum + `CountryProfile` interface + `CountryRegistry` + `IndiaProfile` (byte-identical)
-- [ ] `@RequiresCountry` + `CountryAccessAspect` + `TenantContext.getCurrentOrgCountry()`
-- [ ] Gate gst.* (controllers + INVOICE_POSTED handlers for e-invoice/e-way-bill)
-- [ ] Gate TDS/TCS (controllers + inline guards in PurchaseBill/SalesInvoice)
-- [ ] Gate migration/tally.*
-- [ ] Delete dead `IndiaGSTEngine`
-- [ ] `MoneyUtil.roundForPosting`; replace critical `setScale(2)` (Journal, Invoice, TaxEngine, POS, PurchaseBill)
-- [ ] Hook `Currency.decimalPlaces`; verify OMR=3/BHD=3/KWD=3/JPY=0 seeds
-- [ ] `coa_template.country` column + `seedFromTemplate(country)` + IN fallback
-- [ ] Gulf TRADING CoA template (VAT 2041/1511, no CGST/SGST)
-- [ ] UAE VAT 5% activates end-to-end (test invoice posts single 5% VAT line, correct GL)
-- [ ] Flutter locale controller + language picker + `supportedLocales += ar`
-- [ ] `CurrencyFormatter` locale/currency parametrized (kill hardcoded en_IN/₹)
-- [ ] Onboarding country step → bootstrap wires profile
-- [ ] Backend `DocumentPdfService` Arabic font (Noto Naskh) + dir=rtl
-- [ ] Flutter `pdf` Arabic font + bidi
-- [ ] Arabic ARB stub (machine, @needs-review)
-- [ ] PINT-AE XML stub (valid UBL, unrouted) for demo
-- [ ] **Regression: full backend test suite green; India behaviour unchanged**
+**Phase 0 — foundation**  *(progress 2026-06-22 — commits f43684d…f447428)*
+- [x] `Country` enum + `CountryProfile` + `CountryRegistry` + `IndiaProfile` (byte-identical) — **0.1**
+- [x] `@RequiresCountry` + `CountryAccessAspect` (CountryAccessService caches org country; no TenantContext change needed) — **0.1**
+- [x] Gate gst.* (7 controllers + both INVOICE_POSTED handlers for e-invoice/e-way-bill) — **0.2**
+- [x] Gate TDS/TCS (controllers). *Inline PurchaseBill/SalesInvoice guards skipped — already setting-gated; controller gate suffices* — **0.2**
+- [x] Gate migration/tally.* — **0.2**
+- [~] Delete dead `IndiaGSTEngine` — *left in place; it has a test + is inert (not a bean). Low-value cleanup, deferred.*
+- [x] `MoneyUtil.roundForPosting` + `MoneyPrecisionService` (infra). *Critical setScale(2) sweep DEFERRED to Oman — UAE is 2dp, every site already correct* — **0.3**
+- [x] Hook `Currency.decimalPlaces` (MoneyPrecisionService); V3 adds OMR/BHD/KWD=3, SAR/QAR/KES=2 (AED/JPY already correct) — **0.3**
+- [x] `coa_template.country` column (V4) + `seedFromTemplate(country)` + IN fallback — **0.4**
+- [x] Gulf TRADING CoA template (54 accts: VAT 2041/1511, no CGST/SGST/TDS/PF) — **0.4**
+- [x] **UAE VAT 5% activates end-to-end** — verified LIVE: AE signup → Gulf CoA + "VAT 5%" group; IN signup byte-identical (61 accts, GST split) — **0.4/0.5**
+- [x] Flutter locale controller + language picker + `app_ar.arb`/`app_sw.arb` stubs — **0.5**
+- [ ] `CurrencyFormatter` locale/currency parametrized (kill hardcoded en_IN/₹) — *app-wide money display; needs Flutter SDK to verify safely*
+- [x] Onboarding country step → bootstrap wires profile (register/signup pass countryCode; AuthService applies CountryProfile) — **0.5**
+- [ ] Backend `DocumentPdfService` Arabic font (Noto Naskh) + dir=rtl — *pending*
+- [ ] Flutter `pdf` Arabic font + bidi — *pending*
+- [x] Arabic ARB stub (33 labels translated, rest English placeholder @needs-review) — **0.5**
+- [ ] PINT-AE XML stub (valid UBL, unrouted) for demo — *pending*
+- [x] **Regression: full backend suite 1237 green; India byte-identical (live signup verified)** — **after each commit**
+
+**Phase 0 remaining (need Flutter SDK / next session):** CurrencyFormatter locale param · PDF Arabic fonts (backend one-place + Flutter) · PINT-AE XML stub · then the two long poles below.
 
 **Phase 2+ (post-validation)**
 - [ ] `EInvoiceProvider` interface + `IndiaIrpProvider` (byte-identical) + `PintAeProvider` + ASP integration
