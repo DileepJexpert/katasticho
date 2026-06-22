@@ -49,7 +49,8 @@ class _ItemPickerSheetState extends ConsumerState<_ItemPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final itemsAsync = ref.watch(itemListProvider(_query));
+    final itemsAsync = ref.watch(
+        itemListProvider((search: _query, negativeStockOnly: false)));
 
     return Padding(
       padding: EdgeInsets.only(

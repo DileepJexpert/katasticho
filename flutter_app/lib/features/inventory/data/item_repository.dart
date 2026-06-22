@@ -18,12 +18,14 @@ class ItemRepository {
     int size = 50,
     String? search,
     bool activeOnly = false,
+    bool negativeStockOnly = false,
   }) async {
     final params = <String, dynamic>{
       'page': page,
       'size': size,
       if (search != null && search.isNotEmpty) 'search': search,
       if (activeOnly) 'activeOnly': true,
+      if (negativeStockOnly) 'negativeStockOnly': true,
     };
     debugPrint('[ItemRepo] listItems params=$params');
     try {
@@ -69,6 +71,13 @@ class ItemRepository {
   Future<Map<String, dynamic>> getLowStock() async {
     final response = await _api.get(ApiConfig.lowStock);
     return response.data as Map<String, dynamic>;
+  }
+
+  Future<int> negativeStockCount() async {
+    final response = await _api.get('${ApiConfig.items}/negative-stock/count');
+    final raw = (response.data as Map<String, dynamic>)['data'];
+    final count = raw is Map ? raw['count'] : null;
+    return (count is num) ? count.toInt() : 0;
   }
 
   Future<List<Map<String, dynamic>>> listRackLocations() async {
@@ -167,10 +176,24 @@ class ItemRepository {
 }
 
 /// Item list — autoDispose so the search query state stays per-screen.
+/// Filter key for the items list — paired so `negativeStockOnly` toggles
+/// don't piggy-back on the search cache and vice-versa.
+typedef ItemListFilter = ({String? search, bool negativeStockOnly});
+
 final itemListProvider = FutureProvider.autoDispose
-    .family<Map<String, dynamic>, String?>((ref, search) async {
+    .family<Map<String, dynamic>, ItemListFilter>((ref, filter) async {
   final repo = ref.watch(itemRepositoryProvider);
-  return repo.listItems(search: search);
+  return repo.listItems(
+    search: filter.search,
+    negativeStockOnly: filter.negativeStockOnly,
+  );
+});
+
+/// Count of items with negative on-hand stock (sold without opening stock,
+/// awaiting a stock receipt). Drives the "Needs stock" chip badge + dashboard tile.
+final negativeStockCountProvider = FutureProvider.autoDispose<int>((ref) async {
+  final repo = ref.watch(itemRepositoryProvider);
+  return repo.negativeStockCount();
 });
 
 final itemDetailProvider = FutureProvider.autoDispose

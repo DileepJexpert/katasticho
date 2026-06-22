@@ -57,9 +57,19 @@ public class ItemController {
     public ResponseEntity<ApiResponse<PagedResponse<ItemResponse>>> listItems(
             @RequestParam(required = false) String search,
             @RequestParam(required = false, defaultValue = "false") boolean activeOnly,
+            @RequestParam(required = false, defaultValue = "false") boolean negativeStockOnly,
             Pageable pageable) {
-        Page<ItemResponse> page = itemService.listItems(search, activeOnly, pageable);
+        Page<ItemResponse> page =
+                itemService.listItems(search, activeOnly, negativeStockOnly, pageable);
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(page)));
+    }
+
+    /** Count of items currently in negative-stock — fuels dashboard tile + filter chip badge. */
+    @GetMapping("/negative-stock/count")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Long>>> negativeStockCount() {
+        return ResponseEntity.ok(ApiResponse.ok(
+                java.util.Map.of("count", itemService.countWithNegativeStock())));
     }
 
     @PutMapping("/{id}")

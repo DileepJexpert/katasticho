@@ -576,9 +576,18 @@ public class ItemService {
 
     @Transactional(readOnly = true)
     public Page<ItemResponse> listItems(String search, boolean activeOnly, Pageable pageable) {
+        return listItems(search, activeOnly, false, pageable);
+    }
+
+    public Page<ItemResponse> listItems(String search, boolean activeOnly,
+                                        boolean negativeStockOnly, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
         Page<Item> page;
-        if (search != null && !search.isBlank()) {
+        if (negativeStockOnly) {
+            // "Needs stock" is a global watchlist — search + activeOnly intentionally
+            // ignored so a cashier sees every row to back-fill in one view.
+            page = itemRepository.findWithNegativeStock(orgId, pageable);
+        } else if (search != null && !search.isBlank()) {
             page = itemRepository.search(orgId, search.trim(), pageable);
         } else if (activeOnly) {
             page = itemRepository.findByOrgIdAndIsDeletedFalseAndActiveTrue(orgId, pageable);
@@ -586,6 +595,10 @@ public class ItemService {
             page = itemRepository.findByOrgIdAndIsDeletedFalse(orgId, pageable);
         }
         return page.map(this::toResponse);
+    }
+
+    public long countWithNegativeStock() {
+        return itemRepository.countWithNegativeStock(TenantContext.getCurrentOrgId());
     }
 
     public ItemResponse toResponse(Item i) {
