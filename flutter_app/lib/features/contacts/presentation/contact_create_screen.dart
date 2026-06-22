@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/intl/country_currency.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
@@ -146,6 +147,11 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Tax-id label is country-specific: GSTIN (India), TRN (UAE), VAT No
+    // (Oman), PIN (Kenya). The 15-char GSTIN format check only applies to India.
+    final taxLabel =
+        ref.watch(countryProfileProvider).valueOrNull?.taxIdLabel ?? 'GSTIN';
+    final isGstin = taxLabel == 'GSTIN';
     return KKeyboardFormWrapper(
       onSubmit: _save,
       onCancel: () => context.pop(),
@@ -255,13 +261,15 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
               children: [
                 KCompactRow(children: [
                   KTextField(
-                    label: 'GSTIN',
+                    label: taxLabel,
                     controller: _gstinCtrl,
                     prefixIcon: Icons.receipt_long_outlined,
-                    maxLength: 15,
+                    maxLength: isGstin ? 15 : null,
                     serverError: serverErrors['gstin'],
                     validator: (v) => fieldError('gstin',
-                        (v != null && v.isNotEmpty && v.length != 15) ? 'GSTIN must be 15 characters' : null),
+                        (isGstin && v != null && v.isNotEmpty && v.length != 15)
+                            ? 'GSTIN must be 15 characters'
+                            : null),
                     onChanged: (v) {
                       if (v.length == 15) {
                         setState(() => _gstTreatment = 'REGISTERED');
