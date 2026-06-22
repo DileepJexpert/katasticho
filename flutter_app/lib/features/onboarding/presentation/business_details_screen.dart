@@ -62,8 +62,17 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
   final _gstinController = TextEditingController();
   final _phoneController = TextEditingController();
   String? _selectedStateCode;
+  String _selectedCountry = 'IN';
   bool _saving = false;
   String? _error;
+
+  // Supported countries (mirror the backend CountryRegistry).
+  static const List<Map<String, String>> _countries = [
+    {'code': 'IN', 'label': '🇮🇳  India (GST)'},
+    {'code': 'AE', 'label': '🇦🇪  United Arab Emirates (VAT)'},
+    {'code': 'OM', 'label': '🇴🇲  Oman (VAT)'},
+    {'code': 'KE', 'label': '🇰🇪  Kenya (VAT)'},
+  ];
 
   String get _selectedStateName {
     if (_selectedStateCode == null) return '';
@@ -78,6 +87,7 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
     final onboarding = ref.read(onboardingProvider);
     _gstinController.text = onboarding.gstin;
     _phoneController.text = onboarding.phone;
+    _selectedCountry = onboarding.countryCode;
     if (onboarding.stateCode.isNotEmpty) {
       _selectedStateCode = onboarding.stateCode;
     }
@@ -193,6 +203,29 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
                 ),
                 KSpacing.vGapMd,
               ],
+              DropdownButtonFormField<String>(
+                initialValue: _selectedCountry,
+                decoration: InputDecoration(
+                  labelText: 'Country',
+                  prefixIcon: const Icon(Icons.public_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: KSpacing.borderRadiusMd,
+                  ),
+                ),
+                items: _countries.map((c) {
+                  return DropdownMenuItem(
+                    value: c['code'],
+                    child: Text(c['label']!),
+                  );
+                }).toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() => _selectedCountry = v);
+                  // Drives currency / VAT-vs-GST / locale / fiscal year at signup.
+                  ref.read(onboardingProvider.notifier).setCountry(v);
+                },
+              ),
+              KSpacing.vGapMd,
               KTextField(
                 label: 'GSTIN',
                 controller: _gstinController,

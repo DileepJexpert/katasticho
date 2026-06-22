@@ -10,6 +10,7 @@ export 'k_component_color_picker.dart';
 export 'k_compact_row.dart';
 export 'k_keyboard_form_wrapper.dart';
 export 'k_keyboard_list_wrapper.dart';
+export 'language_switcher.dart';
 export 'k_shortcut_help_overlay.dart';
 export 'k_data_table.dart';
 export 'k_date_picker.dart';

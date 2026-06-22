@@ -9,6 +9,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
+import '../../onboarding/data/onboarding_state.dart';
 import '../data/auth_repository.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
@@ -101,6 +102,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           fullName: widget.fullName!,
           orgName: widget.orgName!,
           industry: widget.industry,
+          countryCode: ref.read(onboardingProvider).countryCode,
         );
       } else {
         // Login flow: verify OTP only

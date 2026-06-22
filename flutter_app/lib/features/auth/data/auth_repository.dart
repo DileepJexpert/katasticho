@@ -58,6 +58,7 @@ class AuthRepository {
     required String fullName,
     required String orgName,
     String? industry,
+    String? countryCode,
   }) async {
     final body = {
       'phone': phone,
@@ -65,6 +66,7 @@ class AuthRepository {
       'fullName': fullName,
       'orgName': orgName,
       if (industry != null) 'industry': industry,
+      if (countryCode != null) 'countryCode': countryCode,
     };
     debugPrint('[AuthRepo] signup called with body: $body');
     debugPrint('[AuthRepo] POST ${ApiConfig.signup}');
@@ -127,6 +129,7 @@ class AuthRepository {
     required String orgName,
     String? businessType,
     String? industryCode,
+    String? countryCode,
   }) async {
     final response = await _apiClient.post(
       ApiConfig.register,
@@ -137,6 +140,7 @@ class AuthRepository {
         'orgName': orgName,
         if (businessType != null) 'businessType': businessType,
         if (industryCode != null) 'industryCode': industryCode,
+        if (countryCode != null) 'countryCode': countryCode,
       },
     );
     return response.data as Map<String, dynamic>;

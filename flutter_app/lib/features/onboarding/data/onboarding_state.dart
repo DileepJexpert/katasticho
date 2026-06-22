@@ -10,6 +10,10 @@ class OnboardingData {
   final String stateCode;
   final String phone;
 
+  /// ISO-3166 alpha-2 country chosen at onboarding. Defaults to India; drives
+  /// the org's currency / VAT vs GST / locale / fiscal year at signup.
+  final String countryCode;
+
   const OnboardingData({
     this.businessType = 'RETAILER',
     this.industryCode = 'OTHER_RETAIL',
@@ -19,6 +23,7 @@ class OnboardingData {
     this.state = '',
     this.stateCode = '',
     this.phone = '',
+    this.countryCode = 'IN',
   });
 
   OnboardingData copyWith({
@@ -30,6 +35,7 @@ class OnboardingData {
     String? state,
     String? stateCode,
     String? phone,
+    String? countryCode,
   }) {
     return OnboardingData(
       businessType: businessType ?? this.businessType,
@@ -40,6 +46,7 @@ class OnboardingData {
       state: state ?? this.state,
       stateCode: stateCode ?? this.stateCode,
       phone: phone ?? this.phone,
+      countryCode: countryCode ?? this.countryCode,
     );
   }
 }
@@ -49,6 +56,9 @@ class OnboardingNotifier extends StateNotifier<OnboardingData> {
 
   void setBusinessType(String type) =>
       state = state.copyWith(businessType: type);
+
+  void setCountry(String countryCode) =>
+      state = state.copyWith(countryCode: countryCode);
 
   void setIndustry(String code, String displayName) =>
       state = state.copyWith(

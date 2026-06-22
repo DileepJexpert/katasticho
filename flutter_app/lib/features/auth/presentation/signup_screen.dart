@@ -60,6 +60,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         password: _passwordController.text,
         fullName: _nameController.text.trim(),
         orgName: _orgNameController.text.trim(),
+        countryCode: ref.read(onboardingProvider).countryCode,
       );
 
       final data = response['data'] as Map<String, dynamic>;

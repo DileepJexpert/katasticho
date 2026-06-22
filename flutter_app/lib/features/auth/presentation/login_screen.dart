@@ -253,6 +253,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
         actions: const [
+          LanguageSwitcher(),
           BrandPaletteSwitcher(),
           ThemeModeIconButton(),
           SizedBox(width: 8),
