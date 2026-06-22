@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/intl/country_currency.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -15,6 +16,8 @@ class ContactDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final taxLabel =
+        ref.watch(countryProfileProvider).valueOrNull?.taxIdLabel ?? 'GSTIN';
     return FutureBuilder<Map<String, dynamic>>(
       future: ref.read(contactRepositoryProvider).getContact(contactId),
       builder: (context, snapshot) {
@@ -194,7 +197,7 @@ class _DetailsTab extends StatelessWidget {
           // Tax info
           if (gstin != null || pan != null) ...[
             _SectionHeader('Tax'),
-            _InfoRow(Icons.receipt_long_outlined, 'GSTIN', gstin),
+            _InfoRow(Icons.receipt_long_outlined, taxLabel, gstin),
             _InfoRow(Icons.credit_card_outlined, 'PAN', pan),
             _InfoRow(
                 Icons.account_balance_outlined, 'GST Treatment', gstTreatment),

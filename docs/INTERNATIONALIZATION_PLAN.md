@@ -321,7 +321,7 @@ First-class M-Pesa reconciliation + eTIMS + KE payroll (PAYE/NSSF/SHIF/Housing/H
 - [ ] Full RTL sweep (EdgeInsetsDirectional + 98 directional icons + KDataTable + POS)
 - [~] Field localization (2026-06-22) — **3 of 4 done:**
   - **Weekend Fri–Sat DONE:** `CountryAccessService.weekendDays()/isWeekend()` (via `CountryRegistry`); `LeaveManagementService.workingDays` + `AttendanceManagementService.monthlySummary` read the org's country weekend instead of hardcoded Sat/Sun (payroll LOP flows through automatically). India byte-identical; test proves Oman Fri = non-working.
-  - **Tax-id label DONE (contact create form):** label + 15-char GSTIN check resolve from `countryProfileProvider` (GSTIN/TRN/VAT No/PIN). *Display-only spots (contact detail/list, org details) still show 'GSTIN' — follow-up.*
+  - **Tax-id label DONE:** label + 15-char GSTIN check resolve from `countryProfileProvider` (GSTIN/TRN/VAT No/PIN) on the contact create form, contact detail, contact list (search hint + card; `_ContactCard`→ConsumerWidget), and org details (display + edit field; India-only `22ABCDE…` hint). *Left as-is: GSP "Your GSTIN" (India-only e-invoice feature), GST settings tile (India-specific), branch GSTIN field — all correctly India-scoped or cosmetic.*
   - **Phone rules DONE:** `core/intl/phone_rules.dart` — min national-digit length per country (IN 10 / AE 9 / OM 8 / KE 9, unknown→7). Signup uses the onboarding country; login uses the permissive fallback (country unknown pre-auth). India `<10` byte-identical. `test/phone_rules_test.dart` (pure Dart, 6 tests).
   - *Remaining: state→region gating (38 backend files, deferred — risky); PAN field India-gating.*
 - [ ] UAE VAT 201 return builder

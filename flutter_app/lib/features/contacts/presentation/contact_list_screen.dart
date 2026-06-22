@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/intl/country_currency.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -101,6 +102,8 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
   @override
   Widget build(BuildContext context) {
     final inSelection = _selectedIds.isNotEmpty;
+    final taxLabel =
+        ref.watch(countryProfileProvider).valueOrNull?.taxIdLabel ?? 'GSTIN';
     return KKeyboardListWrapper(
       itemCount: () => _currentContacts.length,
       onNew: () => context.go(Routes.contactCreate),
@@ -111,7 +114,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
         children: [
           KListPageHeader(
             title: 'Contacts',
-            searchHint: 'Search by name, email, phone, GSTIN…',
+            searchHint: 'Search by name, email, phone, $taxLabel…',
             tabs: _contactTabs,
             selectedTab: _selectedType,
             onTabChanged: (v) => setState(() => _selectedType = v),
@@ -427,7 +430,7 @@ class _ContactAmountCell extends StatelessWidget {
   }
 }
 
-class _ContactCard extends StatelessWidget {
+class _ContactCard extends ConsumerWidget {
   final Map<String, dynamic> contact;
   final bool selected;
   final bool inSelection;
@@ -441,7 +444,9 @@ class _ContactCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final taxLabel =
+        ref.watch(countryProfileProvider).valueOrNull?.taxIdLabel ?? 'GSTIN';
     final cs = Theme.of(context).colorScheme;
     final displayName = contact['displayName'] as String? ?? 'Unknown';
     final companyName = contact['companyName'] as String?;
@@ -544,7 +549,7 @@ class _ContactCard extends StatelessWidget {
                 if (gstin != null && gstin.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
-                    'GSTIN: $gstin',
+                    '$taxLabel: $gstin',
                     style: KTypography.labelSmall
                         .copyWith(color: KColors.textHint),
                     maxLines: 1,

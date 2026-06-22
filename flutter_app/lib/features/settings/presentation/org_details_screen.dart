@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/auth/auth_state.dart';
+import '../../../core/intl/country_currency.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -106,6 +107,9 @@ class _OrgDetailsScreenState extends ConsumerState<OrgDetailsScreen> {
   Widget build(BuildContext context) {
     final orgId = ref.watch(authProvider).orgId ?? '';
     final asyncOrg = ref.watch(_orgDetailsProvider(orgId));
+    final taxLabel =
+        ref.watch(countryProfileProvider).valueOrNull?.taxIdLabel ?? 'GSTIN';
+    final isGstin = taxLabel == 'GSTIN';
 
     return Scaffold(
       appBar: AppBar(
@@ -149,7 +153,7 @@ class _OrgDetailsScreenState extends ConsumerState<OrgDetailsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _InfoRow(label: 'Business Name', value: org['name']),
-                _InfoRow(label: 'GSTIN', value: org['gstin']),
+                _InfoRow(label: taxLabel, value: org['gstin']),
                 _InfoRow(label: 'Phone', value: org['phone']),
                 _InfoRow(label: 'Email', value: org['email']),
               ],
@@ -202,7 +206,8 @@ class _OrgDetailsScreenState extends ConsumerState<OrgDetailsScreen> {
                 children: [
                   _field(_name, 'Business Name', required: true),
                   KSpacing.vGapSm,
-                  _field(_gstin, 'GSTIN', hint: '22ABCDE1234F1Z5',
+                  _field(_gstin, taxLabel,
+                      hint: isGstin ? '22ABCDE1234F1Z5' : null,
                       onChanged: _resolveStateFromGstin),
                   KSpacing.vGapSm,
                   _field(_phone, 'Phone', keyboard: TextInputType.phone),
