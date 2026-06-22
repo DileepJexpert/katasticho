@@ -835,7 +835,10 @@ public class PurchaseBillService {
                 bill.getTotalAmount(), bill.getAmountPaid(), bill.getBalanceDue(),
                 bill.getTdsAmount(),
                 bill.getCurrency(), bill.getPlaceOfSupply(), bill.isReverseCharge(),
-                bill.getJournalEntryId(), bill.getPurchaseOrderId(), bill.getNotes(),
+                bill.getJournalEntryId(), bill.getPurchaseOrderId(),
+                bill.getThreeWayMatchStatus(), bill.getThreeWayMatchAt(),
+                bill.getThreeWayMatchOverriddenBy(), bill.getThreeWayMatchOverrideReason(),
+                bill.getNotes(),
                 lineResponses, bill.getCreatedAt());
     }
 

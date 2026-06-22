@@ -177,11 +177,18 @@ public class ThreeWayMatchService {
                 lines);
     }
 
+    /** All non-MATCHED, non-BYPASSED line statuses — every variance an AP team
+     *  should review (qty over-receipt, price hike, amount mismatch, missing
+     *  PO link, missing GRN). MATCHED + BYPASSED are excluded by design. */
+    static final List<String> EXCEPTION_LINE_STATUSES = List.of(
+            LINE_QTY_OVER, LINE_PRICE_HIKE, LINE_AMOUNT_MISMATCH,
+            LINE_NO_PO, LINE_NO_GRN);
+
     @Transactional(readOnly = true)
     public Page<BillMatchResultLine> listExceptions(Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        // Exposes raw exception lines; the controller joins with bills for the UI.
-        return matchResultRepository.findByOrgIdAndStatus(orgId, LINE_QTY_OVER, pageable);
+        return matchResultRepository.findByOrgIdAndStatusIn(
+                orgId, EXCEPTION_LINE_STATUSES, pageable);
     }
 
     // ── Tolerance loading ────────────────────────────────────────────

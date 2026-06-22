@@ -26,6 +26,10 @@ public record PurchaseBillResponse(
         boolean reverseCharge,
         UUID journalEntryId,
         UUID purchaseOrderId,
+        String threeWayMatchStatus,
+        Instant threeWayMatchAt,
+        UUID threeWayMatchOverriddenBy,
+        String threeWayMatchOverrideReason,
         String notes,
         List<LineResponse> lines,
         Instant createdAt

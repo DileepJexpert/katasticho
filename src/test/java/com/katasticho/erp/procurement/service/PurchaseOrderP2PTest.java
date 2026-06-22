@@ -191,7 +191,8 @@ class PurchaseOrderP2PTest {
                             req.billDate(), req.billDate().plusDays(30), "DRAFT",
                             new BigDecimal("5000"), new BigDecimal("900"), new BigDecimal("5900"),
                             BigDecimal.ZERO, new BigDecimal("5900"), BigDecimal.ZERO,
-                            "INR", null, false, null, req.purchaseOrderId(), req.notes(),
+                            "INR", null, false, null, req.purchaseOrderId(),
+                            null, null, null, null, req.notes(),
                             List.of(), java.time.Instant.now());
                 });
 

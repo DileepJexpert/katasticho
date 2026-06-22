@@ -16,4 +16,6 @@ public interface BillMatchResultLineRepository extends JpaRepository<BillMatchRe
     void deleteByOrgIdAndBillId(UUID orgId, UUID billId);
 
     Page<BillMatchResultLine> findByOrgIdAndStatus(UUID orgId, String status, Pageable pageable);
+
+    Page<BillMatchResultLine> findByOrgIdAndStatusIn(UUID orgId, List<String> statuses, Pageable pageable);
 }

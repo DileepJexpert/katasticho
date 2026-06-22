@@ -257,7 +257,7 @@ class BillDraftingServiceTest {
                 LocalDate.of(2026, 6, 1), LocalDate.of(2026, 7, 1), "DRAFT",
                 new BigDecimal("950"), new BigDecimal("114"), new BigDecimal("1064"),
                 BigDecimal.ZERO, new BigDecimal("1064"), BigDecimal.ZERO,
-                "INR", "MH", false, null, null, null, List.of(), Instant.now());
+                "INR", "MH", false, null, null, null, null, null, null, null, List.of(), Instant.now());
     }
 
     private PurchaseBillResponse postedBill(UUID id, UUID contactId, UUID accountId) {
@@ -271,6 +271,6 @@ class BillDraftingServiceTest {
                 LocalDate.of(2026, 6, 1), LocalDate.of(2026, 7, 1), "OPEN",
                 new BigDecimal("950"), new BigDecimal("114"), new BigDecimal("1064"),
                 BigDecimal.ZERO, new BigDecimal("1064"), BigDecimal.ZERO,
-                "INR", "MH", false, UUID.randomUUID(), null, null, List.of(line), Instant.now());
+                "INR", "MH", false, UUID.randomUUID(), null, null, null, null, null, null, List.of(line), Instant.now());
     }
 }

@@ -503,4 +503,26 @@ class ThreeWayMatchServiceTest {
         assertEquals("MATCHED", status);
         verify(stockReceiptLineRepository, never()).sumReceivedQuantityForPurchaseOrderLine(any());
     }
+
+    @Test
+    void listExceptions_queries_all_non_matched_non_bypassed_statuses() {
+        org.springframework.data.domain.Pageable page =
+                org.springframework.data.domain.PageRequest.of(0, 20);
+        when(matchResultRepository.findByOrgIdAndStatusIn(eq(orgId), anyList(), eq(page)))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        service.listExceptions(page);
+
+        ArgumentCaptor<List<String>> captor = ArgumentCaptor.forClass(List.class);
+        verify(matchResultRepository).findByOrgIdAndStatusIn(eq(orgId), captor.capture(), eq(page));
+        List<String> statuses = captor.getValue();
+        // Every non-MATCHED, non-BYPASSED variance the AP team should triage.
+        assertTrue(statuses.contains("QTY_OVER"));
+        assertTrue(statuses.contains("PRICE_HIKE"));
+        assertTrue(statuses.contains("AMOUNT_MISMATCH"));
+        assertTrue(statuses.contains("NO_PO"));
+        assertTrue(statuses.contains("NO_GRN"));
+        assertFalse(statuses.contains("MATCHED"));
+        assertFalse(statuses.contains("BYPASSED"));
+    }
 }
