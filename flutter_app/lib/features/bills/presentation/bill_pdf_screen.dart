@@ -5,6 +5,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/pdf/pdf_fonts.dart';
+
 class BillPdfScreen extends StatelessWidget {
   final Map<String, dynamic> bill;
 
@@ -30,7 +32,7 @@ class BillPdfScreen extends StatelessWidget {
 
 Future<Uint8List> _buildPdf(
     PdfPageFormat format, Map<String, dynamic> b) async {
-  final doc = pw.Document(compress: true);
+  final doc = pw.Document(compress: true, theme: await PdfFonts.theme());
 
   final billNumber = b['billNumber'] as String? ?? '--';
   final vendorName = b['vendorName'] as String? ?? '--';

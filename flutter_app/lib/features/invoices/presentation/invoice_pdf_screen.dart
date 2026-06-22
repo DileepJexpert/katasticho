@@ -5,6 +5,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/pdf/pdf_fonts.dart';
+
 /// Full-screen PDF preview for a single invoice.
 ///
 /// Receives the raw invoice [data] map — same payload as [invoiceDetailProvider]
@@ -38,7 +40,7 @@ class InvoicePdfScreen extends StatelessWidget {
 
 Future<Uint8List> _buildPdf(
     PdfPageFormat format, Map<String, dynamic> inv) async {
-  final doc = pw.Document(compress: true);
+  final doc = pw.Document(compress: true, theme: await PdfFonts.theme());
 
   // ── Pull data ──────────────────────────────────────────────────
   final invoiceNumber = inv['invoiceNumber'] as String? ?? '--';

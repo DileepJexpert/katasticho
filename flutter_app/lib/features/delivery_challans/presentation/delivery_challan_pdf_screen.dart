@@ -5,6 +5,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/pdf/pdf_fonts.dart';
+
 /// Full-screen PDF preview for a single delivery challan.
 ///
 /// Receives the raw challan [data] map — same payload as
@@ -39,7 +41,7 @@ class DeliveryChallanPdfScreen extends StatelessWidget {
 
 Future<Uint8List> _buildPdf(
     PdfPageFormat format, Map<String, dynamic> ch) async {
-  final doc = pw.Document(compress: true);
+  final doc = pw.Document(compress: true, theme: await PdfFonts.theme());
 
   // ── Pull data ──────────────────────────────────────────────────
   final challanNumber = ch['challanNumber'] as String? ?? '--';

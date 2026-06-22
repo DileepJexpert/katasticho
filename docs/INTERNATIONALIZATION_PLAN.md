@@ -306,13 +306,13 @@ First-class M-Pesa reconciliation + eTIMS + KE payroll (PAYE/NSSF/SHIF/Housing/H
 - [x] `CurrencyFormatter` locale/currency parametrized (KMoney shows AED/OMR via active-currency config + countryProfileProvider) — **0.8** *(written; needs local `flutter analyze`+`test`)*
 - [x] Onboarding country step → bootstrap wires profile (register/signup pass countryCode; AuthService applies CountryProfile) — **0.5**
 - [x] Backend `DocumentPdfService` Arabic font (Noto Naskh) + ICU bidi/shaping — **0.7** (covers all 10 backend PDF doc types in one place; +openhtmltopdf-rtl-support dep)
-- [ ] Flutter `pdf` Arabic font + bidi — *pending (needs SDK)*
+- [x] Flutter `pdf` Arabic font (Noto Naskh as font-fallback in a shared `PdfFonts.theme()`; Latin stays Helvetica → India byte-identical; bundled `assets/fonts/NotoNaskhArabic-Regular.ttf`, same face as backend) wired into all 4 preview screens (invoice/bill/challan/estimate) — **0.9** *(glyph rendering done; full bidi/RTL table column-order is Phase 2 §8; needs local `flutter pub get`+`analyze` to verify the asset)*
 - [x] Arabic ARB stub (33 labels translated, rest English placeholder @needs-review) — **0.5**
 - [x] PINT-AE XML stub (valid UBL, unrouted) for demo — **0.6**: EInvoiceProvider seam + PintAeProvider (UBL 2.1, TRNs, 5% VAT, totals) + PintAeEInvoiceService (maps real Invoice) + endpoint gated @RequiresCountry({"AE","OM"})
 - [x] Country-profile endpoint (`GET /api/v1/reference/country-profile` → taxIdLabel/currency/symbol/decimals/weekend/fiscal) for Flutter field localization — **0.6**
 - [x] **Regression: full backend suite 1245 green; India byte-identical (live signup verified)** — **after each commit**
 
-**Phase 0 remaining:** only the Flutter `pdf`-package Arabic font (invoice-preview screens — needs SDK to add the asset + verify) and the **first local verification pass** (`flutter gen-l10n` + `flutter analyze` + `flutter test` on the 0.5/0.8 Flutter work, written without an SDK here). Then the two long poles (string sweep, full RTL sweep) → Phase 2. **Everything else in Phase 0 is shipped & on `main`** (0.1–0.8; backend 37 intl tests + suite 1248 green; UAE VAT + PINT-AE + Arabic PDF verified).
+**Phase 0 remaining:** only the **first local verification pass** (`flutter pub get` + `flutter gen-l10n` + `flutter analyze` + `flutter test` on the 0.5/0.8/0.9 Flutter work, written without an SDK here — confirms the new `assets/fonts/` asset resolves and the demo-card/PDF edits compile). Then the two long poles (string sweep, full RTL sweep) → Phase 2. **All Phase-0 buildable items are shipped & on `main`** (0.1–0.9; backend 37 intl tests + suite 1248 green; UAE VAT + PINT-AE + backend Arabic PDF verified; Flutter Arabic PDF font wired but needs local analyze).
 
 **Phase 2+ (post-validation)**
 - [ ] `EInvoiceProvider` interface + `IndiaIrpProvider` (byte-identical) + `PintAeProvider` + ASP integration

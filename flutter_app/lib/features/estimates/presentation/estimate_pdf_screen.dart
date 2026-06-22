@@ -5,6 +5,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/pdf/pdf_fonts.dart';
+
 class EstimatePdfScreen extends StatelessWidget {
   final Map<String, dynamic> estimate;
 
@@ -30,7 +32,7 @@ class EstimatePdfScreen extends StatelessWidget {
 
 Future<Uint8List> _buildPdf(
     PdfPageFormat format, Map<String, dynamic> e) async {
-  final doc = pw.Document(compress: true);
+  final doc = pw.Document(compress: true, theme: await PdfFonts.theme());
 
   final estimateNumber = e['estimateNumber'] as String? ?? '--';
   final contactName = e['contactName'] as String? ?? '--';
