@@ -35,6 +35,7 @@ class LeaveManagementServiceTest {
     @Mock private HolidayRepository holidayRepo;
     @Mock private LeaveBalanceRepository balanceRepo;
     @Mock private LeaveRequestRepository leaveRepo;
+    @Mock private com.katasticho.erp.common.country.CountryAccessService countryAccess;
 
     private LeaveManagementService service;
 
@@ -48,7 +49,10 @@ class LeaveManagementServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new LeaveManagementService(typeRepo, holidayRepo, balanceRepo, leaveRepo);
+        service = new LeaveManagementService(typeRepo, holidayRepo, balanceRepo, leaveRepo, countryAccess);
+        // India weekend (Sat+Sun) so existing working-day assertions hold.
+        org.mockito.Mockito.lenient().when(countryAccess.weekendDays())
+                .thenReturn(java.util.Set.of(java.time.DayOfWeek.SATURDAY, java.time.DayOfWeek.SUNDAY));
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
@@ -80,6 +84,19 @@ class LeaveManagementServiceTest {
         BigDecimal days = service.workingDays(mon, LocalDate.of(2026, 5, 10));
 
         assertEquals(0, days.compareTo(new BigDecimal("4")));
+    }
+
+    @Test
+    void workingDays_omanWeekend_treatsFridayAsOff() {
+        // Oman's weekend is Fri+Sat, so a lone Friday is a non-working day there,
+        // whereas in India (Sat+Sun) the same Friday counts as a working day.
+        when(holidayRepo.findByOrgIdAndHolidayDateBetweenAndIsDeletedFalseOrderByHolidayDateAsc(
+                eq(orgId), any(), any())).thenReturn(List.of());
+        when(countryAccess.weekendDays())
+                .thenReturn(java.util.Set.of(java.time.DayOfWeek.FRIDAY, java.time.DayOfWeek.SATURDAY));
+
+        LocalDate fri = LocalDate.of(2026, 5, 8); // a Friday
+        assertEquals(0, service.workingDays(fri, fri).compareTo(BigDecimal.ZERO));
     }
 
     @Test

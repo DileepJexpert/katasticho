@@ -319,7 +319,7 @@ First-class M-Pesa reconciliation + eTIMS + KE payroll (PAYE/NSSF/SHIF/Housing/H
 - [ ] `StatutoryDeductionCalculator` registry + India calcs behind it + `GratuityCalculator` + `WpsFileGenerator`
 - [ ] Full string extraction sweep (~2,250) + professional Arabic translation
 - [ ] Full RTL sweep (EdgeInsetsDirectional + 98 directional icons + KDataTable + POS)
-- [ ] Field localization (phone, tax-id label, state→region, weekend Fri–Sat)
+- [~] Field localization — **weekend Fri–Sat DONE** (2026-06-22): `CountryAccessService.weekendDays()/isWeekend()` (via `CountryRegistry`); `LeaveManagementService.workingDays` + `AttendanceManagementService.monthlySummary` now read the org's country weekend instead of hardcoded Sat/Sun (payroll LOP flows through automatically — unpaid-leave working-days computed there). India byte-identical (Sat+Sun); test proves Oman Fri = non-working. *Remaining: phone rules, tax-id label, state→region.*
 - [ ] UAE VAT 201 return builder
 - [ ] Oman PINT-OM variant + Fri–Sat weekend
 - [ ] (Kenya, gated) M-Pesa recon + eTIMS + KE payroll + Swahili

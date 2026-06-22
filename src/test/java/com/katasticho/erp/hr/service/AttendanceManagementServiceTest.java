@@ -32,6 +32,7 @@ class AttendanceManagementServiceTest {
     @Mock private LeaveRequestRepository leaveRepo;
     @Mock private HolidayRepository holidayRepo;
     @Mock private LeaveManagementService leaveMgmt;
+    @Mock private com.katasticho.erp.common.country.CountryAccessService countryAccess;
 
     private AttendanceManagementService service;
 
@@ -41,7 +42,10 @@ class AttendanceManagementServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AttendanceManagementService(attendanceRepo, regRepo, leaveRepo, holidayRepo, leaveMgmt);
+        service = new AttendanceManagementService(attendanceRepo, regRepo, leaveRepo, holidayRepo, leaveMgmt, countryAccess);
+        // India weekend (Sat+Sun) so existing summary assertions hold.
+        org.mockito.Mockito.lenient().when(countryAccess.weekendDays())
+                .thenReturn(java.util.Set.of(java.time.DayOfWeek.SATURDAY, java.time.DayOfWeek.SUNDAY));
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }

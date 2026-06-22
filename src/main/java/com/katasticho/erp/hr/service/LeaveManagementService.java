@@ -37,6 +37,7 @@ public class LeaveManagementService {
     private final HolidayRepository holidayRepository;
     private final LeaveBalanceRepository balanceRepository;
     private final LeaveRequestRepository leaveRequestRepository;
+    private final com.katasticho.erp.common.country.CountryAccessService countryAccessService;
 
     // ── Leave types ──────────────────────────────────────────────────────
 
@@ -232,10 +233,10 @@ public class LeaveManagementService {
                 .findByOrgIdAndHolidayDateBetweenAndIsDeletedFalseOrderByHolidayDateAsc(orgId, from, to)) {
             holidays.add(h.getHolidayDate());
         }
+        Set<DayOfWeek> weekend = countryAccessService.weekendDays();
         int count = 0;
         for (LocalDate d = from; !d.isAfter(to); d = d.plusDays(1)) {
-            DayOfWeek dow = d.getDayOfWeek();
-            if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) continue;
+            if (weekend.contains(d.getDayOfWeek())) continue;
             if (holidays.contains(d)) continue;
             count++;
         }

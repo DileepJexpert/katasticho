@@ -32,6 +32,7 @@ public class AttendanceManagementService {
     private final LeaveRequestRepository leaveRequestRepository;
     private final HolidayRepository holidayRepository;
     private final LeaveManagementService leaveManagementService;
+    private final com.katasticho.erp.common.country.CountryAccessService countryAccessService;
 
     // ── Regularization ───────────────────────────────────────────────────
 
@@ -124,9 +125,10 @@ public class AttendanceManagementService {
 
         int holidays = holidayRepository
                 .findByOrgIdAndHolidayDateBetweenAndIsDeletedFalseOrderByHolidayDateAsc(orgId, from, to).size();
+        java.util.Set<DayOfWeek> weekend = countryAccessService.weekendDays();
         int weekends = 0;
         for (LocalDate d = from; !d.isAfter(to); d = d.plusDays(1)) {
-            if (d.getDayOfWeek() == DayOfWeek.SATURDAY || d.getDayOfWeek() == DayOfWeek.SUNDAY) weekends++;
+            if (weekend.contains(d.getDayOfWeek())) weekends++;
         }
 
         BigDecimal absent = workingDays.subtract(BigDecimal.valueOf(present)).subtract(leaveDays)

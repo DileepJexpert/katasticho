@@ -25,13 +25,14 @@ import static org.mockito.Mockito.when;
 class CountryAccessServiceTest {
 
     @Mock private OrganisationRepository organisationRepository;
+    @Mock private CountryRegistry countryRegistry;
     private CountryAccessService service;
 
     private final UUID orgId = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
-        service = new CountryAccessService(organisationRepository);
+        service = new CountryAccessService(organisationRepository, countryRegistry);
         TenantContext.setCurrentOrgId(orgId);
     }
 

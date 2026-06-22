@@ -8,7 +8,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CountryAccessService {
 
     private final OrganisationRepository organisationRepository;
+    private final CountryRegistry countryRegistry;
 
     /** orgId → countryCode. Country never changes for an org → safe to cache. */
     private final ConcurrentHashMap<UUID, String> cache = new ConcurrentHashMap<>();
@@ -64,6 +68,20 @@ public class CountryAccessService {
     /** Convenience: is the current org in the given country? (no throw) */
     public boolean isCountry(String code) {
         return code != null && code.equalsIgnoreCase(currentCountry());
+    }
+
+    /**
+     * Non-working weekend days for the current org's country. India/UAE = Sat+Sun;
+     * Oman = Fri+Sat. Drives HR working-days, leave and payroll LOP so a Gulf org's
+     * Friday is correctly treated as a day off.
+     */
+    public Set<DayOfWeek> weekendDays() {
+        return countryRegistry.get(currentCountry()).weekendDays();
+    }
+
+    /** Whether {@code date} falls on the current org's weekend. */
+    public boolean isWeekend(LocalDate date) {
+        return weekendDays().contains(date.getDayOfWeek());
     }
 
     /** Drop a cached entry (e.g. if an admin corrects a country pre-first-invoice). */
