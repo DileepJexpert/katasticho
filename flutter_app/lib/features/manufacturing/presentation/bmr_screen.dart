@@ -126,7 +126,7 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<String>(
-              value: 'OPERATOR',
+              initialValue: 'OPERATOR',
               decoration: const InputDecoration(labelText: 'Role'),
               items: const [
                 DropdownMenuItem(value: 'OPERATOR', child: Text('Operator')),
@@ -183,7 +183,7 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                value: severity,
+                initialValue: severity,
                 decoration: const InputDecoration(labelText: 'Severity'),
                 items: const [
                   DropdownMenuItem(value: 'MINOR', child: Text('Minor')),

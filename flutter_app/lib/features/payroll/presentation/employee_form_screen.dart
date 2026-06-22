@@ -585,7 +585,7 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
       icon: Icons.work_history_outlined,
       children: [
         DropdownButtonFormField<String>(
-          value: _employmentType,
+          initialValue: _employmentType,
           decoration: const InputDecoration(
             labelText: 'Employment type',
             prefixIcon: Icon(Icons.work_outline),
@@ -647,7 +647,7 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
         KSpacing.vGapSm,
         KCompactRow(children: [
           DropdownButtonFormField<String>(
-            value: _gender,
+            initialValue: _gender,
             decoration: const InputDecoration(
               labelText: 'Gender',
               prefixIcon: Icon(Icons.person_outline),
@@ -664,7 +664,7 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
             onChanged: (v) => setState(() => _gender = v),
           ),
           DropdownButtonFormField<String>(
-            value: _maritalStatus,
+            initialValue: _maritalStatus,
             decoration: const InputDecoration(
               labelText: 'Marital status',
               prefixIcon: Icon(Icons.favorite_border),

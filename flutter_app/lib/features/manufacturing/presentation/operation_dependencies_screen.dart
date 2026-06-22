@@ -202,7 +202,7 @@ class _DependencyView extends ConsumerWidget {
                 )
               : Column(
                   children: rows.map((r) {
-                    final m = r as Map<String, dynamic>;
+                    final Map<String, dynamic> m = r;
                     return Card(
                       child: ListTile(
                         leading: const Icon(Icons.arrow_back),
@@ -231,7 +231,7 @@ class _DependencyView extends ConsumerWidget {
                 )
               : Column(
                   children: rows.map((r) {
-                    final m = r as Map<String, dynamic>;
+                    final Map<String, dynamic> m = r;
                     return Card(
                       child: ListTile(
                         leading: const Icon(Icons.arrow_forward),

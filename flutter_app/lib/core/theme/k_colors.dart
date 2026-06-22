@@ -160,22 +160,34 @@ class KColors {
   static Color _statusKeywordColor(String status) {
     final s = status.toLowerCase();
     if (RegExp(r'paid|received|reconcil|filed|approved|cleared|posted|active|completed|success|accept')
-        .hasMatch(s)) return success;
+        .hasMatch(s)) {
+      return success;
+    }
     if (RegExp(r'overdue|fail|reject|error|cancel|void|bounce|expired|blocked')
-        .hasMatch(s)) return error;
+        .hasMatch(s)) {
+      return error;
+    }
     if (RegExp(r'pending|due|mismatch|partial|hold|review|awaiting|draft|unpaid')
-        .hasMatch(s)) return warning;
+        .hasMatch(s)) {
+      return warning;
+    }
     return textSecondary;
   }
 
   static Color _statusKeywordBg(String status) {
     final s = status.toLowerCase();
     if (RegExp(r'paid|received|reconcil|filed|approved|cleared|posted|active|completed|success|accept')
-        .hasMatch(s)) return successLight;
+        .hasMatch(s)) {
+      return successLight;
+    }
     if (RegExp(r'overdue|fail|reject|error|cancel|void|bounce|expired|blocked')
-        .hasMatch(s)) return errorLight;
+        .hasMatch(s)) {
+      return errorLight;
+    }
     if (RegExp(r'pending|due|mismatch|partial|hold|review|awaiting|draft|unpaid')
-        .hasMatch(s)) return warningLight;
+        .hasMatch(s)) {
+      return warningLight;
+    }
     return draftBg;
   }
 }

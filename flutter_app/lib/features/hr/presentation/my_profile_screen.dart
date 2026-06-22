@@ -615,7 +615,7 @@ class _PersonalDialogState extends State<_PersonalDialog> {
                 ),
               ),
               DropdownButtonFormField<String>(
-                value: _gender,
+                initialValue: _gender,
                 decoration: const InputDecoration(labelText: 'Gender'),
                 items: const [
                   DropdownMenuItem(value: 'MALE', child: Text('Male')),
@@ -628,7 +628,7 @@ class _PersonalDialogState extends State<_PersonalDialog> {
                 onChanged: (v) => setState(() => _gender = v),
               ),
               DropdownButtonFormField<String>(
-                value: _marital,
+                initialValue: _marital,
                 decoration: const InputDecoration(labelText: 'Marital status'),
                 items: const [
                   DropdownMenuItem(value: 'SINGLE', child: Text('Single')),
@@ -876,7 +876,7 @@ class _FamilyDialogState extends State<_FamilyDialog> {
                 decoration: const InputDecoration(labelText: 'Name'),
               ),
               DropdownButtonFormField<String>(
-                value: _relationship,
+                initialValue: _relationship,
                 decoration: const InputDecoration(labelText: 'Relationship'),
                 items: const [
                   DropdownMenuItem(value: 'SPOUSE', child: Text('Spouse')),

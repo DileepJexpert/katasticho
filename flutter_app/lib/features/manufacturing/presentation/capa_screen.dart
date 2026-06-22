@@ -398,7 +398,7 @@ class _RaiseCapaDialogState extends State<_RaiseCapaDialog> {
               const SizedBox(height: 8),
               Row(children: [
                 Expanded(child: DropdownButtonFormField<String>(
-                  value: _type,
+                  initialValue: _type,
                   decoration: const InputDecoration(labelText: 'Type',
                       border: OutlineInputBorder()),
                   items: const [
@@ -409,7 +409,7 @@ class _RaiseCapaDialogState extends State<_RaiseCapaDialog> {
                 )),
                 const SizedBox(width: 8),
                 Expanded(child: DropdownButtonFormField<String>(
-                  value: _priority,
+                  initialValue: _priority,
                   decoration: const InputDecoration(labelText: 'Priority',
                       border: OutlineInputBorder()),
                   items: const [

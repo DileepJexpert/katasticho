@@ -628,7 +628,7 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                value: _workstationId,
+                initialValue: _workstationId,
                 decoration: const InputDecoration(labelText: 'Workstation *'),
                 items: widget.workstations
                     .map((w) => DropdownMenuItem(
@@ -726,7 +726,7 @@ class _WorkOrderDialogState extends State<_WorkOrderDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                value: _workstationId,
+                initialValue: _workstationId,
                 decoration: const InputDecoration(labelText: 'Workstation *'),
                 items: widget.workstations
                     .map((w) => DropdownMenuItem(
@@ -737,7 +737,7 @@ class _WorkOrderDialogState extends State<_WorkOrderDialog> {
                 onChanged: (v) => setState(() => _workstationId = v),
               ),
               DropdownButtonFormField<String>(
-                value: _type,
+                initialValue: _type,
                 decoration: const InputDecoration(labelText: 'Type'),
                 items: const [
                   DropdownMenuItem(
@@ -750,7 +750,7 @@ class _WorkOrderDialogState extends State<_WorkOrderDialog> {
                 onChanged: (v) => setState(() => _type = v ?? 'BREAKDOWN'),
               ),
               DropdownButtonFormField<String>(
-                value: _priority,
+                initialValue: _priority,
                 decoration: const InputDecoration(labelText: 'Priority'),
                 items: const [
                   DropdownMenuItem(value: 'URGENT', child: Text('Urgent')),

@@ -238,7 +238,7 @@ class _ItemComplianceFormState extends ConsumerState<_ItemComplianceForm> {
             ),
             const SizedBox(height: KSpacing.md),
             DropdownButtonFormField<String>(
-              value: _vegClass,
+              initialValue: _vegClass,
               decoration: const InputDecoration(
                 labelText: 'Veg classification',
                 border: OutlineInputBorder(),
@@ -257,7 +257,7 @@ class _ItemComplianceFormState extends ConsumerState<_ItemComplianceForm> {
             ),
             const SizedBox(height: KSpacing.md),
             DropdownButtonFormField<String>(
-              value: _dateMarking,
+              initialValue: _dateMarking,
               decoration: const InputDecoration(
                 labelText: 'Date marking type',
                 border: OutlineInputBorder(),
@@ -357,7 +357,7 @@ class _AllergenExposureTabState extends ConsumerState<_AllergenExposureTab> {
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text(ApiErrorParser.message(e)),
             data: (list) => DropdownButtonFormField<String>(
-              value: _allergen,
+              initialValue: _allergen,
               decoration: const InputDecoration(
                 labelText: 'Allergen',
                 helperText:

@@ -304,6 +304,7 @@ class _RecordPodDialogState extends State<_RecordPodDialog> {
       lastDate: DateTime.now().add(const Duration(days: 1)),
     );
     if (d == null) return;
+    if (!mounted) return;
     final t = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_deliveredAt),

@@ -567,7 +567,7 @@ class _LogScrapSheetState extends State<_LogScrapSheet> {
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: _reasonId,
+            initialValue: _reasonId,
             decoration: const InputDecoration(
               labelText: 'Reason',
               border: OutlineInputBorder(),
