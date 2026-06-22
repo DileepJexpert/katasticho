@@ -29,6 +29,34 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
     Page<Item> findByOrgIdAndIsDeletedFalseAndActiveTrue(UUID orgId, Pageable pageable);
 
     /**
+     * Items whose summed {@code stock_balance.quantity_on_hand} across all
+     * warehouses is negative — sold from zero on hand (bill-freely path).
+     * Drives the Items list "Needs stock" filter so a cashier can see at the
+     * end of the day exactly which products to back-fill via a stock receipt.
+     */
+    @Query("""
+            SELECT i FROM Item i
+            WHERE i.orgId = :orgId
+              AND i.isDeleted = false
+              AND i.trackInventory = true
+              AND (SELECT COALESCE(SUM(b.quantityOnHand), 0)
+                     FROM StockBalance b
+                    WHERE b.orgId = i.orgId AND b.itemId = i.id) < 0
+            """)
+    Page<Item> findWithNegativeStock(@Param("orgId") UUID orgId, Pageable pageable);
+
+    @Query("""
+            SELECT COUNT(i) FROM Item i
+            WHERE i.orgId = :orgId
+              AND i.isDeleted = false
+              AND i.trackInventory = true
+              AND (SELECT COALESCE(SUM(b.quantityOnHand), 0)
+                     FROM StockBalance b
+                    WHERE b.orgId = i.orgId AND b.itemId = i.id) < 0
+            """)
+    long countWithNegativeStock(@Param("orgId") UUID orgId);
+
+    /**
      * Items changed since the cursor — feeds the POS catalog delta sync.
      * Cursor is composite ({@code updatedAt}, {@code id}) so a full pre-sync of
      * tens of thousands of rows that share a clock tick paginates correctly

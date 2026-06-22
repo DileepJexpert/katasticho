@@ -19,7 +19,16 @@ class ItemListScreen extends ConsumerStatefulWidget {
 class _ItemListScreenState extends ConsumerState<ItemListScreen> {
   List<Map<String, dynamic>> _currentItems = const [];
   String? _searchQuery;
+  bool _negativeStockOnly = false;
   final Set<String> _selectedIds = {};
+
+  ItemListFilter get _filter =>
+      (search: _searchQuery, negativeStockOnly: _negativeStockOnly);
+
+  static void _refreshAll(WidgetRef ref) {
+    ref.invalidate(itemListProvider);
+    ref.invalidate(negativeStockCountProvider);
+  }
 
   void _openAtIndex(int index) {
     if (index < 0 || index >= _currentItems.length) return;
@@ -73,7 +82,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
     }
     if (!mounted) return;
     setState(_selectedIds.clear);
-    ref.invalidate(itemListProvider);
+    _refreshAll(ref);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(failed == 0
           ? 'Deleted $success item${success == 1 ? '' : 's'}'
@@ -83,13 +92,14 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final itemsAsync = ref.watch(itemListProvider(_searchQuery));
+    final itemsAsync = ref.watch(itemListProvider(_filter));
+    final negStockCountAsync = ref.watch(negativeStockCountProvider);
     final inSelection = _selectedIds.isNotEmpty;
 
     return KKeyboardListWrapper(
       itemCount: () => _currentItems.length,
       onNew: () => context.go(Routes.itemCreate),
-      onRefresh: () => ref.invalidate(itemListProvider),
+      onRefresh: () => _refreshAll(ref),
       onOpen: _openAtIndex,
       child: Scaffold(
       body: Column(
@@ -102,6 +112,15 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
             actions: inSelection
                 ? null
                 : [
+                    _NegativeStockChip(
+                      active: _negativeStockOnly,
+                      count: negStockCountAsync.maybeWhen(
+                        data: (c) => c,
+                        orElse: () => null,
+                      ),
+                      onTap: () => setState(
+                          () => _negativeStockOnly = !_negativeStockOnly),
+                    ),
                     IconButton(
                       tooltip: 'Item groups (variant templates)',
                       icon: const Icon(Icons.category_outlined, size: 20),
@@ -134,7 +153,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
                 debugPrint('[ItemListScreen] ERROR: $err\n$st');
                 return KErrorView(
                   message: 'Failed to load items',
-                  onRetry: () => ref.invalidate(itemListProvider),
+                  onRetry: () => _refreshAll(ref),
                 );
               },
               data: (data) {
@@ -146,6 +165,14 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
                         : []);
 
                 if (items.isEmpty) {
+                  if (_negativeStockOnly) {
+                    return const KEmptyState(
+                      icon: Icons.check_circle_outline,
+                      title: 'No negative-stock items',
+                      subtitle:
+                          'Every tracked item has on-hand ≥ 0 — nothing to reconcile right now.',
+                    );
+                  }
                   return KEmptyState(
                     icon: Icons.inventory_2_outlined,
                     title: _searchQuery == null
@@ -169,7 +196,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
 
                 return KResponsiveEntityList<Map<String, dynamic>>(
                   items: itemMaps,
-                  onRefresh: () async => ref.invalidate(itemListProvider),
+                  onRefresh: () async => _refreshAll(ref),
                   mobileItemBuilder: (context, item) {
                     final id = item['id']?.toString() ?? '';
                     return _ItemCard(
@@ -361,29 +388,105 @@ class _ItemStockCell extends StatelessWidget {
     }
 
     final qty = onHand ?? 0;
-    final isLow = reorderLevel > 0 && qty <= reorderLevel;
+    final isNegative = qty < 0;
+    final isLow = !isNegative && reorderLevel > 0 && qty <= reorderLevel;
+    final color = isNegative
+        ? KColors.error
+        : (isLow ? KColors.warning : KColors.textSecondary);
+    final icon = isNegative
+        ? Icons.error_outline
+        : (isLow ? Icons.warning_amber_rounded : Icons.inventory_outlined);
     return SizedBox(
-      width: 118,
+      width: 138,
       child: Row(
         children: [
-          Icon(
-            isLow ? Icons.warning_amber_rounded : Icons.inventory_outlined,
-            size: 16,
-            color: isLow ? KColors.warning : KColors.textSecondary,
-          ),
+          Icon(icon, size: 16, color: color),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              '${_formatQty(qty)} on hand',
+              isNegative
+                  ? '${_formatQty(qty)} · needs stock'
+                  : '${_formatQty(qty)} on hand',
               style: KTypography.bodySmall.copyWith(
-                color: isLow ? KColors.warning : KColors.textSecondary,
-                fontWeight: isLow ? FontWeight.w700 : FontWeight.w500,
+                color: color,
+                fontWeight:
+                    (isNegative || isLow) ? FontWeight.w700 : FontWeight.w500,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Header chip toggling the "items with negative on-hand" filter.
+/// Badge shows the live count so an admin can spot back-fill work at a glance
+/// without flipping the filter on.
+class _NegativeStockChip extends StatelessWidget {
+  final bool active;
+  final int? count;
+  final VoidCallback onTap;
+
+  const _NegativeStockChip({
+    required this.active,
+    required this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final has = (count ?? 0) > 0;
+    final tint = active || has ? KColors.error : KColors.textSecondary;
+    return Tooltip(
+      message: active
+          ? 'Showing items with negative stock — tap to clear'
+          : 'Show items sold without stock (needs receipt)',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                active ? Icons.error : Icons.error_outline,
+                size: 18,
+                color: tint,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Needs stock',
+                style: KTypography.bodySmall.copyWith(
+                  color: tint,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+              if (has) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: KColors.error,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: KTypography.bodySmall.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -414,10 +517,15 @@ class _ItemCard extends StatelessWidget {
     final itemType = item['itemType'] as String? ?? 'GOODS';
     final active = item['active'] as bool? ?? true;
 
-    final isLowStock = trackInventory &&
+    final isNegative = trackInventory && onHand != null && onHand < 0;
+    final isLowStock = !isNegative &&
+        trackInventory &&
         onHand != null &&
         onHand <= reorderLevel &&
         reorderLevel > 0;
+    final stockColor = isNegative
+        ? KColors.error
+        : (isLowStock ? KColors.warning : KColors.textSecondary);
 
     return KCard(
       onTap: () {
@@ -489,28 +597,34 @@ class _ItemCard extends StatelessWidget {
                   Row(
                     children: [
                       Icon(
-                        Icons.inventory_outlined,
+                        isNegative
+                            ? Icons.error_outline
+                            : (isLowStock
+                                ? Icons.warning_amber_rounded
+                                : Icons.inventory_outlined),
                         size: 14,
-                        color: isLowStock
-                            ? KColors.warning
-                            : KColors.textSecondary,
+                        color: stockColor,
                       ),
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
                           '${onHand.toStringAsFixed(onHand.truncateToDouble() == onHand ? 0 : 2)} on hand',
                           style: KTypography.bodySmall.copyWith(
-                            color: isLowStock
-                                ? KColors.warning
-                                : KColors.textSecondary,
-                            fontWeight: isLowStock
-                                ? FontWeight.w600
+                            color: stockColor,
+                            fontWeight: (isNegative || isLowStock)
+                                ? FontWeight.w700
                                 : FontWeight.normal,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (isLowStock) ...[
+                      if (isNegative) ...[
+                        const SizedBox(width: 6),
+                        const KStatusChip(
+                            status: 'OVERDUE',
+                            label: 'Needs stock',
+                            dense: true),
+                      ] else if (isLowStock) ...[
                         const SizedBox(width: 6),
                         const KStatusChip(
                             status: 'OVERDUE', label: 'Low', dense: true),
