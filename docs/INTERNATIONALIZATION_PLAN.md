@@ -305,8 +305,8 @@ First-class M-Pesa reconciliation + eTIMS + KE payroll (PAYE/NSSF/SHIF/Housing/H
 - [x] Flutter locale controller + language picker + `app_ar.arb`/`app_sw.arb` stubs — **0.5**
 - [ ] `CurrencyFormatter` locale/currency parametrized (kill hardcoded en_IN/₹) — *app-wide money display; needs Flutter SDK to verify safely*
 - [x] Onboarding country step → bootstrap wires profile (register/signup pass countryCode; AuthService applies CountryProfile) — **0.5**
-- [ ] Backend `DocumentPdfService` Arabic font (Noto Naskh) + dir=rtl — *pending*
-- [ ] Flutter `pdf` Arabic font + bidi — *pending*
+- [x] Backend `DocumentPdfService` Arabic font (Noto Naskh) + ICU bidi/shaping — **0.7** (covers all 10 backend PDF doc types in one place; +openhtmltopdf-rtl-support dep)
+- [ ] Flutter `pdf` Arabic font + bidi — *pending (needs SDK)*
 - [x] Arabic ARB stub (33 labels translated, rest English placeholder @needs-review) — **0.5**
 - [x] PINT-AE XML stub (valid UBL, unrouted) for demo — **0.6**: EInvoiceProvider seam + PintAeProvider (UBL 2.1, TRNs, 5% VAT, totals) + PintAeEInvoiceService (maps real Invoice) + endpoint gated @RequiresCountry({"AE","OM"})
 - [x] Country-profile endpoint (`GET /api/v1/reference/country-profile` → taxIdLabel/currency/symbol/decimals/weekend/fiscal) for Flutter field localization — **0.6**
