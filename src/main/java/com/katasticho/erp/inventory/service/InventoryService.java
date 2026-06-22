@@ -175,6 +175,7 @@ public class InventoryService {
                 .referenceNumber(request.referenceNumber())
                 .reversal(false)
                 .reversed(false)
+                .costProvisional(request.costProvisional())
                 .notes(request.notes())
                 .createdBy(userId)
                 .build();

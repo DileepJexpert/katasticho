@@ -101,6 +101,27 @@ public class StockMovement {
     @Builder.Default
     private boolean reversed = false;
 
+    /**
+     * Provisional-cost flag — set at INSERT for SALE movements whose unit_cost
+     * was estimated (MRP × (1 − margin) or salePrice × (1 − margin)) because
+     * the item had no known purchase price. Never mutates after insert; the
+     * "settle" step records when reconciliation closed the placeholder by
+     * stamping {@link #costSettledAt}, the flag itself stays true forever
+     * so the historical "this row used provisional cost" fact is auditable.
+     */
+    @Column(name = "cost_provisional", nullable = false, updatable = false)
+    @Builder.Default
+    private boolean costProvisional = false;
+
+    /**
+     * NULL until a GRN true-up reconciles this provisional movement. Set once
+     * (by {@code ProvisionalCostReconciler.reconcileForItem}) and never
+     * cleared — alongside {@link #reversed}, the second field allowed to
+     * mutate after insert.
+     */
+    @Column(name = "cost_settled_at")
+    private Instant costSettledAt;
+
     @Column(columnDefinition = "TEXT", updatable = false)
     private String notes;
 

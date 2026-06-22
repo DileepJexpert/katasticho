@@ -26,6 +26,7 @@ import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.BatchService;
+import com.katasticho.erp.inventory.service.CostResolverService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
@@ -87,6 +88,7 @@ public class SalesReceiptService {
     private final AccountingPostingEngine postingEngine;
     private final InventoryService inventoryService;
     private final BatchService batchService;
+    private final CostResolverService costResolverService;
     private final TaxEngine taxEngine;
     private final AuditService auditService;
     private final CacheInvalidationService cacheInvalidationService;
@@ -377,18 +379,30 @@ public class SalesReceiptService {
             BigDecimal stockQty = line.getBaseQuantity() != null
                     ? line.getBaseQuantity() : line.getQuantity();
 
+            // Resolve the unit cost the movement should carry. Previously this
+            // passed line.getRate() (the SALE price) — which had no business
+            // showing up as a cost. With V5 the resolver gives us either the
+            // real purchase price (non-provisional) or MRP/salePrice × (1−margin)
+            // (provisional). When neither is available, fall back to ZERO so the
+            // movement is recorded but contributes no cost — matching legacy
+            // behaviour for items with truly nothing to estimate from.
+            CostResolverService.CostBasis basis = costResolverService.resolve(item, orgId);
+            BigDecimal unitCost = basis != null ? basis.unitCost() : BigDecimal.ZERO;
+            boolean costProvisional = basis != null && basis.provisional();
+
             StockMovementRequest req = new StockMovementRequest(
                     line.getItemId(),
                     warehouse.getId(),
                     MovementType.SALE,
                     stockQty.negate(),
-                    line.getRate(),
+                    unitCost,
                     receipt.getReceiptDate(),
                     ReferenceType.SALES_RECEIPT,
                     receipt.getId(),
                     receipt.getReceiptNumber(),
                     "POS Sale " + receipt.getReceiptNumber(),
-                    batchId);
+                    batchId,
+                    costProvisional);
 
             StockMovement movement = inventoryService.recordMovement(req);
             line.setStockMovementId(movement.getId());

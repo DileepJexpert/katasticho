@@ -17,6 +17,7 @@ import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.BatchService;
 import com.katasticho.erp.inventory.service.InventoryService;
+import com.katasticho.erp.inventory.service.ProvisionalCostReconciler;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.sales.service.SalesOrderService;
@@ -75,6 +76,7 @@ public class StockReceiptService {
     private final BatchService batchService;
     private final AuditService auditService;
     private final SalesOrderService salesOrderService;
+    private final ProvisionalCostReconciler provisionalCostReconciler;
 
     @Transactional
     public StockReceiptResponse createDraft(CreateStockReceiptRequest request) {
@@ -282,6 +284,23 @@ public class StockReceiptService {
                 line.setStockMovementId(movement.getId());
             }
             updateLatestPurchasePrice(item, landedUnitCost);
+
+            // Bill-freely true-up: if this item had any prior provisional SALE
+            // movements (booked against Stock-Out Suspense because purchasePrice
+            // was unknown), this GRN reveals the actual cost — reconcile now.
+            // Skip for SERVICE items (movement == null) — they never deduct stock.
+            if (movement != null) {
+                try {
+                    provisionalCostReconciler.reconcileForItem(
+                            orgId, item.getId(), landedUnitCost, receipt.getReceiptNumber());
+                } catch (Exception e) {
+                    // Don't fail the GRN if reconciliation hits an edge case —
+                    // the operator can re-run via a follow-up tool. Logging
+                    // surfaces the variance for diagnostics.
+                    log.warn("Provisional COGS reconciliation failed for item {} on GRN {}: {}",
+                            item.getId(), receipt.getReceiptNumber(), e.getMessage());
+                }
+            }
         }
 
         receipt.setStatus("RECEIVED");

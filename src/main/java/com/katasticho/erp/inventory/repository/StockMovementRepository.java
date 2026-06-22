@@ -115,6 +115,16 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, UU
             UUID orgId, LocalDate from, LocalDate to);
 
     /**
+     * Unsettled provisional SALE movements for an item, oldest first — fed to
+     * {@code ProvisionalCostReconciler} on every GRN PURCHASE movement for the
+     * same item. Backed by the partial index
+     * {@code idx_stock_movement_unsettled_provisional} so the GRN hot path
+     * stays cheap.
+     */
+    List<StockMovement> findByOrgIdAndItemIdAndCostProvisionalTrueAndCostSettledAtIsNullOrderByMovementDateAscCreatedAtAsc(
+            UUID orgId, UUID itemId);
+
+    /**
      * Per-item recorded cost and quantity of outgoing movements attributable
      * to the given references (e.g. an invoice's delivery challans, or a
      * transfer order's TRANSFER_OUT legs). Under FIFO each movement's

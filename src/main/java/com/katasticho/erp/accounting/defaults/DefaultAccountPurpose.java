@@ -52,6 +52,9 @@ public enum DefaultAccountPurpose {
     TDS_PAYABLE         ("2030", "TDS Payable"),
     TCS_PAYABLE         ("2031", "TCS Payable"),
 
+    // ── Provisional COGS (bill-freely true-up, V5) ────────────
+    STOCK_OUT_SUSPENSE  ("2042", "Stock-Out Suspense"),
+
     // ── Manufacturing ────────────────────────────────────────
     WIP_INVENTORY       ("1210", "Work-In-Progress"),
     MANUFACTURING_OVERHEAD ("5030", "Manufacturing Overhead"),

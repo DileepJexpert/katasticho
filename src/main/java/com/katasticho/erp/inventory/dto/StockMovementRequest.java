@@ -21,6 +21,10 @@ import java.util.UUID;
  * {@code batchId} is optional: it must be non-null when the item has
  * {@code track_batches=true}, and null otherwise. The service layer
  * enforces the invariant.
+ *
+ * {@code costProvisional} marks a SALE movement whose unit_cost was estimated
+ * because the item had no known purchase price (V5 bill-freely true-up).
+ * Defaults false so every legacy call site is byte-for-byte unchanged.
  */
 public record StockMovementRequest(
         @NotNull UUID itemId,
@@ -33,12 +37,13 @@ public record StockMovementRequest(
         UUID referenceId,
         String referenceNumber,
         String notes,
-        UUID batchId
+        UUID batchId,
+        boolean costProvisional
 ) {
     /**
      * Backwards-compatible constructor for callers that don't track
-     * batches. Defaults {@code batchId} to {@code null} so every
-     * existing call site keeps working without edit.
+     * batches. Defaults {@code batchId} to {@code null} and
+     * {@code costProvisional} to {@code false}.
      */
     public StockMovementRequest(
             UUID itemId,
@@ -52,6 +57,26 @@ public record StockMovementRequest(
             String referenceNumber,
             String notes) {
         this(itemId, warehouseId, movementType, quantity, unitCost, movementDate,
-                referenceType, referenceId, referenceNumber, notes, null);
+                referenceType, referenceId, referenceNumber, notes, null, false);
+    }
+
+    /**
+     * Batch-aware constructor — every existing caller that already supplies
+     * a batchId keeps working without edit; costProvisional defaults to false.
+     */
+    public StockMovementRequest(
+            UUID itemId,
+            UUID warehouseId,
+            MovementType movementType,
+            BigDecimal quantity,
+            BigDecimal unitCost,
+            LocalDate movementDate,
+            ReferenceType referenceType,
+            UUID referenceId,
+            String referenceNumber,
+            String notes,
+            UUID batchId) {
+        this(itemId, warehouseId, movementType, quantity, unitCost, movementDate,
+                referenceType, referenceId, referenceNumber, notes, batchId, false);
     }
 }
