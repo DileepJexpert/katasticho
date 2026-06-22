@@ -303,7 +303,7 @@ First-class M-Pesa reconciliation + eTIMS + KE payroll (PAYE/NSSF/SHIF/Housing/H
 - [x] Gulf TRADING CoA template (54 accts: VAT 2041/1511, no CGST/SGST/TDS/PF) — **0.4**
 - [x] **UAE VAT 5% activates end-to-end** — verified LIVE: AE signup → Gulf CoA + "VAT 5%" group; IN signup byte-identical (61 accts, GST split) — **0.4/0.5**
 - [x] Flutter locale controller + language picker + `app_ar.arb`/`app_sw.arb` stubs — **0.5**
-- [ ] `CurrencyFormatter` locale/currency parametrized (kill hardcoded en_IN/₹) — *app-wide money display; needs Flutter SDK to verify safely*
+- [x] `CurrencyFormatter` locale/currency parametrized (KMoney shows AED/OMR via active-currency config + countryProfileProvider) — **0.8** *(written; needs local `flutter analyze`+`test`)*
 - [x] Onboarding country step → bootstrap wires profile (register/signup pass countryCode; AuthService applies CountryProfile) — **0.5**
 - [x] Backend `DocumentPdfService` Arabic font (Noto Naskh) + ICU bidi/shaping — **0.7** (covers all 10 backend PDF doc types in one place; +openhtmltopdf-rtl-support dep)
 - [ ] Flutter `pdf` Arabic font + bidi — *pending (needs SDK)*
@@ -312,7 +312,7 @@ First-class M-Pesa reconciliation + eTIMS + KE payroll (PAYE/NSSF/SHIF/Housing/H
 - [x] Country-profile endpoint (`GET /api/v1/reference/country-profile` → taxIdLabel/currency/symbol/decimals/weekend/fiscal) for Flutter field localization — **0.6**
 - [x] **Regression: full backend suite 1245 green; India byte-identical (live signup verified)** — **after each commit**
 
-**Phase 0 remaining (need Flutter SDK / next session):** CurrencyFormatter locale param · PDF Arabic fonts (backend one-place + Flutter) · then the two long poles below.
+**Phase 0 remaining:** only the Flutter `pdf`-package Arabic font (invoice-preview screens — needs SDK to add the asset + verify) and the **first local verification pass** (`flutter gen-l10n` + `flutter analyze` + `flutter test` on the 0.5/0.8 Flutter work, written without an SDK here). Then the two long poles (string sweep, full RTL sweep) → Phase 2. **Everything else in Phase 0 is shipped & on `main`** (0.1–0.8; backend 37 intl tests + suite 1248 green; UAE VAT + PINT-AE + Arabic PDF verified).
 
 **Phase 2+ (post-validation)**
 - [ ] `EInvoiceProvider` interface + `IndiaIrpProvider` (byte-identical) + `PintAeProvider` + ASP integration
