@@ -308,10 +308,11 @@ First-class M-Pesa reconciliation + eTIMS + KE payroll (PAYE/NSSF/SHIF/Housing/H
 - [ ] Backend `DocumentPdfService` Arabic font (Noto Naskh) + dir=rtl — *pending*
 - [ ] Flutter `pdf` Arabic font + bidi — *pending*
 - [x] Arabic ARB stub (33 labels translated, rest English placeholder @needs-review) — **0.5**
-- [ ] PINT-AE XML stub (valid UBL, unrouted) for demo — *pending*
-- [x] **Regression: full backend suite 1237 green; India byte-identical (live signup verified)** — **after each commit**
+- [x] PINT-AE XML stub (valid UBL, unrouted) for demo — **0.6**: EInvoiceProvider seam + PintAeProvider (UBL 2.1, TRNs, 5% VAT, totals) + PintAeEInvoiceService (maps real Invoice) + endpoint gated @RequiresCountry({"AE","OM"})
+- [x] Country-profile endpoint (`GET /api/v1/reference/country-profile` → taxIdLabel/currency/symbol/decimals/weekend/fiscal) for Flutter field localization — **0.6**
+- [x] **Regression: full backend suite 1245 green; India byte-identical (live signup verified)** — **after each commit**
 
-**Phase 0 remaining (need Flutter SDK / next session):** CurrencyFormatter locale param · PDF Arabic fonts (backend one-place + Flutter) · PINT-AE XML stub · then the two long poles below.
+**Phase 0 remaining (need Flutter SDK / next session):** CurrencyFormatter locale param · PDF Arabic fonts (backend one-place + Flutter) · then the two long poles below.
 
 **Phase 2+ (post-validation)**
 - [ ] `EInvoiceProvider` interface + `IndiaIrpProvider` (byte-identical) + `PintAeProvider` + ASP integration
