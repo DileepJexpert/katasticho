@@ -27,6 +27,7 @@ public record StockReceiptResponse(
         BigDecimal otherCharges,
         String currency,
         String notes,
+        UUID purchaseOrderId,
         List<LineResponse> lines,
         Instant receivedAt,
         Instant cancelledAt,
@@ -52,6 +53,7 @@ public record StockReceiptResponse(
             String batchNumber,
             LocalDate expiryDate,
             LocalDate manufacturingDate,
-            UUID stockMovementId
+            UUID stockMovementId,
+            UUID purchaseOrderLineId
     ) {}
 }

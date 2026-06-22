@@ -144,6 +144,7 @@ public class PurchaseBillService {
                 .exchangeRate(exchangeRate)
                 .placeOfSupply(placeOfSupply)
                 .reverseCharge(request.reverseCharge())
+                .purchaseOrderId(request.purchaseOrderId())
                 .notes(request.notes())
                 .termsAndConditions(request.termsAndConditions())
                 .periodYear(periodYear)
@@ -207,6 +208,7 @@ public class PurchaseBillService {
                     .hsnCode(lineReq.hsnCode())
                     .itemId(lineReq.itemId())
                     .accountId(lineAccount.getId())
+                    .purchaseOrderLineId(lineReq.purchaseOrderLineId())
                     .quantity(lineReq.quantity())
                     .unitPrice(lineReq.unitPrice())
                     .discountPercent(lineReq.discountPercent())
@@ -784,7 +786,8 @@ public class PurchaseBillService {
                         l.getId(), l.getLineNumber(), l.getDescription(), l.getHsnCode(),
                         l.getItemId(), l.getAccountId(),
                         l.getQuantity(), l.getUnitPrice(), l.getDiscountPercent(), l.getDiscountAmount(),
-                        l.getTaxableAmount(), l.getGstRate(), l.getTaxAmount(), l.getLineTotal()))
+                        l.getTaxableAmount(), l.getGstRate(), l.getTaxAmount(), l.getLineTotal(),
+                        l.getPurchaseOrderLineId()))
                 .toList();
 
         return new PurchaseBillResponse(
@@ -797,7 +800,7 @@ public class PurchaseBillService {
                 bill.getTotalAmount(), bill.getAmountPaid(), bill.getBalanceDue(),
                 bill.getTdsAmount(),
                 bill.getCurrency(), bill.getPlaceOfSupply(), bill.isReverseCharge(),
-                bill.getJournalEntryId(), bill.getNotes(),
+                bill.getJournalEntryId(), bill.getPurchaseOrderId(), bill.getNotes(),
                 lineResponses, bill.getCreatedAt());
     }
 

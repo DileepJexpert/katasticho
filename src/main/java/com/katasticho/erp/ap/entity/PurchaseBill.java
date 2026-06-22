@@ -119,6 +119,10 @@ public class PurchaseBill {
     @Column(name = "journal_entry_id")
     private UUID journalEntryId;
 
+    /** Source PO when this bill was created via {@code createBillFromPo}. Nullable — direct bills carry null. */
+    @Column(name = "purchase_order_id")
+    private UUID purchaseOrderId;
+
     private String notes;
 
     @Column(name = "terms_and_conditions")

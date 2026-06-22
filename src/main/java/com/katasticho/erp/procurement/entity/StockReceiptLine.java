@@ -31,6 +31,10 @@ public class StockReceiptLine {
     @Column(name = "item_id", nullable = false)
     private UUID itemId;
 
+    /** Source PO line when GRN was drafted via createGrnFromPo. Drives receivedQuantity increment on receive(). */
+    @Column(name = "purchase_order_line_id")
+    private UUID purchaseOrderLineId;
+
     @Column(length = 500)
     private String description;
 

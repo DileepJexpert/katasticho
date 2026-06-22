@@ -40,6 +40,10 @@ public class PurchaseBillLine {
     @Column(name = "item_id")
     private UUID itemId;
 
+    /** Source PO line when drafted via createBillFromPo. Nullable. */
+    @Column(name = "purchase_order_line_id")
+    private UUID purchaseOrderLineId;
+
     /** GL expense/inventory account this line debits on post. */
     @Column(name = "account_id", nullable = false)
     private UUID accountId;

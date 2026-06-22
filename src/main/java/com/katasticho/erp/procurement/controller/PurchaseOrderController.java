@@ -1,10 +1,12 @@
 package com.katasticho.erp.procurement.controller;
 
+import com.katasticho.erp.ap.dto.PurchaseBillResponse;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.procurement.dto.PurchaseOrderRequest;
 import com.katasticho.erp.procurement.dto.PurchaseOrderResponse;
+import com.katasticho.erp.procurement.dto.StockReceiptResponse;
 import com.katasticho.erp.procurement.service.PurchaseOrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -65,5 +67,21 @@ public class PurchaseOrderController {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(purchaseOrderService.getById(id)));
+    }
+
+    @PostMapping("/{id}/create-grn")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR')")
+    public ResponseEntity<ApiResponse<StockReceiptResponse>> createGrnFromPo(@PathVariable UUID id) {
+        StockReceiptResponse grn = purchaseOrderService.createGrnFromPo(id);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created(grn));
+    }
+
+    @PostMapping("/{id}/create-bill")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<PurchaseBillResponse>> createBillFromPo(@PathVariable UUID id) {
+        PurchaseBillResponse bill = purchaseOrderService.createBillFromPo(id);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created(bill));
     }
 }

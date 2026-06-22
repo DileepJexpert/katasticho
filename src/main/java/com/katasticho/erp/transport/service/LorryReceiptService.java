@@ -166,7 +166,7 @@ public class LorryReceiptService {
                 "Freight — LR " + lr.getLrNumber()
                         + (lr.getOrigin() != null ? " (" + lr.getOrigin() + "→" + lr.getDestination() + ")" : ""),
                 GTA_HSN, null, null, freightAccount,
-                BigDecimal.ONE, lr.getFreightAmount(), BigDecimal.ZERO, gstRate, null, null, null);
+                BigDecimal.ONE, lr.getFreightAmount(), BigDecimal.ZERO, gstRate, null, null, null, null);
 
         CreatePurchaseBillRequest billReq = new CreatePurchaseBillRequest(
                 lr.getTransporterContactId(),
@@ -176,6 +176,7 @@ public class LorryReceiptService {
                 rcm,                       // reverseCharge for GTA RCM
                 "Freight for LR " + lr.getLrNumber(),
                 null, null,
+                null,
                 List.of(line));
 
         PurchaseBillResponse bill = purchaseBillService.createBill(billReq);

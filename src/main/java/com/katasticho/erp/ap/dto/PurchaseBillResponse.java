@@ -25,6 +25,7 @@ public record PurchaseBillResponse(
         String placeOfSupply,
         boolean reverseCharge,
         UUID journalEntryId,
+        UUID purchaseOrderId,
         String notes,
         List<LineResponse> lines,
         Instant createdAt
@@ -43,6 +44,7 @@ public record PurchaseBillResponse(
             BigDecimal taxableAmount,
             BigDecimal gstRate,
             BigDecimal taxAmount,
-            BigDecimal lineTotal
+            BigDecimal lineTotal,
+            UUID purchaseOrderLineId
     ) {}
 }

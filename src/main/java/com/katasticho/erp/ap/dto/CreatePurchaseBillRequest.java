@@ -20,6 +20,7 @@ public record CreatePurchaseBillRequest(
         String notes,
         String termsAndConditions,
         UUID branchId,
+        UUID purchaseOrderId,
         @NotEmpty @Valid List<BillLineRequest> lines
 ) {
     public record BillLineRequest(
@@ -35,7 +36,8 @@ public record CreatePurchaseBillRequest(
             BigDecimal gstRate,
             UUID taxGroupId,
             UUID unitUomId,
-            BigDecimal unitConversionFactor
+            BigDecimal unitConversionFactor,
+            UUID purchaseOrderLineId
     ) {
         public BillLineRequest {
             if (lineType == null) lineType = "GOODS";

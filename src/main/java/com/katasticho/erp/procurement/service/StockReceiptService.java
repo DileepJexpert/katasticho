@@ -27,6 +27,8 @@ import com.katasticho.erp.procurement.dto.StockReceiptResponse;
 import com.katasticho.erp.procurement.entity.StockReceipt;
 import com.katasticho.erp.procurement.entity.StockReceiptLine;
 import com.katasticho.erp.procurement.entity.Supplier;
+import com.katasticho.erp.procurement.entity.PurchaseOrderLine;
+import com.katasticho.erp.procurement.repository.PurchaseOrderLineRepository;
 import com.katasticho.erp.procurement.repository.StockReceiptRepository;
 import com.katasticho.erp.procurement.repository.SupplierRepository;
 import lombok.RequiredArgsConstructor;
@@ -67,6 +69,7 @@ import java.util.UUID;
 public class StockReceiptService {
 
     private final StockReceiptRepository receiptRepository;
+    private final PurchaseOrderLineRepository purchaseOrderLineRepository;
     private final SupplierRepository supplierRepository;
     private final ItemRepository itemRepository;
     private final WarehouseRepository warehouseRepository;
@@ -113,6 +116,7 @@ public class StockReceiptService {
                 .supplierId(supplier.getId())
                 .supplierInvoiceNo(request.supplierInvoiceNo())
                 .supplierInvoiceDate(request.supplierInvoiceDate())
+                .purchaseOrderId(request.purchaseOrderId())
                 .status("DRAFT")
                 .currency("INR")
                 .notes(request.notes())
@@ -183,6 +187,7 @@ public class StockReceiptService {
                     .batchNumber(lineReq.batchNumber())
                     .expiryDate(lineReq.expiryDate())
                     .manufacturingDate(lineReq.manufacturingDate())
+                    .purchaseOrderLineId(lineReq.purchaseOrderLineId())
                     .build();
 
             receipt.addLine(line);
@@ -303,6 +308,11 @@ public class StockReceiptService {
             }
         }
 
+        // P2P loop: bump PurchaseOrderLine.receivedQuantity for any GRN line
+        // linked to a PO line. Done after movement posting so a failed receive
+        // doesn't leave the PO line incorrectly bumped.
+        incrementReceivedQuantityForPoLines(receipt);
+
         receipt.setStatus("RECEIVED");
         receipt.setReceivedAt(Instant.now());
         receipt.setReceivedBy(userId);
@@ -345,13 +355,18 @@ public class StockReceiptService {
                     "GRN_ALREADY_CANCELLED", HttpStatus.BAD_REQUEST);
         }
 
-        if ("RECEIVED".equals(receipt.getStatus())) {
+        boolean wasReceived = "RECEIVED".equals(receipt.getStatus());
+        if (wasReceived) {
             for (StockReceiptLine line : receipt.getLines()) {
                 if (line.getStockMovementId() != null) {
                     inventoryService.reverseMovement(line.getStockMovementId(),
                             "GRN cancelled: " + (reason != null ? reason : ""));
                 }
             }
+            // Decrement linked PO lines' receivedQuantity so the PO is correctly
+            // marked back as having more remaining qty. DRAFTs never incremented,
+            // so DRAFT-cancellation is a no-op for the PO ledger.
+            decrementReceivedQuantityForPoLines(receipt);
         }
 
         receipt.setStatus("CANCELLED");
@@ -384,6 +399,41 @@ public class StockReceiptService {
         return page.map(this::toResponse);
     }
 
+    /**
+     * For every GRN line carrying a {@code purchaseOrderLineId}, increment the
+     * source PO line's {@code receivedQuantity}. This is the only place the
+     * field gets written — historically dead, now finally meaningful.
+     */
+    private void incrementReceivedQuantityForPoLines(StockReceipt receipt) {
+        for (StockReceiptLine line : receipt.getLines()) {
+            if (line.getPurchaseOrderLineId() == null) continue;
+            purchaseOrderLineRepository.findById(line.getPurchaseOrderLineId())
+                    .ifPresent(pol -> {
+                        BigDecimal current = pol.getReceivedQuantity() != null
+                                ? pol.getReceivedQuantity() : BigDecimal.ZERO;
+                        pol.setReceivedQuantity(current.add(line.getQuantity())
+                                .setScale(4, RoundingMode.HALF_UP));
+                        purchaseOrderLineRepository.save(pol);
+                    });
+        }
+    }
+
+    /** Mirror of the increment helper — called on RECEIVED → CANCELLED. */
+    private void decrementReceivedQuantityForPoLines(StockReceipt receipt) {
+        for (StockReceiptLine line : receipt.getLines()) {
+            if (line.getPurchaseOrderLineId() == null) continue;
+            purchaseOrderLineRepository.findById(line.getPurchaseOrderLineId())
+                    .ifPresent(pol -> {
+                        BigDecimal current = pol.getReceivedQuantity() != null
+                                ? pol.getReceivedQuantity() : BigDecimal.ZERO;
+                        BigDecimal next = current.subtract(line.getQuantity());
+                        if (next.signum() < 0) next = BigDecimal.ZERO;
+                        pol.setReceivedQuantity(next.setScale(4, RoundingMode.HALF_UP));
+                        purchaseOrderLineRepository.save(pol);
+                    });
+        }
+    }
+
     public StockReceiptResponse toResponse(StockReceipt r) {
         Supplier supplier = supplierRepository.findById(r.getSupplierId()).orElse(null);
         Warehouse warehouse = warehouseRepository.findById(r.getWarehouseId()).orElse(null);
@@ -405,7 +455,7 @@ public class StockReceiptService {
                         l.getDiscountPercent(), l.getTaxableAmount(), l.getGstRate(),
                         l.getTaxAmount(), l.getLineTotal(), l.getLandedUnitCost(),
                         l.getBatchNumber(), l.getExpiryDate(), l.getManufacturingDate(),
-                        l.getStockMovementId()))
+                        l.getStockMovementId(), l.getPurchaseOrderLineId()))
                 .toList();
 
         return new StockReceiptResponse(
@@ -417,7 +467,7 @@ public class StockReceiptService {
                 r.getSupplierInvoiceNo(), r.getSupplierInvoiceDate(),
                 r.getStatus(), r.getSubtotal(), r.getTaxAmount(), r.getTotalAmount(),
                 r.getFreightAmount(), r.getDutyAmount(), r.getInsuranceAmount(), r.getOtherCharges(),
-                r.getCurrency(), r.getNotes(), lineResponses,
+                r.getCurrency(), r.getNotes(), r.getPurchaseOrderId(), lineResponses,
                 r.getReceivedAt(), r.getCancelledAt(), r.getCancelReason(),
                 r.getCreatedAt());
     }

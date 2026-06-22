@@ -114,7 +114,7 @@ public class BillDraftingService {
 
             lines.add(new CreatePurchaseBillRequest.BillLineRequest(
                     lineType, description, trimToNull(sl.hsnCode()), itemId, accountId, null,
-                    quantity, unitPrice, discountPercent, gstRate, null, null, null));
+                    quantity, unitPrice, discountPercent, gstRate, null, null, null, null));
         }
 
         if (unmatched > 0) {
@@ -130,6 +130,7 @@ public class BillDraftingService {
                 trimToNull(req.vendorStateCode()),
                 false,
                 req.notes(),
+                null,
                 null,
                 null,
                 lines);

@@ -355,6 +355,59 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **Net effect:** at GRN time, books fully self-heal. P&L reads correctly even after a bill-freely fresh-shop start; balance sheet matches physical stock; the historical "this row used provisional cost" fact is auditable on every settled `stock_movement`.
 - **Tests:** `CostResolverServiceTest` (5 — purchase-price wins / MRP fallback / salePrice fallback / nothing → null / custom margin from org setting), `ProvisionalCostReconcilerTest` (6 — no-pending no-op, over-estimated → CR COGS, under-estimated → DR COGS, multi-movement aggregation with zero net variance, settled-at stamping, null actualCost no-op), `PosReceiptCogsTest` (3 — real path against 1200, provisional path against 2042, no-basis skips COGS entirely). 1273 total backend pass.
 
+#### P2P workflow integration (2026-06-22)
+- V7 migration: four new nullable FKs — `purchase_bill.purchase_order_id`,
+  `purchase_bill_line.purchase_order_line_id`, `stock_receipt.purchase_order_id`,
+  `stock_receipt_line.purchase_order_line_id` + four partial indexes (each only
+  covers the rows where the FK is set, so direct GRN/Bill rows stay out of the index).
+- **`PurchaseOrderService.createGrnFromPo(poId)`** — drafts a `StockReceipt` (DRAFT)
+  with one line per PO line, qty = ordered − already-received (computed from
+  `StockReceiptLineRepository.sumQuantityForPurchaseOrderLine` across all
+  non-cancelled GRNs, NOT from the legacy `receivedQuantity` field), and stamps
+  the FKs end-to-end (header `purchaseOrderId`, each line `purchaseOrderLineId`).
+  HSN / GST rate / UoM copied from the item master, unit price from the PO line.
+  Throws `PO_FULLY_RECEIVED` (BAD_REQUEST) when nothing remains across any line,
+  `PO_CANCELLED` when the PO is cancelled, `PO_EMPTY` when the PO has no lines.
+- **`PurchaseOrderService.createBillFromPo(poId)`** — drafts a `PurchaseBill`
+  (DRAFT) with the same FK shape. Resolves vendor by looking up a Contact whose
+  `displayName` matches `supplier.name` case-insensitively (must be VENDOR or
+  BOTH); throws `PO_NO_VENDOR_CONTACT` when no matching vendor contact exists.
+  Quantities default to the PO's ordered qty, prices from the PO. Bill date = today.
+- **`StockReceiptService.receive`** finally writes to `PurchaseOrderLine.receivedQuantity`
+  — for every GRN line with a `purchaseOrderLineId`, the source PO line's
+  `receivedQuantity` is incremented by the GRN line's qty. The field was a dead
+  schema column before V7; this is the only place that updates it.
+- **`StockReceiptService.cancel`** mirrors the increment on RECEIVED → CANCELLED:
+  every linked PO line's `receivedQuantity` is decremented by the GRN line's qty
+  (clamped at zero so partial-cancel corruption from prior corrupted state can't
+  make it negative). DRAFT → CANCELLED never touched the PO ledger, so DRAFT
+  cancellation stays a no-op.
+- **DTOs:** `CreateStockReceiptRequest` + `StockReceiptLineRequest` +
+  `CreatePurchaseBillRequest` + its `BillLineRequest` all gain optional
+  `purchaseOrderId / purchaseOrderLineId` fields. `StockReceiptResponse` +
+  `StockReceiptResponse.LineResponse` + `PurchaseBillResponse` +
+  `PurchaseBillResponse.LineResponse` all surface them. Every existing caller
+  (`BillDraftingService`, `LorryReceiptService`, test fixtures) updated with
+  explicit `null` for the new optional fields — no behavioural change for
+  callers that don't use the P2P loop.
+- **New repository:** `StockReceiptLineRepository` with
+  `findByPurchaseOrderLineId`, `sumQuantityForPurchaseOrderLine`,
+  `sumReceivedQuantityForPurchaseOrderLine` (RECEIVED-only — used by 3-way match
+  in the next commit).
+- **Endpoints:** `POST /api/v1/purchase-orders/{id}/create-grn` (OWNER/ADMIN/OPERATOR)
+  + `POST /api/v1/purchase-orders/{id}/create-bill` (OWNER/ADMIN/ACCOUNTANT).
+  Both return the drafted document (201 CREATED).
+- **All FKs nullable** — direct GRNs / direct bills (no PO behind them) still work
+  byte-for-byte unchanged. Bean cycle broken with `@Lazy` on the two service
+  fields PurchaseOrderService injects (lombok.config copies `@Lazy` onto the
+  generated constructor parameters).
+- **Prerequisite for 3-way match (commit 2)** — match service reads these FKs to
+  join Bill ↔ GRN ↔ PO without heuristics.
+- Tests: `PurchaseOrderP2PTest` (3 — happy-path GRN draft w/ FK + remaining qty,
+  Bill draft w/ FK + PO prices, fully-received throws), `StockReceiptServiceTest +2`
+  (receive() increments PO line receivedQuantity when linked, never touches PO
+  repo when no FK set). 1289 total backend pass.
+
 #### Statutory pharma registers (H1 / Schedule X / Narcotics) (2026-06-22)
 - **V6 migration:** `statutory_register_entry` table (register_type CHECK ∈ {H1, SCHEDULE_X, NARCOTICS}, optional sale_receipt_id / invoice_id with link-required CHECK, drug name + batch + qty + prescriber + patient + sale_date + retention_until) + 3 partial indexes (org+type+date desc, org+retention_until for cleanup sweeps, org+prescriber_reg_number for inspector lookups).
 - **`StatutoryRegisterService.recordSaleEntries(receipt, itemMap)`:** hooked into `SalesReceiptService.create` after `deductStock`, wrapped in try/catch — non-business failures (DB hiccup, unmocked path) log warn + are swallowed so a register-writer bug never wedges a sale. `BusinessException` is allowed to bubble so strict-mode `RX_PRESCRIPTION_REQUIRED` rolls the entire receipt back. Resolves prescriber from `PrescriptionRecord` by `receiptId` (existing pharma table); resolves patient from `receipt.contactId`. Retention = sale_date + 3y for H1, + 2y for Schedule X / NARCOTICS (per Rule 65(11)(h) D&C Rules + Form 20G + NDPS Act 1985).
