@@ -95,6 +95,7 @@ import '../features/pricing/presentation/scheme_list_screen.dart';
 import '../features/bills/presentation/bill_list_screen.dart';
 import '../features/bills/presentation/bill_detail_screen.dart';
 import '../features/bills/presentation/bill_create_screen.dart';
+import '../features/ap/presentation/three_way_match_inbox_screen.dart';
 import '../features/vendor_payments/presentation/vendor_payment_list_screen.dart';
 import '../features/vendor_payments/presentation/vendor_payment_detail_screen.dart';
 import '../features/vendor_credits/presentation/vendor_credit_list_screen.dart';
@@ -286,6 +287,8 @@ class Routes {
   static const purchaseOrderCreate = '/purchase-orders/create';
   static const purchaseOrderDetail = '/purchase-orders/:id';
   static const payables = '/payables';
+  // 3-Way Match Inbox (AP control surface for PO ↔ GRN ↔ Bill exceptions)
+  static const threeWayMatch = '/ap/three-way-match';
   // Debit Notes (Purchase Returns)
   static const debitNotes = '/debit-notes';
   static const debitNoteCreate = '/debit-notes/create';
@@ -1909,6 +1912,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/bills/:id',
             builder: (context, state) => BillDetailScreen(
               billId: state.pathParameters['id']!,
+            ),
+          ),
+          // AP — 3-Way Match Inbox (PO ↔ GRN ↔ Bill exceptions + settings)
+          GoRoute(
+            path: Routes.threeWayMatch,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ThreeWayMatchInboxScreen(),
             ),
           ),
           // AP — Vendor Payments

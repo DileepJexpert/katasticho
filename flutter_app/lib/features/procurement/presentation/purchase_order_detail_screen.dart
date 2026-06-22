@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/api/api_client.dart';
+import '../../../core/api/api_config.dart';
 import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
@@ -40,9 +42,43 @@ class PurchaseOrderDetailScreen extends ConsumerWidget {
               if (status == 'CANCELLED' || status == 'RECEIVED') {
                 return const SizedBox();
               }
+              // P2P workflow shortcuts (backend: PurchaseOrderService.createGrnFromPo
+              // / createBillFromPo, commit 24a9643). Only available on a SENT
+              // or PARTIALLY_RECEIVED PO — DRAFT POs aren't a source of truth
+              // yet, CANCELLED/RECEIVED are terminal. We treat 'PARTIAL' as
+              // the partially-received status the rest of this screen already
+              // gates on.
+              final canDraftDownstream =
+                  status == 'SENT' || status == 'PARTIAL';
               return PopupMenuButton<String>(
                 onSelected: (v) => _handleAction(context, ref, po, v),
                 itemBuilder: (_) => [
+                  if (canDraftDownstream)
+                    const PopupMenuItem(
+                      value: 'create-grn',
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.local_shipping_outlined),
+                        title: Text('Create GRN from this PO'),
+                        subtitle: Text(
+                          'Drafts a goods receipt with remaining qty',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                      ),
+                    ),
+                  if (canDraftDownstream)
+                    const PopupMenuItem(
+                      value: 'create-bill',
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.receipt_outlined),
+                        title: Text('Create Bill from this PO'),
+                        subtitle: Text(
+                          'Drafts a vendor bill linked to this PO',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                      ),
+                    ),
                   if (status == 'DRAFT' || status == 'SENT')
                     const PopupMenuItem(
                       value: 'cancel',
@@ -140,6 +176,91 @@ class PurchaseOrderDetailScreen extends ConsumerWidget {
       Map<String, dynamic> po, String action) async {
     if (action == 'cancel') {
       await _confirmCancel(context, ref, po);
+    } else if (action == 'create-grn') {
+      await _createGrnFromPo(context, ref, po);
+    } else if (action == 'create-bill') {
+      await _createBillFromPo(context, ref, po);
+    }
+  }
+
+  /// POST /api/v1/purchase-orders/{id}/create-grn — drafts a Stock Receipt
+  /// with one line per remaining PO line, then navigates to its detail screen.
+  Future<void> _createGrnFromPo(BuildContext context, WidgetRef ref,
+      Map<String, dynamic> po) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .post(ApiConfig.createGrnFromPo(po['id']?.toString() ?? ''));
+      final data = res.data;
+      final payload = (data is Map && data['data'] is Map)
+          ? data['data'] as Map<String, dynamic>
+          : (data as Map).cast<String, dynamic>();
+      final grnId = payload['id']?.toString();
+      ref.invalidate(purchaseOrderDetailProvider(poId));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Draft GRN created')),
+      );
+      if (grnId != null && context.mounted) {
+        context.go('/stock-receipts/$grnId');
+      }
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      String msg = 'Failed to create GRN';
+      if (body is Map) {
+        msg = body['message'] as String? ?? body['error'] as String? ?? msg;
+      }
+      messenger.showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: KColors.error),
+      );
+    } catch (e) {
+      debugPrint('[PODetail] create GRN failed: $e');
+      messenger.showSnackBar(
+        const SnackBar(
+            content: Text('Failed to create GRN'),
+            backgroundColor: KColors.error),
+      );
+    }
+  }
+
+  /// POST /api/v1/purchase-orders/{id}/create-bill — drafts a Purchase Bill
+  /// keyed to the PO. Fails with PO_NO_VENDOR_CONTACT when the supplier has
+  /// no matching contact yet.
+  Future<void> _createBillFromPo(BuildContext context, WidgetRef ref,
+      Map<String, dynamic> po) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .post(ApiConfig.createBillFromPo(po['id']?.toString() ?? ''));
+      final data = res.data;
+      final payload = (data is Map && data['data'] is Map)
+          ? data['data'] as Map<String, dynamic>
+          : (data as Map).cast<String, dynamic>();
+      final billId = payload['id']?.toString();
+      ref.invalidate(purchaseOrderDetailProvider(poId));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Draft bill created')),
+      );
+      if (billId != null && context.mounted) {
+        context.go('/bills/$billId');
+      }
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      String msg = 'Failed to create bill';
+      if (body is Map) {
+        msg = body['message'] as String? ?? body['error'] as String? ?? msg;
+      }
+      messenger.showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: KColors.error),
+      );
+    } catch (e) {
+      debugPrint('[PODetail] create bill failed: $e');
+      messenger.showSnackBar(
+        const SnackBar(
+            content: Text('Failed to create bill'),
+            backgroundColor: KColors.error),
+      );
     }
   }
 

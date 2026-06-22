@@ -16,12 +16,13 @@ Replace the thin 7-item "Inventory" submenu with a 10-pillar supply chain suite.
 - [x] **Bill-freely UX**: negative-stock items surfaced on items list — commit `aee6055`. Red −1 styling + filter chip.
 - [x] **Provisional COGS + GRN true-up** (Option B) — commit `2c00301`. New `Stock-Out Suspense (2042)`, `CostResolverService`, `ProvisionalCostReconciler`, V5 migration, 14 new tests. Books self-heal at GRN time. **1273/1273 backend tests pass.**
 - [x] **Statutory registers (Schedule H1 / X / Narcotics)** — V6 migration `statutory_register_entry`, `StatutoryRegisterService` (auto-record on POS sale, schedule normalisation, h1_strict gate, CSV export), India-only `StatutoryRegisterController` @ `/api/v1/pharma/statutory-registers`, Flutter `StatutoryRegistersScreen` with 3 tabs + CSV download + regulatory banner. 11 new tests. **1284/1284 backend tests pass.** See `CLAUDE.md` § "Statutory pharma registers (H1 / Schedule X / Narcotics) (2026-06-22)" for full design.
+- [x] **3-way match (PO ↔ GRN ↔ Vendor Bill)** — backend commits `24a9643` (P2P FK plumbing — `purchase_order_id` / `purchase_order_line_id` linkage on bills + GRNs, `createGrnFromPo` / `createBillFromPo`, `receive` now updates `receivedQuantity` on the source PO line) + `bb597a7` (`ThreeWayMatchService` per-line classification — MATCHED / QTY_OVER / PRICE_HIKE / NO_PO / NO_GRN / BYPASSED, org-configurable tolerances `ap.three_way_match.*`, EXCEPTION rolls up to a `THREE_WAY_MATCH_EXCEPTION` AI Inbox suggestion, OWNER-only override w/ audit reason). **`recordStockForBill` decision: option a (intentional fallback)** — purchase bill posts a PURCHASE movement only when there's no PO + active GRN behind it; the P2P loop's GRN is the authoritative stock-posting step, so direct vendor bills keep working but the double-counting hole closes. Flutter UI: new `ThreeWayMatchInboxScreen` (`/ap/three-way-match`, Exceptions + Settings tabs, OWNER override dialog, shared `ThreeWayMatchDetailSheet` w/ per-line variance drill-in), sidebar entry under Purchases, command palette "3-Way Match" (keywords ap inbox / vendor bill / po grn / variance / audit / control / match / exception / three way / p2p / tolerance), bill detail banner (PO link + match status + "View match" entry point), PO detail "Create GRN from this PO" / "Create Bill from this PO" actions on SENT/PARTIAL POs. **1304/1304 backend tests pass.** See `CLAUDE.md` § "3-way match (PO ↔ GRN ↔ Vendor Bill) (2026-06-22)" + "P2P workflow integration (2026-06-22)" for full design.
 
 ---
 
 ## In flight / queued
 
-### 2. [ ] 3-way match (PO ↔ GRN ↔ vendor bill)
+### 2. [x] 3-way match (PO ↔ GRN ↔ vendor bill) — shipped 2026-06-22, see Recently shipped above
 **Why:** Finishes the P2P flow. AP teams can't trust the system without it.
 Today GRN + bill exist independently — no automatic match, no tolerance, no
 exception queue.

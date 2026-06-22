@@ -675,6 +675,22 @@ class ApiConfig {
       '/api/v1/purchase-orders/$id/send';
   static String cancelPurchaseOrder(String id) =>
       '/api/v1/purchase-orders/$id/cancel';
+  static String createGrnFromPo(String id) =>
+      '/api/v1/purchase-orders/$id/create-grn';
+  static String createBillFromPo(String id) =>
+      '/api/v1/purchase-orders/$id/create-bill';
+
+  // 3-Way Match (PO ↔ GRN ↔ Vendor Bill)
+  static const String threeWayMatchExceptions =
+      '/api/v1/ap/three-way-match/exceptions';
+  static const String threeWayMatchSettings =
+      '/api/v1/ap/three-way-match/settings';
+  static String threeWayMatchById(String billId) =>
+      '/api/v1/ap/three-way-match/$billId';
+  static String threeWayMatchRun(String billId) =>
+      '/api/v1/ap/three-way-match/$billId/run';
+  static String threeWayMatchOverride(String billId) =>
+      '/api/v1/ap/three-way-match/$billId/override';
 
   // Debit Notes (Supplier / Purchase Returns)
   static const String debitNotes = '/api/v1/debit-notes';

@@ -216,6 +216,11 @@ const _purchasesGroup = NavGroup(
         activeIcon: Icons.account_balance_wallet_rounded,
         route: Routes.payables),
     NavItem(
+        label: '3-Way Match',
+        icon: Icons.fact_check_outlined,
+        activeIcon: Icons.fact_check_rounded,
+        route: Routes.threeWayMatch),
+    NavItem(
         label: 'Goods Receipts',
         icon: Icons.local_shipping_outlined,
         activeIcon: Icons.local_shipping_rounded,
