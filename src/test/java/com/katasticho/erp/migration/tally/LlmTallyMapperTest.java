@@ -2,7 +2,7 @@ package com.katasticho.erp.migration.tally;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.katasticho.erp.ai.config.AiConfig;
-import com.katasticho.erp.ai.service.ClaudeApiClient;
+import com.katasticho.erp.ai.service.VisionModelRouter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,7 +23,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class LlmTallyMapperTest {
 
-    @Mock private ClaudeApiClient claudeApiClient;
+    @Mock private VisionModelRouter modelRouter;
     private AiConfig aiConfig;
     private LlmTallyMapper mapper;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -31,7 +31,7 @@ class LlmTallyMapperTest {
     @BeforeEach
     void setUp() {
         aiConfig = new AiConfig();
-        mapper = new LlmTallyMapper(claudeApiClient, aiConfig, objectMapper);
+        mapper = new LlmTallyMapper(modelRouter, aiConfig, objectMapper);
     }
 
     @Test
@@ -96,7 +96,15 @@ class LlmTallyMapperTest {
     }
 
     @Test
-    void isAvailable_is_false_when_api_key_blank() {
+    void isAvailable_is_true_when_useLocal_is_true_regardless_of_api_key() {
+        aiConfig.setUseLocal(true);
+        aiConfig.setAnthropicApiKey(null);
+        assertTrue(mapper.isAvailable(), "local mode should always be available");
+    }
+
+    @Test
+    void isAvailable_checks_api_key_when_useLocal_is_false() {
+        aiConfig.setUseLocal(false);
         aiConfig.setAnthropicApiKey(null);
         assertFalse(mapper.isAvailable());
         aiConfig.setAnthropicApiKey("");
@@ -109,17 +117,18 @@ class LlmTallyMapperTest {
 
     @Test
     void suggest_returns_empty_when_unconfigured_without_calling_LLM() {
+        aiConfig.setUseLocal(false);
         aiConfig.setAnthropicApiKey(null);
         var out = mapper.suggest(List.of(
                 new LlmTallyMapper.UnclassifiedLedger("Anything", "Group", null)));
         assertTrue(out.isEmpty());
-        verify(claudeApiClient, never()).sendMessage(anyString(), anyString());
+        verify(modelRouter, never()).sendMessage(anyString(), anyString());
     }
 
     @Test
     void suggest_calls_LLM_and_returns_parsed_suggestions_when_configured() {
-        aiConfig.setAnthropicApiKey("sk-test");
-        when(claudeApiClient.sendMessage(anyString(), anyString())).thenReturn("""
+        aiConfig.setUseLocal(true);
+        when(modelRouter.sendMessage(anyString(), anyString())).thenReturn("""
                 [{"name": "Office Rent", "kind": "EXPENSE", "confidence": 0.95, "reason": "indirect expense"}]
                 """);
 
@@ -131,8 +140,8 @@ class LlmTallyMapperTest {
 
     @Test
     void suggest_returns_empty_when_LLM_throws_instead_of_propagating() {
-        aiConfig.setAnthropicApiKey("sk-test");
-        when(claudeApiClient.sendMessage(anyString(), anyString()))
+        aiConfig.setUseLocal(true);
+        when(modelRouter.sendMessage(anyString(), anyString()))
                 .thenThrow(new RuntimeException("rate limit"));
 
         var out = mapper.suggest(List.of(

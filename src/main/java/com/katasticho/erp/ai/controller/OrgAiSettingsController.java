@@ -1,8 +1,10 @@
 package com.katasticho.erp.ai.controller;
 
+import com.katasticho.erp.ai.config.AiConfig;
 import com.katasticho.erp.ai.dto.AiModelSettingsRequest;
 import com.katasticho.erp.ai.dto.AiModelSettingsResponse;
 import com.katasticho.erp.ai.service.OrgAiSettingsService;
+import com.katasticho.erp.ai.service.VisionModelRouter;
 import com.katasticho.erp.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,8 @@ import java.util.Map;
 public class OrgAiSettingsController {
 
     private final OrgAiSettingsService service;
+    private final AiConfig aiConfig;
+    private final VisionModelRouter modelRouter;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
@@ -52,5 +56,33 @@ public class OrgAiSettingsController {
     public ResponseEntity<ApiResponse<java.util.List<String>>> installedModels(
             @RequestParam String baseUrl) {
         return ResponseEntity.ok(ApiResponse.ok(service.listInstalledModels(baseUrl)));
+    }
+
+    /** Current AI provider status — which backend is active, connectivity, model info. */
+    @GetMapping("/status")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> status() {
+        boolean useLocal = aiConfig.isUseLocal();
+        String provider = useLocal ? "OLLAMA" : aiConfig.getDefaultProvider();
+        String model = useLocal ? aiConfig.getOllamaModel() : aiConfig.getModel();
+        String baseUrl = useLocal ? aiConfig.getOllamaBaseUrl() : "https://api.anthropic.com";
+
+        boolean reachable = false;
+        if (useLocal) {
+            reachable = service.testOllamaConnection(aiConfig.getOllamaBaseUrl());
+        } else {
+            String key = aiConfig.getAnthropicApiKey();
+            reachable = key != null && !key.isBlank();
+        }
+
+        java.util.LinkedHashMap<String, Object> status = new java.util.LinkedHashMap<>();
+        status.put("useLocal", useLocal);
+        status.put("provider", provider);
+        status.put("model", model);
+        status.put("baseUrl", baseUrl);
+        status.put("reachable", reachable);
+        status.put("ollamaBaseUrl", aiConfig.getOllamaBaseUrl());
+        status.put("ollamaModel", aiConfig.getOllamaModel());
+        return ResponseEntity.ok(ApiResponse.ok(status));
     }
 }

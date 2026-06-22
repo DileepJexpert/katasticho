@@ -1,7 +1,7 @@
 package com.katasticho.erp.migration.tally;
 
 import com.katasticho.erp.ai.config.AiConfig;
-import com.katasticho.erp.ai.service.ClaudeApiClient;
+import com.katasticho.erp.ai.service.VisionModelRouter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -22,10 +22,11 @@ import java.util.Map;
  * doc's wedge.
  *
  * <p>Returns a structured suggestion per ledger: kind + confidence + reason.
- * The human still reviews and accepts; nothing is auto-persisted. Tokens are
- * logged to {@code ai_usage_log} via the underlying {@link ClaudeApiClient}.
+ * The human still reviews and accepts; nothing is auto-persisted.
  *
- * <p>Inert when {@code app.ai.anthropic-api-key} is not configured —
+ * <p>Routes through {@link VisionModelRouter} — uses local Ollama when
+ * {@code app.ai.use-local=true}, remote Claude API otherwise. Inert when
+ * remote mode is selected but no API key is configured —
  * {@link #isAvailable()} guards callers.
  */
 @Service
@@ -54,11 +55,12 @@ public class LlmTallyMapper {
             No prose, no markdown.
             """;
 
-    private final ClaudeApiClient claudeApiClient;
+    private final VisionModelRouter modelRouter;
     private final AiConfig aiConfig;
     private final ObjectMapper objectMapper;
 
     public boolean isAvailable() {
+        if (aiConfig.isUseLocal()) return true;
         String key = aiConfig.getAnthropicApiKey();
         return key != null && !key.isBlank();
     }
@@ -81,7 +83,7 @@ public class LlmTallyMapper {
         }
         try {
             String userMessage = renderInput(ledgers);
-            String raw = claudeApiClient.sendMessage(SYSTEM_PROMPT, userMessage);
+            String raw = modelRouter.sendMessage(SYSTEM_PROMPT, userMessage);
             return parse(raw);
         } catch (Exception e) {
             log.warn("LlmTallyMapper: suggestion call failed — {}", e.toString());
