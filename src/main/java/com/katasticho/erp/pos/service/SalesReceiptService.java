@@ -101,6 +101,9 @@ public class SalesReceiptService {
     // which depend back on this service - the common edge of both cycles.
     @org.springframework.context.annotation.Lazy
     private final com.katasticho.erp.notification.whatsapp.WhatsAppDocumentService whatsAppDocumentService;
+    // Statutory pharma registers (H1 / Schedule X / Narcotics) — auto-populated
+    // after stock deduction. No cycle: the register only reads receipt + items.
+    private final com.katasticho.erp.pharma.register.StatutoryRegisterService statutoryRegisterService;
 
     @Transactional
     public SalesReceiptResponse create(CreateSalesReceiptRequest request) {
@@ -303,6 +306,21 @@ public class SalesReceiptService {
 
         // 6. Deduct stock for tracked items
         deductStock(receipt, itemMap);
+
+        // 6b. Statutory pharma registers (H1 / Schedule X / Narcotics) — Rule
+        // 65(11)(h) D&C Rules. Best-effort: non-business failures are logged
+        // and swallowed so a register-writer bug never wedges a sale.
+        // BusinessException (e.g. RX_PRESCRIPTION_REQUIRED under
+        // pharma.h1_strict=true) is intentionally allowed to bubble so the
+        // transaction rolls the receipt back.
+        try {
+            statutoryRegisterService.recordSaleEntries(receipt, itemMap);
+        } catch (BusinessException be) {
+            throw be;
+        } catch (Exception ex) {
+            log.warn("Statutory register write failed for receipt {}: {}",
+                    receipt.getReceiptNumber(), ex.getMessage(), ex);
+        }
 
         auditService.log("SALES_RECEIPT", receipt.getId(), "CREATE", null,
                 "{\"receiptNumber\":\"" + receiptNumber + "\",\"total\":\"" + total + "\"}");

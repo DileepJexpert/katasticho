@@ -1372,7 +1372,9 @@ bool _isNavItemVisible(String route, BusinessCapabilities capabilities) {
   if (route == Routes.deliveryChallans) {
     return capabilities.canUseDistribution;
   }
-  if (route == Routes.drugLicenses || route == Routes.prescriptionHistory) {
+  if (route == Routes.drugLicenses ||
+      route == Routes.statutoryRegisters ||
+      route == Routes.prescriptionHistory) {
     return capabilities.canUsePharma;
   }
   if (route == Routes.nearExpiry) return capabilities.canUseBatchExpiry;

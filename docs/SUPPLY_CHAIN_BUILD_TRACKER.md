@@ -15,22 +15,11 @@ Replace the thin 7-item "Inventory" submenu with a 10-pillar supply chain suite.
 - [x] **AI local/remote toggle** (Ollama vs Claude) — commit `cf16715`, merged to main. `app.ai.use-local` flag.
 - [x] **Bill-freely UX**: negative-stock items surfaced on items list — commit `aee6055`. Red −1 styling + filter chip.
 - [x] **Provisional COGS + GRN true-up** (Option B) — commit `2c00301`. New `Stock-Out Suspense (2042)`, `CostResolverService`, `ProvisionalCostReconciler`, V5 migration, 14 new tests. Books self-heal at GRN time. **1273/1273 backend tests pass.**
+- [x] **Statutory registers (Schedule H1 / X / Narcotics)** — V6 migration `statutory_register_entry`, `StatutoryRegisterService` (auto-record on POS sale, schedule normalisation, h1_strict gate, CSV export), India-only `StatutoryRegisterController` @ `/api/v1/pharma/statutory-registers`, Flutter `StatutoryRegistersScreen` with 3 tabs + CSV download + regulatory banner. 11 new tests. **1284/1284 backend tests pass.** See `CLAUDE.md` § "Statutory pharma registers (H1 / Schedule X / Narcotics) (2026-06-22)" for full design.
 
 ---
 
 ## In flight / queued
-
-### 1. [ ] Statutory registers (Schedule H1 / X / Narcotics) — NEXT
-**Why:** Pharma regulatory must-have. Rule 65(11)(h) requires a separate H1 register
-(prescriber, patient, drug, qty) with 3-year retention. Form 20G + Schedule X needs
-Form 19C tracking + 2-year retention. NDPS Forms 3D/3E/3H for narcotics.
-Without these, a drug-inspector visit will fail.
-**Scope:**
-- Backend V6 migration: `statutory_register_entry` (type, sale_receipt_id, drug, batch, qty, prescriber, patient, retention_until)
-- `StatutoryRegisterService` — auto-record on POS sale of H1/X items; CRUD; export
-- `StatutoryRegisterController` — list/get/export (CSV for inspector)
-- Flutter screen under Compliance pillar (when nav restructure lands)
-- Tests: auto-recording on sale, retention computation, separate registers per type
 
 ### 2. [ ] 3-way match (PO ↔ GRN ↔ vendor bill)
 **Why:** Finishes the P2P flow. AP teams can't trust the system without it.

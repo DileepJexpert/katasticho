@@ -158,6 +158,7 @@ import '../features/platform_admin/presentation/platform_admin_audit_screen.dart
 import '../features/platform_admin/data/platform_admin_auth_state.dart';
 import '../features/pharma/presentation/drug_licenses_screen.dart';
 import '../features/pharma/presentation/prescription_history_screen.dart';
+import '../features/pharma/presentation/statutory_registers_screen.dart';
 import '../features/loyalty/presentation/wallet_history_screen.dart';
 import '../features/workflow/presentation/approval_inbox_screen.dart';
 import '../features/payroll/presentation/employee_list_screen.dart';
@@ -404,6 +405,7 @@ class Routes {
   static const accountPendingApproval = '/account-pending-approval';
   // Pharma features
   static const drugLicenses = '/pharma/drug-licenses';
+  static const statutoryRegisters = '/pharma/statutory-registers';
   static const prescriptionHistory = '/pharma/prescriptions/:contactId';
   static String prescriptionHistoryPath(String contactId) =>
       '/pharma/prescriptions/$contactId';
@@ -1664,6 +1666,13 @@ final routerProvider = Provider<GoRouter>((ref) {
               child: DrugLicensesScreen(),
             ),
           ),
+          // Pharma — Statutory Registers (Schedule H1 / X / Narcotics)
+          GoRoute(
+            path: Routes.statutoryRegisters,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: StatutoryRegistersScreen(),
+            ),
+          ),
           // Pharma — Prescription History (per patient)
           GoRoute(
             path: Routes.prescriptionHistory,
@@ -2127,6 +2136,7 @@ String? _capabilityRedirectForLocation(
     return Routes.dashboard;
   }
   if ((location == Routes.drugLicenses ||
+          location == Routes.statutoryRegisters ||
           location.startsWith('/pharma/prescriptions/')) &&
       !capabilities.canUsePharma) {
     return Routes.dashboard;

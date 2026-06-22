@@ -651,6 +651,15 @@ class ApiConfig {
   static String drugLicenseById(String id) => '/api/v1/drug-licenses/$id';
   static const String drugLicensesExpiring = '/api/v1/drug-licenses/expiring';
 
+  // Statutory Pharma Registers (H1 / Schedule X / Narcotics) — Rule 65(11)(h)
+  static const String statutoryRegisters = '/api/v1/pharma/statutory-registers';
+  static String statutoryRegisterById(String id) =>
+      '/api/v1/pharma/statutory-registers/$id';
+  static const String statutoryRegistersExport =
+      '/api/v1/pharma/statutory-registers/export';
+  static const String statutoryRegistersDashboard =
+      '/api/v1/pharma/statutory-registers/dashboard';
+
   // Pharma — Prescriptions
   static const String prescriptions = '/api/v1/prescriptions';
   static String prescriptionById(String id) => '/api/v1/prescriptions/$id';
