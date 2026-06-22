@@ -13,8 +13,8 @@ import '../../../core/utils/api_error_parser.dart';
 /// running the run.
 ///
 /// The bridge only produces a non-zero amount when the employee's
-/// current salary structure has {@code payType=HOURLY} or
-/// {@code PIECE_RATE} AND the corresponding rate is set. SALARY workers
+/// current salary structure has `payType=HOURLY` or
+/// `PIECE_RATE` AND the corresponding rate is set. SALARY workers
 /// always return zero (their pay comes from the structure components).
 class LaborPayPreviewScreen extends ConsumerStatefulWidget {
   const LaborPayPreviewScreen({super.key});

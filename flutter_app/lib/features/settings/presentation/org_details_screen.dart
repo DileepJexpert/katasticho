@@ -135,14 +135,14 @@ class _OrgDetailsScreenState extends ConsumerState<OrgDetailsScreen> {
             WidgetsBinding.instance.addPostFrameCallback((_) => _populate(org));
           }
           return _editing
-              ? _buildForm(orgId)
-              : _buildReadOnly(org);
+              ? _buildForm(orgId, taxLabel, isGstin)
+              : _buildReadOnly(org, taxLabel);
         },
       ),
     );
   }
 
-  Widget _buildReadOnly(Map<String, dynamic> org) {
+  Widget _buildReadOnly(Map<String, dynamic> org, String taxLabel) {
     return SingleChildScrollView(
       padding: KSpacing.pagePadding,
       child: Column(
@@ -191,7 +191,7 @@ class _OrgDetailsScreenState extends ConsumerState<OrgDetailsScreen> {
     );
   }
 
-  Widget _buildForm(String orgId) {
+  Widget _buildForm(String orgId, String taxLabel, bool isGstin) {
     return Form(
       key: _formKey,
       child: SingleChildScrollView(

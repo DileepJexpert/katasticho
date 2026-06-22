@@ -106,7 +106,10 @@ class ContactDetailScreen extends ConsumerWidget {
             ),
             body: TabBarView(
               children: [
-                _DetailsTab(contact: contact, typeColor: typeColor),
+                _DetailsTab(
+                    contact: contact,
+                    typeColor: typeColor,
+                    taxLabel: taxLabel),
                 _PersonsTab(contact: contact, contactId: contactId),
                 KActivityTimeline(
                   entityType: 'CONTACT',
@@ -124,8 +127,12 @@ class ContactDetailScreen extends ConsumerWidget {
 class _DetailsTab extends StatelessWidget {
   final Map<String, dynamic> contact;
   final Color typeColor;
+  final String taxLabel;
 
-  const _DetailsTab({required this.contact, required this.typeColor});
+  const _DetailsTab(
+      {required this.contact,
+      required this.typeColor,
+      required this.taxLabel});
 
   @override
   Widget build(BuildContext context) {
