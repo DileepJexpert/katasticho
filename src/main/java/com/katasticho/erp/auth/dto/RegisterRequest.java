@@ -12,5 +12,7 @@ public record RegisterRequest(
         @NotBlank String orgName,
         String businessType,
         String industryCode,
-        List<String> subCategories
+        List<String> subCategories,
+        /** ISO-3166 alpha-2 country, e.g. "IN", "AE". Null/blank → India (back-compat). */
+        String countryCode
 ) {}

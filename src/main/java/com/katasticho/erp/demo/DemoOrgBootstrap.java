@@ -65,7 +65,8 @@ public class DemoOrgBootstrap implements CommandLineRunner {
                 props.orgName(),
                 props.businessType(),
                 props.industryCode(),
-                Collections.emptyList());
+                Collections.emptyList(),
+                null); // demo org defaults to India
 
         // register() saves org + branch + warehouse, hashes the password, creates
         // the OWNER user, and registers an after-commit hook that bootstraps the

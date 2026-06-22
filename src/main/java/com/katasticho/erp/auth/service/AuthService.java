@@ -46,6 +46,7 @@ public class AuthService {
     private final JdbcTemplate jdbcTemplate;
     private final OrgBootstrapService bootstrapService;
     private final OrgBootstrapStatusRepository bootstrapStatusRepository;
+    private final com.katasticho.erp.common.country.CountryRegistry countryRegistry;
 
     public void requestOtp(OtpRequest request) {
         otpService.generateAndStore(request.phone());
@@ -104,12 +105,17 @@ public class AuthService {
         // the raw JdbcTemplate branch insert below, otherwise the branch FK
         // to organisation.id would fail (Hibernate's write-behind cache
         // would still be holding the org insert).
+        var signupCountry = countryRegistry.get(request.countryCode());
         Organisation org = Organisation.builder()
                 .name(request.orgName())
                 .industry(request.industry())
                 .businessType(request.businessType() != null ? request.businessType() : "RETAILER")
                 .industryCode(request.industryCode() != null ? request.industryCode() : "OTHER_RETAIL")
                 .subCategories(request.subCategories() != null ? request.subCategories() : List.of())
+                .countryCode(signupCountry.code())
+                .baseCurrency(signupCountry.currencyCode())
+                .timezone(signupCountry.defaultTimezone())
+                .fiscalYearStart(signupCountry.fiscalYearStartMonth())
                 .approvalStatus("APPROVED")
                 .build();
         org = organisationRepository.saveAndFlush(org);
@@ -176,11 +182,16 @@ public class AuthService {
             throw new BusinessException("Phone number already registered", "AUTH_PHONE_EXISTS", HttpStatus.CONFLICT);
         }
 
+        var registerCountry = countryRegistry.get(request.countryCode());
         Organisation org = Organisation.builder()
                 .name(request.orgName())
                 .businessType(request.businessType() != null ? request.businessType() : "RETAILER")
                 .industryCode(request.industryCode() != null ? request.industryCode() : "OTHER_RETAIL")
                 .subCategories(request.subCategories() != null ? request.subCategories() : List.of())
+                .countryCode(registerCountry.code())
+                .baseCurrency(registerCountry.currencyCode())
+                .timezone(registerCountry.defaultTimezone())
+                .fiscalYearStart(registerCountry.fiscalYearStartMonth())
                 .approvalStatus("APPROVED")
                 .build();
         org = organisationRepository.saveAndFlush(org);
