@@ -174,7 +174,6 @@ import '../features/hr/presentation/timesheet_screen.dart';
 import '../features/hr/presentation/help_desk_screen.dart';
 import '../features/hr/presentation/employee_documents_screen.dart';
 import '../features/hr/presentation/hr_analytics_screen.dart';
-import '../features/hr/presentation/my_profile_screen.dart';
 import '../features/hr/presentation/offboarding_screen.dart';
 import '../features/field_sales/presentation/beat_list_screen.dart';
 import '../features/field_sales/presentation/live_tracking_screen.dart';

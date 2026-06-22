@@ -58,7 +58,7 @@ class _DemoCredentialsCardState extends ConsumerState<DemoCredentialsCard> {
                   Text(
                     'Tap a row to fill the form. Password for every user is '
                     '${info.users.first.password}.',
-                    style: KTypography.caption.copyWith(
+                    style: KTypography.labelSmall.copyWith(
                       color: KColors.textSecondary,
                     ),
                   ),
@@ -113,7 +113,7 @@ class _Header extends StatelessWidget {
             ),
             Text(
               '$count users',
-              style: KTypography.caption.copyWith(
+              style: KTypography.labelSmall.copyWith(
                 color: KColors.textSecondary,
               ),
             ),
@@ -154,10 +154,12 @@ class _LoginRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(login.fullName, style: KTypography.bodySmall),
-                  KTypography.mono(
+                  Text(
                     login.phone,
-                    fontSize: 11,
-                    color: KColors.textSecondary,
+                    style: KTypography.mono(
+                      size: 11,
+                      color: KColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -221,7 +223,7 @@ class _RolePill extends StatelessWidget {
       ),
       child: Text(
         role,
-        style: KTypography.caption.copyWith(
+        style: KTypography.labelSmall.copyWith(
           color: color,
           fontWeight: FontWeight.w700,
           fontSize: 9,
