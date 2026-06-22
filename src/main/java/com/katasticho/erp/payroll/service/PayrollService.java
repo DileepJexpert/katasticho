@@ -44,6 +44,7 @@ public class PayrollService {
     private final ProductionPayrollService productionPayrollService;
     private final ProfessionalTaxCalculator ptCalculator;
     private final LabourWelfareFundCalculator lwfCalculator;
+    private final com.katasticho.erp.common.country.CountryAccessService countryAccessService;
 
     // ──────────────────────────────── Settings ────────────────────────────────
 
@@ -829,9 +830,16 @@ public class PayrollService {
         // Resolve BASIC amount for PF calculation
         BigDecimal basicAmount = computedAmounts.getOrDefault("BASIC", grossPay);
 
-        // Second pass: statutory deductions (auto-computed, not from structure lines)
+        // Second pass: statutory deductions (auto-computed, not from structure lines).
+        // PF/ESI/PT/LWF are statutory ONLY in India. A Gulf (AE/OM) or Kenya org
+        // running payroll here would otherwise deduct 12% PF / 0.75% ESI / state-
+        // wise PT / state-wise LWF off a UAE employee's gross — wrong on all four.
+        // Gulf payroll (gratuity + WPS) is a separate validation-gated build
+        // (plan §11). For now: non-India = no auto statutory; gross flows through.
+        boolean indianStatutory = countryAccessService.isCountry("IN");
+
         // PF Employee: 12% of Basic
-        if (settings.isPfEnabled() && employee.isPfApplicable()) {
+        if (indianStatutory && settings.isPfEnabled() && employee.isPfApplicable()) {
             BigDecimal pfEmployee = basicAmount
                     .multiply(new BigDecimal("0.12"))
                     .setScale(2, RoundingMode.HALF_UP);
@@ -847,7 +855,7 @@ public class PayrollService {
         }
 
         // ESI Employee: 0.75% of Gross (only if gross <= 21000)
-        if (settings.isEsiEnabled() && employee.isEsiApplicable()
+        if (indianStatutory && settings.isEsiEnabled() && employee.isEsiApplicable()
                 && grossPay.compareTo(new BigDecimal("21000")) <= 0) {
             BigDecimal esiEmployee = grossPay
                     .multiply(new BigDecimal("0.0075"))
@@ -866,7 +874,7 @@ public class PayrollService {
         // PT: state-wise slab (V3 pt_slab master). Returns ZERO for non-PT states
         // (Delhi/Haryana/UP/…), for orgs with no resolvable state, and when the
         // employee's monthly gross is below the nil bracket.
-        if (settings.isPtEnabled() && employee.isPtApplicable()) {
+        if (indianStatutory && settings.isPtEnabled() && employee.isPtApplicable()) {
             BigDecimal ptAmount = ptCalculator.calculate(
                     orgId, employee, grossPay, run.getPeriodEnd());
             if (ptAmount != null && ptAmount.signum() > 0) {
@@ -878,7 +886,7 @@ public class PayrollService {
         // LWF: state-wise rule (V4 lwf_rule master). Returns ZERO for non-LWF
         // states AND for months outside the rule's collection_months — so a
         // half-yearly ₹25 only hits June+December salaries, not all twelve.
-        if (settings.isLwfEnabled() && employee.isLwfApplicable()) {
+        if (indianStatutory && settings.isLwfEnabled() && employee.isLwfApplicable()) {
             LabourWelfareFundCalculator.Contribution lwf =
                     lwfCalculator.calculate(orgId, grossPay, run.getPeriodEnd());
             if (lwf != null && lwf.hasAny()) {

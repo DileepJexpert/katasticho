@@ -316,7 +316,7 @@ First-class M-Pesa reconciliation + eTIMS + KE payroll (PAYE/NSSF/SHIF/Housing/H
 
 **Phase 2+ (post-validation)**
 - [ ] `EInvoiceProvider` interface + `IndiaIrpProvider` (byte-identical) + `PintAeProvider` + ASP integration
-- [ ] `StatutoryDeductionCalculator` registry + India calcs behind it + `GratuityCalculator` + `WpsFileGenerator`
+- [~] India statutory deductions **country-gated (2026-06-22):** `PayrollService.calculatePayslip` injects `CountryAccessService.isCountry("IN")`; PF/ESI/PT/LWF blocks are guarded so a UAE/Oman/Kenya payroll run posts gross with no Indian deductions (and never even invokes ptCalculator/lwfCalculator). India byte-identical. Tests: PayrollServiceTest +2 (India deducts all four, UAE deducts none + calculators never invoked). 1254/1254 green. *Gulf gratuity + WPS still pending (full calculator registry is the bigger build, gated by Phase 2).*
 - [ ] Full string extraction sweep (~2,250) + professional Arabic translation
 - [ ] Full RTL sweep (EdgeInsetsDirectional + 98 directional icons + KDataTable + POS)
 - [~] Field localization (2026-06-22) — **3 of 4 done:**

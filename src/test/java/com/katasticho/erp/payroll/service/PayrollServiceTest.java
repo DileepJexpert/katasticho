@@ -42,6 +42,7 @@ class PayrollServiceTest {
     @Mock private com.katasticho.erp.payroll.service.ProductionPayrollService productionPayrollService;
     @Mock private com.katasticho.erp.payroll.service.ProfessionalTaxCalculator ptCalculator;
     @Mock private com.katasticho.erp.payroll.service.LabourWelfareFundCalculator lwfCalculator;
+    @Mock private com.katasticho.erp.common.country.CountryAccessService countryAccess;
 
     private PayrollService service;
 
@@ -58,7 +59,9 @@ class PayrollServiceTest {
                 settingsRepo, employeeRepo, componentRepo, structureRepo,
                 runRepo, payslipRepo, paymentRepo, statutoryPaymentRepo,
                 journalService, accountRepo, leaveRequestRepo, productionPayrollService,
-                ptCalculator, lwfCalculator);
+                ptCalculator, lwfCalculator, countryAccess);
+        // Default: India org so existing statutory assertions hold.
+        org.mockito.Mockito.lenient().when(countryAccess.isCountry("IN")).thenReturn(true);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
 
@@ -368,6 +371,123 @@ class PayrollServiceTest {
 
         assertEquals(0, slip.getLopDays().compareTo(BigDecimal.ZERO));
         assertEquals(0, slip.getGrossPay().compareTo(new BigDecimal("30000")));
+    }
+
+    // ─── Country-gated statutory deductions (UAE skips PF/ESI/PT/LWF) ───
+
+    private static SalaryComponent comp(String code, String type) {
+        return SalaryComponent.builder().code(code).name(code).componentType(type).build();
+    }
+
+    /** Builds a calculateRun mock chain with all four India statutory settings
+     *  enabled, so an India run produces PF/ESI/PT/LWF lines and a UAE run
+     *  must NOT. Returns the captured Payslip. */
+    private Payslip runPayrollAllStatutoryEnabled(int basic) {
+        UUID runId = UUID.randomUUID();
+        UUID empId = UUID.randomUUID();
+        LocalDate start = LocalDate.of(2026, 6, 1);
+        LocalDate end = LocalDate.of(2026, 6, 30);
+
+        PayrollRun run = PayrollRun.builder()
+                .id(runId).orgId(orgId).status("DRAFT")
+                .periodStart(start).periodEnd(end).build();
+        when(runRepo.findByIdAndOrgId(runId, orgId)).thenReturn(Optional.of(run));
+
+        PayrollSettings settings = PayrollSettings.builder()
+                .orgId(orgId).payFrequency("MONTHLY")
+                .pfEnabled(true).esiEnabled(true).ptEnabled(true)
+                .lwfEnabled(true).tdsEnabled(false).build();
+        when(settingsRepo.findByOrgId(orgId)).thenReturn(Optional.of(settings));
+
+        Employee emp = Employee.builder()
+                .id(empId).orgId(orgId).userId(userId)
+                .employeeCode("E1").employmentStatus("ACTIVE")
+                .pfApplicable(true).esiApplicable(true)
+                .ptApplicable(true).lwfApplicable(true)
+                .build();
+        when(employeeRepo.findByOrgIdAndIsDeletedFalseAndEmploymentStatus(orgId, "ACTIVE"))
+                .thenReturn(List.of(emp));
+
+        // Seed the org's statutory components so calculatePayslip's addStatutoryLine
+        // can resolve PF/ESI/PT/LWF by code (it skips with a warn if absent).
+        SalaryComponent basicComp = comp("BASIC", "EARNING");
+        SalaryComponent pfEmpComp = comp("PF_EMPLOYEE", "DEDUCTION");
+        SalaryComponent pfErComp = comp("PF_EMPLOYER", "EMPLOYER_CONTRIBUTION");
+        SalaryComponent esiEmpComp = comp("ESI_EMPLOYEE", "DEDUCTION");
+        SalaryComponent esiErComp = comp("ESI_EMPLOYER", "EMPLOYER_CONTRIBUTION");
+        SalaryComponent ptComp = comp("PT", "DEDUCTION");
+        SalaryComponent lwfComp = comp("LWF", "DEDUCTION");
+        when(componentRepo.findByOrgIdAndActiveTrueOrderByCodeAsc(orgId)).thenReturn(
+                List.of(basicComp, pfEmpComp, pfErComp, esiEmpComp, esiErComp, ptComp, lwfComp));
+        when(payslipRepo.findByOrgIdAndPayrollRunId(orgId, runId)).thenReturn(List.of());
+
+        EmployeeSalaryComponent line = EmployeeSalaryComponent.builder()
+                .salaryComponent(basicComp).calculationType("FIXED")
+                .amount(BigDecimal.valueOf(basic)).build();
+        EmployeeSalaryStructure structure = EmployeeSalaryStructure.builder()
+                .orgId(orgId).employeeId(empId).status("ACTIVE")
+                .lines(new ArrayList<>(List.of(line))).build();
+        when(structureRepo.findCurrentActive(orgId, empId)).thenReturn(Optional.of(structure));
+
+        when(leaveRequestRepo
+                .findByOrgIdAndUserIdAndStatusInAndFromDateLessThanEqualAndToDateGreaterThanEqualAndIsDeletedFalse(
+                        orgId, userId, List.of("APPROVED"), end, start))
+                .thenReturn(List.of());
+
+        // PT/LWF calculators return non-zero so an India run actually deducts.
+        org.mockito.Mockito.lenient().when(ptCalculator.calculate(
+                eq(orgId), any(Employee.class), any(BigDecimal.class), any(LocalDate.class)))
+                .thenReturn(new BigDecimal("200"));
+        org.mockito.Mockito.lenient().when(lwfCalculator.calculate(
+                eq(orgId), any(BigDecimal.class), any(LocalDate.class)))
+                .thenReturn(new LabourWelfareFundCalculator.Contribution(
+                        new BigDecimal("25"), new BigDecimal("75")));
+
+        ArgumentCaptor<Payslip> captor = ArgumentCaptor.forClass(Payslip.class);
+        when(payslipRepo.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
+        when(runRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.calculateRun(runId);
+        return captor.getValue();
+    }
+
+    @Test
+    void calculateRun_indiaOrg_deductsAllFourStatutory() {
+        // Default setUp() returns isCountry("IN") = true.
+        Payslip slip = runPayrollAllStatutoryEnabled(20000);
+        java.util.Set<String> codes = slip.getLines().stream()
+                .map(l -> l.getSalaryComponent().getCode())
+                .collect(java.util.stream.Collectors.toSet());
+        assertEquals(true, codes.contains("PF_EMPLOYEE"));
+        assertEquals(true, codes.contains("ESI_EMPLOYEE"));
+        assertEquals(true, codes.contains("PT"));
+        assertEquals(true, codes.contains("LWF"));
+    }
+
+    @Test
+    void calculateRun_uaeOrg_skipsAllFourStatutoryDeductions() {
+        // Override India default for this test: UAE org.
+        when(countryAccess.isCountry("IN")).thenReturn(false);
+
+        Payslip slip = runPayrollAllStatutoryEnabled(20000);
+        java.util.Set<String> codes = slip.getLines().stream()
+                .map(l -> l.getSalaryComponent().getCode())
+                .collect(java.util.stream.Collectors.toSet());
+        // None of the Indian statutory codes should be present.
+        assertEquals(false, codes.contains("PF_EMPLOYEE"));
+        assertEquals(false, codes.contains("PF_EMPLOYER"));
+        assertEquals(false, codes.contains("ESI_EMPLOYEE"));
+        assertEquals(false, codes.contains("ESI_EMPLOYER"));
+        assertEquals(false, codes.contains("PT"));
+        assertEquals(false, codes.contains("LWF"));
+        // Gross equals BASIC because nothing was deducted.
+        assertEquals(0, slip.getGrossPay().compareTo(new BigDecimal("20000")));
+        assertEquals(0, slip.getNetPay().compareTo(new BigDecimal("20000")));
+        // PT/LWF calculators must never even be invoked for UAE.
+        org.mockito.Mockito.verify(ptCalculator, org.mockito.Mockito.never())
+                .calculate(any(UUID.class), any(Employee.class), any(BigDecimal.class), any(LocalDate.class));
+        org.mockito.Mockito.verify(lwfCalculator, org.mockito.Mockito.never())
+                .calculate(any(UUID.class), any(BigDecimal.class), any(LocalDate.class));
     }
 
     // ─── V18: Employee profile depth ───
