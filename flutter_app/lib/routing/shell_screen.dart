@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/api/api_client.dart';
 import '../core/auth/business_capabilities.dart';
 import '../core/auth/auth_state.dart';
+import '../core/intl/country_currency.dart';
 import '../core/commands/command_registry.dart';
 import '../core/shell/shell_providers.dart';
 import '../core/shortcuts/k_shortcuts.dart';
@@ -945,6 +946,10 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Resolve the org's country profile once after login → applies the org's
+    // currency (₹ / AED / OMR …) to CurrencyFormatter so KMoney renders right.
+    ref.watch(countryProfileProvider);
+
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= KSpacing.desktopBreakpoint;
     final isTablet = width >= KSpacing.tabletBreakpoint && !isDesktop;

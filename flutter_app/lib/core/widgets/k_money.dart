@@ -54,9 +54,11 @@ class KMoney extends StatelessWidget {
     };
 
     final v = value.toDouble();
+    // Uses the ACTIVE currency (₹ for India, AED for UAE, …) set at login —
+    // see CurrencyFormatter.setActiveCurrency.
     final text = compact
         ? CurrencyFormatter.formatCompact(v)
-        : CurrencyFormatter.formatIndian(v);
+        : CurrencyFormatter.format(v);
 
     Color? signColor;
     if (colorBySign) {

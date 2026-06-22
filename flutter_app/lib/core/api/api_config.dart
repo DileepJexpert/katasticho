@@ -30,6 +30,10 @@ class ApiConfig {
   /// can render a "Demo credentials" card with one-tap fill. Public (no auth).
   /// When the server has demo mode off, `enabled` is false and the card hides.
   static const String demoInfo = '/api/v1/auth/demo-info';
+
+  /// The signed-in org's country profile (currency/symbol/decimals/taxIdLabel/
+  /// weekend/fiscal). Drives currency display + per-country form labels.
+  static const String countryProfile = '/api/v1/reference/country-profile';
   static const String me = '/api/v1/auth/me';
   static const String myOrgs = '/api/v1/users/me/organisations';
   static const String switchOrg = '/api/v1/users/me/switch-org';
