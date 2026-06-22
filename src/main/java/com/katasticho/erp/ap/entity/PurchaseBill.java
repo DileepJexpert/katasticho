@@ -148,6 +148,20 @@ public class PurchaseBill {
     @Column(name = "void_reason")
     private String voidReason;
 
+    // ── 3-way match (V8) ─────────────────────────────────────
+
+    @Column(name = "three_way_match_status", length = 20)
+    private String threeWayMatchStatus;
+
+    @Column(name = "three_way_match_at")
+    private Instant threeWayMatchAt;
+
+    @Column(name = "three_way_match_overridden_by")
+    private UUID threeWayMatchOverriddenBy;
+
+    @Column(name = "three_way_match_override_reason", columnDefinition = "TEXT")
+    private String threeWayMatchOverrideReason;
+
     @Column(name = "is_deleted", nullable = false)
     @Builder.Default
     private boolean isDeleted = false;

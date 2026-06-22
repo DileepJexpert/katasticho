@@ -12,8 +12,10 @@ import com.katasticho.erp.ap.dto.PurchaseBillResponse;
 import com.katasticho.erp.ap.dto.UpdatePurchaseBillRequest;
 import com.katasticho.erp.ap.entity.PurchaseBill;
 import com.katasticho.erp.ap.entity.PurchaseBillLine;
+import com.katasticho.erp.ap.match.ThreeWayMatchService;
 import com.katasticho.erp.ap.repository.PurchaseBillRepository;
 import com.katasticho.erp.ap.repository.VendorPaymentAllocationRepository;
+import com.katasticho.erp.procurement.repository.StockReceiptRepository;
 import com.katasticho.erp.ar.entity.TaxLineItem;
 import com.katasticho.erp.ar.repository.InvoiceNumberSequenceRepository;
 import com.katasticho.erp.ar.repository.TaxLineItemRepository;
@@ -41,6 +43,7 @@ import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.tax.TaxEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -94,6 +97,8 @@ public class PurchaseBillService {
     private final DefaultAccountService defaultAccountService;
     private final CommentService commentService;
     private final DocumentSnapshotService documentSnapshotService;
+    private final StockReceiptRepository stockReceiptRepository;
+    @Lazy private final ThreeWayMatchService threeWayMatchService;
 
     // ── Create ──────────────────────────────────────────────────
 
@@ -266,6 +271,17 @@ public class PurchaseBillService {
         commentService.addSystemComment("BILL", bill.getId(), "Bill created");
         log.info("Purchase bill {} created: {} lines, total={}", bill.getBillNumber(),
                 bill.getLines().size(), bill.getTotalAmount());
+
+        // 3-way match (best-effort). Match failures NEVER block bill creation —
+        // an EXCEPTION just lands in the AI Inbox and the planner reviews. Match
+        // service swallows BusinessException too inside this catch on purpose:
+        // create() must not fail if config / tolerances are off-shape.
+        try {
+            threeWayMatchService.match(bill.getId());
+        } catch (Exception e) {
+            log.warn("3-way match failed for bill {}: {}", bill.getBillNumber(), e.getMessage());
+        }
+
         return toResponse(bill);
     }
 
@@ -692,6 +708,25 @@ public class PurchaseBillService {
 
     private void recordStockForBill(PurchaseBill bill) {
         UUID orgId = bill.getOrgId();
+
+        // P2P architecture guard (2026-06-22): GRN is the only stock-posting step
+        // when a PO is in play. If this bill links a PO and any GRN already exists
+        // for that PO, the GRN posted the PURCHASE movement — re-posting here would
+        // double-count inventory + book CR Inventory twice against the same goods.
+        // Skip when:
+        //   (a) bill.purchaseOrderId is set AND
+        //   (b) at least one GRN (any status except CANCELLED) references that PO.
+        // Direct vendor bills (no PO link, e.g. petty-cash, services, supplier-bill-
+        // first orgs that skip the GRN) keep posting stock here — that's the legacy
+        // path and is the system-of-record for orgs that don't run the full P2P loop.
+        if (bill.getPurchaseOrderId() != null
+                && stockReceiptRepository.existsActiveReceiptForPurchaseOrder(
+                        orgId, bill.getPurchaseOrderId())) {
+            log.info("Bill {} links PO {} with active GRN(s) — skipping stock post (GRN already booked it)",
+                    bill.getBillNumber(), bill.getPurchaseOrderId());
+            return;
+        }
+
         Warehouse defaultWarehouse = warehouseRepository
                 .findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
                 .orElse(null);
