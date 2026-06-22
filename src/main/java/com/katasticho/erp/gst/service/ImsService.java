@@ -65,6 +65,54 @@ public class ImsService {
         return entryRepository.save(e);
     }
 
+    /**
+     * Undo an IMS action on a single row — clears action/actor/timestamp/remarks
+     * so the row is back to "no action" (i.e. deemed accepted until the next
+     * action). Real-world need: an operator hits ACCEPT in bulk, then spots one
+     * row that should have been REJECTed; without this they can't fix it.
+     * The portal allows undo until GSTR-3B is filed; we don't track filing
+     * status yet, so the gate here is "only if the row was actioned".
+     */
+    @Transactional
+    public Gstr2bEntry reset(UUID entryId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Gstr2bEntry e = entryRepository.findByIdAndOrgId(entryId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Gstr2bEntry", entryId));
+        if (e.getImsAction() == null) {
+            throw new BusinessException(
+                    "Row was never actioned — nothing to reset",
+                    "IMS_NOT_ACTIONED", HttpStatus.BAD_REQUEST);
+        }
+        e.setImsAction(null);
+        e.setImsActionAt(null);
+        e.setImsActionBy(null);
+        e.setImsRemarks(null);
+        return entryRepository.save(e);
+    }
+
+    @Transactional
+    public Map<String, Object> bulkReset(List<UUID> entryIds) {
+        if (entryIds == null || entryIds.isEmpty()) {
+            throw new BusinessException(
+                    "entryIds must not be empty", "IMS_NO_ROWS_SELECTED",
+                    HttpStatus.BAD_REQUEST);
+        }
+        int ok = 0, skipped = 0;
+        for (UUID id : entryIds) {
+            try {
+                reset(id);
+                ok++;
+            } catch (BusinessException ex) {
+                log.warn("IMS bulk-reset: skipping {} — {}", id, ex.getMessage());
+                skipped++;
+            }
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("ok", ok);
+        out.put("skipped", skipped);
+        return out;
+    }
+
     @Transactional
     public Map<String, Object> bulkAction(List<UUID> entryIds, String imsAction, String remarks) {
         validateAction(imsAction);

@@ -79,6 +79,58 @@ class ImsServiceTest {
                 () -> service.action(missing, "ACCEPT", null));
     }
 
+    // ── Reset / undo ─────────────────────────────────────────────
+
+    @Test
+    void reset_clears_action_actor_and_remarks_on_an_actioned_row() {
+        Gstr2bEntry e = entry("MATCHED", "100", "100");
+        e.setImsAction("ACCEPT");
+        e.setImsActionAt(java.time.Instant.now());
+        e.setImsActionBy(userId);
+        e.setImsRemarks("misclick");
+        when(entryRepository.findByIdAndOrgId(e.getId(), orgId)).thenReturn(Optional.of(e));
+        when(entryRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        Gstr2bEntry cleared = service.reset(e.getId());
+        assertNull(cleared.getImsAction());
+        assertNull(cleared.getImsActionAt());
+        assertNull(cleared.getImsActionBy());
+        assertNull(cleared.getImsRemarks());
+    }
+
+    @Test
+    void reset_on_never_actioned_row_throws() {
+        Gstr2bEntry e = entry("MATCHED", "100", "100");
+        // imsAction stays null
+        when(entryRepository.findByIdAndOrgId(e.getId(), orgId)).thenReturn(Optional.of(e));
+
+        var ex = assertThrows(BusinessException.class, () -> service.reset(e.getId()));
+        assertEquals("IMS_NOT_ACTIONED", ex.getErrorCode());
+    }
+
+    @Test
+    void bulkReset_skips_never_actioned_rows_and_counts_them() {
+        Gstr2bEntry actioned = entry("MATCHED", "100", "100");
+        actioned.setImsAction("REJECT");
+        actioned.setImsActionAt(java.time.Instant.now());
+        actioned.setImsActionBy(userId);
+        Gstr2bEntry untouched = entry("MATCHED", "200", "200"); // imsAction null
+        when(entryRepository.findByIdAndOrgId(actioned.getId(), orgId)).thenReturn(Optional.of(actioned));
+        when(entryRepository.findByIdAndOrgId(untouched.getId(), orgId)).thenReturn(Optional.of(untouched));
+        when(entryRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        var out = service.bulkReset(List.of(actioned.getId(), untouched.getId()));
+        assertEquals(1, out.get("ok"));
+        assertEquals(1, out.get("skipped"));
+        assertNull(actioned.getImsAction());
+    }
+
+    @Test
+    void bulkReset_empty_list_throws() {
+        var ex = assertThrows(BusinessException.class, () -> service.bulkReset(List.of()));
+        assertEquals("IMS_NO_ROWS_SELECTED", ex.getErrorCode());
+    }
+
     // ── Bulk action ──────────────────────────────────────────────
 
     @Test

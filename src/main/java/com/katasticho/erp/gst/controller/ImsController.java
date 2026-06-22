@@ -78,6 +78,23 @@ public class ImsController {
                 "AI recommendations applied"));
     }
 
+    /** Undo an IMS action on a single row — back to "no action" status. */
+    @PostMapping("/{id}/reset")
+    public ResponseEntity<ApiResponse<Gstr2bEntry>> reset(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                imsService.reset(id),
+                "IMS action cleared"));
+    }
+
+    /** Bulk undo — clears the action on every supplied row. */
+    @PostMapping("/bulk-reset")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> bulkReset(@RequestBody BulkResetRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                imsService.bulkReset(req.entryIds()),
+                "IMS bulk reset processed"));
+    }
+
     public record ActionRequest(String action, String remarks) {}
     public record BulkRequest(List<UUID> entryIds, String action, String remarks) {}
+    public record BulkResetRequest(List<UUID> entryIds) {}
 }
