@@ -230,23 +230,25 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final isPharmacy =
         (authState.industryCode ?? '').toUpperCase().contains('PHARMA') ||
             (authState.businessType ?? '').toUpperCase().contains('PHARMA');
-    if (isPharmacy && item['prescriptionRequired'] == true) {
-      // OFF: never ask. WARN (default for India): ask but cashier may skip —
-      // 99% of Indian pharmacies sell common Rx drugs over the counter.
-      // STRICT: must enter a number, no skip — for jurisdictions that enforce it.
+    final isRxRequired = isPharmacy && item['prescriptionRequired'] == true;
+    if (isRxRequired) {
+      // OFF: never ask, no Rx tracked.
+      // WARN (default for India): NO popup. The item lands in the cart with
+      // an inline amber "Rx required" chip the cashier can tap any time to
+      // enter the number — 99% of Indian pharmacies sell common Rx drugs OTC
+      // and don't want a per-item interruption.
+      // STRICT (UAE / Oman / regulated markets): blocking dialog stays — the
+      // Rx number must be entered before the item lands in the cart.
       final rxMode =
           ref.read(pharmaRxEnforcementModeProvider).asData?.value ?? 'WARN';
-      if (rxMode != 'OFF') {
+      if (rxMode == 'STRICT') {
         prescriptionNumber =
-            await _askPrescriptionNumber(itemName, strict: rxMode == 'STRICT');
+            await _askPrescriptionNumber(itemName, strict: true);
         if (!mounted) return;
-        // Cashier cancelled. In STRICT mode that means don't add. In WARN mode
-        // the dialog returns the empty-string sentinel '' if cashier tapped
-        // "Sell without Rx", and null only for outright cancel — so still don't
-        // add on null.
-        if (prescriptionNumber == null) return;
-        if (prescriptionNumber.isEmpty) prescriptionNumber = null;
+        if (prescriptionNumber == null) return; // cancel = don't add
       }
+      // WARN + OFF fall through — item added with prescriptionNumber=null;
+      // the cart line will show the inline chip.
     }
 
     final cartItem = CartItem(
@@ -271,6 +273,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       availableUnits: secUnits,
       discountThresholds: item['discountThresholds'] as Map<String, dynamic>?,
       prescriptionNumber: prescriptionNumber,
+      prescriptionRequired: isRxRequired,
       composition: item['composition'] as String?,
       manufacturer: item['manufacturer'] as String?,
     );

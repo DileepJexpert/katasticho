@@ -17,6 +17,11 @@ class PosCartItemTile extends StatelessWidget {
       double? customPrice)? onUnitChanged;
   final ValueChanged<double>? onDiscountChanged;
 
+  /// Tap on the inline "Rx required" / "Rx: 12345" chip — the parent owns
+  /// the bottom-sheet UI for entering / editing the prescription number.
+  /// When null the chip is non-tappable (shouldn't happen for pharmacy POS).
+  final VoidCallback? onPrescriptionTap;
+
   /// When true the quantity stepper never disables "+" at recorded stock —
   /// the counter bills freely (stock may go negative). The red "available"
   /// pill still shows as a soft warning.
@@ -30,6 +35,7 @@ class PosCartItemTile extends StatelessWidget {
     required this.onRemove,
     this.onUnitChanged,
     this.onDiscountChanged,
+    this.onPrescriptionTap,
     this.allowOverSell = false,
   });
 
@@ -195,6 +201,23 @@ class PosCartItemTile extends StatelessWidget {
   List<Widget> _metaPills() {
     final pills = <Widget>[];
 
+    // Rx chip goes first so a cashier glancing at the cart spots Rx-required
+    // items immediately. Amber when no number is recorded yet, green when
+    // the cashier has captured one. Tap → bottom sheet to enter / edit / clear.
+    if (item.prescriptionRequired) {
+      final hasNumber = item.prescriptionNumber != null &&
+          item.prescriptionNumber!.trim().isNotEmpty;
+      pills.add(_InfoPill(
+        label: hasNumber ? 'Rx: ${item.prescriptionNumber}' : 'Rx required',
+        icon: hasNumber
+            ? Icons.check_circle_outline
+            : Icons.medical_information_outlined,
+        color: hasNumber ? KColors.success : KColors.warning,
+        emphasis: !hasNumber,
+        onTap: onPrescriptionTap,
+      ));
+    }
+
     if (item.sku != null && item.sku!.isNotEmpty) {
       pills.add(_InfoPill(label: item.sku!));
     }
@@ -287,6 +310,7 @@ class _InfoPill extends StatelessWidget {
   final bool emphasis;
   final bool strikeThrough;
   final double? maxWidth;
+  final VoidCallback? onTap;
 
   const _InfoPill({
     required this.label,
@@ -295,34 +319,45 @@ class _InfoPill extends StatelessWidget {
     this.emphasis = false,
     this.strikeThrough = false,
     this.maxWidth,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final resolvedColor = color ?? KColors.textSecondary;
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: maxWidth ?? 220),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 10, color: resolvedColor),
-            const SizedBox(width: 3),
-          ],
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: KTypography.labelSmall.copyWith(
-                color: resolvedColor,
-                fontSize: 10,
-                fontWeight: emphasis ? FontWeight.w700 : FontWeight.w600,
-                decoration: strikeThrough ? TextDecoration.lineThrough : null,
-              ),
+    final row = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 10, color: resolvedColor),
+          const SizedBox(width: 3),
+        ],
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: KTypography.labelSmall.copyWith(
+              color: resolvedColor,
+              fontSize: 10,
+              fontWeight: emphasis ? FontWeight.w700 : FontWeight.w600,
+              decoration: strikeThrough ? TextDecoration.lineThrough : null,
             ),
           ),
-        ],
+        ),
+      ],
+    );
+    final wrapped = ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth ?? 220),
+      child: row,
+    );
+    if (onTap == null) return wrapped;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        child: wrapped,
       ),
     );
   }
