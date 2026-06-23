@@ -238,23 +238,41 @@ const _purchasesGroup = NavGroup(
   activeIcon: Icons.shopping_cart_rounded,
   children: [
     NavItem(
+        id: 'purchases.purchase_orders',
+        label: 'Purchase Orders',
+        icon: Icons.shopping_cart_outlined,
+        activeIcon: Icons.shopping_cart_rounded,
+        route: Routes.purchaseOrders),
+    NavItem(
+        id: 'purchases.goods_receipts',
+        label: 'Goods Receipts',
+        icon: Icons.local_shipping_outlined,
+        activeIcon: Icons.local_shipping_rounded,
+        route: Routes.stockReceipts),
+    NavItem(
         id: 'purchases.bills',
         label: 'Bills',
         icon: Icons.receipt_outlined,
         activeIcon: Icons.receipt_rounded,
         route: Routes.bills),
     NavItem(
-        id: 'purchases.vendor_credits',
-        label: 'Vendor Credits',
-        icon: Icons.note_alt_outlined,
-        activeIcon: Icons.note_alt_rounded,
-        route: Routes.vendorCredits),
+        id: 'purchases.three_way_match',
+        label: '3-Way Match',
+        icon: Icons.fact_check_outlined,
+        activeIcon: Icons.fact_check_rounded,
+        route: Routes.threeWayMatch),
     NavItem(
         id: 'purchases.vendor_payments',
         label: 'Vendor Payments',
         icon: Icons.payments_outlined,
         activeIcon: Icons.payments_rounded,
         route: Routes.vendorPayments),
+    NavItem(
+        id: 'purchases.vendor_credits',
+        label: 'Vendor Credits',
+        icon: Icons.note_alt_outlined,
+        activeIcon: Icons.note_alt_rounded,
+        route: Routes.vendorCredits),
     NavItem(
         id: 'purchases.expenses',
         label: 'Expenses',
@@ -268,24 +286,6 @@ const _purchasesGroup = NavGroup(
         activeIcon: Icons.account_balance_wallet_rounded,
         route: Routes.payables),
     NavItem(
-        id: 'purchases.three_way_match',
-        label: '3-Way Match',
-        icon: Icons.fact_check_outlined,
-        activeIcon: Icons.fact_check_rounded,
-        route: Routes.threeWayMatch),
-    NavItem(
-        id: 'purchases.goods_receipts',
-        label: 'Goods Receipts',
-        icon: Icons.local_shipping_outlined,
-        activeIcon: Icons.local_shipping_rounded,
-        route: Routes.stockReceipts),
-    NavItem(
-        id: 'purchases.purchase_orders',
-        label: 'Purchase Orders',
-        icon: Icons.shopping_cart_outlined,
-        activeIcon: Icons.shopping_cart_rounded,
-        route: Routes.purchaseOrders),
-    NavItem(
         id: 'purchases.rfq',
         label: 'RFQ',
         icon: Icons.request_quote_outlined,
@@ -293,7 +293,7 @@ const _purchasesGroup = NavGroup(
         route: Routes.rfq),
     NavItem(
         id: 'purchases.rate_contracts',
-        label: 'Rate contracts',
+        label: 'Rate Contracts',
         icon: Icons.handshake_outlined,
         activeIcon: Icons.handshake,
         route: Routes.rateContracts),
@@ -678,7 +678,7 @@ const _taxComplianceGroup = NavGroup(
         icon: Icons.menu_book_outlined,
         activeIcon: Icons.menu_book_rounded,
         route: Routes.statutoryRegisters,
-        industries: ['PHARMA', 'PHARMA_DISTRIBUTOR', 'PHARMA_MANUFACTURER'],
+        industries: ['PHARMACY', 'PHARMA_DISTRIBUTOR', 'PHARMA_MANUFACTURER'],
         countries: ['IN']),
     NavItem(
         id: 'tax.drug_licenses',
@@ -686,7 +686,7 @@ const _taxComplianceGroup = NavGroup(
         icon: Icons.medical_information_outlined,
         activeIcon: Icons.medical_information_rounded,
         route: Routes.drugLicenses,
-        industries: ['PHARMA', 'PHARMA_DISTRIBUTOR', 'PHARMA_MANUFACTURER'],
+        industries: ['PHARMACY', 'PHARMA_DISTRIBUTOR', 'PHARMA_MANUFACTURER'],
         countries: ['IN']),
     NavItem(
         id: 'tax.fssai',
@@ -694,7 +694,7 @@ const _taxComplianceGroup = NavGroup(
         icon: Icons.verified_outlined,
         activeIcon: Icons.verified_rounded,
         route: Routes.fssaiCompliance,
-        industries: ['FOOD', 'FOOD_MANUFACTURER', 'RESTAURANT'],
+        industries: ['FOOD_BEVERAGE', 'FOOD_MANUFACTURER'],
         countries: ['IN']),
   ],
 );
@@ -941,7 +941,7 @@ const _courierGroup = NavGroup(
 
 const _supplyChainGroup = NavGroup(
   id: 'supply_chain',
-  label: 'Supply Chain',
+  label: 'Supply Planning',
   icon: Icons.hub_outlined,
   activeIcon: Icons.hub_rounded,
   children: [
