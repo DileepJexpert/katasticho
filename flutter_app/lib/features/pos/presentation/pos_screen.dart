@@ -231,9 +231,22 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         (authState.industryCode ?? '').toUpperCase().contains('PHARMA') ||
             (authState.businessType ?? '').toUpperCase().contains('PHARMA');
     if (isPharmacy && item['prescriptionRequired'] == true) {
-      prescriptionNumber = await _askPrescriptionNumber(itemName);
-      if (!mounted) return;
-      if (prescriptionNumber == null) return; // user cancelled
+      // OFF: never ask. WARN (default for India): ask but cashier may skip —
+      // 99% of Indian pharmacies sell common Rx drugs over the counter.
+      // STRICT: must enter a number, no skip — for jurisdictions that enforce it.
+      final rxMode =
+          ref.read(pharmaRxEnforcementModeProvider).asData?.value ?? 'WARN';
+      if (rxMode != 'OFF') {
+        prescriptionNumber =
+            await _askPrescriptionNumber(itemName, strict: rxMode == 'STRICT');
+        if (!mounted) return;
+        // Cashier cancelled. In STRICT mode that means don't add. In WARN mode
+        // the dialog returns the empty-string sentinel '' if cashier tapped
+        // "Sell without Rx", and null only for outright cancel — so still don't
+        // add on null.
+        if (prescriptionNumber == null) return;
+        if (prescriptionNumber.isEmpty) prescriptionNumber = null;
+      }
     }
 
     final cartItem = CartItem(
@@ -289,22 +302,33 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     HapticFeedback.lightImpact();
   }
 
-  Future<String?> _askPrescriptionNumber(String itemName) async {
+  /// Returns:
+  ///  - non-empty string → cashier entered an Rx number
+  ///  - empty string (`''`) → cashier tapped "Sell without Rx" (WARN mode only)
+  ///  - `null` → cashier cancelled — caller should NOT add to cart
+  Future<String?> _askPrescriptionNumber(String itemName,
+      {required bool strict}) async {
     final ctrl = TextEditingController();
     return showDialog<String>(
       context: context,
+      barrierDismissible: !strict,
       builder: (ctx) => AlertDialog(
         title: Row(children: [
           const Icon(Icons.local_pharmacy_outlined,
               color: Color(0xFFB71C1C), size: 20),
           const SizedBox(width: 8),
-          Expanded(child: Text('Prescription Required', style: KTypography.h3)),
+          Expanded(
+              child: Text(strict ? 'Prescription Required' : 'Prescription',
+                  style: KTypography.h3)),
         ]),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('$itemName requires a valid prescription.',
+            Text(
+                strict
+                    ? '$itemName requires a valid prescription.'
+                    : '$itemName is prescription-only. Enter the Rx number, or sell without Rx (recorded against the sale).',
                 style: KTypography.bodySmall
                     .copyWith(color: KColors.textSecondary)),
             const SizedBox(height: 12),
@@ -323,6 +347,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
+          if (!strict)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, ''),
+              child: const Text('Sell without Rx'),
+            ),
           ElevatedButton(
             onPressed: () => Navigator.pop(
                 ctx, ctrl.text.trim().isEmpty ? '—' : ctrl.text.trim()),

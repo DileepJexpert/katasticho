@@ -131,6 +131,26 @@ final posAllowNegativeStockProvider =
   }
 });
 
+/// Pharmacy Rx-enforcement mode: OFF / WARN (default for IN) / STRICT.
+/// Country-driven default lives on the backend — Flutter just trusts whatever
+/// the server returns. When the call fails, default to WARN so the UX doesn't
+/// silently slip into STRICT (which would block sales).
+final pharmaRxEnforcementModeProvider =
+    FutureProvider.autoDispose<String>((ref) async {
+  final client = ref.watch(apiClientProvider);
+  try {
+    final response =
+        await client.get('/api/v1/settings/pharma/rx-enforcement');
+    final body = response.data as Map<String, dynamic>? ?? {};
+    final data = body['data'] as Map<String, dynamic>? ?? body;
+    final mode = data['mode']?.toString().toUpperCase();
+    if (mode == 'OFF' || mode == 'WARN' || mode == 'STRICT') return mode!;
+    return 'WARN';
+  } catch (_) {
+    return 'WARN';
+  }
+});
+
 /// Fetches item details for all favourite item IDs.
 final posFavouriteItemsProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
