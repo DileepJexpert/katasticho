@@ -59,6 +59,15 @@ public class DrugMaster {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    /**
+     * GS1 Application Identifier (01) — 14-digit Global Trade Item Number
+     * mandated by CDSCO G.S.R. 823(E) on the top-300 pharma brands' QR codes.
+     * Nullable: most rows won't have it; the scanner lookup is gated by
+     * presence in the scanned barcode.
+     */
+    @Column(name = "gtin", length = 14)
+    private String gtin;
+
     @Column(name = "created_at", nullable = false, updatable = false,
             insertable = false, columnDefinition = "TIMESTAMPTZ DEFAULT NOW()")
     private Instant createdAt;

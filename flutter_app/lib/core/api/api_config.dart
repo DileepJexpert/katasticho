@@ -1297,6 +1297,9 @@ class ApiConfig {
   static String batchRecall(String rmBatchId) =>
       '/api/v1/inventory/batch-trace/recall/$rmBatchId';
 
+  // GS1 DataMatrix barcode scan (top-300 pharma QR mandate, G.S.R. 823(E))
+  static const String inventoryBarcodeScan = '/api/v1/inventory/barcode/scan';
+
   // Currencies
   static const String currencies = '/api/v1/currencies';
   static String currencyByCode(String code) => '/api/v1/currencies/$code';
