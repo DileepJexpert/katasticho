@@ -6,8 +6,18 @@ import java.util.UUID;
 public record BarcodeScanResponse(
         GsOneCode parsed,
         DrugMasterRef drugMaster,
-        ItemRef item
+        ItemRef item,
+        String rawCode,
+        String parseError
 ) {
+    public static BarcodeScanResponse gs1(GsOneCode parsed, DrugMasterRef dm, ItemRef item) {
+        return new BarcodeScanResponse(parsed, dm, item, null, null);
+    }
+
+    public static BarcodeScanResponse unrecognised(String raw, String reason) {
+        return new BarcodeScanResponse(null, null, null, raw, reason);
+    }
+
     public record DrugMasterRef(
             UUID id,
             String brandName,

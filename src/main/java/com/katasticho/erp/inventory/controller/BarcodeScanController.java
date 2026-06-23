@@ -2,6 +2,7 @@ package com.katasticho.erp.inventory.controller;
 
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.inventory.barcode.BarcodeScanResponse;
 import com.katasticho.erp.inventory.barcode.GsOneCode;
 import com.katasticho.erp.inventory.barcode.GsOneDataMatrixParser;
@@ -39,7 +40,18 @@ public class BarcodeScanController {
     @GetMapping("/scan")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR')")
     public ResponseEntity<ApiResponse<BarcodeScanResponse>> scan(@RequestParam String code) {
-        GsOneCode parsed = GsOneDataMatrixParser.parse(code);
+        // G.S.R. 823(E) mandates GS1 DataMatrix for the top-300 brands, but
+        // every other pack on the shelf still carries an EAN-13 / proprietary
+        // QR / hand-typed code. A failed GS1 parse is not a server error —
+        // the client falls back to manual batch entry. We return 200 with
+        // parsed=null + parseError so the frontend can switch UX paths.
+        GsOneCode parsed;
+        try {
+            parsed = GsOneDataMatrixParser.parse(code);
+        } catch (BusinessException e) {
+            return ResponseEntity.ok(ApiResponse.ok(
+                    BarcodeScanResponse.unrecognised(code, e.getMessage())));
+        }
 
         BarcodeScanResponse.DrugMasterRef dmRef = null;
         BarcodeScanResponse.ItemRef itemRef = null;
@@ -65,6 +77,6 @@ public class BarcodeScanController {
             }
         }
         return ResponseEntity.ok(ApiResponse.ok(
-                new BarcodeScanResponse(parsed, dmRef, itemRef)));
+                BarcodeScanResponse.gs1(parsed, dmRef, itemRef)));
     }
 }
