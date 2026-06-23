@@ -152,6 +152,13 @@ List<KCommand> buildAppCommands() {
       keywords: ['quotation', 'compare', 'supplier quote', 'sourcing', 'bid'],
     ),
     KCommand(
+      label: 'Rate contracts',
+      icon: Icons.handshake_rounded,
+      section: 'Navigate',
+      route: Routes.rateContracts,
+      keywords: ['supplier rates', 'negotiated', 'price contract', 'procurement'],
+    ),
+    KCommand(
       label: 'Debit Notes',
       icon: Icons.note_alt_rounded,
       section: 'Navigate',

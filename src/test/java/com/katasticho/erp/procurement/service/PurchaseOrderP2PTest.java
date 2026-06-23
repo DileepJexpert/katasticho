@@ -62,7 +62,7 @@ class PurchaseOrderP2PTest {
         poService = new PurchaseOrderService(
                 poRepository, lineRepository, supplierRepository, itemRepository,
                 stockReceiptLineRepository, contactRepository,
-                stockReceiptService, purchaseBillService);
+                stockReceiptService, purchaseBillService, null);
         orgId = UUID.randomUUID();
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(UUID.randomUUID());

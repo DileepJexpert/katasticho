@@ -701,6 +701,17 @@ class ApiConfig {
   static String procurementRfqAward(String id) =>
       '/api/v1/procurement/rfq/$id/award';
 
+  // Supplier rate contracts
+  static const String procurementRateContracts = '/api/v1/procurement/rate-contracts';
+  static String procurementRateContractById(String id) =>
+      '/api/v1/procurement/rate-contracts/$id';
+  static String procurementRateContractActivate(String id) =>
+      '/api/v1/procurement/rate-contracts/$id/activate';
+  static String procurementRateContractExpire(String id) =>
+      '/api/v1/procurement/rate-contracts/$id/expire';
+  static String procurementRateContractCancel(String id) =>
+      '/api/v1/procurement/rate-contracts/$id/cancel';
+
   // 3-Way Match (PO ↔ GRN ↔ Vendor Bill)
   static const String threeWayMatchExceptions =
       '/api/v1/ap/three-way-match/exceptions';

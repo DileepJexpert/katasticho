@@ -21,7 +21,10 @@ public record PurchaseOrderRequest(
             @NotNull UUID itemId,
             String description,
             @NotNull BigDecimal quantity,
-            @NotNull BigDecimal unitPrice,
+            // Nullable on the wire: when omitted, PurchaseOrderService falls
+            // back to the supplier's active SupplierRateContract for this
+            // item (if any). When neither is set the line is rejected.
+            BigDecimal unitPrice,
             UUID taxGroupId
     ) {}
 }

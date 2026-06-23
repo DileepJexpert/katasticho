@@ -85,6 +85,7 @@ import '../features/procurement/presentation/stock_receipt_detail_screen.dart';
 import '../features/procurement/presentation/purchase_order_list_screen.dart';
 import '../features/procurement/presentation/purchase_order_create_screen.dart';
 import '../features/procurement/presentation/rfq_screen.dart';
+import '../features/procurement/presentation/rate_contracts_screen.dart';
 import '../features/procurement/presentation/purchase_order_detail_screen.dart';
 import '../features/procurement/presentation/debit_notes_screen.dart';
 import '../features/procurement/presentation/create_debit_note_screen.dart';
@@ -1801,6 +1802,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.rfq,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: RfqScreen(),
+            ),
+          ),
+          // Supplier rate contracts
+          GoRoute(
+            path: Routes.rateContracts,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RateContractsScreen(),
             ),
           ),
           // Debit Notes (Purchase Returns)

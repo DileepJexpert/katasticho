@@ -50,6 +50,7 @@ public class PurchaseOrderService {
     private final ContactRepository contactRepository;
     @Lazy private final StockReceiptService stockReceiptService;
     @Lazy private final PurchaseBillService purchaseBillService;
+    @Lazy private final SupplierRateContractService supplierRateContractService;
 
     // ── Create ──
 
@@ -75,7 +76,7 @@ public class PurchaseOrderService {
 
         po = poRepository.save(po);
 
-        List<PurchaseOrderLine> lines = buildLines(po.getId(), orgId, request.lines());
+        List<PurchaseOrderLine> lines = buildLines(po.getId(), orgId, request.supplierId(), request.lines());
         lineRepository.saveAll(lines);
 
         BigDecimal total = lines.stream()
@@ -112,7 +113,7 @@ public class PurchaseOrderService {
         po.setWarehouseId(request.warehouseId());
 
         lineRepository.deleteByPoId(po.getId());
-        List<PurchaseOrderLine> lines = buildLines(po.getId(), orgId, request.lines());
+        List<PurchaseOrderLine> lines = buildLines(po.getId(), orgId, request.supplierId(), request.lines());
         lineRepository.saveAll(lines);
 
         BigDecimal total = lines.stream()
@@ -199,14 +200,27 @@ public class PurchaseOrderService {
         return String.format("PO-%05d", count);
     }
 
-    private List<PurchaseOrderLine> buildLines(UUID poId, UUID orgId, List<PurchaseOrderRequest.LineRequest> lineRequests) {
+    private List<PurchaseOrderLine> buildLines(UUID poId, UUID orgId, UUID supplierId,
+                                               List<PurchaseOrderRequest.LineRequest> lineRequests) {
         return lineRequests.stream().map(req -> {
             // Validate item belongs to org
             itemRepository.findByIdAndOrgIdAndIsDeletedFalse(req.itemId(), orgId)
                     .orElseThrow(() -> BusinessException.notFound("Item", req.itemId()));
 
             BigDecimal qty = req.quantity().setScale(4, RoundingMode.HALF_UP);
-            BigDecimal price = req.unitPrice().setScale(4, RoundingMode.HALF_UP);
+            // Caller-supplied price wins. When omitted, fall back to the
+            // supplier's active rate contract for this item. Refuse the line
+            // if neither is available — a PO line without a price is invalid.
+            BigDecimal resolvedPrice = req.unitPrice();
+            if (resolvedPrice == null) {
+                resolvedPrice = supplierRateContractService
+                        .findActiveRateForSupplier(supplierId, req.itemId())
+                        .orElseThrow(() -> new BusinessException(
+                                "PO line for item " + req.itemId() + " has no unit price "
+                                        + "and no active supplier rate contract covers it",
+                                "PO_LINE_NO_PRICE", HttpStatus.BAD_REQUEST));
+            }
+            BigDecimal price = resolvedPrice.setScale(4, RoundingMode.HALF_UP);
             BigDecimal lineTotal = qty.multiply(price).setScale(4, RoundingMode.HALF_UP);
 
             return PurchaseOrderLine.builder()

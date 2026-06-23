@@ -235,6 +235,11 @@ const _purchasesGroup = NavGroup(
         icon: Icons.request_quote_outlined,
         activeIcon: Icons.request_quote,
         route: Routes.rfq),
+    NavItem(
+        label: 'Rate contracts',
+        icon: Icons.handshake_outlined,
+        activeIcon: Icons.handshake,
+        route: Routes.rateContracts),
   ],
 );
 
