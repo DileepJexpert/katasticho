@@ -230,6 +230,11 @@ const _purchasesGroup = NavGroup(
         icon: Icons.shopping_cart_outlined,
         activeIcon: Icons.shopping_cart_rounded,
         route: Routes.purchaseOrders),
+    NavItem(
+        label: 'RFQ',
+        icon: Icons.request_quote_outlined,
+        activeIcon: Icons.request_quote,
+        route: Routes.rfq),
   ],
 );
 

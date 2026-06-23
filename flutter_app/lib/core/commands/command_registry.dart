@@ -145,6 +145,13 @@ List<KCommand> buildAppCommands() {
       keywords: ['po', 'procurement'],
     ),
     KCommand(
+      label: 'RFQ',
+      icon: Icons.request_quote_rounded,
+      section: 'Navigate',
+      route: Routes.rfq,
+      keywords: ['quotation', 'compare', 'supplier quote', 'sourcing', 'bid'],
+    ),
+    KCommand(
       label: 'Debit Notes',
       icon: Icons.note_alt_rounded,
       section: 'Navigate',

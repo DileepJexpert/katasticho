@@ -29,4 +29,6 @@ public interface SupplierRepository extends JpaRepository<Supplier, UUID> {
     Page<Supplier> search(UUID orgId, String search, Pageable pageable);
 
     boolean existsByOrgIdAndGstinAndIsDeletedFalse(UUID orgId, String gstin);
+
+    Optional<Supplier> findFirstByOrgIdAndNameIgnoreCaseAndIsDeletedFalse(UUID orgId, String name);
 }

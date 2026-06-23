@@ -687,6 +687,20 @@ class ApiConfig {
   static String createBillFromPo(String id) =>
       '/api/v1/purchase-orders/$id/create-bill';
 
+  // RFQ / Supplier quote
+  static const String procurementRfqList = '/api/v1/procurement/rfq';
+  static String procurementRfqById(String id) => '/api/v1/procurement/rfq/$id';
+  static String procurementRfqSend(String id) =>
+      '/api/v1/procurement/rfq/$id/send';
+  static String procurementRfqCancel(String id) =>
+      '/api/v1/procurement/rfq/$id/cancel';
+  static String procurementRfqQuotes(String id) =>
+      '/api/v1/procurement/rfq/$id/quotes';
+  static String procurementRfqCompare(String id) =>
+      '/api/v1/procurement/rfq/$id/compare';
+  static String procurementRfqAward(String id) =>
+      '/api/v1/procurement/rfq/$id/award';
+
   // 3-Way Match (PO ↔ GRN ↔ Vendor Bill)
   static const String threeWayMatchExceptions =
       '/api/v1/ap/three-way-match/exceptions';

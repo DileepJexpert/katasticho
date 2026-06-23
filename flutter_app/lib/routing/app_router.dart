@@ -84,6 +84,7 @@ import '../features/procurement/presentation/stock_receipt_create_screen.dart';
 import '../features/procurement/presentation/stock_receipt_detail_screen.dart';
 import '../features/procurement/presentation/purchase_order_list_screen.dart';
 import '../features/procurement/presentation/purchase_order_create_screen.dart';
+import '../features/procurement/presentation/rfq_screen.dart';
 import '../features/procurement/presentation/purchase_order_detail_screen.dart';
 import '../features/procurement/presentation/debit_notes_screen.dart';
 import '../features/procurement/presentation/create_debit_note_screen.dart';
@@ -286,6 +287,8 @@ class Routes {
   static const purchaseOrders = '/purchase-orders';
   static const purchaseOrderCreate = '/purchase-orders/create';
   static const purchaseOrderDetail = '/purchase-orders/:id';
+  static const rfq = '/procurement/rfq';
+  static const rateContracts = '/procurement/rate-contracts';
   static const payables = '/payables';
   // 3-Way Match Inbox (AP control surface for PO ↔ GRN ↔ Bill exceptions)
   static const threeWayMatch = '/ap/three-way-match';
@@ -1791,6 +1794,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/purchase-orders/:id',
             builder: (context, state) => PurchaseOrderDetailScreen(
               poId: state.pathParameters['id']!,
+            ),
+          ),
+          // RFQ / Supplier quotation compare
+          GoRoute(
+            path: Routes.rfq,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RfqScreen(),
             ),
           ),
           // Debit Notes (Purchase Returns)
