@@ -14,6 +14,7 @@ Reference for working in this repo efficiently. Read this first; avoid re-explor
 - **Status pills:** `KStatusChip(status: '...')` — `KColors.statusColor/statusBgColor` now keyword-infer tone (paid/overdue/pending/...) when the exact-match list misses, so new statuses read semantically instead of grey.
 - **Density/motion tokens:** `KSpacing.rowH(40)/rowHCompact(36)/controlH(36)`, `KSpacing.durFast/durBase/ease`.
 - **Token re-skin pending (do as ONE reviewable commit, not piecemeal):** brand blue `#4A7FE0`→teal `#0F8576`, app bg→warm `#F7F7F5`, error→muted `#BE3A34` in `k_colors.dart`; cap radii at 8 (`radiusXl/2xl` used in ~5 files — fix call sites in the same commit); borders-first card/table (drop card shadows) is a separate later visual pass.
+- **Sidebar configurability:** every NavItem and NavGroup in `flutter_app/lib/routing/shell_screen.dart` carries a stable `id` (snake-case-dotted, e.g. `sales.invoices`). OWNER/ADMIN can hide entries via `org_settings.nav.disabled` (write via `PUT /api/v1/settings/nav.disabled` with a JSON array of ids) or the **Sidebar Customisation** settings screen at `/settings/nav-customisation`. PLATFORM_ADMIN role bypasses the disable list. Industry/role/country gates live on the NavItem fields directly (`roles`, `industries`, `countries` — null = no constraint).
 
 
 ## Build & Test
