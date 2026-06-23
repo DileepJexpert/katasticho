@@ -1300,6 +1300,11 @@ class ApiConfig {
   // GS1 DataMatrix barcode scan (top-300 pharma QR mandate, G.S.R. 823(E))
   static const String inventoryBarcodeScan = '/api/v1/inventory/barcode/scan';
 
+  // ATP (Available-to-Promise) — read-only snapshot for SO capture.
+  // Status taxonomy: ATP_OK / ATP_PARTIAL / ATP_BACKORDER.
+  static String inventoryAtp(String itemId, String warehouseId, num qty) =>
+      '/api/v1/inventory/atp?itemId=$itemId&warehouseId=$warehouseId&qty=$qty';
+
   // Currencies
   static const String currencies = '/api/v1/currencies';
   static String currencyByCode(String code) => '/api/v1/currencies/$code';
