@@ -23,13 +23,20 @@ import '../features/notifications/data/notification_repository.dart';
 import 'app_router.dart';
 
 /// Navigation item definition.
+///
+/// `id` (optional) is a stable string identifier used by the per-org disable
+/// list (`org_settings.nav.disabled`). Entries without an `id` cannot be
+/// disabled by an org admin — that's fine for tabs / sub-items that should
+/// always be reachable. Wave 1 of the nav restructure adds IDs gradually.
 class NavItem {
+  final String? id;
   final String label;
   final IconData icon;
   final IconData activeIcon;
   final String route;
 
   const NavItem({
+    this.id,
     required this.label,
     required this.icon,
     required this.activeIcon,
@@ -114,12 +121,17 @@ const _settingsNavItem = NavItem(
 );
 
 /// A group of nav items that collapse into a popup overlay.
+///
+/// `id` (optional) is a stable string identifier used by the per-org disable
+/// list. Disabling a group hides the whole group + every child.
 class NavGroup {
+  final String? id;
   final String label;
   final IconData icon;
   final IconData activeIcon;
   final List<NavItem> children;
   const NavGroup({
+    this.id,
     required this.label,
     required this.icon,
     required this.activeIcon,
