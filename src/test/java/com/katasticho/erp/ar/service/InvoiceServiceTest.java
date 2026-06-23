@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -90,7 +91,8 @@ class InvoiceServiceTest {
                 auditService, inventoryService, priceListService, commentService,
                 documentEmailService,
                 itemRepository, stockBatchRepository, cacheInvalidationService,
-                documentSnapshotService, domainEventPublisher, tcsService);
+                documentSnapshotService, domainEventPublisher, tcsService,
+                mockCountryAccessIn());
 
         TransactionSynchronizationManager.initSynchronization();
 
@@ -574,5 +576,12 @@ class InvoiceServiceTest {
                 .build();
         draftInvoice.addLine(line);
         return draftInvoice;
+    }
+
+    /** TCS gate test fixture — every legacy assertion expects the India branch. */
+    private com.katasticho.erp.common.country.CountryAccessService mockCountryAccessIn() {
+        var svc = Mockito.mock(com.katasticho.erp.common.country.CountryAccessService.class);
+        Mockito.lenient().when(svc.isCountry("IN")).thenReturn(true);
+        return svc;
     }
 }

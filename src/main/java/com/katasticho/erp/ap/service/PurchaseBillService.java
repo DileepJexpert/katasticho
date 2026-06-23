@@ -91,6 +91,7 @@ public class PurchaseBillService {
     private final AccountingPostingEngine postingEngine;
     private final TaxEngine taxEngine;
     private final com.katasticho.erp.tax.service.TdsService tdsService;
+    private final com.katasticho.erp.common.country.CountryAccessService countryAccessService;
     private final CurrencyService currencyService;
     private final InventoryService inventoryService;
     private final StockMovementRepository stockMovementRepository;
@@ -435,8 +436,17 @@ public class PurchaseBillService {
      * Auto-deduct TDS when the vendor master says so (tdsApplicable + rate),
      * honouring section thresholds. The vendor is owed total − TDS; the TDS
      * itself posts to TDS Payable on bill posting.
+     *
+     * <p>India-only — TDS sections (194C/194Q/194J/194H/194I/194A) are Income
+     * Tax Act provisions. A Gulf/Kenya org's bill skips the call entirely so
+     * the orgsetting/vendor-master TDS fields never accidentally fire there.
      */
     private void applyTds(UUID orgId, PurchaseBill bill, Contact vendor) {
+        if (!countryAccessService.isCountry("IN")) {
+            bill.setTdsAmount(BigDecimal.ZERO);
+            bill.setTdsSection(null);
+            return;
+        }
         var tds = tdsService.computeForBill(orgId, vendor, bill.getSubtotal(), bill.getBillDate());
         if (tds == null) {
             bill.setTdsAmount(BigDecimal.ZERO);

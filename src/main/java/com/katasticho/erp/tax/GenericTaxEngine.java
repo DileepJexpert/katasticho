@@ -3,6 +3,7 @@ package com.katasticho.erp.tax;
 import com.katasticho.erp.accounting.entity.Account;
 import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.money.MoneyPrecisionService;
 import com.katasticho.erp.tax.entity.TaxGroup;
 import com.katasticho.erp.tax.entity.TaxGroupRate;
 import com.katasticho.erp.tax.entity.TaxRate;
@@ -43,6 +44,7 @@ public class GenericTaxEngine implements TaxEngine {
     private final TaxGroupRateRepository groupRateRepository;
     private final TaxRateRepository rateRepository;
     private final AccountRepository accountRepository;
+    private final MoneyPrecisionService moneyPrecisionService;
 
     @Override
     public TaxCalculationResult calculate(UUID orgId, UUID taxGroupId,
@@ -57,6 +59,12 @@ public class GenericTaxEngine implements TaxEngine {
             return new TaxCalculationResult(List.of(), BigDecimal.ZERO);
         }
 
+        // Round tax per the org's currency precision — OMR/BHD/KWD = 3dp, JPY = 0dp,
+        // everything else (incl. INR/AED/KES) = 2dp. INR orgs see the same byte-
+        // identical math as before; an Oman org's VAT no longer truncates the
+        // third decimal.
+        int decimals = moneyPrecisionService.decimalsForOrg(orgId);
+
         List<TaxComponent> components = new ArrayList<>();
         BigDecimal totalTax = BigDecimal.ZERO;
 
@@ -65,7 +73,7 @@ public class GenericTaxEngine implements TaxEngine {
                     .orElseThrow(() -> BusinessException.notFound("TaxRate", gr.getTaxRateId()));
 
             BigDecimal amount = taxableAmount.multiply(rate.getPercentage())
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                    .divide(BigDecimal.valueOf(100), decimals, RoundingMode.HALF_UP);
 
             // Pick the correct GL account based on transaction direction
             UUID glAccountId;
