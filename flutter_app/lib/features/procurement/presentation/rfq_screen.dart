@@ -10,6 +10,8 @@ import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/k_money.dart';
 import '../../../core/widgets/k_status_chip.dart';
+import '../../contacts/presentation/contact_picker_sheet.dart';
+import '../../inventory/presentation/item_picker_sheet.dart';
 
 /// RFQ → supplier quotation compare → award → PO.
 ///
@@ -81,9 +83,9 @@ class _RfqScreenState extends ConsumerState<RfqScreen> {
             Container(
               padding: const EdgeInsets.all(KSpacing.md),
               decoration: BoxDecoration(
-                color: KColors.surfaceMuted,
+                color: KColors.bgApp,
                 borderRadius: BorderRadius.circular(KSpacing.radiusSm),
-                border: Border.all(color: KColors.border),
+                border: Border.all(color: KColors.divider),
               ),
               child: Text(
                 'Shop around: draft an RFQ, record each supplier\'s quote, '
@@ -370,6 +372,23 @@ class _RfqDetailSheetState extends State<_RfqDetailSheet> {
   }
 }
 
+/// Per-line state. Each line carries the picked item (id, name, hsn, gst
+/// pulled from the item master) plus an editable description + quantity.
+class _RfqLineDraft {
+  String? itemId;
+  String? itemName;
+  String? sku;
+  String? hsnCode;
+  num? gstRate;
+  final descriptionCtrl = TextEditingController();
+  final qtyCtrl = TextEditingController(text: '1');
+
+  void dispose() {
+    descriptionCtrl.dispose();
+    qtyCtrl.dispose();
+  }
+}
+
 class _CreateRfqDialog extends ConsumerStatefulWidget {
   @override
   ConsumerState<_CreateRfqDialog> createState() => _CreateRfqDialogState();
@@ -377,10 +396,9 @@ class _CreateRfqDialog extends ConsumerStatefulWidget {
 
 class _CreateRfqDialogState extends ConsumerState<_CreateRfqDialog> {
   final _titleCtrl = TextEditingController();
-  final _itemIdCtrl = TextEditingController();
-  final _descriptionCtrl = TextEditingController();
-  final _qtyCtrl = TextEditingController(text: '1');
-  final _suppliersCtrl = TextEditingController();
+  final List<_RfqLineDraft> _lines = [_RfqLineDraft()];
+  // Picked vendor contacts: list of {id, displayName, gstin, ...}.
+  final List<Map<String, dynamic>> _suppliers = [];
   DateTime? _dueDate;
   bool _busy = false;
   String? _err;
@@ -388,24 +406,83 @@ class _CreateRfqDialogState extends ConsumerState<_CreateRfqDialog> {
   @override
   void dispose() {
     _titleCtrl.dispose();
-    _itemIdCtrl.dispose();
-    _descriptionCtrl.dispose();
-    _qtyCtrl.dispose();
-    _suppliersCtrl.dispose();
+    for (final l in _lines) {
+      l.dispose();
+    }
     super.dispose();
+  }
+
+  Future<void> _pickItemForLine(_RfqLineDraft line) async {
+    final picked = await showItemPicker(context);
+    if (picked == null) return;
+    setState(() {
+      line.itemId = picked['id']?.toString();
+      line.itemName = picked['name']?.toString();
+      line.sku = picked['sku']?.toString();
+      line.hsnCode = picked['hsnCode']?.toString();
+      line.gstRate = (picked['gstRate'] as num?);
+      // Auto-fill description with the item name (user can override).
+      if (line.descriptionCtrl.text.trim().isEmpty) {
+        line.descriptionCtrl.text = picked['name']?.toString() ?? '';
+      }
+    });
+  }
+
+  Future<void> _addSupplier() async {
+    final picked = await showContactPicker(
+      context,
+      contactType: 'VENDOR',
+      showQuickCreate: true,
+      title: 'Add supplier (VENDOR / BOTH)',
+    );
+    if (picked == null) return;
+    final id = picked['id']?.toString();
+    if (id == null) return;
+    if (_suppliers.any((s) => s['id']?.toString() == id)) return;
+    setState(() => _suppliers.add(picked));
+  }
+
+  void _removeSupplier(String id) {
+    setState(() => _suppliers.removeWhere((s) => s['id']?.toString() == id));
+  }
+
+  void _addLine() {
+    setState(() => _lines.add(_RfqLineDraft()));
+  }
+
+  void _removeLine(int index) {
+    if (_lines.length <= 1) return;
+    setState(() {
+      _lines[index].dispose();
+      _lines.removeAt(index);
+    });
   }
 
   Future<void> _submit() async {
     final title = _titleCtrl.text.trim();
-    final qty = num.tryParse(_qtyCtrl.text.trim());
-    final supplierIds = _suppliersCtrl.text
-        .split(RegExp(r'[,\n]'))
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
-    if (title.isEmpty || qty == null || supplierIds.isEmpty) {
-      setState(() => _err = 'Title, qty, and ≥1 supplier id required');
+    if (title.isEmpty) {
+      setState(() => _err = 'Title is required');
       return;
+    }
+    if (_suppliers.isEmpty) {
+      setState(() => _err = 'Pick at least one supplier');
+      return;
+    }
+    final lineBodies = <Map<String, dynamic>>[];
+    for (final line in _lines) {
+      final qty = num.tryParse(line.qtyCtrl.text.trim());
+      if (qty == null || qty <= 0) {
+        setState(() => _err = 'Every line needs a quantity > 0');
+        return;
+      }
+      lineBodies.add({
+        if (line.itemId != null) 'itemId': line.itemId,
+        'description': line.descriptionCtrl.text.trim(),
+        'quantity': qty,
+        if (line.hsnCode != null && line.hsnCode!.isNotEmpty)
+          'hsnCode': line.hsnCode,
+        if (line.gstRate != null) 'gstRate': line.gstRate,
+      });
     }
     setState(() {
       _busy = true;
@@ -418,15 +495,9 @@ class _CreateRfqDialogState extends ConsumerState<_CreateRfqDialog> {
         if (_dueDate != null)
           'dueDate':
               '${_dueDate!.year}-${_dueDate!.month.toString().padLeft(2, '0')}-${_dueDate!.day.toString().padLeft(2, '0')}',
-        'lines': [
-          {
-            if (_itemIdCtrl.text.trim().isNotEmpty)
-              'itemId': _itemIdCtrl.text.trim(),
-            'description': _descriptionCtrl.text.trim(),
-            'quantity': qty,
-          }
-        ],
-        'supplierContactIds': supplierIds,
+        'lines': lineBodies,
+        'supplierContactIds':
+            _suppliers.map((s) => s['id']?.toString()).whereType<String>().toList(),
       };
       await dio.post(ApiConfig.procurementRfqList, data: body);
       if (!mounted) return;
@@ -444,7 +515,7 @@ class _CreateRfqDialogState extends ConsumerState<_CreateRfqDialog> {
     return AlertDialog(
       title: const Text('New RFQ'),
       content: SizedBox(
-        width: 460,
+        width: 520,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -452,16 +523,18 @@ class _CreateRfqDialogState extends ConsumerState<_CreateRfqDialog> {
             children: [
               TextField(
                 controller: _titleCtrl,
-                decoration:
-                    const InputDecoration(labelText: 'Title (e.g. Cement Q3)'),
+                decoration: const InputDecoration(
+                    labelText: 'Title (e.g. Cement Q3)'),
               ),
               const SizedBox(height: KSpacing.sm),
               Row(
                 children: [
-                  Expanded(child: Text(_dueDate == null
-                      ? 'No due date'
-                      : 'Due ${_dueDate!.toLocal().toString().substring(0, 10)}',
-                      style: KTypography.bodySmall)),
+                  Expanded(
+                      child: Text(
+                          _dueDate == null
+                              ? 'No due date'
+                              : 'Due ${_dueDate!.toLocal().toString().substring(0, 10)}',
+                          style: KTypography.bodySmall)),
                   TextButton.icon(
                     icon: const Icon(Icons.calendar_today, size: 16),
                     label: const Text('Pick'),
@@ -479,34 +552,79 @@ class _CreateRfqDialogState extends ConsumerState<_CreateRfqDialog> {
                 ],
               ),
               const Divider(),
-              Text('First line', style: KTypography.bodySmall.copyWith(
-                  color: KColors.textSecondary)),
-              TextField(
-                controller: _itemIdCtrl,
-                decoration: const InputDecoration(labelText: 'Item id (UUID, optional)'),
-              ),
-              TextField(
-                controller: _descriptionCtrl,
-                decoration: const InputDecoration(labelText: 'Description'),
-              ),
-              TextField(
-                controller: _qtyCtrl,
-                decoration: const InputDecoration(labelText: 'Quantity'),
-                keyboardType: TextInputType.number,
-              ),
-              const Divider(),
-              TextField(
-                controller: _suppliersCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Supplier contact ids (UUIDs, one per line or comma-separated)',
-                  helperText: 'Each must be a VENDOR (or BOTH) contact in this org.',
+              Text('Items',
+                  style: KTypography.bodySmall
+                      .copyWith(color: KColors.textSecondary)),
+              const SizedBox(height: KSpacing.xs),
+              ..._lines.asMap().entries.map(
+                    (entry) => _RfqLineEditor(
+                      index: entry.key,
+                      line: entry.value,
+                      canRemove: _lines.length > 1,
+                      onPickItem: () => _pickItemForLine(entry.value),
+                      onRemove: () => _removeLine(entry.key),
+                    ),
+                  ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _addLine,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Add line'),
                 ),
               ),
+              const Divider(),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _suppliers.isEmpty
+                          ? 'Suppliers — none yet'
+                          : 'Suppliers (${_suppliers.length})',
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.textSecondary),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _addSupplier,
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Add supplier'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: KSpacing.xs),
+              if (_suppliers.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: KSpacing.xs),
+                  child: Text(
+                    'Pick at least one VENDOR (or BOTH) contact to invite.',
+                    style: KTypography.bodySmall
+                        .copyWith(color: KColors.textHint),
+                  ),
+                )
+              else
+                Wrap(
+                  spacing: KSpacing.xs,
+                  runSpacing: KSpacing.xs,
+                  children: _suppliers
+                      .map((s) => InputChip(
+                            label: Text(
+                              s['displayName']?.toString() ??
+                                  s['name']?.toString() ??
+                                  'Vendor',
+                            ),
+                            avatar: const Icon(Icons.local_shipping_outlined,
+                                size: 14),
+                            onDeleted: () =>
+                                _removeSupplier(s['id']?.toString() ?? ''),
+                          ))
+                      .toList(),
+                ),
               if (_err != null) ...[
                 const SizedBox(height: KSpacing.sm),
                 Text(_err!,
-                    style: KTypography.bodySmall.copyWith(color: KColors.error)),
+                    style: KTypography.bodySmall
+                        .copyWith(color: KColors.error)),
               ],
             ],
           ),
@@ -521,10 +639,88 @@ class _CreateRfqDialogState extends ConsumerState<_CreateRfqDialog> {
           onPressed: _busy ? null : _submit,
           child: _busy
               ? const SizedBox(
-                  height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
               : const Text('Create'),
         ),
       ],
+    );
+  }
+}
+
+class _RfqLineEditor extends StatelessWidget {
+  final int index;
+  final _RfqLineDraft line;
+  final bool canRemove;
+  final VoidCallback onPickItem;
+  final VoidCallback onRemove;
+
+  const _RfqLineEditor({
+    required this.index,
+    required this.line,
+    required this.canRemove,
+    required this.onPickItem,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final picked = line.itemId != null;
+    return Container(
+      margin: const EdgeInsets.only(bottom: KSpacing.sm),
+      padding: const EdgeInsets.all(KSpacing.sm),
+      decoration: BoxDecoration(
+        color: KColors.bgApp,
+        borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+        border: Border.all(color: KColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text('Line ${index + 1}',
+                  style: KTypography.labelMedium),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: onPickItem,
+                icon: const Icon(Icons.search, size: 14),
+                label: Text(picked ? 'Change item' : 'Pick item'),
+              ),
+              if (canRemove)
+                IconButton(
+                  iconSize: 18,
+                  icon: const Icon(Icons.close, color: KColors.error),
+                  onPressed: onRemove,
+                ),
+            ],
+          ),
+          if (picked)
+            Padding(
+              padding: const EdgeInsets.only(bottom: KSpacing.xs),
+              child: Text(
+                '${line.itemName ?? ''} '
+                '${line.sku != null ? '· ${line.sku}' : ''}'
+                '${line.hsnCode != null ? ' · HSN ${line.hsnCode}' : ''}'
+                '${line.gstRate != null ? ' · ${line.gstRate}% GST' : ''}',
+                style: KTypography.bodySmall
+                    .copyWith(color: KColors.textSecondary),
+              ),
+            ),
+          TextField(
+            controller: line.descriptionCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Description (free-text — sent to suppliers)',
+            ),
+          ),
+          TextField(
+            controller: line.qtyCtrl,
+            decoration: const InputDecoration(labelText: 'Quantity'),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -540,9 +736,9 @@ class _RecordQuoteDialog extends StatefulWidget {
 }
 
 class _RecordQuoteDialogState extends State<_RecordQuoteDialog> {
-  final _supplierIdCtrl = TextEditingController();
+  Map<String, dynamic>? _supplier;
+  Map<String, dynamic>? _item;
   final _quoteNumCtrl = TextEditingController();
-  final _itemIdCtrl = TextEditingController();
   final _qtyCtrl = TextEditingController(text: '1');
   final _priceCtrl = TextEditingController();
   final _leadCtrl = TextEditingController();
@@ -551,21 +747,33 @@ class _RecordQuoteDialogState extends State<_RecordQuoteDialog> {
 
   @override
   void dispose() {
-    _supplierIdCtrl.dispose();
     _quoteNumCtrl.dispose();
-    _itemIdCtrl.dispose();
     _qtyCtrl.dispose();
     _priceCtrl.dispose();
     _leadCtrl.dispose();
     super.dispose();
   }
 
+  Future<void> _pickSupplier() async {
+    final picked = await showContactPicker(
+      context,
+      contactType: 'VENDOR',
+      title: 'Select supplier',
+    );
+    if (picked != null) setState(() => _supplier = picked);
+  }
+
+  Future<void> _pickItem() async {
+    final picked = await showItemPicker(context);
+    if (picked != null) setState(() => _item = picked);
+  }
+
   Future<void> _submit() async {
-    final supplier = _supplierIdCtrl.text.trim();
+    final supplierId = _supplier?['id']?.toString();
     final qty = num.tryParse(_qtyCtrl.text.trim());
     final price = num.tryParse(_priceCtrl.text.trim());
-    if (supplier.isEmpty || qty == null || price == null) {
-      setState(() => _err = 'Supplier contact id, qty, and unit price required');
+    if (supplierId == null || qty == null || price == null) {
+      setState(() => _err = 'Supplier, qty, and unit price required');
       return;
     }
     setState(() {
@@ -574,13 +782,12 @@ class _RecordQuoteDialogState extends State<_RecordQuoteDialog> {
     });
     try {
       final body = {
-        'supplierContactId': supplier,
+        'supplierContactId': supplierId,
         if (_quoteNumCtrl.text.trim().isNotEmpty)
           'quoteNumber': _quoteNumCtrl.text.trim(),
         'lines': [
           {
-            if (_itemIdCtrl.text.trim().isNotEmpty)
-              'itemId': _itemIdCtrl.text.trim(),
+            if (_item != null) 'itemId': _item!['id']?.toString(),
             'quantity': qty,
             'unitPrice': price,
             if (_leadCtrl.text.trim().isNotEmpty)
@@ -605,42 +812,58 @@ class _RecordQuoteDialogState extends State<_RecordQuoteDialog> {
     return AlertDialog(
       title: const Text('Record supplier quote'),
       content: SizedBox(
-        width: 420,
+        width: 460,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _PickerRow(
+                label: 'Supplier',
+                value: _supplier?['displayName']?.toString() ??
+                    _supplier?['name']?.toString(),
+                placeholder: 'Pick a supplier (VENDOR / BOTH)',
+                icon: Icons.local_shipping_outlined,
+                onPick: _pickSupplier,
+              ),
+              const SizedBox(height: KSpacing.sm),
               TextField(
-                  controller: _supplierIdCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Supplier contact id (UUID)')),
-              TextField(
-                  controller: _quoteNumCtrl,
-                  decoration: const InputDecoration(
-                      labelText: 'Quote number (optional — auto if blank)')),
+                controller: _quoteNumCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Quote number (optional — auto if blank)'),
+              ),
               const Divider(),
+              _PickerRow(
+                label: 'Item (optional)',
+                value: _item?['name']?.toString(),
+                placeholder: 'Pick an item — or leave blank for free-text',
+                icon: Icons.inventory_2_outlined,
+                onPick: _pickItem,
+              ),
+              const SizedBox(height: KSpacing.sm),
               TextField(
-                  controller: _itemIdCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Item id (UUID, optional)')),
+                controller: _qtyCtrl,
+                decoration: const InputDecoration(labelText: 'Quantity'),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+              ),
               TextField(
-                  controller: _qtyCtrl,
-                  decoration: const InputDecoration(labelText: 'Quantity'),
-                  keyboardType: TextInputType.number),
+                controller: _priceCtrl,
+                decoration: const InputDecoration(labelText: 'Unit price (₹)'),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+              ),
               TextField(
-                  controller: _priceCtrl,
-                  decoration: const InputDecoration(labelText: 'Unit price (₹)'),
-                  keyboardType: TextInputType.number),
-              TextField(
-                  controller: _leadCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Lead time (days)'),
-                  keyboardType: TextInputType.number),
+                controller: _leadCtrl,
+                decoration:
+                    const InputDecoration(labelText: 'Lead time (days)'),
+                keyboardType: TextInputType.number,
+              ),
               if (_err != null) ...[
                 const SizedBox(height: KSpacing.sm),
                 Text(_err!,
-                    style: KTypography.bodySmall.copyWith(color: KColors.error)),
+                    style: KTypography.bodySmall
+                        .copyWith(color: KColors.error)),
               ],
             ],
           ),
@@ -654,9 +877,73 @@ class _RecordQuoteDialogState extends State<_RecordQuoteDialog> {
             onPressed: _busy ? null : _submit,
             child: _busy
                 ? const SizedBox(
-                    height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2))
                 : const Text('Save')),
       ],
+    );
+  }
+}
+
+/// Tiny composable for "label + picked value + pick button" rows that
+/// the rest of the procurement dialogs reuse. Keeps the look uniform
+/// without forcing the design system to grow a new primitive.
+class _PickerRow extends StatelessWidget {
+  final String label;
+  final String? value;
+  final String placeholder;
+  final IconData icon;
+  final VoidCallback onPick;
+
+  const _PickerRow({
+    required this.label,
+    required this.value,
+    required this.placeholder,
+    required this.icon,
+    required this.onPick,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final picked = value != null && value!.isNotEmpty;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+          horizontal: KSpacing.sm, vertical: KSpacing.xs),
+      decoration: BoxDecoration(
+        color: KColors.bgApp,
+        borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+        border: Border.all(color: KColors.divider),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: KColors.textSecondary),
+          const SizedBox(width: KSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: KTypography.bodySmall
+                        .copyWith(color: KColors.textSecondary)),
+                Text(
+                  picked ? value! : placeholder,
+                  style: picked
+                      ? KTypography.bodyMedium
+                      : KTypography.bodyMedium
+                          .copyWith(color: KColors.textHint),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          TextButton.icon(
+            onPressed: onPick,
+            icon: const Icon(Icons.search, size: 14),
+            label: Text(picked ? 'Change' : 'Pick'),
+          ),
+        ],
+      ),
     );
   }
 }
