@@ -409,6 +409,16 @@ class ApiConfig {
   // Proactive agents (collections, month-close, anomalies)
   static const String aiProactiveRun = '/api/v1/ai/agents/proactive/run';
 
+  // Advisory agentic replenishment — scans low-stock items and drafts
+  // AGENTIC_REPLENISHMENT suggestions in the AI Inbox. Approval drafts a
+  // real PR (default) or DRAFT PO; nothing posts without the human's tap.
+  static const String aiReplenishmentRun =
+      '/api/v1/ai/replenishment-drafts/run';
+  static String aiReplenishmentApprove(String suggestionId) =>
+      '/api/v1/ai/replenishment-drafts/$suggestionId/approve';
+  static String aiReplenishmentReject(String suggestionId) =>
+      '/api/v1/ai/replenishment-drafts/$suggestionId/reject';
+
   // Conversational entry ("type a sentence, get a drafted transaction")
   static const String aiEntry = '/api/v1/ai/entry';
   static String aiEntryApprove(String suggestionId) =>

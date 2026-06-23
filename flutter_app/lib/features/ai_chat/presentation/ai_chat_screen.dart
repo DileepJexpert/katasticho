@@ -295,6 +295,31 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
         await _load(reset: true);
         return;
       }
+      // Advisory replenishment: approve drafts a real PR/PO (existing
+      // approval flow still applies); reject closes the suggestion.
+      if (item.suggestionType == 'AGENTIC_REPLENISHMENT' && action == 'ACCEPT') {
+        final r = await repo.approveReplenishmentDraft(item.id);
+        if (!mounted) return;
+        final docType = r['docType']?.toString() ?? 'PR';
+        final docNumber = r['createdDocNumber']?.toString() ?? '';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(docNumber.isEmpty
+                  ? 'Drafted $docType — review in Procurement.'
+                  : 'Drafted $docType $docNumber — review in Procurement.')),
+        );
+        await _load(reset: true);
+        return;
+      }
+      if (item.suggestionType == 'AGENTIC_REPLENISHMENT' && action == 'REJECT') {
+        await repo.rejectReplenishmentDraft(item.id, reason: correctionReason);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Replenishment suggestion rejected.')),
+        );
+        await _load(reset: true);
+        return;
+      }
       await repo.reviewSuggestion(
         item.id,
         action: action,
@@ -354,6 +379,29 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
     }
   }
 
+  Future<void> _runReplenishmentScan() async {
+    if (_entryBusy) return;
+    setState(() => _entryBusy = true);
+    try {
+      final r = await ref.read(aiRepositoryProvider).runReplenishmentScan();
+      if (!mounted) return;
+      final created = (r['created'] as num? ?? 0).toInt();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(created == 0
+            ? 'No new replenishment suggestions — nothing to draft.'
+            : 'Drafted $created replenishment suggestion(s).'),
+      ));
+      await _load(reset: true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Replenishment scan failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _entryBusy = false);
+    }
+  }
+
   Widget _buildQuickEntry() {
     return KCard(
       child: Column(
@@ -369,6 +417,11 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
                 onPressed: _entryBusy ? null : _runSweep,
                 icon: const Icon(Icons.radar, size: 16),
                 label: const Text('Run checks'),
+              ),
+              TextButton.icon(
+                onPressed: _entryBusy ? null : _runReplenishmentScan,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Replenishment scan'),
               ),
             ],
           ),

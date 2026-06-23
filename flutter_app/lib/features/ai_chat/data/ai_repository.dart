@@ -173,6 +173,40 @@ class AiRepository {
     return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
   }
 
+  /// Run the advisory replenishment scan now. Drafts AGENTIC_REPLENISHMENT
+  /// suggestions for low-stock non-composite items that don't already have
+  /// open replenishment in flight. Returns `{created: N}`. Idempotent — safe
+  /// to tap repeatedly.
+  Future<Map<String, dynamic>> runReplenishmentScan() async {
+    final response = await _api.post(ApiConfig.aiReplenishmentRun);
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
+  }
+
+  /// Approve an advisory replenishment suggestion — drafts a real PR
+  /// (default) or DRAFT PO. Pass `docType: "PURCHASE_ORDER"` to draft a PO
+  /// (requires the suggestion to carry a preferred supplier).
+  Future<Map<String, dynamic>> approveReplenishmentDraft(String suggestionId,
+      {String? docType}) async {
+    final response = await _api.post(
+      ApiConfig.aiReplenishmentApprove(suggestionId),
+      data: docType != null ? {'docType': docType} : null,
+    );
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] as Map?) ?? const {});
+  }
+
+  /// Reject an advisory replenishment suggestion — no document created.
+  Future<void> rejectReplenishmentDraft(String suggestionId,
+      {String? reason}) async {
+    await _api.post(
+      ApiConfig.aiReplenishmentReject(suggestionId),
+      data: reason != null && reason.trim().isNotEmpty
+          ? {'reason': reason.trim()}
+          : null,
+    );
+  }
+
   Future<AiInboxSummary> getSuggestionSummary() async {
     final response = await _api.get(ApiConfig.aiSuggestionsSummary);
     final body = response.data as Map<String, dynamic>;
