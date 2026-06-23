@@ -172,7 +172,7 @@ class ThreeWayMatchServiceTest {
         PurchaseBill b = bill(new BigDecimal("1000"), List.of(line));
         stubBillFor(b);
 
-        when(purchaseOrderLineRepository.findById(polId))
+        when(purchaseOrderLineRepository.findByIdAndPoOrgId(polId, orgId))
                 .thenReturn(Optional.of(poLine(polId, new BigDecimal("10"), new BigDecimal("100"))));
         when(stockReceiptLineRepository.sumReceivedQuantityForPurchaseOrderLine(polId))
                 .thenReturn(new BigDecimal("10"));
@@ -196,7 +196,7 @@ class ThreeWayMatchServiceTest {
         PurchaseBill b = bill(new BigDecimal("11000"), List.of(line));
         stubBillFor(b);
 
-        when(purchaseOrderLineRepository.findById(polId))
+        when(purchaseOrderLineRepository.findByIdAndPoOrgId(polId, orgId))
                 .thenReturn(Optional.of(poLine(polId, new BigDecimal("120"), new BigDecimal("100"))));
         when(stockReceiptLineRepository.sumReceivedQuantityForPurchaseOrderLine(polId))
                 .thenReturn(new BigDecimal("100"));
@@ -223,7 +223,7 @@ class ThreeWayMatchServiceTest {
         PurchaseBill b = bill(new BigDecimal("10050"), List.of(line));
         stubBillFor(b);
 
-        when(purchaseOrderLineRepository.findById(polId))
+        when(purchaseOrderLineRepository.findByIdAndPoOrgId(polId, orgId))
                 .thenReturn(Optional.of(poLine(polId, new BigDecimal("120"), new BigDecimal("100"))));
         when(stockReceiptLineRepository.sumReceivedQuantityForPurchaseOrderLine(polId))
                 .thenReturn(new BigDecimal("100"));
@@ -244,7 +244,7 @@ class ThreeWayMatchServiceTest {
         PurchaseBill b = bill(new BigDecimal("1020"), List.of(line));
         stubBillFor(b);
 
-        when(purchaseOrderLineRepository.findById(polId))
+        when(purchaseOrderLineRepository.findByIdAndPoOrgId(polId, orgId))
                 .thenReturn(Optional.of(poLine(polId, new BigDecimal("10"), new BigDecimal("100"))));
         when(stockReceiptLineRepository.sumReceivedQuantityForPurchaseOrderLine(polId))
                 .thenReturn(new BigDecimal("10"));
@@ -269,7 +269,7 @@ class ThreeWayMatchServiceTest {
         PurchaseBill b = bill(new BigDecimal("1005"), List.of(line));
         stubBillFor(b);
 
-        when(purchaseOrderLineRepository.findById(polId))
+        when(purchaseOrderLineRepository.findByIdAndPoOrgId(polId, orgId))
                 .thenReturn(Optional.of(poLine(polId, new BigDecimal("10"), new BigDecimal("100"))));
         when(stockReceiptLineRepository.sumReceivedQuantityForPurchaseOrderLine(polId))
                 .thenReturn(new BigDecimal("10"));
@@ -291,7 +291,7 @@ class ThreeWayMatchServiceTest {
         PurchaseBill b = bill(new BigDecimal("1004"), List.of(line));
         stubBillFor(b);
 
-        when(purchaseOrderLineRepository.findById(polId))
+        when(purchaseOrderLineRepository.findByIdAndPoOrgId(polId, orgId))
                 .thenReturn(Optional.of(poLine(polId, new BigDecimal("10"), new BigDecimal("100"))));
         when(stockReceiptLineRepository.sumReceivedQuantityForPurchaseOrderLine(polId))
                 .thenReturn(new BigDecimal("10"));
@@ -317,7 +317,7 @@ class ThreeWayMatchServiceTest {
         assertEquals("EXCEPTION", status);
         assertEquals("NO_PO", captureSavedResults().get(0).getStatus());
         // PO repo was never asked
-        verify(purchaseOrderLineRepository, never()).findById(any());
+        verify(purchaseOrderLineRepository, never()).findByIdAndPoOrgId(any(), any());
     }
 
     @Test
@@ -330,7 +330,7 @@ class ThreeWayMatchServiceTest {
         PurchaseBill b = bill(new BigDecimal("1000"), List.of(line));
         stubBillFor(b);
 
-        when(purchaseOrderLineRepository.findById(polId))
+        when(purchaseOrderLineRepository.findByIdAndPoOrgId(polId, orgId))
                 .thenReturn(Optional.of(poLine(polId, new BigDecimal("10"), new BigDecimal("100"))));
         when(stockReceiptLineRepository.sumReceivedQuantityForPurchaseOrderLine(polId))
                 .thenReturn(BigDecimal.ZERO);
@@ -375,9 +375,9 @@ class ThreeWayMatchServiceTest {
         PurchaseBill b = bill(new BigDecimal("1600"), List.of(ok, hike));
         stubBillFor(b);
 
-        when(purchaseOrderLineRepository.findById(polId1))
+        when(purchaseOrderLineRepository.findByIdAndPoOrgId(polId1, orgId))
                 .thenReturn(Optional.of(poLine(polId1, new BigDecimal("10"), new BigDecimal("100"))));
-        when(purchaseOrderLineRepository.findById(polId2))
+        when(purchaseOrderLineRepository.findByIdAndPoOrgId(polId2, orgId))
                 .thenReturn(Optional.of(poLine(polId2, new BigDecimal("5"), new BigDecimal("100"))));
         when(stockReceiptLineRepository.sumReceivedQuantityForPurchaseOrderLine(polId1))
                 .thenReturn(new BigDecimal("10"));
@@ -406,7 +406,7 @@ class ThreeWayMatchServiceTest {
                 item.getId(), polId);
         PurchaseBill b = bill(new BigDecimal("1000"), List.of(line));
         stubBillFor(b);
-        when(purchaseOrderLineRepository.findById(polId))
+        when(purchaseOrderLineRepository.findByIdAndPoOrgId(polId, orgId))
                 .thenReturn(Optional.of(poLine(polId, new BigDecimal("10"), new BigDecimal("100"))));
         when(stockReceiptLineRepository.sumReceivedQuantityForPurchaseOrderLine(polId))
                 .thenReturn(new BigDecimal("10"));
@@ -445,7 +445,7 @@ class ThreeWayMatchServiceTest {
         PurchaseBill b = bill(new BigDecimal("1020"), List.of(line));
         stubBillFor(b);
 
-        when(purchaseOrderLineRepository.findById(polId))
+        when(purchaseOrderLineRepository.findByIdAndPoOrgId(polId, orgId))
                 .thenReturn(Optional.of(poLine(polId, new BigDecimal("10"), new BigDecimal("100"))));
         when(stockReceiptLineRepository.sumReceivedQuantityForPurchaseOrderLine(polId))
                 .thenReturn(new BigDecimal("10"));
@@ -471,7 +471,7 @@ class ThreeWayMatchServiceTest {
         PurchaseBill b = bill(new BigDecimal("102"), List.of(line));
         stubBillFor(b);
 
-        when(purchaseOrderLineRepository.findById(polId))
+        when(purchaseOrderLineRepository.findByIdAndPoOrgId(polId, orgId))
                 .thenReturn(Optional.of(poLine(polId, new BigDecimal("1"), new BigDecimal("100"))));
         when(itemRepository.findById(svc.getId())).thenReturn(Optional.of(svc));
         when(aiSuggestionRepository.existsOpenSuggestion(
@@ -495,7 +495,7 @@ class ThreeWayMatchServiceTest {
         PurchaseBill b = bill(new BigDecimal("100"), List.of(line));
         stubBillFor(b);
 
-        when(purchaseOrderLineRepository.findById(polId))
+        when(purchaseOrderLineRepository.findByIdAndPoOrgId(polId, orgId))
                 .thenReturn(Optional.of(poLine(polId, new BigDecimal("1"), new BigDecimal("100"))));
         when(itemRepository.findById(svc.getId())).thenReturn(Optional.of(svc));
 

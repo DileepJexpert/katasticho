@@ -191,6 +191,34 @@ public class ThreeWayMatchService {
                 orgId, EXCEPTION_LINE_STATUSES, pageable);
     }
 
+    /**
+     * Gate for payment / posting paths. When {@code ap.three_way_match.required}
+     * is on (default) and the bill is in EXCEPTION, throws so the planner has
+     * to either fix the source documents (re-run match) or override (OWNER/ADMIN
+     * only). When required is off, EXCEPTION still surfaces in the inbox but
+     * payment is allowed — the advisory mode.
+     *
+     * <p>OVERRIDDEN bills always pass — the override is the planner's final
+     * word on the variance.
+     */
+    @Transactional(readOnly = true)
+    public void assertPayable(UUID billId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        PurchaseBill bill = billRepository.findByIdAndOrgIdAndIsDeletedFalse(billId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("PurchaseBill", billId));
+        Tolerances tol = loadTolerances(orgId);
+        if (!tol.required) return;
+        String status = bill.getThreeWayMatchStatus();
+        if (status == null) return;  // match never ran — older bills predate the gate
+        if (STATUS_EXCEPTION.equals(status)) {
+            throw new BusinessException(
+                    "Bill " + bill.getBillNumber() + " failed 3-way match (status: EXCEPTION). "
+                            + "Review variances and either fix the source documents and re-run the "
+                            + "match, or have an OWNER/ADMIN override before this bill can be paid.",
+                    "AP_BILL_3WM_EXCEPTION", HttpStatus.BAD_REQUEST);
+        }
+    }
+
     // ── Tolerance loading ────────────────────────────────────────────
 
     Tolerances loadTolerances(UUID orgId) {
@@ -234,10 +262,13 @@ public class ThreeWayMatchService {
             return b.status(LINE_NO_PO).build();
         }
 
-        Optional<PurchaseOrderLine> polOpt =
-                purchaseOrderLineRepository.findById(line.getPurchaseOrderLineId());
+        // Multi-tenant guard: org-scoped fetch via the PO line's parent PO.
+        // Defense-in-depth in case a foreign-org PO line FK ever slips onto
+        // a bill line (data corruption / replay attack).
+        Optional<PurchaseOrderLine> polOpt = purchaseOrderLineRepository
+                .findByIdAndPoOrgId(line.getPurchaseOrderLineId(), orgId);
         if (polOpt.isEmpty()) {
-            // FK dangles — treat as NO_PO; the planner can clean it up.
+            // FK dangles OR cross-tenant — treat as NO_PO; planner cleans up.
             return b.status(LINE_NO_PO).build();
         }
         PurchaseOrderLine pol = polOpt.get();
@@ -250,9 +281,12 @@ public class ThreeWayMatchService {
                         .subtract(pol.getQuantity().multiply(pol.getUnitPrice())));
 
         // SERVICE items skip the GRN check — services don't deduct into stock.
-        Item item = line.getItemId() != null
-                ? itemRepository.findById(line.getItemId()).orElse(null)
-                : null;
+        Item item = null;
+        if (line.getItemId() != null) {
+            item = itemRepository.findById(line.getItemId())
+                    .filter(i -> i.getOrgId() == null || i.getOrgId().equals(orgId))
+                    .orElse(null);
+        }
         boolean isService = item != null && item.getItemType() == ItemType.SERVICE;
 
         if (!isService) {

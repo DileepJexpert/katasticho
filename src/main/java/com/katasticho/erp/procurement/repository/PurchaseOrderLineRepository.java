@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -31,4 +32,17 @@ public interface PurchaseOrderLineRepository extends JpaRepository<PurchaseOrder
               AND pol.quantity > pol.receivedQuantity
             """)
     List<PurchaseOrderLine> findOpenForItem(@Param("orgId") UUID orgId, @Param("itemId") UUID itemId);
+
+    /**
+     * Tenant-scoped PO line fetch — joins through PO so a bill / GRN line
+     * holding a foreign-org {@code purchaseOrderLineId} can't slip through.
+     */
+    @Query("""
+            SELECT pol FROM PurchaseOrderLine pol, PurchaseOrder po
+            WHERE pol.id = :id
+              AND pol.poId = po.id
+              AND po.orgId = :orgId
+              AND po.isDeleted = false
+            """)
+    Optional<PurchaseOrderLine> findByIdAndPoOrgId(@Param("id") UUID id, @Param("orgId") UUID orgId);
 }

@@ -36,7 +36,9 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyIterable;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -112,11 +114,11 @@ class PurchaseOrderP2PTest {
                 .thenReturn(Optional.of(po));
         when(lineRepository.findByPoId(po.getId())).thenReturn(List.of(pol1, pol2));
         // 30 already received on the first line; the second hasn't been received yet.
-        when(stockReceiptLineRepository.sumQuantityForPurchaseOrderLine(pol1.getId()))
+        when(stockReceiptLineRepository.sumReceivedQuantityForPurchaseOrderLine(pol1.getId()))
                 .thenReturn(new BigDecimal("30"));
-        when(stockReceiptLineRepository.sumQuantityForPurchaseOrderLine(pol2.getId()))
+        when(stockReceiptLineRepository.sumReceivedQuantityForPurchaseOrderLine(pol2.getId()))
                 .thenReturn(BigDecimal.ZERO);
-        when(itemRepository.findAllById(anyIterable())).thenReturn(List.of(itemA, itemB));
+        when(itemRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), anyCollection())).thenReturn(List.of(itemA, itemB));
 
         when(stockReceiptService.createDraft(any(CreateStockReceiptRequest.class)))
                 .thenAnswer(inv -> {
@@ -180,7 +182,7 @@ class PurchaseOrderP2PTest {
         when(contactRepository.findFirstByOrgIdAndDisplayNameIgnoreCaseAndIsDeletedFalse(
                 orgId, supplier.getName())).thenReturn(Optional.of(vendor));
         when(lineRepository.findByPoId(po.getId())).thenReturn(List.of(pol1));
-        when(itemRepository.findAllById(anyIterable())).thenReturn(List.of(itemA));
+        when(itemRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), anyCollection())).thenReturn(List.of(itemA));
 
         when(purchaseBillService.createBill(any(CreatePurchaseBillRequest.class)))
                 .thenAnswer(inv -> {
@@ -232,9 +234,9 @@ class PurchaseOrderP2PTest {
         when(poRepository.findByIdAndOrgIdAndIsDeletedFalse(po.getId(), orgId))
                 .thenReturn(Optional.of(po));
         when(lineRepository.findByPoId(po.getId())).thenReturn(List.of(pol1));
-        when(stockReceiptLineRepository.sumQuantityForPurchaseOrderLine(pol1.getId()))
+        when(stockReceiptLineRepository.sumReceivedQuantityForPurchaseOrderLine(pol1.getId()))
                 .thenReturn(new BigDecimal("100"));
-        when(itemRepository.findAllById(anyIterable())).thenReturn(List.of(itemA));
+        when(itemRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), anyCollection())).thenReturn(List.of(itemA));
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> poService.createGrnFromPo(po.getId()));

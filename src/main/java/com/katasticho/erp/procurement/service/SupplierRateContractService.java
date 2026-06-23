@@ -148,10 +148,13 @@ public class SupplierRateContractService {
 
         // Refuse to activate when any line collides with an existing ACTIVE
         // contract for the same (org, supplier, item) — one-active-at-a-time
-        // is the rule.
+        // is the rule. The DB-level partial unique index uq_src_active_line
+        // is the ultimate guarantee under concurrent activations; this
+        // application-side check still runs first for a friendlier error.
+        LocalDate today = LocalDate.now(clock);
         for (SupplierRateContractLine line : lines) {
             Optional<SupplierRateContractLine> existing = lineRepository
-                    .findActiveLine(orgId, contract.getSupplierContactId(), line.getItemId());
+                    .findActiveLine(orgId, contract.getSupplierContactId(), line.getItemId(), today);
             if (existing.isPresent()) {
                 throw new BusinessException(
                         "Another ACTIVE rate contract already covers this supplier "
@@ -162,10 +165,19 @@ public class SupplierRateContractService {
 
         contract.setStatus("ACTIVE");
         if (contract.getValidFrom() == null
-                || contract.getValidFrom().isAfter(LocalDate.now(clock))) {
-            contract.setValidFrom(LocalDate.now(clock));
+                || contract.getValidFrom().isAfter(today)) {
+            contract.setValidFrom(today);
         }
         contract = contractRepository.save(contract);
+
+        // Stamp the active flag + denormalised supplier_contact_id onto each
+        // line. The DB partial unique index keys off these.
+        for (SupplierRateContractLine line : lines) {
+            line.setActiveLine(true);
+            line.setSupplierContactId(contract.getSupplierContactId());
+        }
+        lineRepository.saveAll(lines);
+
         log.info("SupplierRateContract {} activated", contract.getContractNumber());
 
         return toResponse(contract, lines);
@@ -189,11 +201,19 @@ public class SupplierRateContractService {
             contract.setValidUntil(LocalDate.now(clock));
         }
         contract = contractRepository.save(contract);
+
+        // Clear is_active_line so the DB partial unique index releases the slot
+        // and the next contract for the same (supplier, item) can activate.
+        List<SupplierRateContractLine> expiredLines = lineRepository
+                .findBySupplierRateContractIdAndIsDeletedFalseOrderByCreatedAtAsc(contractId);
+        for (SupplierRateContractLine line : expiredLines) {
+            line.setActiveLine(false);
+        }
+        lineRepository.saveAll(expiredLines);
+
         log.info("SupplierRateContract {} expired", contract.getContractNumber());
 
-        return toResponse(contract,
-                lineRepository.findBySupplierRateContractIdAndIsDeletedFalseOrderByCreatedAtAsc(
-                        contractId));
+        return toResponse(contract, expiredLines);
     }
 
     // ── Cancel ──
@@ -214,11 +234,18 @@ public class SupplierRateContractService {
             contract.setNotes((existing + "\nCancelled: " + reason).trim());
         }
         contract = contractRepository.save(contract);
+
+        // Clear is_active_line so the DB partial unique index releases the slot.
+        List<SupplierRateContractLine> cancelledLines = lineRepository
+                .findBySupplierRateContractIdAndIsDeletedFalseOrderByCreatedAtAsc(contractId);
+        for (SupplierRateContractLine line : cancelledLines) {
+            line.setActiveLine(false);
+        }
+        lineRepository.saveAll(cancelledLines);
+
         log.info("SupplierRateContract {} cancelled", contract.getContractNumber());
 
-        return toResponse(contract,
-                lineRepository.findBySupplierRateContractIdAndIsDeletedFalseOrderByCreatedAtAsc(
-                        contractId));
+        return toResponse(contract, cancelledLines);
     }
 
     // ── Lookup for PO drafting ──
@@ -232,13 +259,14 @@ public class SupplierRateContractService {
         if (supplierContactId == null || itemId == null) return Optional.empty();
         UUID orgId = TenantContext.getCurrentOrgId();
         if (orgId == null) return Optional.empty();
-        return lineRepository.findActiveLine(orgId, supplierContactId, itemId)
+        return lineRepository.findActiveLine(orgId, supplierContactId, itemId, LocalDate.now(clock))
                 .map(SupplierRateContractLine::getUnitPrice);
     }
 
     /**
      * Convenience overload — resolves a procurement Supplier id (used on PO
-     * lines) to its Contact peer via display-name match, then looks up the
+     * lines) to its Contact peer via {@code supplier.contact_id} FK (preferred,
+     * V14+) or display-name match (legacy fallback), then looks up the
      * negotiated rate. Returns empty when there's no matching vendor contact
      * (the PO drafter just uses the planner-entered price).
      */
@@ -250,10 +278,23 @@ public class SupplierRateContractService {
         Supplier s = supplierRepository
                 .findByIdAndOrgIdAndIsDeletedFalse(supplierId, orgId).orElse(null);
         if (s == null) return Optional.empty();
-        Optional<Contact> contact = contactRepository
-                .findFirstByOrgIdAndDisplayNameIgnoreCaseAndIsDeletedFalse(orgId, s.getName());
-        if (contact.isEmpty()) return Optional.empty();
-        return findActiveRate(contact.get().getId(), itemId);
+        UUID contactId = resolveContactIdForSupplier(s, orgId);
+        return contactId == null ? Optional.empty() : findActiveRate(contactId, itemId);
+    }
+
+    /**
+     * Resolve {@code supplier.contact_id} (V14 FK) with a case-insensitive
+     * display-name fallback for unbackfilled rows. Centralised here so both
+     * the rate-contract lookup and the bill-drafting flow share one definition.
+     */
+    UUID resolveContactIdForSupplier(Supplier supplier, UUID orgId) {
+        if (supplier.getContactId() != null) {
+            return supplier.getContactId();
+        }
+        return contactRepository
+                .findFirstByOrgIdAndDisplayNameIgnoreCaseAndIsDeletedFalse(orgId, supplier.getName())
+                .map(Contact::getId)
+                .orElse(null);
     }
 
     // ── Read ──

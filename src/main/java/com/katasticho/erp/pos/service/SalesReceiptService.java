@@ -401,12 +401,14 @@ public class SalesReceiptService {
             // passed line.getRate() (the SALE price) — which had no business
             // showing up as a cost. With V5 the resolver gives us either the
             // real purchase price (non-provisional) or MRP/salePrice × (1−margin)
-            // (provisional). When neither is available, fall back to ZERO so the
-            // movement is recorded but contributes no cost — matching legacy
-            // behaviour for items with truly nothing to estimate from.
+            // (provisional). When neither is available, fall back to ZERO BUT
+            // still flag the movement as provisional — the GRN reconciler then
+            // picks it up and books the true COGS (variance from 0 = full cost).
+            // Without this flag the bill-freely V5 hole would stay open forever
+            // for items whose MRP/salePrice happen to be unset at sale time.
             CostResolverService.CostBasis basis = costResolverService.resolve(item, orgId);
             BigDecimal unitCost = basis != null ? basis.unitCost() : BigDecimal.ZERO;
-            boolean costProvisional = basis != null && basis.provisional();
+            boolean costProvisional = (basis == null) || basis.provisional();
 
             StockMovementRequest req = new StockMovementRequest(
                     line.getItemId(),

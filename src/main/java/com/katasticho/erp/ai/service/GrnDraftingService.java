@@ -285,7 +285,14 @@ public class GrnDraftingService {
      * tie an exact-equals beats a contains. Already-bound PO lines are skipped
      * so two scan lines can't fall onto the same PO line — the second falls
      * back to unmatched, which the operator sees in the warnings count.
+     *
+     * <p>Contains-match has a hard minimum length floor (5 chars) on the
+     * substring side: without it, a one-word PO line like "Tab" silently won
+     * against every scan line that happened to include the token, producing
+     * wildly wrong item bindings. Exact-equals still works at any length.
      */
+    static final int MIN_CONTAINS_LENGTH = 5;
+
     PurchaseOrderLine pickBestPoMatch(String scanDesc, PoContext po, Set<UUID> alreadyMatched) {
         String needle = scanDesc.toLowerCase();
         PurchaseOrderLine best = null;
@@ -296,7 +303,12 @@ public class GrnDraftingService {
             String hay = lookupName(pol, po).toLowerCase();
             if (hay.isEmpty()) continue;
             boolean exact = hay.equals(needle);
-            boolean contains = hay.contains(needle) || needle.contains(hay);
+            // Contains: only when BOTH sides are long enough to be specific.
+            // Short tokens like "Tab" / "Cap" are too noisy to match by substring.
+            boolean longEnough = hay.length() >= MIN_CONTAINS_LENGTH
+                    && needle.length() >= MIN_CONTAINS_LENGTH;
+            boolean contains = longEnough
+                    && (hay.contains(needle) || needle.contains(hay));
             if (!exact && !contains) continue;
             int score = hay.length();
             // Exact match wins over any contains, regardless of length.

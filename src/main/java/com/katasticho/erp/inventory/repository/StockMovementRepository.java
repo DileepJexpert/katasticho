@@ -117,12 +117,31 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, UU
     /**
      * Unsettled provisional SALE movements for an item, oldest first — fed to
      * {@code ProvisionalCostReconciler} on every GRN PURCHASE movement for the
-     * same item. Backed by the partial index
-     * {@code idx_stock_movement_unsettled_provisional} so the GRN hot path
-     * stays cheap.
+     * same item. Reversed rows AND rows-that-are-reversals are excluded so a
+     * voided POS receipt doesn't generate a phantom reconciliation on the next
+     * GRN. Backed by the partial index
+     * {@code idx_stock_movement_unsettled_provisional}.
      */
-    List<StockMovement> findByOrgIdAndItemIdAndCostProvisionalTrueAndCostSettledAtIsNullOrderByMovementDateAscCreatedAtAsc(
-            UUID orgId, UUID itemId);
+    @Query("""
+        SELECT m FROM StockMovement m
+        WHERE m.orgId            = :orgId
+          AND m.itemId           = :itemId
+          AND m.costProvisional  = true
+          AND m.costSettledAt    IS NULL
+          AND m.reversal         = false
+          AND m.reversed         = false
+        ORDER BY m.movementDate ASC, m.createdAt ASC
+    """)
+    List<StockMovement> findUnsettledProvisional(@Param("orgId") UUID orgId,
+                                                  @Param("itemId") UUID itemId);
+
+    /**
+     * SALE movements settled by a specific GRN. Walked on GRN cancel so the
+     * stamps can be cleared (allowing a future GRN to re-reconcile them) and
+     * so the cancel path knows which receipts to consider when unwinding the
+     * correction journal.
+     */
+    List<StockMovement> findByCostSettledByGrnIdAndReversedFalse(UUID grnId);
 
     /**
      * Per-item recorded cost and quantity of outgoing movements attributable

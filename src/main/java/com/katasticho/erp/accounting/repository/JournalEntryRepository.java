@@ -79,4 +79,12 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, UUID
     /** Post-dated DRAFT vouchers whose date has arrived — the daily job posts them. */
     List<JournalEntry> findByStatusAndPostDatedTrueAndEffectiveDateLessThanEqual(
             String status, LocalDate asOfDate);
+
+    /**
+     * Walked on GRN cancel so the provisional-COGS reconciliation journal(s)
+     * posted against this GRN can be reversed. POSTED-only filter avoids
+     * re-reversing an entry that was already wound back.
+     */
+    List<JournalEntry> findBySourceModuleAndSourceIdAndStatus(
+            String sourceModule, UUID sourceId, String status);
 }

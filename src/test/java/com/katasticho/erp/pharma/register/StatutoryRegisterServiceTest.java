@@ -153,7 +153,8 @@ class StatutoryRegisterServiceTest {
         when(orgSettingsService.get(orgId, "pharma.h1_strict", "false")).thenReturn("false");
         when(prescriptionRepository.findByReceiptIdAndOrgIdAndIsDeletedFalse(receiptId, orgId))
                 .thenReturn(Optional.of(rx));
-        when(contactRepository.findById(contactId)).thenReturn(Optional.of(patient));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(patient));
 
         List<StatutoryRegisterEntry> rows = service.recordSaleEntries(receipt, Map.of(h1Item.getId(), h1Item));
 

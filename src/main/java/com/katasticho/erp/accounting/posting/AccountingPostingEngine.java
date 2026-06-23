@@ -529,6 +529,22 @@ public class AccountingPostingEngine {
                     creditCode, BigDecimal.ZERO, totalCost,
                     creditLabel + ": " + docNumber, null, null));
         } catch (BusinessException e) {
+            // STOCK_OUT_SUSPENSE missing means the bill-freely V5 fix is broken
+            // for this org — silently dropping the provisional COGS would
+            // recreate the exact hole V5 was designed to close (revenue books,
+            // COGS doesn't, profit overstated forever). Force the operator to
+            // repair the CoA. The real-COGS path (INVENTORY_ASSET) keeps the
+            // legacy log-and-skip so existing orgs with custom CoAs that lack
+            // a 1200 don't suddenly start failing.
+            if (creditPurpose == DefaultAccountPurpose.STOCK_OUT_SUSPENSE) {
+                throw new BusinessException(
+                        "Stock-Out Suspense account (2042) is missing from the chart of accounts "
+                                + "for this org — provisional COGS for bill-freely sales cannot "
+                                + "post until it is seeded. Re-run the CoA template seed or "
+                                + "configure the STOCK_OUT_SUSPENSE default account in settings.",
+                        "POS_PROVISIONAL_SUSPENSE_MISSING",
+                        org.springframework.http.HttpStatus.PRECONDITION_FAILED);
+            }
             log.warn("COGS/{} accounts not configured — skipping: {}", creditPurpose, e.getMessage());
         }
     }

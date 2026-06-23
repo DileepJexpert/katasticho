@@ -333,6 +333,11 @@ class AgenticReplenishmentServiceTest {
                 .orgId(orgId).itemId(itemId).warehouseId(UUID.randomUUID())
                 .quantityOnHand(onHand).build();
         when(stockBalanceRepository.findLowStock(orgId)).thenReturn(List.of(sb));
+        // The agent now re-fetches every balance for the low-flagged items and
+        // sums across warehouses. For single-warehouse test fixtures the
+        // aggregate equals the low-row's on-hand.
+        when(stockBalanceRepository.findByOrgIdAndItemIdIn(eq(orgId), any()))
+                .thenReturn(List.of(sb));
     }
 
     private UUID stubItemSupplier() {

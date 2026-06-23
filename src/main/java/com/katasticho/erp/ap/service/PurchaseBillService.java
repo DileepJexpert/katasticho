@@ -15,7 +15,7 @@ import com.katasticho.erp.ap.entity.PurchaseBillLine;
 import com.katasticho.erp.ap.match.ThreeWayMatchService;
 import com.katasticho.erp.ap.repository.PurchaseBillRepository;
 import com.katasticho.erp.ap.repository.VendorPaymentAllocationRepository;
-import com.katasticho.erp.procurement.repository.StockReceiptRepository;
+import com.katasticho.erp.procurement.repository.StockReceiptLineRepository;
 import com.katasticho.erp.ar.entity.TaxLineItem;
 import com.katasticho.erp.ar.repository.InvoiceNumberSequenceRepository;
 import com.katasticho.erp.ar.repository.TaxLineItemRepository;
@@ -97,7 +97,7 @@ public class PurchaseBillService {
     private final DefaultAccountService defaultAccountService;
     private final CommentService commentService;
     private final DocumentSnapshotService documentSnapshotService;
-    private final StockReceiptRepository stockReceiptRepository;
+    private final StockReceiptLineRepository stockReceiptLineRepository;
     @Lazy private final ThreeWayMatchService threeWayMatchService;
 
     // ── Create ──────────────────────────────────────────────────
@@ -709,24 +709,6 @@ public class PurchaseBillService {
     private void recordStockForBill(PurchaseBill bill) {
         UUID orgId = bill.getOrgId();
 
-        // P2P architecture guard (2026-06-22): GRN is the only stock-posting step
-        // when a PO is in play. If this bill links a PO and any GRN already exists
-        // for that PO, the GRN posted the PURCHASE movement — re-posting here would
-        // double-count inventory + book CR Inventory twice against the same goods.
-        // Skip when:
-        //   (a) bill.purchaseOrderId is set AND
-        //   (b) at least one GRN (any status except CANCELLED) references that PO.
-        // Direct vendor bills (no PO link, e.g. petty-cash, services, supplier-bill-
-        // first orgs that skip the GRN) keep posting stock here — that's the legacy
-        // path and is the system-of-record for orgs that don't run the full P2P loop.
-        if (bill.getPurchaseOrderId() != null
-                && stockReceiptRepository.existsActiveReceiptForPurchaseOrder(
-                        orgId, bill.getPurchaseOrderId())) {
-            log.info("Bill {} links PO {} with active GRN(s) — skipping stock post (GRN already booked it)",
-                    bill.getBillNumber(), bill.getPurchaseOrderId());
-            return;
-        }
-
         Warehouse defaultWarehouse = warehouseRepository
                 .findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
                 .orElse(null);
@@ -737,9 +719,28 @@ public class PurchaseBillService {
             return;
         }
 
+        // P2P architecture guard (2026-06-22, refined 2026-06-23): GRN is the only
+        // stock-posting step when a PO line is in play. For each bill LINE, if it
+        // links a PO line and any RECEIVED GRN line has already booked stock
+        // against that PO line, skip — re-posting would double-count. Per-line
+        // (not bill-level) so a bill that mixes a received PO line and a fresh
+        // line still posts the fresh one. Lines without a PO link (direct bills,
+        // services, supplier-bill-first shops) always post; that's the legacy
+        // path of record. DRAFT GRNs deliberately don't trigger the skip — an
+        // abandoned draft hasn't actually booked anything.
         for (PurchaseBillLine line : bill.getLines()) {
             if (line.getItemId() == null) {
                 continue;
+            }
+            if (line.getPurchaseOrderLineId() != null) {
+                BigDecimal alreadyReceived = stockReceiptLineRepository
+                        .sumReceivedQuantityForPurchaseOrderLine(line.getPurchaseOrderLineId());
+                if (alreadyReceived != null && alreadyReceived.signum() > 0) {
+                    log.info("Bill {} line {} links PO line with {} received via GRN — "
+                                    + "skipping stock post (GRN already booked it)",
+                            bill.getBillNumber(), line.getLineNumber(), alreadyReceived);
+                    continue;
+                }
             }
 
             // Use base quantity (converted to base UoM) for stock movements

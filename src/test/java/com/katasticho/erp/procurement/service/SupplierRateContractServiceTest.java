@@ -149,7 +149,7 @@ class SupplierRateContractServiceTest {
         line.setOrgId(orgId);
         when(lineRepository.findBySupplierRateContractIdAndIsDeletedFalseOrderByCreatedAtAsc(id))
                 .thenReturn(List.of(line));
-        when(lineRepository.findActiveLine(orgId, supplierContact, itemId))
+        when(lineRepository.findActiveLine(eq(orgId), eq(supplierContact), eq(itemId), any()))
                 .thenReturn(Optional.empty());
         when(contractRepository.save(any(SupplierRateContract.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -176,7 +176,7 @@ class SupplierRateContractServiceTest {
         SupplierRateContractLine existing = SupplierRateContractLine.builder()
                 .supplierRateContractId(UUID.randomUUID()).itemId(itemId)
                 .unitPrice(new BigDecimal("9")).build();
-        when(lineRepository.findActiveLine(orgId, supplierContact, itemId))
+        when(lineRepository.findActiveLine(eq(orgId), eq(supplierContact), eq(itemId), any()))
                 .thenReturn(Optional.of(existing));
 
         assertThatThrownBy(() -> service.activate(id))
@@ -219,13 +219,13 @@ class SupplierRateContractServiceTest {
         SupplierRateContractLine line = SupplierRateContractLine.builder()
                 .supplierRateContractId(UUID.randomUUID()).itemId(itemId)
                 .unitPrice(new BigDecimal("47.25")).build();
-        when(lineRepository.findActiveLine(orgId, supplierContact, itemId))
+        when(lineRepository.findActiveLine(eq(orgId), eq(supplierContact), eq(itemId), any()))
                 .thenReturn(Optional.of(line));
 
         Optional<BigDecimal> rate = service.findActiveRate(supplierContact, itemId);
         assertThat(rate).hasValueSatisfying(v -> assertThat(v).isEqualByComparingTo("47.25"));
 
-        when(lineRepository.findActiveLine(orgId, supplierContact, itemId))
+        when(lineRepository.findActiveLine(eq(orgId), eq(supplierContact), eq(itemId), any()))
                 .thenReturn(Optional.empty());
         assertThat(service.findActiveRate(supplierContact, itemId)).isEmpty();
     }

@@ -64,4 +64,14 @@ public class Supplier extends BaseEntity {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean active = true;
+
+    /**
+     * FK to the AP-facing {@code contact} this supplier represents. Set on
+     * create or backfilled by V14 via case-insensitive name match. PO drafting,
+     * bill drafting, and rate-contract lookup prefer this FK over name matching
+     * — the legacy name fallback stays only as a safety net for un-backfilled
+     * rows.
+     */
+    @Column(name = "contact_id")
+    private java.util.UUID contactId;
 }

@@ -38,7 +38,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Advisory agentic replenishment: when stock dips below reorder level for a
@@ -105,19 +107,25 @@ public class AgenticReplenishmentService {
         List<StockBalance> lowStock = stockBalanceRepository.findLowStock(orgId);
         if (lowStock.isEmpty()) return 0;
 
-        // Aggregate deficit per item across warehouses — a multi-warehouse
-        // shortfall is one replenishment decision, not N.
-        Map<UUID, BigDecimal> deficitByItem = new LinkedHashMap<>();
+        // findLowStock returns per-warehouse rows where THAT warehouse is below
+        // reorder — fine for surfacing imbalance, but treating it as the item's
+        // total on-hand drafts a PR even when another warehouse has plenty.
+        // Re-fetch every balance for the same set of items and sum across
+        // warehouses so the suggestion is grounded in org-wide on-hand.
+        Set<UUID> candidateItemIds = lowStock.stream()
+                .map(StockBalance::getItemId)
+                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
         Map<UUID, BigDecimal> onHandByItem = new HashMap<>();
-        for (StockBalance sb : lowStock) {
-            deficitByItem.merge(sb.getItemId(), BigDecimal.ZERO, BigDecimal::add);
+        List<StockBalance> allBalances = stockBalanceRepository
+                .findByOrgIdAndItemIdIn(orgId, candidateItemIds);
+        for (StockBalance sb : allBalances) {
             onHandByItem.merge(sb.getItemId(), nullSafe(sb.getQuantityOnHand()), BigDecimal::add);
         }
 
         int created = 0;
-        for (UUID itemId : deficitByItem.keySet()) {
+        for (UUID itemId : candidateItemIds) {
             try {
-                if (drafSuggestion(orgId, itemId, onHandByItem.get(itemId))) {
+                if (drafSuggestion(orgId, itemId, onHandByItem.getOrDefault(itemId, BigDecimal.ZERO))) {
                     created++;
                 }
             } catch (Exception ex) {
@@ -158,6 +166,15 @@ public class AgenticReplenishmentService {
 
         BigDecimal reorderLevel = nullSafe(item.getReorderLevel());
         BigDecimal reorderQty = nullSafe(item.getReorderQuantity());
+        // Skip when org-wide on-hand is already above reorder — `findLowStock`
+        // flagged at least one warehouse, but the item itself isn't short.
+        // The right action there is a warehouse transfer (different workflow),
+        // not a fresh purchase.
+        if (reorderLevel.signum() > 0 && onHandTotal.compareTo(reorderLevel) > 0) {
+            log.debug("Item {} has {} on-hand across all warehouses ≥ reorder {} — skipping replenishment "
+                    + "(internal transfer, not purchase)", itemId, onHandTotal, reorderLevel);
+            return false;
+        }
         BigDecimal suggestedQty = reorderQty.signum() > 0
                 ? reorderQty.add(reorderLevel.subtract(onHandTotal).max(BigDecimal.ZERO))
                 : reorderLevel.subtract(onHandTotal).max(BigDecimal.ONE);

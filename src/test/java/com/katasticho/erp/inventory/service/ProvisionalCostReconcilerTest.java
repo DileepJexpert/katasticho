@@ -5,6 +5,7 @@ import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.dto.JournalLineRequest;
 import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.JournalEntry;
+import com.katasticho.erp.accounting.repository.JournalEntryRepository;
 import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.StockMovement;
@@ -47,20 +48,24 @@ class ProvisionalCostReconcilerTest {
 
     @Mock private StockMovementRepository stockMovementRepo;
     @Mock private JournalService journalService;
+    @Mock private JournalEntryRepository journalEntryRepository;
     @Mock private DefaultAccountService defaultAccountService;
 
     private ProvisionalCostReconciler reconciler;
     private UUID orgId;
     private UUID itemId;
+    private UUID grnId;
     private Clock fixedClock;
 
     @BeforeEach
     void setUp() {
         orgId = UUID.randomUUID();
         itemId = UUID.randomUUID();
+        grnId = UUID.randomUUID();
         fixedClock = Clock.fixed(Instant.parse("2026-06-22T10:00:00Z"), ZoneId.of("UTC"));
         reconciler = new ProvisionalCostReconciler(
-                stockMovementRepo, journalService, defaultAccountService, fixedClock);
+                stockMovementRepo, journalService, journalEntryRepository,
+                defaultAccountService, fixedClock);
     }
 
     private void stubAccountCodes() {
@@ -95,11 +100,11 @@ class ProvisionalCostReconcilerTest {
 
     @Test
     void noPending_returnsZero_andPostsNoJournal() {
-        when(stockMovementRepo.findByOrgIdAndItemIdAndCostProvisionalTrueAndCostSettledAtIsNullOrderByMovementDateAscCreatedAtAsc(
+        when(stockMovementRepo.findUnsettledProvisional(
                 orgId, itemId)).thenReturn(List.of());
 
         ProvisionalCostReconciler.ReconcileResult r =
-                reconciler.reconcileForItem(orgId, itemId, new BigDecimal("20.00"), "GRN-1");
+                reconciler.reconcileForItem(orgId, itemId, new BigDecimal("20.00"), "GRN-1", grnId);
 
         assertThat(r.settled()).isZero();
         assertThat(r.journalEntryId()).isNull();
@@ -113,14 +118,14 @@ class ProvisionalCostReconcilerTest {
         // Real inventory consumption = 45 + (−5) = 40.
         // Journal:  DR Suspense 45 / CR Inventory 40 / CR COGS 5
         StockMovement m = provisionalSale(new BigDecimal("22.50"), new BigDecimal("-2"));
-        when(stockMovementRepo.findByOrgIdAndItemIdAndCostProvisionalTrueAndCostSettledAtIsNullOrderByMovementDateAscCreatedAtAsc(
+        when(stockMovementRepo.findUnsettledProvisional(
                 orgId, itemId)).thenReturn(List.of(m));
         stubAccountCodes();
         UUID jeId = UUID.randomUUID();
         stubJournalReturn(jeId);
 
         ProvisionalCostReconciler.ReconcileResult r =
-                reconciler.reconcileForItem(orgId, itemId, new BigDecimal("20.00"), "GRN-1");
+                reconciler.reconcileForItem(orgId, itemId, new BigDecimal("20.00"), "GRN-1", grnId);
 
         assertThat(r.settled()).isOne();
         assertThat(r.totalProvisionalCogs()).isEqualByComparingTo("45.00");
@@ -148,13 +153,13 @@ class ProvisionalCostReconcilerTest {
         // Real inventory consumption = 45 + 5 = 50.
         // Journal:  DR Suspense 45 / CR Inventory 50 / DR COGS 5
         StockMovement m = provisionalSale(new BigDecimal("22.50"), new BigDecimal("-2"));
-        when(stockMovementRepo.findByOrgIdAndItemIdAndCostProvisionalTrueAndCostSettledAtIsNullOrderByMovementDateAscCreatedAtAsc(
+        when(stockMovementRepo.findUnsettledProvisional(
                 orgId, itemId)).thenReturn(List.of(m));
         stubAccountCodes();
         stubJournalReturn(UUID.randomUUID());
 
         ProvisionalCostReconciler.ReconcileResult r =
-                reconciler.reconcileForItem(orgId, itemId, new BigDecimal("25.00"), "GRN-1");
+                reconciler.reconcileForItem(orgId, itemId, new BigDecimal("25.00"), "GRN-1", grnId);
 
         assertThat(r.settled()).isOne();
         assertThat(r.totalProvisionalCogs()).isEqualByComparingTo("45.00");
@@ -183,13 +188,13 @@ class ProvisionalCostReconcilerTest {
         // Journal: DR Suspense 75 / CR Inventory 75 — no COGS line (variance is zero).
         StockMovement a = provisionalSale(new BigDecimal("22.50"), new BigDecimal("-2"));
         StockMovement b = provisionalSale(new BigDecimal("30.00"), new BigDecimal("-1"));
-        when(stockMovementRepo.findByOrgIdAndItemIdAndCostProvisionalTrueAndCostSettledAtIsNullOrderByMovementDateAscCreatedAtAsc(
+        when(stockMovementRepo.findUnsettledProvisional(
                 orgId, itemId)).thenReturn(List.of(a, b));
         stubAccountCodes();
         stubJournalReturn(UUID.randomUUID());
 
         ProvisionalCostReconciler.ReconcileResult r =
-                reconciler.reconcileForItem(orgId, itemId, new BigDecimal("25.00"), "GRN-2");
+                reconciler.reconcileForItem(orgId, itemId, new BigDecimal("25.00"), "GRN-2", grnId);
 
         assertThat(r.settled()).isEqualTo(2);
         assertThat(r.totalProvisionalCogs()).isEqualByComparingTo("75.00");
@@ -213,12 +218,12 @@ class ProvisionalCostReconcilerTest {
     void stampsCostSettledAtOnAllMovements() {
         StockMovement m = provisionalSale(new BigDecimal("22.50"), new BigDecimal("-2"));
         assertThat(m.getCostSettledAt()).isNull();
-        when(stockMovementRepo.findByOrgIdAndItemIdAndCostProvisionalTrueAndCostSettledAtIsNullOrderByMovementDateAscCreatedAtAsc(
+        when(stockMovementRepo.findUnsettledProvisional(
                 orgId, itemId)).thenReturn(List.of(m));
         stubAccountCodes();
         stubJournalReturn(UUID.randomUUID());
 
-        reconciler.reconcileForItem(orgId, itemId, new BigDecimal("20.00"), "GRN-1");
+        reconciler.reconcileForItem(orgId, itemId, new BigDecimal("20.00"), "GRN-1", grnId);
 
         assertThat(m.getCostSettledAt())
                 .isNotNull()
@@ -229,11 +234,11 @@ class ProvisionalCostReconcilerTest {
     @Test
     void nullActualCost_isNoOp() {
         ProvisionalCostReconciler.ReconcileResult r =
-                reconciler.reconcileForItem(orgId, itemId, null, "GRN-NULL");
+                reconciler.reconcileForItem(orgId, itemId, null, "GRN-NULL", grnId);
 
         assertThat(r.settled()).isZero();
         verify(stockMovementRepo, never())
-                .findByOrgIdAndItemIdAndCostProvisionalTrueAndCostSettledAtIsNullOrderByMovementDateAscCreatedAtAsc(
+                .findUnsettledProvisional(
                         any(), any());
         verify(journalService, never()).postJournal(any());
     }

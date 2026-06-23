@@ -264,14 +264,21 @@ public class PurchaseOrderService {
         }
 
         // Pre-load items so we can copy hsn/gst defaults onto the GRN line.
+        // Tenant filter: itemRepository.findAllById would gladly return a
+        // foreign-org row if a PO line FK ever points cross-tenant. Use the
+        // org-scoped batch fetch instead.
         List<UUID> itemIds = poLines.stream().map(PurchaseOrderLine::getItemId).toList();
         Map<UUID, Item> itemById = new HashMap<>();
-        itemRepository.findAllById(itemIds).forEach(it -> itemById.put(it.getId(), it));
+        itemRepository.findByOrgIdAndIsDeletedFalseAndIdIn(orgId, itemIds)
+                .forEach(it -> itemById.put(it.getId(), it));
 
         List<StockReceiptLineRequest> grnLines = new ArrayList<>();
         for (PurchaseOrderLine pol : poLines) {
+            // RECEIVED-only sum: an abandoned DRAFT GRN must not block re-drafting.
+            // 3-way match uses the same definition (sum of RECEIVED qty), so both
+            // helpers agree on what "received" means.
             BigDecimal received = stockReceiptLineRepository
-                    .sumQuantityForPurchaseOrderLine(pol.getId());
+                    .sumReceivedQuantityForPurchaseOrderLine(pol.getId());
             if (received == null) received = BigDecimal.ZERO;
             BigDecimal remaining = pol.getQuantity().subtract(received);
             if (remaining.signum() <= 0) {
@@ -339,16 +346,29 @@ public class PurchaseOrderService {
         var supplier = supplierRepository.findByIdAndOrgIdAndIsDeletedFalse(po.getSupplierId(), orgId)
                 .orElseThrow(() -> BusinessException.notFound("Supplier", po.getSupplierId()));
 
-        // Find a vendor contact matching the supplier — bill needs a Contact, not a Supplier.
-        // Match by display name (case-insensitive). Most orgs maintain a 1:1 supplier/contact.
-        Contact vendorContact = contactRepository
-                .findFirstByOrgIdAndDisplayNameIgnoreCaseAndIsDeletedFalse(orgId, supplier.getName())
-                .filter(c -> c.getContactType() == ContactType.VENDOR
-                        || c.getContactType() == ContactType.BOTH)
-                .orElseThrow(() -> new BusinessException(
-                        "No vendor contact found for supplier '" + supplier.getName()
-                                + "' — create a matching vendor contact first",
-                        "PO_NO_VENDOR_CONTACT", HttpStatus.BAD_REQUEST));
+        // Find a vendor contact matching the supplier — bill needs a Contact, not
+        // a Supplier. Prefer the V14 supplier.contact_id FK; legacy fallback is
+        // a case-insensitive display-name match for un-backfilled rows.
+        Contact vendorContact;
+        if (supplier.getContactId() != null) {
+            vendorContact = contactRepository
+                    .findByIdAndOrgIdAndIsDeletedFalse(supplier.getContactId(), orgId)
+                    .filter(c -> c.getContactType() == ContactType.VENDOR
+                            || c.getContactType() == ContactType.BOTH)
+                    .orElseThrow(() -> new BusinessException(
+                            "Supplier '" + supplier.getName() + "' is linked to a contact that is "
+                                    + "missing, deleted, or not a vendor — fix the supplier-contact link",
+                            "PO_NO_VENDOR_CONTACT", HttpStatus.BAD_REQUEST));
+        } else {
+            vendorContact = contactRepository
+                    .findFirstByOrgIdAndDisplayNameIgnoreCaseAndIsDeletedFalse(orgId, supplier.getName())
+                    .filter(c -> c.getContactType() == ContactType.VENDOR
+                            || c.getContactType() == ContactType.BOTH)
+                    .orElseThrow(() -> new BusinessException(
+                            "No vendor contact found for supplier '" + supplier.getName()
+                                    + "' — link the supplier to a vendor contact first",
+                            "PO_NO_VENDOR_CONTACT", HttpStatus.BAD_REQUEST));
+        }
 
         List<PurchaseOrderLine> poLines = lineRepository.findByPoId(po.getId());
         if (poLines.isEmpty()) {
@@ -356,10 +376,12 @@ public class PurchaseOrderService {
                     "PO_EMPTY", HttpStatus.BAD_REQUEST);
         }
 
-        // Pre-load items so we can populate hsn / gst / description.
+        // Pre-load items so we can populate hsn / gst / description. Tenant
+        // filter via the org-scoped batch fetch — findAllById bypasses it.
         List<UUID> itemIds = poLines.stream().map(PurchaseOrderLine::getItemId).toList();
         Map<UUID, Item> itemById = new HashMap<>();
-        itemRepository.findAllById(itemIds).forEach(it -> itemById.put(it.getId(), it));
+        itemRepository.findByOrgIdAndIsDeletedFalseAndIdIn(orgId, itemIds)
+                .forEach(it -> itemById.put(it.getId(), it));
 
         List<CreatePurchaseBillRequest.BillLineRequest> billLines = new ArrayList<>();
         for (PurchaseOrderLine pol : poLines) {

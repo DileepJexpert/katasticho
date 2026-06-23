@@ -113,7 +113,9 @@ public class StatutoryRegisterService {
                 : prescriptionRepository.findByReceiptIdAndOrgIdAndIsDeletedFalse(receipt.getId(), orgId)
                 .orElse(null);
         Contact patient = receipt.getContactId() == null ? null
-                : contactRepository.findById(receipt.getContactId()).orElse(null);
+                : contactRepository
+                        .findByIdAndOrgIdAndIsDeletedFalse(receipt.getContactId(), orgId)
+                        .orElse(null);
 
         List<StatutoryRegisterEntry> created = new java.util.ArrayList<>();
         Map<UUID, String> batchNumberCache = new HashMap<>();
@@ -122,7 +124,8 @@ public class StatutoryRegisterService {
             if (line.getItemId() == null) continue;
             Item item = itemMap != null ? itemMap.get(line.getItemId()) : null;
             if (item == null) {
-                item = itemRepository.findById(line.getItemId()).orElse(null);
+                item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(line.getItemId(), orgId)
+                        .orElse(null);
             }
             if (item == null) continue;
 

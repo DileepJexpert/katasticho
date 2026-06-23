@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,4 +37,14 @@ public interface StockBalanceRepository extends JpaRepository<StockBalance, UUID
     List<StockBalance> findLowStock(@Param("orgId") UUID orgId);
 
     List<StockBalance> findByOrgIdOrderByLastMovementAtDesc(UUID orgId);
+
+    /**
+     * All warehouse balances for the given item set. Used by the agentic
+     * replenishment sweep to compute org-wide on-hand per item — {@link #findLowStock}
+     * only returns rows where one specific warehouse is below reorder, so a
+     * multi-warehouse org needs this aggregate view to decide whether the item
+     * is genuinely short or just imbalanced across warehouses (the latter is a
+     * transfer, not a purchase).
+     */
+    List<StockBalance> findByOrgIdAndItemIdIn(UUID orgId, Collection<UUID> itemIds);
 }

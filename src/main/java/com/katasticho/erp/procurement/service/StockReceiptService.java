@@ -294,14 +294,15 @@ public class StockReceiptService {
             // movements (booked against Stock-Out Suspense because purchasePrice
             // was unknown), this GRN reveals the actual cost — reconcile now.
             // Skip for SERVICE items (movement == null) — they never deduct stock.
+            // The reconciler runs in REQUIRES_NEW so a failure in there can't
+            // mark THIS transaction rollback-only (the previous catch would
+            // have failed at commit with UnexpectedRollbackException).
             if (movement != null) {
                 try {
                     provisionalCostReconciler.reconcileForItem(
-                            orgId, item.getId(), landedUnitCost, receipt.getReceiptNumber());
+                            orgId, item.getId(), landedUnitCost,
+                            receipt.getReceiptNumber(), receipt.getId());
                 } catch (Exception e) {
-                    // Don't fail the GRN if reconciliation hits an edge case —
-                    // the operator can re-run via a follow-up tool. Logging
-                    // surfaces the variance for diagnostics.
                     log.warn("Provisional COGS reconciliation failed for item {} on GRN {}: {}",
                             item.getId(), receipt.getReceiptNumber(), e.getMessage());
                 }
@@ -367,6 +368,17 @@ public class StockReceiptService {
             // marked back as having more remaining qty. DRAFTs never incremented,
             // so DRAFT-cancellation is a no-op for the PO ledger.
             decrementReceivedQuantityForPoLines(receipt);
+            // Unwind any provisional-COGS settlements this GRN posted: reverses
+            // the correction JE(s) and clears the cost_settled_at / by_grn_id
+            // stamps on the affected SALE movements so a future GRN can
+            // re-reconcile them against the new actual cost. Without this, a
+            // cancelled-then-replaced GRN double-clears Stock-Out Suspense.
+            try {
+                provisionalCostReconciler.revertSettlementForGrn(receipt.getId());
+            } catch (Exception e) {
+                log.warn("Failed to revert provisional-COGS settlement for cancelled GRN {}: {}",
+                        receipt.getReceiptNumber(), e.getMessage());
+            }
         }
 
         receipt.setStatus("CANCELLED");
