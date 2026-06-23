@@ -56,7 +56,7 @@ class _RfqScreenState extends ConsumerState<RfqScreen> {
       });
     } on DioException catch (e) {
       setState(() {
-        _error = ApiErrorParser.parse(e);
+        _error = ApiErrorParser.message(e);
         _loading = false;
       });
     }
@@ -109,7 +109,7 @@ class _RfqScreenState extends ConsumerState<RfqScreen> {
                           ? Center(
                               child: Text(
                                 'No RFQs yet — tap "New RFQ" to draft one.',
-                                style: KTypography.body.copyWith(
+                                style: KTypography.bodyMedium.copyWith(
                                     color: KColors.textSecondary),
                               ),
                             )
@@ -158,7 +158,7 @@ class _RfqTile extends ConsumerWidget {
       title: Row(
         children: [
           Text(rfq['rfqNumber']?.toString() ?? '',
-              style: KTypography.mono(fontWeight: FontWeight.w600)),
+              style: KTypography.mono(weight: FontWeight.w600)),
           const SizedBox(width: KSpacing.md),
           Expanded(child: Text(rfq['title']?.toString() ?? '')),
           KStatusChip(status: status),
@@ -247,7 +247,7 @@ class _RfqDetailSheetState extends State<_RfqDetailSheet> {
       });
     } on DioException catch (e) {
       setState(() {
-        _err = ApiErrorParser.parse(e);
+        _err = ApiErrorParser.message(e);
         _loading = false;
       });
     }
@@ -265,7 +265,7 @@ class _RfqDetailSheetState extends State<_RfqDetailSheet> {
     } on DioException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Award failed: ${ApiErrorParser.parse(e)}')));
+          SnackBar(content: Text('Award failed: ${ApiErrorParser.message(e)}')));
     }
   }
 
@@ -312,7 +312,7 @@ class _RfqDetailSheetState extends State<_RfqDetailSheet> {
                         ? Center(
                             child: Text(
                                 'No quotes yet — tap "Record quote" once a supplier replies.',
-                                style: KTypography.body.copyWith(
+                                style: KTypography.bodyMedium.copyWith(
                                     color: KColors.textSecondary)),
                           )
                         : ListView.builder(
@@ -504,7 +504,7 @@ class _CreateRfqDialogState extends ConsumerState<_CreateRfqDialog> {
       Navigator.of(context).pop(true);
     } on DioException catch (e) {
       setState(() {
-        _err = ApiErrorParser.parse(e);
+        _err = ApiErrorParser.message(e);
         _busy = false;
       });
     }
@@ -801,7 +801,7 @@ class _RecordQuoteDialogState extends State<_RecordQuoteDialog> {
       Navigator.of(context).pop(true);
     } on DioException catch (e) {
       setState(() {
-        _err = ApiErrorParser.parse(e);
+        _err = ApiErrorParser.message(e);
         _busy = false;
       });
     }

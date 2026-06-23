@@ -53,7 +53,7 @@ class _RateContractsScreenState extends ConsumerState<RateContractsScreen> {
       });
     } on DioException catch (e) {
       setState(() {
-        _err = ApiErrorParser.parse(e);
+        _err = ApiErrorParser.message(e);
         _loading = false;
       });
     }
@@ -72,7 +72,7 @@ class _RateContractsScreenState extends ConsumerState<RateContractsScreen> {
     } on DioException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$op failed: ${ApiErrorParser.parse(e)}')));
+          SnackBar(content: Text('$op failed: ${ApiErrorParser.message(e)}')));
     }
   }
 
@@ -121,7 +121,7 @@ class _RateContractsScreenState extends ConsumerState<RateContractsScreen> {
                           ? Center(
                               child: Text(
                                   'No contracts yet — tap "New contract" to draft one.',
-                                  style: KTypography.body.copyWith(
+                                  style: KTypography.bodyMedium.copyWith(
                                       color: KColors.textSecondary)),
                             )
                           : ListView.separated(
@@ -135,7 +135,7 @@ class _RateContractsScreenState extends ConsumerState<RateContractsScreen> {
                                     children: [
                                       Text(row['contractNumber']?.toString() ?? '',
                                           style: KTypography.mono(
-                                              fontWeight: FontWeight.w600)),
+                                              weight: FontWeight.w600)),
                                       const SizedBox(width: KSpacing.md),
                                       KStatusChip(status: status),
                                     ],
@@ -354,7 +354,7 @@ class _CreateContractDialogState extends ConsumerState<_CreateContractDialog> {
       Navigator.of(context).pop(true);
     } on DioException catch (e) {
       setState(() {
-        _err = ApiErrorParser.parse(e);
+        _err = ApiErrorParser.message(e);
         _busy = false;
       });
     }

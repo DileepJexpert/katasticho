@@ -210,7 +210,7 @@ class PurchaseOrderDetailScreen extends ConsumerWidget {
       Map<String, dynamic> po) async {
     final messenger = ScaffoldMessenger.of(context);
     final picker = ImagePicker();
-    final XFile? picked;
+    XFile? picked;
     try {
       picked = await picker.pickImage(
         source: ImageSource.camera,
