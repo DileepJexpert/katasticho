@@ -469,12 +469,6 @@ const _accountingGroup = NavGroup(
         icon: Icons.schedule_outlined,
         activeIcon: Icons.schedule,
         route: Routes.amortization),
-    NavItem(
-        id: 'accounting.gst',
-        label: 'GST',
-        icon: Icons.percent_outlined,
-        activeIcon: Icons.percent_rounded,
-        route: Routes.gst),
   ],
 );
 
@@ -559,11 +553,13 @@ const _reportsGroup = NavGroup(
   ],
 );
 
-const _payrollGroup = NavGroup(
-  id: 'payroll',
-  label: 'Payroll',
-  icon: Icons.people_alt_outlined,
-  activeIcon: Icons.people_alt_rounded,
+/// HR & Payroll — merged into one ERP-canonical group. Order: employee
+/// master + self-service first, then HR sub-modules, then payroll runs.
+const _hrPayrollGroup = NavGroup(
+  id: 'hr_payroll',
+  label: 'HR & Payroll',
+  icon: Icons.groups_outlined,
+  activeIcon: Icons.groups_rounded,
   children: [
     NavItem(
         id: 'payroll.employees',
@@ -571,33 +567,6 @@ const _payrollGroup = NavGroup(
         icon: Icons.badge_outlined,
         activeIcon: Icons.badge_rounded,
         route: Routes.payrollEmployees),
-    NavItem(
-        id: 'payroll.runs',
-        label: 'Payroll Runs',
-        icon: Icons.calculate_outlined,
-        activeIcon: Icons.calculate_rounded,
-        route: Routes.payrollRuns),
-    NavItem(
-        id: 'payroll.settings',
-        label: 'Settings',
-        icon: Icons.settings_outlined,
-        activeIcon: Icons.settings_rounded,
-        route: Routes.payrollSettings),
-  ],
-);
-
-const _hrGroup = NavGroup(
-  id: 'hr',
-  label: 'HR',
-  icon: Icons.groups_outlined,
-  activeIcon: Icons.groups_rounded,
-  children: [
-    NavItem(
-        id: 'hr.profile',
-        label: 'My Profile',
-        icon: Icons.badge_outlined,
-        activeIcon: Icons.badge,
-        route: Routes.hrProfile),
     NavItem(
         id: 'hr.leave',
         label: 'Leave',
@@ -652,6 +621,81 @@ const _hrGroup = NavGroup(
         icon: Icons.person_outline,
         activeIcon: Icons.person,
         route: Routes.hrMyProfile),
+    // Payroll sub-modules — accountants only run these.
+    NavItem(
+        id: 'payroll.runs',
+        label: 'Payroll Runs',
+        icon: Icons.calculate_outlined,
+        activeIcon: Icons.calculate_rounded,
+        route: Routes.payrollRuns,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT']),
+    NavItem(
+        id: 'payroll.labor_pay_preview',
+        label: 'Labor Pay Preview',
+        icon: Icons.preview_outlined,
+        activeIcon: Icons.preview_rounded,
+        route: Routes.payrollLaborPayPreview,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT']),
+    NavItem(
+        id: 'payroll.settings',
+        label: 'Payroll Settings',
+        icon: Icons.settings_outlined,
+        activeIcon: Icons.settings_rounded,
+        route: Routes.payrollSettings,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT']),
+  ],
+);
+
+/// Tax & Compliance — cross-cutting group for GST, e-invoice, e-way, TDS,
+/// TCS, and industry-specific statutory registers (pharma H1/Schedule-X/
+/// Narcotics; FSSAI for food). Most entries are role-gated to accountants;
+/// industry-specific entries are industry-gated. India-only by country.
+const _taxComplianceGroup = NavGroup(
+  id: 'tax_compliance',
+  label: 'Tax & Compliance',
+  icon: Icons.gavel_outlined,
+  activeIcon: Icons.gavel_rounded,
+  children: [
+    NavItem(
+        id: 'tax.gst_dashboard',
+        label: 'GST Dashboard',
+        icon: Icons.percent_outlined,
+        activeIcon: Icons.percent_rounded,
+        route: Routes.gst,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'],
+        countries: ['IN']),
+    NavItem(
+        id: 'tax.itc_risk',
+        label: 'ITC Risk',
+        icon: Icons.warning_amber_outlined,
+        activeIcon: Icons.warning_amber_rounded,
+        route: Routes.gstItcRisk,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'],
+        countries: ['IN']),
+    NavItem(
+        id: 'tax.statutory_registers',
+        label: 'Statutory Registers',
+        icon: Icons.menu_book_outlined,
+        activeIcon: Icons.menu_book_rounded,
+        route: Routes.statutoryRegisters,
+        industries: ['PHARMA', 'PHARMA_DISTRIBUTOR', 'PHARMA_MANUFACTURER'],
+        countries: ['IN']),
+    NavItem(
+        id: 'tax.drug_licenses',
+        label: 'Drug Licenses',
+        icon: Icons.medical_information_outlined,
+        activeIcon: Icons.medical_information_rounded,
+        route: Routes.drugLicenses,
+        industries: ['PHARMA', 'PHARMA_DISTRIBUTOR', 'PHARMA_MANUFACTURER'],
+        countries: ['IN']),
+    NavItem(
+        id: 'tax.fssai',
+        label: 'FSSAI Compliance',
+        icon: Icons.verified_outlined,
+        activeIcon: Icons.verified_rounded,
+        route: Routes.fssaiCompliance,
+        industries: ['FOOD', 'FOOD_MANUFACTURER', 'RESTAURANT'],
+        countries: ['IN']),
   ],
 );
 
@@ -952,9 +996,10 @@ const _allGroups = [
   _purchasesGroup,
   _inventoryGroup,
   _accountingGroup,
+  _bankingGroup,
+  _taxComplianceGroup,
   _reportsGroup,
-  _payrollGroup,
-  _hrGroup,
+  _hrPayrollGroup,
   _fieldSalesGroup,
   _partnerNetworkGroup,
   _manufacturingGroup,
@@ -1474,30 +1519,36 @@ List<Widget> _buildSidebarSections({
   final canAccounting = canManage || role == 'ACCOUNTANT';
   final isOperator = role == 'OPERATOR';
   final isViewer = role == 'VIEWER';
+  // ERP-canonical order (top to bottom):
+  // Sales → Purchases → Inventory → Manufacturing → Field Sales →
+  // Partner Network → Accounting → Banking → Tax & Compliance →
+  // HR & Payroll → Supply Planning → Courier & Transport → Reports.
   final salesGroup = _visibleGroup(
       _salesGroup, capabilities, overrides, role, industryCode, countryCode);
   final purchasesGroup = _visibleGroup(_purchasesGroup, capabilities, overrides,
       role, industryCode, countryCode);
   final inventoryGroup = _visibleGroup(_inventoryGroup, capabilities, overrides,
       role, industryCode, countryCode);
-  final bankingGroup = _visibleGroup(_bankingGroup, capabilities, overrides,
-      role, industryCode, countryCode);
-  final accountingGroup = _visibleGroup(_accountingGroup, capabilities,
+  final manufacturingGroup = _visibleGroup(_manufacturingGroup, capabilities,
       overrides, role, industryCode, countryCode);
-  final reportsGroup = _visibleGroup(_reportsGroup, capabilities, overrides,
-      role, industryCode, countryCode);
-  final payrollGroup = _visibleGroup(_payrollGroup, capabilities, overrides,
-      role, industryCode, countryCode);
-  final hrGroup = _visibleGroup(
-      _hrGroup, capabilities, overrides, role, industryCode, countryCode);
   final fieldSalesGroup = _visibleGroup(_fieldSalesGroup, capabilities,
       overrides, role, industryCode, countryCode);
   final partnerNetworkGroup = _visibleGroup(_partnerNetworkGroup, capabilities,
       overrides, role, industryCode, countryCode);
-  final manufacturingGroup = _visibleGroup(_manufacturingGroup, capabilities,
+  final accountingGroup = _visibleGroup(_accountingGroup, capabilities,
       overrides, role, industryCode, countryCode);
+  final bankingGroup = _visibleGroup(_bankingGroup, capabilities, overrides,
+      role, industryCode, countryCode);
+  final taxComplianceGroup = _visibleGroup(_taxComplianceGroup, capabilities,
+      overrides, role, industryCode, countryCode);
+  final hrPayrollGroup = _visibleGroup(_hrPayrollGroup, capabilities, overrides,
+      role, industryCode, countryCode);
   final supplyChainGroup = _visibleGroup(_supplyChainGroup, capabilities,
       overrides, role, industryCode, countryCode);
+  final courierGroup = _visibleGroup(
+      _courierGroup, capabilities, overrides, role, industryCode, countryCode);
+  final reportsGroup = _visibleGroup(_reportsGroup, capabilities, overrides,
+      role, industryCode, countryCode);
 
   bool topItemOk(NavItem item) =>
       _isItemVisible(item, capabilities, overrides, role, industryCode, countryCode);
@@ -1514,32 +1565,30 @@ List<Widget> _buildSidebarSections({
     KSpacing.vGapSm,
     if (!isViewer && salesGroup != null)
       _SidebarNavGroup(group: salesGroup, collapsed: collapsed),
-    if (canAccounting) ...[
-      if (purchasesGroup != null)
-        _SidebarNavGroup(group: purchasesGroup, collapsed: collapsed),
-      if (inventoryGroup != null)
-        _SidebarNavGroup(group: inventoryGroup, collapsed: collapsed),
-      if (bankingGroup != null)
-        _SidebarNavGroup(group: bankingGroup, collapsed: collapsed),
-      if (accountingGroup != null)
-        _SidebarNavGroup(group: accountingGroup, collapsed: collapsed),
-    ],
-    if (!isViewer && !canAccounting && inventoryGroup != null)
+    if (canAccounting && purchasesGroup != null)
+      _SidebarNavGroup(group: purchasesGroup, collapsed: collapsed),
+    if (!isViewer && inventoryGroup != null)
       _SidebarNavGroup(group: inventoryGroup, collapsed: collapsed),
-    if (canAccounting && reportsGroup != null)
-      _SidebarNavGroup(group: reportsGroup, collapsed: collapsed),
-    if (canAccounting && payrollGroup != null)
-      _SidebarNavGroup(group: payrollGroup, collapsed: collapsed),
-    if (canAccounting && hrGroup != null)
-      _SidebarNavGroup(group: hrGroup, collapsed: collapsed),
+    if (!isViewer && manufacturingGroup != null)
+      _SidebarNavGroup(group: manufacturingGroup, collapsed: collapsed),
     if (!isViewer && fieldSalesGroup != null)
       _SidebarNavGroup(group: fieldSalesGroup, collapsed: collapsed),
     if (!isViewer && partnerNetworkGroup != null)
       _SidebarNavGroup(group: partnerNetworkGroup, collapsed: collapsed),
-    if (!isViewer && manufacturingGroup != null)
-      _SidebarNavGroup(group: manufacturingGroup, collapsed: collapsed),
+    if (canAccounting && accountingGroup != null)
+      _SidebarNavGroup(group: accountingGroup, collapsed: collapsed),
+    if (canAccounting && bankingGroup != null)
+      _SidebarNavGroup(group: bankingGroup, collapsed: collapsed),
+    if (canAccounting && taxComplianceGroup != null)
+      _SidebarNavGroup(group: taxComplianceGroup, collapsed: collapsed),
+    if (hrPayrollGroup != null)
+      _SidebarNavGroup(group: hrPayrollGroup, collapsed: collapsed),
     if (canAccounting && supplyChainGroup != null)
       _SidebarNavGroup(group: supplyChainGroup, collapsed: collapsed),
+    if (!isViewer && courierGroup != null)
+      _SidebarNavGroup(group: courierGroup, collapsed: collapsed),
+    if (canAccounting && reportsGroup != null)
+      _SidebarNavGroup(group: reportsGroup, collapsed: collapsed),
     KSpacing.vGapSm,
     if (!isOperator && !isViewer && topItemOk(_contactsNavItem))
       _SidebarNavItem(item: _contactsNavItem, collapsed: collapsed),
