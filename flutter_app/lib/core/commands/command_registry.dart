@@ -800,6 +800,13 @@ List<KCommand> buildAppCommands() {
       keywords: ['mcp', 'integration'],
     ),
     KCommand(
+      label: 'Sidebar Customisation',
+      icon: Icons.view_list_rounded,
+      section: 'Settings',
+      route: Routes.navCustomisation,
+      keywords: ['sidebar', 'menu', 'hide', 'customise', 'customize', 'disable', 'nav'],
+    ),
+    KCommand(
       label: 'GSP Connection',
       icon: Icons.cloud_sync_rounded,
       section: 'Settings',

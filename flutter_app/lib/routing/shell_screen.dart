@@ -990,6 +990,23 @@ const _supplyChainGroup = NavGroup(
   ],
 );
 
+/// Public registry export — every group that carries an `id` (and has at
+/// least one id'd child) and the small set of top-level NavItems with IDs.
+/// Used by the Sidebar Customisation settings screen to render the toggle
+/// list. Order here matches the sidebar render order.
+List<NavGroup> allConfigurableGroups() => List.unmodifiable([
+      for (final g in _allGroups)
+        if (g.id != null && g.children.any((c) => c.id != null)) g,
+    ]);
+
+List<NavItem> allConfigurableTopLevelItems() => List.unmodifiable([
+      _dashboardNavItem,
+      _aiCommandCenterNavItem,
+      _posNavItem,
+      _contactsNavItem,
+      _settingsNavItem,
+    ]);
+
 /// All groups for route-matching.
 const _allGroups = [
   _salesGroup,

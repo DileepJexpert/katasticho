@@ -142,6 +142,7 @@ import '../features/team/presentation/team_screen.dart';
 import '../features/settings/presentation/ai_model_settings_screen.dart';
 import '../features/settings/presentation/gsp_settings_screen.dart';
 import '../features/settings/presentation/api_keys_screen.dart';
+import '../features/settings/presentation/nav_customisation_screen.dart';
 import '../features/settings/presentation/budgets_screen.dart';
 import '../features/settings/presentation/tally_import_screen.dart';
 import '../features/settings/presentation/business_policy_settings_screen.dart';
@@ -379,6 +380,7 @@ class Routes {
   static const budgets = '/settings/budgets';
   static const tallyImport = '/settings/tally-import';
   static const portalUsers = '/settings/portal-users';
+  static const navCustomisation = '/settings/nav-customisation';
   // Onboarding wizard
   static const onboardingBusinessType = '/onboarding/business-type';
   static const onboardingIndustry = '/onboarding/industry';
@@ -2093,6 +2095,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.portalUsers,
             builder: (context, state) => const PortalUsersScreen(),
+          ),
+          GoRoute(
+            path: Routes.navCustomisation,
+            builder: (context, state) => const NavCustomisationScreen(),
           ),
         ],
       ),
