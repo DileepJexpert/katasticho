@@ -43,6 +43,7 @@ class PayrollServiceTest {
     @Mock private com.katasticho.erp.payroll.service.ProfessionalTaxCalculator ptCalculator;
     @Mock private com.katasticho.erp.payroll.service.LabourWelfareFundCalculator lwfCalculator;
     @Mock private com.katasticho.erp.common.country.CountryAccessService countryAccess;
+    @Mock private com.katasticho.erp.payroll.gulf.GulfPayrollService gulfPayrollService;
 
     private PayrollService service;
 
@@ -59,7 +60,7 @@ class PayrollServiceTest {
                 settingsRepo, employeeRepo, componentRepo, structureRepo,
                 runRepo, payslipRepo, paymentRepo, statutoryPaymentRepo,
                 journalService, accountRepo, leaveRequestRepo, productionPayrollService,
-                ptCalculator, lwfCalculator, countryAccess);
+                ptCalculator, lwfCalculator, countryAccess, gulfPayrollService);
         // Default: India org so existing statutory assertions hold.
         org.mockito.Mockito.lenient().when(countryAccess.isCountry("IN")).thenReturn(true);
         TenantContext.setCurrentOrgId(orgId);
@@ -462,6 +463,140 @@ class PayrollServiceTest {
         assertEquals(true, codes.contains("ESI_EMPLOYEE"));
         assertEquals(true, codes.contains("PT"));
         assertEquals(true, codes.contains("LWF"));
+    }
+
+    /**
+     * V15 gulf gratuity accrual — fixture mirrors the all-statutory one but
+     * stamps a dateOfJoining on the employee and seeds the GRATUITY_ACCRUAL
+     * salary component so the addStatutoryLine resolves it.
+     */
+    private Payslip runPayrollGulfAccrual(int basic, LocalDate joinDate,
+                                          BigDecimal mockedAccrual) {
+        UUID runId = UUID.randomUUID();
+        UUID empId = UUID.randomUUID();
+        LocalDate start = LocalDate.of(2026, 6, 1);
+        LocalDate end = LocalDate.of(2026, 6, 30);
+
+        PayrollRun run = PayrollRun.builder()
+                .id(runId).orgId(orgId).status("DRAFT")
+                .periodStart(start).periodEnd(end).build();
+        when(runRepo.findByIdAndOrgId(runId, orgId)).thenReturn(Optional.of(run));
+
+        PayrollSettings settings = PayrollSettings.builder()
+                .orgId(orgId).payFrequency("MONTHLY")
+                .pfEnabled(false).esiEnabled(false).ptEnabled(false)
+                .lwfEnabled(false).tdsEnabled(false).build();
+        when(settingsRepo.findByOrgId(orgId)).thenReturn(Optional.of(settings));
+
+        Employee emp = Employee.builder()
+                .id(empId).orgId(orgId).userId(userId)
+                .employeeCode("E1").employmentStatus("ACTIVE")
+                .dateOfJoining(joinDate)
+                .build();
+        when(employeeRepo.findByOrgIdAndIsDeletedFalseAndEmploymentStatus(orgId, "ACTIVE"))
+                .thenReturn(List.of(emp));
+
+        SalaryComponent basicComp = comp("BASIC", "EARNING");
+        SalaryComponent gratuityComp = comp("GRATUITY_ACCRUAL", "EMPLOYER_CONTRIBUTION");
+        when(componentRepo.findByOrgIdAndActiveTrueOrderByCodeAsc(orgId)).thenReturn(
+                List.of(basicComp, gratuityComp));
+        when(payslipRepo.findByOrgIdAndPayrollRunId(orgId, runId)).thenReturn(List.of());
+
+        EmployeeSalaryComponent line = EmployeeSalaryComponent.builder()
+                .salaryComponent(basicComp).calculationType("FIXED")
+                .amount(BigDecimal.valueOf(basic)).build();
+        EmployeeSalaryStructure structure = EmployeeSalaryStructure.builder()
+                .orgId(orgId).employeeId(empId).status("ACTIVE")
+                .lines(new ArrayList<>(List.of(line))).build();
+        when(structureRepo.findCurrentActive(orgId, empId)).thenReturn(Optional.of(structure));
+
+        org.mockito.Mockito.lenient().when(leaveRequestRepo
+                .findByOrgIdAndUserIdAndStatusInAndFromDateLessThanEqualAndToDateGreaterThanEqualAndIsDeletedFalse(
+                        orgId, userId, List.of("APPROVED"), end, start))
+                .thenReturn(List.of());
+
+        if (mockedAccrual != null) {
+            org.mockito.Mockito.lenient().when(gulfPayrollService.monthlyAccrual(
+                    any(String.class), any(LocalDate.class),
+                    any(LocalDate.class), any(BigDecimal.class)))
+                    .thenReturn(mockedAccrual);
+        }
+
+        ArgumentCaptor<Payslip> captor = ArgumentCaptor.forClass(Payslip.class);
+        when(payslipRepo.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
+        when(runRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.calculateRun(runId);
+        return captor.getValue();
+    }
+
+    @Test
+    void calculateRun_uaeOrg_addsGratuityAccrualAsEmployerContribution() {
+        // AE org, 3-year-old employee → accrual is a non-deduction EMPLOYER line.
+        when(countryAccess.isCountry("IN")).thenReturn(false);
+        when(countryAccess.countryOf(orgId)).thenReturn("AE");
+
+        Payslip slip = runPayrollGulfAccrual(
+                10000, LocalDate.of(2023, 6, 1), new BigDecimal("583.33"));
+
+        java.util.Optional<PayslipLine> grat = slip.getLines().stream()
+                .filter(l -> "GRATUITY_ACCRUAL".equals(l.getSalaryComponent().getCode()))
+                .findFirst();
+        org.junit.jupiter.api.Assertions.assertTrue(grat.isPresent(),
+                "AE payslip should carry a GRATUITY_ACCRUAL line");
+        assertEquals("EMPLOYER_CONTRIBUTION", grat.get().getComponentType());
+        assertEquals(0, grat.get().getAmount().compareTo(new BigDecimal("583.33")));
+        // EMPLOYER_CONTRIBUTION bumps the employer bucket, NOT the employee net.
+        assertEquals(0, slip.getEmployerContributions().compareTo(new BigDecimal("583.33")));
+        assertEquals(0, slip.getGrossPay().compareTo(new BigDecimal("10000")));
+        assertEquals(0, slip.getNetPay().compareTo(new BigDecimal("10000")));
+    }
+
+    @Test
+    void calculateRun_omanOrg_addsGratuityAccrualAsEmployerContribution() {
+        when(countryAccess.isCountry("IN")).thenReturn(false);
+        when(countryAccess.countryOf(orgId)).thenReturn("OM");
+
+        Payslip slip = runPayrollGulfAccrual(
+                600, LocalDate.of(2024, 6, 1), new BigDecimal("25.00"));
+
+        boolean hasAccrual = slip.getLines().stream()
+                .anyMatch(l -> "GRATUITY_ACCRUAL".equals(l.getSalaryComponent().getCode())
+                        && "EMPLOYER_CONTRIBUTION".equals(l.getComponentType())
+                        && l.getAmount().compareTo(new BigDecimal("25.00")) == 0);
+        org.junit.jupiter.api.Assertions.assertTrue(hasAccrual,
+                "OM payslip should carry a GRATUITY_ACCRUAL line");
+    }
+
+    @Test
+    void calculateRun_indiaOrg_neverInvokesGulfAccrual() {
+        // Default IN — gulfStatutory branch must short-circuit.
+        when(countryAccess.countryOf(orgId)).thenReturn("IN");
+
+        Payslip slip = runPayrollGulfAccrual(
+                30000, LocalDate.of(2023, 1, 1), null);
+
+        boolean hasAccrual = slip.getLines().stream()
+                .anyMatch(l -> "GRATUITY_ACCRUAL".equals(l.getSalaryComponent().getCode()));
+        org.junit.jupiter.api.Assertions.assertFalse(hasAccrual,
+                "India payslip must not carry a GRATUITY_ACCRUAL line");
+        org.mockito.Mockito.verify(gulfPayrollService, org.mockito.Mockito.never())
+                .monthlyAccrual(any(), any(), any(), any());
+    }
+
+    @Test
+    void calculateRun_uaeOrgEmployeeNoJoinDate_skipsAccrual() {
+        when(countryAccess.isCountry("IN")).thenReturn(false);
+        when(countryAccess.countryOf(orgId)).thenReturn("AE");
+
+        Payslip slip = runPayrollGulfAccrual(10000, null, null);
+
+        boolean hasAccrual = slip.getLines().stream()
+                .anyMatch(l -> "GRATUITY_ACCRUAL".equals(l.getSalaryComponent().getCode()));
+        org.junit.jupiter.api.Assertions.assertFalse(hasAccrual,
+                "AE employee with no dateOfJoining must not accrue gratuity");
+        org.mockito.Mockito.verify(gulfPayrollService, org.mockito.Mockito.never())
+                .monthlyAccrual(any(), any(), any(), any());
     }
 
     @Test

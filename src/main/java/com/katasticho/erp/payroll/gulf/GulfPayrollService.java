@@ -173,6 +173,73 @@ public class GulfPayrollService {
                 entitledDays, gross, capped, formula);
     }
 
+    /**
+     * Monthly gratuity accrual slice for the payroll calc loop.
+     *
+     * <p>End-of-service gratuity is a long-tail liability — the lump sum is
+     * paid only on termination, but accountants book the provision month by
+     * month so the P&amp;L matches the period the employee earned it. The slice
+     * is the per-month entitlement at the employee's current tier:
+     * <pre>
+     *   AE — first 5 yrs: 21 days × basic/30 ÷ 12 per month
+     *        beyond 5 yrs: 30 days × basic/30 ÷ 12 per month
+     *   OM — first 3 yrs: 15 days × basic/30 ÷ 12 per month
+     *        beyond 3 yrs: 30 days × basic/30 ÷ 12 per month
+     * </pre>
+     *
+     * <p>Returns {@link BigDecimal#ZERO} when:
+     * <ul>
+     *   <li>service is under 1 year (no entitlement yet — labour law),</li>
+     *   <li>the country isn't AE/OM (caller should guard, but defensive),</li>
+     *   <li>basic is null or non-positive.</li>
+     * </ul>
+     *
+     * <p>The 24-month cap is enforced at the payout/termination step, not
+     * here — running orgs may legitimately accrue past the cap and write back
+     * the excess on exit. Tracking cumulative provision per employee belongs
+     * with the termination service, not the monthly accrual.
+     *
+     * @param country   "AE" or "OM"
+     * @param joinDate  employee's date of joining
+     * @param asOf      payroll period end
+     * @param monthlyBasic employee's monthly basic wage
+     */
+    public BigDecimal monthlyAccrual(String country, LocalDate joinDate,
+                                     LocalDate asOf, BigDecimal monthlyBasic) {
+        if (country == null || joinDate == null || asOf == null
+                || monthlyBasic == null || monthlyBasic.signum() <= 0
+                || !asOf.isAfter(joinDate)) {
+            return BigDecimal.ZERO;
+        }
+        String code = country.trim().toUpperCase();
+        int breakYear;
+        int firstTierDays;
+        switch (code) {
+            case "AE" -> { breakYear = 5; firstTierDays = 21; }
+            case "OM" -> { breakYear = 3; firstTierDays = 15; }
+            default -> { return BigDecimal.ZERO; }
+        }
+
+        long fullMonths = ChronoUnit.MONTHS.between(joinDate, asOf);
+        // Nil until completed first year (labour-law rule mirrors the lump
+        // sum: an employee who quits in month 11 forfeits the accrued slices).
+        if (fullMonths < 12) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal yearsExact = BigDecimal.valueOf(fullMonths)
+                .divide(MONTHS_PER_YEAR, 6, RoundingMode.HALF_UP);
+
+        int tierDays = yearsExact.compareTo(BigDecimal.valueOf(breakYear)) <= 0
+                ? firstTierDays
+                : 30;
+
+        // Annual entitlement (days × dailyBasic) ÷ 12 = monthly slice.
+        BigDecimal dailyBasic = monthlyBasic.divide(DAYS_PER_MONTH, 6, RoundingMode.HALF_UP);
+        return dailyBasic
+                .multiply(BigDecimal.valueOf(tierDays))
+                .divide(MONTHS_PER_YEAR, 2, RoundingMode.HALF_UP);
+    }
+
     private BigDecimal resolveMonthlyBasic(UUID employeeId, LocalDate asOf) {
         UUID orgId = TenantContext.getCurrentOrgId();
         // The currently active structure: effective_from <= asOf AND

@@ -144,4 +144,72 @@ class GulfPayrollServiceTest {
                 .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
                         .isEqualTo("GRATUITY_NO_BASIC"));
     }
+
+    // ─────────────────── Monthly accrual (V15 — payroll wiring) ──────────────
+
+    @Test
+    void monthly_accrual_under_one_year_is_zero() {
+        // No entitlement until the first full year is completed.
+        BigDecimal slice = svc.monthlyAccrual("AE",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 6, 1), AED_10K);
+        assertThat(slice).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void monthly_accrual_ae_first_tier_uses_21_days() {
+        // 3 years into service → first tier (≤ 5).
+        // Annual = 21 days × 10000/30 = 7000 ÷ 12 = 583.33
+        BigDecimal slice = svc.monthlyAccrual("AE",
+                LocalDate.of(2023, 1, 1), LocalDate.of(2026, 1, 1), AED_10K);
+        assertThat(slice).isEqualByComparingTo("583.33");
+    }
+
+    @Test
+    void monthly_accrual_ae_second_tier_uses_30_days() {
+        // 7 years into service → past 5-year break.
+        // Annual = 30 days × 10000/30 = 10000 ÷ 12 = 833.33
+        BigDecimal slice = svc.monthlyAccrual("AE",
+                LocalDate.of(2019, 1, 1), LocalDate.of(2026, 1, 1), AED_10K);
+        assertThat(slice).isEqualByComparingTo("833.33");
+    }
+
+    @Test
+    void monthly_accrual_om_first_tier_uses_15_days() {
+        // 2 years into service → first tier (≤ 3).
+        // Annual = 15 days × 600/30 = 300 ÷ 12 = 25.00
+        BigDecimal slice = svc.monthlyAccrual("OM",
+                LocalDate.of(2024, 1, 1), LocalDate.of(2026, 1, 1), new BigDecimal("600"));
+        assertThat(slice).isEqualByComparingTo("25.00");
+    }
+
+    @Test
+    void monthly_accrual_om_second_tier_uses_30_days() {
+        // 5 years → past 3-year break.
+        // 30 days × 600/30 = 600 ÷ 12 = 50.00
+        BigDecimal slice = svc.monthlyAccrual("OM",
+                LocalDate.of(2021, 1, 1), LocalDate.of(2026, 1, 1), new BigDecimal("600"));
+        assertThat(slice).isEqualByComparingTo("50.00");
+    }
+
+    @Test
+    void monthly_accrual_unsupported_country_returns_zero() {
+        // Defensive — caller is supposed to gate, but defensive.
+        BigDecimal slice = svc.monthlyAccrual("IN",
+                LocalDate.of(2020, 1, 1), LocalDate.of(2026, 1, 1), AED_10K);
+        assertThat(slice).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void monthly_accrual_null_inputs_return_zero() {
+        assertThat(svc.monthlyAccrual(null, LocalDate.of(2020, 1, 1),
+                LocalDate.of(2026, 1, 1), AED_10K)).isEqualByComparingTo("0");
+        assertThat(svc.monthlyAccrual("AE", null,
+                LocalDate.of(2026, 1, 1), AED_10K)).isEqualByComparingTo("0");
+        assertThat(svc.monthlyAccrual("AE", LocalDate.of(2020, 1, 1), null, AED_10K))
+                .isEqualByComparingTo("0");
+        assertThat(svc.monthlyAccrual("AE", LocalDate.of(2020, 1, 1),
+                LocalDate.of(2026, 1, 1), null)).isEqualByComparingTo("0");
+        assertThat(svc.monthlyAccrual("AE", LocalDate.of(2020, 1, 1),
+                LocalDate.of(2026, 1, 1), BigDecimal.ZERO)).isEqualByComparingTo("0");
+    }
 }
