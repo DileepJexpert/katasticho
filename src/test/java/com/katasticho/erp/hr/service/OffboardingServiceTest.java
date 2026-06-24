@@ -1,12 +1,20 @@
 package com.katasticho.erp.hr.service;
 
+import com.katasticho.erp.accounting.entity.Account;
+import com.katasticho.erp.accounting.entity.JournalEntry;
+import com.katasticho.erp.accounting.repository.AccountRepository;
+import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.common.country.CountryAccessService;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.hr.entity.Offboarding;
 import com.katasticho.erp.hr.entity.OffboardingTask;
 import com.katasticho.erp.hr.repository.OffboardingRepository;
 import com.katasticho.erp.hr.repository.OffboardingTaskRepository;
+import com.katasticho.erp.organisation.OrgSettingsService;
 import com.katasticho.erp.payroll.entity.Employee;
+import com.katasticho.erp.payroll.gulf.GratuityResult;
+import com.katasticho.erp.payroll.gulf.GulfPayrollService;
 import com.katasticho.erp.payroll.repository.EmployeeRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,7 +24,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,6 +43,15 @@ class OffboardingServiceTest {
     @Mock private OffboardingRepository offboardingRepo;
     @Mock private OffboardingTaskRepository taskRepo;
     @Mock private EmployeeRepository employeeRepo;
+    @Mock private CountryAccessService countryAccess;
+    @Mock private GulfPayrollService gulfPayrollService;
+    @Mock private JournalService journalService;
+    @Mock private AccountRepository accountRepo;
+    @Mock private OrgSettingsService orgSettingsService;
+    private final Clock clock = Clock.fixed(
+            LocalDate.of(2026, 6, 24).atStartOfDay(ZoneId.systemDefault()).toInstant(),
+            ZoneId.systemDefault());
+
     private OffboardingService service;
 
     private final UUID orgId = UUID.randomUUID();
@@ -40,7 +60,9 @@ class OffboardingServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new OffboardingService(offboardingRepo, taskRepo, employeeRepo);
+        service = new OffboardingService(offboardingRepo, taskRepo, employeeRepo,
+                countryAccess, gulfPayrollService, journalService, accountRepo,
+                orgSettingsService, clock);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
@@ -105,5 +127,157 @@ class OffboardingServiceTest {
         verify(employeeRepo).save(cap.capture());
         assertEquals("EXITED", cap.getValue().getEmploymentStatus());
         assertEquals(LocalDate.of(2026, 5, 31), cap.getValue().getDateOfExit());
+    }
+
+    // ── Gulf gratuity payout (V16) ──
+
+    private Account stubAccount(String code) {
+        Account a = Account.builder().code(code).name(code).type("LIABILITY").build();
+        a.setId(UUID.randomUUID());
+        a.setOrgId(orgId);
+        when(accountRepo.findByOrgIdAndCodeAndIsDeletedFalse(orgId, code))
+                .thenReturn(Optional.of(a));
+        return a;
+    }
+
+    @Test
+    void payGratuity_uaeOrg_postsJournalAndStampsFields() {
+        UUID id = UUID.randomUUID();
+        UUID empPayrollId = UUID.randomUUID();
+        Offboarding ob = Offboarding.builder().id(id).orgId(orgId).employeeUserId(empUserId)
+                .status("INITIATED").lastWorkingDay(LocalDate.of(2026, 6, 30)).build();
+        when(offboardingRepo.findByIdAndOrgIdAndIsDeletedFalse(id, orgId))
+                .thenReturn(Optional.of(ob));
+        when(countryAccess.countryOf(orgId)).thenReturn("AE");
+        Employee emp = Employee.builder().id(empPayrollId).userId(empUserId)
+                .employeeCode("E007").employmentStatus("ACTIVE")
+                .dateOfJoining(LocalDate.of(2022, 1, 1)).build();
+        when(employeeRepo.findByOrgIdAndUserIdAndIsDeletedFalse(orgId, empUserId))
+                .thenReturn(Optional.of(emp));
+        when(gulfPayrollService.computeFor(empPayrollId, LocalDate.of(2026, 6, 30)))
+                .thenReturn(new GratuityResult("AE",
+                        new BigDecimal("4.5"), new BigDecimal("333.3333"),
+                        new BigDecimal("94.50"), new BigDecimal("31500.00"),
+                        new BigDecimal("31500.00"), "UAE formula"));
+        when(orgSettingsService.get(eq(orgId), eq("payroll.gratuity_payment_account_code"), eq("")))
+                .thenReturn("");
+        stubAccount("2050");
+        stubAccount("1010");
+        JournalEntry je = JournalEntry.builder().entryNumber("JE-2026-000200").build();
+        je.setId(UUID.randomUUID());
+        when(journalService.postJournal(any())).thenReturn(je);
+        when(offboardingRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        Offboarding result = service.payGratuity(id, null);
+
+        assertEquals(0, result.getGratuityAmount().compareTo(new BigDecimal("31500.00")));
+        assertEquals(je.getId(), result.getGratuityJournalEntryId());
+        assertNotNull(result.getGratuityPaidAt());
+        verify(journalService).postJournal(any());
+    }
+
+    @Test
+    void payGratuity_indiaOrg_throwsNotApplicable() {
+        UUID id = UUID.randomUUID();
+        Offboarding ob = Offboarding.builder().id(id).orgId(orgId).employeeUserId(empUserId)
+                .status("INITIATED").build();
+        when(offboardingRepo.findByIdAndOrgIdAndIsDeletedFalse(id, orgId))
+                .thenReturn(Optional.of(ob));
+        when(countryAccess.countryOf(orgId)).thenReturn("IN");
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.payGratuity(id, null));
+        assertEquals("OFFB_GRATUITY_NOT_APPLICABLE", ex.getErrorCode());
+        verify(journalService, never()).postJournal(any());
+    }
+
+    @Test
+    void payGratuity_secondCall_refusesAsAlreadyPaid() {
+        UUID id = UUID.randomUUID();
+        Offboarding ob = Offboarding.builder().id(id).orgId(orgId).employeeUserId(empUserId)
+                .status("INITIATED").gratuityJournalEntryId(UUID.randomUUID()).build();
+        when(offboardingRepo.findByIdAndOrgIdAndIsDeletedFalse(id, orgId))
+                .thenReturn(Optional.of(ob));
+        when(countryAccess.countryOf(orgId)).thenReturn("AE");
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.payGratuity(id, null));
+        assertEquals("OFFB_GRATUITY_ALREADY_PAID", ex.getErrorCode());
+        verify(journalService, never()).postJournal(any());
+    }
+
+    @Test
+    void payGratuity_noEmployeeLink_throws() {
+        UUID id = UUID.randomUUID();
+        Offboarding ob = Offboarding.builder().id(id).orgId(orgId).employeeUserId(empUserId)
+                .status("INITIATED").build();
+        when(offboardingRepo.findByIdAndOrgIdAndIsDeletedFalse(id, orgId))
+                .thenReturn(Optional.of(ob));
+        when(countryAccess.countryOf(orgId)).thenReturn("OM");
+        when(employeeRepo.findByOrgIdAndUserIdAndIsDeletedFalse(orgId, empUserId))
+                .thenReturn(Optional.empty());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.payGratuity(id, null));
+        assertEquals("OFFB_GRATUITY_NO_EMPLOYEE", ex.getErrorCode());
+    }
+
+    @Test
+    void payGratuity_underOneYear_recordsNilWithoutJournal() {
+        UUID id = UUID.randomUUID();
+        UUID empPayrollId = UUID.randomUUID();
+        Offboarding ob = Offboarding.builder().id(id).orgId(orgId).employeeUserId(empUserId)
+                .status("INITIATED").lastWorkingDay(LocalDate.of(2026, 6, 1)).build();
+        when(offboardingRepo.findByIdAndOrgIdAndIsDeletedFalse(id, orgId))
+                .thenReturn(Optional.of(ob));
+        when(countryAccess.countryOf(orgId)).thenReturn("AE");
+        Employee emp = Employee.builder().id(empPayrollId).userId(empUserId)
+                .dateOfJoining(LocalDate.of(2025, 9, 1)).build();
+        when(employeeRepo.findByOrgIdAndUserIdAndIsDeletedFalse(orgId, empUserId))
+                .thenReturn(Optional.of(emp));
+        // Under-1-year forfeit returns nil capped gratuity.
+        when(gulfPayrollService.computeFor(empPayrollId, LocalDate.of(2026, 6, 1)))
+                .thenReturn(new GratuityResult("AE", new BigDecimal("0.75"),
+                        new BigDecimal("333.33"), BigDecimal.ZERO,
+                        BigDecimal.ZERO, BigDecimal.ZERO, "Under 1 year"));
+        when(offboardingRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        Offboarding result = service.payGratuity(id, null);
+
+        assertEquals(0, result.getGratuityAmount().compareTo(BigDecimal.ZERO));
+        assertNull(result.getGratuityJournalEntryId());
+        assertNotNull(result.getGratuityPaidAt());
+        verify(journalService, never()).postJournal(any());
+    }
+
+    @Test
+    void payGratuity_overrideAccountCode_usesOverride() {
+        UUID id = UUID.randomUUID();
+        UUID empPayrollId = UUID.randomUUID();
+        Offboarding ob = Offboarding.builder().id(id).orgId(orgId).employeeUserId(empUserId)
+                .status("INITIATED").lastWorkingDay(LocalDate.of(2026, 6, 30)).build();
+        when(offboardingRepo.findByIdAndOrgIdAndIsDeletedFalse(id, orgId))
+                .thenReturn(Optional.of(ob));
+        when(countryAccess.countryOf(orgId)).thenReturn("AE");
+        Employee emp = Employee.builder().id(empPayrollId).userId(empUserId)
+                .dateOfJoining(LocalDate.of(2020, 1, 1)).build();
+        when(employeeRepo.findByOrgIdAndUserIdAndIsDeletedFalse(orgId, empUserId))
+                .thenReturn(Optional.of(emp));
+        when(gulfPayrollService.computeFor(empPayrollId, LocalDate.of(2026, 6, 30)))
+                .thenReturn(new GratuityResult("AE", new BigDecimal("6.5"),
+                        new BigDecimal("333.3333"), new BigDecimal("150"),
+                        new BigDecimal("50000"), new BigDecimal("50000"), "UAE formula"));
+        stubAccount("2050");
+        stubAccount("1020");
+        JournalEntry je = JournalEntry.builder().entryNumber("JE-2026-000300").build();
+        je.setId(UUID.randomUUID());
+        when(journalService.postJournal(any())).thenReturn(je);
+        when(offboardingRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        // Caller supplies bank account directly — org setting should be ignored.
+        service.payGratuity(id, "1020");
+
+        verify(orgSettingsService, never()).get(any(), any(), any());
+        verify(accountRepo).findByOrgIdAndCodeAndIsDeletedFalse(orgId, "1020");
     }
 }

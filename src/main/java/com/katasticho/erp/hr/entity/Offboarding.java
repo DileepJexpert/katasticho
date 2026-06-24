@@ -54,6 +54,18 @@ public class Offboarding {
     @Column(columnDefinition = "text")
     private String notes;
 
+    // Gulf gratuity payout (V16). NULL for India offboardings, AE/OM under-1y,
+    // and pending AE/OM payouts. `gratuityJournalEntryId` is the idempotency
+    // key — OffboardingService.payGratuity refuses a second call when set.
+    @Column(name = "gratuity_journal_entry_id")
+    private UUID gratuityJournalEntryId;
+
+    @Column(name = "gratuity_amount", precision = 15, scale = 2)
+    private BigDecimal gratuityAmount;
+
+    @Column(name = "gratuity_paid_at")
+    private Instant gratuityPaidAt;
+
     @Column(name = "is_deleted", nullable = false)
     @Builder.Default
     private boolean isDeleted = false;

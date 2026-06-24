@@ -61,6 +61,21 @@ public class OffboardingController {
         return ResponseEntity.ok(ApiResponse.ok(service.complete(id), "Offboarding completed"));
     }
 
+    /**
+     * Pay end-of-service gratuity (UAE/Oman) — posts DR 2050 Gratuity Provision /
+     * CR cash (1010) or supplied bank account; stamps amount + journal id on the
+     * offboarding. Idempotent (refuses a second call once posted). Throws
+     * OFFB_GRATUITY_NOT_APPLICABLE for non-AE/OM orgs.
+     */
+    @PostMapping("/{id}/pay-gratuity")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<Offboarding>> payGratuity(
+            @PathVariable UUID id,
+            @RequestParam(required = false) String paymentAccount) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.payGratuity(id, paymentAccount), "Gratuity paid"));
+    }
+
     @PostMapping("/{id}/cancel")
     public ResponseEntity<ApiResponse<Offboarding>> cancel(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.cancel(id), "Offboarding cancelled"));
