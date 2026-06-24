@@ -342,6 +342,27 @@ public class AuthService {
     }
 
     @Transactional
+    public void changePassword(UUID userId, UUID orgId, ChangePasswordRequest request) {
+        AppUser user = userRepository.findByIdAndOrgIdAndIsDeletedFalse(userId, orgId)
+                .orElseThrow(() -> new BusinessException("Account not found",
+                        "AUTH_USER_NOT_FOUND", HttpStatus.NOT_FOUND));
+        if (!passwordEncoder.matches(request.oldPassword(), user.getPasswordHash())) {
+            throw new BusinessException("Current password is incorrect",
+                    "AUTH_INVALID_CURRENT_PASSWORD", HttpStatus.BAD_REQUEST);
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new BusinessException("New password must differ from the current password",
+                    "AUTH_PASSWORD_UNCHANGED", HttpStatus.BAD_REQUEST);
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.resetFailedLogins();
+        userRepository.save(user);
+        auditService.logSync(user.getOrgId(), user.getId(), "APP_USER", user.getId(),
+                "PASSWORD_CHANGE", null,
+                "{\"method\":\"self_service\",\"at\":\"" + Instant.now() + "\"}");
+    }
+
+    @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         boolean valid = otpService.verifyForReset(request.phone(), request.otp());
         if (!valid) {

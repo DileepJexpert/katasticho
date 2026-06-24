@@ -150,6 +150,7 @@ import '../features/portal/presentation/portal_users_screen.dart';
 import '../features/ca_console/presentation/ca_console_screen.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/auth/presentation/reset_password_screen.dart';
+import '../features/auth/presentation/change_password_screen.dart';
 import '../features/auth/presentation/verify_email_pending_screen.dart';
 import '../features/auth/presentation/account_pending_approval_screen.dart';
 import '../features/platform_admin/presentation/platform_admin_screen.dart';
@@ -366,6 +367,7 @@ class Routes {
   static const settings = '/settings';
   static const businessConfiguration = '/settings/business-configuration';
   static const orgDetails = '/settings/org-details';
+  static const changePassword = '/settings/change-password';
   static const branches = '/settings/branches';
   static const businessPolicies = '/settings/business-policies';
   static const workflowSettings = '/settings/workflows';
@@ -2037,6 +2039,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.orgDetails,
             builder: (context, state) => const OrgDetailsScreen(),
+          ),
+          GoRoute(
+            path: Routes.changePassword,
+            builder: (context, state) => const ChangePasswordScreen(),
           ),
           GoRoute(
             path: Routes.branches,

@@ -7,10 +7,10 @@ Derived from `docs/UI_FIELD_GAP_AUDIT.md` (2026-06-24). This is the **work track
 
 ---
 
-## Sprint A — "Stop the bleeding" (broken now: bugs / 404s / phantom endpoints)  ← ACTIVE
+## Sprint A — "Stop the bleeding" (broken now: bugs / 404s / phantom endpoints)  ✅ COMPLETE
 
-- [ ] **A1. Change-password** — Flutter calls `POST /api/v1/auth/change-password` which has no backend mapping; Settings edit pencil is a no-op. Add backend endpoint (verify current → set new) + a Change-Password screen + wire the Settings pencil. _Files:_ `auth/controller/AuthController.java`, `auth/service/AuthService.java`, `features/settings/.../settings_screen.dart`, `features/auth/.../change_password_screen.dart` (new), `auth_repository.dart`, `api_config.dart`.
-- [ ] **A2. Platform-admin Users tab 404** — screen calls `GET /api/platform-admin/v1/users` + `/users/{id}/deactivate|reactivate` that don't exist. Add the endpoints. _Files:_ `platform/controller/PlatformAdminController.java`, `platform/service/...`, `platform_admin_users_screen.dart`.
+- [x] **A1. Change-password** — added `POST /api/v1/auth/change-password` (`AuthService.changePassword` verifies current pw, blocks unchanged, keeps the session valid) + `ChangePasswordRequest` DTO; new `ChangePasswordScreen` routed at `/settings/change-password`, wired from both the profile-card pencil (was a no-op) and a new "Change Password" settings tile; Flutter repo verb aligned POST. **Backend compiles clean.**
+- [x] **A2. Platform-admin Users tab 404** — added `GET /api/platform-admin/v1/users?search=&page=&size=` (new `AppUserRepository.searchAllForPlatformAdmin` JPQL) + `POST /users/{id}/deactivate` (bumps tokenVersion to kill sessions) + `/reactivate`, mirroring the suspend/reset patterns + PLATFORM_ADMIN protection. **Backend compiles clean.**
 - [x] **A3. Integration screen non-functional** — repo realigned to real endpoints (`PUT /{id}` isActive toggle, `/sync?syncType=&direction=`) + real field names (`integrationType`/`isActive`/`lastSyncAt`), error-swallowing removed, **+ a "New connector" create FAB/dialog added**. Dead `integrationEnable/Disable` ApiConfig paths removed.
 - [x] **A4. Field-sales payload-key mismatch** — repo now sends `skipReason` / `collectionAmount` (collection had been NPE'ing to a 500).
 - [x] **A5. Target achievement GET-on-PUT** — converted the broken GET into `updateTargetAchievement(id, achievedValue)` PUT (matches `@PutMapping`; lays the correct method for E4).
@@ -53,3 +53,4 @@ Derived from `docs/UI_FIELD_GAP_AUDIT.md` (2026-06-24). This is the **work track
 
 ### Progress log
 - 2026-06-24 — Plan created from the audit. Sprint A started.
+- 2026-06-24 — **Sprint A COMPLETE** (A1–A9). Backend (A1 change-password, A2 platform-admin users) verified with `mvn compile` (clean). Flutter changes pattern-matched to existing screens; `flutter analyze` still pending locally (no SDK in this container). Next: Sprint B (EntityPicker / name-resolution / sidebar un-orphan).

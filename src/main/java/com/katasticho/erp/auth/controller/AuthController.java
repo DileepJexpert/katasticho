@@ -85,6 +85,19 @@ public class AuthController {
                 "Password reset successfully"));
     }
 
+    @PostMapping("/change-password")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Map<String, String>>> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(
+                TenantContext.getCurrentUserId(),
+                TenantContext.getCurrentOrgId(),
+                request);
+        return ResponseEntity.ok(ApiResponse.ok(
+                Map.of("message", "Password changed successfully"),
+                "Password changed successfully"));
+    }
+
     @PostMapping("/invite")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, String>>> invite(@Valid @RequestBody InviteRequest request) {

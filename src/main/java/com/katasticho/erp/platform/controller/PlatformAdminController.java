@@ -103,6 +103,33 @@ public class PlatformAdminController {
                 "Password reset"));
     }
 
+    @GetMapping("/users")
+    public ResponseEntity<ApiResponse<List<PlatformUserResponse>>> allUsers(
+            @RequestParam(required = false) String search,
+            @PageableDefault(size = 50) Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                platformAdminService.listAllUsers(search, pageable)));
+    }
+
+    @PostMapping("/users/{userId}/deactivate")
+    public ResponseEntity<ApiResponse<PlatformUserResponse>> deactivateUser(
+            @PathVariable UUID userId,
+            @RequestBody(required = false) SuspendRequest request
+    ) {
+        String reason = request != null ? request.reason() : null;
+        return ResponseEntity.ok(ApiResponse.ok(
+                platformAdminService.setUserActive(userId, false, reason),
+                "User deactivated"));
+    }
+
+    @PostMapping("/users/{userId}/reactivate")
+    public ResponseEntity<ApiResponse<PlatformUserResponse>> reactivateUser(@PathVariable UUID userId) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                platformAdminService.setUserActive(userId, true, null),
+                "User reactivated"));
+    }
+
     @GetMapping("/audit-log")
     public ResponseEntity<ApiResponse<Page<PlatformAdminAudit>>> auditLog(
             @PageableDefault(size = 50) Pageable pageable

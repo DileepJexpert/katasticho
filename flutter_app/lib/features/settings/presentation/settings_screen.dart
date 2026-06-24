@@ -65,8 +65,9 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.edit_outlined),
-                    onPressed: () {},
+                    icon: const Icon(Icons.lock_outline),
+                    tooltip: 'Change password',
+                    onPressed: () => context.push(Routes.changePassword),
                   ),
                 ],
               ),
@@ -113,6 +114,12 @@ class SettingsScreen extends ConsumerWidget {
               title: 'Team Members',
               subtitle: 'Manage users & roles',
               onTap: () => context.push(Routes.teamMembers),
+            ),
+            _SettingsTile(
+              icon: Icons.lock_outline,
+              title: 'Change Password',
+              subtitle: 'Update your account password',
+              onTap: () => context.push(Routes.changePassword),
             ),
             _SettingsTile(
               icon: Icons.badge_outlined,

@@ -187,7 +187,7 @@ class AuthRepository {
     required String oldPassword,
     required String newPassword,
   }) async {
-    final response = await _apiClient.put(
+    final response = await _apiClient.post(
       ApiConfig.changePassword,
       data: {'oldPassword': oldPassword, 'newPassword': newPassword},
     );

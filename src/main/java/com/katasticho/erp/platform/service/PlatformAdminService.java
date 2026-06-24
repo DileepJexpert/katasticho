@@ -275,6 +275,41 @@ public class PlatformAdminService {
         return PlatformUserResponse.from(user);
     }
 
+    /** Global user search across all orgs for the platform-admin Users tab. */
+    public List<PlatformUserResponse> listAllUsers(String search,
+            org.springframework.data.domain.Pageable pageable) {
+        String q = isBlank(search) ? null : search.trim();
+        return userRepository.searchAllForPlatformAdmin(q, pageable)
+                .map(PlatformUserResponse::from)
+                .getContent();
+    }
+
+    @Transactional
+    public PlatformUserResponse setUserActive(UUID userId, boolean active, String reason) {
+        AppUser user = userRepository.findById(userId)
+                .filter(u -> !u.isDeleted())
+                .orElseThrow(() -> BusinessException.notFound("User", userId));
+        if ("PLATFORM_ADMIN".equals(user.getRole())) {
+            throw new BusinessException("Platform admin accounts cannot be changed from this screen",
+                    "PLATFORM_ADMIN_PROTECTED", HttpStatus.FORBIDDEN);
+        }
+        user.setActive(active);
+        if (!active) {
+            // Kill any live sessions on deactivate.
+            user.incrementTokenVersion();
+        }
+        user = userRepository.save(user);
+
+        auditService.logSync(user.getOrgId(), null, "APP_USER", user.getId(),
+                active ? "REACTIVATE" : "DEACTIVATE", null,
+                active ? "{\"active\":true}"
+                        : "{\"active\":false,\"reason\":\"" + safeJson(reason) + "\"}");
+        logPlatformAdminAudit(active ? "REACTIVATE_USER" : "DEACTIVATE_USER",
+                "APP_USER", user.getId(), user.getFullName(), reason, null);
+
+        return PlatformUserResponse.from(user);
+    }
+
     // ---- Dashboard Stats ----
 
     public DashboardStats getDashboardStats() {
