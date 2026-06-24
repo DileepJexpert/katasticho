@@ -160,7 +160,7 @@ class FieldSalesRepository {
   Future<void> skipVisit(String visitId, String reason) async {
     await _api.post(
       ApiConfig.fieldSalesVisitSkip(visitId),
-      data: {'reason': reason},
+      data: {'skipReason': reason},
     );
   }
 
@@ -175,7 +175,7 @@ class FieldSalesRepository {
   Future<void> recordCollection(String visitId, double amount) async {
     await _api.post(
       ApiConfig.fieldSalesVisitRecordCollection(visitId),
-      data: {'amount': amount},
+      data: {'collectionAmount': amount},
     );
   }
 
@@ -218,10 +218,14 @@ class FieldSalesRepository {
         .toList();
   }
 
-  Future<Map<String, dynamic>> getTargetAchievement(
-      String targetId) async {
-    final response =
-        await _api.get(ApiConfig.fieldSalesTargetAchievement(targetId));
+  // Backend exposes PUT /targets/{id}/achievement (no GET). Records the
+  // achieved value against a target and returns the updated row.
+  Future<Map<String, dynamic>> updateTargetAchievement(
+      String targetId, double achievedValue) async {
+    final response = await _api.put(
+      ApiConfig.fieldSalesTargetAchievement(targetId),
+      data: {'achievedValue': achievedValue},
+    );
     return (response.data['data'] ?? response.data) as Map<String, dynamic>;
   }
 

@@ -20,6 +20,11 @@ class IntegrationListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Integrations')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showCreateDialog(context, ref),
+        icon: const Icon(Icons.add),
+        label: const Text('New connector'),
+      ),
       body: listAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
@@ -76,9 +81,10 @@ class _IntegrationCardState extends State<_IntegrationCard> {
   @override
   Widget build(BuildContext context) {
     final integration = widget.integration;
-    final status = integration['status'] as String? ?? 'INACTIVE';
-    final syncStatus = integration['lastSyncStatus'] as String?;
-    final isEnabled = integration['enabled'] as bool? ?? false;
+    // Entity fields: integrationType / isActive / lastSyncAt (no status/enabled).
+    final isEnabled = integration['isActive'] as bool? ?? false;
+    final status = isEnabled ? 'ACTIVE' : 'INACTIVE';
+    final type = integration['integrationType'] as String? ?? '';
 
     return Card(
       margin: const EdgeInsets.only(bottom: KSpacing.sm),
@@ -90,7 +96,7 @@ class _IntegrationCardState extends State<_IntegrationCard> {
             Row(
               children: [
                 Icon(
-                  _integrationIcon(integration['type'] as String? ?? ''),
+                  _integrationIcon(type),
                   size: 32,
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -104,7 +110,7 @@ class _IntegrationCardState extends State<_IntegrationCard> {
                         style: KTypography.titleSmall,
                       ),
                       Text(
-                        integration['type'] as String? ?? '',
+                        type,
                         style: KTypography.bodySmall,
                       ),
                     ],
@@ -120,10 +126,6 @@ class _IntegrationCardState extends State<_IntegrationCard> {
             Row(
               children: [
                 KStatusChip(status: status),
-                if (syncStatus != null) ...[
-                  const SizedBox(width: KSpacing.xs),
-                  KStatusChip(status: syncStatus),
-                ],
               ],
             ),
             if (integration['lastSyncAt'] != null) ...[
@@ -253,4 +255,82 @@ class _IntegrationCardState extends State<_IntegrationCard> {
       }
     }
   }
+}
+
+Future<void> _showCreateDialog(BuildContext context, WidgetRef ref) async {
+  String type = 'TALLY';
+  final nameCtrl = TextEditingController();
+  final baseUrlCtrl = TextEditingController();
+  final apiKeyCtrl = TextEditingController();
+  const types = ['TALLY', 'ZOHO', 'BUSY', 'SAP', 'CUSTOM'];
+
+  final created = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: const Text('New connector'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: type,
+                decoration: const InputDecoration(labelText: 'Type'),
+                items: types
+                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                    .toList(),
+                onChanged: (v) => setState(() => type = v ?? 'TALLY'),
+              ),
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              TextField(
+                controller: baseUrlCtrl,
+                decoration:
+                    const InputDecoration(labelText: 'Base URL (optional)'),
+              ),
+              TextField(
+                controller: apiKeyCtrl,
+                decoration:
+                    const InputDecoration(labelText: 'API key (optional)'),
+                obscureText: true,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (nameCtrl.text.trim().isEmpty) return;
+              try {
+                await ref.read(integrationRepositoryProvider).createIntegration(
+                      integrationType: type,
+                      name: nameCtrl.text.trim(),
+                      baseUrl: baseUrlCtrl.text.trim(),
+                      apiKey: apiKeyCtrl.text.trim(),
+                    );
+                if (ctx.mounted) Navigator.pop(ctx, true);
+              } catch (e) {
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(
+                      content: Text(ApiErrorParser.message(e)),
+                      backgroundColor: KColors.error,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (created == true) ref.invalidate(_integrationsProvider);
 }

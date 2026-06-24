@@ -11,13 +11,13 @@ Derived from `docs/UI_FIELD_GAP_AUDIT.md` (2026-06-24). This is the **work track
 
 - [ ] **A1. Change-password** — Flutter calls `POST /api/v1/auth/change-password` which has no backend mapping; Settings edit pencil is a no-op. Add backend endpoint (verify current → set new) + a Change-Password screen + wire the Settings pencil. _Files:_ `auth/controller/AuthController.java`, `auth/service/AuthService.java`, `features/settings/.../settings_screen.dart`, `features/auth/.../change_password_screen.dart` (new), `auth_repository.dart`, `api_config.dart`.
 - [ ] **A2. Platform-admin Users tab 404** — screen calls `GET /api/platform-admin/v1/users` + `/users/{id}/deactivate|reactivate` that don't exist. Add the endpoints. _Files:_ `platform/controller/PlatformAdminController.java`, `platform/service/...`, `platform_admin_users_screen.dart`.
-- [ ] **A3. Integration screen non-functional** — reads DTO fields that don't exist (`status`/`enabled`/`type`), toggle/sync hit non-existent endpoints, errors swallowed. Align repo to real endpoints (`PUT /{id}` isActive, `/sync?syncType=&direction=`) + real field names + surface errors. _Files:_ `features/integrations/.../integration_repository.dart`, `integration_list_screen.dart`.
-- [ ] **A4. Field-sales payload-key mismatch** — repo sends `{amount}`/`{reason}`, controller reads `collectionAmount`/`skipReason` → silent nulls. Fix the keys. _Files:_ `features/field_sales/.../field_sales_repository.dart`.
-- [ ] **A5. `getTargetAchievement` GETs a PUT-only endpoint** — remove the dead/broken GET method. _Files:_ `field_sales_repository.dart`.
-- [ ] **A6. 3-way-match Override hidden from ADMINs** — button gated `role=='OWNER'`; backend allows OWNER+ADMIN. _Files:_ `features/ap/.../widgets/three_way_match_detail_sheet.dart`.
-- [ ] **A7. Currency catalogue reads non-existent `isBase`** — fix the read; show `decimalPlaces`/`isActive`. _Files:_ `features/currency/.../currency_screen.dart`, `currency_repository.dart`.
-- [ ] **A8. Courier shipment tile chevron with no `onTap`** — misleading affordance; drop it until detail exists. _Files:_ `features/courier/.../courier_shipment_list_screen.dart`.
-- [ ] **A9. 3 PDF screens unreachable** — `InvoicePdfScreen`/`BillPdfScreen`/`EstimatePdfScreen` defined, navigated from nowhere. Wire a Print/PDF action from each detail screen. _Files:_ `invoice_detail_screen.dart`, `bill_detail_screen.dart`, `estimate_detail_screen.dart`.
+- [x] **A3. Integration screen non-functional** — repo realigned to real endpoints (`PUT /{id}` isActive toggle, `/sync?syncType=&direction=`) + real field names (`integrationType`/`isActive`/`lastSyncAt`), error-swallowing removed, **+ a "New connector" create FAB/dialog added**. Dead `integrationEnable/Disable` ApiConfig paths removed.
+- [x] **A4. Field-sales payload-key mismatch** — repo now sends `skipReason` / `collectionAmount` (collection had been NPE'ing to a 500).
+- [x] **A5. Target achievement GET-on-PUT** — converted the broken GET into `updateTargetAchievement(id, achievedValue)` PUT (matches `@PutMapping`; lays the correct method for E4).
+- [x] **A6. 3-way-match Override** — gate widened to `OWNER || ADMIN` (`isOwner`→`canOverrideRole`).
+- [x] **A7. Currency `isBase`** — removed the non-existent-field read; now shows `decimalPlaces` + an Inactive chip from `isActive`.
+- [x] **A8. Courier chevron** — misleading `chevron_right` removed.
+- [x] **A9. 3 dead PDF screens** — RESOLVED BY REMOVAL: invoice/bill/estimate detail already have working "Download PDF" via the shared server-rendered `KPdfPreviewScreen`; the three client-side `*PdfScreen` classes were redundant dead code (0 external refs) and were deleted.
 
 ## Sprint B — Reusable primitives (multiply value of everything after)
 - [ ] **B1. EntityPicker** — one searchable picker widget (item/operation/workstation/account/contact/WO/reason-code) to kill "paste-a-UUID" across Manufacturing, Field Sales, Payroll, Vendor-Credit, MR app.

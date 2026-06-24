@@ -229,7 +229,6 @@ class _CourierShipmentListScreenState
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right),
           ],
         ),
       ),

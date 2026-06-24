@@ -1338,10 +1338,6 @@ class ApiConfig {
   static String integrationTestConnection(String id) =>
       '/api/v1/integrations/$id/test-connection';
   static String integrationSync(String id) => '/api/v1/integrations/$id/sync';
-  static String integrationEnable(String id) =>
-      '/api/v1/integrations/$id/enable';
-  static String integrationDisable(String id) =>
-      '/api/v1/integrations/$id/disable';
 
   // Forecast variants (seasonal + weighted MA)
   static const String supplyChainForecastGenerateSeasonal =

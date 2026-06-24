@@ -186,7 +186,9 @@ class _ThreeWayMatchDetailSheetState
 
   @override
   Widget build(BuildContext context) {
-    final isOwner = ref.watch(authProvider).role == 'OWNER';
+    // Backend allows OWNER + ADMIN to override a 3-way-match exception.
+    final role = ref.watch(authProvider).role;
+    final canOverrideRole = role == 'OWNER' || role == 'ADMIN';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -238,7 +240,7 @@ class _ThreeWayMatchDetailSheetState
               }
               return _Body(
                 data: snap.data ?? const {},
-                isOwner: isOwner,
+                canOverrideRole: canOverrideRole,
                 onOverride: _override,
               );
             },
@@ -251,12 +253,12 @@ class _ThreeWayMatchDetailSheetState
 
 class _Body extends StatelessWidget {
   final Map<String, dynamic> data;
-  final bool isOwner;
+  final bool canOverrideRole;
   final VoidCallback onOverride;
 
   const _Body({
     required this.data,
-    required this.isOwner,
+    required this.canOverrideRole,
     required this.onOverride,
   });
 
@@ -271,7 +273,7 @@ class _Body extends StatelessWidget {
     // MatchSnapshot exposes matchedAt (the last-run timestamp) — for an
     // OVERRIDDEN bill that timestamp doubles as the override stamp.
     final stampedAt = data['matchedAt']?.toString();
-    final canOverride = isOwner &&
+    final canOverride = canOverrideRole &&
         status != 'OVERRIDDEN' &&
         status != 'MATCHED' &&
         status != 'BYPASSED';

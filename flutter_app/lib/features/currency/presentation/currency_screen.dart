@@ -80,20 +80,20 @@ class _CurrenciesTab extends ConsumerWidget {
             itemCount: currencies.length,
             itemBuilder: (_, i) {
               final c = currencies[i] as Map<String, dynamic>;
-              final isBase = c['isBase'] as bool? ?? false;
+              // Currency has no `isBase` flag; show the real fields instead
+              // (decimal places + active state).
+              final isActive = c['isActive'] as bool? ?? true;
+              final decimals = (c['decimalPlaces'] as num?)?.toInt() ?? 2;
               return Card(
                 margin: const EdgeInsets.only(bottom: KSpacing.sm),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: isBase
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.surfaceContainerHighest,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                     child: Text(
                       (c['symbol'] as String? ?? '?'),
                       style: TextStyle(
-                        color: isBase
-                            ? Colors.white
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 12,
                       ),
                     ),
@@ -102,14 +102,16 @@ class _CurrenciesTab extends ConsumerWidget {
                     children: [
                       Text(c['code'] as String? ?? '', style: KTypography.titleSmall),
                       const SizedBox(width: KSpacing.sm),
-                      if (isBase)
+                      if (!isActive)
                         const Chip(
-                          label: Text('Base', style: TextStyle(fontSize: 11)),
+                          label: Text('Inactive', style: TextStyle(fontSize: 11)),
                           visualDensity: VisualDensity.compact,
                         ),
                     ],
                   ),
-                  subtitle: Text(c['name'] as String? ?? ''),
+                  subtitle: Text(
+                    '${c['name'] as String? ?? ''} · $decimals dp',
+                  ),
                 ),
               );
             },
