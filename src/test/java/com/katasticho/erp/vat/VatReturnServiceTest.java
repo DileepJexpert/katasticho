@@ -69,7 +69,7 @@ class VatReturnServiceTest {
     }
 
     @Test
-    void uaeReturn_aggregatesInvoiceAndBillIntoBoxes() {
+    void vatReturn_aggregatesInvoiceAndBillIntoBoxes() {
         UUID invId = UUID.randomUUID();
         UUID billId = UUID.randomUUID();
         Invoice inv = Invoice.builder().id(invId).orgId(orgId).build();
@@ -85,7 +85,7 @@ class VatReturnServiceTest {
                 eq(orgId), eq(List.of("BILL")), eq("VAT"), anySet()))
                 .thenReturn(List.of(in(billId, "4000", "200")));
 
-        VatReturnService.VatReturn r = service.uaeReturn(from, to);
+        VatReturnService.VatReturn r = service.vatReturn(from, to);
 
         assertEquals(0, r.box1aStandardRatedSupplies().compareTo(new BigDecimal("10000")));
         assertEquals(0, r.box1bOutputVat().compareTo(new BigDecimal("500")));
@@ -98,7 +98,7 @@ class VatReturnServiceTest {
     }
 
     @Test
-    void uaeReturn_creditNoteSubtractsFromOutput() {
+    void vatReturn_creditNoteSubtractsFromOutput() {
         // 1 invoice 10000+500 VAT, 1 credit note 2000+100 VAT → net 8000/400.
         UUID invId = UUID.randomUUID();
         UUID cnId = UUID.randomUUID();
@@ -115,7 +115,7 @@ class VatReturnServiceTest {
                         out(cnId, "CREDIT_NOTE", "2000", "100")));
         // No bills → inputIds empty → BILL fetch short-circuits without a stub.
 
-        VatReturnService.VatReturn r = service.uaeReturn(from, to);
+        VatReturnService.VatReturn r = service.vatReturn(from, to);
 
         assertEquals(0, r.box1aStandardRatedSupplies().compareTo(new BigDecimal("8000")));
         assertEquals(0, r.box1bOutputVat().compareTo(new BigDecimal("400")));
@@ -123,7 +123,7 @@ class VatReturnServiceTest {
     }
 
     @Test
-    void uaeReturn_cancelledCreditNoteExcluded() {
+    void vatReturn_cancelledCreditNoteExcluded() {
         // Credit note in CANCELLED status must not net against output.
         UUID invId = UUID.randomUUID();
         UUID cnId = UUID.randomUUID();
@@ -141,20 +141,20 @@ class VatReturnServiceTest {
                 .thenReturn(List.of(out(invId, "INVOICE", "10000", "500")));
         // No bills → BILL fetch short-circuits.
 
-        VatReturnService.VatReturn r = service.uaeReturn(from, to);
+        VatReturnService.VatReturn r = service.vatReturn(from, to);
         assertEquals(0, r.box1aStandardRatedSupplies().compareTo(new BigDecimal("10000")));
         // Cancelled CN was filtered out by the service before counting.
         assertEquals(0, r.meta().get("creditNoteCount"));
     }
 
     @Test
-    void uaeReturn_emptyPeriodReturnsZeros() {
+    void vatReturn_emptyPeriodReturnsZeros() {
         when(invoiceRepo.findPostedByOrgAndDateRange(orgId, from, to)).thenReturn(List.of());
         when(creditNoteRepo.findByOrgIdAndIsDeletedFalseAndCreditNoteDateBetweenAndStatusNot(
                 eq(orgId), eq(from), eq(to), eq("DRAFT"))).thenReturn(List.of());
         when(billRepo.findPostedByOrgAndDateRange(orgId, from, to)).thenReturn(List.of());
 
-        VatReturnService.VatReturn r = service.uaeReturn(from, to);
+        VatReturnService.VatReturn r = service.vatReturn(from, to);
 
         assertEquals(0, r.box1aStandardRatedSupplies().compareTo(BigDecimal.ZERO));
         assertEquals(0, r.box1bOutputVat().compareTo(BigDecimal.ZERO));
@@ -165,16 +165,16 @@ class VatReturnServiceTest {
     }
 
     @Test
-    void uaeReturn_invalidRangeThrows() {
+    void vatReturn_invalidRangeThrows() {
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> service.uaeReturn(to, from));
+                () -> service.vatReturn(to, from));
         assertEquals("VAT_INVALID_RANGE", ex.getErrorCode());
     }
 
     @Test
-    void uaeReturn_nullRangeThrows() {
+    void vatReturn_nullRangeThrows() {
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> service.uaeReturn(null, to));
+                () -> service.vatReturn(null, to));
         assertEquals("VAT_INVALID_RANGE", ex.getErrorCode());
     }
 }

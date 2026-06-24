@@ -22,10 +22,18 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * UAE Federal Tax Authority (FTA) <b>VAT201</b> return aggregator.
+ * Gulf VAT return aggregator — UAE FTA VAT201 + Oman OTA VAT return.
  *
- * <p>Quarterly return that every UAE-registered business files via the EmaraTax
- * portal. The simplified shape we compute mirrors the regulator's core boxes:
+ * <p>Both regulators run a 5% flat regime introduced January 2018 (UAE) and
+ * April 2021 (Oman), filed quarterly via their respective portals (EmaraTax
+ * for AE, OTA's eFiling for OM). The forms have the same conceptual shape
+ * because both adopt the GCC VAT Framework Agreement — standard-rated
+ * supplies + output VAT in, standard-rated expenses + input VAT out, net
+ * payable = the difference. The simplified box mapping we compute is the
+ * regulator-neutral version, country-gated on the controller side.
+ *
+ * <p>Box mapping (UAE label conventions; Oman boxes are numbered 100/110/130/
+ * 140/160 but semantically identical):
  * <ul>
  *   <li><b>Box 1a</b> — Standard-rated supplies (taxable amount of outputs).</li>
  *   <li><b>Box 1b</b> — Output VAT (5% of Box 1a in practice).</li>
@@ -36,14 +44,12 @@ import java.util.stream.Collectors;
  *
  * <p>Sales-side amounts come from posted invoices in the period, net of credit
  * notes (sales returns). Purchase-side comes from posted vendor bills. Purchase
- * debit notes (purchase returns) are NOT netted yet — they don't have a
- * date-range repository method, and on a typical UAE SMB the impact is small;
- * deferring to a follow-up rather than blocking the basic regulator-shape
- * report. The {@code _meta} block flags this so the accountant sees it.
- *
- * <p>Country-gated by the controller (AE only) — Oman has a near-identical 5%
- * VAT regime that this service will need a {@code omanReturn(...)} sibling for
- * (Oman Tax Authority "VAT Return Form"); deferred to the Oman expansion phase.
+ * debit notes (purchase returns) are NOT netted yet — the existing
+ * DebitNoteService doesn't write {@code tax_line_item} rows, so the data
+ * isn't available to subtract. Small UAE/Oman SMBs rarely raise material
+ * debit notes; deferring to a follow-up rather than blocking the basic
+ * regulator-shape report. The {@code _meta} block flags this so the
+ * accountant sees it.
  */
 @Service
 @RequiredArgsConstructor
@@ -71,7 +77,7 @@ public class VatReturnService {
             Map<String, Object> meta) {
     }
 
-    public VatReturn uaeReturn(LocalDate fromDate, LocalDate toDate) {
+    public VatReturn vatReturn(LocalDate fromDate, LocalDate toDate) {
         UUID orgId = TenantContext.getCurrentOrgId();
         if (fromDate == null || toDate == null || toDate.isBefore(fromDate)) {
             throw new BusinessException(
