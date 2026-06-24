@@ -14,6 +14,7 @@ Reference for working in this repo efficiently. Read this first; avoid re-explor
 - **Status pills:** `KStatusChip(status: '...')` — `KColors.statusColor/statusBgColor` now keyword-infer tone (paid/overdue/pending/...) when the exact-match list misses, so new statuses read semantically instead of grey.
 - **Density/motion tokens:** `KSpacing.rowH(40)/rowHCompact(36)/controlH(36)`, `KSpacing.durFast/durBase/ease`.
 - **Token re-skin pending (do as ONE reviewable commit, not piecemeal):** brand blue `#4A7FE0`→teal `#0F8576`, app bg→warm `#F7F7F5`, error→muted `#BE3A34` in `k_colors.dart`; cap radii at 8 (`radiusXl/2xl` used in ~5 files — fix call sites in the same commit); borders-first card/table (drop card shadows) is a separate later visual pass.
+- **Sidebar configurability:** every NavItem and NavGroup in `flutter_app/lib/routing/shell_screen.dart` carries a stable `id` (snake-case-dotted, e.g. `sales.invoices`). OWNER/ADMIN can hide entries via `org_settings.nav.disabled` (write via `PUT /api/v1/settings/nav.disabled` with a JSON array of ids) or the **Sidebar Customisation** settings screen at `/settings/nav-customisation`. PLATFORM_ADMIN role bypasses the disable list. Industry/role/country gates live on the NavItem fields directly (`roles`, `industries`, `countries` — null = no constraint).
 
 
 ## Build & Test
@@ -343,6 +344,148 @@ See `docs/DISTRIBUTOR_FIRST_DIRECTION_ASSESSMENT.md` for strategic rationale.
 - **POS Flutter:** search results < 5 → "From medicine catalog" section (drug-master search via `posCatalogSearchProvider`, fetched only when the section renders); tap → qty-on-shelf dialog (autofocus, Enter submits) → create+add to cart, current search invalidated.
 - **Seller speed:** debounce 300→200ms; stale-while-loading (last results shown dimmed instead of shimmer flicker between keystrokes); Enter-to-add-top-result now awaits the in-flight request (`.future`) instead of no-oping during loading.
 - **Tests:** PosCatalogServiceTest (3 — field mapping incl. openingStock, idempotency, SKU collision). 690 total pass.
+
+#### Provisional COGS + GRN true-up (2026-06-22)
+- **The hole:** bill-freely lets POS sell an item before its purchase price is known. Pre-fix, `AccountingPostingEngine.postPosReceipt` simply skipped the COGS journal line when `item.purchasePrice <= 0` → revenue booked, inventory asset stayed flat, profit overstated forever (and the GRN's `DR Inventory / CR AP` never retro-booked the missed COGS).
+- **V5 migration:** `stock_movement.cost_provisional` BOOL + `cost_settled_at` TIMESTAMPTZ + partial index `idx_stock_movement_unsettled_provisional` (org_id, item_id) WHERE cost_provisional=TRUE AND cost_settled_at IS NULL. Seeds `2042 'Stock-Out Suspense'` (LIABILITY, parent 2000) into `coa_template` for every (country, industry) that already has a 2031 TCS row, plus AE/TRADING which has no 2031 (no UAE TCS). Existing orgs pick up the new account on next-boot via the idempotent `AccountService.seedFromTemplate` + `DefaultAccountService.seedDefaultsForOrg` repair sweep — no backfill SQL needed.
+- **Append-only invariant preserved:** `StockMovement.costProvisional` is `updatable=false` (set at INSERT only); `costSettledAt` is the second mutable field (alongside `reversed`), set once by the reconciler from NULL → timestamp and never cleared.
+- **`CostResolverService.resolve(item, orgId)`:** precedence ladder — purchasePrice > 0 → real cost (non-provisional, source=PURCHASE_PRICE); else MRP × (1 − margin) (provisional, MRP_MINUS_MARGIN); else salePrice × (1 − margin) (SALE_PRICE_MINUS_MARGIN); else `null`. Margin defaults 0.25, org-tuneable via `inventory.provisional_margin_pct` (out-of-range values fall back to default).
+- **`AccountingPostingEngine.postPosReceipt`** now splits per-line COGS into two buckets (real vs provisional) and posts two journal segments where applicable: real → DR COGS / CR Inventory (1200) (legacy); provisional → DR COGS / CR Stock-Out Suspense (2042). Items with no resolvable basis still skip COGS entirely (legacy fallback). `appendCogsLines` refactored to take the CR-account purpose so the same helper handles both.
+- **`SalesReceiptService.deductStock`** now stamps the resolved unit cost (not `line.getRate()` — the SALE price was meaningless as a cost) on the SALE stock movement and sets `costProvisional=true` when the basis came from an MRP/salePrice fallback. `StockMovementRequest` gained an optional `costProvisional` field (defaults false, every other caller byte-for-byte unchanged); `InventoryService.recordMovement` plumbs it through to the builder.
+- **`ProvisionalCostReconciler.reconcileForItem(orgId, itemId, actualCost, grnRef)`:** called from `StockReceiptService.receive` after each successful PURCHASE movement. Walks unsettled provisional SALEs for the item (oldest first via the new partial-index-backed repo method), computes per-movement variance = (actualCost − provisional unitCost) × |qty|, posts ONE correction journal: `DR Stock-Out Suspense (totalProvisionalCogs) / CR Inventory (totalProvisional + totalVariance) / DR COGS (variance>0) | CR COGS (variance<0)`, stamps `costSettledAt = now(clock)` on every settled row. Idempotent — re-running with nothing pending returns `settled=0` and posts no journal. Wrapped in try/catch in the GRN flow so an edge case never fails the receipt itself.
+- **Net effect:** at GRN time, books fully self-heal. P&L reads correctly even after a bill-freely fresh-shop start; balance sheet matches physical stock; the historical "this row used provisional cost" fact is auditable on every settled `stock_movement`.
+- **Tests:** `CostResolverServiceTest` (5 — purchase-price wins / MRP fallback / salePrice fallback / nothing → null / custom margin from org setting), `ProvisionalCostReconcilerTest` (6 — no-pending no-op, over-estimated → CR COGS, under-estimated → DR COGS, multi-movement aggregation with zero net variance, settled-at stamping, null actualCost no-op), `PosReceiptCogsTest` (3 — real path against 1200, provisional path against 2042, no-basis skips COGS entirely). 1273 total backend pass.
+
+#### 3-way match (PO ↔ GRN ↔ Vendor Bill) (2026-06-22)
+- **V8 migration:** `purchase_bill` gains `three_way_match_status` (CHECK
+  MATCHED/EXCEPTION/BYPASSED/OVERRIDDEN), `three_way_match_at`,
+  `three_way_match_overridden_by`, `three_way_match_override_reason`. New
+  per-line `bill_match_result_line` table (replace-style: each match run deletes
+  the bill's prior rows + writes fresh ones). Status CHECK includes
+  MATCHED / QTY_OVER / PRICE_HIKE / AMOUNT_MISMATCH / NO_PO / NO_GRN / BYPASSED.
+  Two partial indexes — one for the per-bill lookup, one for the dashboard's
+  "exceptions" scan (excludes MATCHED rows).
+- **`ThreeWayMatchService.match(billId)`** — walks each `PurchaseBillLine` via
+  the V7 FKs, joins to the PO line + sums GRN line(s), classifies per line and
+  rolls up to an overall bill status:
+  - SERVICE item → skip GRN check, compare price only;
+  - no `purchaseOrderLineId` AND bill total < bypass threshold → BYPASSED;
+  - no `purchaseOrderLineId` → NO_PO;
+  - PO linked, no GRN line with that FK → NO_GRN;
+  - `billedQty > sumReceived × (1 + qtyTolerancePct/100)` → QTY_OVER;
+  - `|billUnitPrice − poUnitPrice| > max(priceToleranceAbs, poPrice × pct)` → PRICE_HIKE;
+  - else MATCHED.
+  Overall: all BYPASSED → BYPASSED; any non-MATCHED non-BYPASSED → EXCEPTION;
+  otherwise MATCHED. Pre-existing OVERRIDDEN status is preserved (the override is
+  the planner's final word).
+- **Hook into `PurchaseBillService.createBill`** at the end of the @Transactional
+  method, wrapped in try/catch. Match failure NEVER blocks bill creation — a
+  configuration / data hiccup just logs a warning. Bean cycle broken with
+  `@Lazy` on the `ThreeWayMatchService` field (lombok.config copies @Lazy onto
+  the constructor param).
+- **EXCEPTION → AI Inbox suggestion** (`THREE_WAY_MATCH_EXCEPTION`, HIGH priority)
+  via `AiSuggestionService.createSuggestion`. Idempotent through
+  `AiSuggestionRepository.existsOpenSuggestion` — repeat match runs on the same
+  bill don't pile up duplicate inbox rows. Payload carries the bill number, the
+  worst exception status, and the exception line count.
+- **Override (OWNER/ADMIN only):** `ThreeWayMatchService.override(billId, reason)`
+  stamps OVERRIDDEN + `overriddenBy` (from TenantContext) + reason on the bill.
+  Empty / blank reason throws `THREE_WAY_MATCH_OVERRIDE_REASON_REQUIRED`; second
+  override throws `THREE_WAY_MATCH_ALREADY_OVERRIDDEN`.
+- **`recordStockForBill` decision (option a — intentional fallback for direct
+  bills):** Refactored to skip the PURCHASE stock movement when the bill links
+  a PO that already has any non-cancelled GRN. The architectural rule
+  (CLAUDE.md) is "GRN is the only stock-posting step" — but small orgs that
+  skip the GRN entirely use the bill as their inventory source. The old
+  unconditional path double-counted stock whenever an org ran the full P2P
+  loop (GRN posted PURCHASE movements, then bill posted PURCHASE movements
+  for the same goods). New behaviour: PO + active GRN exists → skip
+  (GRN already booked it); else fall through to the legacy path (services-only,
+  direct vendor bills, supplier-bill-first shops keep working unchanged).
+  Backed by a new `StockReceiptRepository.existsActiveReceiptForPurchaseOrder`
+  query that excludes CANCELLED + soft-deleted GRNs.
+- **Org settings** (all `ap.three_way_match.*`):
+  `required` (`true` default; when `false`, match still runs + surfaces
+  EXCEPTION in the inbox but never blocks payment),
+  `qty_tolerance_pct` (0 default — zero qty over-receipt tolerated),
+  `price_tolerance_abs` (`1` ₹ default),
+  `price_tolerance_pct` (`0.005` = 0.5% default),
+  `bypass_threshold` (0 default — no bypass).
+- **Endpoints** @ `/api/v1/ap/three-way-match`:
+  `POST /{billId}/run` (manual re-run, OWNER/ADMIN/ACCOUNTANT),
+  `GET /{billId}` (snapshot — status + per-line variances),
+  `GET /exceptions?page=&size=` (paginated EXCEPTION lines for the inbox),
+  `POST /{billId}/override` body `{reason}` (OWNER/ADMIN),
+  `GET/PUT /settings` (OWNER/ADMIN — read/write the five tolerance keys).
+- **Tests:** `ThreeWayMatchServiceTest` (15 — exact match, QTY_OVER at zero
+  tol, qty within 1% tol, PRICE_HIKE above abs tol, price within abs tol, price
+  within pct tol, NO_PO when no link, NO_GRN when PO linked but nothing received,
+  BYPASSED below threshold, multi-line one PRICE_HIKE → EXCEPTION, replace-style
+  delete + saveAll, override stamps + repeat-blocked, idempotent suggestion when
+  one already open, SERVICE item skips GRN check, SERVICE item with matched price).
+  1289 → 1304 total backend pass.
+
+#### P2P workflow integration (2026-06-22)
+- V7 migration: four new nullable FKs — `purchase_bill.purchase_order_id`,
+  `purchase_bill_line.purchase_order_line_id`, `stock_receipt.purchase_order_id`,
+  `stock_receipt_line.purchase_order_line_id` + four partial indexes (each only
+  covers the rows where the FK is set, so direct GRN/Bill rows stay out of the index).
+- **`PurchaseOrderService.createGrnFromPo(poId)`** — drafts a `StockReceipt` (DRAFT)
+  with one line per PO line, qty = ordered − already-received (computed from
+  `StockReceiptLineRepository.sumQuantityForPurchaseOrderLine` across all
+  non-cancelled GRNs, NOT from the legacy `receivedQuantity` field), and stamps
+  the FKs end-to-end (header `purchaseOrderId`, each line `purchaseOrderLineId`).
+  HSN / GST rate / UoM copied from the item master, unit price from the PO line.
+  Throws `PO_FULLY_RECEIVED` (BAD_REQUEST) when nothing remains across any line,
+  `PO_CANCELLED` when the PO is cancelled, `PO_EMPTY` when the PO has no lines.
+- **`PurchaseOrderService.createBillFromPo(poId)`** — drafts a `PurchaseBill`
+  (DRAFT) with the same FK shape. Resolves vendor by looking up a Contact whose
+  `displayName` matches `supplier.name` case-insensitively (must be VENDOR or
+  BOTH); throws `PO_NO_VENDOR_CONTACT` when no matching vendor contact exists.
+  Quantities default to the PO's ordered qty, prices from the PO. Bill date = today.
+- **`StockReceiptService.receive`** finally writes to `PurchaseOrderLine.receivedQuantity`
+  — for every GRN line with a `purchaseOrderLineId`, the source PO line's
+  `receivedQuantity` is incremented by the GRN line's qty. The field was a dead
+  schema column before V7; this is the only place that updates it.
+- **`StockReceiptService.cancel`** mirrors the increment on RECEIVED → CANCELLED:
+  every linked PO line's `receivedQuantity` is decremented by the GRN line's qty
+  (clamped at zero so partial-cancel corruption from prior corrupted state can't
+  make it negative). DRAFT → CANCELLED never touched the PO ledger, so DRAFT
+  cancellation stays a no-op.
+- **DTOs:** `CreateStockReceiptRequest` + `StockReceiptLineRequest` +
+  `CreatePurchaseBillRequest` + its `BillLineRequest` all gain optional
+  `purchaseOrderId / purchaseOrderLineId` fields. `StockReceiptResponse` +
+  `StockReceiptResponse.LineResponse` + `PurchaseBillResponse` +
+  `PurchaseBillResponse.LineResponse` all surface them. Every existing caller
+  (`BillDraftingService`, `LorryReceiptService`, test fixtures) updated with
+  explicit `null` for the new optional fields — no behavioural change for
+  callers that don't use the P2P loop.
+- **New repository:** `StockReceiptLineRepository` with
+  `findByPurchaseOrderLineId`, `sumQuantityForPurchaseOrderLine`,
+  `sumReceivedQuantityForPurchaseOrderLine` (RECEIVED-only — used by 3-way match
+  in the next commit).
+- **Endpoints:** `POST /api/v1/purchase-orders/{id}/create-grn` (OWNER/ADMIN/OPERATOR)
+  + `POST /api/v1/purchase-orders/{id}/create-bill` (OWNER/ADMIN/ACCOUNTANT).
+  Both return the drafted document (201 CREATED).
+- **All FKs nullable** — direct GRNs / direct bills (no PO behind them) still work
+  byte-for-byte unchanged. Bean cycle broken with `@Lazy` on the two service
+  fields PurchaseOrderService injects (lombok.config copies `@Lazy` onto the
+  generated constructor parameters).
+- **Prerequisite for 3-way match (commit 2)** — match service reads these FKs to
+  join Bill ↔ GRN ↔ PO without heuristics.
+- Tests: `PurchaseOrderP2PTest` (3 — happy-path GRN draft w/ FK + remaining qty,
+  Bill draft w/ FK + PO prices, fully-received throws), `StockReceiptServiceTest +2`
+  (receive() increments PO line receivedQuantity when linked, never touches PO
+  repo when no FK set). 1289 total backend pass.
+
+#### Statutory pharma registers (H1 / Schedule X / Narcotics) (2026-06-22)
+- **V6 migration:** `statutory_register_entry` table (register_type CHECK ∈ {H1, SCHEDULE_X, NARCOTICS}, optional sale_receipt_id / invoice_id with link-required CHECK, drug name + batch + qty + prescriber + patient + sale_date + retention_until) + 3 partial indexes (org+type+date desc, org+retention_until for cleanup sweeps, org+prescriber_reg_number for inspector lookups).
+- **`StatutoryRegisterService.recordSaleEntries(receipt, itemMap)`:** hooked into `SalesReceiptService.create` after `deductStock`, wrapped in try/catch — non-business failures (DB hiccup, unmocked path) log warn + are swallowed so a register-writer bug never wedges a sale. `BusinessException` is allowed to bubble so strict-mode `RX_PRESCRIPTION_REQUIRED` rolls the entire receipt back. Resolves prescriber from `PrescriptionRecord` by `receiptId` (existing pharma table); resolves patient from `receipt.contactId`. Retention = sale_date + 3y for H1, + 2y for Schedule X / NARCOTICS (per Rule 65(11)(h) D&C Rules + Form 20G + NDPS Act 1985).
+- **Schedule normalisation:** `classify()` tolerates Marg / Tally / paper-form variants — "H1", "H-1", "H1A", "Sch H1", "Schedule H1" all map to H1; "X", "Sch X", "Schedule X" to SCHEDULE_X; "NARC", "NARCO", "NARCOTIC", "NDPS" to NARCOTICS. Plain "H" (general Schedule H) does NOT trigger a register entry — that's a separate audit regime.
+- **Org setting `pharma.h1_strict`** (default `false`): when `true`, H1 sale without a linked PrescriptionRecord throws `RX_PRESCRIPTION_REQUIRED` (BAD_REQUEST) → the @Transactional create rolls back. When `false`, the entry is recorded with null prescriber fields so the inspector still sees the sale + a flagged data-quality gap. Strict gate is H1-only — Schedule X / NARCOTICS still record without Rx (regulatory parity).
+- **Endpoints** @ `/api/v1/pharma/statutory-registers` (OWNER/ADMIN/ACCOUNTANT, `@RequiresCountry("IN")` because the D&C Rules + NDPS Act are Indian statute): `GET ?type=&from=&to=&page=&size=` (paginated, newest first), `GET /{id}`, `GET /export?type=&from=&to=` (CSV download with CSV-escaped quotes-and-commas, Sl No + Sale Date + Drug + Batch + Qty + Prescriber Name + Reg No + Prescriber Address + Patient Name + Patient Address + Patient Phone + Receipt/Invoice ID + Retention Until), `GET /dashboard?type=` (totalEntries / entriesThisMonth / retentionDueWithin90Days + sample rows).
+- **Flutter:** `StatutoryRegistersScreen` (`/pharma/statutory-registers`, command palette "Statutory Registers" — keywords rule 65 / H1 / schedule x / narcotics / NDPS / drug inspector / compliance / prescription register / D&C rules / audit). Three tabs (H1 / Schedule X / Narcotics) + per-register regulatory banner + date range filter + horizontal DataTable + app-bar Export CSV action (uses `Printing.sharePdf` for the native share sheet + clipboard fallback). Retention-Until column colour-coded red (<30 days) / orange (<180 days) / neutral.
+- **Tests:** `StatutoryRegisterServiceTest` (11 — H1 → 3y retention, Schedule X → 2y, Narcotics → 2y, non-scheduled item → no entry, linked PrescriptionRecord populates prescriber fields, no Rx in non-strict mode → null prescriber not throw, no Rx in strict mode + H1 → `RX_PRESCRIPTION_REQUIRED`, strict mode only gates H1 not Schedule X / NARCOTICS, schedule normalisation table, batch number resolved from batchId, CSV header + per-row CSV-quoting). 1284 total backend pass.
 
 #### POS Bill-Freely mode (2026-06-20)
 - **Org setting `pos.allow_negative_stock`** (default **true** — unset key 404s → treated as true). When on, the POS counter sells retail-style: catalog quick-add is a single tap (no opening-stock dialog — item is created at 0 stock and goes negative, reconciled later via a stock receipt), quantities are never clamped to recorded stock, and a sale is never blocked for being short. The cart's red "0 available" pill stays as a soft cue. When off, the old strict path is byte-for-byte preserved (catalog quick-add shows the opening-stock dialog so the item is sellable, stepper caps at stock, checkout blocks on `hasStockExceededItems`).

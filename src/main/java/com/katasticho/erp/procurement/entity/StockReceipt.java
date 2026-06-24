@@ -57,6 +57,10 @@ public class StockReceipt {
     @Column(name = "supplier_invoice_date")
     private LocalDate supplierInvoiceDate;
 
+    /** Source PO when GRN was drafted via createGrnFromPo. Nullable — direct GRNs carry null. */
+    @Column(name = "purchase_order_id")
+    private UUID purchaseOrderId;
+
     @Builder.Default
     private BigDecimal subtotal = BigDecimal.ZERO;
 

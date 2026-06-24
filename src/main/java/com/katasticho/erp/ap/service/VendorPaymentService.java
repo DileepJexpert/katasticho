@@ -10,6 +10,7 @@ import com.katasticho.erp.ap.dto.VendorPaymentResponse;
 import com.katasticho.erp.ap.entity.PurchaseBill;
 import com.katasticho.erp.ap.entity.VendorPayment;
 import com.katasticho.erp.ap.entity.VendorPaymentAllocation;
+import com.katasticho.erp.ap.match.ThreeWayMatchService;
 import com.katasticho.erp.ap.repository.PurchaseBillRepository;
 import com.katasticho.erp.ap.repository.VendorPaymentRepository;
 import com.katasticho.erp.ar.entity.InvoiceNumberSequence;
@@ -66,6 +67,7 @@ public class VendorPaymentService {
     private final JournalService journalService;
     private final AccountingPostingEngine postingEngine;
     private final PurchaseBillService billService;
+    private final ThreeWayMatchService threeWayMatchService;
     private final CurrencyService currencyService;
     private final CommentService commentService;
     private final DocumentSnapshotService documentSnapshotService;
@@ -116,6 +118,11 @@ public class VendorPaymentService {
                         "Bill " + bill.getBillNumber() + " is not payable (status: " + bill.getStatus() + ")",
                         "AP_BILL_NOT_PAYABLE", HttpStatus.BAD_REQUEST);
             }
+
+            // 3-way match gate: when ap.three_way_match.required=true (default),
+            // EXCEPTION bills cannot be paid until the variance is fixed or an
+            // OWNER/ADMIN overrides. OVERRIDDEN + MATCHED + BYPASSED pass through.
+            threeWayMatchService.assertPayable(bill.getId());
 
             if (alloc.amountApplied().compareTo(bill.getBalanceDue()) > 0) {
                 throw new BusinessException(

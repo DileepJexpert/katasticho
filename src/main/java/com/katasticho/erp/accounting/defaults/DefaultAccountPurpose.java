@@ -52,11 +52,21 @@ public enum DefaultAccountPurpose {
     TDS_PAYABLE         ("2030", "TDS Payable"),
     TCS_PAYABLE         ("2031", "TCS Payable"),
 
+    // ── Provisional COGS (bill-freely true-up, V5) ────────────
+    STOCK_OUT_SUSPENSE  ("2042", "Stock-Out Suspense"),
+
     // ── Manufacturing ────────────────────────────────────────
     WIP_INVENTORY       ("1210", "Work-In-Progress"),
     MANUFACTURING_OVERHEAD ("5030", "Manufacturing Overhead"),
     DIRECT_LABOR        ("5040", "Direct Labor"),
     MATERIAL_VARIANCE   ("5050", "Material Variance");
+
+    // Gulf gratuity accounts (V15) are NOT in this enum because code 2050
+    // doubles as "PF Payable" in the India CoA template and "Gratuity
+    // Provision" in the AE/OM template. Resolving them through this enum's
+    // shared default-code path would cross-bind India orgs to a PF account
+    // under the Gulf purpose. PayrollService.calculatePayslip resolves them
+    // by direct code lookup (`2050`/`5060`) only on the AE/OM branch instead.
 
     private final String defaultCode;
     private final String label;

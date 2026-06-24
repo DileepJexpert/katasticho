@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/api/api_client.dart';
 import '../core/auth/business_capabilities.dart';
 import '../core/auth/auth_state.dart';
+import '../core/auth/nav_overrides.dart';
 import '../core/intl/country_currency.dart';
 import '../core/commands/command_registry.dart';
 import '../core/shell/shell_providers.dart';
@@ -23,17 +24,34 @@ import '../features/notifications/data/notification_repository.dart';
 import 'app_router.dart';
 
 /// Navigation item definition.
+///
+/// `id` (optional) is a stable string identifier used by the per-org disable
+/// list (`org_settings.nav.disabled`). Entries without an `id` cannot be
+/// disabled by an org admin — that's fine for tabs / sub-items that should
+/// always be reachable.
+///
+/// `roles` / `industries` / `countries` (optional) are additive filters
+/// applied on top of the capability check. Null = no constraint (default).
+/// Non-null = only the listed values pass. PLATFORM_ADMIN bypasses these.
 class NavItem {
+  final String? id;
   final String label;
   final IconData icon;
   final IconData activeIcon;
   final String route;
+  final List<String>? roles;
+  final List<String>? industries;
+  final List<String>? countries;
 
   const NavItem({
+    this.id,
     required this.label,
     required this.icon,
     required this.activeIcon,
     required this.route,
+    this.roles,
+    this.industries,
+    this.countries,
   });
 }
 
@@ -72,6 +90,7 @@ const _baseTopNavItems = [
 ];
 
 const _dashboardNavItem = NavItem(
+  id: 'dashboard',
   label: 'Dashboard',
   icon: Icons.dashboard_outlined,
   activeIcon: Icons.dashboard_rounded,
@@ -79,6 +98,7 @@ const _dashboardNavItem = NavItem(
 );
 
 const _caConsoleNavItem = NavItem(
+  id: 'ca_console',
   label: 'CA Console',
   icon: Icons.account_balance_outlined,
   activeIcon: Icons.account_balance_rounded,
@@ -86,6 +106,7 @@ const _caConsoleNavItem = NavItem(
 );
 
 const _aiCommandCenterNavItem = NavItem(
+  id: 'ai',
   label: 'AI Command Center',
   icon: Icons.auto_awesome_outlined,
   activeIcon: Icons.auto_awesome_rounded,
@@ -93,6 +114,7 @@ const _aiCommandCenterNavItem = NavItem(
 );
 
 const _posNavItem = NavItem(
+  id: 'pos',
   label: 'POS',
   icon: Icons.point_of_sale_outlined,
   activeIcon: Icons.point_of_sale_rounded,
@@ -100,6 +122,7 @@ const _posNavItem = NavItem(
 );
 
 const _contactsNavItem = NavItem(
+  id: 'contacts',
   label: 'Contacts',
   icon: Icons.people_outline_rounded,
   activeIcon: Icons.people_rounded,
@@ -107,6 +130,7 @@ const _contactsNavItem = NavItem(
 );
 
 const _settingsNavItem = NavItem(
+  id: 'settings',
   label: 'Settings',
   icon: Icons.settings_outlined,
   activeIcon: Icons.settings_rounded,
@@ -114,70 +138,92 @@ const _settingsNavItem = NavItem(
 );
 
 /// A group of nav items that collapse into a popup overlay.
+///
+/// `id` (optional) is a stable string identifier used by the per-org disable
+/// list. Disabling a group hides the whole group + every child.
 class NavGroup {
+  final String? id;
   final String label;
   final IconData icon;
   final IconData activeIcon;
   final List<NavItem> children;
+  final List<String>? roles;
+  final List<String>? industries;
+  final List<String>? countries;
   const NavGroup({
+    this.id,
     required this.label,
     required this.icon,
     required this.activeIcon,
     required this.children,
+    this.roles,
+    this.industries,
+    this.countries,
   });
 }
 
 const _salesGroup = NavGroup(
+  id: 'sales',
   label: 'Sales',
   icon: Icons.storefront_outlined,
   activeIcon: Icons.storefront_rounded,
   children: [
     NavItem(
+        id: 'sales.invoices',
         label: 'Invoices',
         icon: Icons.receipt_long_outlined,
         activeIcon: Icons.receipt_long_rounded,
         route: Routes.invoices),
     NavItem(
+        id: 'sales.estimates',
         label: 'Estimates / Quotes',
         icon: Icons.request_quote_outlined,
         activeIcon: Icons.request_quote_rounded,
         route: Routes.estimates),
     NavItem(
+        id: 'sales.sales_orders',
         label: 'Sales Orders',
         icon: Icons.assignment_outlined,
         activeIcon: Icons.assignment_rounded,
         route: Routes.salesOrders),
     NavItem(
+        id: 'sales.delivery_challans',
         label: 'Delivery Challans',
         icon: Icons.local_shipping_outlined,
         activeIcon: Icons.local_shipping_rounded,
         route: Routes.deliveryChallans),
     NavItem(
+        id: 'sales.proof_of_delivery',
         label: 'Proof of Delivery',
         icon: Icons.assignment_turned_in_outlined,
         activeIcon: Icons.assignment_turned_in_rounded,
         route: Routes.proofOfDelivery),
     NavItem(
+        id: 'sales.receipts',
         label: 'Receipts',
         icon: Icons.receipt_long_outlined,
         activeIcon: Icons.receipt_long_rounded,
         route: Routes.salesReceipts),
     NavItem(
+        id: 'sales.credit_notes',
         label: 'Credit Notes',
         icon: Icons.note_alt_outlined,
         activeIcon: Icons.note_alt_rounded,
         route: Routes.creditNotes),
     NavItem(
+        id: 'sales.receivables',
         label: 'Receivables',
         icon: Icons.account_balance_wallet_outlined,
         activeIcon: Icons.account_balance_wallet_rounded,
         route: Routes.ageingReport),
     NavItem(
+        id: 'sales.credit_reminders',
         label: 'Credit Reminders',
         icon: Icons.notification_important_outlined,
         activeIcon: Icons.notification_important_rounded,
         route: Routes.creditReminders),
     NavItem(
+        id: 'sales.recurring',
         label: 'Recurring',
         icon: Icons.autorenew_outlined,
         activeIcon: Icons.autorenew_rounded,
@@ -186,124 +232,166 @@ const _salesGroup = NavGroup(
 );
 
 const _purchasesGroup = NavGroup(
+  id: 'purchases',
   label: 'Purchases',
   icon: Icons.shopping_cart_outlined,
   activeIcon: Icons.shopping_cart_rounded,
   children: [
     NavItem(
-        label: 'Bills',
-        icon: Icons.receipt_outlined,
-        activeIcon: Icons.receipt_rounded,
-        route: Routes.bills),
+        id: 'purchases.purchase_orders',
+        label: 'Purchase Orders',
+        icon: Icons.shopping_cart_outlined,
+        activeIcon: Icons.shopping_cart_rounded,
+        route: Routes.purchaseOrders),
     NavItem(
-        label: 'Vendor Credits',
-        icon: Icons.note_alt_outlined,
-        activeIcon: Icons.note_alt_rounded,
-        route: Routes.vendorCredits),
-    NavItem(
-        label: 'Vendor Payments',
-        icon: Icons.payments_outlined,
-        activeIcon: Icons.payments_rounded,
-        route: Routes.vendorPayments),
-    NavItem(
-        label: 'Expenses',
-        icon: Icons.payments_outlined,
-        activeIcon: Icons.payments_rounded,
-        route: Routes.expenses),
-    NavItem(
-        label: 'Payables',
-        icon: Icons.account_balance_wallet_outlined,
-        activeIcon: Icons.account_balance_wallet_rounded,
-        route: Routes.payables),
-    NavItem(
+        id: 'purchases.goods_receipts',
         label: 'Goods Receipts',
         icon: Icons.local_shipping_outlined,
         activeIcon: Icons.local_shipping_rounded,
         route: Routes.stockReceipts),
     NavItem(
-        label: 'Purchase Orders',
-        icon: Icons.shopping_cart_outlined,
-        activeIcon: Icons.shopping_cart_rounded,
-        route: Routes.purchaseOrders),
+        id: 'purchases.bills',
+        label: 'Bills',
+        icon: Icons.receipt_outlined,
+        activeIcon: Icons.receipt_rounded,
+        route: Routes.bills),
+    NavItem(
+        id: 'purchases.three_way_match',
+        label: '3-Way Match',
+        icon: Icons.fact_check_outlined,
+        activeIcon: Icons.fact_check_rounded,
+        route: Routes.threeWayMatch),
+    NavItem(
+        id: 'purchases.vendor_payments',
+        label: 'Vendor Payments',
+        icon: Icons.payments_outlined,
+        activeIcon: Icons.payments_rounded,
+        route: Routes.vendorPayments),
+    NavItem(
+        id: 'purchases.vendor_credits',
+        label: 'Vendor Credits',
+        icon: Icons.note_alt_outlined,
+        activeIcon: Icons.note_alt_rounded,
+        route: Routes.vendorCredits),
+    NavItem(
+        id: 'purchases.expenses',
+        label: 'Expenses',
+        icon: Icons.payments_outlined,
+        activeIcon: Icons.payments_rounded,
+        route: Routes.expenses),
+    NavItem(
+        id: 'purchases.payables',
+        label: 'Payables',
+        icon: Icons.account_balance_wallet_outlined,
+        activeIcon: Icons.account_balance_wallet_rounded,
+        route: Routes.payables),
+    NavItem(
+        id: 'purchases.rfq',
+        label: 'RFQ',
+        icon: Icons.request_quote_outlined,
+        activeIcon: Icons.request_quote,
+        route: Routes.rfq),
+    NavItem(
+        id: 'purchases.rate_contracts',
+        label: 'Rate Contracts',
+        icon: Icons.handshake_outlined,
+        activeIcon: Icons.handshake,
+        route: Routes.rateContracts),
   ],
 );
 
 const _inventoryGroup = NavGroup(
+  id: 'inventory',
   label: 'Inventory',
   icon: Icons.inventory_2_outlined,
   activeIcon: Icons.inventory_2_rounded,
   children: [
     NavItem(
+        id: 'inventory.items',
         label: 'Items',
         icon: Icons.inventory_2_outlined,
         activeIcon: Icons.inventory_2_rounded,
         route: Routes.items),
     NavItem(
+        id: 'inventory.item_groups',
         label: 'Item Groups',
         icon: Icons.category_outlined,
         activeIcon: Icons.category_rounded,
         route: Routes.itemGroups),
     NavItem(
+        id: 'inventory.stock_summary',
         label: 'Stock Summary',
         icon: Icons.summarize_outlined,
         activeIcon: Icons.summarize_rounded,
         route: '/reports/operational/stock-summary'),
     NavItem(
+        id: 'inventory.stock_movements',
         label: 'Stock Movements',
         icon: Icons.swap_vert_outlined,
         activeIcon: Icons.swap_vert_rounded,
         route: '/reports/operational/stock-movement'),
     NavItem(
+        id: 'inventory.reorder',
         label: 'Reorder Alerts',
         icon: Icons.shopping_cart_outlined,
         activeIcon: Icons.shopping_cart_rounded,
         route: Routes.reorder),
     NavItem(
+        id: 'inventory.shortbook',
         label: 'Shortbook',
         icon: Icons.playlist_add_check_outlined,
         activeIcon: Icons.playlist_add_check_rounded,
         route: Routes.shortbook),
     NavItem(
+        id: 'inventory.near_expiry',
         label: 'Expiry Alerts',
         icon: Icons.timer_outlined,
         activeIcon: Icons.timer_rounded,
         route: Routes.nearExpiry),
     NavItem(
+        id: 'inventory.rack_locations',
         label: 'Rack Locations',
         icon: Icons.grid_view_outlined,
         activeIcon: Icons.grid_view_rounded,
         route: Routes.rackLocations),
     NavItem(
+        id: 'inventory.hsn_master',
         label: 'HSN / GST Rates',
         icon: Icons.percent_outlined,
         activeIcon: Icons.percent_rounded,
         route: Routes.hsnMaster),
     NavItem(
+        id: 'inventory.stock_counts',
         label: 'Stock Counts',
         icon: Icons.fact_check_outlined,
         activeIcon: Icons.fact_check_rounded,
         route: Routes.stockCounts),
     NavItem(
+        id: 'inventory.transfer_orders',
         label: 'Transfer Orders',
         icon: Icons.swap_horiz_outlined,
         activeIcon: Icons.swap_horiz_rounded,
         route: Routes.transferOrders),
     NavItem(
+        id: 'inventory.picklists',
         label: 'Picklists',
         icon: Icons.checklist_outlined,
         activeIcon: Icons.checklist_rounded,
         route: Routes.picklists),
     NavItem(
+        id: 'inventory.price_lists',
         label: 'Price Lists',
         icon: Icons.sell_outlined,
         activeIcon: Icons.sell_rounded,
         route: Routes.priceLists),
     NavItem(
+        id: 'inventory.schemes',
         label: 'Schemes',
         icon: Icons.local_offer_outlined,
         activeIcon: Icons.local_offer_rounded,
         route: Routes.schemes),
     NavItem(
+        id: 'inventory.item_import',
         label: 'Import Items',
         icon: Icons.upload_file_outlined,
         activeIcon: Icons.upload_file_rounded,
@@ -312,11 +400,13 @@ const _inventoryGroup = NavGroup(
 );
 
 const _bankingGroup = NavGroup(
+  id: 'banking',
   label: 'Banking',
   icon: Icons.account_balance_outlined,
   activeIcon: Icons.account_balance_rounded,
   children: [
     NavItem(
+      id: 'banking.reconciliation',
       label: 'Reconciliation',
       icon: Icons.compare_arrows_outlined,
       activeIcon: Icons.compare_arrows_rounded,
@@ -326,119 +416,136 @@ const _bankingGroup = NavGroup(
 );
 
 const _accountingGroup = NavGroup(
+  id: 'accounting',
   label: 'Accounting',
   icon: Icons.account_balance_outlined,
   activeIcon: Icons.account_balance_rounded,
   children: [
     NavItem(
+        id: 'accounting.dashboard',
         label: 'Accounting Dashboard',
         icon: Icons.analytics_outlined,
         activeIcon: Icons.analytics_rounded,
         route: '/accounting/dashboard'),
     NavItem(
+        id: 'accounting.guided_transaction',
         label: 'Create Transaction',
         icon: Icons.auto_awesome_motion_outlined,
         activeIcon: Icons.auto_awesome_motion_rounded,
         route: Routes.guidedTransactionCreate),
     NavItem(
+        id: 'accounting.chart_of_accounts',
         label: 'Chart of Accounts',
         icon: Icons.account_balance_outlined,
         activeIcon: Icons.account_balance_rounded,
         route: Routes.chartOfAccounts),
     NavItem(
+        id: 'accounting.journal_entries',
         label: 'Manual Journals',
         icon: Icons.menu_book_outlined,
         activeIcon: Icons.menu_book_rounded,
         route: Routes.journalEntries),
     NavItem(
+        id: 'accounting.credit_ledger',
         label: 'Credit Ledger',
         icon: Icons.menu_book_outlined,
         activeIcon: Icons.menu_book_rounded,
         route: Routes.creditLedger),
     NavItem(
+        id: 'accounting.period_close',
         label: 'Period Close',
         icon: Icons.event_busy_outlined,
         activeIcon: Icons.event_busy_rounded,
         route: Routes.periodClose),
     NavItem(
+        id: 'accounting.fixed_assets',
         label: 'Fixed Assets',
         icon: Icons.precision_manufacturing_outlined,
         activeIcon: Icons.precision_manufacturing,
         route: Routes.fixedAssets),
     NavItem(
+        id: 'accounting.amortization',
         label: 'Amortization',
         icon: Icons.schedule_outlined,
         activeIcon: Icons.schedule,
         route: Routes.amortization),
-    NavItem(
-        label: 'GST',
-        icon: Icons.percent_outlined,
-        activeIcon: Icons.percent_rounded,
-        route: Routes.gst),
   ],
 );
 
 const _reportsGroup = NavGroup(
+  id: 'reports',
   label: 'Reports',
   icon: Icons.bar_chart_outlined,
   activeIcon: Icons.bar_chart_rounded,
   children: [
     NavItem(
+        id: 'reports.hub',
         label: 'Reports Hub',
         icon: Icons.bar_chart_outlined,
         activeIcon: Icons.bar_chart_rounded,
         route: Routes.reports),
     NavItem(
+        id: 'reports.trial_balance',
         label: 'Trial Balance',
         icon: Icons.balance_outlined,
         activeIcon: Icons.balance_rounded,
         route: Routes.trialBalance),
     NavItem(
+        id: 'reports.profit_loss',
         label: 'Profit & Loss',
         icon: Icons.trending_up_outlined,
         activeIcon: Icons.trending_up_rounded,
         route: Routes.profitLoss),
     NavItem(
+        id: 'reports.balance_sheet',
         label: 'Balance Sheet',
         icon: Icons.account_balance_outlined,
         activeIcon: Icons.account_balance_rounded,
         route: Routes.balanceSheet),
     NavItem(
+        id: 'reports.general_ledger',
         label: 'General Ledger',
         icon: Icons.menu_book_outlined,
         activeIcon: Icons.menu_book_rounded,
         route: Routes.generalLedger),
     NavItem(
+        id: 'reports.ar_ageing',
         label: 'AR Ageing',
         icon: Icons.account_balance_wallet_outlined,
         activeIcon: Icons.account_balance_wallet_rounded,
         route: Routes.ageingReport),
     NavItem(
+        id: 'reports.ap_ageing',
         label: 'AP Ageing',
         icon: Icons.account_balance_wallet_outlined,
         activeIcon: Icons.account_balance_wallet_rounded,
         route: Routes.apAgeingReport),
     NavItem(
+        id: 'reports.sales_register',
         label: 'Sales Register',
         icon: Icons.receipt_long_outlined,
         activeIcon: Icons.receipt_long_rounded,
         route: '/reports/operational/sales-register'),
     NavItem(
+        id: 'reports.pending_dispatch',
         label: 'Pending Dispatch',
         icon: Icons.local_shipping_outlined,
         activeIcon: Icons.local_shipping_rounded,
         route: '/reports/operational/pending-dispatch'),
     NavItem(
+        id: 'reports.challan_not_invoiced',
         label: 'Challan Not Invoiced',
         icon: Icons.assignment_late_outlined,
         activeIcon: Icons.assignment_late_rounded,
         route: '/reports/operational/challan-not-invoiced'),
     NavItem(
+        id: 'reports.purchase_register',
         label: 'Purchase Register',
         icon: Icons.receipt_outlined,
         activeIcon: Icons.receipt_rounded,
         route: '/reports/operational/purchase-register'),
     NavItem(
+        id: 'reports.daily_sales',
         label: 'Daily Sales',
         icon: Icons.today_outlined,
         activeIcon: Icons.today_rounded,
@@ -446,163 +553,244 @@ const _reportsGroup = NavGroup(
   ],
 );
 
-const _payrollGroup = NavGroup(
-  label: 'Payroll',
-  icon: Icons.people_alt_outlined,
-  activeIcon: Icons.people_alt_rounded,
+/// HR & Payroll — merged into one ERP-canonical group. Order: employee
+/// master + self-service first, then HR sub-modules, then payroll runs.
+const _hrPayrollGroup = NavGroup(
+  id: 'hr_payroll',
+  label: 'HR & Payroll',
+  icon: Icons.groups_outlined,
+  activeIcon: Icons.groups_rounded,
   children: [
     NavItem(
+        id: 'payroll.employees',
         label: 'Employees',
         icon: Icons.badge_outlined,
         activeIcon: Icons.badge_rounded,
         route: Routes.payrollEmployees),
     NavItem(
-        label: 'Payroll Runs',
-        icon: Icons.calculate_outlined,
-        activeIcon: Icons.calculate_rounded,
-        route: Routes.payrollRuns),
-    NavItem(
-        label: 'Settings',
-        icon: Icons.settings_outlined,
-        activeIcon: Icons.settings_rounded,
-        route: Routes.payrollSettings),
-  ],
-);
-
-const _hrGroup = NavGroup(
-  label: 'HR',
-  icon: Icons.groups_outlined,
-  activeIcon: Icons.groups_rounded,
-  children: [
-    NavItem(
-        label: 'My Profile',
-        icon: Icons.badge_outlined,
-        activeIcon: Icons.badge,
-        route: Routes.hrProfile),
-    NavItem(
+        id: 'hr.leave',
         label: 'Leave',
         icon: Icons.beach_access_outlined,
         activeIcon: Icons.beach_access_rounded,
         route: Routes.hrLeave),
     NavItem(
+        id: 'hr.attendance',
         label: 'Attendance',
         icon: Icons.co_present_outlined,
         activeIcon: Icons.co_present_rounded,
         route: Routes.hrAttendance),
     NavItem(
+        id: 'hr.shifts',
         label: 'Shifts',
         icon: Icons.access_time_outlined,
         activeIcon: Icons.access_time_filled,
         route: Routes.hrShifts),
     NavItem(
+        id: 'hr.timesheets',
         label: 'Timesheets',
         icon: Icons.timer_outlined,
         activeIcon: Icons.timer,
         route: Routes.hrTimesheets),
     NavItem(
+        id: 'hr.helpdesk',
         label: 'Help Desk',
         icon: Icons.support_agent_outlined,
         activeIcon: Icons.support_agent,
         route: Routes.hrHelpdesk),
     NavItem(
+        id: 'hr.documents',
         label: 'Documents',
         icon: Icons.folder_outlined,
         activeIcon: Icons.folder,
         route: Routes.hrDocuments),
     NavItem(
+        id: 'hr.analytics',
         label: 'Analytics',
         icon: Icons.insights_outlined,
         activeIcon: Icons.insights,
         route: Routes.hrAnalytics),
     NavItem(
+        id: 'hr.offboarding',
         label: 'Offboarding',
         icon: Icons.logout_outlined,
         activeIcon: Icons.logout,
         route: Routes.hrOffboarding),
     NavItem(
+        id: 'hr.my_profile',
         label: 'My Profile',
         icon: Icons.person_outline,
         activeIcon: Icons.person,
         route: Routes.hrMyProfile),
+    // Payroll sub-modules — accountants only run these.
+    NavItem(
+        id: 'payroll.runs',
+        label: 'Payroll Runs',
+        icon: Icons.calculate_outlined,
+        activeIcon: Icons.calculate_rounded,
+        route: Routes.payrollRuns,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT']),
+    NavItem(
+        id: 'payroll.labor_pay_preview',
+        label: 'Labor Pay Preview',
+        icon: Icons.preview_outlined,
+        activeIcon: Icons.preview_rounded,
+        route: Routes.payrollLaborPayPreview,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT']),
+    NavItem(
+        id: 'payroll.settings',
+        label: 'Payroll Settings',
+        icon: Icons.settings_outlined,
+        activeIcon: Icons.settings_rounded,
+        route: Routes.payrollSettings,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT']),
+  ],
+);
+
+/// Tax & Compliance — cross-cutting group for GST, e-invoice, e-way, TDS,
+/// TCS, and industry-specific statutory registers (pharma H1/Schedule-X/
+/// Narcotics; FSSAI for food). Most entries are role-gated to accountants;
+/// industry-specific entries are industry-gated. India-only by country.
+const _taxComplianceGroup = NavGroup(
+  id: 'tax_compliance',
+  label: 'Tax & Compliance',
+  icon: Icons.gavel_outlined,
+  activeIcon: Icons.gavel_rounded,
+  children: [
+    NavItem(
+        id: 'tax.gst_dashboard',
+        label: 'GST Dashboard',
+        icon: Icons.percent_outlined,
+        activeIcon: Icons.percent_rounded,
+        route: Routes.gst,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'],
+        countries: ['IN']),
+    NavItem(
+        id: 'tax.itc_risk',
+        label: 'ITC Risk',
+        icon: Icons.warning_amber_outlined,
+        activeIcon: Icons.warning_amber_rounded,
+        route: Routes.gstItcRisk,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'],
+        countries: ['IN']),
+    NavItem(
+        id: 'tax.statutory_registers',
+        label: 'Statutory Registers',
+        icon: Icons.menu_book_outlined,
+        activeIcon: Icons.menu_book_rounded,
+        route: Routes.statutoryRegisters,
+        industries: ['PHARMACY', 'PHARMA_DISTRIBUTOR', 'PHARMA_MANUFACTURER'],
+        countries: ['IN']),
+    NavItem(
+        id: 'tax.drug_licenses',
+        label: 'Drug Licenses',
+        icon: Icons.medical_information_outlined,
+        activeIcon: Icons.medical_information_rounded,
+        route: Routes.drugLicenses,
+        industries: ['PHARMACY', 'PHARMA_DISTRIBUTOR', 'PHARMA_MANUFACTURER'],
+        countries: ['IN']),
+    NavItem(
+        id: 'tax.fssai',
+        label: 'FSSAI Compliance',
+        icon: Icons.verified_outlined,
+        activeIcon: Icons.verified_rounded,
+        route: Routes.fssaiCompliance,
+        industries: ['FOOD_BEVERAGE', 'FOOD_MANUFACTURER'],
+        countries: ['IN']),
   ],
 );
 
 const _fieldSalesGroup = NavGroup(
+  id: 'field_sales',
   label: 'Field Sales',
   icon: Icons.directions_car_outlined,
   activeIcon: Icons.directions_car_rounded,
   children: [
     NavItem(
+        id: 'field_sales.dashboard',
         label: 'Dashboard',
         icon: Icons.dashboard_outlined,
         activeIcon: Icons.dashboard_rounded,
         route: Routes.fieldSalesDashboard),
     NavItem(
+        id: 'field_sales.live_tracking',
         label: 'Live Tracking',
         icon: Icons.my_location_outlined,
         activeIcon: Icons.my_location,
         route: Routes.fieldSalesLiveTracking),
     NavItem(
+        id: 'field_sales.mr_approvals',
         label: 'MR Approvals',
         icon: Icons.fact_check_outlined,
         activeIcon: Icons.fact_check,
         route: Routes.fieldSalesMrApprovals),
     NavItem(
+        id: 'field_sales.samples',
         label: 'Samples & TA/DA',
         icon: Icons.inventory_2_outlined,
         activeIcon: Icons.inventory_2,
         route: Routes.fieldSalesSamples),
     NavItem(
+        id: 'field_sales.coverage',
         label: 'Coverage',
         icon: Icons.insights_outlined,
         activeIcon: Icons.insights,
         route: Routes.fieldSalesCoverage),
     NavItem(
+        id: 'field_sales.attendance',
         label: 'Attendance',
         icon: Icons.badge_outlined,
         activeIcon: Icons.badge,
         route: Routes.fieldSalesAttendance),
     NavItem(
+        id: 'field_sales.detail_aids',
         label: 'Detail Aids',
         icon: Icons.auto_stories_outlined,
         activeIcon: Icons.auto_stories,
         route: Routes.fieldSalesDetailAids),
     NavItem(
+        id: 'field_sales.secondary_sales',
         label: 'Secondary Sales',
         icon: Icons.inventory_2_outlined,
         activeIcon: Icons.inventory_2,
         route: Routes.fieldSalesSecondarySales),
     NavItem(
+        id: 'field_sales.rcpa',
         label: 'RCPA',
         icon: Icons.fact_check_outlined,
         activeIcon: Icons.fact_check,
         route: Routes.fieldSalesRcpa),
     NavItem(
+        id: 'field_sales.org_chart',
         label: 'Org Chart',
         icon: Icons.account_tree_outlined,
         activeIcon: Icons.account_tree,
         route: Routes.fieldSalesOrgChart),
     NavItem(
+        id: 'field_sales.beats',
         label: 'Beats',
         icon: Icons.location_on_outlined,
         activeIcon: Icons.location_on_rounded,
         route: Routes.fieldSalesBeats),
     NavItem(
+        id: 'field_sales.routes',
         label: 'Routes',
         icon: Icons.route_outlined,
         activeIcon: Icons.route_rounded,
         route: Routes.fieldSalesRoutes),
     NavItem(
+        id: 'field_sales.vans',
         label: 'Vans',
         icon: Icons.local_shipping_outlined,
         activeIcon: Icons.local_shipping_rounded,
         route: Routes.fieldSalesVans),
     NavItem(
+        id: 'field_sales.executions',
         label: "Today's Routes",
         icon: Icons.play_circle_outline,
         activeIcon: Icons.play_circle_filled,
         route: Routes.fieldSalesExecutions),
     NavItem(
+        id: 'field_sales.day_close',
         label: 'Day Close',
         icon: Icons.nightlight_outlined,
         activeIcon: Icons.nightlight_rounded,
@@ -611,31 +799,37 @@ const _fieldSalesGroup = NavGroup(
 );
 
 const _partnerNetworkGroup = NavGroup(
+  id: 'partner_network',
   label: 'Partner Network',
   icon: Icons.handshake_outlined,
   activeIcon: Icons.handshake_rounded,
   children: [
     NavItem(
+        id: 'partner_network.partners',
         label: 'Partners',
         icon: Icons.people_outline,
         activeIcon: Icons.people_rounded,
         route: Routes.partnerNetworkPartners),
     NavItem(
+        id: 'partner_network.catalog',
         label: 'My Catalog',
         icon: Icons.storefront_outlined,
         activeIcon: Icons.storefront_rounded,
         route: Routes.partnerNetworkCatalog),
     NavItem(
+        id: 'partner_network.supplier_search',
         label: 'Supplier Search',
         icon: Icons.search_outlined,
         activeIcon: Icons.search_rounded,
         route: Routes.partnerNetworkSupplierSearch),
     NavItem(
+        id: 'partner_network.outgoing_orders',
         label: 'Outgoing Orders',
         icon: Icons.outbox_outlined,
         activeIcon: Icons.outbox_rounded,
         route: Routes.partnerNetworkOutgoingOrders),
     NavItem(
+        id: 'partner_network.incoming_orders',
         label: 'Incoming Orders',
         icon: Icons.inbox_outlined,
         activeIcon: Icons.inbox_rounded,
@@ -644,46 +838,55 @@ const _partnerNetworkGroup = NavGroup(
 );
 
 const _manufacturingGroup = NavGroup(
+  id: 'manufacturing',
   label: 'Manufacturing',
   icon: Icons.precision_manufacturing_outlined,
   activeIcon: Icons.precision_manufacturing_rounded,
   children: [
     NavItem(
+        id: 'manufacturing.work_orders',
         label: 'Work Orders',
         icon: Icons.assignment_outlined,
         activeIcon: Icons.assignment_rounded,
         route: Routes.manufacturingWorkOrders),
     NavItem(
+        id: 'manufacturing.routings',
         label: 'Routings',
         icon: Icons.route_outlined,
         activeIcon: Icons.route_rounded,
         route: Routes.manufacturingRoutings),
     NavItem(
+        id: 'manufacturing.job_work',
         label: 'Job Work',
         icon: Icons.handyman_outlined,
         activeIcon: Icons.handyman_rounded,
         route: Routes.manufacturingJobWork),
     NavItem(
+        id: 'manufacturing.qc',
         label: 'Quality Control',
         icon: Icons.verified_outlined,
         activeIcon: Icons.verified_rounded,
         route: Routes.manufacturingQcInspections),
     NavItem(
+        id: 'manufacturing.scrap',
         label: 'Scrap',
         icon: Icons.delete_sweep_outlined,
         activeIcon: Icons.delete_sweep_rounded,
         route: Routes.manufacturingScrap),
     NavItem(
+        id: 'manufacturing.maintenance',
         label: 'Maintenance',
         icon: Icons.build_outlined,
         activeIcon: Icons.build_rounded,
         route: Routes.manufacturingMaintenance),
     NavItem(
+        id: 'manufacturing.shop_floor',
         label: 'Shop floor',
         icon: Icons.precision_manufacturing_outlined,
         activeIcon: Icons.precision_manufacturing_rounded,
         route: Routes.manufacturingShopFloor),
     NavItem(
+        id: 'manufacturing.mrp_runs',
         label: 'MRP Runs',
         icon: Icons.calculate_outlined,
         activeIcon: Icons.calculate_rounded,
@@ -692,36 +895,43 @@ const _manufacturingGroup = NavGroup(
 );
 
 const _courierGroup = NavGroup(
+  id: 'courier',
   label: 'Courier & Transport',
   icon: Icons.local_post_office_outlined,
   activeIcon: Icons.local_post_office,
   children: [
     NavItem(
+        id: 'courier.shipments',
         label: 'Courier Shipments',
         icon: Icons.local_shipping_outlined,
         activeIcon: Icons.local_shipping_rounded,
         route: Routes.courierShipments),
     NavItem(
+        id: 'courier.cod',
         label: 'COD Remittances',
         icon: Icons.payments_outlined,
         activeIcon: Icons.payments_rounded,
         route: Routes.courierCod),
     NavItem(
+        id: 'courier.lorry_receipts',
         label: 'Lorry Receipts',
         icon: Icons.receipt_long_outlined,
         activeIcon: Icons.receipt_long_rounded,
         route: Routes.lorryReceipts),
     NavItem(
+        id: 'courier.freight_rate_cards',
         label: 'Freight Rate Cards',
         icon: Icons.price_change_outlined,
         activeIcon: Icons.price_change_rounded,
         route: Routes.freightRateCards),
     NavItem(
+        id: 'courier.vehicle_logs',
         label: 'Vehicle Log',
         icon: Icons.directions_car_outlined,
         activeIcon: Icons.directions_car,
         route: Routes.vehicleLogs),
     NavItem(
+        id: 'courier.proof_of_delivery',
         label: 'Proof of Delivery',
         icon: Icons.verified_outlined,
         activeIcon: Icons.verified,
@@ -730,41 +940,49 @@ const _courierGroup = NavGroup(
 );
 
 const _supplyChainGroup = NavGroup(
-  label: 'Supply Chain',
+  id: 'supply_chain',
+  label: 'Supply Planning',
   icon: Icons.hub_outlined,
   activeIcon: Icons.hub_rounded,
   children: [
     NavItem(
+        id: 'supply_chain.dashboard',
         label: 'Dashboard',
         icon: Icons.dashboard_outlined,
         activeIcon: Icons.dashboard_rounded,
         route: Routes.supplyChainDashboard),
     NavItem(
+        id: 'supply_chain.requisitions',
         label: 'Requisitions',
         icon: Icons.receipt_long_outlined,
         activeIcon: Icons.receipt_long_rounded,
         route: Routes.supplyChainRequisitions),
     NavItem(
+        id: 'supply_chain.shipments',
         label: 'Shipments',
         icon: Icons.local_shipping_outlined,
         activeIcon: Icons.local_shipping_rounded,
         route: Routes.supplyChainShipments),
     NavItem(
+        id: 'supply_chain.returns',
         label: 'Returns',
         icon: Icons.assignment_return_outlined,
         activeIcon: Icons.assignment_return_rounded,
         route: Routes.supplyChainReturns),
     NavItem(
+        id: 'supply_chain.alerts',
         label: 'Alerts',
         icon: Icons.notifications_active_outlined,
         activeIcon: Icons.notifications_active_rounded,
         route: Routes.supplyChainAlerts),
     NavItem(
+        id: 'supply_chain.supplier_rankings',
         label: 'Supplier Rankings',
         icon: Icons.leaderboard_outlined,
         activeIcon: Icons.leaderboard_rounded,
         route: Routes.supplyChainSupplierRankings),
     NavItem(
+        id: 'supply_chain.analytics',
         label: 'Analytics',
         icon: Icons.analytics_outlined,
         activeIcon: Icons.analytics_rounded,
@@ -772,15 +990,33 @@ const _supplyChainGroup = NavGroup(
   ],
 );
 
+/// Public registry export — every group that carries an `id` (and has at
+/// least one id'd child) and the small set of top-level NavItems with IDs.
+/// Used by the Sidebar Customisation settings screen to render the toggle
+/// list. Order here matches the sidebar render order.
+List<NavGroup> allConfigurableGroups() => List.unmodifiable([
+      for (final g in _allGroups)
+        if (g.id != null && g.children.any((c) => c.id != null)) g,
+    ]);
+
+List<NavItem> allConfigurableTopLevelItems() => List.unmodifiable([
+      _dashboardNavItem,
+      _aiCommandCenterNavItem,
+      _posNavItem,
+      _contactsNavItem,
+      _settingsNavItem,
+    ]);
+
 /// All groups for route-matching.
 const _allGroups = [
   _salesGroup,
   _purchasesGroup,
   _inventoryGroup,
   _accountingGroup,
+  _bankingGroup,
+  _taxComplianceGroup,
   _reportsGroup,
-  _payrollGroup,
-  _hrGroup,
+  _hrPayrollGroup,
   _fieldSalesGroup,
   _partnerNetworkGroup,
   _manufacturingGroup,
@@ -980,6 +1216,10 @@ class _DesktopShell extends ConsumerWidget {
     final capabilities = ref.watch(businessCapabilitiesProvider);
     final collapsed = ref.watch(sidebarCollapsedProvider);
     final notifCount = ref.watch(unreadCountProvider).valueOrNull ?? 0;
+    final overrides =
+        ref.watch(navOverridesProvider).asData?.value ?? NavOverrides.empty;
+    final countryCode =
+        ref.watch(countryProfileProvider).asData?.value.countryCode;
 
     final sidebarWidth =
         collapsed ? KSpacing.sidebarCollapsedWidth : KSpacing.sidebarWidth;
@@ -1106,6 +1346,9 @@ class _DesktopShell extends ConsumerWidget {
                                       role: authState.role?.toUpperCase() ??
                                           'OWNER',
                                       capabilities: capabilities,
+                                      overrides: overrides,
+                                      industryCode: authState.industryCode,
+                                      countryCode: countryCode,
                                     ),
                                   ),
                                 ),
@@ -1253,6 +1496,9 @@ List<Widget> _buildSidebarSections({
   required bool collapsed,
   required String role,
   required BusinessCapabilities capabilities,
+  required NavOverrides overrides,
+  String? industryCode,
+  String? countryCode,
 }) {
   final isCaUser = role == 'CA_PARTNER' || role == 'CA_STAFF';
   if (isCaUser) {
@@ -1290,71 +1536,153 @@ List<Widget> _buildSidebarSections({
   final canAccounting = canManage || role == 'ACCOUNTANT';
   final isOperator = role == 'OPERATOR';
   final isViewer = role == 'VIEWER';
-  final salesGroup = _visibleGroup(_salesGroup, capabilities);
-  final purchasesGroup = _visibleGroup(_purchasesGroup, capabilities);
-  final inventoryGroup = _visibleGroup(_inventoryGroup, capabilities);
-  final bankingGroup = _visibleGroup(_bankingGroup, capabilities);
-  final accountingGroup = _visibleGroup(_accountingGroup, capabilities);
-  final reportsGroup = _visibleGroup(_reportsGroup, capabilities);
-  final payrollGroup = _visibleGroup(_payrollGroup, capabilities);
-  final hrGroup = _visibleGroup(_hrGroup, capabilities);
-  final fieldSalesGroup = _visibleGroup(_fieldSalesGroup, capabilities);
-  final partnerNetworkGroup = _visibleGroup(_partnerNetworkGroup, capabilities);
-  final manufacturingGroup = _visibleGroup(_manufacturingGroup, capabilities);
-  final supplyChainGroup = _visibleGroup(_supplyChainGroup, capabilities);
+  // ERP-canonical order (top to bottom):
+  // Sales → Purchases → Inventory → Manufacturing → Field Sales →
+  // Partner Network → Accounting → Banking → Tax & Compliance →
+  // HR & Payroll → Supply Planning → Courier & Transport → Reports.
+  final salesGroup = _visibleGroup(
+      _salesGroup, capabilities, overrides, role, industryCode, countryCode);
+  final purchasesGroup = _visibleGroup(_purchasesGroup, capabilities, overrides,
+      role, industryCode, countryCode);
+  final inventoryGroup = _visibleGroup(_inventoryGroup, capabilities, overrides,
+      role, industryCode, countryCode);
+  final manufacturingGroup = _visibleGroup(_manufacturingGroup, capabilities,
+      overrides, role, industryCode, countryCode);
+  final fieldSalesGroup = _visibleGroup(_fieldSalesGroup, capabilities,
+      overrides, role, industryCode, countryCode);
+  final partnerNetworkGroup = _visibleGroup(_partnerNetworkGroup, capabilities,
+      overrides, role, industryCode, countryCode);
+  final accountingGroup = _visibleGroup(_accountingGroup, capabilities,
+      overrides, role, industryCode, countryCode);
+  final bankingGroup = _visibleGroup(_bankingGroup, capabilities, overrides,
+      role, industryCode, countryCode);
+  final taxComplianceGroup = _visibleGroup(_taxComplianceGroup, capabilities,
+      overrides, role, industryCode, countryCode);
+  final hrPayrollGroup = _visibleGroup(_hrPayrollGroup, capabilities, overrides,
+      role, industryCode, countryCode);
+  final supplyChainGroup = _visibleGroup(_supplyChainGroup, capabilities,
+      overrides, role, industryCode, countryCode);
+  final courierGroup = _visibleGroup(
+      _courierGroup, capabilities, overrides, role, industryCode, countryCode);
+  final reportsGroup = _visibleGroup(_reportsGroup, capabilities, overrides,
+      role, industryCode, countryCode);
+
+  bool topItemOk(NavItem item) =>
+      _isItemVisible(item, capabilities, overrides, role, industryCode, countryCode);
 
   return [
-    _SidebarNavItem(item: _dashboardNavItem, collapsed: collapsed),
-    if (!isViewer && capabilities.canUseAiInbox)
+    if (topItemOk(_dashboardNavItem))
+      _SidebarNavItem(item: _dashboardNavItem, collapsed: collapsed),
+    if (!isViewer &&
+        capabilities.canUseAiInbox &&
+        topItemOk(_aiCommandCenterNavItem))
       _SidebarNavItem(item: _aiCommandCenterNavItem, collapsed: collapsed),
-    if (!isViewer && capabilities.canUsePos)
+    if (!isViewer && capabilities.canUsePos && topItemOk(_posNavItem))
       _SidebarNavItem(item: _posNavItem, collapsed: collapsed),
     KSpacing.vGapSm,
     if (!isViewer && salesGroup != null)
       _SidebarNavGroup(group: salesGroup, collapsed: collapsed),
-    if (canAccounting) ...[
-      if (purchasesGroup != null)
-        _SidebarNavGroup(group: purchasesGroup, collapsed: collapsed),
-      if (inventoryGroup != null)
-        _SidebarNavGroup(group: inventoryGroup, collapsed: collapsed),
-      if (bankingGroup != null)
-        _SidebarNavGroup(group: bankingGroup, collapsed: collapsed),
-      if (accountingGroup != null)
-        _SidebarNavGroup(group: accountingGroup, collapsed: collapsed),
-    ],
-    if (!isViewer && !canAccounting && inventoryGroup != null)
+    if (canAccounting && purchasesGroup != null)
+      _SidebarNavGroup(group: purchasesGroup, collapsed: collapsed),
+    if (!isViewer && inventoryGroup != null)
       _SidebarNavGroup(group: inventoryGroup, collapsed: collapsed),
-    if (canAccounting && reportsGroup != null)
-      _SidebarNavGroup(group: reportsGroup, collapsed: collapsed),
-    if (canAccounting && payrollGroup != null)
-      _SidebarNavGroup(group: payrollGroup, collapsed: collapsed),
-    if (canAccounting && hrGroup != null)
-      _SidebarNavGroup(group: hrGroup, collapsed: collapsed),
+    if (!isViewer && manufacturingGroup != null)
+      _SidebarNavGroup(group: manufacturingGroup, collapsed: collapsed),
     if (!isViewer && fieldSalesGroup != null)
       _SidebarNavGroup(group: fieldSalesGroup, collapsed: collapsed),
     if (!isViewer && partnerNetworkGroup != null)
       _SidebarNavGroup(group: partnerNetworkGroup, collapsed: collapsed),
-    if (!isViewer && manufacturingGroup != null)
-      _SidebarNavGroup(group: manufacturingGroup, collapsed: collapsed),
+    if (canAccounting && accountingGroup != null)
+      _SidebarNavGroup(group: accountingGroup, collapsed: collapsed),
+    if (canAccounting && bankingGroup != null)
+      _SidebarNavGroup(group: bankingGroup, collapsed: collapsed),
+    if (canAccounting && taxComplianceGroup != null)
+      _SidebarNavGroup(group: taxComplianceGroup, collapsed: collapsed),
+    if (hrPayrollGroup != null)
+      _SidebarNavGroup(group: hrPayrollGroup, collapsed: collapsed),
     if (canAccounting && supplyChainGroup != null)
       _SidebarNavGroup(group: supplyChainGroup, collapsed: collapsed),
+    if (!isViewer && courierGroup != null)
+      _SidebarNavGroup(group: courierGroup, collapsed: collapsed),
+    if (canAccounting && reportsGroup != null)
+      _SidebarNavGroup(group: reportsGroup, collapsed: collapsed),
     KSpacing.vGapSm,
-    if (!isOperator && !isViewer)
+    if (!isOperator && !isViewer && topItemOk(_contactsNavItem))
       _SidebarNavItem(item: _contactsNavItem, collapsed: collapsed),
-    _SidebarNavItem(item: _settingsNavItem, collapsed: collapsed),
+    if (topItemOk(_settingsNavItem))
+      _SidebarNavItem(item: _settingsNavItem, collapsed: collapsed),
   ];
 }
 
-NavGroup? _visibleGroup(NavGroup group, BusinessCapabilities capabilities) {
+/// Whether the supplied item passes the capability + override + role +
+/// industry + country gates. PLATFORM_ADMIN (via [NavOverrides.isPlatformAdmin])
+/// bypasses override + role + industry + country gates so support staff can
+/// always reach every screen; the capability gate still applies because we
+/// don't want to render e.g. pharma menus to an admin who has logged into a
+/// non-pharma org.
+bool _isItemVisible(
+  NavItem item,
+  BusinessCapabilities capabilities,
+  NavOverrides overrides,
+  String? role,
+  String? industryCode,
+  String? countryCode,
+) {
+  if (!_isNavItemVisible(item.route, capabilities)) return false;
+  if (overrides.isPlatformAdmin) return true;
+  if (overrides.isDisabled(item.id)) return false;
+  if (item.roles != null && item.roles!.isNotEmpty) {
+    final r = (role ?? '').toUpperCase();
+    if (r.isEmpty || !item.roles!.contains(r)) return false;
+  }
+  if (item.industries != null && item.industries!.isNotEmpty) {
+    final i = (industryCode ?? '').toUpperCase();
+    if (i.isEmpty || !item.industries!.contains(i)) return false;
+  }
+  if (item.countries != null && item.countries!.isNotEmpty) {
+    final c = (countryCode ?? '').toUpperCase();
+    if (c.isEmpty || !item.countries!.contains(c)) return false;
+  }
+  return true;
+}
+
+NavGroup? _visibleGroup(
+  NavGroup group,
+  BusinessCapabilities capabilities,
+  NavOverrides overrides,
+  String? role,
+  String? industryCode,
+  String? countryCode,
+) {
+  if (!overrides.isPlatformAdmin) {
+    if (overrides.isDisabled(group.id)) return null;
+    if (group.roles != null && group.roles!.isNotEmpty) {
+      final r = (role ?? '').toUpperCase();
+      if (r.isEmpty || !group.roles!.contains(r)) return null;
+    }
+    if (group.industries != null && group.industries!.isNotEmpty) {
+      final i = (industryCode ?? '').toUpperCase();
+      if (i.isEmpty || !group.industries!.contains(i)) return null;
+    }
+    if (group.countries != null && group.countries!.isNotEmpty) {
+      final c = (countryCode ?? '').toUpperCase();
+      if (c.isEmpty || !group.countries!.contains(c)) return null;
+    }
+  }
   final visibleChildren = group.children
-      .where((item) => _isNavItemVisible(item.route, capabilities))
+      .where((item) => _isItemVisible(
+          item, capabilities, overrides, role, industryCode, countryCode))
       .toList(growable: false);
   if (visibleChildren.isEmpty) return null;
   return NavGroup(
+    id: group.id,
     label: group.label,
     icon: group.icon,
     activeIcon: group.activeIcon,
     children: visibleChildren,
+    roles: group.roles,
+    industries: group.industries,
+    countries: group.countries,
   );
 }
 
@@ -1372,7 +1700,9 @@ bool _isNavItemVisible(String route, BusinessCapabilities capabilities) {
   if (route == Routes.deliveryChallans) {
     return capabilities.canUseDistribution;
   }
-  if (route == Routes.drugLicenses || route == Routes.prescriptionHistory) {
+  if (route == Routes.drugLicenses ||
+      route == Routes.statutoryRegisters ||
+      route == Routes.prescriptionHistory) {
     return capabilities.canUsePharma;
   }
   if (route == Routes.nearExpiry) return capabilities.canUseBatchExpiry;

@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -24,4 +25,6 @@ public interface DrugMasterRepository extends JpaRepository<DrugMaster, UUID> {
            "LOWER(d.saltComposition) LIKE LOWER(CONCAT('%', :q, '%'))) " +
            "ORDER BY d.brandName")
     List<DrugMaster> search(@Param("q") String q, Pageable pageable);
+
+    Optional<DrugMaster> findByGtinIgnoreCase(String gtin);
 }

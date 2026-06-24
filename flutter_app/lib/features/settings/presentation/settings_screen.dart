@@ -243,6 +243,13 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push(Routes.apiKeys),
             ),
             _SettingsTile(
+              icon: Icons.view_list_rounded,
+              title: 'Sidebar Customisation',
+              subtitle:
+                  'Hide menu entries from your team to declutter the sidebar',
+              onTap: () => context.push(Routes.navCustomisation),
+            ),
+            _SettingsTile(
               icon: Icons.cloud_sync_outlined,
               title: 'GSP Connection',
               subtitle: 'One-click e-invoice, e-way bill & GSTR-2B via your GSP',

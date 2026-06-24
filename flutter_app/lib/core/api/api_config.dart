@@ -393,6 +393,13 @@ class ApiConfig {
   static String aiBillDraftReject(String suggestionId) =>
       '/api/v1/ai/bill-drafts/$suggestionId/reject';
 
+  // Photo-to-GRN — vision-OCR of a supplier's invoice / challan into a DRAFT
+  // stock receipt + AI Inbox suggestion. Approve posts via StockReceiptService.receive.
+  static const String aiGrnDrafts = '/api/v1/ai/grn-drafts';
+  static const String aiGrnDraftScan = '/api/v1/ai/grn-drafts/scan';
+  static String aiGrnDraftApprove(String id) => '/api/v1/ai/grn-drafts/$id/approve';
+  static String aiGrnDraftReject(String id) => '/api/v1/ai/grn-drafts/$id/reject';
+
   // Auto-categorize transactions (vendor -> GL account, learned from history)
   static String aiCategorize(String contactId, {String? hsn}) =>
       '/api/v1/ai/categorize?contactId=$contactId'
@@ -401,6 +408,16 @@ class ApiConfig {
 
   // Proactive agents (collections, month-close, anomalies)
   static const String aiProactiveRun = '/api/v1/ai/agents/proactive/run';
+
+  // Advisory agentic replenishment — scans low-stock items and drafts
+  // AGENTIC_REPLENISHMENT suggestions in the AI Inbox. Approval drafts a
+  // real PR (default) or DRAFT PO; nothing posts without the human's tap.
+  static const String aiReplenishmentRun =
+      '/api/v1/ai/replenishment-drafts/run';
+  static String aiReplenishmentApprove(String suggestionId) =>
+      '/api/v1/ai/replenishment-drafts/$suggestionId/approve';
+  static String aiReplenishmentReject(String suggestionId) =>
+      '/api/v1/ai/replenishment-drafts/$suggestionId/reject';
 
   // Conversational entry ("type a sentence, get a drafted transaction")
   static const String aiEntry = '/api/v1/ai/entry';
@@ -651,6 +668,15 @@ class ApiConfig {
   static String drugLicenseById(String id) => '/api/v1/drug-licenses/$id';
   static const String drugLicensesExpiring = '/api/v1/drug-licenses/expiring';
 
+  // Statutory Pharma Registers (H1 / Schedule X / Narcotics) — Rule 65(11)(h)
+  static const String statutoryRegisters = '/api/v1/pharma/statutory-registers';
+  static String statutoryRegisterById(String id) =>
+      '/api/v1/pharma/statutory-registers/$id';
+  static const String statutoryRegistersExport =
+      '/api/v1/pharma/statutory-registers/export';
+  static const String statutoryRegistersDashboard =
+      '/api/v1/pharma/statutory-registers/dashboard';
+
   // Pharma — Prescriptions
   static const String prescriptions = '/api/v1/prescriptions';
   static String prescriptionById(String id) => '/api/v1/prescriptions/$id';
@@ -666,6 +692,47 @@ class ApiConfig {
       '/api/v1/purchase-orders/$id/send';
   static String cancelPurchaseOrder(String id) =>
       '/api/v1/purchase-orders/$id/cancel';
+  static String createGrnFromPo(String id) =>
+      '/api/v1/purchase-orders/$id/create-grn';
+  static String createBillFromPo(String id) =>
+      '/api/v1/purchase-orders/$id/create-bill';
+
+  // RFQ / Supplier quote
+  static const String procurementRfqList = '/api/v1/procurement/rfq';
+  static String procurementRfqById(String id) => '/api/v1/procurement/rfq/$id';
+  static String procurementRfqSend(String id) =>
+      '/api/v1/procurement/rfq/$id/send';
+  static String procurementRfqCancel(String id) =>
+      '/api/v1/procurement/rfq/$id/cancel';
+  static String procurementRfqQuotes(String id) =>
+      '/api/v1/procurement/rfq/$id/quotes';
+  static String procurementRfqCompare(String id) =>
+      '/api/v1/procurement/rfq/$id/compare';
+  static String procurementRfqAward(String id) =>
+      '/api/v1/procurement/rfq/$id/award';
+
+  // Supplier rate contracts
+  static const String procurementRateContracts = '/api/v1/procurement/rate-contracts';
+  static String procurementRateContractById(String id) =>
+      '/api/v1/procurement/rate-contracts/$id';
+  static String procurementRateContractActivate(String id) =>
+      '/api/v1/procurement/rate-contracts/$id/activate';
+  static String procurementRateContractExpire(String id) =>
+      '/api/v1/procurement/rate-contracts/$id/expire';
+  static String procurementRateContractCancel(String id) =>
+      '/api/v1/procurement/rate-contracts/$id/cancel';
+
+  // 3-Way Match (PO ↔ GRN ↔ Vendor Bill)
+  static const String threeWayMatchExceptions =
+      '/api/v1/ap/three-way-match/exceptions';
+  static const String threeWayMatchSettings =
+      '/api/v1/ap/three-way-match/settings';
+  static String threeWayMatchById(String billId) =>
+      '/api/v1/ap/three-way-match/$billId';
+  static String threeWayMatchRun(String billId) =>
+      '/api/v1/ap/three-way-match/$billId/run';
+  static String threeWayMatchOverride(String billId) =>
+      '/api/v1/ap/three-way-match/$billId/override';
 
   // Debit Notes (Supplier / Purchase Returns)
   static const String debitNotes = '/api/v1/debit-notes';
@@ -1239,6 +1306,14 @@ class ApiConfig {
       '/api/v1/inventory/batch-trace/backward/$batchId';
   static String batchRecall(String rmBatchId) =>
       '/api/v1/inventory/batch-trace/recall/$rmBatchId';
+
+  // GS1 DataMatrix barcode scan (top-300 pharma QR mandate, G.S.R. 823(E))
+  static const String inventoryBarcodeScan = '/api/v1/inventory/barcode/scan';
+
+  // ATP (Available-to-Promise) — read-only snapshot for SO capture.
+  // Status taxonomy: ATP_OK / ATP_PARTIAL / ATP_BACKORDER.
+  static String inventoryAtp(String itemId, String warehouseId, num qty) =>
+      '/api/v1/inventory/atp?itemId=$itemId&warehouseId=$warehouseId&qty=$qty';
 
   // Currencies
   static const String currencies = '/api/v1/currencies';

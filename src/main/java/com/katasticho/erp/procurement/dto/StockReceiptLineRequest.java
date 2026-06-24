@@ -20,5 +20,7 @@ public record StockReceiptLineRequest(
         // Optional batch metadata for pharmacies / perishables
         String batchNumber,
         LocalDate expiryDate,
-        LocalDate manufacturingDate
+        LocalDate manufacturingDate,
+        // Optional source PO line — set when GRN was drafted via createGrnFromPo.
+        UUID purchaseOrderLineId
 ) {}

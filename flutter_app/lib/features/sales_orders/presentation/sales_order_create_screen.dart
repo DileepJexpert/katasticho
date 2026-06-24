@@ -11,12 +11,14 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../contacts/data/contact_repository.dart';
+import '../../inventory/data/item_repository.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../pricing/data/scheme_repository.dart';
 import '../../settings/data/org_settings_repository.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/sales_order_providers.dart';
 import '../data/sales_order_repository.dart';
+import 'widgets/atp_badge.dart';
 
 class SalesOrderCreateScreen extends ConsumerStatefulWidget {
   const SalesOrderCreateScreen({super.key});
@@ -40,10 +42,32 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
   bool _loadingCustomers = true;
   bool _allowBackorder = false;
 
+  /// Default warehouse for the ATP badge. The SO entity doesn't carry a
+  /// warehouse — DC dispatch picks one — but the order taker still wants
+  /// the honest available-now answer at capture time. We use the org's
+  /// default warehouse for now; future work can let the row pick.
+  String? _defaultWarehouseId;
+
   @override
   void initState() {
     super.initState();
     _loadCustomers();
+    _loadDefaultWarehouse();
+  }
+
+  Future<void> _loadDefaultWarehouse() async {
+    try {
+      final repo = ref.read(itemRepositoryProvider);
+      final warehouses = await repo.listWarehouses();
+      if (!mounted || warehouses.isEmpty) return;
+      final defaultWh = warehouses.cast<Map<String, dynamic>?>().firstWhere(
+            (w) => w?['isDefault'] == true,
+            orElse: () => warehouses.first,
+          );
+      setState(() => _defaultWarehouseId = defaultWh?['id']?.toString());
+    } catch (_) {
+      // Silent — ATP badge will simply not show when warehouse unknown.
+    }
   }
 
   Future<void> _loadCustomers() async {
@@ -503,6 +527,7 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
             item: _lineItems[index],
             index: index,
             schemeApplyMode: schemeApplyMode,
+            warehouseId: _defaultWarehouseId,
             onRemove: _lineItems.length > 1
                 ? () => setState(() => _lineItems.removeAt(index))
                 : null,
@@ -741,6 +766,7 @@ class _LineItemCard extends ConsumerStatefulWidget {
   final _LineItem item;
   final int index;
   final String schemeApplyMode;
+  final String? warehouseId;
   final VoidCallback? onRemove;
   final ValueChanged<_LineItem> onAddFreeLine;
   final VoidCallback onRemoveLinkedSchemeLines;
@@ -750,6 +776,7 @@ class _LineItemCard extends ConsumerStatefulWidget {
     required this.item,
     required this.index,
     required this.schemeApplyMode,
+    this.warehouseId,
     this.onRemove,
     required this.onAddFreeLine,
     required this.onRemoveLinkedSchemeLines,
@@ -1025,6 +1052,16 @@ class _LineItemCardState extends ConsumerState<_LineItemCard> {
               },
             ),
           ]),
+          // ATP: honest available-now answer for the picked item × qty.
+          // Hidden until both an item is picked AND a positive qty is typed.
+          if (widget.item.itemId != null &&
+              widget.warehouseId != null &&
+              widget.item.quantity > 0)
+            AtpBadge(
+              itemId: widget.item.itemId,
+              warehouseId: widget.warehouseId,
+              qty: widget.item.quantity,
+            ),
           KSpacing.vGapXs,
           KCompactRow(children: [
             _UnitDropdown(

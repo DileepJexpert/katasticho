@@ -15,6 +15,7 @@ import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.BatchService;
 import com.katasticho.erp.inventory.service.InventoryService;
+import com.katasticho.erp.inventory.service.ProvisionalCostReconciler;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.sales.service.SalesOrderService;
@@ -23,6 +24,7 @@ import com.katasticho.erp.procurement.dto.StockReceiptLineRequest;
 import com.katasticho.erp.procurement.dto.StockReceiptResponse;
 import com.katasticho.erp.procurement.entity.StockReceipt;
 import com.katasticho.erp.procurement.entity.Supplier;
+import com.katasticho.erp.procurement.repository.PurchaseOrderLineRepository;
 import com.katasticho.erp.procurement.repository.StockReceiptRepository;
 import com.katasticho.erp.procurement.repository.SupplierRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -47,6 +49,7 @@ import static org.mockito.Mockito.*;
 class StockReceiptServiceTest {
 
     @Mock private StockReceiptRepository receiptRepository;
+    @Mock private PurchaseOrderLineRepository purchaseOrderLineRepository;
     @Mock private SupplierRepository supplierRepository;
     @Mock private ItemRepository itemRepository;
     @Mock private WarehouseRepository warehouseRepository;
@@ -56,6 +59,7 @@ class StockReceiptServiceTest {
     @Mock private BatchService batchService;
     @Mock private AuditService auditService;
     @Mock private SalesOrderService salesOrderService;
+    @Mock private ProvisionalCostReconciler provisionalCostReconciler;
 
     private StockReceiptService stockReceiptService;
     private UUID orgId;
@@ -69,9 +73,10 @@ class StockReceiptServiceTest {
     @BeforeEach
     void setUp() {
         stockReceiptService = new StockReceiptService(
-                receiptRepository, supplierRepository, itemRepository,
+                receiptRepository, purchaseOrderLineRepository, supplierRepository, itemRepository,
                 warehouseRepository, organisationRepository, sequenceRepository,
-                inventoryService, batchService, auditService, salesOrderService);
+                inventoryService, batchService, auditService, salesOrderService,
+                provisionalCostReconciler);
 
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
@@ -138,17 +143,20 @@ class StockReceiptServiceTest {
                 LocalDate.of(2026, 4, 11),
                 "Monthly stock arrival",
                 null, null, null, null, // no landed-cost charges
+                null, // no source PO
                 List.of(
                         new StockReceiptLineRequest(
                                 paracetamol.getId(), null, null,
                                 new BigDecimal("200"), "STRIP",
                                 new BigDecimal("10"), null, null,
-                                "BATCH-PARA-001", LocalDate.of(2027, 12, 31), null),
+                                "BATCH-PARA-001", LocalDate.of(2027, 12, 31), null,
+                                null),
                         new StockReceiptLineRequest(
                                 crocin.getId(), null, null,
                                 new BigDecimal("150"), "STRIP",
                                 new BigDecimal("22"), null, null,
-                                null, null, null)
+                                null, null, null,
+                                null)
                 )
         );
 
@@ -352,6 +360,97 @@ class StockReceiptServiceTest {
         verify(inventoryService).reverseMovement(eq(m1Id), contains("wrong batch"));
         verify(inventoryService).reverseMovement(eq(m2Id), contains("wrong batch"));
         verifyNoMoreInteractions(inventoryService);
+    }
+
+    // T-GRN-P2P-01: receive() increments receivedQuantity on the linked PO line
+    @Test
+    void receive_increments_purchase_order_line_received_quantity_for_linked_lines() {
+        UUID poLineId = UUID.randomUUID();
+        com.katasticho.erp.procurement.entity.PurchaseOrderLine pol =
+                com.katasticho.erp.procurement.entity.PurchaseOrderLine.builder()
+                        .poId(UUID.randomUUID())
+                        .itemId(paracetamol.getId())
+                        .quantity(new BigDecimal("100"))
+                        .receivedQuantity(new BigDecimal("20"))
+                        .unitPrice(new BigDecimal("10"))
+                        .lineTotal(new BigDecimal("1000"))
+                        .build();
+        pol.setId(poLineId);
+
+        StockReceipt draft = StockReceipt.builder()
+                .orgId(orgId).receiptNumber("GRN-P2P-1").receiptDate(LocalDate.of(2026, 6, 1))
+                .warehouseId(defaultWarehouse.getId()).supplierId(supplier.getId())
+                .status("DRAFT").currency("INR")
+                .subtotal(new BigDecimal("500")).taxAmount(BigDecimal.ZERO)
+                .totalAmount(new BigDecimal("500")).build();
+        draft.setId(UUID.randomUUID());
+
+        var line = com.katasticho.erp.procurement.entity.StockReceiptLine.builder()
+                .lineNumber(1).itemId(paracetamol.getId())
+                .description("Paracetamol").quantity(new BigDecimal("50"))
+                .unitOfMeasure("STRIP").unitPrice(new BigDecimal("10"))
+                .taxableAmount(new BigDecimal("500")).gstRate(BigDecimal.ZERO)
+                .taxAmount(BigDecimal.ZERO).lineTotal(new BigDecimal("500"))
+                .purchaseOrderLineId(poLineId).build();
+        line.setId(UUID.randomUUID());
+        draft.addLine(line);
+
+        when(receiptRepository.findByIdAndOrgIdAndIsDeletedFalse(draft.getId(), orgId))
+                .thenReturn(Optional.of(draft));
+        when(receiptRepository.save(any(StockReceipt.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(paracetamol.getId(), orgId))
+                .thenReturn(Optional.of(paracetamol));
+        StockMovement movement = StockMovement.builder().itemId(paracetamol.getId()).build();
+        movement.setId(UUID.randomUUID());
+        when(inventoryService.recordMovement(any(StockMovementRequest.class))).thenReturn(movement);
+        when(itemRepository.findAllById(anyIterable())).thenReturn(List.of(paracetamol));
+        when(purchaseOrderLineRepository.findById(poLineId)).thenReturn(Optional.of(pol));
+
+        stockReceiptService.receive(draft.getId());
+
+        ArgumentCaptor<com.katasticho.erp.procurement.entity.PurchaseOrderLine> polCaptor =
+                ArgumentCaptor.forClass(com.katasticho.erp.procurement.entity.PurchaseOrderLine.class);
+        verify(purchaseOrderLineRepository).save(polCaptor.capture());
+        // 20 already received + 50 in this GRN = 70
+        assertEquals(0, new BigDecimal("70.0000").compareTo(polCaptor.getValue().getReceivedQuantity()));
+    }
+
+    // T-GRN-P2P-02: receive() does NOT touch PurchaseOrderLine when no FK set (direct GRN)
+    @Test
+    void receive_does_not_touch_po_line_when_no_purchase_order_link() {
+        StockReceipt draft = StockReceipt.builder()
+                .orgId(orgId).receiptNumber("GRN-P2P-2").receiptDate(LocalDate.of(2026, 6, 1))
+                .warehouseId(defaultWarehouse.getId()).supplierId(supplier.getId())
+                .status("DRAFT").currency("INR")
+                .subtotal(new BigDecimal("500")).taxAmount(BigDecimal.ZERO)
+                .totalAmount(new BigDecimal("500")).build();
+        draft.setId(UUID.randomUUID());
+
+        var line = com.katasticho.erp.procurement.entity.StockReceiptLine.builder()
+                .lineNumber(1).itemId(paracetamol.getId())
+                .description("Paracetamol").quantity(new BigDecimal("50"))
+                .unitOfMeasure("STRIP").unitPrice(new BigDecimal("10"))
+                .taxableAmount(new BigDecimal("500")).gstRate(BigDecimal.ZERO)
+                .taxAmount(BigDecimal.ZERO).lineTotal(new BigDecimal("500"))
+                // No purchaseOrderLineId — this is a direct GRN with no PO behind it.
+                .build();
+        line.setId(UUID.randomUUID());
+        draft.addLine(line);
+
+        when(receiptRepository.findByIdAndOrgIdAndIsDeletedFalse(draft.getId(), orgId))
+                .thenReturn(Optional.of(draft));
+        when(receiptRepository.save(any(StockReceipt.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(paracetamol.getId(), orgId))
+                .thenReturn(Optional.of(paracetamol));
+        StockMovement movement = StockMovement.builder().itemId(paracetamol.getId()).build();
+        movement.setId(UUID.randomUUID());
+        when(inventoryService.recordMovement(any(StockMovementRequest.class))).thenReturn(movement);
+        when(itemRepository.findAllById(anyIterable())).thenReturn(List.of(paracetamol));
+
+        stockReceiptService.receive(draft.getId());
+
+        verify(purchaseOrderLineRepository, never()).save(any());
+        verify(purchaseOrderLineRepository, never()).findById(any());
     }
 
     // T-GRN-LC-01: landed charges apportion across lines by value, residue on last

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,4 +23,21 @@ public interface PurchaseRequisitionRepository extends JpaRepository<PurchaseReq
 
     @Query("SELECT COALESCE(MAX(CAST(SUBSTRING(pr.requisitionNumber, 4) AS int)), 0) FROM PurchaseRequisition pr WHERE pr.orgId = :orgId")
     int findMaxRequisitionSequence(@Param("orgId") UUID orgId);
+
+    /**
+     * True when the org has any non-deleted requisition in one of the given
+     * open statuses that references the item on any of its lines. Powers the
+     * agentic-replenishment dedupe — don't draft a new suggestion when the
+     * planner has already started one.
+     */
+    @Query("""
+            SELECT COUNT(prl) > 0 FROM PurchaseRequisitionLine prl
+            WHERE prl.itemId = :itemId
+              AND prl.requisition.orgId = :orgId
+              AND prl.requisition.isDeleted = false
+              AND prl.requisition.status IN :statuses
+            """)
+    boolean existsOpenForItem(@Param("orgId") UUID orgId,
+                              @Param("itemId") UUID itemId,
+                              @Param("statuses") Collection<String> statuses);
 }

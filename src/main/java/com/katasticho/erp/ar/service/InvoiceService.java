@@ -83,6 +83,7 @@ public class InvoiceService {
     private final DocumentSnapshotService documentSnapshotService;
     private final DomainEventPublisher domainEventPublisher;
     private final com.katasticho.erp.tax.service.TcsService tcsService;
+    private final com.katasticho.erp.common.country.CountryAccessService countryAccessService;
 
     /**
      * Create a DRAFT invoice with tax calculation via TaxEngine.
@@ -275,12 +276,15 @@ public class InvoiceService {
 
         // TCS 206C(1H): collected from the buyer on top of subtotal + GST once
         // the FY consideration crosses ₹50 lakh (org setting tax.tcs_enabled).
+        // India-only — 206C is an Income Tax Act provision; non-IN orgs skip.
         BigDecimal tcsAmount = BigDecimal.ZERO;
-        var tcs = tcsService.computeForInvoice(orgId, contact.getId(), totalAmount, request.invoiceDate());
-        if (tcs != null) {
-            tcsAmount = tcs.amount();
-            totalAmount = totalAmount.add(tcsAmount);
-            log.info("TCS {} on invoice for {} ({})", tcsAmount, contact.getDisplayName(), tcs.note());
+        if (countryAccessService.isCountry("IN")) {
+            var tcs = tcsService.computeForInvoice(orgId, contact.getId(), totalAmount, request.invoiceDate());
+            if (tcs != null) {
+                tcsAmount = tcs.amount();
+                totalAmount = totalAmount.add(tcsAmount);
+                log.info("TCS {} on invoice for {} ({})", tcsAmount, contact.getDisplayName(), tcs.note());
+            }
         }
         invoice.setTcsAmount(tcsAmount.setScale(2, RoundingMode.HALF_UP));
 

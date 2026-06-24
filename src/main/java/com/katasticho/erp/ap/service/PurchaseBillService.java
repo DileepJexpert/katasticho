@@ -12,8 +12,10 @@ import com.katasticho.erp.ap.dto.PurchaseBillResponse;
 import com.katasticho.erp.ap.dto.UpdatePurchaseBillRequest;
 import com.katasticho.erp.ap.entity.PurchaseBill;
 import com.katasticho.erp.ap.entity.PurchaseBillLine;
+import com.katasticho.erp.ap.match.ThreeWayMatchService;
 import com.katasticho.erp.ap.repository.PurchaseBillRepository;
 import com.katasticho.erp.ap.repository.VendorPaymentAllocationRepository;
+import com.katasticho.erp.procurement.repository.StockReceiptLineRepository;
 import com.katasticho.erp.ar.entity.TaxLineItem;
 import com.katasticho.erp.ar.repository.InvoiceNumberSequenceRepository;
 import com.katasticho.erp.ar.repository.TaxLineItemRepository;
@@ -41,6 +43,7 @@ import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.tax.TaxEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -88,12 +91,15 @@ public class PurchaseBillService {
     private final AccountingPostingEngine postingEngine;
     private final TaxEngine taxEngine;
     private final com.katasticho.erp.tax.service.TdsService tdsService;
+    private final com.katasticho.erp.common.country.CountryAccessService countryAccessService;
     private final CurrencyService currencyService;
     private final InventoryService inventoryService;
     private final StockMovementRepository stockMovementRepository;
     private final DefaultAccountService defaultAccountService;
     private final CommentService commentService;
     private final DocumentSnapshotService documentSnapshotService;
+    private final StockReceiptLineRepository stockReceiptLineRepository;
+    @Lazy private final ThreeWayMatchService threeWayMatchService;
 
     // ── Create ──────────────────────────────────────────────────
 
@@ -144,6 +150,7 @@ public class PurchaseBillService {
                 .exchangeRate(exchangeRate)
                 .placeOfSupply(placeOfSupply)
                 .reverseCharge(request.reverseCharge())
+                .purchaseOrderId(request.purchaseOrderId())
                 .notes(request.notes())
                 .termsAndConditions(request.termsAndConditions())
                 .periodYear(periodYear)
@@ -207,6 +214,7 @@ public class PurchaseBillService {
                     .hsnCode(lineReq.hsnCode())
                     .itemId(lineReq.itemId())
                     .accountId(lineAccount.getId())
+                    .purchaseOrderLineId(lineReq.purchaseOrderLineId())
                     .quantity(lineReq.quantity())
                     .unitPrice(lineReq.unitPrice())
                     .discountPercent(lineReq.discountPercent())
@@ -264,6 +272,17 @@ public class PurchaseBillService {
         commentService.addSystemComment("BILL", bill.getId(), "Bill created");
         log.info("Purchase bill {} created: {} lines, total={}", bill.getBillNumber(),
                 bill.getLines().size(), bill.getTotalAmount());
+
+        // 3-way match (best-effort). Match failures NEVER block bill creation —
+        // an EXCEPTION just lands in the AI Inbox and the planner reviews. Match
+        // service swallows BusinessException too inside this catch on purpose:
+        // create() must not fail if config / tolerances are off-shape.
+        try {
+            threeWayMatchService.match(bill.getId());
+        } catch (Exception e) {
+            log.warn("3-way match failed for bill {}: {}", bill.getBillNumber(), e.getMessage());
+        }
+
         return toResponse(bill);
     }
 
@@ -417,8 +436,17 @@ public class PurchaseBillService {
      * Auto-deduct TDS when the vendor master says so (tdsApplicable + rate),
      * honouring section thresholds. The vendor is owed total − TDS; the TDS
      * itself posts to TDS Payable on bill posting.
+     *
+     * <p>India-only — TDS sections (194C/194Q/194J/194H/194I/194A) are Income
+     * Tax Act provisions. A Gulf/Kenya org's bill skips the call entirely so
+     * the orgsetting/vendor-master TDS fields never accidentally fire there.
      */
     private void applyTds(UUID orgId, PurchaseBill bill, Contact vendor) {
+        if (!countryAccessService.isCountry("IN")) {
+            bill.setTdsAmount(BigDecimal.ZERO);
+            bill.setTdsSection(null);
+            return;
+        }
         var tds = tdsService.computeForBill(orgId, vendor, bill.getSubtotal(), bill.getBillDate());
         if (tds == null) {
             bill.setTdsAmount(BigDecimal.ZERO);
@@ -690,6 +718,7 @@ public class PurchaseBillService {
 
     private void recordStockForBill(PurchaseBill bill) {
         UUID orgId = bill.getOrgId();
+
         Warehouse defaultWarehouse = warehouseRepository
                 .findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
                 .orElse(null);
@@ -700,9 +729,28 @@ public class PurchaseBillService {
             return;
         }
 
+        // P2P architecture guard (2026-06-22, refined 2026-06-23): GRN is the only
+        // stock-posting step when a PO line is in play. For each bill LINE, if it
+        // links a PO line and any RECEIVED GRN line has already booked stock
+        // against that PO line, skip — re-posting would double-count. Per-line
+        // (not bill-level) so a bill that mixes a received PO line and a fresh
+        // line still posts the fresh one. Lines without a PO link (direct bills,
+        // services, supplier-bill-first shops) always post; that's the legacy
+        // path of record. DRAFT GRNs deliberately don't trigger the skip — an
+        // abandoned draft hasn't actually booked anything.
         for (PurchaseBillLine line : bill.getLines()) {
             if (line.getItemId() == null) {
                 continue;
+            }
+            if (line.getPurchaseOrderLineId() != null) {
+                BigDecimal alreadyReceived = stockReceiptLineRepository
+                        .sumReceivedQuantityForPurchaseOrderLine(line.getPurchaseOrderLineId());
+                if (alreadyReceived != null && alreadyReceived.signum() > 0) {
+                    log.info("Bill {} line {} links PO line with {} received via GRN — "
+                                    + "skipping stock post (GRN already booked it)",
+                            bill.getBillNumber(), line.getLineNumber(), alreadyReceived);
+                    continue;
+                }
             }
 
             // Use base quantity (converted to base UoM) for stock movements
@@ -784,7 +832,8 @@ public class PurchaseBillService {
                         l.getId(), l.getLineNumber(), l.getDescription(), l.getHsnCode(),
                         l.getItemId(), l.getAccountId(),
                         l.getQuantity(), l.getUnitPrice(), l.getDiscountPercent(), l.getDiscountAmount(),
-                        l.getTaxableAmount(), l.getGstRate(), l.getTaxAmount(), l.getLineTotal()))
+                        l.getTaxableAmount(), l.getGstRate(), l.getTaxAmount(), l.getLineTotal(),
+                        l.getPurchaseOrderLineId()))
                 .toList();
 
         return new PurchaseBillResponse(
@@ -797,7 +846,10 @@ public class PurchaseBillService {
                 bill.getTotalAmount(), bill.getAmountPaid(), bill.getBalanceDue(),
                 bill.getTdsAmount(),
                 bill.getCurrency(), bill.getPlaceOfSupply(), bill.isReverseCharge(),
-                bill.getJournalEntryId(), bill.getNotes(),
+                bill.getJournalEntryId(), bill.getPurchaseOrderId(),
+                bill.getThreeWayMatchStatus(), bill.getThreeWayMatchAt(),
+                bill.getThreeWayMatchOverriddenBy(), bill.getThreeWayMatchOverrideReason(),
+                bill.getNotes(),
                 lineResponses, bill.getCreatedAt());
     }
 

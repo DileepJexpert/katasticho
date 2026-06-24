@@ -1,7 +1,12 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../../core/api/api_client.dart';
+import '../../../core/api/api_config.dart';
 import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
@@ -40,9 +45,56 @@ class PurchaseOrderDetailScreen extends ConsumerWidget {
               if (status == 'CANCELLED' || status == 'RECEIVED') {
                 return const SizedBox();
               }
+              // P2P workflow shortcuts (backend: PurchaseOrderService.createGrnFromPo
+              // / createBillFromPo, commit 24a9643). Only available on a SENT
+              // or PARTIALLY_RECEIVED PO — DRAFT POs aren't a source of truth
+              // yet, CANCELLED/RECEIVED are terminal. We treat 'PARTIAL' as
+              // the partially-received status the rest of this screen already
+              // gates on.
+              final canDraftDownstream =
+                  status == 'SENT' || status == 'PARTIAL';
               return PopupMenuButton<String>(
                 onSelected: (v) => _handleAction(context, ref, po, v),
                 itemBuilder: (_) => [
+                  if (canDraftDownstream)
+                    const PopupMenuItem(
+                      value: 'create-grn',
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.local_shipping_outlined),
+                        title: Text('Create GRN from this PO'),
+                        subtitle: Text(
+                          'Drafts a goods receipt with remaining qty',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                      ),
+                    ),
+                  if (canDraftDownstream)
+                    const PopupMenuItem(
+                      value: 'create-bill',
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.receipt_outlined),
+                        title: Text('Create Bill from this PO'),
+                        subtitle: Text(
+                          'Drafts a vendor bill linked to this PO',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                      ),
+                    ),
+                  if (canDraftDownstream)
+                    const PopupMenuItem(
+                      value: 'scan-grn',
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.document_scanner_outlined),
+                        title: Text('Scan invoice → draft GRN'),
+                        subtitle: Text(
+                          'Vision OCR of supplier challan, matched to PO lines',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                      ),
+                    ),
                   if (status == 'DRAFT' || status == 'SENT')
                     const PopupMenuItem(
                       value: 'cancel',
@@ -140,6 +192,192 @@ class PurchaseOrderDetailScreen extends ConsumerWidget {
       Map<String, dynamic> po, String action) async {
     if (action == 'cancel') {
       await _confirmCancel(context, ref, po);
+    } else if (action == 'create-grn') {
+      await _createGrnFromPo(context, ref, po);
+    } else if (action == 'create-bill') {
+      await _createBillFromPo(context, ref, po);
+    } else if (action == 'scan-grn') {
+      await _scanGrnFromPo(context, ref, po);
+    }
+  }
+
+  /// Photo-to-GRN: pick an image (camera/gallery), POST to /ai/grn-drafts/scan
+  /// to OCR it, then POST to /ai/grn-drafts with the PO id so each scan line
+  /// is fuzzy-matched against this PO's lines. Navigates to the drafted GRN
+  /// on success; surfaces backend error messages on failure.
+  Future<void> _scanGrnFromPo(BuildContext context, WidgetRef ref,
+      Map<String, dynamic> po) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final picker = ImagePicker();
+    XFile? picked;
+    try {
+      picked = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 70,
+        maxWidth: 2048,
+      );
+    } catch (_) {
+      // Camera unavailable (desktop / web) — fall back to gallery silently.
+      try {
+        picked = await picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 70,
+          maxWidth: 2048,
+        );
+      } catch (e) {
+        messenger.showSnackBar(SnackBar(
+            content: Text('Image picker unavailable: $e'),
+            backgroundColor: KColors.error));
+        return;
+      }
+    }
+    if (picked == null) return;
+
+    // Show a non-blocking "scanning…" hint — vision OCR takes a few seconds.
+    messenger.showSnackBar(const SnackBar(
+        content: Text('Scanning supplier invoice…'),
+        duration: Duration(seconds: 4)));
+
+    try {
+      final bytes = await picked.readAsBytes();
+      final mediaType = (picked.mimeType == null || picked.mimeType!.isEmpty)
+          ? 'image/jpeg'
+          : picked.mimeType!;
+      final base64Image = base64Encode(bytes);
+      final api = ref.read(apiClientProvider);
+
+      // 1) OCR the image.
+      final scanRes = await api.post(
+        ApiConfig.aiGrnDraftScan,
+        data: {'base64Image': base64Image, 'mediaType': mediaType},
+      );
+      final scanBody = scanRes.data;
+      final scan = (scanBody is Map && scanBody['data'] is Map)
+          ? (scanBody['data'] as Map).cast<String, dynamic>()
+          : (scanBody as Map).cast<String, dynamic>();
+      final lines = (scan['lines'] as List?) ?? const [];
+
+      // 2) Draft the GRN — pass the PO id so the matcher binds lines.
+      final draftRes = await api.post(
+        ApiConfig.aiGrnDrafts,
+        data: {
+          'purchaseOrderId': po['id']?.toString(),
+          'supplierName': scan['supplierName'],
+          'vendorBillNumber': scan['invoiceNumber'],
+          'confidence': scan['confidence'],
+          'lines': lines,
+        },
+      );
+      final draftBody = draftRes.data;
+      final draft = (draftBody is Map && draftBody['data'] is Map)
+          ? (draftBody['data'] as Map).cast<String, dynamic>()
+          : (draftBody as Map).cast<String, dynamic>();
+      final grnId = draft['grnId']?.toString();
+      final unmatched = (draft['unmatchedCount'] as num?)?.toInt() ?? 0;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(content: Text(
+          'Draft GRN created${unmatched > 0
+              ? ' — $unmatched line(s) need review'
+              : ''}')));
+      if (grnId != null && context.mounted) {
+        context.go('/stock-receipts/$grnId');
+      }
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      String msg = 'Photo-to-GRN failed';
+      if (body is Map) {
+        msg = body['message'] as String? ?? body['error'] as String? ?? msg;
+      }
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: KColors.error));
+    } catch (e) {
+      debugPrint('[PODetail] photo-to-GRN failed: $e');
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(
+          content: Text('Photo-to-GRN failed: $e'),
+          backgroundColor: KColors.error));
+    }
+  }
+
+  /// POST /api/v1/purchase-orders/{id}/create-grn — drafts a Stock Receipt
+  /// with one line per remaining PO line, then navigates to its detail screen.
+  Future<void> _createGrnFromPo(BuildContext context, WidgetRef ref,
+      Map<String, dynamic> po) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .post(ApiConfig.createGrnFromPo(po['id']?.toString() ?? ''));
+      final data = res.data;
+      final payload = (data is Map && data['data'] is Map)
+          ? data['data'] as Map<String, dynamic>
+          : (data as Map).cast<String, dynamic>();
+      final grnId = payload['id']?.toString();
+      ref.invalidate(purchaseOrderDetailProvider(poId));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Draft GRN created')),
+      );
+      if (grnId != null && context.mounted) {
+        context.go('/stock-receipts/$grnId');
+      }
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      String msg = 'Failed to create GRN';
+      if (body is Map) {
+        msg = body['message'] as String? ?? body['error'] as String? ?? msg;
+      }
+      messenger.showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: KColors.error),
+      );
+    } catch (e) {
+      debugPrint('[PODetail] create GRN failed: $e');
+      messenger.showSnackBar(
+        const SnackBar(
+            content: Text('Failed to create GRN'),
+            backgroundColor: KColors.error),
+      );
+    }
+  }
+
+  /// POST /api/v1/purchase-orders/{id}/create-bill — drafts a Purchase Bill
+  /// keyed to the PO. Fails with PO_NO_VENDOR_CONTACT when the supplier has
+  /// no matching contact yet.
+  Future<void> _createBillFromPo(BuildContext context, WidgetRef ref,
+      Map<String, dynamic> po) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .post(ApiConfig.createBillFromPo(po['id']?.toString() ?? ''));
+      final data = res.data;
+      final payload = (data is Map && data['data'] is Map)
+          ? data['data'] as Map<String, dynamic>
+          : (data as Map).cast<String, dynamic>();
+      final billId = payload['id']?.toString();
+      ref.invalidate(purchaseOrderDetailProvider(poId));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Draft bill created')),
+      );
+      if (billId != null && context.mounted) {
+        context.go('/bills/$billId');
+      }
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      String msg = 'Failed to create bill';
+      if (body is Map) {
+        msg = body['message'] as String? ?? body['error'] as String? ?? msg;
+      }
+      messenger.showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: KColors.error),
+      );
+    } catch (e) {
+      debugPrint('[PODetail] create bill failed: $e');
+      messenger.showSnackBar(
+        const SnackBar(
+            content: Text('Failed to create bill'),
+            backgroundColor: KColors.error),
+      );
     }
   }
 

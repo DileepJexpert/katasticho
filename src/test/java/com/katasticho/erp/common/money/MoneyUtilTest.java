@@ -50,7 +50,7 @@ class MoneyUtilTest {
 
     @Test
     void precision_service_reads_currency_master_and_caches() {
-        MoneyPrecisionService svc = new MoneyPrecisionService(currencyRepository);
+        MoneyPrecisionService svc = new MoneyPrecisionService(currencyRepository, null);
         when(currencyRepository.findByCode("OMR")).thenReturn(Optional.of(cur("OMR", 3)));
         assertEquals(3, svc.decimalsFor("OMR"));
         assertEquals(3, svc.decimalsFor("omr")); // case-insensitive + cached
@@ -59,7 +59,7 @@ class MoneyUtilTest {
 
     @Test
     void precision_service_defaults_unknown_currency_to_two() {
-        MoneyPrecisionService svc = new MoneyPrecisionService(currencyRepository);
+        MoneyPrecisionService svc = new MoneyPrecisionService(currencyRepository, null);
         lenient().when(currencyRepository.findByCode("ZZZ")).thenReturn(Optional.empty());
         assertEquals(2, svc.decimalsFor("ZZZ"));
         assertEquals(2, svc.decimalsFor(null));

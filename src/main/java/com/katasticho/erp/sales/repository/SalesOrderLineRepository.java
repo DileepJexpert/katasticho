@@ -45,4 +45,23 @@ public interface SalesOrderLineRepository extends JpaRepository<SalesOrderLine, 
         GROUP BY l.itemId
     """)
     List<Object[]> findAllBackorderedItems(@Param("orgId") UUID orgId);
+
+    /**
+     * SO lines for a given item that still have un-shipped commitment
+     * ({@code quantityShipped < quantity}) on an open
+     * (CONFIRMED / BACKORDER / PARTIALLY_SHIPPED) SO. Powers the ATP
+     * commitment calculation — caller filters the SO header status set in
+     * Java to keep the JPQL parameter list short.
+     */
+    @Query("""
+        SELECT l FROM SalesOrderLine l
+        JOIN FETCH l.salesOrder so
+        WHERE l.itemId = :itemId
+          AND so.orgId = :orgId
+          AND so.isDeleted = false
+          AND so.status IN ('CONFIRMED', 'BACKORDER', 'PARTIALLY_SHIPPED')
+          AND l.quantityShipped < l.quantity
+    """)
+    List<SalesOrderLine> findOpenCommitmentLinesForItem(
+            @Param("orgId") UUID orgId, @Param("itemId") UUID itemId);
 }

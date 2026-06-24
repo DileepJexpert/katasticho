@@ -230,10 +230,25 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final isPharmacy =
         (authState.industryCode ?? '').toUpperCase().contains('PHARMA') ||
             (authState.businessType ?? '').toUpperCase().contains('PHARMA');
-    if (isPharmacy && item['prescriptionRequired'] == true) {
-      prescriptionNumber = await _askPrescriptionNumber(itemName);
-      if (!mounted) return;
-      if (prescriptionNumber == null) return; // user cancelled
+    final isRxRequired = isPharmacy && item['prescriptionRequired'] == true;
+    if (isRxRequired) {
+      // OFF: never ask, no Rx tracked.
+      // WARN (default for India): NO popup. The item lands in the cart with
+      // an inline amber "Rx required" chip the cashier can tap any time to
+      // enter the number — 99% of Indian pharmacies sell common Rx drugs OTC
+      // and don't want a per-item interruption.
+      // STRICT (UAE / Oman / regulated markets): blocking dialog stays — the
+      // Rx number must be entered before the item lands in the cart.
+      final rxMode =
+          ref.read(pharmaRxEnforcementModeProvider).asData?.value ?? 'WARN';
+      if (rxMode == 'STRICT') {
+        prescriptionNumber =
+            await _askPrescriptionNumber(itemName, strict: true);
+        if (!mounted) return;
+        if (prescriptionNumber == null) return; // cancel = don't add
+      }
+      // WARN + OFF fall through — item added with prescriptionNumber=null;
+      // the cart line will show the inline chip.
     }
 
     final cartItem = CartItem(
@@ -258,6 +273,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       availableUnits: secUnits,
       discountThresholds: item['discountThresholds'] as Map<String, dynamic>?,
       prescriptionNumber: prescriptionNumber,
+      prescriptionRequired: isRxRequired,
       composition: item['composition'] as String?,
       manufacturer: item['manufacturer'] as String?,
     );
@@ -289,22 +305,33 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     HapticFeedback.lightImpact();
   }
 
-  Future<String?> _askPrescriptionNumber(String itemName) async {
+  /// Returns:
+  ///  - non-empty string → cashier entered an Rx number
+  ///  - empty string (`''`) → cashier tapped "Sell without Rx" (WARN mode only)
+  ///  - `null` → cashier cancelled — caller should NOT add to cart
+  Future<String?> _askPrescriptionNumber(String itemName,
+      {required bool strict}) async {
     final ctrl = TextEditingController();
     return showDialog<String>(
       context: context,
+      barrierDismissible: !strict,
       builder: (ctx) => AlertDialog(
         title: Row(children: [
           const Icon(Icons.local_pharmacy_outlined,
               color: Color(0xFFB71C1C), size: 20),
           const SizedBox(width: 8),
-          Expanded(child: Text('Prescription Required', style: KTypography.h3)),
+          Expanded(
+              child: Text(strict ? 'Prescription Required' : 'Prescription',
+                  style: KTypography.h3)),
         ]),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('$itemName requires a valid prescription.',
+            Text(
+                strict
+                    ? '$itemName requires a valid prescription.'
+                    : '$itemName is prescription-only. Enter the Rx number, or sell without Rx (recorded against the sale).',
                 style: KTypography.bodySmall
                     .copyWith(color: KColors.textSecondary)),
             const SizedBox(height: 12),
@@ -323,6 +350,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
+          if (!strict)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, ''),
+              child: const Text('Sell without Rx'),
+            ),
           ElevatedButton(
             onPressed: () => Navigator.pop(
                 ctx, ctrl.text.trim().isEmpty ? '—' : ctrl.text.trim()),

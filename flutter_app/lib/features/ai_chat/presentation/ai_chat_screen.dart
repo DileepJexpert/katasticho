@@ -252,6 +252,29 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
         await _load(reset: true);
         return;
       }
+      // Drafted GRNs are received/cancelled via the GRN-drafting endpoints —
+      // the generic review only flips status and would leave stock unposted.
+      if (item.suggestionType == 'DRAFT_GRN' && action == 'ACCEPT') {
+        final received = await repo.approveGrnDraft(item.id);
+        if (!mounted) return;
+        final grnNumber = received['grnNumber']?.toString() ?? '';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(grnNumber.isEmpty
+              ? 'GRN received — stock posted.'
+              : 'GRN $grnNumber received — stock posted.')),
+        );
+        await _load(reset: true);
+        return;
+      }
+      if (item.suggestionType == 'DRAFT_GRN' && action == 'REJECT') {
+        await repo.rejectGrnDraft(item.id, reason: correctionReason);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Drafted GRN rejected.')),
+        );
+        await _load(reset: true);
+        return;
+      }
       // Conversational entries post/delete via the entry endpoints.
       if (item.suggestionType == 'DRAFT_ENTRY' && action == 'ACCEPT') {
         final posted = await repo.approveEntryDraft(item.id);
@@ -268,6 +291,31 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Drafted entry discarded.')),
+        );
+        await _load(reset: true);
+        return;
+      }
+      // Advisory replenishment: approve drafts a real PR/PO (existing
+      // approval flow still applies); reject closes the suggestion.
+      if (item.suggestionType == 'AGENTIC_REPLENISHMENT' && action == 'ACCEPT') {
+        final r = await repo.approveReplenishmentDraft(item.id);
+        if (!mounted) return;
+        final docType = r['docType']?.toString() ?? 'PR';
+        final docNumber = r['createdDocNumber']?.toString() ?? '';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(docNumber.isEmpty
+                  ? 'Drafted $docType — review in Procurement.'
+                  : 'Drafted $docType $docNumber — review in Procurement.')),
+        );
+        await _load(reset: true);
+        return;
+      }
+      if (item.suggestionType == 'AGENTIC_REPLENISHMENT' && action == 'REJECT') {
+        await repo.rejectReplenishmentDraft(item.id, reason: correctionReason);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Replenishment suggestion rejected.')),
         );
         await _load(reset: true);
         return;
@@ -331,6 +379,29 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
     }
   }
 
+  Future<void> _runReplenishmentScan() async {
+    if (_entryBusy) return;
+    setState(() => _entryBusy = true);
+    try {
+      final r = await ref.read(aiRepositoryProvider).runReplenishmentScan();
+      if (!mounted) return;
+      final created = (r['created'] as num? ?? 0).toInt();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(created == 0
+            ? 'No new replenishment suggestions — nothing to draft.'
+            : 'Drafted $created replenishment suggestion(s).'),
+      ));
+      await _load(reset: true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Replenishment scan failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _entryBusy = false);
+    }
+  }
+
   Widget _buildQuickEntry() {
     return KCard(
       child: Column(
@@ -346,6 +417,11 @@ class _AiInboxTabState extends ConsumerState<_AiInboxTab> {
                 onPressed: _entryBusy ? null : _runSweep,
                 icon: const Icon(Icons.radar, size: 16),
                 label: const Text('Run checks'),
+              ),
+              TextButton.icon(
+                onPressed: _entryBusy ? null : _runReplenishmentScan,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Replenishment scan'),
               ),
             ],
           ),

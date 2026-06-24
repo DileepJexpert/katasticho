@@ -45,6 +45,7 @@ public class PayrollService {
     private final ProfessionalTaxCalculator ptCalculator;
     private final LabourWelfareFundCalculator lwfCalculator;
     private final com.katasticho.erp.common.country.CountryAccessService countryAccessService;
+    private final com.katasticho.erp.payroll.gulf.GulfPayrollService gulfPayrollService;
 
     // ──────────────────────────────── Settings ────────────────────────────────
 
@@ -291,6 +292,10 @@ public class PayrollService {
         seedIfAbsent(orgId, "PT", "Professional Tax", "DEDUCTION", true);
         seedIfAbsent(orgId, "LWF", "Labour Welfare Fund", "DEDUCTION", true);
         seedIfAbsent(orgId, "TDS", "Tax Deducted at Source", "DEDUCTION", true);
+        // Gulf-only: end-of-service gratuity monthly accrual (V15). Inert on
+        // Indian orgs — calculatePayslip's gulfStatutory branch gates the use.
+        seedIfAbsent(orgId, "GRATUITY_ACCRUAL", "Gratuity Accrual",
+                "EMPLOYER_CONTRIBUTION", true);
 
         log.info("Default salary components seeded for org {}", orgId);
     }
@@ -912,6 +917,24 @@ public class PayrollService {
             }
         }
 
+        // Gulf statutory: monthly end-of-service gratuity accrual (UAE Federal
+        // Decree-Law 33/2021 + Oman Royal Decree 35/2003). Booked as an
+        // EMPLOYER_CONTRIBUTION line — it never deducts from the employee or
+        // affects net pay. The lump sum is paid out on termination from the
+        // accumulated provision (handled by the separate termination flow).
+        String country = countryAccessService.countryOf(orgId);
+        boolean gulfStatutory = "AE".equals(country) || "OM".equals(country);
+        if (gulfStatutory && employee.getDateOfJoining() != null) {
+            BigDecimal accrual = gulfPayrollService.monthlyAccrual(
+                    country, employee.getDateOfJoining(),
+                    run.getPeriodEnd(), basicAmount);
+            if (accrual != null && accrual.signum() > 0) {
+                addStatutoryLine(payslip, orgId, componentsByCode,
+                        "GRATUITY_ACCRUAL", "EMPLOYER_CONTRIBUTION", accrual);
+                employerContributions = employerContributions.add(accrual);
+            }
+        }
+
         BigDecimal netPay = grossPay.subtract(totalDeductions);
 
         payslip.setGrossPay(grossPay);
@@ -983,6 +1006,7 @@ public class PayrollService {
         BigDecimal lwfEmployeeTotal = BigDecimal.ZERO;
         BigDecimal lwfEmployerTotal = BigDecimal.ZERO;
         BigDecimal tdsTotal = BigDecimal.ZERO;
+        BigDecimal gratuityAccrualTotal = BigDecimal.ZERO;
 
         Map<String, SalaryComponent> componentsByCode = new HashMap<>();
         for (SalaryComponent sc : componentRepository.findByOrgIdAndActiveTrueOrderByCodeAsc(orgId)) {
@@ -1011,6 +1035,8 @@ public class PayrollService {
                             }
                         }
                         case "TDS" -> tdsTotal = tdsTotal.add(pl.getAmount());
+                        case "GRATUITY_ACCRUAL" -> gratuityAccrualTotal =
+                                gratuityAccrualTotal.add(pl.getAmount());
                     }
                 }
             }
@@ -1110,7 +1136,32 @@ public class PayrollService {
                     "TDS payable", null, null));
         }
 
+        // Gulf-only gratuity accrual: DR Gratuity Expense (5060)
+        //                            CR Gratuity Provision (2050).
+        // Codes resolved directly — they aren't in DefaultAccountPurpose
+        // because 2050 doubles as PF Payable in the Indian CoA template.
+        // See V15 migration + DefaultAccountPurpose.java for the carve-out.
+        if (gratuityAccrualTotal.compareTo(BigDecimal.ZERO) > 0) {
+            requireGulfAccount(orgId, "5060", "Gratuity Expense");
+            requireGulfAccount(orgId, "2050", "Gratuity Provision");
+            lines.add(new JournalLineRequest(
+                    "5060", gratuityAccrualTotal, BigDecimal.ZERO,
+                    "Gratuity accrual — end of service", null, null));
+            lines.add(new JournalLineRequest(
+                    "2050", BigDecimal.ZERO, gratuityAccrualTotal,
+                    "Gratuity provision — end of service", null, null));
+        }
+
         return lines;
+    }
+
+    private void requireGulfAccount(UUID orgId, String code, String label) {
+        accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(orgId, code)
+                .orElseThrow(() -> new BusinessException(
+                        "Missing CoA account " + code + " (" + label
+                                + ") — re-seed the Gulf chart of accounts",
+                        "PAYROLL_GULF_ACCOUNT_MISSING_" + code,
+                        HttpStatus.PRECONDITION_FAILED));
     }
 
     /**

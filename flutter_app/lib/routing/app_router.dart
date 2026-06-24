@@ -84,6 +84,8 @@ import '../features/procurement/presentation/stock_receipt_create_screen.dart';
 import '../features/procurement/presentation/stock_receipt_detail_screen.dart';
 import '../features/procurement/presentation/purchase_order_list_screen.dart';
 import '../features/procurement/presentation/purchase_order_create_screen.dart';
+import '../features/procurement/presentation/rfq_screen.dart';
+import '../features/procurement/presentation/rate_contracts_screen.dart';
 import '../features/procurement/presentation/purchase_order_detail_screen.dart';
 import '../features/procurement/presentation/debit_notes_screen.dart';
 import '../features/procurement/presentation/create_debit_note_screen.dart';
@@ -95,6 +97,7 @@ import '../features/pricing/presentation/scheme_list_screen.dart';
 import '../features/bills/presentation/bill_list_screen.dart';
 import '../features/bills/presentation/bill_detail_screen.dart';
 import '../features/bills/presentation/bill_create_screen.dart';
+import '../features/ap/presentation/three_way_match_inbox_screen.dart';
 import '../features/vendor_payments/presentation/vendor_payment_list_screen.dart';
 import '../features/vendor_payments/presentation/vendor_payment_detail_screen.dart';
 import '../features/vendor_credits/presentation/vendor_credit_list_screen.dart';
@@ -139,6 +142,7 @@ import '../features/team/presentation/team_screen.dart';
 import '../features/settings/presentation/ai_model_settings_screen.dart';
 import '../features/settings/presentation/gsp_settings_screen.dart';
 import '../features/settings/presentation/api_keys_screen.dart';
+import '../features/settings/presentation/nav_customisation_screen.dart';
 import '../features/settings/presentation/budgets_screen.dart';
 import '../features/settings/presentation/tally_import_screen.dart';
 import '../features/settings/presentation/business_policy_settings_screen.dart';
@@ -158,6 +162,7 @@ import '../features/platform_admin/presentation/platform_admin_audit_screen.dart
 import '../features/platform_admin/data/platform_admin_auth_state.dart';
 import '../features/pharma/presentation/drug_licenses_screen.dart';
 import '../features/pharma/presentation/prescription_history_screen.dart';
+import '../features/pharma/presentation/statutory_registers_screen.dart';
 import '../features/loyalty/presentation/wallet_history_screen.dart';
 import '../features/workflow/presentation/approval_inbox_screen.dart';
 import '../features/payroll/presentation/employee_list_screen.dart';
@@ -284,7 +289,11 @@ class Routes {
   static const purchaseOrders = '/purchase-orders';
   static const purchaseOrderCreate = '/purchase-orders/create';
   static const purchaseOrderDetail = '/purchase-orders/:id';
+  static const rfq = '/procurement/rfq';
+  static const rateContracts = '/procurement/rate-contracts';
   static const payables = '/payables';
+  // 3-Way Match Inbox (AP control surface for PO ↔ GRN ↔ Bill exceptions)
+  static const threeWayMatch = '/ap/three-way-match';
   // Debit Notes (Purchase Returns)
   static const debitNotes = '/debit-notes';
   static const debitNoteCreate = '/debit-notes/create';
@@ -371,6 +380,7 @@ class Routes {
   static const budgets = '/settings/budgets';
   static const tallyImport = '/settings/tally-import';
   static const portalUsers = '/settings/portal-users';
+  static const navCustomisation = '/settings/nav-customisation';
   // Onboarding wizard
   static const onboardingBusinessType = '/onboarding/business-type';
   static const onboardingIndustry = '/onboarding/industry';
@@ -404,6 +414,7 @@ class Routes {
   static const accountPendingApproval = '/account-pending-approval';
   // Pharma features
   static const drugLicenses = '/pharma/drug-licenses';
+  static const statutoryRegisters = '/pharma/statutory-registers';
   static const prescriptionHistory = '/pharma/prescriptions/:contactId';
   static String prescriptionHistoryPath(String contactId) =>
       '/pharma/prescriptions/$contactId';
@@ -1664,6 +1675,13 @@ final routerProvider = Provider<GoRouter>((ref) {
               child: DrugLicensesScreen(),
             ),
           ),
+          // Pharma — Statutory Registers (Schedule H1 / X / Narcotics)
+          GoRoute(
+            path: Routes.statutoryRegisters,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: StatutoryRegistersScreen(),
+            ),
+          ),
           // Pharma — Prescription History (per patient)
           GoRoute(
             path: Routes.prescriptionHistory,
@@ -1779,6 +1797,20 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/purchase-orders/:id',
             builder: (context, state) => PurchaseOrderDetailScreen(
               poId: state.pathParameters['id']!,
+            ),
+          ),
+          // RFQ / Supplier quotation compare
+          GoRoute(
+            path: Routes.rfq,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RfqScreen(),
+            ),
+          ),
+          // Supplier rate contracts
+          GoRoute(
+            path: Routes.rateContracts,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RateContractsScreen(),
             ),
           ),
           // Debit Notes (Purchase Returns)
@@ -1900,6 +1932,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/bills/:id',
             builder: (context, state) => BillDetailScreen(
               billId: state.pathParameters['id']!,
+            ),
+          ),
+          // AP — 3-Way Match Inbox (PO ↔ GRN ↔ Bill exceptions + settings)
+          GoRoute(
+            path: Routes.threeWayMatch,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ThreeWayMatchInboxScreen(),
             ),
           ),
           // AP — Vendor Payments
@@ -2057,6 +2096,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.portalUsers,
             builder: (context, state) => const PortalUsersScreen(),
           ),
+          GoRoute(
+            path: Routes.navCustomisation,
+            builder: (context, state) => const NavCustomisationScreen(),
+          ),
         ],
       ),
     ],
@@ -2127,6 +2170,7 @@ String? _capabilityRedirectForLocation(
     return Routes.dashboard;
   }
   if ((location == Routes.drugLicenses ||
+          location == Routes.statutoryRegisters ||
           location.startsWith('/pharma/prescriptions/')) &&
       !capabilities.canUsePharma) {
     return Routes.dashboard;

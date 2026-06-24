@@ -20,6 +20,7 @@ import com.katasticho.erp.ar.repository.TaxLineItemRepository;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.expense.entity.Expense;
 import com.katasticho.erp.inventory.entity.Item;
+import com.katasticho.erp.inventory.service.CostResolverService;
 import com.katasticho.erp.pos.entity.PaymentMode;
 import com.katasticho.erp.pos.entity.SalesReceipt;
 import com.katasticho.erp.pos.entity.SalesReceiptLine;
@@ -47,6 +48,7 @@ public class AccountingPostingEngine {
     private final TaxLineItemRepository taxLineItemRepository;
     private final AccountRepository accountRepository;
     private final SalesInvoicePostingRule salesInvoicePostingRule;
+    private final CostResolverService costResolverService;
 
     // ── Sales Invoice ──────────────────────────────────────────
 
@@ -88,18 +90,38 @@ public class AccountingPostingEngine {
                     tli.getComponentCode(), null));
         }
 
-        // DR COGS / CR Inventory for tracked items
-        BigDecimal totalCost = BigDecimal.ZERO;
+        // DR COGS / CR Inventory (real) + DR COGS / CR Stock-Out Suspense (provisional)
+        // for tracked items. Items with a known purchase price take the real path;
+        // items without (the "bill-freely" case — typical first-day shop) take the
+        // provisional path so revenue and COGS book in the same period instead of
+        // revenue at sale and COGS quietly skipped. The Stock-Out Suspense leg is
+        // closed out later by ProvisionalCostReconciler when the GRN lands.
+        BigDecimal realCogs = BigDecimal.ZERO;
+        BigDecimal provisionalCogs = BigDecimal.ZERO;
         for (SalesReceiptLine line : receipt.getLines()) {
             if (line.getItemId() == null) continue;
             Item item = itemMap.get(line.getItemId());
             if (item == null || !item.isTrackInventory()) continue;
-            if (item.getPurchasePrice() == null || item.getPurchasePrice().compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            CostResolverService.CostBasis basis = costResolverService.resolve(item, orgId);
+            if (basis == null) continue;  // no cost basis at all — preserve legacy skip
+
             BigDecimal qty = line.getBaseQuantity() != null ? line.getBaseQuantity() : line.getQuantity();
-            totalCost = totalCost.add(
-                    item.getPurchasePrice().multiply(qty).setScale(2, RoundingMode.HALF_UP));
+            BigDecimal lineCost = basis.unitCost().multiply(qty).setScale(2, RoundingMode.HALF_UP);
+            if (basis.provisional()) {
+                provisionalCogs = provisionalCogs.add(lineCost);
+            } else {
+                realCogs = realCogs.add(lineCost);
+            }
         }
-        appendCogsLines(lines, orgId, receipt.getReceiptNumber(), totalCost);
+        if (realCogs.signum() > 0) {
+            appendCogsLines(lines, orgId, receipt.getReceiptNumber(), realCogs,
+                    DefaultAccountPurpose.INVENTORY_ASSET, "Inventory");
+        }
+        if (provisionalCogs.signum() > 0) {
+            appendCogsLines(lines, orgId, receipt.getReceiptNumber(), provisionalCogs,
+                    DefaultAccountPurpose.STOCK_OUT_SUSPENSE, "Stock-Out Suspense (provisional)");
+        }
 
         return journalService.postJournal(new JournalPostRequest(
                 receipt.getReceiptDate(),
@@ -494,19 +516,36 @@ public class AccountingPostingEngine {
     // ── Shared helpers ─────────────────────────────────────────
 
     private void appendCogsLines(List<JournalLineRequest> lines, UUID orgId,
-                                  String docNumber, BigDecimal totalCost) {
+                                  String docNumber, BigDecimal totalCost,
+                                  DefaultAccountPurpose creditPurpose, String creditLabel) {
         if (totalCost.compareTo(BigDecimal.ZERO) <= 0) return;
         try {
             String cogsCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.COGS);
-            String inventoryCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.INVENTORY_ASSET);
+            String creditCode = defaultAccountService.getCode(orgId, creditPurpose);
             lines.add(new JournalLineRequest(
                     cogsCode, totalCost, BigDecimal.ZERO,
                     "COGS: " + docNumber, null, null));
             lines.add(new JournalLineRequest(
-                    inventoryCode, BigDecimal.ZERO, totalCost,
-                    "Inventory: " + docNumber, null, null));
+                    creditCode, BigDecimal.ZERO, totalCost,
+                    creditLabel + ": " + docNumber, null, null));
         } catch (BusinessException e) {
-            log.warn("COGS/Inventory accounts not configured — skipping: {}", e.getMessage());
+            // STOCK_OUT_SUSPENSE missing means the bill-freely V5 fix is broken
+            // for this org — silently dropping the provisional COGS would
+            // recreate the exact hole V5 was designed to close (revenue books,
+            // COGS doesn't, profit overstated forever). Force the operator to
+            // repair the CoA. The real-COGS path (INVENTORY_ASSET) keeps the
+            // legacy log-and-skip so existing orgs with custom CoAs that lack
+            // a 1200 don't suddenly start failing.
+            if (creditPurpose == DefaultAccountPurpose.STOCK_OUT_SUSPENSE) {
+                throw new BusinessException(
+                        "Stock-Out Suspense account (2042) is missing from the chart of accounts "
+                                + "for this org — provisional COGS for bill-freely sales cannot "
+                                + "post until it is seeded. Re-run the CoA template seed or "
+                                + "configure the STOCK_OUT_SUSPENSE default account in settings.",
+                        "POS_PROVISIONAL_SUSPENSE_MISSING",
+                        org.springframework.http.HttpStatus.PRECONDITION_FAILED);
+            }
+            log.warn("COGS/{} accounts not configured — skipping: {}", creditPurpose, e.getMessage());
         }
     }
 

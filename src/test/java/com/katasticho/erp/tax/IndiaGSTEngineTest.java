@@ -39,7 +39,12 @@ class IndiaGSTEngineTest {
 
     @BeforeEach
     void setUp() {
-        engine = new GenericTaxEngine(groupRepository, groupRateRepository, rateRepository, accountRepository);
+        com.katasticho.erp.common.money.MoneyPrecisionService precision =
+                org.mockito.Mockito.mock(com.katasticho.erp.common.money.MoneyPrecisionService.class);
+        org.mockito.Mockito.lenient()
+                .when(precision.decimalsForOrg(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(2);
+        engine = new GenericTaxEngine(groupRepository, groupRateRepository, rateRepository, accountRepository, precision);
         orgId = UUID.randomUUID();
     }
 

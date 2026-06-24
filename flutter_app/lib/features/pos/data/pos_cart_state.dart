@@ -31,6 +31,7 @@ class CartItem {
   final bool isFreeItem;
   // Pharmacy
   final String? prescriptionNumber;
+  final bool prescriptionRequired;
   final String? composition;
   final String? manufacturer;
 
@@ -62,6 +63,7 @@ class CartItem {
     this.appliedSchemeName,
     this.isFreeItem = false,
     this.prescriptionNumber,
+    this.prescriptionRequired = false,
     this.composition,
     this.manufacturer,
   });
@@ -121,6 +123,8 @@ class CartItem {
     String? appliedSchemeName,
     bool? isFreeItem,
     String? prescriptionNumber,
+    bool clearPrescriptionNumber = false,
+    bool? prescriptionRequired,
     String? composition,
     String? manufacturer,
   }) {
@@ -151,7 +155,11 @@ class CartItem {
       appliedSchemeId: appliedSchemeId ?? this.appliedSchemeId,
       appliedSchemeName: appliedSchemeName ?? this.appliedSchemeName,
       isFreeItem: isFreeItem ?? this.isFreeItem,
-      prescriptionNumber: prescriptionNumber ?? this.prescriptionNumber,
+      prescriptionNumber: clearPrescriptionNumber
+          ? null
+          : (prescriptionNumber ?? this.prescriptionNumber),
+      prescriptionRequired:
+          prescriptionRequired ?? this.prescriptionRequired,
       composition: composition ?? this.composition,
       manufacturer: manufacturer ?? this.manufacturer,
     );
@@ -347,6 +355,21 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
   /// Set exact quantity for item at index (from manual qty entry).
   void setQuantity(int index, double quantity) {
     updateQuantity(index, quantity);
+  }
+
+  /// Update the prescription number on a cart line. Pass null OR an empty
+  /// string to clear it (the cart line will then show "Rx required" again
+  /// for Rx-required items).
+  void setPrescriptionNumber(int index, String? rxNumber) {
+    if (index < 0 || index >= state.items.length) return;
+    final updated = List<CartItem>.from(state.items);
+    final trimmed = rxNumber?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      updated[index] = updated[index].copyWith(clearPrescriptionNumber: true);
+    } else {
+      updated[index] = updated[index].copyWith(prescriptionNumber: trimmed);
+    }
+    state = state.copyWith(items: updated);
   }
 
   /// Increment quantity for item at index.

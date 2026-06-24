@@ -21,5 +21,7 @@ public record CreateStockReceiptRequest(
         BigDecimal dutyAmount,
         BigDecimal insuranceAmount,
         BigDecimal otherCharges,
+        // Optional source PO — set when GRN was drafted via createGrnFromPo.
+        UUID purchaseOrderId,
         @NotEmpty @Valid List<StockReceiptLineRequest> lines
 ) {}

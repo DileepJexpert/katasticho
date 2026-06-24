@@ -135,6 +135,9 @@ class _PosCartListState extends ConsumerState<PosCartList> {
                 onDiscountChanged: item.isFreeItem ? null : (pct) {
                   ref.read(posCartProvider.notifier).setDiscount(index, pct);
                 },
+                onPrescriptionTap: item.prescriptionRequired
+                    ? () => _editPrescription(context, ref, index, item)
+                    : null,
               );
             },
           ),
@@ -175,5 +178,92 @@ class _PosCartListState extends ConsumerState<PosCartList> {
     return qty == qty.roundToDouble()
         ? qty.toInt().toString()
         : qty.toStringAsFixed(1);
+  }
+
+  /// Opens a small bottom sheet to set / clear the prescription number on
+  /// a cart line. Non-blocking — cashier can dismiss without entering one.
+  void _editPrescription(
+      BuildContext context, WidgetRef ref, int index, CartItem item) {
+    final controller =
+        TextEditingController(text: item.prescriptionNumber ?? '');
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetCtx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                const Icon(Icons.medical_information_outlined,
+                    color: Color(0xFFB71C1C), size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: Text('Prescription for ${item.name}',
+                        style: KTypography.h3)),
+              ]),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Prescription No.',
+                  hintText: 'Enter Rx number (optional)',
+                  border: OutlineInputBorder(),
+                ),
+                onSubmitted: (val) {
+                  ref
+                      .read(posCartProvider.notifier)
+                      .setPrescriptionNumber(index, val);
+                  Navigator.pop(sheetCtx);
+                },
+              ),
+              const SizedBox(height: 12),
+              Text(
+                  'You can leave this empty — it can be filled later, or never if the customer is a regular.',
+                  style: KTypography.bodySmall
+                      .copyWith(color: KColors.textSecondary)),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      ref
+                          .read(posCartProvider.notifier)
+                          .setPrescriptionNumber(index, null);
+                      Navigator.pop(sheetCtx);
+                    },
+                    child: const Text('Clear'),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () => Navigator.pop(sheetCtx),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      ref
+                          .read(posCartProvider.notifier)
+                          .setPrescriptionNumber(index, controller.text);
+                      Navigator.pop(sheetCtx);
+                    },
+                    child: const Text('Save'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

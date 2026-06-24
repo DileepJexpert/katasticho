@@ -26,6 +26,7 @@ import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
 import com.katasticho.erp.inventory.service.BatchService;
+import com.katasticho.erp.inventory.service.CostResolverService;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
@@ -87,6 +88,7 @@ public class SalesReceiptService {
     private final AccountingPostingEngine postingEngine;
     private final InventoryService inventoryService;
     private final BatchService batchService;
+    private final CostResolverService costResolverService;
     private final TaxEngine taxEngine;
     private final AuditService auditService;
     private final CacheInvalidationService cacheInvalidationService;
@@ -99,6 +101,9 @@ public class SalesReceiptService {
     // which depend back on this service - the common edge of both cycles.
     @org.springframework.context.annotation.Lazy
     private final com.katasticho.erp.notification.whatsapp.WhatsAppDocumentService whatsAppDocumentService;
+    // Statutory pharma registers (H1 / Schedule X / Narcotics) — auto-populated
+    // after stock deduction. No cycle: the register only reads receipt + items.
+    private final com.katasticho.erp.pharma.register.StatutoryRegisterService statutoryRegisterService;
 
     @Transactional
     public SalesReceiptResponse create(CreateSalesReceiptRequest request) {
@@ -302,6 +307,21 @@ public class SalesReceiptService {
         // 6. Deduct stock for tracked items
         deductStock(receipt, itemMap);
 
+        // 6b. Statutory pharma registers (H1 / Schedule X / Narcotics) — Rule
+        // 65(11)(h) D&C Rules. Best-effort: non-business failures are logged
+        // and swallowed so a register-writer bug never wedges a sale.
+        // BusinessException (e.g. RX_PRESCRIPTION_REQUIRED under
+        // pharma.h1_strict=true) is intentionally allowed to bubble so the
+        // transaction rolls the receipt back.
+        try {
+            statutoryRegisterService.recordSaleEntries(receipt, itemMap);
+        } catch (BusinessException be) {
+            throw be;
+        } catch (Exception ex) {
+            log.warn("Statutory register write failed for receipt {}: {}",
+                    receipt.getReceiptNumber(), ex.getMessage(), ex);
+        }
+
         auditService.log("SALES_RECEIPT", receipt.getId(), "CREATE", null,
                 "{\"receiptNumber\":\"" + receiptNumber + "\",\"total\":\"" + total + "\"}");
 
@@ -377,18 +397,32 @@ public class SalesReceiptService {
             BigDecimal stockQty = line.getBaseQuantity() != null
                     ? line.getBaseQuantity() : line.getQuantity();
 
+            // Resolve the unit cost the movement should carry. Previously this
+            // passed line.getRate() (the SALE price) — which had no business
+            // showing up as a cost. With V5 the resolver gives us either the
+            // real purchase price (non-provisional) or MRP/salePrice × (1−margin)
+            // (provisional). When neither is available, fall back to ZERO BUT
+            // still flag the movement as provisional — the GRN reconciler then
+            // picks it up and books the true COGS (variance from 0 = full cost).
+            // Without this flag the bill-freely V5 hole would stay open forever
+            // for items whose MRP/salePrice happen to be unset at sale time.
+            CostResolverService.CostBasis basis = costResolverService.resolve(item, orgId);
+            BigDecimal unitCost = basis != null ? basis.unitCost() : BigDecimal.ZERO;
+            boolean costProvisional = (basis == null) || basis.provisional();
+
             StockMovementRequest req = new StockMovementRequest(
                     line.getItemId(),
                     warehouse.getId(),
                     MovementType.SALE,
                     stockQty.negate(),
-                    line.getRate(),
+                    unitCost,
                     receipt.getReceiptDate(),
                     ReferenceType.SALES_RECEIPT,
                     receipt.getId(),
                     receipt.getReceiptNumber(),
                     "POS Sale " + receipt.getReceiptNumber(),
-                    batchId);
+                    batchId,
+                    costProvisional);
 
             StockMovement movement = inventoryService.recordMovement(req);
             line.setStockMovementId(movement.getId());

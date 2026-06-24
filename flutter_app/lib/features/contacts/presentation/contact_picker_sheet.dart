@@ -8,9 +8,21 @@ import '../data/contact_repository.dart';
 
 /// Modal contact picker. Returns the selected contact map
 /// (with id, displayName, phone, etc.) or null if cancelled.
+///
+/// [contactType] filters the empty-state list (e.g. 'CUSTOMER' or 'VENDOR').
+/// When the user types a search query the backend ignores the type filter
+/// (a known backend limitation), so we apply a client-side filter to keep
+/// only contacts whose `contactType` matches the requested type or is
+/// 'BOTH'. Pass `contactType: null` to list everything.
+///
+/// Vendor pickers (RFQ, rate contracts, supplier pickers) should pass
+/// `contactType: 'VENDOR'` — that returns Contacts of type VENDOR or BOTH,
+/// which is what the backend RFQ + rate contract validators require.
 Future<Map<String, dynamic>?> showContactPicker(
   BuildContext context, {
   bool showQuickCreate = false,
+  String contactType = 'CUSTOMER',
+  String? title,
 }) {
   return showModalBottomSheet<Map<String, dynamic>>(
     context: context,
@@ -27,6 +39,8 @@ Future<Map<String, dynamic>?> showContactPicker(
       builder: (ctx, scrollController) => _ContactPickerSheet(
         scrollController: scrollController,
         showQuickCreate: showQuickCreate,
+        contactType: contactType,
+        title: title,
       ),
     ),
   );
@@ -35,9 +49,13 @@ Future<Map<String, dynamic>?> showContactPicker(
 class _ContactPickerSheet extends ConsumerStatefulWidget {
   final ScrollController scrollController;
   final bool showQuickCreate;
+  final String contactType;
+  final String? title;
   const _ContactPickerSheet({
     required this.scrollController,
     this.showQuickCreate = false,
+    this.contactType = 'CUSTOMER',
+    this.title,
   });
 
   @override
@@ -59,7 +77,7 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
     final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => const _QuickCreateCustomerSheet(),
+      builder: (_) => _QuickCreateCustomerSheet(contactType: widget.contactType),
     );
     if (result != null && mounted) {
       Navigator.pop(context, result);
@@ -68,8 +86,8 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final contactsAsync =
-        ref.watch(contactSearchProvider((type: 'CUSTOMER', search: _query)));
+    final contactsAsync = ref.watch(
+        contactSearchProvider((type: widget.contactType, search: _query)));
 
     return Padding(
       padding: EdgeInsets.only(
@@ -88,9 +106,10 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
                   children: [
                     Expanded(
                       child: Text(
-                        widget.showQuickCreate
-                            ? 'Customer (optional — leave empty for walk-in)'
-                            : 'Select Customer',
+                        widget.title ??
+                            (widget.showQuickCreate
+                                ? 'Customer (optional — leave empty for walk-in)'
+                                : _defaultTitle(widget.contactType)),
                         style: KTypography.h4,
                       ),
                     ),
@@ -130,13 +149,29 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
               },
               data: (data) {
                 final content = data['data'];
-                final contacts = content is List
+                final rawContacts = content is List
                     ? content
                     : (content is Map
                         ? (content['content'] as List?) ?? []
                         : []);
+                // Backend ignores `type` when a `search` query is set, so
+                // we filter client-side. Match either the exact type or
+                // BOTH (a contact that's both customer and vendor is a
+                // valid pick on either side of the ledger).
+                final contacts = _query == null
+                    ? rawContacts
+                    : rawContacts.where((c) {
+                        if (c is! Map) return false;
+                        final t = c['contactType']?.toString().toUpperCase();
+                        return t == widget.contactType.toUpperCase() ||
+                            t == 'BOTH';
+                      }).toList();
 
                 if (contacts.isEmpty) {
+                  final noun =
+                      widget.contactType.toUpperCase() == 'VENDOR'
+                          ? 'vendors'
+                          : 'customers';
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -145,7 +180,7 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
                         children: [
                           Text(
                             _query == null
-                                ? 'No customers yet'
+                                ? 'No $noun yet'
                                 : 'No matches for "$_query"',
                             style: KTypography.bodyMedium,
                           ),
@@ -154,7 +189,8 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
                             FilledButton.icon(
                               onPressed: _quickCreateCustomer,
                               icon: const Icon(Icons.person_add),
-                              label: const Text('Create New Customer'),
+                              label: Text(
+                                  'Create New ${widget.contactType.toUpperCase() == 'VENDOR' ? 'Vendor' : 'Customer'}'),
                             ),
                           ],
                         ],
@@ -207,6 +243,17 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
     );
   }
 
+  String _defaultTitle(String type) {
+    switch (type.toUpperCase()) {
+      case 'VENDOR':
+        return 'Select Vendor';
+      case 'CUSTOMER':
+        return 'Select Customer';
+      default:
+        return 'Select Contact';
+    }
+  }
+
   String _contactName(Map<String, dynamic> contact) {
     for (final key in const [
       'displayName',
@@ -226,9 +273,12 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
   }
 }
 
-/// Minimal quick-create customer sheet for POS flow.
+/// Minimal quick-create contact sheet (works for both CUSTOMER and VENDOR
+/// — the type is passed through to the POST so the backend stores it
+/// correctly).
 class _QuickCreateCustomerSheet extends ConsumerStatefulWidget {
-  const _QuickCreateCustomerSheet();
+  final String contactType;
+  const _QuickCreateCustomerSheet({this.contactType = 'CUSTOMER'});
 
   @override
   ConsumerState<_QuickCreateCustomerSheet> createState() =>
@@ -264,7 +314,7 @@ class _QuickCreateCustomerSheetState
       final repo = ref.read(contactRepositoryProvider);
       final response = await repo.createContact({
         'displayName': name,
-        'contactType': 'CUSTOMER',
+        'contactType': widget.contactType.toUpperCase(),
         if (_phoneController.text.trim().isNotEmpty)
           'phone': _phoneController.text.trim(),
       });
@@ -295,7 +345,11 @@ class _QuickCreateCustomerSheetState
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('New Customer', style: KTypography.h3),
+          Text(
+              widget.contactType.toUpperCase() == 'VENDOR'
+                  ? 'New Vendor'
+                  : 'New Customer',
+              style: KTypography.h3),
           KSpacing.vGapMd,
           KTextField(
             label: 'Display Name *',

@@ -16,6 +16,7 @@ import '../data/bill_providers.dart';
 import '../data/bill_repository.dart';
 import 'widgets/bill_status_chip.dart';
 import 'widgets/record_payment_bottom_sheet.dart';
+import '../../ap/presentation/widgets/three_way_match_detail_sheet.dart';
 
 class BillDetailScreen extends ConsumerWidget {
   final String billId;
@@ -321,6 +322,12 @@ class _BillDetailBody extends ConsumerWidget {
             icon: Icons.request_quote_rounded,
           ),
 
+          // 3-Way Match banner (PO link + match status + drill-in).
+          // Renders only when the bill carries any of these fields — direct
+          // bills (no PO behind them, no match status yet) keep the legacy
+          // header shape.
+          _ThreeWayMatchBanner(billId: billId, bill: bill),
+
           // Tabs
           const TabBar(
             tabs: [
@@ -571,6 +578,104 @@ class _PaymentsTab extends ConsumerWidget {
           },
         );
       },
+    );
+  }
+}
+
+/// Small banner shown under the bill header that surfaces:
+/// 1. The linked PO number (if any) — appears as monospace `PO-00042`
+///    so the planner can trace the bill back to its source PO at a glance.
+/// 2. The 3-way match status chip (MATCHED / EXCEPTION / BYPASSED /
+///    OVERRIDDEN) — driven by `three_way_match_status` field that the
+///    backend stamps in `ThreeWayMatchService.match`.
+/// 3. A "View match details" button that opens the shared
+///    [ThreeWayMatchDetailSheet] for per-line variance drill-in.
+///
+/// Hidden entirely for bills with neither a linked PO nor a match status —
+/// keeps the legacy direct-bill header byte-for-byte unchanged.
+class _ThreeWayMatchBanner extends StatelessWidget {
+  final String billId;
+  final Map<String, dynamic> bill;
+  const _ThreeWayMatchBanner({required this.billId, required this.bill});
+
+  @override
+  Widget build(BuildContext context) {
+    final poId = bill['purchaseOrderId']?.toString();
+    final poNumber = bill['purchaseOrderNumber']?.toString();
+    final matchStatus = bill['threeWayMatchStatus']?.toString() ??
+        bill['three_way_match_status']?.toString();
+    final hasPo = poId != null && poId.isNotEmpty;
+    final hasStatus = matchStatus != null && matchStatus.isNotEmpty;
+    if (!hasPo && !hasStatus) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          KSpacing.md, KSpacing.sm, KSpacing.md, 0),
+      child: KCard(
+        padding: const EdgeInsets.symmetric(
+            horizontal: KSpacing.sm, vertical: KSpacing.sm),
+        child: Row(
+          children: [
+            Icon(Icons.fact_check_outlined,
+                size: 18, color: KColors.textSecondary),
+            const SizedBox(width: KSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (hasPo)
+                    Text.rich(
+                      TextSpan(
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary),
+                        children: [
+                          const TextSpan(text: 'From PO: '),
+                          TextSpan(
+                            text: poNumber ?? poId,
+                            style: KTypography.mono(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (!hasStatus)
+                    Padding(
+                      padding: const EdgeInsets.only(top: KSpacing.xxs),
+                      child: Text(
+                        '3-way match not yet run',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (hasStatus) ...[
+              KStatusChip(status: matchStatus),
+              const SizedBox(width: KSpacing.sm),
+              KButton(
+                label: 'View match',
+                variant: KButtonVariant.text,
+                size: KButtonSize.small,
+                icon: Icons.open_in_new_rounded,
+                onPressed: () => ThreeWayMatchDetailSheet.show(
+                  context,
+                  billId,
+                ),
+              ),
+            ] else
+              KButton(
+                label: 'Run match',
+                variant: KButtonVariant.text,
+                size: KButtonSize.small,
+                icon: Icons.play_arrow_rounded,
+                onPressed: () => ThreeWayMatchDetailSheet.show(
+                  context,
+                  billId,
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
