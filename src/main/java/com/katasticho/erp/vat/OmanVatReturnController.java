@@ -1,9 +1,12 @@
 package com.katasticho.erp.vat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.katasticho.erp.common.country.RequiresCountry;
 import com.katasticho.erp.common.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,6 +41,7 @@ import java.time.LocalDate;
 public class OmanVatReturnController {
 
     private final VatReturnService vatReturnService;
+    private final ObjectMapper objectMapper;
 
     /**
      * Generate the Oman VAT return box rollups for a date window.
@@ -51,5 +55,23 @@ public class OmanVatReturnController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
         return ResponseEntity.ok(ApiResponse.ok(vatReturnService.vatReturn(fromDate, toDate)));
+    }
+
+    /**
+     * Download the same box rollups as a pretty-printed JSON file for OTA
+     * eFiling reference. Mirror of the UAE {@code /return/export} endpoint.
+     */
+    @GetMapping("/return/export")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<byte[]> exportOmanReturn(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) throws Exception {
+        VatReturnService.VatReturn data = vatReturnService.vatReturn(fromDate, toDate);
+        byte[] json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(data);
+        String filename = String.format("VAT_OM_%s_%s.json", fromDate, toDate);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(json);
     }
 }
