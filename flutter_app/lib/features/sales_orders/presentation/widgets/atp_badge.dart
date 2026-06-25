@@ -118,13 +118,13 @@ class _AtpBadgeState extends ConsumerState<AtpBadge> {
 
     switch (status) {
       case 'ATP_OK':
-        bg = KColors.success.withOpacity(0.10);
+        bg = KColors.success.withValues(alpha: 0.10);
         fg = KColors.success;
         icon = Icons.check_circle_outline;
         text = 'Available now';
         break;
       case 'ATP_PARTIAL':
-        bg = KColors.warning.withOpacity(0.12);
+        bg = KColors.warning.withValues(alpha: 0.12);
         fg = KColors.warning;
         icon = Icons.error_outline;
         final etaPart = eta != null && eta.isNotEmpty ? ' · ETA $eta' : '';
@@ -133,7 +133,7 @@ class _AtpBadgeState extends ConsumerState<AtpBadge> {
             : '${_fmt(availableNow)} available now';
         break;
       case 'ATP_BACKORDER':
-        bg = KColors.error.withOpacity(0.10);
+        bg = KColors.error.withValues(alpha: 0.10);
         fg = KColors.error;
         icon = Icons.cancel_outlined;
         text = eta != null && eta.isNotEmpty
