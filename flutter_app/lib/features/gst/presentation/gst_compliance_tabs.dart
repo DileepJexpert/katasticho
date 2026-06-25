@@ -821,6 +821,35 @@ class _TdsTabState extends ConsumerState<TdsTab> {
     await Share.share(pretty, subject: 'Form 26Q data — Q$_quarter FY $_fy');
   }
 
+  Future<void> _download26qCsv() async {
+    final deductees = (_data?['deductees'] as List?) ?? const [];
+    if (deductees.isEmpty) return;
+    final rows = <String>[
+      'Deductee Name,PAN,Section,Bills,Amount Paid,TDS Deducted',
+    ];
+    for (final raw in deductees) {
+      final d = Map<String, dynamic>.from(raw as Map);
+      rows.add([
+        _csv(d['deducteeName']?.toString() ?? ''),
+        _csv(d['deducteePan']?.toString() ?? ''),
+        _csv(d['section']?.toString() ?? ''),
+        '${d['billCount'] ?? 0}',
+        '${(d['amountPaid'] as num?)?.toDouble() ?? 0}',
+        '${(d['tdsDeducted'] as num?)?.toDouble() ?? 0}',
+      ].join(','));
+    }
+    await Share.share(rows.join('\n'),
+        subject: 'Form-26Q-Q$_quarter-FY$_fy.csv');
+  }
+
+  /// CSV-escape a value (quote when it contains a comma/quote/newline).
+  String _csv(String v) {
+    if (v.contains(',') || v.contains('"') || v.contains('\n')) {
+      return '"${v.replaceAll('"', '""')}"';
+    }
+    return v;
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = _data;
@@ -960,10 +989,24 @@ class _TdsTabState extends ConsumerState<TdsTab> {
           KSpacing.vGapSm,
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: deductees.isEmpty ? null : _share26q,
-              icon: const Icon(Icons.ios_share, size: 16),
-              label: const Text('Share 26Q data (JSON)'),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: deductees.isEmpty ? null : _download26qCsv,
+                    icon: const Icon(Icons.table_view, size: 16),
+                    label: const Text('CSV'),
+                  ),
+                ),
+                KSpacing.hGapSm,
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: deductees.isEmpty ? null : _share26q,
+                    icon: const Icon(Icons.ios_share, size: 16),
+                    label: const Text('JSON'),
+                  ),
+                ),
+              ],
             ),
           ),
           KSpacing.vGapMd,
