@@ -200,6 +200,7 @@ import '../features/field_sales/presentation/route_execution_screen.dart';
 import '../features/field_sales/presentation/route_execution_detail_screen.dart';
 import '../features/field_sales/presentation/day_close_screen.dart';
 import '../features/field_sales/presentation/salesman_dashboard_screen.dart';
+import '../features/field_sales/presentation/salesman_targets_screen.dart';
 import '../features/partner_network/presentation/partner_list_screen.dart';
 import '../features/partner_network/presentation/catalog_list_screen.dart';
 import '../features/partner_network/presentation/supplier_search_screen.dart';
@@ -471,6 +472,7 @@ class Routes {
   static const fieldSalesSecondarySales = '/field-sales/secondary-sales';
   static const fieldSalesRcpa = '/field-sales/rcpa';
   static const fieldSalesOrgChart = '/field-sales/org-chart';
+  static const fieldSalesTargets = '/field-sales/targets';
 
   // Partner Network (B2B)
   static const partnerNetworkPartners = '/partner-network/partners';
@@ -1375,6 +1377,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.fieldSalesRcpa,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: RcpaScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesTargets,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SalesmanTargetsScreen(),
             ),
           ),
           GoRoute(

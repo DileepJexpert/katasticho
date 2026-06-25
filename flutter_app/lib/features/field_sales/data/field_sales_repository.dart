@@ -218,6 +218,13 @@ class FieldSalesRepository {
         .toList();
   }
 
+  // POST /targets — set a sales target for a salesperson over a period.
+  Future<Map<String, dynamic>> createTarget(Map<String, dynamic> payload) async {
+    final response =
+        await _api.post(ApiConfig.fieldSalesTargets, data: payload);
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
   // Backend exposes PUT /targets/{id}/achievement (no GET). Records the
   // achieved value against a target and returns the updated row.
   Future<Map<String, dynamic>> updateTargetAchievement(
