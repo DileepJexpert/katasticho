@@ -28,6 +28,10 @@ public class QcInspectionResult extends BaseEntity {
     @Column(name = "parameter_id", nullable = false)
     private UUID parameterId;
 
+    /** Resolved parameter name (not persisted) — populated on inspection responses. */
+    @Transient
+    private String parameterName;
+
     @Column(name = "measured_value")
     private String measuredValue;
 

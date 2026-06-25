@@ -117,13 +117,16 @@ class _QcInspectionDetailScreenState
                       _InfoRow('Ref. Type',
                           ins['referenceType'].toString()),
                     if (ins['referenceId'] != null)
-                      _InfoRow('Ref. ID',
-                          _truncate(ins['referenceId'].toString())),
-                    _InfoRow('Item ID',
-                        _truncate(ins['itemId']?.toString() ?? '')),
+                      _InfoRow('Reference',
+                          (ins['referenceLabel'] as String?) ??
+                              _truncate(ins['referenceId'].toString())),
+                    _InfoRow('Item',
+                        (ins['itemName'] as String?) ??
+                            _truncate(ins['itemId']?.toString() ?? '')),
                     if (ins['batchId'] != null)
-                      _InfoRow('Batch ID',
-                          _truncate(ins['batchId'].toString())),
+                      _InfoRow('Batch',
+                          (ins['batchNumber'] as String?) ??
+                              _truncate(ins['batchId'].toString())),
                     _InfoRow('Inspected Qty',
                         ins['inspectedQty']?.toString() ?? '0'),
                     if (ins['acceptedQty'] != null)
@@ -134,7 +137,8 @@ class _QcInspectionDetailScreenState
                           ins['rejectedQty'].toString()),
                     if (ins['inspectorId'] != null)
                       _InfoRow('Inspector',
-                          _truncate(ins['inspectorId'].toString())),
+                          (ins['inspectorName'] as String?) ??
+                              _truncate(ins['inspectorId'].toString())),
                     if (ins['inspectedAt'] != null)
                       _InfoRow('Inspected At',
                           _formatDate(ins['inspectedAt'].toString())),
@@ -444,10 +448,13 @@ class _ResultRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final paramName = result['parameterName']?.toString();
     final rawParamId = result['parameterId']?.toString() ?? '';
-    final paramId = rawParamId.length > 12
-        ? '${rawParamId.substring(0, 12)}...'
-        : rawParamId;
+    final paramId = (paramName != null && paramName.isNotEmpty)
+        ? paramName
+        : (rawParamId.length > 12
+            ? '${rawParamId.substring(0, 12)}...'
+            : rawParamId);
     final measuredValue = result['measuredValue']?.toString() ?? '';
     final numericValue = result['numericValue'];
     final isPassed = result['isPassed'] == true;

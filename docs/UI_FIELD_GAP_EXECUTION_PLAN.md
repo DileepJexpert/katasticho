@@ -24,8 +24,9 @@ Derived from `docs/UI_FIELD_GAP_AUDIT.md` (2026-06-24). This is the **work track
 - [x] **B2. Name resolution — pattern + SCM + Manufacturing done.** `@Transient` name field + cached resolve helper pattern (no migration — Hibernate ignores transient fields).
   - **SCM:** `SupplierPerformance.supplierName` (rankings/scorecard) + `ReorderPolicy.itemName` (ABC/reorder) → rankings show the real supplier (was literal `'Supplier'`); ABC list shows item names (was a UUID prefix).
   - **Manufacturing:** `WorkOrder.finishedGoodName` + `WorkOrderLine.itemName` resolved in `getWorkOrder`/`getWorkOrderByNumber`/`listWorkOrders` (list refactored to a thin name-resolving wrapper over `queryWorkOrders`); `JobCard.operationName`/`workstationName`/`assigneeName` resolved in `getJobCardsForWorkOrder` (RoutingService gained `AppUserRepository`). WO detail title now shows "WO-00042 · «FG name»", BOM lines show item names, WO list cards show the FG name, job-card title/sheet show operation/workstation names.
-  - **Verified:** `mvn compile` + `mvn test-compile` both clean; RoutingServiceTest manual constructor + SupplyChainServiceTest `@InjectMocks` updated for the new repo deps.
-  - **Remaining (same pattern):** QC inspection item/parameter/inspector names.
+  - **QC:** `QcInspection.itemName`/`inspectorName`/`batchNumber`/`referenceLabel` + `QcInspectionResult.parameterName` resolved in `getInspection` + `listInspections` (QualityControlService gained `AppUserRepository`). QC detail now names the item/inspector/batch/reference-WO and each result's parameter (was "Param: «uuid»").
+  - **Verified:** `mvn compile` + `mvn test-compile` clean; the three affected unit-test classes (QualityControl/Routing/SupplyChain) **pass**; their manual-constructor / `@InjectMocks` fixtures updated for the new repo deps.
+  - **B2 name-resolution surface from the audit is now complete.**
 - [x] **B3. Sidebar un-orphan pass** — added 7 NavItems: Manufacturing (CAPA, Workstation Load, Equipment Reliability, Production Analytics) + Inventory (Warehouse Zones, Batch Trace, Batch Recall). FSSAI was already food-gated in nav (stale audit claim). Per-entity "paste-an-id" tool screens intentionally deferred to detail-screen wiring (needs B1 rollout).
 
 ## Sprint C — India-core flows

@@ -56,6 +56,16 @@ public class QcInspection extends BaseEntity {
     @Column(name = "inspector_id")
     private UUID inspectorId;
 
+    /** Resolved display names (not persisted) — populated on inspection responses. */
+    @Transient
+    private String itemName;
+    @Transient
+    private String inspectorName;
+    @Transient
+    private String batchNumber;
+    @Transient
+    private String referenceLabel;
+
     @Column(name = "inspected_at")
     private Instant inspectedAt;
 

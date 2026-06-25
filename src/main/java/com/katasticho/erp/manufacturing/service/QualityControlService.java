@@ -12,6 +12,7 @@ import com.katasticho.erp.inventory.repository.WarehouseZoneRepository;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.manufacturing.entity.*;
 import com.katasticho.erp.manufacturing.repository.*;
+import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +52,7 @@ public class QualityControlService {
     private final ItemRepository itemRepository;
     private final StockBatchRepository stockBatchRepository;
     private final OrganisationRepository organisationRepository;
+    private final AppUserRepository appUserRepository;
 
     // ── Templates ─────────────────────────────────────────────────
 
@@ -135,14 +138,57 @@ public class QualityControlService {
 
     @Transactional(readOnly = true)
     public Page<QcInspection> listInspections(Pageable pageable) {
-        return inspectionRepository.findByOrgIdAndIsDeletedFalseOrderByCreatedAtDesc(
-                TenantContext.getCurrentOrgId(), pageable);
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Page<QcInspection> page = inspectionRepository
+                .findByOrgIdAndIsDeletedFalseOrderByCreatedAtDesc(orgId, pageable);
+        Map<UUID, String> itemCache = new HashMap<>();
+        for (QcInspection insp : page.getContent()) {
+            if (insp.getItemId() != null) {
+                insp.setItemName(itemCache.computeIfAbsent(insp.getItemId(), iid ->
+                        itemRepository.findByIdAndOrgIdAndIsDeletedFalse(iid, orgId)
+                                .map(i -> i.getName()).orElse(null)));
+            }
+        }
+        return page;
     }
 
     @Transactional(readOnly = true)
     public QcInspection getInspection(UUID id) {
-        return inspectionRepository.findByIdAndOrgIdAndIsDeletedFalse(id, TenantContext.getCurrentOrgId())
+        UUID orgId = TenantContext.getCurrentOrgId();
+        QcInspection insp = inspectionRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
                 .orElseThrow(() -> BusinessException.notFound("QcInspection", id));
+        resolveInspectionNames(insp, orgId);
+        return insp;
+    }
+
+    /** Populate transient display names on an inspection + its results (params cached). */
+    private void resolveInspectionNames(QcInspection insp, UUID orgId) {
+        if (insp == null) return;
+        if (insp.getItemId() != null) {
+            insp.setItemName(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(insp.getItemId(), orgId)
+                    .map(i -> i.getName()).orElse(null));
+        }
+        if (insp.getInspectorId() != null) {
+            insp.setInspectorName(appUserRepository.findByIdAndOrgIdAndIsDeletedFalse(insp.getInspectorId(), orgId)
+                    .map(u -> u.getFullName()).orElse(null));
+        }
+        if (insp.getBatchId() != null) {
+            insp.setBatchNumber(stockBatchRepository.findByIdAndOrgIdAndIsDeletedFalse(insp.getBatchId(), orgId)
+                    .map(b -> b.getBatchNumber()).orElse(null));
+        }
+        if (insp.getReferenceId() != null) {
+            insp.setReferenceLabel(workOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(insp.getReferenceId(), orgId)
+                    .map(w -> w.getWorkOrderNumber()).orElse(null));
+        }
+        if (insp.getResults() != null && !insp.getResults().isEmpty()) {
+            Map<UUID, String> paramNames = new HashMap<>();
+            for (QcInspectionResult r : insp.getResults()) {
+                if (r.getParameterId() != null) {
+                    r.setParameterName(paramNames.computeIfAbsent(r.getParameterId(), pid ->
+                            parameterRepository.findById(pid).map(p -> p.getName()).orElse(null)));
+                }
+            }
+        }
     }
 
     @Transactional

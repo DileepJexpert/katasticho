@@ -60,6 +60,7 @@ class QualityControlServiceTest {
     @Mock private ItemRepository itemRepository;
     @Mock private StockBatchRepository stockBatchRepository;
     @Mock private OrganisationRepository organisationRepository;
+    @Mock private com.katasticho.erp.auth.repository.AppUserRepository appUserRepository;
 
     private QualityControlService service;
 
@@ -73,7 +74,7 @@ class QualityControlServiceTest {
         service = new QualityControlService(
                 templateRepository, parameterRepository, inspectionRepository, resultRepository,
                 ncrRepository, inventoryService, workOrderRepository, warehouseZoneRepository,
-                itemRepository, stockBatchRepository, organisationRepository);
+                itemRepository, stockBatchRepository, organisationRepository, appUserRepository);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
