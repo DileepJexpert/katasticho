@@ -5,6 +5,7 @@ import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.inventory.entity.StockBalance;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
+import com.katasticho.erp.procurement.repository.SupplierRepository;
 import com.katasticho.erp.supplychain.entity.*;
 import com.katasticho.erp.supplychain.repository.*;
 import jakarta.persistence.EntityManager;
@@ -38,6 +39,7 @@ public class SupplyChainService {
     private final SupplyChainAlertRepository alertRepo;
     private final StockBalanceRepository stockBalanceRepo;
     private final ItemRepository itemRepo;
+    private final SupplierRepository supplierRepo;
     private final EntityManager em;
 
     // ──────────────────────────────────────────────
@@ -443,17 +445,37 @@ public class SupplyChainService {
             policy.setLastCalculated(Instant.now());
             results.add(reorderPolicyRepo.save(policy));
         }
+        resolveItemNames(results, orgId);
         return results;
     }
 
     public List<ReorderPolicy> getReorderPolicies() {
-        return reorderPolicyRepo.findByOrgIdAndIsDeletedFalseOrderByAbcClassAsc(
-                TenantContext.getCurrentOrgId());
+        UUID orgId = TenantContext.getCurrentOrgId();
+        List<ReorderPolicy> rows =
+                reorderPolicyRepo.findByOrgIdAndIsDeletedFalseOrderByAbcClassAsc(orgId);
+        resolveItemNames(rows, orgId);
+        return rows;
     }
 
     public List<ReorderPolicy> getByAbcClass(String abcClass) {
-        return reorderPolicyRepo.findByOrgIdAndAbcClassAndIsDeletedFalse(
-                TenantContext.getCurrentOrgId(), abcClass);
+        UUID orgId = TenantContext.getCurrentOrgId();
+        List<ReorderPolicy> rows =
+                reorderPolicyRepo.findByOrgIdAndAbcClassAndIsDeletedFalse(orgId, abcClass);
+        resolveItemNames(rows, orgId);
+        return rows;
+    }
+
+    /** Populate the transient itemName on each reorder policy (cached per item id). */
+    private void resolveItemNames(List<ReorderPolicy> rows, UUID orgId) {
+        Map<UUID, String> nameCache = new HashMap<>();
+        for (ReorderPolicy r : rows) {
+            UUID iid = r.getItemId();
+            if (iid == null) continue;
+            r.setItemName(nameCache.computeIfAbsent(iid, id ->
+                    itemRepo.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
+                            .map(i -> i.getName())
+                            .orElse(null)));
+        }
     }
 
     // ──────────────────────────────────────────────
@@ -924,13 +946,32 @@ public class SupplyChainService {
     // ──────────────────────────────────────────────
 
     public List<SupplierPerformance> getSupplierScorecard(UUID supplierId) {
-        return supplierPerfRepo.findByOrgIdAndSupplierIdAndIsDeletedFalseOrderByPeriodStartDesc(
-                TenantContext.getCurrentOrgId(), supplierId);
+        UUID orgId = TenantContext.getCurrentOrgId();
+        List<SupplierPerformance> rows = supplierPerfRepo
+                .findByOrgIdAndSupplierIdAndIsDeletedFalseOrderByPeriodStartDesc(orgId, supplierId);
+        resolveSupplierNames(rows, orgId);
+        return rows;
     }
 
     public List<SupplierPerformance> getSupplierRankings() {
-        return supplierPerfRepo.findByOrgIdAndIsDeletedFalseOrderByOverallScoreDesc(
-                TenantContext.getCurrentOrgId());
+        UUID orgId = TenantContext.getCurrentOrgId();
+        List<SupplierPerformance> rows = supplierPerfRepo
+                .findByOrgIdAndIsDeletedFalseOrderByOverallScoreDesc(orgId);
+        resolveSupplierNames(rows, orgId);
+        return rows;
+    }
+
+    /** Populate the transient supplierName on each row (cached per supplier id). */
+    private void resolveSupplierNames(List<SupplierPerformance> rows, UUID orgId) {
+        Map<UUID, String> nameCache = new HashMap<>();
+        for (SupplierPerformance r : rows) {
+            UUID sid = r.getSupplierId();
+            if (sid == null) continue;
+            r.setSupplierName(nameCache.computeIfAbsent(sid, id ->
+                    supplierRepo.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
+                            .map(s -> s.getName())
+                            .orElse(null)));
+        }
     }
 
     @Transactional

@@ -20,6 +20,10 @@ public class ReorderPolicy extends BaseEntity {
     @Column(name = "item_id", nullable = false)
     private UUID itemId;
 
+    /** Resolved item name (not persisted) — populated on ABC / reorder-policy responses. */
+    @Transient
+    private String itemName;
+
     @Column(name = "warehouse_id")
     private UUID warehouseId;
 

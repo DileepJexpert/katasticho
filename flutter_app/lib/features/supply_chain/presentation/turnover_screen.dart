@@ -130,7 +130,9 @@ class InventoryTurnoverScreen extends ConsumerWidget {
                           backgroundColor: color.withValues(alpha: 0.2),
                           child: Text(cls, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
                         ),
-                        title: Text('Item: ${m['itemId']?.toString().substring(0, 8) ?? ''}...',
+                        title: Text(
+                            (m['itemName'] as String?) ??
+                                'Item ${m['itemId']?.toString().substring(0, 8) ?? ''}…',
                             style: KTypography.titleSmall),
                         subtitle: Text(
                           'Safety: ${m['safetyStock']} | ROP: ${m['reorderPoint']} | EOQ: ${m['eoq']}',

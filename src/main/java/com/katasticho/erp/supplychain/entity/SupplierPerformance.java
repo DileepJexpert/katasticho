@@ -20,6 +20,10 @@ public class SupplierPerformance extends BaseEntity {
     @Column(name = "supplier_id", nullable = false)
     private UUID supplierId;
 
+    /** Resolved supplier name (not persisted) — populated on rankings/scorecard responses. */
+    @Transient
+    private String supplierName;
+
     @Column(name = "period_start", nullable = false)
     private LocalDate periodStart;
 

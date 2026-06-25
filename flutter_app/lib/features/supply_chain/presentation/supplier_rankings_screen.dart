@@ -54,7 +54,8 @@ class SupplierRankingsScreen extends ConsumerWidget {
                         backgroundColor: color.withValues(alpha: 0.2),
                         child: Text('${index + 1}', style: TextStyle(color: color)),
                       ),
-                      title: Text('Supplier', style: KTypography.titleSmall),
+                      title: Text((r['supplierName'] as String?) ?? 'Supplier',
+                          style: KTypography.titleSmall),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
