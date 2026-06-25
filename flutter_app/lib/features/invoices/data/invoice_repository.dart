@@ -53,6 +53,14 @@ class InvoiceRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  /// Edit a DRAFT invoice — replaces its lines and recomputes totals
+  /// server-side. Only DRAFT, non-sales-order invoices are editable.
+  Future<Map<String, dynamic>> updateInvoice(
+      String id, Map<String, dynamic> data) async {
+    final response = await _api.put(ApiConfig.invoiceById(id), data: data);
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> sendInvoice(String id) async {
     final response = await _api.post(ApiConfig.sendInvoice(id));
     return response.data as Map<String, dynamic>;

@@ -551,6 +551,99 @@ class InvoiceServiceTest {
         assertEquals(0, BigDecimal.ZERO.compareTo(result.lines().get(1).lineTotal()));
     }
 
+    @Test
+    void updateInvoice_replacesLinesAndRecomputesTotals() {
+        // existing DRAFT with a stale ₹5,000 line
+        Invoice draft = Invoice.builder()
+                .orgId(orgId).contactId(contact.getId())
+                .invoiceNumber("INV-2026-000001").invoiceDate(LocalDate.of(2026, 4, 11))
+                .dueDate(LocalDate.of(2026, 5, 11)).status("DRAFT")
+                .subtotal(new BigDecimal("5000.00")).taxAmount(new BigDecimal("900.00"))
+                .totalAmount(new BigDecimal("5900.00")).balanceDue(new BigDecimal("5900.00"))
+                .build();
+        draft.setId(UUID.randomUUID());
+        draft.addLine(com.katasticho.erp.ar.entity.InvoiceLine.builder()
+                .lineNumber(1).description("Stale").taxableAmount(new BigDecimal("5000.00")).build());
+
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(draft.getId(), orgId))
+                .thenReturn(Optional.of(draft));
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contact.getId(), orgId))
+                .thenReturn(Optional.of(contact));
+        stubContactLookup(contact);
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> {
+            Invoice i = inv.getArgument(0);
+            i.getLines().forEach(l -> {
+                if (l.getId() == null) {
+                    try {
+                        var f = l.getClass().getDeclaredField("id");
+                        f.setAccessible(true);
+                        f.set(l, UUID.randomUUID());
+                    } catch (Exception ignored) {}
+                }
+            });
+            stubTaxLineLookup(i.getId(), Collections.emptyList());
+            return i;
+        });
+        stubIntraStateTax(new BigDecimal("20000.00"));
+
+        var request = new CreateInvoiceRequest(
+                contact.getId(), LocalDate.of(2026, 4, 11), null, "MH", false,
+                "Corrected", null,
+                List.of(new InvoiceLineRequest("Widget", "8471", new BigDecimal("4"),
+                        new BigDecimal("5000"), BigDecimal.ZERO, new BigDecimal("18"), "4010", null, null, null)));
+
+        InvoiceResponse result = invoiceService.updateInvoice(draft.getId(), request);
+
+        // recomputed from the new line, not the stale 5,000
+        assertEquals(0, new BigDecimal("20000.00").compareTo(result.subtotal()));
+        assertEquals(0, new BigDecimal("3600.00").compareTo(result.taxAmount()));
+        assertEquals(0, new BigDecimal("23600.00").compareTo(result.totalAmount()));
+        assertEquals("INV-2026-000001", result.invoiceNumber()); // number preserved
+        assertEquals(1, result.lines().size());
+        assertEquals("Widget", result.lines().get(0).description());
+        // stale tax lines cleared before re-materializing
+        verify(taxLineItemRepository).deleteBySourceTypeAndSourceId("INVOICE", draft.getId());
+        verify(taxLineItemRepository).saveAll(anyList());
+    }
+
+    @Test
+    void updateInvoice_nonDraft_throws() {
+        Invoice sent = Invoice.builder().orgId(orgId).status("SENT").build();
+        sent.setId(UUID.randomUUID());
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(sent.getId(), orgId))
+                .thenReturn(Optional.of(sent));
+
+        var request = new CreateInvoiceRequest(contact.getId(), LocalDate.of(2026, 4, 11),
+                null, "MH", false, null, null,
+                List.of(new InvoiceLineRequest("X", "8471", BigDecimal.ONE, new BigDecimal("100"),
+                        BigDecimal.ZERO, new BigDecimal("18"), "4010", null, null, null)));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> invoiceService.updateInvoice(sent.getId(), request));
+        assertEquals("AR_INVOICE_NOT_DRAFT", ex.getErrorCode());
+        verify(invoiceRepository, never()).save(any());
+    }
+
+    @Test
+    void updateInvoice_salesOrderLinked_throws() {
+        Invoice soInvoice = Invoice.builder().orgId(orgId).status("DRAFT")
+                .salesOrderId(UUID.randomUUID()).build();
+        soInvoice.setId(UUID.randomUUID());
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(soInvoice.getId(), orgId))
+                .thenReturn(Optional.of(soInvoice));
+
+        var request = new CreateInvoiceRequest(contact.getId(), LocalDate.of(2026, 4, 11),
+                null, "MH", false, null, null,
+                List.of(new InvoiceLineRequest("X", "8471", BigDecimal.ONE, new BigDecimal("100"),
+                        BigDecimal.ZERO, new BigDecimal("18"), "4010", null, null, null)));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> invoiceService.updateInvoice(soInvoice.getId(), request));
+        assertEquals("AR_INVOICE_FROM_SO_NOT_EDITABLE", ex.getErrorCode());
+        verify(invoiceRepository, never()).save(any());
+    }
+
     private Invoice draftInvoiceWithLine() {
         Invoice draftInvoice = Invoice.builder()
                 .orgId(orgId)

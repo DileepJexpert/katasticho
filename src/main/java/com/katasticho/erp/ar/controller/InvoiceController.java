@@ -45,6 +45,14 @@ public class InvoiceController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(response));
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<InvoiceResponse>> updateInvoice(
+            @PathVariable UUID id, @Valid @RequestBody CreateInvoiceRequest request) {
+        InvoiceResponse response = invoiceService.updateInvoice(id, request);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Invoice updated"));
+    }
+
     @PostMapping("/{id}/send")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> sendInvoice(@PathVariable UUID id) {

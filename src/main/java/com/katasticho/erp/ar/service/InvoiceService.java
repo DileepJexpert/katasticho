@@ -153,6 +153,97 @@ public class InvoiceService {
                 .createdBy(userId)
                 .build();
 
+        invoice = materializeInvoiceLinesAndTotals(invoice, request, orgId, org, contact,
+                placeOfSupply, exchangeRate, resolvePriceLists, allowZeroAmountLines);
+
+        auditService.log("INVOICE", invoice.getId(), "CREATE", null,
+                "{\"invoiceNumber\":\"" + invoice.getInvoiceNumber() + "\",\"total\":\"" + invoice.getTotalAmount() + "\"}");
+
+        commentService.addSystemComment("INVOICE", invoice.getId(), "Invoice created");
+
+        log.info("Invoice {} created: {} lines, total={}", invoice.getInvoiceNumber(),
+                invoice.getLines().size(), invoice.getTotalAmount());
+        return toResponse(invoice);
+    }
+
+    /**
+     * Edit a DRAFT invoice: replace its lines and recompute every total via the
+     * exact same line/tax pipeline {@code createInvoice} uses, so an edited
+     * invoice is byte-for-byte what it would have been if entered correctly the
+     * first time. Only DRAFT invoices qualify — once SENT the journal + stock
+     * are committed and corrections must go through a credit note. SO-derived
+     * invoices are also off-limits (their lines mirror the order; edit the SO).
+     * The invoice number is preserved.
+     */
+    @Transactional
+    public InvoiceResponse updateInvoice(UUID invoiceId, CreateInvoiceRequest request) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+
+        Invoice invoice = invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Invoice", invoiceId));
+
+        if (!"DRAFT".equals(invoice.getStatus())) {
+            throw new BusinessException("Only DRAFT invoices can be edited (status: " + invoice.getStatus()
+                    + "). Use a credit note to correct a sent invoice.",
+                    "AR_INVOICE_NOT_DRAFT", HttpStatus.BAD_REQUEST);
+        }
+        if (invoice.getSalesOrderId() != null) {
+            throw new BusinessException("This invoice was created from a sales order — edit the order instead",
+                    "AR_INVOICE_FROM_SO_NOT_EDITABLE", HttpStatus.BAD_REQUEST);
+        }
+
+        Organisation org = organisationRepository.findById(orgId)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
+        Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(request.contactId(), orgId)
+                .orElseThrow(() -> BusinessException.notFound("Contact", request.contactId()));
+
+        String placeOfSupply = request.placeOfSupply() != null
+                ? request.placeOfSupply()
+                : contact.getBillingStateCode();
+        LocalDate dueDate = request.dueDate() != null
+                ? request.dueDate()
+                : request.invoiceDate().plusDays(contact.getPaymentTermsDays());
+        BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.invoiceDate());
+
+        // Reset the editable header. Number + status + branch stay as-is.
+        invoice.setContactId(contact.getId());
+        invoice.setInvoiceDate(request.invoiceDate());
+        invoice.setDueDate(dueDate);
+        invoice.setPlaceOfSupply(placeOfSupply);
+        invoice.setReverseCharge(request.reverseCharge());
+        invoice.setNotes(request.notes());
+        invoice.setTermsAndConditions(request.termsAndConditions());
+        invoice.setExchangeRate(exchangeRate);
+        invoice.setPeriodYear(computeFiscalYear(request.invoiceDate(), org.getFiscalYearStart()));
+        invoice.setPeriodMonth(request.invoiceDate().getMonthValue());
+
+        // Drop the old lines (orphanRemoval deletes them on save) + their tax
+        // lines, then re-materialize from the request via the shared pipeline.
+        invoice.getLines().clear();
+        taxLineItemRepository.deleteBySourceTypeAndSourceId("INVOICE", invoiceId);
+
+        invoice = materializeInvoiceLinesAndTotals(invoice, request, orgId, org, contact,
+                placeOfSupply, exchangeRate, true, false);
+
+        auditService.log("INVOICE", invoice.getId(), "UPDATE", null,
+                "{\"invoiceNumber\":\"" + invoice.getInvoiceNumber() + "\",\"total\":\"" + invoice.getTotalAmount() + "\"}");
+        commentService.addSystemComment("INVOICE", invoice.getId(), "Invoice edited (draft)");
+        log.info("Invoice {} edited: {} lines, total={}", invoice.getInvoiceNumber(),
+                invoice.getLines().size(), invoice.getTotalAmount());
+        return toResponse(invoice);
+    }
+
+    /**
+     * Build invoice lines + tax line items + roll-up totals from the request and
+     * persist them onto {@code invoice} (which must already carry its header).
+     * Shared by {@link #createInvoice} and {@link #updateInvoice} so the tax
+     * math has exactly one home. Returns the saved invoice.
+     */
+    private Invoice materializeInvoiceLinesAndTotals(
+            Invoice invoice, CreateInvoiceRequest request, UUID orgId, Organisation org,
+            Contact contact, String placeOfSupply, BigDecimal exchangeRate,
+            boolean resolvePriceLists, boolean allowZeroAmountLines) {
+
         BigDecimal totalSubtotal = BigDecimal.ZERO;
         BigDecimal totalTax = BigDecimal.ZERO;
         List<TaxLineItem> allTaxLines = new ArrayList<>();
@@ -299,10 +390,10 @@ public class InvoiceService {
         invoice = invoiceRepository.save(invoice);
 
         // Save tax line items with source references
-        final UUID invoiceId = invoice.getId();
+        final UUID savedInvoiceId = invoice.getId();
         for (int i = 0; i < allTaxLines.size(); i++) {
             TaxLineItem tli = allTaxLines.get(i);
-            tli.setSourceId(invoiceId);
+            tli.setSourceId(savedInvoiceId);
             // Link to invoice line if we can determine it
             if (invoice.getLines().size() > 0) {
                 // Tax lines are grouped per invoice line; we'll set sourceLineId
@@ -311,15 +402,7 @@ public class InvoiceService {
             }
         }
         taxLineItemRepository.saveAll(allTaxLines);
-
-        auditService.log("INVOICE", invoice.getId(), "CREATE", null,
-                "{\"invoiceNumber\":\"" + invoice.getInvoiceNumber() + "\",\"total\":\"" + invoice.getTotalAmount() + "\"}");
-
-        commentService.addSystemComment("INVOICE", invoice.getId(), "Invoice created");
-
-        log.info("Invoice {} created: {} lines, total={}", invoice.getInvoiceNumber(),
-                invoice.getLines().size(), invoice.getTotalAmount());
-        return toResponse(invoice);
+        return invoice;
     }
 
     /**
