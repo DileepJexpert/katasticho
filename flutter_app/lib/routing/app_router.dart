@@ -69,6 +69,7 @@ import '../features/credit_notes/presentation/credit_note_list_screen.dart';
 import '../features/credit_notes/presentation/credit_note_detail_screen.dart';
 import '../features/credit_notes/presentation/credit_note_create_screen.dart';
 import '../features/payments/presentation/record_payment_screen.dart';
+import '../features/customer_receipts/presentation/customer_receipt_list_screen.dart';
 import '../features/inventory/presentation/item_list_screen.dart';
 import '../features/inventory/presentation/item_create_screen.dart';
 import '../features/inventory/presentation/item_detail_screen.dart';
@@ -317,6 +318,7 @@ class Routes {
   static const priceListDetail = '/price-lists/:id';
   static const schemes = '/schemes';
   static const recordPayment = '/invoices/:id/pay';
+  static const customerReceipts = '/customer-receipts';
   // AP — Bills
   static const bills = '/bills';
   static const billCreate = '/bills/create';
@@ -1783,6 +1785,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.suppliers,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: SupplierListScreen(),
+            ),
+          ),
+          // Customer receipts (multi-invoice allocation + advance)
+          GoRoute(
+            path: Routes.customerReceipts,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: CustomerReceiptListScreen(),
             ),
           ),
           // Purchase Orders

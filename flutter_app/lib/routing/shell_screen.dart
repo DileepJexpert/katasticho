@@ -211,6 +211,12 @@ const _salesGroup = NavGroup(
         activeIcon: Icons.note_alt_rounded,
         route: Routes.creditNotes),
     NavItem(
+        id: 'sales.customer_receipts',
+        label: 'Customer Receipts',
+        icon: Icons.payments_outlined,
+        activeIcon: Icons.payments_rounded,
+        route: Routes.customerReceipts),
+    NavItem(
         id: 'sales.receivables',
         label: 'Receivables',
         icon: Icons.account_balance_wallet_outlined,

@@ -191,6 +191,87 @@ public class AccountingPostingEngine {
                 true));
     }
 
+    // ── Customer Receipt (multi-invoice + advance) ─────────────
+
+    /** Per-invoice share of a customer receipt with the rate the invoice was booked at. */
+    public record ArAllocationFx(BigDecimal amount, BigDecimal invoiceExchangeRate) {}
+
+    /**
+     * Customer-receipt journal: a lump-sum collection allocated across multiple
+     * invoices, with any unallocated excess parked as a Customer Advance (2100)
+     * liability.
+     *
+     *   DR Cash/Bank (by method)   = received in base currency (amount × payRate)
+     *   CR Accounts Receivable     = Σ(allocation × invoiceRate)   [AR cleared]
+     *   CR Customer Advance (2100) = advance × payRate
+     *   [Forex Gain/Loss 5500]     = balancer when invoice rates ≠ receipt rate
+     *
+     * When every rate is 1 (the domestic INR case) the AR + advance legs sum to
+     * the cash leg exactly, so no forex line is produced. A receipt with no
+     * advance and a single allocation reduces to the same shape as
+     * {@link #postPaymentReceived}.
+     */
+    public JournalEntry postCustomerReceipt(UUID orgId,
+                                            String receiptNumber,
+                                            java.time.LocalDate receiptDate,
+                                            BigDecimal amount,
+                                            BigDecimal advanceAmount,
+                                            String paymentMethod,
+                                            BigDecimal receiptExchangeRate,
+                                            List<ArAllocationFx> allocations) {
+        String debitCode = resolvePaymentMethodAccount(orgId, paymentMethod);
+        BigDecimal payRate = receiptExchangeRate != null ? receiptExchangeRate : BigDecimal.ONE;
+        BigDecimal advance = advanceAmount != null ? advanceAmount : BigDecimal.ZERO;
+
+        BigDecimal baseReceived = amount.multiply(payRate).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal arClearedBase = (allocations == null ? java.util.List.<ArAllocationFx>of() : allocations).stream()
+                .map(a -> a.amount().multiply(
+                        a.invoiceExchangeRate() != null ? a.invoiceExchangeRate() : BigDecimal.ONE))
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal advanceBase = advance.multiply(payRate).setScale(2, java.math.RoundingMode.HALF_UP);
+
+        List<JournalLineRequest> lines = new ArrayList<>();
+        lines.add(new JournalLineRequest(
+                debitCode,
+                baseReceived, BigDecimal.ZERO,
+                "Receipt " + receiptNumber + " received",
+                null, null));
+        if (arClearedBase.signum() > 0) {
+            lines.add(new JournalLineRequest(
+                    defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR),
+                    BigDecimal.ZERO, arClearedBase,
+                    "AR cleared: receipt " + receiptNumber,
+                    null, null));
+        }
+        if (advanceBase.signum() > 0) {
+            lines.add(new JournalLineRequest(
+                    defaultAccountService.getCode(orgId, DefaultAccountPurpose.CUSTOMER_ADVANCE),
+                    BigDecimal.ZERO, advanceBase,
+                    "Customer advance: " + receiptNumber,
+                    null, null));
+        }
+
+        BigDecimal forexDiff = baseReceived.subtract(arClearedBase).subtract(advanceBase);
+        if (forexDiff.signum() > 0) {
+            lines.add(new JournalLineRequest(FOREX_GAIN_LOSS_CODE,
+                    BigDecimal.ZERO, forexDiff,
+                    "Realized forex gain on " + receiptNumber, null, null));
+        } else if (forexDiff.signum() < 0) {
+            lines.add(new JournalLineRequest(FOREX_GAIN_LOSS_CODE,
+                    forexDiff.negate(), BigDecimal.ZERO,
+                    "Realized forex loss on " + receiptNumber, null, null));
+        }
+
+        return journalService.postJournal(new JournalPostRequest(
+                receiptDate,
+                "Customer Receipt " + receiptNumber,
+                "PAYMENT",
+                null,
+                lines,
+                true));
+    }
+
     // ── Credit Note ────────────────────────────────────────────
 
     public JournalEntry postCreditNote(CreditNote cn) {

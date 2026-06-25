@@ -95,6 +95,18 @@ class ApiConfig {
   static String invoicePayments(String invoiceId) =>
       '/api/v1/invoices/$invoiceId/payments';
   static String invoicePdf(String id) => '/api/v1/invoices/$id/pdf';
+
+  // Customer receipts (multi-invoice allocation + advance)
+  static const String customerReceipts = '/api/v1/customer-receipts';
+  static String customerReceiptById(String id) =>
+      '/api/v1/customer-receipts/$id';
+  static String voidCustomerReceipt(String id) =>
+      '/api/v1/customer-receipts/$id/void';
+  static String customerReceiptsForInvoice(String invoiceId) =>
+      '/api/v1/customer-receipts/invoice/$invoiceId';
+  static String customerAdvance(String contactId) =>
+      '/api/v1/customer-receipts/advance/$contactId';
+
   static const String creditNotes = '/api/v1/credit-notes';
   static String creditNoteById(String id) => '/api/v1/credit-notes/$id';
   static String creditNotePdf(String id) => '/api/v1/credit-notes/$id/pdf';
