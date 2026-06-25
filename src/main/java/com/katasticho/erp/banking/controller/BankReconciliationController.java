@@ -86,8 +86,10 @@ public class BankReconciliationController {
 
     @PostMapping("/matches/{id}/accept")
     @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT')")
-    public ResponseEntity<ApiResponse<BankTransactionResponse>> acceptMatch(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.ok(bankReconciliationService.acceptMatch(id)));
+    public ResponseEntity<ApiResponse<BankTransactionResponse>> acceptMatch(
+            @PathVariable UUID id,
+            @RequestParam(name = "bank_account_id", required = false) UUID bankAccountId) {
+        return ResponseEntity.ok(ApiResponse.ok(bankReconciliationService.acceptMatch(id, bankAccountId)));
     }
 
     @PostMapping("/matches/{id}/reject")

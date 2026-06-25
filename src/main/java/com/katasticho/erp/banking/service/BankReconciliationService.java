@@ -63,6 +63,7 @@ public class BankReconciliationService {
     private final VendorPaymentService vendorPaymentService;
     private final DefaultAccountService defaultAccountService;
     private final BankStatementParser statementParser;
+    private final BankAccountService bankAccountService;
 
     @Transactional
     public BankTransactionImportResponse importCsv(ImportBankTransactionsRequest request) {
@@ -188,6 +189,17 @@ public class BankReconciliationService {
 
     @Transactional
     public BankTransactionResponse acceptMatch(UUID matchId) {
+        return acceptMatch(matchId, null);
+    }
+
+    /**
+     * Accept a suggested match. {@code bankAccountId} (optional) picks which
+     * bank ledger the money-out leg debits — when supplied, the vendor payment
+     * is paid through that bank account's GL instead of the org default BANK
+     * (1020). Null preserves the legacy single-bank behaviour byte-for-byte.
+     */
+    @Transactional
+    public BankTransactionResponse acceptMatch(UUID matchId, UUID bankAccountId) {
         UUID orgId = requireOrgId();
         UUID userId = TenantContext.getCurrentUserId();
 
@@ -205,13 +217,17 @@ public class BankReconciliationService {
 
         UUID createdPaymentId;
         if ("BILL".equals(match.getMatchType())) {
-            // Money out → record a vendor payment allocated to the matched bill.
+            // Money out → record a vendor payment allocated to the matched bill,
+            // paid through the chosen bank account (or the org default BANK).
+            UUID paidThroughId = bankAccountId != null
+                    ? bankAccountService.resolveGlAccountId(bankAccountId)
+                    : defaultAccountService.get(orgId, DefaultAccountPurpose.BANK).getId();
             VendorPaymentResponse vendorPayment = vendorPaymentService.recordPayment(new VendorPaymentRequest(
                     match.getContactId(),
                     match.getMatchedAmount(),
                     inferPaymentMethod(transaction),
                     transaction.getTransactionDate(),
-                    defaultAccountService.get(orgId, DefaultAccountPurpose.BANK).getId(),
+                    paidThroughId,
                     firstNonBlank(transaction.getUtr(), transaction.getNarration()),
                     null,
                     null,

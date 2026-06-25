@@ -440,6 +440,12 @@ class ApiConfig {
   static String aiEntryReject(String suggestionId) =>
       '/api/v1/ai/entry/$suggestionId/reject';
 
+  // Bank-account master (multi-bank)
+  static const String bankAccounts = '/api/v1/bank-accounts';
+  static String bankAccountById(String id) => '/api/v1/bank-accounts/$id';
+  static String bankAccountSetDefault(String id) =>
+      '/api/v1/bank-accounts/$id/set-default';
+
   // Banking / reconciliation
   static const String bankingTransactions = '/api/v1/banking/transactions';
   static const String bankingImportCsv =

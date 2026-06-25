@@ -436,6 +436,13 @@ const _bankingGroup = NavGroup(
   activeIcon: Icons.account_balance_rounded,
   children: [
     NavItem(
+      id: 'banking.accounts',
+      label: 'Bank Accounts',
+      icon: Icons.account_balance_wallet_outlined,
+      activeIcon: Icons.account_balance_wallet_rounded,
+      route: Routes.bankAccounts,
+    ),
+    NavItem(
       id: 'banking.reconciliation',
       label: 'Reconciliation',
       icon: Icons.compare_arrows_outlined,

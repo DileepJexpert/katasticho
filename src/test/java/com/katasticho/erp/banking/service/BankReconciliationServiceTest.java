@@ -54,6 +54,7 @@ class BankReconciliationServiceTest {
     @Mock private PaymentService paymentService;
     @Mock private VendorPaymentService vendorPaymentService;
     @Mock private DefaultAccountService defaultAccountService;
+    @Mock private BankAccountService bankAccountService;
     @Mock private VisionModelRouter claudeApiClient;
 
     private BankReconciliationService service;
@@ -71,7 +72,8 @@ class BankReconciliationServiceTest {
                 paymentService,
                 vendorPaymentService,
                 defaultAccountService,
-                new BankStatementParser(claudeApiClient, new ObjectMapper())
+                new BankStatementParser(claudeApiClient, new ObjectMapper()),
+                bankAccountService
         );
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
