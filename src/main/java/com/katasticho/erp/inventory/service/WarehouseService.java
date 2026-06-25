@@ -26,6 +26,7 @@ public class WarehouseService {
     private final WarehouseRepository warehouseRepository;
     private final BranchRepository branchRepository;
     private final AuditService auditService;
+    private final com.katasticho.erp.inventory.repository.StockBalanceRepository stockBalanceRepository;
 
     @Transactional
     public WarehouseResponse createWarehouse(CreateWarehouseRequest request) {
@@ -76,6 +77,74 @@ public class WarehouseService {
         auditService.log("WAREHOUSE", warehouse.getId(), "CREATE", null,
                 "{\"code\":\"" + warehouse.getCode() + "\"}");
         return toResponse(warehouse);
+    }
+
+    @Transactional
+    public WarehouseResponse updateWarehouse(UUID id, CreateWarehouseRequest request) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Warehouse w = warehouseRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Warehouse", id));
+
+        String code = request.code().trim();
+        if (!code.equalsIgnoreCase(w.getCode())
+                && warehouseRepository.existsByOrgIdAndCodeAndIsDeletedFalse(orgId, code)) {
+            throw new BusinessException("Warehouse with code " + code + " already exists",
+                    "INV_DUPLICATE_WAREHOUSE_CODE", HttpStatus.CONFLICT);
+        }
+
+        w.setCode(code);
+        w.setName(request.name().trim());
+        w.setAddressLine1(request.addressLine1());
+        w.setAddressLine2(request.addressLine2());
+        w.setCity(request.city());
+        w.setState(request.state());
+        w.setStateCode(request.stateCode());
+        w.setPostalCode(request.postalCode());
+        if (request.country() != null) w.setCountry(request.country());
+
+        // Promote to default → demote the prior default. We never self-clear the
+        // default flag here (that would leave the org with no default); promote
+        // another warehouse instead.
+        if (Boolean.TRUE.equals(request.isDefault()) && !w.isDefault()) {
+            UUID currentId = w.getId();
+            warehouseRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
+                    .filter(existing -> !existing.getId().equals(currentId))
+                    .ifPresent(existing -> {
+                        existing.setDefault(false);
+                        warehouseRepository.save(existing);
+                    });
+            w.setDefault(true);
+        }
+
+        w = warehouseRepository.save(w);
+        auditService.log("WAREHOUSE", w.getId(), "UPDATE", null,
+                "{\"code\":\"" + w.getCode() + "\"}");
+        return toResponse(w);
+    }
+
+    @Transactional
+    public void deleteWarehouse(UUID id) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Warehouse w = warehouseRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Warehouse", id));
+
+        if (w.isDefault()) {
+            throw new BusinessException(
+                    "Cannot delete the default warehouse — make another warehouse the default first",
+                    "INV_WAREHOUSE_IS_DEFAULT", HttpStatus.BAD_REQUEST);
+        }
+        if (stockBalanceRepository.existsByOrgIdAndWarehouseIdAndQuantityOnHandGreaterThan(
+                orgId, id, java.math.BigDecimal.ZERO)) {
+            throw new BusinessException(
+                    "Cannot delete a warehouse that still holds stock — transfer it out first",
+                    "INV_WAREHOUSE_HAS_STOCK", HttpStatus.BAD_REQUEST);
+        }
+
+        w.setDeleted(true);
+        w.setActive(false);
+        warehouseRepository.save(w);
+        auditService.log("WAREHOUSE", w.getId(), "DELETE",
+                "{\"code\":\"" + w.getCode() + "\"}", null);
     }
 
     @Transactional(readOnly = true)

@@ -20,6 +20,10 @@ public interface StockBalanceRepository extends JpaRepository<StockBalance, UUID
 
     List<StockBalance> findByOrgIdAndWarehouseId(UUID orgId, UUID warehouseId);
 
+    /** True if the warehouse still holds any on-hand stock — blocks deletion. */
+    boolean existsByOrgIdAndWarehouseIdAndQuantityOnHandGreaterThan(
+            UUID orgId, UUID warehouseId, java.math.BigDecimal threshold);
+
     /**
      * Items currently at or below their reorder level. Used by the dashboard
      * "low stock" widget.

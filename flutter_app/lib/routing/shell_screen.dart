@@ -409,10 +409,16 @@ const _inventoryGroup = NavGroup(
         activeIcon: Icons.upload_file_rounded,
         route: Routes.itemImport),
     NavItem(
-        id: 'inventory.warehouse_zones',
-        label: 'Warehouse Zones',
+        id: 'inventory.warehouses',
+        label: 'Warehouses',
         icon: Icons.warehouse_outlined,
         activeIcon: Icons.warehouse_rounded,
+        route: Routes.warehouses),
+    NavItem(
+        id: 'inventory.warehouse_zones',
+        label: 'Warehouse Zones',
+        icon: Icons.grid_view_outlined,
+        activeIcon: Icons.grid_view_rounded,
         route: Routes.warehouseZones),
     NavItem(
         id: 'inventory.batch_trace',

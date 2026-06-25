@@ -29,6 +29,26 @@ class InventoryRepository {
     }
   }
 
+  Future<Map<String, dynamic>> createWarehouse(Map<String, dynamic> body) async {
+    final res = await _api.post(ApiConfig.warehouses, data: body);
+    return _unwrap(res.data);
+  }
+
+  Future<Map<String, dynamic>> updateWarehouse(
+      String id, Map<String, dynamic> body) async {
+    final res = await _api.put(ApiConfig.warehouseById(id), data: body);
+    return _unwrap(res.data);
+  }
+
+  Future<void> deleteWarehouse(String id) async {
+    await _api.delete(ApiConfig.warehouseById(id));
+  }
+
+  Map<String, dynamic> _unwrap(dynamic data) {
+    final map = data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((map['data'] ?? map) as Map);
+  }
+
   // ── Warehouse Zones ──
 
   Future<List<dynamic>> getWarehouseZones({String? warehouseId}) async {

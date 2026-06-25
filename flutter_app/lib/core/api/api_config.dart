@@ -252,6 +252,7 @@ class ApiConfig {
   static String generateVariants(String id) =>
       '/api/v1/item-groups/$id/generate-variants';
   static const String warehouses = '/api/v1/warehouses';
+  static String warehouseById(String id) => '/api/v1/warehouses/$id';
   static const String stockAdjust = '/api/v1/stock/adjust';
   static String stockReverse(String movementId) =>
       '/api/v1/stock/movements/$movementId/reverse';

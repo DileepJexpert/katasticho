@@ -43,4 +43,18 @@ public class WarehouseController {
     public ResponseEntity<ApiResponse<WarehouseResponse>> getWarehouse(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(warehouseService.getWarehouse(id)));
     }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<WarehouseResponse>> updateWarehouse(
+            @PathVariable UUID id, @Valid @RequestBody CreateWarehouseRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(warehouseService.updateWarehouse(id, request)));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteWarehouse(@PathVariable UUID id) {
+        warehouseService.deleteWarehouse(id);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Warehouse removed"));
+    }
 }

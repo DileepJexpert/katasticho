@@ -241,6 +241,7 @@ import '../features/supply_chain/presentation/turnover_screen.dart';
 import '../features/supply_chain/presentation/shipment_list_screen.dart';
 import '../features/manufacturing/presentation/mrp_run_screen.dart';
 import '../features/inventory/presentation/warehouse_zone_screen.dart';
+import '../features/inventory/presentation/warehouse_management_screen.dart';
 import '../features/inventory/presentation/batch_recall_screen.dart';
 import '../features/inventory/presentation/fssai_screen.dart';
 import '../features/inventory/presentation/batch_trace_screen.dart';
@@ -521,6 +522,7 @@ class Routes {
 
   // Inventory additions
   static const warehouseZones = '/inventory/warehouse-zones';
+  static const warehouses = '/inventory/warehouses';
   static const batchTrace = '/inventory/batch-trace';
   static const batchRecall = '/inventory/batch-recall';
   static const fssaiCompliance = '/inventory/fssai';
@@ -1638,6 +1640,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           // Inventory additions
+          GoRoute(
+            path: Routes.warehouses,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: WarehouseManagementScreen(),
+            ),
+          ),
           GoRoute(
             path: Routes.warehouseZones,
             pageBuilder: (context, state) => const NoTransitionPage(
