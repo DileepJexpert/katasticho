@@ -21,6 +21,7 @@ export 'k_document_header.dart';
 export 'k_empty_state.dart';
 export 'k_error_view.dart';
 export 'k_entity_list.dart';
+export 'k_entity_picker.dart';
 export 'k_list_page_header.dart';
 export 'k_loading.dart';
 export 'k_money.dart';

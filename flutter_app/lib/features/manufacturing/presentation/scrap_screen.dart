@@ -84,21 +84,22 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
     final woCtl = TextEditingController();
     final itemCtl = TextEditingController();
     final qtyCtl = TextEditingController();
-    final reasonCtl = TextEditingController();
     final jobCardCtl = TextEditingController();
     final notesCtl = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    EntityOption? reason;
 
     final submitted = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Record Scrap'),
         scrollable: true,
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+        content: StatefulBuilder(
+          builder: (dialogCtx, setSheetState) => Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               TextFormField(
                 controller: woCtl,
                 decoration: const InputDecoration(
@@ -132,14 +133,12 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
                 },
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: reasonCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Reason Code ID *',
-                  hintText: 'Paste UUID',
-                ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
+              KEntityPickerField(
+                label: 'Reason Code *',
+                icon: Icons.label_outline,
+                value: reason,
+                search: _searchReasonCodes,
+                onChanged: (o) => setSheetState(() => reason = o),
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -160,6 +159,7 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
             ],
           ),
         ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -167,8 +167,13 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
           ),
           FilledButton(
             onPressed: () {
-              if (formKey.currentState!.validate()) {
+              final ok = formKey.currentState!.validate();
+              if (ok && reason != null) {
                 Navigator.pop(ctx, true);
+              } else if (reason == null) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Select a reason code')),
+                );
               }
             },
             child: const Text('Submit'),
@@ -184,7 +189,7 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
             workOrderId: woCtl.text.trim(),
             itemId: itemCtl.text.trim(),
             scrapQty: double.parse(qtyCtl.text.trim()),
-            reasonCodeId: reasonCtl.text.trim(),
+            reasonCodeId: reason!.id,
             jobCardId: jobCardCtl.text.trim(),
             notes: notesCtl.text.trim(),
           );
@@ -204,6 +209,25 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
         );
       }
     }
+  }
+
+  /// Backs the reason-code [KEntityPickerField] — searches the org's scrap
+  /// reason codes (the same list the "Reason Codes" tab manages).
+  Future<List<EntityOption>> _searchReasonCodes(String query) async {
+    final codes = await ref.read(scrapReasonCodesProvider.future);
+    final q = query.toLowerCase();
+    return codes
+        .where((c) =>
+            q.isEmpty ||
+            (c['code']?.toString().toLowerCase().contains(q) ?? false) ||
+            (c['description']?.toString().toLowerCase().contains(q) ?? false))
+        .map((c) => EntityOption(
+              id: c['id']?.toString() ?? '',
+              label: c['code']?.toString() ?? '(no code)',
+              subtitle: c['description']?.toString(),
+              raw: c,
+            ))
+        .toList();
   }
 
   // ---------------------------------------------------------------------------

@@ -19,10 +19,10 @@ Derived from `docs/UI_FIELD_GAP_AUDIT.md` (2026-06-24). This is the **work track
 - [x] **A8. Courier chevron** — misleading `chevron_right` removed.
 - [x] **A9. 3 dead PDF screens** — RESOLVED BY REMOVAL: invoice/bill/estimate detail already have working "Download PDF" via the shared server-rendered `KPdfPreviewScreen`; the three client-side `*PdfScreen` classes were redundant dead code (0 external refs) and were deleted.
 
-## Sprint B — Reusable primitives (multiply value of everything after)
-- [ ] **B1. EntityPicker** — one searchable picker widget (item/operation/workstation/account/contact/WO/reason-code) to kill "paste-a-UUID" across Manufacturing, Field Sales, Payroll, Vendor-Credit, MR app.
-- [ ] **B2. Name resolution helper** — resolve ids→names for list/detail cards (WO BOM-lines, job cards, QC params, supplier rankings, ABC list).
-- [ ] **B3. Sidebar un-orphan pass** — add NavItems for ~17 built-but-hidden screens (Batch Recall first, + Manufacturing analytics/CAPA/BMR/reliability/bottleneck, Inventory batch-trace/zones/FSSAI/FIFO valuation).
+## Sprint B — Reusable primitives (multiply value of everything after)  ← ACTIVE
+- [x] **B1. EntityPicker (primitive built + 1 proof wiring)** — `core/widgets/k_entity_picker.dart`: `showEntityPicker()` modal + `KEntityPickerField` form field + `EntityOption`/`EntitySearchFn`. Riverpod-free (caller supplies the search fn) so it drops into any screen. Exported via the widgets barrel. **Proof wiring:** manufacturing Scrap → Reason Code now uses it instead of a paste-UUID field. **Rollout TODO** (mechanical, do as each screen is touched + analyzed locally): operations/workstations/WO ids in Manufacturing (scrap WO/Item/JobCard, QC, routing, job-card create); route/salesperson/van/SO in Field Sales; GL accounts in Payroll settings + Amortization; bill/account/item in Vendor Credit; van/POD ids in MR app.
+- [ ] **B2. Name resolution helper** — resolve ids→names for list/detail cards (WO BOM-lines, job cards, QC params, supplier rankings ['Supplier'], ABC list item UUIDs). Some are backend DTO name-joins (compile-verifiable), some client-side bulk lookups.
+- [x] **B3. Sidebar un-orphan pass** — added 7 NavItems: Manufacturing (CAPA, Workstation Load, Equipment Reliability, Production Analytics) + Inventory (Warehouse Zones, Batch Trace, Batch Recall). FSSAI was already food-gated in nav (stale audit claim). Per-entity "paste-an-id" tool screens intentionally deferred to detail-screen wiring (needs B1 rollout).
 
 ## Sprint C — India-core flows
 - [ ] **C1. POS returns / refund / void** (backend endpoint + receipt-detail action).
