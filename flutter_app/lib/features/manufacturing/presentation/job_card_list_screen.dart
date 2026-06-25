@@ -204,8 +204,10 @@ class _JobCardItem extends StatelessWidget {
     final theme = Theme.of(context);
     final seq = card['sequenceNumber']?.toString() ?? '-';
     final opId = card['operationId']?.toString() ?? '';
-    final truncOpId =
-        opId.length > 16 ? '${opId.substring(0, 8)}…' : opId;
+    final opName = card['operationName']?.toString();
+    final truncOpId = (opName != null && opName.isNotEmpty)
+        ? opName
+        : (opId.length > 16 ? '${opId.substring(0, 8)}…' : opId);
     final status = card['status']?.toString() ?? 'PENDING';
     final plannedQty = card['plannedQty']?.toString() ?? '0';
     final completedQty = card['completedQty']?.toString() ?? '0';
@@ -301,8 +303,12 @@ class _JobCardSheet extends ConsumerWidget {
     final status = card['status']?.toString() ?? 'PENDING';
     final id = card['id']?.toString() ?? '';
     final seq = card['sequenceNumber']?.toString() ?? '-';
-    final opId = card['operationId']?.toString() ?? '';
-    final wsId = card['workstationId']?.toString() ?? '';
+    final opId = card['operationName']?.toString() ??
+        card['operationId']?.toString() ??
+        '';
+    final wsId = card['workstationName']?.toString() ??
+        card['workstationId']?.toString() ??
+        '';
     final plannedQty = card['plannedQty']?.toString() ?? '0';
     final completedQty = card['completedQty']?.toString() ?? '0';
     final scrapQty = card['scrapQty']?.toString() ?? '0';

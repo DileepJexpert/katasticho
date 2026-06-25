@@ -43,6 +43,7 @@ class SupplyChainServiceTest {
     @Mock private SupplyChainAlertRepository alertRepo;
     @Mock private StockBalanceRepository stockBalanceRepo;
     @Mock private ItemRepository itemRepo;
+    @Mock private com.katasticho.erp.procurement.repository.SupplierRepository supplierRepo;
     @Mock private EntityManager em;
 
     @InjectMocks private SupplyChainService service;

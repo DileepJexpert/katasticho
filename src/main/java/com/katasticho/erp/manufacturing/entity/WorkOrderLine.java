@@ -28,6 +28,10 @@ public class WorkOrderLine extends BaseEntity {
     @Column(name = "item_id", nullable = false)
     private UUID itemId;
 
+    /** Resolved component item name (not persisted) — populated on WO responses. */
+    @Transient
+    private String itemName;
+
     @Column(name = "required_qty", nullable = false)
     private BigDecimal requiredQty;
 

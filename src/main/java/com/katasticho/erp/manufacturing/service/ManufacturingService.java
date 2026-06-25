@@ -582,17 +582,44 @@ public class ManufacturingService {
     @Transactional(readOnly = true)
     public WorkOrder getWorkOrder(UUID id) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        return workOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
+        WorkOrder wo = workOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
                 .orElseThrow(() -> BusinessException.notFound("WorkOrder", id));
+        resolveWorkOrderNames(wo, orgId);
+        return wo;
     }
 
     /** Shop-floor lookup by the printed/scanned WO number. */
     @Transactional(readOnly = true)
     public WorkOrder getWorkOrderByNumber(String workOrderNumber) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        return workOrderRepository
+        WorkOrder wo = workOrderRepository
                 .findByOrgIdAndWorkOrderNumberIgnoreCaseAndIsDeletedFalse(orgId, workOrderNumber)
                 .orElseThrow(() -> BusinessException.notFound("WorkOrder", workOrderNumber));
+        resolveWorkOrderNames(wo, orgId);
+        return wo;
+    }
+
+    /** Populate the transient finishedGoodName + per-line itemName on a WO (cached). */
+    private void resolveWorkOrderNames(WorkOrder wo, UUID orgId) {
+        if (wo == null) return;
+        Map<UUID, String> nameCache = new HashMap<>();
+        if (wo.getFinishedGoodId() != null) {
+            wo.setFinishedGoodName(woItemName(wo.getFinishedGoodId(), orgId, nameCache));
+        }
+        if (wo.getLines() != null) {
+            for (WorkOrderLine line : wo.getLines()) {
+                if (line.getItemId() != null) {
+                    line.setItemName(woItemName(line.getItemId(), orgId, nameCache));
+                }
+            }
+        }
+    }
+
+    private String woItemName(UUID itemId, UUID orgId, Map<UUID, String> cache) {
+        return cache.computeIfAbsent(itemId, id ->
+                itemRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
+                        .map(i -> i.getName())
+                        .orElse(null));
     }
 
     @Transactional(readOnly = true)
@@ -602,6 +629,18 @@ public class ManufacturingService {
 
     @Transactional(readOnly = true)
     public Page<WorkOrder> listWorkOrders(String status, String priority, Pageable pageable) {
+        Page<WorkOrder> page = queryWorkOrders(status, priority, pageable);
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Map<UUID, String> cache = new HashMap<>();
+        for (WorkOrder wo : page.getContent()) {
+            if (wo.getFinishedGoodId() != null) {
+                wo.setFinishedGoodName(woItemName(wo.getFinishedGoodId(), orgId, cache));
+            }
+        }
+        return page;
+    }
+
+    private Page<WorkOrder> queryWorkOrders(String status, String priority, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
         String statusFilter = (status != null && !status.isBlank()) ? status : null;
         String priorityFilter = (priority != null && !priority.isBlank())

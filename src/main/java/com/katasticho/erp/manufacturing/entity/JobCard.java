@@ -32,6 +32,16 @@ public class JobCard extends BaseEntity {
     @Column(name = "assigned_to")
     private UUID assignedTo;
 
+    /** Resolved display names (not persisted) — populated on job-card responses. */
+    @Transient
+    private String operationName;
+
+    @Transient
+    private String workstationName;
+
+    @Transient
+    private String assigneeName;
+
     @Column(length = 20, nullable = false)
     @Builder.Default
     private String status = "PENDING";

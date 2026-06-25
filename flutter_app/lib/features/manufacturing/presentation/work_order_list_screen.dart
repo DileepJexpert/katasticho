@@ -183,6 +183,11 @@ class _WorkOrderCard extends StatelessWidget {
                   KStatusChip(status: status),
                 ],
               ),
+              if (order['finishedGoodName'] != null) ...[
+                const SizedBox(height: 2),
+                Text(order['finishedGoodName'].toString(),
+                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+              ],
               const SizedBox(height: 8),
               Wrap(
                 spacing: 16,

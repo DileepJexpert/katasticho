@@ -33,6 +33,7 @@ class RoutingServiceTest {
     @Mock private com.katasticho.erp.common.service.AttachmentService attachmentService;
     @Mock private com.katasticho.erp.manufacturing.repository.RoutingOperationDependencyRepository operationDependencyRepo;
     @Mock private com.katasticho.erp.manufacturing.repository.WorkstationAlternateRepository workstationAlternateRepo;
+    @Mock private com.katasticho.erp.auth.repository.AppUserRepository appUserRepo;
 
     private RoutingService service;
 
@@ -43,7 +44,7 @@ class RoutingServiceTest {
     void setUp() {
         service = new RoutingService(
                 workstationRepo, operationRepo, routingRepo, routingOperationRepo, jobCardRepo,
-                attachmentService, operationDependencyRepo, workstationAlternateRepo);
+                attachmentService, operationDependencyRepo, workstationAlternateRepo, appUserRepo);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }

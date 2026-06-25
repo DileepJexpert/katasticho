@@ -26,6 +26,10 @@ public class WorkOrder extends BaseEntity {
     @Column(name = "finished_good_id", nullable = false)
     private UUID finishedGoodId;
 
+    /** Resolved finished-good item name (not persisted) — populated on WO responses. */
+    @Transient
+    private String finishedGoodName;
+
     @Column(name = "warehouse_id", nullable = false)
     private UUID warehouseId;
 

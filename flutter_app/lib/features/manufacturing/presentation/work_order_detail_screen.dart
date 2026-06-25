@@ -50,7 +50,14 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(order['workOrderNumber']?.toString() ?? 'Work Order'),
+        title: Text(
+          [
+            order['workOrderNumber']?.toString() ?? 'Work Order',
+            if (order['finishedGoodName'] != null)
+              order['finishedGoodName'].toString(),
+          ].join(' · '),
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: _buildActions(status),
       ),
       body: RefreshIndicator(
@@ -125,7 +132,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                line['itemId']?.toString() ?? 'Item',
+                                (line['itemName'] ?? line['itemId'])?.toString() ?? 'Item',
                                 style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                               ),
                             ),

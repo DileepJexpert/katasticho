@@ -4,6 +4,7 @@ import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.entity.EntityAttachment;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.service.AttachmentService;
+import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.manufacturing.entity.*;
 import com.katasticho.erp.manufacturing.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -33,6 +36,7 @@ public class RoutingService {
     private final AttachmentService attachmentService;
     private final RoutingOperationDependencyRepository operationDependencyRepository;
     private final WorkstationAlternateRepository workstationAlternateRepository;
+    private final AppUserRepository appUserRepository;
 
     /**
      * AttachmentService entityType key for operation work-instruction
@@ -449,8 +453,35 @@ public class RoutingService {
 
     @Transactional(readOnly = true)
     public List<JobCard> getJobCardsForWorkOrder(UUID workOrderId) {
-        return jobCardRepository.findByWorkOrderIdAndOrgIdAndIsDeletedFalseOrderBySequenceNumberAsc(
-                workOrderId, TenantContext.getCurrentOrgId());
+        UUID orgId = TenantContext.getCurrentOrgId();
+        List<JobCard> cards = jobCardRepository
+                .findByWorkOrderIdAndOrgIdAndIsDeletedFalseOrderBySequenceNumberAsc(workOrderId, orgId);
+        resolveJobCardNames(cards, orgId);
+        return cards;
+    }
+
+    /** Populate transient operation/workstation/assignee names on job cards (cached per id). */
+    private void resolveJobCardNames(List<JobCard> cards, UUID orgId) {
+        Map<UUID, String> opNames = new HashMap<>();
+        Map<UUID, String> wsNames = new HashMap<>();
+        Map<UUID, String> userNames = new HashMap<>();
+        for (JobCard c : cards) {
+            if (c.getOperationId() != null) {
+                c.setOperationName(opNames.computeIfAbsent(c.getOperationId(), id ->
+                        operationRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
+                                .map(o -> o.getName()).orElse(null)));
+            }
+            if (c.getWorkstationId() != null) {
+                c.setWorkstationName(wsNames.computeIfAbsent(c.getWorkstationId(), id ->
+                        workstationRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
+                                .map(w -> w.getName()).orElse(null)));
+            }
+            if (c.getAssignedTo() != null) {
+                c.setAssigneeName(userNames.computeIfAbsent(c.getAssignedTo(), id ->
+                        appUserRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
+                                .map(u -> u.getFullName()).orElse(null)));
+            }
+        }
     }
 
     @Transactional
