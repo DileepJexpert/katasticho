@@ -605,6 +605,8 @@ class ApiConfig {
       '/api/v1/sales-receipts/$id/print';
   static String salesReceiptWhatsAppLink(String id) =>
       '/api/v1/sales-receipts/$id/whatsapp-link';
+  static String salesReceiptReturn(String id) =>
+      '/api/v1/sales-receipts/$id/return';
   static String customerPurchaseHistory(String contactId) =>
       '/api/v1/sales-receipts/customer/$contactId/history';
   static const String posSearch = '/api/v1/items/pos-search';

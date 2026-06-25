@@ -19,6 +19,14 @@ class SalesReceiptDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(receiptDetailProvider(receiptId));
+    final current = async.valueOrNull;
+    final currentData = current == null
+        ? null
+        : (current['data'] is Map<String, dynamic>
+            ? current['data'] as Map<String, dynamic>
+            : current);
+    final canReturn =
+        (currentData?['status']?.toString() ?? 'COMPLETED') == 'COMPLETED';
 
     return Scaffold(
       appBar: AppBar(
@@ -58,6 +66,12 @@ class SalesReceiptDetailScreen extends ConsumerWidget {
             tooltip: 'WhatsApp',
             onPressed: () => _handleWhatsApp(context, ref),
           ),
+          if (canReturn)
+            IconButton(
+              icon: const Icon(Icons.assignment_return_outlined, size: 20),
+              tooltip: 'Return / void receipt',
+              onPressed: () => _handleReturn(context, ref),
+            ),
         ],
       ),
       body: async.when(
@@ -88,6 +102,59 @@ class SalesReceiptDetailScreen extends ConsumerWidget {
           SnackBar(content: Text('Share link generated')),
         );
       }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error),
+      );
+    }
+  }
+
+  Future<void> _handleReturn(BuildContext context, WidgetRef ref) async {
+    final reasonCtl = TextEditingController();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Return / void receipt?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This reverses the sale (accounting + GST) and restocks the items. '
+              'It cannot be undone.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonCtl,
+              decoration: const InputDecoration(
+                labelText: 'Reason (optional)',
+                hintText: 'e.g. customer returned goods',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Return'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      final repo = ref.read(posRepositoryProvider);
+      await repo.returnReceipt(receiptId, reason: reasonCtl.text.trim());
+      ref.invalidate(receiptDetailProvider(receiptId));
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Receipt returned')),
+      );
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -139,6 +206,8 @@ class _ReceiptBody extends StatelessWidget {
     final upiReference = data['upiReference']?.toString();
     final notes = data['notes']?.toString();
     final gstInvoice = data['gstInvoice'] == true;
+    final isReturned =
+        (data['status']?.toString() ?? 'COMPLETED') == 'RETURNED';
     final lines = (data['lines'] as List?) ?? [];
     final totalDiscount = lines.fold<double>(0, (sum, raw) {
       if (raw is! Map) return sum;
@@ -151,6 +220,30 @@ class _ReceiptBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (isReturned)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: KColors.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: KColors.error.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.assignment_return, color: KColors.error, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This sale was returned / voided — accounting reversed and stock restored.',
+                      style: TextStyle(
+                          color: KColors.error, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // Header card
           KCard(
             title: receiptNumber,

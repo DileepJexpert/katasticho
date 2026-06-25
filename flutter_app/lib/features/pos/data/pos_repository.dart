@@ -82,6 +82,18 @@ class PosRepository {
     return response.data ?? [];
   }
 
+  /// Return / void a completed receipt (reverses journal + restocks).
+  /// Returns the updated receipt.
+  Future<Map<String, dynamic>> returnReceipt(String id, {String? reason}) async {
+    final response = await _api.post(
+      ApiConfig.salesReceiptReturn(id),
+      data: {
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+      },
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   /// Get a shareable WhatsApp link for a receipt.
   Future<Map<String, dynamic>> getWhatsAppLink(String id) async {
     final response = await _api.post(
