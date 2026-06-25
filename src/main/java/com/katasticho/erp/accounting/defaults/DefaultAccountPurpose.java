@@ -48,6 +48,9 @@ public enum DefaultAccountPurpose {
     // ── Opening Balance ───────────────────────────────────────
     OPENING_BALANCE_EQUITY ("3040", "Opening Balance Equity"),
 
+    // ── Year-end close ────────────────────────────────────────
+    RETAINED_EARNINGS   ("3020", "Retained Earnings"),
+
     // ── Withholding (TDS) / collection (TCS) ──────────────────
     TDS_PAYABLE         ("2030", "TDS Payable"),
     TCS_PAYABLE         ("2031", "TCS Payable"),

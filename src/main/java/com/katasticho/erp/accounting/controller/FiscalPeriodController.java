@@ -3,6 +3,7 @@ package com.katasticho.erp.accounting.controller;
 import com.katasticho.erp.accounting.dto.FiscalPeriodResponse;
 import com.katasticho.erp.accounting.entity.FiscalPeriod;
 import com.katasticho.erp.accounting.service.FiscalPeriodService;
+import com.katasticho.erp.accounting.service.YearEndCloseService;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
@@ -20,6 +21,7 @@ import java.util.List;
 public class FiscalPeriodController {
 
     private final FiscalPeriodService fiscalPeriodService;
+    private final YearEndCloseService yearEndCloseService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
@@ -55,5 +57,18 @@ public class FiscalPeriodController {
             @PathVariable int month) {
         FiscalPeriod period = fiscalPeriodService.lockPeriod(year, month);
         return ResponseEntity.ok(ApiResponse.ok(FiscalPeriodResponse.from(period), "Period locked"));
+    }
+
+    /**
+     * Year-end close: post the closing entry that zeroes every P&L account into
+     * Retained Earnings for {@code fiscalYear}. Idempotent — a second call after
+     * a successful close throws YEAR_END_ALREADY_CLOSED.
+     */
+    @PostMapping("/year-end-close/{fiscalYear}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<YearEndCloseService.CloseResult>> closeYear(
+            @PathVariable int fiscalYear) {
+        YearEndCloseService.CloseResult result = yearEndCloseService.closeYear(fiscalYear);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Year-end close posted"));
     }
 }
