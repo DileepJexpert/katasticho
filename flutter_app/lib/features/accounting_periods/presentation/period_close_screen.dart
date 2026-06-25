@@ -21,6 +21,10 @@ class _PeriodCloseScreenState extends ConsumerState<PeriodCloseScreen> {
   late int _month;
   bool _busy = false;
 
+  late int _yecYear;
+  bool _yecBusy = false;
+  Map<String, dynamic>? _yecResult;
+
   bool _checklistLoading = false;
   Map<String, dynamic>? _checklist;
 
@@ -35,6 +39,8 @@ class _PeriodCloseScreenState extends ConsumerState<PeriodCloseScreen> {
     final now = DateTime.now();
     _year = now.year;
     _month = now.month;
+    // Default to the most recently completed fiscal year (FY starts in April).
+    _yecYear = now.month >= 4 ? now.year - 1 : now.year - 2;
     _loadChecklist();
   }
 
@@ -156,6 +162,119 @@ class _PeriodCloseScreenState extends ConsumerState<PeriodCloseScreen> {
     );
   }
 
+  Future<void> _runYearEndClose() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Close FY $_yecYear?'),
+        content: const Text(
+          "Posts the closing entry that moves the year's net P&L into Retained "
+          'Earnings. It can be reversed from the journal if needed.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Close year')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    setState(() => _yecBusy = true);
+    try {
+      final result =
+          await ref.read(fiscalPeriodRepositoryProvider).yearEndClose(_yecYear);
+      if (!mounted) return;
+      setState(() => _yecResult = result);
+      ref.invalidate(fiscalPeriodsProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('FY $_yecYear closed.')),
+      );
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final data = e.response?.data;
+      final msg = (data is Map && data['message'] != null)
+          ? data['message'].toString()
+          : (e.message ?? e.toString());
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _yecBusy = false);
+    }
+  }
+
+  Widget _yearEndCloseCard() {
+    final r = _yecResult;
+    final nothing = r != null && r['journalEntryId'] == null;
+    return KCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Year-end close', style: KTypography.h3),
+          const SizedBox(height: 4),
+          Text("Zero the year's P&L into Retained Earnings (3020).",
+              style: KTypography.bodySmall),
+          KSpacing.vGapMd,
+          Row(
+            children: [
+              Text('Fiscal year', style: KTypography.labelMedium),
+              IconButton(
+                icon: const Icon(Icons.remove_circle_outline),
+                onPressed: _yecBusy ? null : () => setState(() => _yecYear--),
+              ),
+              Text('$_yecYear', style: KTypography.labelMedium),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                onPressed: _yecBusy ? null : () => setState(() => _yecYear++),
+              ),
+              const Spacer(),
+              KButton(
+                label: 'Close year',
+                isLoading: _yecBusy,
+                onPressed: _yecBusy ? null : _runYearEndClose,
+              ),
+            ],
+          ),
+          if (r != null) ...[
+            KSpacing.vGapMd,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: (nothing ? KColors.textHint : KColors.success)
+                    .withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    nothing
+                        ? "No P&L activity for FY ${r['fiscalYear']} — nothing to close."
+                        : "Closed FY ${r['fiscalYear']}.",
+                    style: KTypography.labelMedium,
+                  ),
+                  if (!nothing) ...[
+                    const SizedBox(height: 4),
+                    Text("Net income: ₹${r['netIncome']}",
+                        style: KTypography.bodySmall),
+                    Text("Accounts closed: ${r['plAccountsClosed']}",
+                        style: KTypography.bodySmall),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final periods = ref.watch(fiscalPeriodsProvider);
@@ -172,6 +291,8 @@ class _PeriodCloseScreenState extends ConsumerState<PeriodCloseScreen> {
         child: ListView(
           padding: KSpacing.pagePadding,
           children: [
+            _yearEndCloseCard(),
+            KSpacing.vGapMd,
             KCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

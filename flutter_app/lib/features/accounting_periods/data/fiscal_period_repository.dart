@@ -38,4 +38,13 @@ class FiscalPeriodRepository {
   Future<void> lockPeriod(int year, int month) async {
     await _api.post(ApiConfig.lockFiscalPeriod(year, month));
   }
+
+  /// Year-end close: posts the P&L → Retained Earnings closing entry for the
+  /// fiscal year. Returns the result map (fiscalYear, netIncome,
+  /// plAccountsClosed, journalEntryId).
+  Future<Map<String, dynamic>> yearEndClose(int fiscalYear) async {
+    final response = await _api.post(ApiConfig.yearEndCloseFiscal(fiscalYear));
+    final body = response.data as Map<String, dynamic>;
+    return Map<String, dynamic>.from((body['data'] ?? body) as Map);
+  }
 }

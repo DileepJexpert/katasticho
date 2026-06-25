@@ -70,6 +70,8 @@ class ApiConfig {
       '/api/v1/accounting/continuous-close/$year/$month/close';
   static String lockFiscalPeriod(int year, int month) =>
       '/api/v1/accounting/periods/$year/$month/lock';
+  static String yearEndCloseFiscal(int fiscalYear) =>
+      '/api/v1/accounting/periods/year-end-close/$fiscalYear';
 
   // Reports
   static const String trialBalance = '/api/v1/reports/trial-balance';
