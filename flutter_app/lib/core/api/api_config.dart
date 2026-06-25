@@ -308,12 +308,18 @@ class ApiConfig {
 
   // Serial Numbers
   static const String serialNumbers = '/api/v1/serial-numbers';
-  static String serialNumbersReceive = '/api/v1/serial-numbers/receive';
-  static String serialNumbersAssignSale = '/api/v1/serial-numbers/assign-sale';
+  static const String serialNumbersReceive = '/api/v1/serial-numbers/receive';
+  static const String serialNumbersAssignSale =
+      '/api/v1/serial-numbers/assign-sale';
   static String serialNumbersByItem(String itemId) =>
       '/api/v1/serial-numbers/by-item/$itemId';
-  static String serialNumbersAvailable(String itemId) =>
-      '/api/v1/serial-numbers/available/$itemId';
+  // Controller takes itemId/warehouseId as query params, not a path segment.
+  static const String serialNumbersAvailable =
+      '/api/v1/serial-numbers/available';
+  static String serialNumberDamage(String id) =>
+      '/api/v1/serial-numbers/$id/damage';
+  static String serialNumberReturn(String id) =>
+      '/api/v1/serial-numbers/$id/return';
 
   // Batches (v2 — perishables / FEFO)
   static String batchesByItem(String itemId) => '/api/v1/batches/item/$itemId';

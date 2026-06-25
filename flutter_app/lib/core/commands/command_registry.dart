@@ -258,6 +258,21 @@ List<KCommand> buildAppCommands() {
       keywords: ['recall', 'batch', 'trace', 'pharma', 'food', 'fda'],
     ),
     KCommand(
+      label: 'Serial Numbers',
+      icon: Icons.qr_code_2,
+      section: 'Navigate',
+      route: Routes.serialNumbers,
+      keywords: ['serial', 'imei', 'unit', 'warranty', 'track', 'electronics'],
+    ),
+    KCommand(
+      label: 'Salesman Targets',
+      icon: Icons.flag,
+      section: 'Navigate',
+      route: Routes.fieldSalesTargets,
+      keywords: ['target', 'incentive', 'quota', 'achievement', 'salesman',
+                 'field sales', 'goal'],
+    ),
+    KCommand(
       label: '3-Way Match',
       icon: Icons.fact_check_rounded,
       section: 'Navigate',

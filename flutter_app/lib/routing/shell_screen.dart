@@ -415,6 +415,12 @@ const _inventoryGroup = NavGroup(
         activeIcon: Icons.warehouse_rounded,
         route: Routes.warehouses),
     NavItem(
+        id: 'inventory.serial_numbers',
+        label: 'Serial Numbers',
+        icon: Icons.qr_code_2_outlined,
+        activeIcon: Icons.qr_code_2,
+        route: Routes.serialNumbers),
+    NavItem(
         id: 'inventory.warehouse_zones',
         label: 'Warehouse Zones',
         icon: Icons.grid_view_outlined,
