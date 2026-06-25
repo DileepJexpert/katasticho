@@ -90,6 +90,54 @@ class GstRepository {
     return (body['data'] as List?) ?? const [];
   }
 
+  // ── IMS (Invoice Management System) action loop ───────────────────────
+  // Accept / Reject / Pending each inward 2B row; unactioned rows are
+  // deemed accepted into GSTR-2B at portal cutoff (amended Sec 38 CGST).
+
+  Future<Map<String, dynamic>> getImsSummary(String period) async {
+    final response = await _api
+        .get(ApiConfig.imsSummary, queryParameters: {'period': period});
+    return _data(response.data);
+  }
+
+  /// Rows in the period with no IMS action yet — the deemed-accepted surface.
+  Future<List<dynamic>> imsNoActionRows(String period) async {
+    final response = await _api
+        .get(ApiConfig.imsNoAction, queryParameters: {'period': period});
+    final body = response.data as Map<String, dynamic>;
+    return (body['data'] as List?) ?? const [];
+  }
+
+  /// Action a single row — ACCEPT / REJECT / PENDING + optional remarks.
+  Future<Map<String, dynamic>> imsAction(String id, String action,
+      {String? remarks}) async {
+    final response = await _api.post(ApiConfig.imsAction(id), data: {
+      'action': action,
+      if (remarks != null && remarks.isNotEmpty) 'remarks': remarks,
+    });
+    return _data(response.data);
+  }
+
+  /// Undo an IMS action on a row — back to "no action".
+  Future<Map<String, dynamic>> imsReset(String id) async {
+    final response = await _api.post(ApiConfig.imsReset(id));
+    return _data(response.data);
+  }
+
+  /// Compute rule-based AI recommendations for unactioned rows.
+  Future<Map<String, dynamic>> imsRecommend(String period) async {
+    final response = await _api
+        .post(ApiConfig.imsRecommend, queryParameters: {'period': period});
+    return _data(response.data);
+  }
+
+  /// Apply every AI recommendation in the period in one tap.
+  Future<Map<String, dynamic>> imsApplyRecommendations(String period) async {
+    final response = await _api.post(ApiConfig.imsApplyRecommendations,
+        queryParameters: {'period': period});
+    return _data(response.data);
+  }
+
   // ── e-Way bills ───────────────────────────────────────────────────────
 
   Future<List<dynamic>> listEwayBills({String? status}) async {

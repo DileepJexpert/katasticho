@@ -129,6 +129,15 @@ class ApiConfig {
   static const String gstItcRisk = '/api/v1/gst/itc-risk';
   static const String gstItcRiskRollup = '/api/v1/gst/itc-risk/rollup';
   static const String gstItcRiskAlert = '/api/v1/gst/itc-risk/alert';
+  // IMS (Invoice Management System) — Accept/Reject/Pending on 2B rows
+  static const String imsSummary = '/api/v1/gst/ims/summary';
+  static const String imsNoAction = '/api/v1/gst/ims/no-action';
+  static String imsAction(String id) => '/api/v1/gst/ims/$id/action';
+  static String imsReset(String id) => '/api/v1/gst/ims/$id/reset';
+  static const String imsBulkAction = '/api/v1/gst/ims/bulk-action';
+  static const String imsRecommend = '/api/v1/gst/ims/recommend';
+  static const String imsApplyRecommendations =
+      '/api/v1/gst/ims/apply-recommendations';
   // e-Way bills
   static const String ewayBills = '/api/v1/gst/eway-bills';
   static String ewayBillRecord(String id) => '/api/v1/gst/eway-bills/$id/record';

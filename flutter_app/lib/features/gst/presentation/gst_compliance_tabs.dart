@@ -429,6 +429,400 @@ class _Gstr2bTabState extends ConsumerState<Gstr2bTab> {
   }
 }
 
+// ── IMS (Invoice Management System) Tab ──────────────────────────────────────
+
+/// Accept / Reject / keep Pending each inward 2B invoice. Under amended
+/// Sec 38 CGST (eff. 1 Oct 2025) rows left with no action are silently
+/// deemed accepted into GSTR-2B at portal cutoff — real ITC exposure if a
+/// mismatched or fake invoice slips through.
+class ImsTab extends ConsumerStatefulWidget {
+  final String period; // YYYY-MM
+  final VoidCallback onChanged;
+
+  const ImsTab({super.key, required this.period, required this.onChanged});
+
+  @override
+  ConsumerState<ImsTab> createState() => _ImsTabState();
+}
+
+class _ImsTabState extends ConsumerState<ImsTab> {
+  Map<String, dynamic>? _summary;
+  List<dynamic>? _rows; // no-action rows = the actionable surface
+  bool _loading = true;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant ImsTab old) {
+    super.didUpdateWidget(old);
+    if (old.period != widget.period) _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final repo = ref.read(gstRepositoryProvider);
+    Map<String, dynamic>? summary;
+    List<dynamic>? rows;
+    try {
+      summary = await repo.getImsSummary(widget.period);
+    } catch (_) {}
+    try {
+      rows = await repo.imsNoActionRows(widget.period);
+    } catch (_) {
+      rows = const [];
+    }
+    if (!mounted) return;
+    setState(() {
+      _summary = summary;
+      _rows = rows;
+      _loading = false;
+    });
+  }
+
+  Future<void> _action(Map<String, dynamic> row, String action) async {
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(gstRepositoryProvider)
+          .imsAction(row['id'].toString(), action);
+      await _load();
+      widget.onChanged();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'Could not record: ${e.toString().replaceAll('Exception: ', '')}')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _refreshRecommendations() async {
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(gstRepositoryProvider).imsRecommend(widget.period);
+      await _load();
+      if (mounted) {
+        messenger.showSnackBar(
+            const SnackBar(content: Text('AI recommendations refreshed')));
+      }
+    } catch (e) {
+      if (mounted) messenger.showSnackBar(SnackBar(content: Text('Failed: $e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _applyAll() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Apply all AI recommendations'),
+        content: const Text(
+            'Apply the AI\'s suggested Accept / Reject / Pending to every '
+            'unactioned row that has a recommendation. You can still undo '
+            'any individual row afterwards.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Apply all')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final out = await ref
+          .read(gstRepositoryProvider)
+          .imsApplyRecommendations(widget.period);
+      await _load();
+      widget.onChanged();
+      if (mounted) {
+        messenger.showSnackBar(SnackBar(
+            content: Text('Applied ${out['applied'] ?? 0} recommendation(s)'
+                '${(out['skippedNoRecommendation'] as num? ?? 0) > 0 ? ' · ${out['skippedNoRecommendation']} had none (run Refresh first)' : ''}')));
+      }
+    } catch (e) {
+      if (mounted) messenger.showSnackBar(SnackBar(content: Text('Failed: $e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final summary = _summary;
+    final rows = _rows ?? const [];
+    final noAction = (summary?['noAction'] as num?)?.toInt() ?? rows.length;
+    final exposure =
+        (summary?['deemedAcceptedItcExposure'] as num?)?.toDouble() ?? 0;
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: KSpacing.pagePadding,
+        children: [
+          KCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('IMS — Invoice Management System for ${widget.period}',
+                    style: KTypography.h3),
+                KSpacing.vGapSm,
+                Text(
+                  'Accept, Reject, or keep Pending each inward invoice. Rows '
+                  'left with no action are deemed accepted into GSTR-2B at '
+                  'portal cutoff (amended Sec 38 CGST) — a mismatched or fake '
+                  'invoice that slips through becomes your ITC liability.',
+                  style: KTypography.bodySmall
+                      .copyWith(color: KColors.textSecondary),
+                ),
+                KSpacing.vGapMd,
+                Row(
+                  children: [
+                    Expanded(
+                      child: KButton(
+                        label: 'Refresh AI',
+                        icon: Icons.auto_awesome,
+                        variant: KButtonVariant.outlined,
+                        onPressed: _busy ? null : _refreshRecommendations,
+                      ),
+                    ),
+                    KSpacing.hGapMd,
+                    Expanded(
+                      child: KButton(
+                        label: 'Apply all AI',
+                        icon: Icons.done_all,
+                        isLoading: _busy,
+                        onPressed: _busy ? null : _applyAll,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          KSpacing.vGapMd,
+          if (summary != null) ...[
+            Row(
+              children: [
+                _imsMetric('Total', summary['totalRows'], KColors.textPrimary),
+                KSpacing.hGapSm,
+                _imsMetric('No action', summary['noAction'], KColors.error),
+                KSpacing.hGapSm,
+                _imsMetric('Accepted', summary['accepted'], KColors.success),
+                KSpacing.hGapSm,
+                _imsMetric('Rejected', summary['rejected'], KColors.warning),
+              ],
+            ),
+            if (noAction > 0) ...[
+              KSpacing.vGapSm,
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: KColors.error.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border:
+                      Border.all(color: KColors.error.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber,
+                        color: KColors.error, size: 18),
+                    KSpacing.hGapSm,
+                    Expanded(
+                      child: Text(
+                        '$noAction row(s) unactioned · '
+                        '${CurrencyFormatter.formatIndian(exposure)} ITC will be '
+                        'deemed accepted at cutoff',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.error),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            KSpacing.vGapMd,
+          ],
+          Row(
+            children: [
+              Text('Needs action', style: KTypography.h3),
+              const Spacer(),
+              Text('${rows.length}',
+                  style: KTypography.labelLarge
+                      .copyWith(color: KColors.textSecondary)),
+            ],
+          ),
+          KSpacing.vGapSm,
+          if (rows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Center(
+                child: Column(
+                  children: [
+                    const Icon(Icons.verified_outlined,
+                        color: KColors.success, size: 40),
+                    KSpacing.vGapSm,
+                    Text(
+                      summary == null
+                          ? 'Upload or auto-fetch GSTR-2B first (2B Recon tab)'
+                          : 'Every row is actioned — nothing deemed-accepted',
+                      style: KTypography.bodyMedium
+                          .copyWith(color: KColors.textHint),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...rows
+                .map((raw) => _rowCard(Map<String, dynamic>.from(raw as Map))),
+        ],
+      ),
+    );
+  }
+
+  Widget _rowCard(Map<String, dynamic> e) {
+    final status = e['matchStatus']?.toString() ?? 'UNMATCHED';
+    final statusColor = switch (status) {
+      'MATCHED' => KColors.success,
+      'VALUE_MISMATCH' => KColors.warning,
+      'NOT_IN_BOOKS' => KColors.error,
+      _ => KColors.textSecondary,
+    };
+    final rec = e['imsAiRecommendation']?.toString();
+    final igst = (e['igst'] as num?)?.toDouble() ?? 0;
+    final cgst = (e['cgst'] as num?)?.toDouble() ?? 0;
+    final sgst = (e['sgst'] as num?)?.toDouble() ?? 0;
+    final cess = (e['cess'] as num?)?.toDouble() ?? 0;
+    final itc = igst + cgst + sgst + cess;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: KSpacing.sm),
+      child: KCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                          '${e['supplierName'] ?? e['supplierGstin']} · ${e['invoiceNumber']}',
+                          style: KTypography.labelLarge),
+                      KSpacing.vGapXs,
+                      Text(
+                        'Value ${CurrencyFormatter.formatIndian((e['invoiceValue'] as num?)?.toDouble() ?? 0)} · '
+                        'ITC ${CurrencyFormatter.formatIndian(itc)}',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(status.replaceAll('_', ' '),
+                      style:
+                          KTypography.labelSmall.copyWith(color: statusColor)),
+                ),
+              ],
+            ),
+            if (rec != null) ...[
+              KSpacing.vGapXs,
+              Row(
+                children: [
+                  Icon(Icons.auto_awesome, size: 14, color: _recColor(rec)),
+                  KSpacing.hGapXs,
+                  Text('AI suggests $rec',
+                      style: KTypography.labelSmall
+                          .copyWith(color: _recColor(rec))),
+                ],
+              ),
+            ],
+            KSpacing.vGapSm,
+            Row(
+              children: [
+                Expanded(
+                  child: _actionBtn(
+                      'Accept', KColors.success, () => _action(e, 'ACCEPT')),
+                ),
+                KSpacing.hGapSm,
+                Expanded(
+                  child: _actionBtn(
+                      'Reject', KColors.error, () => _action(e, 'REJECT')),
+                ),
+                KSpacing.hGapSm,
+                Expanded(
+                  child: _actionBtn(
+                      'Pending', KColors.warning, () => _action(e, 'PENDING')),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _actionBtn(String label, Color color, VoidCallback onTap) {
+    return OutlinedButton(
+      onPressed: _busy ? null : onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color.withValues(alpha: 0.5)),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+      ),
+      child: Text(label, style: KTypography.labelMedium.copyWith(color: color)),
+    );
+  }
+
+  Color _recColor(String rec) => switch (rec) {
+        'ACCEPT' => KColors.success,
+        'REJECT' => KColors.error,
+        _ => KColors.warning,
+      };
+
+  Widget _imsMetric(String label, Object? value, Color color) {
+    return Expanded(
+      child: KCard(
+        child: Column(
+          children: [
+            Text('${value ?? 0}', style: KTypography.h3.copyWith(color: color)),
+            Text(label,
+                style: KTypography.bodySmall
+                    .copyWith(color: KColors.textSecondary),
+                textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── e-Invoice (IRN) Tab ──────────────────────────────────────────────────────
 
 class EInvoicesTab extends ConsumerStatefulWidget {
