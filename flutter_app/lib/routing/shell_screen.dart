@@ -396,6 +396,24 @@ const _inventoryGroup = NavGroup(
         icon: Icons.upload_file_outlined,
         activeIcon: Icons.upload_file_rounded,
         route: Routes.itemImport),
+    NavItem(
+        id: 'inventory.warehouse_zones',
+        label: 'Warehouse Zones',
+        icon: Icons.warehouse_outlined,
+        activeIcon: Icons.warehouse_rounded,
+        route: Routes.warehouseZones),
+    NavItem(
+        id: 'inventory.batch_trace',
+        label: 'Batch Trace',
+        icon: Icons.account_tree_outlined,
+        activeIcon: Icons.account_tree_rounded,
+        route: Routes.batchTrace),
+    NavItem(
+        id: 'inventory.batch_recall',
+        label: 'Batch Recall',
+        icon: Icons.report_outlined,
+        activeIcon: Icons.report_rounded,
+        route: Routes.batchRecall),
   ],
 );
 
@@ -891,6 +909,30 @@ const _manufacturingGroup = NavGroup(
         icon: Icons.calculate_outlined,
         activeIcon: Icons.calculate_rounded,
         route: Routes.manufacturingMrpRuns),
+    NavItem(
+        id: 'manufacturing.capa',
+        label: 'CAPA',
+        icon: Icons.assignment_turned_in_outlined,
+        activeIcon: Icons.assignment_turned_in_rounded,
+        route: Routes.manufacturingCapa),
+    NavItem(
+        id: 'manufacturing.workstation_load',
+        label: 'Workstation Load',
+        icon: Icons.speed_outlined,
+        activeIcon: Icons.speed_rounded,
+        route: Routes.manufacturingWorkstationLoad),
+    NavItem(
+        id: 'manufacturing.reliability',
+        label: 'Equipment Reliability',
+        icon: Icons.monitor_heart_outlined,
+        activeIcon: Icons.monitor_heart_rounded,
+        route: Routes.manufacturingReliability),
+    NavItem(
+        id: 'manufacturing.analytics',
+        label: 'Production Analytics',
+        icon: Icons.analytics_outlined,
+        activeIcon: Icons.analytics_rounded,
+        route: Routes.manufacturingAnalytics),
   ],
 );
 
