@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/widgets.dart';
+import '../../inventory/presentation/item_picker_sheet.dart';
 import '../data/scrap_repository.dart';
 
 // ---------------------------------------------------------------------------
@@ -82,12 +83,12 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
 
   Future<void> _showRecordScrapDialog(BuildContext context) async {
     final woCtl = TextEditingController();
-    final itemCtl = TextEditingController();
     final qtyCtl = TextEditingController();
     final jobCardCtl = TextEditingController();
     final notesCtl = TextEditingController();
     final formKey = GlobalKey<FormState>();
     EntityOption? reason;
+    Map<String, dynamic>? scrapItem;
 
     final submitted = await showDialog<bool>(
       context: context,
@@ -110,14 +111,21 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
                     (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: itemCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Item ID *',
-                  hintText: 'Paste UUID',
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () async {
+                  final picked = await showItemPicker(dialogCtx);
+                  if (picked != null) setSheetState(() => scrapItem = picked);
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Item *',
+                    prefixIcon: Icon(Icons.inventory_2_outlined),
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.arrow_drop_down),
+                  ),
+                  child: Text(scrapItem?['name']?.toString() ?? 'Tap to select'),
                 ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -168,8 +176,12 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
           FilledButton(
             onPressed: () {
               final ok = formKey.currentState!.validate();
-              if (ok && reason != null) {
+              if (ok && scrapItem != null && reason != null) {
                 Navigator.pop(ctx, true);
+              } else if (scrapItem == null) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Select an item')),
+                );
               } else if (reason == null) {
                 ScaffoldMessenger.of(ctx).showSnackBar(
                   const SnackBar(content: Text('Select a reason code')),
@@ -187,7 +199,7 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
     try {
       await ref.read(scrapRepositoryProvider).recordScrap(
             workOrderId: woCtl.text.trim(),
-            itemId: itemCtl.text.trim(),
+            itemId: scrapItem!['id'].toString(),
             scrapQty: double.parse(qtyCtl.text.trim()),
             reasonCodeId: reason!.id,
             jobCardId: jobCardCtl.text.trim(),
