@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../routing/app_router.dart';
@@ -612,6 +613,36 @@ class _EInvoicesTabState extends ConsumerState<EInvoicesTab> {
     }
   }
 
+  Future<void> _showSignedQr(Map<String, dynamic> row) async {
+    final qr = row['signedQr']?.toString() ?? '';
+    if (qr.isEmpty) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('e-Invoice QR — ${row['documentNumber'] ?? ''}'),
+        content: SizedBox(
+          width: 260,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              QrImageView(
+                  data: qr, version: QrVersions.auto, size: 240),
+              const SizedBox(height: 8),
+              Text('Signed QR from the IRP — scan to verify the e-invoice.',
+                  style: KTypography.bodySmall, textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final rows = widget.eInvoices ?? const [];
@@ -654,6 +685,7 @@ class _EInvoicesTabState extends ConsumerState<EInvoicesTab> {
               _ => (KColors.warning, Icons.pending_actions),
             };
             final irn = row['irn']?.toString() ?? '';
+            final signedQr = row['signedQr']?.toString() ?? '';
             return Padding(
               padding: const EdgeInsets.only(bottom: KSpacing.sm),
               child: KCard(
@@ -723,6 +755,17 @@ class _EInvoicesTabState extends ConsumerState<EInvoicesTab> {
                             tooltip: 'Cancel entry',
                           ),
                         ],
+                      ),
+                    ],
+                    if (signedQr.isNotEmpty) ...[
+                      KSpacing.vGapSm,
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showSignedQr(row),
+                          icon: const Icon(Icons.qr_code_2, size: 16),
+                          label: const Text('Show e-invoice QR'),
+                        ),
                       ),
                     ],
                   ],
