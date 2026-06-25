@@ -50,6 +50,20 @@ public class SalesReceiptController {
         return ResponseEntity.ok(ApiResponse.ok(salesReceiptService.getById(id)));
     }
 
+    /**
+     * Return / void a completed POS sale — reverses the journal + restocks.
+     * OWNER/ADMIN/ACCOUNTANT only (a cash-sale reversal is sensitive; OPERATOR
+     * is intentionally excluded). Body: optional {@code {"reason": "..."}}.
+     */
+    @PostMapping("/{id}/return")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<SalesReceiptResponse>> returnReceipt(
+            @PathVariable UUID id,
+            @RequestBody(required = false) Map<String, String> body) {
+        String reason = body != null ? body.get("reason") : null;
+        return ResponseEntity.ok(ApiResponse.ok(salesReceiptService.voidReceipt(id, reason)));
+    }
+
     @GetMapping
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<SalesReceiptResponse>>> list(

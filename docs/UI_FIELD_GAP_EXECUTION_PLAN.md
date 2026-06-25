@@ -30,7 +30,7 @@ Derived from `docs/UI_FIELD_GAP_AUDIT.md` (2026-06-24). This is the **work track
 - [x] **B3. Sidebar un-orphan pass** — added 7 NavItems: Manufacturing (CAPA, Workstation Load, Equipment Reliability, Production Analytics) + Inventory (Warehouse Zones, Batch Trace, Batch Recall). FSSAI was already food-gated in nav (stale audit claim). Per-entity "paste-an-id" tool screens intentionally deferred to detail-screen wiring (needs B1 rollout).
 
 ## Sprint C — India-core flows
-- [ ] **C1. POS returns / refund / void** (backend endpoint + receipt-detail action).
+- [~] **C1. POS returns / refund / void** — **backend DONE + tested.** V9 migration adds `sales_receipt.status` (COMPLETED|RETURNED CHECK) + `reversal_journal_entry_id` / `returned_at` / `return_reason` / `returned_by` + a partial index. `SalesReceiptService.voidReceipt(id, reason)` reverses the Cash/Revenue+COGS journal (`journalService.reverseEntry`) and restocks every SALE movement (`inventoryService.reverseMovement` — restores qty + FIFO lots), flips the row to RETURNED, idempotent (`SR_ALREADY_RETURNED`). Endpoint `POST /api/v1/sales-receipts/{id}/return` (OWNER/ADMIN/ACCOUNTANT — OPERATOR excluded; cash-sale reversal is sensitive). `status` surfaced on `SalesReceiptResponse`. Tests: `SalesReceiptReturnTest` (3 — reverse journal+restock+flip, double-return throws, no-journal-still-restocks) **pass**. **Flutter receipt-detail "Return" action + RETURNED badge still TODO.**
 - [ ] **C2. POS credit / khata** (CREDIT payment mode → AR; show running balance).
 - [ ] **C3. AR multi-invoice allocation + customer advance receipt** (allocation table + Receive-Payment screen).
 - [ ] **C4. Supplier master CRUD** (list + create/edit).

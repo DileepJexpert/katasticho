@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -94,6 +95,24 @@ public class SalesReceipt extends BaseEntity {
 
     @Column(name = "journal_entry_id")
     private UUID journalEntryId;
+
+    /** COMPLETED (default) or RETURNED once the sale is voided/returned. */
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private String status = "COMPLETED";
+
+    /** The reversing journal entry created when the receipt is returned. */
+    @Column(name = "reversal_journal_entry_id")
+    private UUID reversalJournalEntryId;
+
+    @Column(name = "returned_at")
+    private Instant returnedAt;
+
+    @Column(name = "return_reason", length = 255)
+    private String returnReason;
+
+    @Column(name = "returned_by")
+    private UUID returnedBy;
 
     @OneToMany(mappedBy = "receipt", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("lineNumber ASC")

@@ -28,6 +28,7 @@ public record SalesReceiptResponse(
         String upiReference,
         String notes,
         UUID journalEntryId,
+        String status,
         Instant createdAt,
         List<LineResponse> lines
 ) {

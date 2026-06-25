@@ -52,6 +52,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -353,6 +354,55 @@ public class SalesReceiptService {
         return toResponse(receipt);
     }
 
+    /**
+     * Return / void a completed POS receipt: reverse the Cash/Revenue (and COGS)
+     * journal and restock every SALE movement, then flip the row to RETURNED.
+     * Idempotent at the receipt level — a second call throws SR_ALREADY_RETURNED.
+     * Both reversal primitives are themselves guarded ({@code isReversed()}), so a
+     * partially-applied prior attempt can't double-reverse.
+     */
+    @Transactional
+    public SalesReceiptResponse voidReceipt(UUID receiptId, String reason) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        UUID userId = TenantContext.getCurrentUserId();
+
+        SalesReceipt receipt = receiptRepository.findByIdAndOrgIdAndIsDeletedFalse(receiptId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("SalesReceipt", receiptId));
+
+        if ("RETURNED".equals(receipt.getStatus())) {
+            throw new BusinessException("Receipt already returned", "SR_ALREADY_RETURNED",
+                    HttpStatus.CONFLICT);
+        }
+
+        // 1. Reverse the accounting journal — un-books revenue + GST + cash and
+        //    restores COGS/Inventory (and Stock-Out Suspense for provisional COGS).
+        if (receipt.getJournalEntryId() != null) {
+            JournalEntry reversal = journalService.reverseEntry(receipt.getJournalEntryId());
+            receipt.setReversalJournalEntryId(reversal.getId());
+        }
+
+        // 2. Restock — reverse each recorded SALE movement (restores qty + FIFO lots).
+        //    Lines for non-inventory items carry no movement id and are skipped.
+        for (SalesReceiptLine line : receipt.getLines()) {
+            if (line.getStockMovementId() != null) {
+                inventoryService.reverseMovement(line.getStockMovementId(),
+                        "POS return " + receipt.getReceiptNumber());
+            }
+        }
+
+        receipt.setStatus("RETURNED");
+        receipt.setReturnedAt(Instant.now());
+        receipt.setReturnReason(reason);
+        receipt.setReturnedBy(userId);
+        receiptRepository.save(receipt);
+
+        auditService.log("SALES_RECEIPT", receipt.getId(), "RETURN", null,
+                "{\"reason\":\"" + (reason != null ? reason : "") + "\"}");
+        log.info("Sales receipt {} returned/voided by {}", receipt.getReceiptNumber(), userId);
+
+        return toResponse(receipt);
+    }
+
     @Transactional(readOnly = true)
     public PagedResponse<SalesReceiptResponse> list(UUID branchId, LocalDate dateFrom,
                                                      LocalDate dateTo, String paymentMode,
@@ -544,6 +594,7 @@ public class SalesReceiptService {
                 receipt.getUpiReference(),
                 receipt.getNotes(),
                 receipt.getJournalEntryId(),
+                receipt.getStatus(),
                 receipt.getCreatedAt(),
                 lineResponses);
     }
