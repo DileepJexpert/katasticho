@@ -22,6 +22,9 @@ class InvoiceDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final invoiceAsync = ref.watch(invoiceDetailProvider(invoiceId));
+    final loadedStatus = ((invoiceAsync.valueOrNull?['data'] ??
+            invoiceAsync.valueOrNull) as Map?)?['status'] as String?;
+    final isDraft = loadedStatus == 'DRAFT';
 
     return Scaffold(
       appBar: AppBar(
@@ -35,6 +38,8 @@ class InvoiceDetailScreen extends ConsumerWidget {
           PopupMenuButton<String>(
             onSelected: (value) => _handleAction(context, ref, value),
             itemBuilder: (context) => [
+              if (isDraft)
+                const PopupMenuItem(value: 'edit', child: Text('Edit Invoice')),
               const PopupMenuItem(value: 'send', child: Text('Send Invoice')),
               const PopupMenuItem(
                   value: 'share', child: Text('Share via WhatsApp')),
@@ -125,6 +130,9 @@ class InvoiceDetailScreen extends ConsumerWidget {
     final repo = ref.read(invoiceRepositoryProvider);
 
     switch (action) {
+      case 'edit':
+        context.push('/invoices/$invoiceId/edit');
+        break;
       case 'send':
         try {
           await repo.sendInvoice(invoiceId);

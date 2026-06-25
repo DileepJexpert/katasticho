@@ -20,7 +20,11 @@ import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/invoice_repository.dart';
 
 class InvoiceCreateScreen extends ConsumerStatefulWidget {
-  const InvoiceCreateScreen({super.key});
+  /// When set, the screen edits an existing DRAFT invoice (PUT) instead of
+  /// creating a new one (POST).
+  final String? invoiceId;
+
+  const InvoiceCreateScreen({super.key, this.invoiceId});
 
   @override
   ConsumerState<InvoiceCreateScreen> createState() =>
@@ -97,6 +101,59 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
 
   double get _grandTotal => _subtotal + _totalTax;
 
+  bool get _isEdit => widget.invoiceId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEdit) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadForEdit());
+    }
+  }
+
+  /// Pull the DRAFT invoice and prefill the wizard so the user edits in place.
+  Future<void> _loadForEdit() async {
+    try {
+      final raw =
+          await ref.read(invoiceRepositoryProvider).getInvoice(widget.invoiceId!);
+      final inv = (raw['data'] ?? raw) as Map<String, dynamic>;
+      final lines =
+          (inv['lines'] as List?)?.whereType<Map>().toList() ?? const [];
+      setState(() {
+        _selectedContactId = inv['contactId']?.toString();
+        _contactName = inv['contactName']?.toString() ?? '';
+        _selectedCustomer = _selectedContactId == null
+            ? null
+            : {'id': _selectedContactId, 'displayName': _contactName};
+        _notes = inv['notes']?.toString() ?? '';
+        _invoiceDate =
+            DateTime.tryParse(inv['invoiceDate']?.toString() ?? '') ?? _invoiceDate;
+        _dueDate =
+            DateTime.tryParse(inv['dueDate']?.toString() ?? '') ?? _dueDate;
+        _lineItems
+          ..clear()
+          ..addAll(lines.map((l) {
+            final li = _LineItem();
+            li.description = l['description']?.toString() ?? '';
+            li.hsnCode = l['hsnCode']?.toString() ?? '';
+            li.quantity = (l['quantity'] as num?)?.toDouble() ?? 1;
+            li.unitPrice = (l['unitPrice'] as num?)?.toDouble() ?? 0;
+            li.gstRate = (l['gstRate'] as num?)?.toDouble() ?? 0;
+            li.taxGroupId = l['taxGroupId']?.toString();
+            li.itemId = l['itemId']?.toString();
+            li.batchId = l['batchId']?.toString();
+            li.batchNumber = l['batchNumber']?.toString();
+            return li;
+          }));
+        if (_lineItems.isEmpty) _lineItems.add(_LineItem());
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _errorMessage = 'Failed to load invoice for editing.');
+      }
+    }
+  }
+
   Future<void> _handleSubmit() async {
     // Guard: Ctrl+Enter can invoke this directly while a submit is in
     // flight; without this check a second press creates a duplicate document.
@@ -144,11 +201,18 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
             .toList(),
       };
 
-      await repo.createInvoice(data);
+      if (_isEdit) {
+        await repo.updateInvoice(widget.invoiceId!, data);
+      } else {
+        await repo.createInvoice(data);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invoice created successfully')),
+          SnackBar(
+              content: Text(_isEdit
+                  ? 'Invoice updated successfully'
+                  : 'Invoice created successfully')),
         );
         context.go(Routes.invoices);
       }
@@ -161,8 +225,9 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
         }
         setState(() => _errorMessage = ApiErrorParser.message(e));
       } else {
-        setState(() =>
-            _errorMessage = 'Failed to create invoice. Please try again.');
+        setState(() => _errorMessage = _isEdit
+            ? 'Failed to update invoice. Please try again.'
+            : 'Failed to create invoice. Please try again.');
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -191,7 +256,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
       onCancel: () => context.go(Routes.invoices),
       child: Scaffold(
       appBar: AppBar(
-        title: const Text('Create Invoice'),
+        title: Text(_isEdit ? 'Edit Invoice' : 'Create Invoice'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Back to invoices',
@@ -309,7 +374,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
                       )
                     else
                       KButton(
-                        label: 'Create Invoice',
+                        label: _isEdit ? 'Save Changes' : 'Create Invoice',
                         onPressed: _handleSubmit,
                         isLoading: _isSubmitting,
                         icon: Icons.check,
@@ -523,6 +588,9 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
 
         ...List.generate(_lineItems.length, (index) {
           return _LineItemCard(
+            // Key by item identity so prefilled values render after an edit
+            // load (replacing _lineItems gives each card fresh State).
+            key: ObjectKey(_lineItems[index]),
             item: _lineItems[index],
             index: index,
             onRemove: _lineItems.length > 1

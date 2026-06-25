@@ -842,6 +842,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/invoices/:id/edit',
+            builder: (context, state) => InvoiceCreateScreen(
+              invoiceId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
             path: '/invoices/:id',
             builder: (context, state) => InvoiceDetailScreen(
               invoiceId: state.pathParameters['id']!,
