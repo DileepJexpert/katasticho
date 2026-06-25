@@ -83,6 +83,7 @@ import '../features/procurement/presentation/stock_receipt_list_screen.dart';
 import '../features/procurement/presentation/stock_receipt_create_screen.dart';
 import '../features/procurement/presentation/stock_receipt_detail_screen.dart';
 import '../features/procurement/presentation/purchase_order_list_screen.dart';
+import '../features/procurement/presentation/supplier_list_screen.dart';
 import '../features/procurement/presentation/purchase_order_create_screen.dart';
 import '../features/procurement/presentation/rfq_screen.dart';
 import '../features/procurement/presentation/rate_contracts_screen.dart';
@@ -287,6 +288,7 @@ class Routes {
   static const stockReceipts = '/stock-receipts';
   static const stockReceiptCreate = '/stock-receipts/create';
   static const stockReceiptDetail = '/stock-receipts/:id';
+  static const suppliers = '/suppliers';
   static const purchaseOrders = '/purchase-orders';
   static const purchaseOrderCreate = '/purchase-orders/create';
   static const purchaseOrderDetail = '/purchase-orders/:id';
@@ -1774,6 +1776,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/stock-receipts/:id',
             builder: (context, state) => StockReceiptDetailScreen(
               receiptId: state.pathParameters['id']!,
+            ),
+          ),
+          // Suppliers (vendor master)
+          GoRoute(
+            path: Routes.suppliers,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SupplierListScreen(),
             ),
           ),
           // Purchase Orders

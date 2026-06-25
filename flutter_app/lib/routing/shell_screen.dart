@@ -238,6 +238,12 @@ const _purchasesGroup = NavGroup(
   activeIcon: Icons.shopping_cart_rounded,
   children: [
     NavItem(
+        id: 'purchases.suppliers',
+        label: 'Suppliers',
+        icon: Icons.local_shipping_outlined,
+        activeIcon: Icons.local_shipping_rounded,
+        route: Routes.suppliers),
+    NavItem(
         id: 'purchases.purchase_orders',
         label: 'Purchase Orders',
         icon: Icons.shopping_cart_outlined,
