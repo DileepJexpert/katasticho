@@ -215,6 +215,7 @@ import '../features/manufacturing/presentation/job_work_list_screen.dart';
 import '../features/manufacturing/presentation/job_work_create_screen.dart';
 import '../features/manufacturing/presentation/job_work_detail_screen.dart';
 import '../features/manufacturing/presentation/routing_list_screen.dart';
+import '../features/manufacturing/presentation/manufacturing_masters_screen.dart';
 import '../features/manufacturing/presentation/routing_create_screen.dart';
 import '../features/manufacturing/presentation/job_card_list_screen.dart';
 import '../features/manufacturing/presentation/qc_inspection_list_screen.dart';
@@ -493,6 +494,7 @@ class Routes {
   static const manufacturingJobWorkCreate = '/manufacturing/job-work/new';
   static const manufacturingJobWorkDetail = '/manufacturing/job-work/:id';
   static const manufacturingRoutings = '/manufacturing/routings';
+  static const manufacturingMasters = '/manufacturing/masters';
   static const manufacturingRoutingCreate = '/manufacturing/routings/create';
   static const manufacturingJobCards = '/manufacturing/work-orders/:id/job-cards';
   static const manufacturingQcInspections = '/manufacturing/qc/inspections';
@@ -1489,6 +1491,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.manufacturingRoutings,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: RoutingListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.manufacturingMasters,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ManufacturingMastersScreen(),
             ),
           ),
           GoRoute(

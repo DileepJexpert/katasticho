@@ -61,7 +61,8 @@ class RoutingRepository {
       'name': name,
       if (description != null && description.isNotEmpty) 'description': description,
       if (hourlyRate != null) 'hourlyRate': hourlyRate,
-      if (capacityHours != null) 'capacityHours': capacityHours,
+      // Backend reads `capacityHoursPerDay` — `capacityHours` was silently dropped.
+      if (capacityHours != null) 'capacityHoursPerDay': capacityHours,
     });
     return _unwrap(res.data);
   }
@@ -88,7 +89,8 @@ class RoutingRepository {
       if (defaultWorkstationId != null && defaultWorkstationId.isNotEmpty)
         'defaultWorkstationId': defaultWorkstationId,
       if (setupTimeMinutes != null) 'setupTimeMinutes': setupTimeMinutes,
-      if (runTimePerUnit != null) 'runTimePerUnit': runTimePerUnit,
+      // Backend reads `runTimeMinutesPerUnit` — `runTimePerUnit` was silently dropped.
+      if (runTimePerUnit != null) 'runTimeMinutesPerUnit': runTimePerUnit,
     });
     return _unwrap(res.data);
   }

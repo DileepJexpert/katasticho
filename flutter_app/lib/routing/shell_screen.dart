@@ -911,6 +911,12 @@ const _manufacturingGroup = NavGroup(
         activeIcon: Icons.route_rounded,
         route: Routes.manufacturingRoutings),
     NavItem(
+        id: 'manufacturing.masters',
+        label: 'Workstations & Ops',
+        icon: Icons.precision_manufacturing_outlined,
+        activeIcon: Icons.precision_manufacturing,
+        route: Routes.manufacturingMasters),
+    NavItem(
         id: 'manufacturing.job_work',
         label: 'Job Work',
         icon: Icons.handyman_outlined,

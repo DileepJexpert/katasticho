@@ -273,6 +273,14 @@ List<KCommand> buildAppCommands() {
                  'corrective', 'iso 9001', 'reject'],
     ),
     KCommand(
+      label: 'Workstations & Operations',
+      icon: Icons.precision_manufacturing_outlined,
+      section: 'Navigate',
+      route: Routes.manufacturingMasters,
+      keywords: ['workstation', 'operation', 'work centre', 'machine',
+                 'routing', 'master', 'process'],
+    ),
+    KCommand(
       label: 'Salesman Targets',
       icon: Icons.flag,
       section: 'Navigate',
