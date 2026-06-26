@@ -923,6 +923,12 @@ const _manufacturingGroup = NavGroup(
         activeIcon: Icons.verified_rounded,
         route: Routes.manufacturingQcInspections),
     NavItem(
+        id: 'manufacturing.ncr',
+        label: 'Non-Conformance',
+        icon: Icons.report_problem_outlined,
+        activeIcon: Icons.report_problem,
+        route: Routes.manufacturingNcrs),
+    NavItem(
         id: 'manufacturing.scrap',
         label: 'Scrap',
         icon: Icons.delete_sweep_outlined,

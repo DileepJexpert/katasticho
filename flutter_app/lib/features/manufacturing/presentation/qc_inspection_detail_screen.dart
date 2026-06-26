@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -66,25 +68,41 @@ class _QcInspectionDetailScreenState
         [];
     final isEditable =
         status == 'PENDING' || status == 'IN_PROGRESS';
+    final isFinalized =
+        status == 'PASSED' || status == 'FAILED' || status == 'PARTIAL';
+    final hasDisposition = ins['disposition'] != null;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
             ins['inspectionNumber']?.toString() ?? 'Inspection'),
-        actions: isEditable
-            ? [
-                IconButton(
-                  icon: const Icon(Icons.checklist_rtl),
-                  tooltip: 'Record Results',
-                  onPressed: () => _showRecordResultsDialog(results),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.verified_outlined),
-                  tooltip: 'Finalize',
-                  onPressed: _showFinalizeDialog,
-                ),
-              ]
-            : null,
+        actions: [
+          if (isEditable) ...[
+            IconButton(
+              icon: const Icon(Icons.checklist_rtl),
+              tooltip: 'Record Results',
+              onPressed: () => _showRecordResultsDialog(results),
+            ),
+            IconButton(
+              icon: const Icon(Icons.verified_outlined),
+              tooltip: 'Finalize',
+              onPressed: _showFinalizeDialog,
+            ),
+          ],
+          if (isFinalized) ...[
+            IconButton(
+              icon: const Icon(Icons.description_outlined),
+              tooltip: 'Certificate of Analysis',
+              onPressed: _showCoaDialog,
+            ),
+            if (!hasDisposition)
+              IconButton(
+                icon: const Icon(Icons.gavel_outlined),
+                tooltip: 'Record Disposition',
+                onPressed: _showDispositionDialog,
+              ),
+          ],
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -145,6 +163,20 @@ class _QcInspectionDetailScreenState
                     if (ins['notes'] != null &&
                         ins['notes'].toString().isNotEmpty)
                       _InfoRow('Notes', ins['notes'].toString()),
+                    if (ins['disposition'] != null) ...[
+                      const Divider(height: 20),
+                      _InfoRow('Disposition',
+                          ins['disposition'].toString()),
+                      if (ins['holdQty'] != null)
+                        _InfoRow('Hold Qty', ins['holdQty'].toString()),
+                      if (ins['dispositionNotes'] != null &&
+                          ins['dispositionNotes'].toString().isNotEmpty)
+                        _InfoRow('Disp. Notes',
+                            ins['dispositionNotes'].toString()),
+                      if (ins['dispositionAt'] != null)
+                        _InfoRow('Disp. At',
+                            _formatDate(ins['dispositionAt'].toString())),
+                    ],
                   ],
                 ),
               ),
@@ -210,6 +242,32 @@ class _QcInspectionDetailScreenState
                       icon: const Icon(Icons.verified_outlined),
                       label: const Text('Finalize'),
                       onPressed: _showFinalizeDialog,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            // ── Disposition / CoA (finalized inspections) ───────────────
+            if (isFinalized) ...[
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.description_outlined),
+                      label: const Text('View CoA'),
+                      onPressed: _showCoaDialog,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.gavel_outlined),
+                      label: Text(hasDisposition
+                          ? 'Dispositioned'
+                          : 'Record Disposition'),
+                      onPressed:
+                          hasDisposition ? null : _showDispositionDialog,
                     ),
                   ),
                 ],
@@ -325,6 +383,155 @@ class _QcInspectionDetailScreenState
     } catch (e) {
       _showError(e);
     }
+  }
+
+  Future<void> _showDispositionDialog() async {
+    String decision = 'ACCEPT';
+    final inspected = (_inspection?['inspectedQty'] as num?)?.toDouble() ?? 0;
+    final acceptedCtl = TextEditingController(
+      text: (_inspection?['acceptedQty'] ?? inspected).toString(),
+    );
+    final rejectedCtl = TextEditingController(
+      text: (_inspection?['rejectedQty'] ?? 0).toString(),
+    );
+    final holdCtl = TextEditingController(text: '0');
+    final zoneCtl = TextEditingController();
+    final notesCtl = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Record Disposition'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Inspected qty: $inspected. Accepted + Rejected + Hold '
+                  'must equal the inspected quantity.',
+                  style: Theme.of(ctx).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: decision,
+                  decoration: const InputDecoration(
+                      labelText: 'Decision', border: OutlineInputBorder()),
+                  items: const [
+                    DropdownMenuItem(value: 'ACCEPT', child: Text('Accept')),
+                    DropdownMenuItem(value: 'REJECT', child: Text('Reject')),
+                    DropdownMenuItem(value: 'HOLD', child: Text('Hold')),
+                  ],
+                  onChanged: (v) => setLocal(() => decision = v ?? decision),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: acceptedCtl,
+                  decoration: const InputDecoration(
+                      labelText: 'Accepted Qty', border: OutlineInputBorder()),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: rejectedCtl,
+                  decoration: const InputDecoration(
+                      labelText: 'Rejected Qty', border: OutlineInputBorder()),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: holdCtl,
+                  decoration: const InputDecoration(
+                      labelText: 'Hold Qty', border: OutlineInputBorder()),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                ),
+                if (decision == 'HOLD') ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: zoneCtl,
+                    decoration: const InputDecoration(
+                        labelText: 'Quarantine zone id',
+                        helperText: 'Required for HOLD',
+                        border: OutlineInputBorder()),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: notesCtl,
+                  decoration: const InputDecoration(
+                      labelText: 'Notes (optional)',
+                      border: OutlineInputBorder()),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Record')),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(qcRepositoryProvider).recordDisposition(
+            widget.inspectionId,
+            decision: decision,
+            acceptedQty: double.tryParse(acceptedCtl.text.trim()) ?? 0,
+            rejectedQty: double.tryParse(rejectedCtl.text.trim()) ?? 0,
+            holdQty: double.tryParse(holdCtl.text.trim()) ?? 0,
+            quarantineZoneId:
+                zoneCtl.text.trim().isEmpty ? null : zoneCtl.text.trim(),
+            notes: notesCtl.text.trim().isEmpty ? null : notesCtl.text.trim(),
+          );
+      _invalidateAndReload('Disposition recorded');
+    } catch (e) {
+      _showError(e);
+    }
+  }
+
+  Future<void> _showCoaDialog() async {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Certificate of Analysis'),
+        content: FutureBuilder<Map<String, dynamic>>(
+          future: ref.read(qcRepositoryProvider).getCoa(widget.inspectionId),
+          builder: (ctx, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const SizedBox(
+                  height: 80, child: Center(child: CircularProgressIndicator()));
+            }
+            if (snap.hasError) {
+              return Text('Could not load CoA: ${snap.error}');
+            }
+            final pretty =
+                const JsonEncoder.withIndent('  ').convert(snap.data ?? {});
+            return SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: SelectableText(pretty,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+              ),
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close')),
+        ],
+      ),
+    );
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────

@@ -218,6 +218,7 @@ import '../features/manufacturing/presentation/routing_list_screen.dart';
 import '../features/manufacturing/presentation/routing_create_screen.dart';
 import '../features/manufacturing/presentation/job_card_list_screen.dart';
 import '../features/manufacturing/presentation/qc_inspection_list_screen.dart';
+import '../features/manufacturing/presentation/ncr_list_screen.dart';
 import '../features/manufacturing/presentation/qc_inspection_detail_screen.dart';
 import '../features/manufacturing/presentation/maintenance_screen.dart';
 import '../features/manufacturing/presentation/bom_version_diff_screen.dart';
@@ -496,6 +497,7 @@ class Routes {
   static const manufacturingJobCards = '/manufacturing/work-orders/:id/job-cards';
   static const manufacturingQcInspections = '/manufacturing/qc/inspections';
   static const manufacturingQcInspectionDetail = '/manufacturing/qc/inspections/:id';
+  static const manufacturingNcrs = '/manufacturing/qc/ncrs';
   static const manufacturingScrap = '/manufacturing/scrap';
   static const manufacturingAnalytics = '/manufacturing/analytics';
   static const manufacturingBomDiff = '/manufacturing/bom-diff';
@@ -1515,6 +1517,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               final id = state.pathParameters['id']!;
               return QcInspectionDetailScreen(inspectionId: id);
             },
+          ),
+          GoRoute(
+            path: Routes.manufacturingNcrs,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: NcrListScreen(),
+            ),
           ),
           GoRoute(
             path: Routes.manufacturingScrap,

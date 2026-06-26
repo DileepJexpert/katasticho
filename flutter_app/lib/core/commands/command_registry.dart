@@ -265,6 +265,14 @@ List<KCommand> buildAppCommands() {
       keywords: ['serial', 'imei', 'unit', 'warranty', 'track', 'electronics'],
     ),
     KCommand(
+      label: 'Non-Conformance Reports',
+      icon: Icons.report_problem_outlined,
+      section: 'Navigate',
+      route: Routes.manufacturingNcrs,
+      keywords: ['ncr', 'non-conformance', 'quality', 'defect', 'capa',
+                 'corrective', 'iso 9001', 'reject'],
+    ),
+    KCommand(
       label: 'Salesman Targets',
       icon: Icons.flag,
       section: 'Navigate',
