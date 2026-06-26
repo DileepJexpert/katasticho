@@ -111,6 +111,26 @@ class PriceListRepository {
       rethrow;
     }
   }
+
+  // ── Customer assignment ────────────────────────────────────────────
+
+  /// Customers pinned to this price list.
+  Future<List<Map<String, dynamic>>> listCustomers(String listId) async {
+    final res = await _api.get(ApiConfig.priceListCustomers(listId));
+    final data = (res.data['data'] as List?) ?? const [];
+    return data
+        .whereType<Map>()
+        .map((e) => e.cast<String, dynamic>())
+        .toList();
+  }
+
+  Future<void> assignCustomer(String listId, String contactId) async {
+    await _api.post(ApiConfig.priceListCustomerAssign(listId, contactId));
+  }
+
+  Future<void> unassignCustomer(String listId, String contactId) async {
+    await _api.delete(ApiConfig.priceListCustomerAssign(listId, contactId));
+  }
 }
 
 // ── Providers ────────────────────────────────────────────────────────
@@ -134,4 +154,11 @@ final priceListItemsProvider = FutureProvider.autoDispose
     .family<List<Map<String, dynamic>>, String>((ref, listId) async {
   final repo = ref.watch(priceListRepositoryProvider);
   return repo.listItems(listId);
+});
+
+/// Customers pinned to a single price list.
+final priceListCustomersProvider = FutureProvider.autoDispose
+    .family<List<Map<String, dynamic>>, String>((ref, listId) async {
+  final repo = ref.watch(priceListRepositoryProvider);
+  return repo.listCustomers(listId);
 });

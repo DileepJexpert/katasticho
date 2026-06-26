@@ -231,6 +231,110 @@ class PriceListServiceTest {
         assertTrue(created.isDefault());
     }
 
+    // ── Customer ↔ price-list assignment ────────────────────────────────
+
+    @Test
+    void assignContact_pinsCustomerToList() {
+        UUID listId = UUID.randomUUID();
+        UUID contactId = UUID.randomUUID();
+
+        PriceList list = PriceList.builder().name("Wholesale").currency("INR").active(true).build();
+        list.setId(listId);
+        list.setOrgId(orgId);
+        Contact contact = Contact.builder().displayName("Acme").contactType(ContactType.CUSTOMER).build();
+        contact.setId(contactId);
+        contact.setOrgId(orgId);
+
+        when(priceListRepository.findByIdAndOrgIdAndIsDeletedFalse(listId, orgId))
+                .thenReturn(Optional.of(list));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
+        when(contactRepository.save(any(Contact.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Contact saved = service.assignContact(listId, contactId);
+
+        assertEquals(listId, saved.getDefaultPriceListId());
+        verify(contactRepository).save(contact);
+    }
+
+    @Test
+    void assignContact_inactiveList_throws() {
+        UUID listId = UUID.randomUUID();
+        UUID contactId = UUID.randomUUID();
+        PriceList list = PriceList.builder().name("Old").currency("INR").active(false).build();
+        list.setId(listId);
+        list.setOrgId(orgId);
+        when(priceListRepository.findByIdAndOrgIdAndIsDeletedFalse(listId, orgId))
+                .thenReturn(Optional.of(list));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.assignContact(listId, contactId));
+        assertEquals("PRICING_LIST_INACTIVE", ex.getErrorCode());
+        verify(contactRepository, never()).save(any());
+    }
+
+    @Test
+    void assignContact_vendorOnlyContact_throws() {
+        UUID listId = UUID.randomUUID();
+        UUID contactId = UUID.randomUUID();
+        PriceList list = PriceList.builder().name("Wholesale").currency("INR").active(true).build();
+        list.setId(listId);
+        list.setOrgId(orgId);
+        Contact vendor = Contact.builder().displayName("Supplier").contactType(ContactType.VENDOR).build();
+        vendor.setId(contactId);
+        vendor.setOrgId(orgId);
+
+        when(priceListRepository.findByIdAndOrgIdAndIsDeletedFalse(listId, orgId))
+                .thenReturn(Optional.of(list));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(vendor));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.assignContact(listId, contactId));
+        assertEquals("PRICING_CONTACT_NOT_CUSTOMER", ex.getErrorCode());
+        verify(contactRepository, never()).save(any());
+    }
+
+    @Test
+    void unassignContact_clearsPin() {
+        UUID contactId = UUID.randomUUID();
+        Contact contact = Contact.builder().displayName("Acme").contactType(ContactType.CUSTOMER).build();
+        contact.setId(contactId);
+        contact.setOrgId(orgId);
+        contact.setDefaultPriceListId(UUID.randomUUID());
+
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
+        when(contactRepository.save(any(Contact.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Contact saved = service.unassignContact(contactId);
+
+        assertNull(saved.getDefaultPriceListId());
+    }
+
+    @Test
+    void listContactsForPriceList_tenantChecksAndReturnsPinned() {
+        UUID listId = UUID.randomUUID();
+        PriceList list = PriceList.builder().name("Wholesale").currency("INR").active(true).build();
+        list.setId(listId);
+        list.setOrgId(orgId);
+        Contact pinned = Contact.builder().displayName("Acme").contactType(ContactType.CUSTOMER).build();
+        pinned.setId(UUID.randomUUID());
+        pinned.setOrgId(orgId);
+        pinned.setDefaultPriceListId(listId);
+
+        when(priceListRepository.findByIdAndOrgIdAndIsDeletedFalse(listId, orgId))
+                .thenReturn(Optional.of(list));
+        when(contactRepository.findByOrgIdAndDefaultPriceListIdAndIsDeletedFalse(orgId, listId))
+                .thenReturn(List.of(pinned));
+
+        List<Contact> result = service.listContactsForPriceList(listId);
+
+        assertEquals(1, result.size());
+        assertEquals("Acme", result.get(0).getDisplayName());
+        verify(priceListRepository).findByIdAndOrgIdAndIsDeletedFalse(listId, orgId);
+    }
+
     private PriceListItem tier(UUID listId, UUID itemId, String minQty, String price) {
         PriceListItem row = PriceListItem.builder()
                 .priceListId(listId)

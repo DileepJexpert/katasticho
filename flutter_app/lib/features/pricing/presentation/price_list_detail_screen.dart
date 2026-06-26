@@ -26,6 +26,14 @@ class PriceListDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Price List'),
         actions: [
+          IconButton(
+            tooltip: 'Customers on this list',
+            icon: const Icon(Icons.group_outlined),
+            onPressed: () => context.push(
+              '/price-lists/$listId/customers',
+              extra: detailAsync.valueOrNull?['name']?.toString(),
+            ),
+          ),
           PopupMenuButton<String>(
             onSelected: (v) async {
               if (v == 'delete') {

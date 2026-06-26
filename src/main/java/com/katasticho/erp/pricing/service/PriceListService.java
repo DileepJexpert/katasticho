@@ -1,6 +1,7 @@
 package com.katasticho.erp.pricing.service;
 
 import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.entity.ContactType;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
@@ -133,6 +134,59 @@ public class PriceListService {
                     priceListRepository.save(existing);
                     log.info("Price list {} unset as default (replaced)", existing.getName());
                 });
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Customer ↔ price-list assignment
+    //
+    // The resolver (resolvePrice) already honours contact.defaultPriceListId,
+    // but nothing exposed a way to SET it. These three methods + the
+    // PriceListController endpoints close that loop.
+    // ────────────────────────────────────────────────────────────────────
+
+    /** Pin a customer to this price list (sets contact.defaultPriceListId). */
+    @Transactional
+    public Contact assignContact(UUID priceListId, UUID contactId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        PriceList list = getPriceList(priceListId); // tenant-checks the list
+        if (!list.isActive()) {
+            throw new BusinessException(
+                    "Price list '" + list.getName() + "' is inactive — activate it before assigning customers",
+                    "PRICING_LIST_INACTIVE", HttpStatus.BAD_REQUEST);
+        }
+        Contact contact = contactRepository
+                .findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Contact", contactId));
+        if (contact.getContactType() == ContactType.VENDOR) {
+            throw new BusinessException(
+                    "Price lists apply to customers — this contact is vendor-only",
+                    "PRICING_CONTACT_NOT_CUSTOMER", HttpStatus.BAD_REQUEST);
+        }
+        contact.setDefaultPriceListId(priceListId);
+        Contact saved = contactRepository.save(contact);
+        log.info("Contact {} pinned to price list {} ({})", contactId, list.getName(), priceListId);
+        return saved;
+    }
+
+    /** Clear a customer's pinned price list (falls back to org default / item price). */
+    @Transactional
+    public Contact unassignContact(UUID contactId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Contact contact = contactRepository
+                .findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Contact", contactId));
+        contact.setDefaultPriceListId(null);
+        Contact saved = contactRepository.save(contact);
+        log.info("Contact {} unpinned from its price list", contactId);
+        return saved;
+    }
+
+    /** Customers currently pinned to this price list. */
+    @Transactional(readOnly = true)
+    public List<Contact> listContactsForPriceList(UUID priceListId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        getPriceList(priceListId); // tenant-checks
+        return contactRepository.findByOrgIdAndDefaultPriceListIdAndIsDeletedFalse(orgId, priceListId);
     }
 
     // ────────────────────────────────────────────────────────────────────

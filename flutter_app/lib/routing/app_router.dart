@@ -96,6 +96,7 @@ import '../features/procurement/presentation/debit_note_detail_screen.dart';
 import '../features/pricing/presentation/price_list_list_screen.dart';
 import '../features/pricing/presentation/price_list_create_screen.dart';
 import '../features/pricing/presentation/price_list_detail_screen.dart';
+import '../features/pricing/presentation/price_list_customers_screen.dart';
 import '../features/pricing/presentation/scheme_list_screen.dart';
 import '../features/bills/presentation/bill_list_screen.dart';
 import '../features/bills/presentation/bill_detail_screen.dart';
@@ -1955,6 +1956,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.priceListCreate,
             builder: (context, state) => const PriceListCreateScreen(),
+          ),
+          GoRoute(
+            path: '/price-lists/:id/customers',
+            builder: (context, state) => PriceListCustomersScreen(
+              listId: state.pathParameters['id']!,
+              listName: state.extra is String ? state.extra as String : null,
+            ),
           ),
           GoRoute(
             path: '/price-lists/:id',

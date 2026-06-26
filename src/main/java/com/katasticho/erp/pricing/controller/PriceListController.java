@@ -3,6 +3,7 @@ package com.katasticho.erp.pricing.controller;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
+import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.pricing.dto.CreatePriceListRequest;
 import com.katasticho.erp.pricing.dto.PriceListItemRequest;
 import com.katasticho.erp.pricing.dto.PriceListItemResponse;
@@ -14,7 +15,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -93,5 +96,46 @@ public class PriceListController {
     public ResponseEntity<ApiResponse<Void>> deleteItem(@PathVariable UUID itemRowId) {
         priceListService.deleteItem(itemRowId);
         return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    // ── Customer ↔ price-list assignment ────────────────────────────────
+
+    /** Customers currently pinned to this price list. */
+    @GetMapping("/{id}/customers")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> listCustomers(
+            @PathVariable UUID id) {
+        List<Map<String, Object>> result = priceListService.listContactsForPriceList(id).stream()
+                .map(PriceListController::toCustomerRow)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.ok(result));
+    }
+
+    /** Pin a customer to this price list. */
+    @PostMapping("/{id}/customers/{contactId}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> assignCustomer(
+            @PathVariable UUID id, @PathVariable UUID contactId) {
+        Contact saved = priceListService.assignContact(id, contactId);
+        return ResponseEntity.ok(ApiResponse.ok(toCustomerRow(saved), "Customer assigned to price list"));
+    }
+
+    /** Remove a customer's pin (the path's price-list id is informational). */
+    @DeleteMapping("/{id}/customers/{contactId}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<Void>> unassignCustomer(
+            @PathVariable UUID id, @PathVariable UUID contactId) {
+        priceListService.unassignContact(contactId);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    private static Map<String, Object> toCustomerRow(Contact c) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", c.getId());
+        m.put("displayName", c.getDisplayName());
+        m.put("contactType", c.getContactType() != null ? c.getContactType().name() : null);
+        m.put("phone", c.getPhone());
+        m.put("defaultPriceListId", c.getDefaultPriceListId());
+        return m;
     }
 }

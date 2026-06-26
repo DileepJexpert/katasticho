@@ -694,6 +694,10 @@ class ApiConfig {
       '/api/v1/price-lists/$listId/items';
   static String priceListItemById(String itemRowId) =>
       '/api/v1/price-lists/items/$itemRowId';
+  static String priceListCustomers(String listId) =>
+      '/api/v1/price-lists/$listId/customers';
+  static String priceListCustomerAssign(String listId, String contactId) =>
+      '/api/v1/price-lists/$listId/customers/$contactId';
 
   // Schemes (promotional offers — Buy X Get Y, % discount)
   static const String schemes = '/api/v1/schemes';
