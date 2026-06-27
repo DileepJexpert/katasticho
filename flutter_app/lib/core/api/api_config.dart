@@ -162,6 +162,8 @@ class ApiConfig {
   static const String tds24q = '/api/v1/tds/24q';
   static const String tdsSalaryRegister = '/api/v1/tds/salary-register';
   static String tdsForm16(String employeeId) => '/api/v1/tds/form16/$employeeId';
+  static String tdsForm16Pdf(String employeeId, int fy) =>
+      '/api/v1/tds/form16/$employeeId/pdf?fy=$fy';
 
   // TCS 206C(1H) (auto-collected on invoices past ₹50L/buyer/FY)
   static const String tcsRegister = '/api/v1/tcs/register';
@@ -918,6 +920,13 @@ class ApiConfig {
       '/api/v1/payroll/runs/$runId/payslips';
   static String payslip(String id) => '/api/v1/payroll/payslips/$id';
   static String payslipPdf(String id) => '/api/v1/payroll/payslips/$id/pdf';
+  // Statutory portal-ready file exports for a payroll run (backend-generated).
+  static String payrollEcr(String runId) =>
+      '/api/v1/payroll/runs/$runId/ecr';
+  static String payrollEsiReturn(String runId) =>
+      '/api/v1/payroll/runs/$runId/esi-return';
+  static String payrollBankFile(String runId, String format) =>
+      '/api/v1/payroll/runs/$runId/bank-file?format=$format';
   static String payrollRunPayment(String runId) =>
       '/api/v1/payroll/runs/$runId/payment';
   static const String statutoryPayments = '/api/v1/payroll/statutory-payments';

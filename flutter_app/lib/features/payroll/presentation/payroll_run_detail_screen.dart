@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -235,6 +236,10 @@ class _PayrollRunDetailScreenState
           _buildHeaderCard(),
           KSpacing.vGapMd,
           _buildSummaryCards(),
+          if (_payslips.isNotEmpty) ...[
+            KSpacing.vGapMd,
+            _buildStatutorySection(),
+          ],
           KSpacing.vGapMd,
           _buildPayslipsSection(),
           const SizedBox(height: 100),
@@ -397,6 +402,134 @@ class _PayrollRunDetailScreenState
   }
 
   // ---------------------------------------------------------------------------
+  // Statutory file exports (EPFO ECR / ESIC return / bank salary advice)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildStatutorySection() {
+    return KCard(
+      title: 'Statutory files',
+      subtitle: 'Portal-ready returns generated from this run',
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: KSpacing.sm),
+        child: Wrap(
+          spacing: KSpacing.sm,
+          runSpacing: KSpacing.sm,
+          children: [
+            KButton(
+              label: 'PF ECR (.txt)',
+              icon: Icons.account_balance_outlined,
+              variant: KButtonVariant.outlined,
+              size: KButtonSize.small,
+              onPressed: () => _downloadStatutoryFile(
+                label: 'PF ECR',
+                path: ApiConfig.payrollEcr(widget.runId),
+                filename: 'ecr-${_runSlug()}.txt',
+              ),
+            ),
+            KButton(
+              label: 'ESI return (.csv)',
+              icon: Icons.health_and_safety_outlined,
+              variant: KButtonVariant.outlined,
+              size: KButtonSize.small,
+              onPressed: () => _downloadStatutoryFile(
+                label: 'ESI return',
+                path: ApiConfig.payrollEsiReturn(widget.runId),
+                filename: 'esi-return-${_runSlug()}.csv',
+              ),
+            ),
+            KButton(
+              label: 'Bank file (.csv)',
+              icon: Icons.account_balance_wallet_outlined,
+              variant: KButtonVariant.outlined,
+              size: KButtonSize.small,
+              onPressed: _pickBankFormatAndDownload,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Pick the corporate-banking CSV layout, then download. Mirrors the
+  /// backend `BankSalaryFileGenerator.BankFormat` enum.
+  Future<void> _pickBankFormatAndDownload() async {
+    const formats = ['GENERIC', 'HDFC', 'ICICI', 'SBI'];
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Bank file format'),
+        children: [
+          for (final f in formats)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(ctx).pop(f),
+              child: Text(f == 'GENERIC' ? 'Generic CSV' : f),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || !mounted) return;
+    await _downloadStatutoryFile(
+      label: 'Bank file ($picked)',
+      path: ApiConfig.payrollBankFile(widget.runId, picked),
+      filename: 'bank-salary-${picked.toLowerCase()}-${_runSlug()}.csv',
+    );
+  }
+
+  /// Download a text-based statutory file (ECR / ESI / bank CSV) and hand it
+  /// to the OS share/save sheet via the printing plugin (a misnomer — it
+  /// shares arbitrary bytes; the `.txt`/`.csv` extension governs handling).
+  /// The clipboard fallback covers desktop where the share sheet is a no-op.
+  Future<void> _downloadStatutoryFile({
+    required String label,
+    required String path,
+    required String filename,
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(SnackBar(content: Text('Generating $label…')));
+    try {
+      final res = await ref.read(apiClientProvider).get(
+            path,
+            options: Options(responseType: ResponseType.bytes),
+          );
+      final bytes = (res.data as List<int>);
+      if (bytes.isEmpty) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Nothing to export for this run')),
+        );
+        return;
+      }
+      await Printing.sharePdf(
+        bytes: Uint8List.fromList(bytes),
+        filename: filename,
+      );
+      await Clipboard.setData(ClipboardData(text: String.fromCharCodes(bytes)));
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('$label downloaded + copied to clipboard')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('$label download failed: $e'),
+            backgroundColor: KColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Filesystem-safe slug for the run (run number when present, else the id).
+  String _runSlug() {
+    final num = _run?['runNumber']?.toString();
+    if (num != null && num.isNotEmpty) {
+      return num.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
+    }
+    return widget.runId;
+  }
+
+  // ---------------------------------------------------------------------------
   // Payslips section
   // ---------------------------------------------------------------------------
 
@@ -505,6 +638,40 @@ class _PayrollRunDetailScreenState
     }
   }
 
+  /// Download this employee's annual Form 16 (TDS-on-salary certificate) for
+  /// the financial year the run falls in. The backend aggregates every posted
+  /// payroll run in the FY, so any month's payslip yields the full certificate.
+  Future<void> _downloadForm16(Map<String, dynamic> payslip) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final employeeId = payslip['employeeId']?.toString();
+    if (employeeId == null || employeeId.isEmpty) {
+      messenger.showSnackBar(const SnackBar(content: Text('Missing employee id')));
+      return;
+    }
+    final name = payslip['employeeName']?.toString() ?? 'Employee';
+    final periodEnd = _parseDate(_run?['periodEnd'] ?? _run?['periodTo']);
+    final fy = _fiscalYearStart(periodEnd ?? DateTime.now());
+    messenger.showSnackBar(
+      SnackBar(content: Text('Rendering Form 16 (FY $fy-${fy + 1}) for $name…')),
+    );
+    try {
+      final res = await ref.read(apiClientProvider).get(
+            ApiConfig.tdsForm16Pdf(employeeId, fy),
+            options: Options(responseType: ResponseType.bytes),
+          );
+      final bytes = res.data as List<int>;
+      await Printing.sharePdf(
+        bytes: Uint8List.fromList(bytes),
+        filename: 'form16-$employeeId-fy$fy.pdf',
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Form 16 download failed: $e')));
+    }
+  }
+
+  /// Indian fiscal year starts 1 April — Jan–Mar belong to the prior FY.
+  int _fiscalYearStart(DateTime d) => d.month >= 4 ? d.year : d.year - 1;
+
   void _showPayslipDetail(Map<String, dynamic> payslip) {
     final employeeName =
         payslip['employeeName']?.toString() ?? 'Employee';
@@ -557,9 +724,14 @@ class _PayrollRunDetailScreenState
                     child: Text(employeeName, style: KTypography.h3),
                   ),
                   IconButton(
-                    tooltip: 'Download PDF',
+                    tooltip: 'Download pay slip PDF',
                     icon: const Icon(Icons.picture_as_pdf_outlined),
                     onPressed: () => _downloadPayslipPdf(payslip),
+                  ),
+                  IconButton(
+                    tooltip: 'Download Form 16',
+                    icon: const Icon(Icons.workspace_premium_outlined),
+                    onPressed: () => _downloadForm16(payslip),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
