@@ -176,6 +176,7 @@ import '../features/payroll/presentation/payroll_run_list_screen.dart';
 import '../features/payroll/presentation/payroll_run_detail_screen.dart';
 import '../features/payroll/presentation/labor_pay_preview_screen.dart';
 import '../features/payroll/presentation/payroll_settings_screen.dart';
+import '../features/payroll/presentation/tax_declaration_screen.dart';
 import '../features/hr/presentation/my_profile_screen.dart';
 import '../features/hr/presentation/leave_management_screen.dart';
 import '../features/hr/presentation/hr_attendance_screen.dart';
@@ -445,6 +446,7 @@ class Routes {
   static const payrollRuns = '/payroll/runs';
   static const payrollRunDetail = '/payroll/runs/:id';
   static const payrollSettings = '/payroll/settings';
+  static const taxDeclaration = '/payroll/tax-declaration';
   static const payrollLaborPayPreview = '/payroll/labor-pay-preview';
 
   // HR portal
@@ -1239,6 +1241,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.payrollSettings,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: PayrollSettingsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.taxDeclaration,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: TaxDeclarationScreen(),
             ),
           ),
           GoRoute(

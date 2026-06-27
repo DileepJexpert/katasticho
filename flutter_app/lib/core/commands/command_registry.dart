@@ -901,6 +901,23 @@ List<KCommand> buildAppCommands() {
       keywords: ['pf', 'esi', 'salary'],
     ),
     KCommand(
+      label: 'Tax Declaration (Form 12BB)',
+      icon: Icons.receipt_long_outlined,
+      section: 'Navigate',
+      route: Routes.taxDeclaration,
+      keywords: [
+        '12bb',
+        'form 12bb',
+        'tax declaration',
+        'hra',
+        '80c',
+        'rule 26c',
+        'investment proof',
+        'tds',
+        'regime',
+      ],
+    ),
+    KCommand(
       label: 'Labor Pay Preview',
       icon: Icons.calculate_rounded,
       section: 'Navigate',

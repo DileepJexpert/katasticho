@@ -34,6 +34,7 @@ public class TaxDeclarationController {
 
     private final TaxDeclarationService service;
     private final EmployeeRepository employeeRepository;
+    private final com.katasticho.erp.payroll.service.Form12BBPdfService form12BBPdfService;
 
     // ── Self-service /me ─────────────────────────────────────────
 
@@ -73,6 +74,29 @@ public class TaxDeclarationController {
         }
         service.delete(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Declaration removed"));
+    }
+
+    /**
+     * Form 12BB PDF — the printable declaration the employee signs and the
+     * employer files with the IT proofs. Owner-or-admin, same gate as submit.
+     */
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> downloadForm12BB(@PathVariable UUID id) {
+        EmployeeTaxDeclaration d = service.get(id);
+        Employee me = resolveMeOrNull();
+        if (me != null && !d.getEmployeeId().equals(me.getId())) {
+            ensureAdmin();
+        }
+        Employee emp = employeeRepository
+                .findByIdAndOrgIdAndIsDeletedFalse(d.getEmployeeId(), d.getOrgId())
+                .orElse(null);
+        byte[] pdf = form12BBPdfService.generatePdf(id);
+        String filename = form12BBPdfService.filename(d, emp != null ? emp.getFullName() : null);
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"" + filename + "\"")
+                .body(pdf);
     }
 
     // ── Admin / payroll ──────────────────────────────────────────

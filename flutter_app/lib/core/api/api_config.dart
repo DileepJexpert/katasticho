@@ -930,6 +930,17 @@ class ApiConfig {
   static String payrollRunPayment(String runId) =>
       '/api/v1/payroll/runs/$runId/payment';
   static const String statutoryPayments = '/api/v1/payroll/statutory-payments';
+  // Form 12BB — employee tax declaration (self-service + HR verify).
+  static String taxDeclarationMe(String fy) =>
+      '/api/v1/payroll/tax-declarations/me?fy=$fy';
+  static String taxDeclarationList(String fy) =>
+      '/api/v1/payroll/tax-declarations?fy=$fy';
+  static String taxDeclarationSubmit(String id) =>
+      '/api/v1/payroll/tax-declarations/$id/submit';
+  static String taxDeclarationVerify(String id) =>
+      '/api/v1/payroll/tax-declarations/$id/verify';
+  static String taxDeclarationPdf(String id) =>
+      '/api/v1/payroll/tax-declarations/$id/pdf';
 
   // Field Sales / FMCG Execution
   static const String fieldSalesBeats = '/api/v1/field-sales/beats';

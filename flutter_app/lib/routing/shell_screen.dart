@@ -670,6 +670,12 @@ const _hrPayrollGroup = NavGroup(
         icon: Icons.person_outline,
         activeIcon: Icons.person,
         route: Routes.hrMyProfile),
+    NavItem(
+        id: 'hr.tax_declaration',
+        label: 'Tax Declaration',
+        icon: Icons.receipt_long_outlined,
+        activeIcon: Icons.receipt_long,
+        route: Routes.taxDeclaration),
     // Payroll sub-modules — accountants only run these.
     NavItem(
         id: 'payroll.runs',
