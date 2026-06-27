@@ -720,6 +720,14 @@ const _taxComplianceGroup = NavGroup(
         roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'],
         countries: ['IN']),
     NavItem(
+        id: 'tax.vat_return',
+        label: 'VAT Return',
+        icon: Icons.receipt_long_outlined,
+        activeIcon: Icons.receipt_long,
+        route: Routes.vatReturn,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'],
+        countries: ['AE', 'OM']),
+    NavItem(
         id: 'tax.itc_risk',
         label: 'ITC Risk',
         icon: Icons.warning_amber_outlined,

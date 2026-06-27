@@ -170,6 +170,12 @@ class ApiConfig {
       '/api/v1/tds/form16/$employeeId/pdf?fy=$fy';
 
   // TCS 206C(1H) (auto-collected on invoices past ₹50L/buyer/FY)
+  // Gulf VAT returns (UAE VAT201 + Oman VAT) — country-gated backends.
+  static String vatReturn(String region, String from, String to) =>
+      '/api/v1/vat/$region/return?fromDate=$from&toDate=$to';
+  static String vatReturnExport(String region, String from, String to) =>
+      '/api/v1/vat/$region/return/export?fromDate=$from&toDate=$to';
+
   static const String tcsRegister = '/api/v1/tcs/register';
   static const String tcs27eq = '/api/v1/tcs/27eq';
   static const String tcsSettings = '/api/v1/tcs/settings';

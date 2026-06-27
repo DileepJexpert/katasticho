@@ -918,6 +918,23 @@ List<KCommand> buildAppCommands() {
       ],
     ),
     KCommand(
+      label: 'VAT Return (UAE / Oman)',
+      icon: Icons.receipt_long_outlined,
+      section: 'Navigate',
+      route: Routes.vatReturn,
+      keywords: [
+        'vat',
+        'vat201',
+        'uae',
+        'oman',
+        'gulf',
+        'emaratax',
+        'output vat',
+        'input vat',
+        'return',
+      ],
+    ),
+    KCommand(
       label: 'Labor Pay Preview',
       icon: Icons.calculate_rounded,
       section: 'Navigate',
