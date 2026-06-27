@@ -177,6 +177,7 @@ import '../features/payroll/presentation/payroll_run_detail_screen.dart';
 import '../features/payroll/presentation/labor_pay_preview_screen.dart';
 import '../features/payroll/presentation/payroll_settings_screen.dart';
 import '../features/payroll/presentation/tax_declaration_screen.dart';
+import '../features/payroll/presentation/salary_structure_screen.dart';
 import '../features/hr/presentation/my_profile_screen.dart';
 import '../features/hr/presentation/leave_management_screen.dart';
 import '../features/hr/presentation/hr_attendance_screen.dart';
@@ -1247,6 +1248,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.taxDeclaration,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: TaxDeclarationScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/payroll/employees/:employeeId/salary-structure',
+            builder: (context, state) => SalaryStructureScreen(
+              employeeId: state.pathParameters['employeeId']!,
             ),
           ),
           GoRoute(

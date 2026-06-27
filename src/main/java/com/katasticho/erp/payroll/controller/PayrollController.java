@@ -203,7 +203,8 @@ public class PayrollController {
                 .pieceRate(request.pieceRate())
                 .build();
         return ResponseEntity.ok(ApiResponse.ok(
-                service.createStructure(employeeId, structure), "Salary structure saved"));
+                service.createStructure(employeeId, structure, request.lines()),
+                "Salary structure saved"));
     }
 
     /**

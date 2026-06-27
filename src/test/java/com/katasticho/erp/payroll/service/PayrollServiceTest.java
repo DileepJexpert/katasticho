@@ -719,4 +719,91 @@ class PayrollServiceTest {
         assertEquals("Pune", persisted.getCurrentCity());
         assertSame(persisted, created);
     }
+
+    // ── Salary structure component lines (resolve-by-code + cascade) ────────
+
+    private Employee structureEmployee(UUID employeeId) {
+        Employee emp = Employee.builder().orgId(orgId).fullName("Worker").build();
+        emp.setId(employeeId);
+        when(employeeRepo.findByIdAndOrgIdAndIsDeletedFalse(employeeId, orgId))
+                .thenReturn(Optional.of(emp));
+        // Lenient: the unknown-component path fails fast (before the deactivate
+        // sweep) so it never queries the active structures.
+        lenient().when(structureRepo.findByOrgIdAndEmployeeIdAndStatusOrderByEffectiveFromDesc(
+                orgId, employeeId, "ACTIVE")).thenReturn(List.of());
+        return emp;
+    }
+
+    @Test
+    void createStructure_resolvesAndAttachesComponentLines() {
+        UUID employeeId = UUID.randomUUID();
+        structureEmployee(employeeId);
+        SalaryComponent basic =
+                SalaryComponent.builder().orgId(orgId).code("BASIC").name("Basic").build();
+        basic.setId(UUID.randomUUID());
+        SalaryComponent hra =
+                SalaryComponent.builder().orgId(orgId).code("HRA").name("HRA").build();
+        hra.setId(UUID.randomUUID());
+        when(componentRepo.findByOrgIdAndCode(orgId, "BASIC")).thenReturn(Optional.of(basic));
+        when(componentRepo.findByOrgIdAndCode(orgId, "HRA")).thenReturn(Optional.of(hra));
+        when(structureRepo.save(any(EmployeeSalaryStructure.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        var lines = List.of(
+                new com.katasticho.erp.payroll.dto.SalaryStructureRequest.ComponentLine(
+                        "BASIC", "FIXED", new BigDecimal("30000"), null, null),
+                new com.katasticho.erp.payroll.dto.SalaryStructureRequest.ComponentLine(
+                        "HRA", "PERCENTAGE", null, new BigDecimal("40"), "BASIC"));
+
+        EmployeeSalaryStructure structure = EmployeeSalaryStructure.builder()
+                .effectiveFrom(LocalDate.of(2026, 4, 1)).build();
+        EmployeeSalaryStructure saved = service.createStructure(employeeId, structure, lines);
+
+        assertEquals(2, saved.getLines().size());
+        EmployeeSalaryComponent l0 = saved.getLines().get(0);
+        assertEquals("BASIC", l0.getSalaryComponent().getCode());
+        assertEquals("FIXED", l0.getCalculationType());
+        assertEquals(0, new BigDecimal("30000").compareTo(l0.getAmount()));
+        assertEquals(orgId, l0.getOrgId());
+        assertSame(saved, l0.getSalaryStructure());          // backref set for cascade
+        EmployeeSalaryComponent l1 = saved.getLines().get(1);
+        assertEquals("HRA", l1.getSalaryComponent().getCode());
+        assertEquals("PERCENTAGE", l1.getCalculationType());
+        assertEquals("BASIC", l1.getBaseComponentCode());
+        assertEquals(0, new BigDecimal("40").compareTo(l1.getPercentage()));
+    }
+
+    @Test
+    void createStructure_unknownComponentCode_throws() {
+        UUID employeeId = UUID.randomUUID();
+        structureEmployee(employeeId);
+        when(componentRepo.findByOrgIdAndCode(orgId, "BOGUS")).thenReturn(Optional.empty());
+
+        var lines = List.of(
+                new com.katasticho.erp.payroll.dto.SalaryStructureRequest.ComponentLine(
+                        "BOGUS", "FIXED", new BigDecimal("1"), null, null));
+        EmployeeSalaryStructure structure = EmployeeSalaryStructure.builder()
+                .effectiveFrom(LocalDate.of(2026, 4, 1)).build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.createStructure(employeeId, structure, lines));
+        assertEquals("PAYROLL_UNKNOWN_COMPONENT", ex.getErrorCode());
+        verify(structureRepo, never()).save(any());
+    }
+
+    @Test
+    void createStructure_noLines_persistsHeaderOnly() {
+        UUID employeeId = UUID.randomUUID();
+        structureEmployee(employeeId);
+        when(structureRepo.save(any(EmployeeSalaryStructure.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        EmployeeSalaryStructure structure = EmployeeSalaryStructure.builder()
+                .effectiveFrom(LocalDate.of(2026, 4, 1)).build();
+        EmployeeSalaryStructure saved = service.createStructure(employeeId, structure);
+
+        assertTrue(saved.getLines().isEmpty());
+        assertEquals("ACTIVE", saved.getStatus());
+        assertEquals(orgId, saved.getOrgId());
+    }
 }

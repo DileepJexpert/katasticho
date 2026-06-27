@@ -330,6 +330,22 @@ public class PayrollService {
 
     @Transactional
     public EmployeeSalaryStructure createStructure(UUID employeeId, EmployeeSalaryStructure structure) {
+        return createStructure(employeeId, structure, Collections.emptyList());
+    }
+
+    /**
+     * Create a salary structure together with its component lines (BASIC /
+     * HRA / DA / …). Each
+     * {@link com.katasticho.erp.payroll.dto.SalaryStructureRequest.ComponentLine}
+     * is resolved to a {@link SalaryComponent} by code and attached to the
+     * structure; the lines persist via the structure's {@code cascade = ALL}.
+     * Resolving by code means an unknown component is rejected
+     * ({@code PAYROLL_UNKNOWN_COMPONENT}) instead of being silently dropped —
+     * which is exactly what the old line-less endpoint did.
+     */
+    @Transactional
+    public EmployeeSalaryStructure createStructure(UUID employeeId, EmployeeSalaryStructure structure,
+            List<com.katasticho.erp.payroll.dto.SalaryStructureRequest.ComponentLine> lineSpecs) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
         // Verify employee exists
@@ -341,6 +357,33 @@ public class PayrollService {
 
         if (structure.getStatus() == null) {
             structure.setStatus("ACTIVE");
+        }
+
+        // Resolve + attach component lines (cascade persists them with the structure).
+        if (lineSpecs != null && !lineSpecs.isEmpty()) {
+            if (structure.getLines() == null) {
+                structure.setLines(new ArrayList<>());
+            }
+            for (var spec : lineSpecs) {
+                if (spec == null || spec.componentCode() == null || spec.componentCode().isBlank()) {
+                    continue;
+                }
+                SalaryComponent comp = componentRepository
+                        .findByOrgIdAndCode(orgId, spec.componentCode())
+                        .orElseThrow(() -> new BusinessException(
+                                "Unknown salary component: " + spec.componentCode(),
+                                "PAYROLL_UNKNOWN_COMPONENT", HttpStatus.BAD_REQUEST));
+                EmployeeSalaryComponent line = EmployeeSalaryComponent.builder()
+                        .orgId(orgId)
+                        .salaryComponent(comp)
+                        .calculationType(spec.calculationType() != null ? spec.calculationType() : "FIXED")
+                        .amount(spec.amount())
+                        .percentage(spec.percentage())
+                        .baseComponentCode(spec.baseComponentCode())
+                        .build();
+                line.setSalaryStructure(structure);
+                structure.getLines().add(line);
+            }
         }
 
         // Deactivate any existing active structures that overlap with the new one

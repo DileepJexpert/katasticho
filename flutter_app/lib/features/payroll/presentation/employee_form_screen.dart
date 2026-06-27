@@ -272,6 +272,13 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
       appBar: AppBar(
         title: Text(_isEdit ? 'Edit Employee' : 'Add Employee'),
         actions: [
+          if (_isEdit)
+            IconButton(
+              tooltip: 'Salary structure',
+              icon: const Icon(Icons.payments_outlined),
+              onPressed: () => context.push(
+                  '/payroll/employees/${widget.employeeId}/salary-structure'),
+            ),
           TextButton(
             onPressed: (_loading || _initialLoading) ? null : _save,
             child: _loading
