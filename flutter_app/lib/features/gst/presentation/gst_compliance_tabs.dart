@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -1539,6 +1542,50 @@ class _SalaryTdsTabState extends ConsumerState<SalaryTdsTab> {
     await Share.share(pretty, subject: 'Form 16 — FY $_fy');
   }
 
+  /// Fetch a backend-generated file (official 24Q CSV / FVU / Form 16 PDF) as
+  /// bytes and hand it to the OS share/save sheet. Text files share as text;
+  /// the PDF goes through the printing plugin.
+  Future<void> _downloadFile(String path, String filename,
+      {bool pdf = false}) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(SnackBar(content: Text('Generating $filename…')));
+    try {
+      final res = await ref.read(apiClientProvider).get(
+            path,
+            options: Options(responseType: ResponseType.bytes),
+          );
+      final bytes = (res.data as List<int>);
+      if (bytes.isEmpty) {
+        messenger.showSnackBar(
+            const SnackBar(content: Text('Nothing to export for this period')));
+        return;
+      }
+      if (pdf) {
+        await Printing.sharePdf(
+            bytes: Uint8List.fromList(bytes), filename: filename);
+      } else {
+        await Share.share(String.fromCharCodes(bytes), subject: filename);
+      }
+    } catch (e) {
+      messenger
+          .showSnackBar(SnackBar(content: Text('$filename download failed: $e')));
+    }
+  }
+
+  Future<void> _download24qCsv() => _downloadFile(
+      ApiConfig.tds24qCsv(_fy, _quarter), 'Form-24Q-Q$_quarter-FY$_fy.csv');
+
+  Future<void> _download24qFvu() => _downloadFile(
+      ApiConfig.tds24qFvu(_fy, _quarter), 'Form-24Q-Q$_quarter-FY$_fy-FVU.txt');
+
+  Future<void> _downloadForm16Pdf() async {
+    final id = _employeeId;
+    if (id == null) return;
+    await _downloadFile(
+        ApiConfig.tdsForm16Pdf(id, _fy), 'Form16-$id-FY$_fy.pdf',
+        pdf: true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = _data;
@@ -1675,13 +1722,26 @@ class _SalaryTdsTabState extends ConsumerState<SalaryTdsTab> {
             ),
           ],
           KSpacing.vGapSm,
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: deductees.isEmpty ? null : _share24q,
-              icon: const Icon(Icons.ios_share, size: 16),
-              label: const Text('Share 24Q data (JSON)'),
-            ),
+          Wrap(
+            spacing: KSpacing.sm,
+            runSpacing: KSpacing.sm,
+            children: [
+              OutlinedButton.icon(
+                onPressed: deductees.isEmpty ? null : _download24qCsv,
+                icon: const Icon(Icons.table_view_outlined, size: 16),
+                label: const Text('24Q CSV'),
+              ),
+              OutlinedButton.icon(
+                onPressed: deductees.isEmpty ? null : _download24qFvu,
+                icon: const Icon(Icons.description_outlined, size: 16),
+                label: const Text('24Q FVU'),
+              ),
+              OutlinedButton.icon(
+                onPressed: deductees.isEmpty ? null : _share24q,
+                icon: const Icon(Icons.ios_share, size: 16),
+                label: const Text('JSON'),
+              ),
+            ],
           ),
           KSpacing.vGapMd,
           ...deductees.map((raw) {
@@ -1828,13 +1888,21 @@ class _SalaryTdsTabState extends ConsumerState<SalaryTdsTab> {
                     (partB['totalTaxDeducted'] as num?)?.toDouble() ?? 0,
                     highlight: true),
                 KSpacing.vGapSm,
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _shareForm16,
-                    icon: const Icon(Icons.ios_share, size: 16),
-                    label: const Text('Share Form 16 (JSON)'),
-                  ),
+                Wrap(
+                  spacing: KSpacing.sm,
+                  runSpacing: KSpacing.sm,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _downloadForm16Pdf,
+                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                      label: const Text('Form 16 PDF'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _shareForm16,
+                      icon: const Icon(Icons.ios_share, size: 16),
+                      label: const Text('JSON'),
+                    ),
+                  ],
                 ),
               ],
             ),

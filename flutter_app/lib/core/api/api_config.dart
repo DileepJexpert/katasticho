@@ -160,6 +160,10 @@ class ApiConfig {
   static const String tds26q = '/api/v1/tds/26q';
   // Salary TDS (Form 24Q quarterly + Form 16 per-employee, from posted payroll)
   static const String tds24q = '/api/v1/tds/24q';
+  static String tds24qCsv(int fy, int quarter) =>
+      '/api/v1/tds/24q/csv?fy=$fy&quarter=$quarter';
+  static String tds24qFvu(int fy, int quarter) =>
+      '/api/v1/tds/24q/fvu?fy=$fy&quarter=$quarter';
   static const String tdsSalaryRegister = '/api/v1/tds/salary-register';
   static String tdsForm16(String employeeId) => '/api/v1/tds/form16/$employeeId';
   static String tdsForm16Pdf(String employeeId, int fy) =>
