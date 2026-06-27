@@ -935,6 +935,20 @@ List<KCommand> buildAppCommands() {
       ],
     ),
     KCommand(
+      label: 'Consignment / VMI',
+      icon: Icons.handshake_outlined,
+      section: 'Navigate',
+      route: Routes.consignment,
+      keywords: [
+        'consignment',
+        'vmi',
+        'vendor managed inventory',
+        'settle',
+        'sale or return',
+        'supplier stock',
+      ],
+    ),
+    KCommand(
       label: 'Labor Pay Preview',
       icon: Icons.calculate_rounded,
       section: 'Navigate',

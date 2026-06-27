@@ -179,6 +179,7 @@ import '../features/payroll/presentation/payroll_settings_screen.dart';
 import '../features/payroll/presentation/tax_declaration_screen.dart';
 import '../features/payroll/presentation/salary_structure_screen.dart';
 import '../features/vat/presentation/vat_return_screen.dart';
+import '../features/inventory/presentation/consignment_screen.dart';
 import '../features/hr/presentation/my_profile_screen.dart';
 import '../features/hr/presentation/leave_management_screen.dart';
 import '../features/hr/presentation/hr_attendance_screen.dart';
@@ -450,6 +451,7 @@ class Routes {
   static const payrollSettings = '/payroll/settings';
   static const taxDeclaration = '/payroll/tax-declaration';
   static const vatReturn = '/vat/return';
+  static const consignment = '/inventory/consignment';
   static const payrollLaborPayPreview = '/payroll/labor-pay-preview';
 
   // HR portal
@@ -1262,6 +1264,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.vatReturn,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: VatReturnScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.consignment,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ConsignmentScreen(),
             ),
           ),
           GoRoute(

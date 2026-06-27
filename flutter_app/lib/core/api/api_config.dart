@@ -1393,16 +1393,17 @@ class ApiConfig {
   static const String currencyRates = '/api/v1/currencies/rates';
   static const String currencyConvert = '/api/v1/currencies/convert';
 
-  // Consignment
-  static const String consignmentItems = '/api/v1/inventory/consignment/items';
-  static const String consignmentReceipts =
-      '/api/v1/inventory/consignment/receipts';
-  static String consignmentReceiptById(String id) =>
-      '/api/v1/inventory/consignment/receipts/$id';
-  static String consignmentSettle(String id) =>
-      '/api/v1/inventory/consignment/receipts/$id/settle';
-  static String consignmentReturn(String id) =>
-      '/api/v1/inventory/consignment/receipts/$id/return';
+  // Consignment / VMI (real ConsignmentController endpoints)
+  static const String consignmentStock =
+      '/api/v1/inventory/consignment/stock';
+  static const String consignmentReceive =
+      '/api/v1/inventory/consignment/receive';
+  static const String consignmentRecordSale =
+      '/api/v1/inventory/consignment/record-sale';
+  static String consignmentSettle(String settlementId) =>
+      '/api/v1/inventory/consignment/$settlementId/settle';
+  static String consignmentUnsettled(String supplierId) =>
+      '/api/v1/inventory/consignment/unsettled/$supplierId';
 
   // Integrations
   static const String integrations = '/api/v1/integrations';

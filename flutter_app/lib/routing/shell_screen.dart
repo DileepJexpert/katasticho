@@ -427,6 +427,12 @@ const _inventoryGroup = NavGroup(
         activeIcon: Icons.grid_view_rounded,
         route: Routes.warehouseZones),
     NavItem(
+        id: 'inventory.consignment',
+        label: 'Consignment / VMI',
+        icon: Icons.handshake_outlined,
+        activeIcon: Icons.handshake,
+        route: Routes.consignment),
+    NavItem(
         id: 'inventory.batch_trace',
         label: 'Batch Trace',
         icon: Icons.account_tree_outlined,
