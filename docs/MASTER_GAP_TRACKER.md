@@ -24,10 +24,20 @@ UI) are NOT repeated here.
   deadline = min(dueDate, billDate+45d), `/api/v1/reports/msme-form1` +
   `/export` CSV, @RequiresCountry("IN"), 6 tests; reads `contact.pan` +
   `msme_registered` + `msme_registration_no` already on the master)
-- [ ] **G4 Vendor-TDS 26Q FVU/CSV file** (M) — mirror the salary 24Q generator
-  for vendor TDS (report exists, file export doesn't).
+- [x] **G4 Vendor-TDS 26Q FVU/CSV file** (M) — mirror the salary 24Q generator
+  for vendor TDS (report exists, file export doesn't). → DONE 2026-07-02
+  (`Form26QExporter` CSV register + `^`-delimited FVU deductee-detail block
+  w/ per-row section→FVU-code map, 01/02 deductee code, PANNOTAVBL sentinel;
+  `GET /api/v1/tds/26q/{csv,fvu}` mirroring the 24Q pair; 6 tests. Full
+  FH/BH/CD/DD file — needs TAN + ITNS-281 challan capture — deferred exactly
+  like the 24Q side.)
 - [ ] **G5 GST rate history w/ effective dates** per item/HSN (M).
-- [ ] **G6 India gratuity provision** (S) — Gulf accrual exists; add IN.
+- [x] **G6 India gratuity provision** (S) — Gulf accrual exists; add IN.
+  → DONE 2026-07-02 (V25 seeds 2080/5130 for IN×4 industries + `india_gratuity_accrual`
+  idempotency table; `IndiaGratuityService` 15/26 formula w/ §4(2) rounding + 5-year
+  eligibility + ₹20L cap, monthly accrual DR 5130/CR 2080 idempotent per period,
+  exit payout wired into OffboardingService; `IndiaPayrollController` @RequiresCountry(IN);
+  13 tests; live-verified V25 seeds 8 rows)
 
 ## Phase H — Daily-use money features
 - [x] **G3 POS credit / khata → AR** (M) — CREDIT payment mode on receipt,
