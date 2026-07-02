@@ -1,22 +1,25 @@
 package com.katasticho.erp.inventory.service;
 
+import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.inventory.dto.HsnGstRateHistoryResponse;
 import com.katasticho.erp.inventory.entity.HsnGstMaster;
 import com.katasticho.erp.inventory.entity.HsnGstRateHistory;
 import com.katasticho.erp.inventory.repository.HsnGstMasterRepository;
 import com.katasticho.erp.inventory.repository.HsnGstRateHistoryRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,11 +40,24 @@ class HsnGstRateHistoryServiceTest {
 
     private PharmacyMasterService svc;
 
+    // Fixed "today" = 2026-07-02, so a 2025-09-22 open period is effective-now.
+    private final Clock clock = Clock.fixed(
+            LocalDate.of(2026, 7, 2).atStartOfDay(ZoneId.systemDefault()).toInstant(),
+            ZoneId.systemDefault());
+
     @BeforeEach
     void setUp() {
         svc = new PharmacyMasterService(null, hsnRepository, rateHistoryRepository,
-                null, null, null, null, null, null);
+                null, null, null, null, null, null, clock);
         when(rateHistoryRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        // Rate-change (open-ended) writes are platform-admin only; default the
+        // role so the happy-path tests exercise the real current-rate flow.
+        TenantContext.setCurrentRole("PLATFORM_ADMIN");
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
     }
 
     private HsnGstRateHistory period(String code, String rate, LocalDate from, LocalDate to) {
@@ -139,14 +155,49 @@ class HsnGstRateHistoryServiceTest {
 
     @Test
     void addRateHistory_closedPeriod_does_not_sync_master() {
+        // a CLOSED backfill period is allowed for a non-platform admin and must
+        // not touch the shared current master rate
+        TenantContext.setCurrentRole("ADMIN");
         when(rateHistoryRepository.existsByHsnCodeAndEffectiveFrom("3004", LocalDate.of(2017, 7, 1)))
                 .thenReturn(false);
 
         svc.addRateHistory("3004", new BigDecimal("12"), null,
                 LocalDate.of(2017, 7, 1), LocalDate.of(2025, 9, 21), null, "HISTORICAL", null);
 
-        // a closed backfill period must not touch the current master rate
         verify(hsnRepository, never()).save(any());
         verify(rateHistoryRepository).save(any());
+    }
+
+    @Test
+    void addRateHistory_openEnded_requires_platform_admin() {
+        // Bug 3: an org ADMIN must NOT be able to change the shared current
+        // rate that drives every tenant's tax defaults.
+        TenantContext.setCurrentRole("ADMIN");
+        when(rateHistoryRepository.existsByHsnCodeAndEffectiveFrom("3004", LocalDate.of(2025, 9, 22)))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> svc.addRateHistory("3004", new BigDecimal("1"), null,
+                LocalDate.of(2025, 9, 22), null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", "HSN_PLATFORM_ROW_READONLY");
+        verify(rateHistoryRepository, never()).save(any());
+        verify(hsnRepository, never()).save(any());
+    }
+
+    @Test
+    void addRateHistory_futureDated_openPeriod_does_not_sync_master_early() {
+        // Bug 4: a period effective 2027-01-01 (fixed today = 2026-07-02) must
+        // NOT overwrite the live master rate before its effective_from arrives.
+        when(rateHistoryRepository.existsByHsnCodeAndEffectiveFrom("3004", LocalDate.of(2027, 1, 1)))
+                .thenReturn(false);
+        when(rateHistoryRepository.findByHsnCodeAndEffectiveToIsNull("3004"))
+                .thenReturn(new java.util.ArrayList<>());
+
+        svc.addRateHistory("3004", new BigDecimal("18"), null,
+                LocalDate.of(2027, 1, 1), null, "future change", "GST_FUTURE", null);
+
+        // history row saved, but master current rate untouched
+        verify(rateHistoryRepository).save(any());
+        verify(hsnRepository, never()).save(any());
     }
 }

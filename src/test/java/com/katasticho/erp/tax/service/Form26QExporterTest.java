@@ -117,6 +117,13 @@ class Form26QExporterTest {
     void section_and_deductee_code_helpers() {
         assertEquals("94C", Form26QExporter.fvuSectionCode("194C"));
         assertEquals("94Q", Form26QExporter.fvuSectionCode("194Q"));
+        // non-194 sections keep their real number — NOT stripped to 93/95
+        assertEquals("193", Form26QExporter.fvuSectionCode("193"));
+        assertEquals("195", Form26QExporter.fvuSectionCode("195"));
+        // the "no section" placeholder + blank map to an empty field, never a bogus code
+        assertEquals("", Form26QExporter.fvuSectionCode("TDS"));
+        assertEquals("", Form26QExporter.fvuSectionCode(""));
+        assertEquals("", Form26QExporter.fvuSectionCode(null));
         assertEquals("01", Form26QExporter.deducteeCode("AACCA1234C"));
         assertEquals("02", Form26QExporter.deducteeCode("ABCPR5678K"));
         assertEquals("02", Form26QExporter.deducteeCode("PANNOTAVBL"));

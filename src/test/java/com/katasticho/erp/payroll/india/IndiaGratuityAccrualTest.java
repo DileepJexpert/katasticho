@@ -70,8 +70,6 @@ class IndiaGratuityAccrualTest {
         TenantContext.setCurrentUserId(UUID.randomUUID());
 
         when(orgSettingsService.get(orgId, "payroll.india_gratuity_enabled", "false")).thenReturn("true");
-        when(orgSettingsService.get(orgId, "payroll.india_gratuity_accrue_from_joining", "true"))
-                .thenReturn("true");
         when(accrualRepository.findByOrgIdAndPeriodYearAndPeriodMonthAndIsDeletedFalse(any(), anyInt(), anyInt()))
                 .thenReturn(Optional.empty());
         when(accrualRepository.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -82,7 +80,7 @@ class IndiaGratuityAccrualTest {
                 .employmentStatus("ACTIVE").build();
         emp.setId(empId);
         emp.setOrgId(orgId);
-        when(employeeRepository.findByOrgIdAndIsDeletedFalseAndEmploymentStatus(orgId, "ACTIVE"))
+        when(employeeRepository.findByOrgIdAndIsDeletedFalse(orgId))
                 .thenReturn(List.of(emp));
 
         SalaryComponent basic = SalaryComponent.builder().code("BASIC").build();
@@ -167,5 +165,64 @@ class IndiaGratuityAccrualTest {
         assertThat(result).doesNotContainKey("posted");
         verify(journalService, never()).postJournal(any());
         verify(accrualRepository, never()).save(any());
+    }
+
+    @Test
+    void arrears_accrual_includes_an_employee_who_worked_the_period_then_exited() {
+        // Bug 2: EMP-2 worked through the period but exited after it. An arrears
+        // run for that period must still accrue their slice.
+        Employee exited = Employee.builder()
+                .employeeCode("EMP-2").fullName("Sita Sharma")
+                .dateOfJoining(LocalDate.of(2019, 1, 1))
+                .dateOfExit(LocalDate.of(2026, 8, 15))     // exited AFTER the June period
+                .employmentStatus("EXITED").build();
+        UUID exitedId = UUID.randomUUID();
+        exited.setId(exitedId);
+        exited.setOrgId(orgId);
+        Employee active = Employee.builder()
+                .employeeCode("EMP-1").fullName("Ravi Kumar")
+                .dateOfJoining(LocalDate.of(2020, 1, 1)).employmentStatus("ACTIVE").build();
+        active.setId(empId);
+        active.setOrgId(orgId);
+        when(employeeRepository.findByOrgIdAndIsDeletedFalse(orgId))
+                .thenReturn(List.of(active, exited));
+
+        SalaryComponent basic = SalaryComponent.builder().code("BASIC").build();
+        EmployeeSalaryStructure struct2 = EmployeeSalaryStructure.builder()
+                .effectiveFrom(LocalDate.of(2019, 1, 1))
+                .grossMonthly(new BigDecimal("40000"))
+                .lines(new java.util.ArrayList<>(List.of(
+                        EmployeeSalaryComponent.builder().salaryComponent(basic)
+                                .amount(new BigDecimal("26000")).build())))
+                .build();
+        when(salaryStructureRepository
+                .findByOrgIdAndEmployeeIdAndStatusOrderByEffectiveFromDesc(orgId, exitedId, "ACTIVE"))
+                .thenReturn(List.of(struct2));
+
+        Map<String, Object> result = svc.previewAccrual(2026, 6);
+        // both the active and the still-employed-in-June (later-exited) worker
+        assertThat(result.get("employeeCount")).isEqualTo(2);
+        assertThat(result.get("totalAmount")).isEqualTo(new BigDecimal("2500.00"));
+    }
+
+    @Test
+    void accrual_excludes_an_employee_who_exited_before_the_period() {
+        Employee goneEarly = Employee.builder()
+                .employeeCode("EMP-3").fullName("Old Timer")
+                .dateOfJoining(LocalDate.of(2015, 1, 1))
+                .dateOfExit(LocalDate.of(2026, 1, 31))   // exited BEFORE the June period
+                .employmentStatus("EXITED").build();
+        goneEarly.setId(UUID.randomUUID());
+        goneEarly.setOrgId(orgId);
+        Employee active = Employee.builder()
+                .employeeCode("EMP-1").fullName("Ravi Kumar")
+                .dateOfJoining(LocalDate.of(2020, 1, 1)).employmentStatus("ACTIVE").build();
+        active.setId(empId);
+        active.setOrgId(orgId);
+        when(employeeRepository.findByOrgIdAndIsDeletedFalse(orgId))
+                .thenReturn(List.of(active, goneEarly));
+
+        Map<String, Object> result = svc.previewAccrual(2026, 6);
+        assertThat(result.get("employeeCount")).isEqualTo(1); // only the active one
     }
 }

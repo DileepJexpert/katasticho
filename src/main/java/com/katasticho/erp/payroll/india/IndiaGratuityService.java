@@ -70,7 +70,6 @@ public class IndiaGratuityService {
     private static final int ELIGIBILITY_MONTHS = 60; // 5 continuous years
 
     static final String ENABLED_SETTING = "payroll.india_gratuity_enabled";
-    static final String ACCRUE_FROM_JOINING_SETTING = "payroll.india_gratuity_accrue_from_joining";
     static final String PROVISION_CODE = "2080";
     static final String EXPENSE_CODE = "5130";
 
@@ -125,18 +124,21 @@ public class IndiaGratuityService {
     }
 
     /**
-     * Monthly provision slice = (basic+DA) × 15/26 ÷ 12. Returns ZERO on
-     * missing/invalid inputs. When {@code accrueFromJoining} is false the
-     * slice defers until 5 years are completed (vesting-basis provisioning);
-     * the default (true) provisions from joining per AS 15.
+     * Monthly provision slice = (basic+DA) × 15/26 ÷ 12, accrued from the day
+     * of joining per AS 15 / Ind AS 19. Returns ZERO on missing/invalid inputs.
+     *
+     * <p>Accrual is deliberately from joining (not deferred to the 5-year
+     * vesting cliff): building the provision evenly means the cumulative 2080
+     * balance matches the computed gratuity at exit, so the payout draws the
+     * provision cleanly to zero. A "defer until vested" mode was removed — it
+     * under-provisioned every month before the cliff and could not be trued up
+     * to the vested liability without per-employee cumulative tracking, which
+     * drove 2080 to a debit (negative liability) balance at payout.
      */
     public BigDecimal monthlyAccrual(LocalDate joinDate, LocalDate asOf,
-                                     BigDecimal monthlyBasicPlusDa, boolean accrueFromJoining) {
+                                     BigDecimal monthlyBasicPlusDa) {
         if (joinDate == null || asOf == null || monthlyBasicPlusDa == null
                 || monthlyBasicPlusDa.signum() <= 0 || !asOf.isAfter(joinDate)) {
-            return BigDecimal.ZERO;
-        }
-        if (!accrueFromJoining && ChronoUnit.MONTHS.between(joinDate, asOf) < ELIGIBILITY_MONTHS) {
             return BigDecimal.ZERO;
         }
         return monthlyBasicPlusDa.multiply(FIFTEEN)
@@ -224,24 +226,25 @@ public class IndiaGratuityService {
         if (month < 1 || month > 12) {
             throw new BusinessException("Month must be 1-12", "GRATUITY_BAD_MONTH", HttpStatus.BAD_REQUEST);
         }
-        LocalDate periodEnd = LocalDate.of(year, month, 1).plusMonths(1).minusDays(1);
-        boolean accrueFromJoining = Boolean.parseBoolean(
-                orgSettingsService.get(orgId, ACCRUE_FROM_JOINING_SETTING, "true"));
+        LocalDate periodStart = LocalDate.of(year, month, 1);
+        LocalDate periodEnd = periodStart.plusMonths(1).minusDays(1);
 
-        List<Employee> active = employeeRepository
-                .findByOrgIdAndIsDeletedFalseAndEmploymentStatus(orgId, "ACTIVE");
+        // Employees employed DURING the period, not just those currently ACTIVE:
+        // an accrual posted in arrears must still include someone who worked the
+        // period but has since exited (their gratuity for that period is real).
+        // Window = joined on/before periodEnd AND not exited before periodStart.
+        List<Employee> employed = employeeRepository.findByOrgIdAndIsDeletedFalse(orgId).stream()
+                .filter(e -> e.getDateOfJoining() != null && !e.getDateOfJoining().isAfter(periodEnd))
+                .filter(e -> e.getDateOfExit() == null || !e.getDateOfExit().isBefore(periodStart))
+                .toList();
         List<Map<String, Object>> rows = new ArrayList<>();
         BigDecimal total = BigDecimal.ZERO;
-        for (Employee emp : active) {
-            if (emp.getDateOfJoining() == null || emp.getDateOfJoining().isAfter(periodEnd)) {
-                continue;
-            }
+        for (Employee emp : employed) {
             BigDecimal basicPlusDa = resolveBasicPlusDaOrNull(emp.getId(), periodEnd);
             if (basicPlusDa == null || basicPlusDa.signum() <= 0) {
                 continue;
             }
-            BigDecimal slice = monthlyAccrual(emp.getDateOfJoining(), periodEnd,
-                    basicPlusDa, accrueFromJoining);
+            BigDecimal slice = monthlyAccrual(emp.getDateOfJoining(), periodEnd, basicPlusDa);
             if (slice.signum() <= 0) {
                 continue;
             }
@@ -258,7 +261,6 @@ public class IndiaGratuityService {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("periodYear", year);
         result.put("periodMonth", month);
-        result.put("accrueFromJoining", accrueFromJoining);
         result.put("employeeCount", rows.size());
         result.put("totalAmount", total.setScale(2, RoundingMode.HALF_UP));
         result.put("lines", rows);

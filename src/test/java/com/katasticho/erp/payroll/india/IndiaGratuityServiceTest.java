@@ -93,30 +93,28 @@ class IndiaGratuityServiceTest {
         // annual = 26000 × 15/26 = 15000; monthly = 15000/12 = 1250.00
         LocalDate join = LocalDate.of(2020, 1, 1);
         LocalDate asOf = LocalDate.of(2026, 6, 30);
-        BigDecimal slice = svc.monthlyAccrual(join, asOf, BASIC_DA_26K, true);
+        BigDecimal slice = svc.monthlyAccrual(join, asOf, BASIC_DA_26K);
 
         assertThat(slice).isEqualByComparingTo("1250.00");
     }
 
     @Test
-    void monthly_accrual_defers_until_five_years_when_not_accruing_from_joining() {
+    void monthly_accrual_provisions_from_joining_even_before_the_vesting_cliff() {
+        // AS-15 basis: the full slice accrues from day one (a "defer until
+        // vested" mode was removed because it under-provisioned + drove 2080
+        // to a debit balance at payout).
         LocalDate join = LocalDate.of(2024, 1, 1);
-        LocalDate asOf = LocalDate.of(2026, 6, 30); // ~2.5 years
-        // vesting basis: nothing until 5 years
-        assertThat(svc.monthlyAccrual(join, asOf, BASIC_DA_26K, false))
-                .isEqualByComparingTo("0");
-        // accrue-from-joining basis: full slice from day one
-        assertThat(svc.monthlyAccrual(join, asOf, BASIC_DA_26K, true))
-                .isEqualByComparingTo("1250.00");
+        LocalDate asOf = LocalDate.of(2026, 6, 30); // ~2.5 years, pre-cliff
+        assertThat(svc.monthlyAccrual(join, asOf, BASIC_DA_26K)).isEqualByComparingTo("1250.00");
     }
 
     @Test
     void monthly_accrual_returns_zero_on_bad_inputs() {
         LocalDate join = LocalDate.of(2020, 1, 1);
         LocalDate asOf = LocalDate.of(2026, 6, 30);
-        assertThat(svc.monthlyAccrual(null, asOf, BASIC_DA_26K, true)).isEqualByComparingTo("0");
-        assertThat(svc.monthlyAccrual(join, asOf, BigDecimal.ZERO, true)).isEqualByComparingTo("0");
-        assertThat(svc.monthlyAccrual(join, join.minusDays(1), BASIC_DA_26K, true))
+        assertThat(svc.monthlyAccrual(null, asOf, BASIC_DA_26K)).isEqualByComparingTo("0");
+        assertThat(svc.monthlyAccrual(join, asOf, BigDecimal.ZERO)).isEqualByComparingTo("0");
+        assertThat(svc.monthlyAccrual(join, join.minusDays(1), BASIC_DA_26K))
                 .isEqualByComparingTo("0");
     }
 

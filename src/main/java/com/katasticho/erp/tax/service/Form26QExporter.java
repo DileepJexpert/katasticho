@@ -124,15 +124,26 @@ public class Form26QExporter {
         return "02";
     }
 
-    /** 194C → 94C, 194J → 94J, ... FVU uses the trailing analysis code. */
+    /**
+     * FVU section analysis code. The 194x sections collapse to their trailing
+     * form (194C → 94C, 194J → 94J, 194Q → 94Q); every other section keeps its
+     * real number (193 stays 193, 195 stays 195 — NOT stripped to 93/95).
+     *
+     * <p>{@code TDS} is the "no section specified" placeholder that
+     * TdsService.computeForBill stamps on a vendor flagged for TDS without a
+     * section — it is NOT a filing code, so it (and a blank) map to an empty
+     * field. The FVU/RPU then flags the mandatory section as missing (the
+     * correct signal to fix the vendor master) instead of accepting a bogus
+     * "TDS" / "93" token.
+     */
     static String fvuSectionCode(String section) {
         if (section == null) return "";
         String s = section.trim().toUpperCase();
+        if (s.isEmpty() || "TDS".equals(s)) {
+            return "";
+        }
         if (s.startsWith("194") && s.length() > 3) {
             return "94" + s.substring(3);
-        }
-        if (s.startsWith("19") && s.length() > 2) {
-            return s.substring(1); // 192 → 92, 193 → 93 (defensive)
         }
         return s;
     }

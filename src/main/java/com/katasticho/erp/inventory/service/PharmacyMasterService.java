@@ -29,6 +29,7 @@ public class PharmacyMasterService {
     private final DrugMasterRepository drugMasterRepository;
     private final SaltMasterRepository saltMasterRepository;
     private final WarehouseRepository warehouseRepository;
+    private final java.time.Clock clock;
 
     public List<ManufacturerMasterResponse> searchManufacturers(String query, int limit) {
         return manufacturerRepository
@@ -153,6 +154,19 @@ public class PharmacyMasterService {
 
         boolean openEnded = effectiveTo == null;
         if (openEnded) {
+            // An open-ended period IS the current rate — it closes the prior
+            // open period and (below) mutates the shared platform
+            // hsn_gst_master row that drives EVERY tenant's tax defaults. That
+            // is the same cross-tenant write upsertHsn reserves for a platform
+            // admin. OWNER/ADMIN may still backfill CLOSED historical periods
+            // (reference data, no live impact).
+            String role = com.katasticho.erp.common.context.TenantContext.getCurrentRole();
+            if (!"PLATFORM_ADMIN".equals(role)) {
+                throw new BusinessException(
+                        "Changing the current GST rate for HSN " + code
+                                + " needs a platform admin; add a closed historical period instead.",
+                        "HSN_PLATFORM_ROW_READONLY", HttpStatus.FORBIDDEN);
+            }
             // Close any prior open period the day before the new one starts.
             for (HsnGstRateHistory open : rateHistoryRepository.findByHsnCodeAndEffectiveToIsNull(code)) {
                 if (!open.getEffectiveFrom().isBefore(effectiveFrom)) {
@@ -173,9 +187,11 @@ public class PharmacyMasterService {
                 .build();
         HsnGstRateHistory saved = rateHistoryRepository.save(row);
 
-        // Keep hsn_gst_master's single current rate in sync when this new
-        // period is the current open-ended one.
-        if (openEnded) {
+        // Sync hsn_gst_master's single current rate ONLY when this open-ended
+        // period is effective now or in the past — a future-dated change must
+        // NOT change live tax defaults before its effective_from arrives
+        // (rateAsOf still returns the correct period-for-a-date meanwhile).
+        if (openEnded && !effectiveFrom.isAfter(java.time.LocalDate.now(clock))) {
             hsnRepository.findByHsnCodeAndActiveTrue(code).ifPresent(master -> {
                 master.setGstRate(gstRate);
                 hsnRepository.save(master);

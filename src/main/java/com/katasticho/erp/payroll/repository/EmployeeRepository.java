@@ -24,5 +24,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
 
     List<Employee> findByOrgIdAndIsDeletedFalseAndEmploymentStatus(UUID orgId, String status);
 
+    /** All non-deleted employees — gratuity accrual filters by service window, not current status. */
+    List<Employee> findByOrgIdAndIsDeletedFalse(UUID orgId);
+
     Optional<Employee> findByOrgIdAndEmployeeCodeAndIsDeletedFalse(UUID orgId, String employeeCode);
 }
