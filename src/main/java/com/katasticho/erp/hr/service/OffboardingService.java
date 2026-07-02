@@ -17,6 +17,8 @@ import com.katasticho.erp.organisation.OrgSettingsService;
 import com.katasticho.erp.payroll.entity.Employee;
 import com.katasticho.erp.payroll.gulf.GratuityResult;
 import com.katasticho.erp.payroll.gulf.GulfPayrollService;
+import com.katasticho.erp.payroll.india.IndiaGratuityResult;
+import com.katasticho.erp.payroll.india.IndiaGratuityService;
 import com.katasticho.erp.payroll.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -48,6 +50,8 @@ public class OffboardingService {
 
     /** Gulf gratuity GL codes (V15 seed: 2050 Gratuity Provision, 5060 Gratuity Expense). */
     private static final String GRATUITY_PROVISION_CODE = "2050";
+    /** India gratuity provision GL (V25 seed: 2080; 2050 is PF Payable in the IN chart). */
+    private static final String INDIA_GRATUITY_PROVISION_CODE = "2080";
     /** Default payout cash account when org doesn't override via setting. */
     private static final String DEFAULT_PAYMENT_ACCOUNT_CODE = "1010";
     private static final String GRATUITY_PAYMENT_ACCOUNT_SETTING = "payroll.gratuity_payment_account_code";
@@ -57,6 +61,7 @@ public class OffboardingService {
     private final EmployeeRepository employeeRepository;
     private final CountryAccessService countryAccessService;
     private final GulfPayrollService gulfPayrollService;
+    private final IndiaGratuityService indiaGratuityService;
     private final JournalService journalService;
     private final AccountRepository accountRepository;
     private final OrgSettingsService orgSettingsService;
@@ -165,9 +170,12 @@ public class OffboardingService {
         UUID orgId = ob.getOrgId();
 
         String country = countryAccessService.countryOf(orgId);
-        if (!"AE".equals(country) && !"OM".equals(country)) {
+        boolean gulf = "AE".equals(country) || "OM".equals(country);
+        boolean india = "IN".equals(country);
+        if (!gulf && !india) {
             throw new BusinessException(
-                    "Gulf gratuity payout only applies to UAE / Oman orgs (got " + country + ")",
+                    "Gratuity payout is modelled for UAE / Oman (end-of-service) and "
+                            + "India (Payment of Gratuity Act) only (got " + country + ")",
                     "OFFB_GRATUITY_NOT_APPLICABLE", HttpStatus.BAD_REQUEST);
         }
         if (ob.getGratuityJournalEntryId() != null) {
@@ -186,14 +194,25 @@ public class OffboardingService {
                 ? ob.getLastWorkingDay()
                 : LocalDate.now(clock);
 
-        // computeFor resolves the structure's BASIC and runs the country-aware
-        // formula. Throws GRATUITY_NO_BASIC / GRATUITY_NO_STRUCTURE on misconfig.
-        GratuityResult result = gulfPayrollService.computeFor(emp.getId(), asOf);
-        BigDecimal payout = result.cappedGratuity();
+        // Country-aware formula: Gulf 21/30-day tiers vs India 15/26 × years.
+        // Both computeFor resolve the structure's wage and throw
+        // GRATUITY_NO_BASIC / GRATUITY_NO_STRUCTURE on misconfig. India's
+        // cappedAmount is ZERO until 5 continuous years (§4 eligibility).
+        BigDecimal payout;
+        String provisionCode;
+        if (gulf) {
+            GratuityResult result = gulfPayrollService.computeFor(emp.getId(), asOf);
+            payout = result.cappedGratuity();
+            provisionCode = GRATUITY_PROVISION_CODE;
+        } else {
+            IndiaGratuityResult result = indiaGratuityService.computeFor(emp.getId(), asOf);
+            payout = result.cappedAmount();
+            provisionCode = INDIA_GRATUITY_PROVISION_CODE;
+        }
 
         Instant now = Instant.now(clock);
         if (payout == null || payout.signum() <= 0) {
-            // Under-1-year forfeit case — flag the offboarding so HR sees
+            // Forfeit / not-yet-eligible case — flag the offboarding so HR sees
             // "computed but nothing to pay" without a phantom 0-rupee journal.
             ob.setGratuityAmount(BigDecimal.ZERO);
             ob.setGratuityPaidAt(now);
@@ -201,11 +220,11 @@ public class OffboardingService {
         }
 
         String payCode = resolvePaymentAccountCode(orgId, paymentAccountCode);
-        ensureAccount(orgId, GRATUITY_PROVISION_CODE, "Gratuity Provision");
+        ensureAccount(orgId, provisionCode, "Gratuity Provision");
         ensureAccount(orgId, payCode, "payout account " + payCode);
 
         List<JournalLineRequest> lines = List.of(
-                new JournalLineRequest(GRATUITY_PROVISION_CODE, payout, BigDecimal.ZERO,
+                new JournalLineRequest(provisionCode, payout, BigDecimal.ZERO,
                         "End-of-service gratuity payout", null, null),
                 new JournalLineRequest(payCode, BigDecimal.ZERO, payout,
                         "End-of-service gratuity payout", null, null));
