@@ -53,8 +53,14 @@ UI) are NOT repeated here.
   `POS_CREDIT_REQUIRES_CONTACT`, void restores outstanding, khata
   settlement `POST /customer-receipts/khata-settlement` DR Cash / CR AR,
   POS "Khata" button + sheet + settings toggle, 11 tests, live-verified)
-- [ ] **H1 Payment-gateway links on invoices** (M) — Razorpay/Stripe link +
-  webhook → auto payment record (UPI QR exists).
+- [x] **H1 Payment-gateway links on invoices** (M) — Razorpay/Stripe link +
+  webhook → auto payment record (UPI QR exists). → DONE 2026-07-02
+  (V27 `payment_link` + `payment_webhook_event`; `RazorpayClient` config-inert
+  w/ HMAC-SHA256 constant-time verify; `PaymentLinkService` create + signed
+  webhook → records AR payment idempotently (double dedupe: event-id + captured-
+  payment-id) → settles invoice; public `POST /api/v1/webhooks/razorpay/{orgToken}`
+  (per-org path token, permit-all + per-org HMAC); `POST /invoices/{id}/payment-link`
+  + masked `/settings/razorpay`; 13 tests. Flutter "Get payment link" button = follow-up.)
 - [ ] **H2 Instalment payment terms + dunning levels** (M) — Odoo parity.
 - [ ] **H3 Recurring bills + recurring journals** (S each).
 - [ ] **H4 User-defined bank matching rules** (M) — on top of suggestions.
