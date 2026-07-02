@@ -53,6 +53,41 @@ public class PharmacyMasterController {
                 "HSN saved"));
     }
 
+    /** All effective-dated GST rate periods for an HSN code, newest-first. */
+    @GetMapping("/hsn/{code}/rate-history")
+    public ResponseEntity<ApiResponse<List<HsnGstRateHistoryResponse>>> rateHistory(
+            @PathVariable String code) {
+        return ResponseEntity.ok(ApiResponse.ok(service.rateHistory(code)));
+    }
+
+    /** The GST rate in force for a code on a given date (null if no period covers it). */
+    @GetMapping("/hsn/{code}/rate-as-of")
+    public ResponseEntity<ApiResponse<HsnGstRateHistoryResponse>> rateAsOf(
+            @PathVariable String code,
+            @RequestParam
+            @org.springframework.format.annotation.DateTimeFormat(
+                    iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            java.time.LocalDate date) {
+        return ResponseEntity.ok(ApiResponse.ok(service.rateAsOf(code, date)));
+    }
+
+    /** Record a statutory rate change — a new effective-dated period. */
+    @PostMapping("/hsn/{code}/rate-history")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','PLATFORM_ADMIN')")
+    public ResponseEntity<ApiResponse<HsnGstRateHistoryResponse>> addRateHistory(
+            @PathVariable String code, @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(ApiResponse.ok(service.addRateHistory(
+                code,
+                body.get("gstRate") != null ? new java.math.BigDecimal(body.get("gstRate").toString()) : null,
+                body.get("cessRate") != null ? new java.math.BigDecimal(body.get("cessRate").toString()) : null,
+                body.get("effectiveFrom") != null ? java.time.LocalDate.parse(body.get("effectiveFrom").toString()) : null,
+                body.get("effectiveTo") != null ? java.time.LocalDate.parse(body.get("effectiveTo").toString()) : null,
+                (String) body.get("notificationRef"),
+                (String) body.get("source"),
+                (String) body.get("description")),
+                "Rate period added"));
+    }
+
     @GetMapping("/rack-locations")
     public ResponseEntity<ApiResponse<List<RackLocationResponse>>> rackLocations(
             @RequestParam(required = false) UUID warehouseId) {

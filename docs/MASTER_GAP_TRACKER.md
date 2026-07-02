@@ -31,7 +31,13 @@ UI) are NOT repeated here.
   `GET /api/v1/tds/26q/{csv,fvu}` mirroring the 24Q pair; 6 tests. Full
   FH/BH/CD/DD file — needs TAN + ITNS-281 challan capture — deferred exactly
   like the 24Q side.)
-- [ ] **G5 GST rate history w/ effective dates** per item/HSN (M).
+- [x] **G5 GST rate history w/ effective dates** per item/HSN (M).
+  → DONE 2026-07-02 (V26 `hsn_gst_rate_history` platform table + baseline seed;
+  `rateAsOf(code, date)` / `rateHistory(code)` / `addRateHistory` (auto-closes
+  prior open period + syncs hsn_gst_master current rate) on PharmacyMasterService;
+  `GET/POST /api/v1/pharmacy-masters/hsn/{code}/rate-history` + `/rate-as-of`;
+  7 tests. REFERENCE/report layer only — document posting still snapshots the
+  line rate, unchanged, so GSTR reconciliation is untouched.)
 - [x] **G6 India gratuity provision** (S) — Gulf accrual exists; add IN.
   → DONE 2026-07-02 (V25 seeds 2080/5130 for IN×4 industries + `india_gratuity_accrual`
   idempotency table; `IndiaGratuityService` 15/26 formula w/ §4(2) rounding + 5-year
