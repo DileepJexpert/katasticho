@@ -7,6 +7,7 @@ import com.katasticho.erp.payment.service.PaymentLinkService;
 import com.katasticho.erp.payment.service.RazorpayClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -41,6 +42,7 @@ public class PaymentWebhookController {
 
         Optional<UUID> orgId = resolveOrg(orgToken);
         if (orgId.isEmpty()) {
+            // Permanent — a bad/rotated token never becomes valid on retry.
             log.warn("Razorpay webhook with unrecognised token");
             return ok(false, "unrecognised token");
         }
@@ -49,10 +51,14 @@ public class PaymentWebhookController {
             TenantContext.setCurrentRole("SYSTEM");
             String status = paymentLinkService.handleWebhook(
                     orgId.get(), rawBody == null ? "" : rawBody, signature, eventId);
-            return ok(!"invalid signature".equals(status) && !"error".equals(status), status);
+            return ok("recorded".equals(status), status);
         } catch (Exception e) {
-            log.warn("Razorpay webhook handling failed for org {}: {}", orgId.get(), e.getMessage());
-            return ok(false, "error");   // still 200
+            // Transient / unexpected failure — nothing was persisted (the whole
+            // @Transactional rolled back, including the dedupe row), so answer
+            // 5xx and let Razorpay retry rather than silently drop the payment.
+            log.warn("Razorpay webhook processing error for org {}: {}", orgId.get(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("received", true, "applied", false, "status", "retry"));
         } finally {
             TenantContext.clear();
         }

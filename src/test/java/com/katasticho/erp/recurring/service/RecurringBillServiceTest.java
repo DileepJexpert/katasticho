@@ -138,7 +138,7 @@ class RecurringBillServiceTest {
     @Test
     void generate_drafts_a_bill_advances_the_cursor_and_logs_it() {
         RecurringBill t = activeTemplate(LocalDate.of(2026, 7, 1), null, false);
-        when(billRepository.findById(templateId)).thenReturn(Optional.of(t));
+        when(billRepository.findByIdAndOrgIdAndIsDeletedFalse(templateId, orgId)).thenReturn(Optional.of(t));
 
         UUID out = svc.generateFromTemplate(templateId);
 
@@ -156,7 +156,7 @@ class RecurringBillServiceTest {
 
     @Test
     void generate_auto_posts_when_flag_set() {
-        when(billRepository.findById(templateId))
+        when(billRepository.findByIdAndOrgIdAndIsDeletedFalse(templateId, orgId))
                 .thenReturn(Optional.of(activeTemplate(LocalDate.of(2026, 7, 1), null, true)));
         svc.generateFromTemplate(templateId);
         verify(purchaseBillService).postBill(billId);
@@ -166,9 +166,28 @@ class RecurringBillServiceTest {
     void generate_skips_a_non_active_template() {
         RecurringBill stopped = activeTemplate(LocalDate.of(2026, 7, 1), null, false);
         stopped.setStatus("STOPPED");
-        when(billRepository.findById(templateId)).thenReturn(Optional.of(stopped));
+        when(billRepository.findByIdAndOrgIdAndIsDeletedFalse(templateId, orgId)).thenReturn(Optional.of(stopped));
 
         assertThat(svc.generateFromTemplate(templateId)).isNull();
+        verify(purchaseBillService, never()).createBill(any());
+    }
+
+    @Test
+    void createTemplate_rejects_end_before_start() {
+        var req = new CreateRecurringBillRequest("bad", contactId, "MONTHLY",
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 6, 30), 0, false, null, false, null, null,
+                List.of(serviceLine()));
+        assertThatThrownBy(() -> svc.createTemplate(req))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", "REC_BILL_END_BEFORE_START");
+    }
+
+    @Test
+    void generate_on_a_foreign_or_missing_template_is_not_found() {
+        // org-scoped lookup returns empty for another org's template id
+        when(billRepository.findByIdAndOrgIdAndIsDeletedFalse(templateId, orgId)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> svc.generateFromTemplate(templateId))
+                .isInstanceOf(BusinessException.class);
         verify(purchaseBillService, never()).createBill(any());
     }
 
@@ -176,7 +195,7 @@ class RecurringBillServiceTest {
     void generate_flips_to_expired_when_cursor_passes_end_date() {
         // next=2026-07-01, end=2026-07-15 -> advance to 2026-08-01 > end -> EXPIRED
         RecurringBill t = activeTemplate(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 15), false);
-        when(billRepository.findById(templateId)).thenReturn(Optional.of(t));
+        when(billRepository.findByIdAndOrgIdAndIsDeletedFalse(templateId, orgId)).thenReturn(Optional.of(t));
 
         svc.generateFromTemplate(templateId);
         assertThat(t.getStatus()).isEqualTo("EXPIRED");

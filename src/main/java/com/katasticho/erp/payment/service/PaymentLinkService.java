@@ -134,13 +134,20 @@ public class PaymentLinkService {
                 .signatureValid(true).processed(false)
                 .build();
 
-        String result = "ignored";
+        String result;
         try {
             result = applyPayment(orgId, wp, eventType, effectiveEventId, logRow);
-        } catch (Exception e) {
-            log.warn("Razorpay webhook apply failed for org {} event {}: {}", orgId, effectiveEventId, e.getMessage());
-            result = "error";
+        } catch (BusinessException be) {
+            // A DETERMINISTIC business failure — retrying won't help. Record the
+            // dedupe row and let the controller 200 so Razorpay stops resending.
+            log.warn("Razorpay webhook business error for org {} event {}: {}",
+                    orgId, effectiveEventId, be.getErrorCode());
+            result = "error:" + be.getErrorCode();
         }
+        // A NON-business (transient infra) exception is deliberately NOT caught:
+        // it propagates, the whole @Transactional rolls back (dedupe row too),
+        // and the controller returns 5xx so Razorpay retries — the settlement
+        // is never silently lost on a deadlock / lock-timeout.
         webhookEventRepository.save(logRow);
         return result;
     }
@@ -162,10 +169,14 @@ public class PaymentLinkService {
             return "already recorded";
         }
 
-        PaymentLink link = resolveLink(orgId, wp);
-        if (link == null) {
+        PaymentLink resolved = resolveLink(orgId, wp);
+        if (resolved == null) {
             return "no matching link";
         }
+        // Take a pessimistic write lock on the link before the settled-check +
+        // record, so two concurrent settlement events for the same capture
+        // serialise: the second blocks here, then re-reads a PAID link below.
+        PaymentLink link = paymentLinkRepository.findByIdAndIsDeletedFalse(resolved.getId()).orElse(resolved);
         logRow.setPaymentLinkId(link.getId());
 
         // (4) this link already settled → no-op.
@@ -232,7 +243,7 @@ public class PaymentLinkService {
         }
         if (wp.referenceId != null) {
             return paymentLinkRepository
-                    .findByOrgIdAndReferenceIdAndIsDeletedFalse(orgId, wp.referenceId)
+                    .findFirstByOrgIdAndReferenceIdAndIsDeletedFalseOrderByCreatedAtDesc(orgId, wp.referenceId)
                     .orElse(null);
         }
         return null;

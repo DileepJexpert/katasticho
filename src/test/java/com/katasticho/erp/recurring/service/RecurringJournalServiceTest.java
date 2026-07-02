@@ -120,7 +120,7 @@ class RecurringJournalServiceTest {
     @Test
     void generate_posts_a_draft_journal_and_advances_cursor() {
         RecurringJournal t = activeTemplate(false, LocalDate.of(2026, 7, 1), null);
-        when(journalRepository.findById(templateId)).thenReturn(Optional.of(t));
+        when(journalRepository.findByIdAndOrgIdAndIsDeletedFalse(templateId, orgId)).thenReturn(Optional.of(t));
 
         UUID out = svc.generateFromTemplate(templateId);
 
@@ -136,20 +136,45 @@ class RecurringJournalServiceTest {
     }
 
     @Test
-    void generate_auto_posts_when_flag_set() {
-        when(journalRepository.findById(templateId))
+    void generate_auto_posts_via_a_draft_then_post_entry() {
+        when(journalRepository.findByIdAndOrgIdAndIsDeletedFalse(templateId, orgId))
                 .thenReturn(Optional.of(activeTemplate(true, LocalDate.of(2026, 7, 1), null)));
         svc.generateFromTemplate(templateId);
+        // creates a DRAFT (autoPost=false), then posts it best-effort
         ArgumentCaptor<JournalPostRequest> req = ArgumentCaptor.forClass(JournalPostRequest.class);
         verify(journalService).postJournal(req.capture());
-        assertThat(req.getValue().autoPost()).isTrue();
+        assertThat(req.getValue().autoPost()).isFalse();
+        verify(journalService).postEntry(entryId);
+    }
+
+    @Test
+    void generate_auto_post_failure_leaves_a_draft_and_still_advances() {
+        RecurringJournal t = activeTemplate(true, LocalDate.of(2026, 7, 1), null);
+        when(journalRepository.findByIdAndOrgIdAndIsDeletedFalse(templateId, orgId)).thenReturn(Optional.of(t));
+        // posting the draft fails (e.g. an approval workflow) — must not stall
+        when(journalService.postEntry(entryId)).thenThrow(new RuntimeException("needs approval"));
+
+        UUID out = svc.generateFromTemplate(templateId);
+
+        assertThat(out).isEqualTo(entryId);          // draft was created
+        verify(generationRepository).save(any());    // logged
+        assertThat(t.getNextRunDate()).isEqualTo(LocalDate.of(2026, 8, 1)); // cursor advanced
+    }
+
+    @Test
+    void createTemplate_rejects_end_before_start() {
+        assertThatThrownBy(() -> svc.createTemplate(new CreateRecurringJournalRequest(
+                "bad", "MONTHLY", LocalDate.of(2026, 7, 1), LocalDate.of(2026, 6, 30),
+                "n", false, null, balancedLines())))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", "REC_JRNL_END_BEFORE_START");
     }
 
     @Test
     void generate_skips_a_non_active_template() {
         RecurringJournal stopped = activeTemplate(false, LocalDate.of(2026, 7, 1), null);
         stopped.setStatus("PAUSED");
-        when(journalRepository.findById(templateId)).thenReturn(Optional.of(stopped));
+        when(journalRepository.findByIdAndOrgIdAndIsDeletedFalse(templateId, orgId)).thenReturn(Optional.of(stopped));
 
         assertThat(svc.generateFromTemplate(templateId)).isNull();
         verify(journalService, never()).postJournal(any());
@@ -158,7 +183,7 @@ class RecurringJournalServiceTest {
     @Test
     void generate_flips_to_expired_when_cursor_passes_end_date() {
         RecurringJournal t = activeTemplate(false, LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 10));
-        when(journalRepository.findById(templateId)).thenReturn(Optional.of(t));
+        when(journalRepository.findByIdAndOrgIdAndIsDeletedFalse(templateId, orgId)).thenReturn(Optional.of(t));
         svc.generateFromTemplate(templateId);
         assertThat(t.getStatus()).isEqualTo("EXPIRED");
     }

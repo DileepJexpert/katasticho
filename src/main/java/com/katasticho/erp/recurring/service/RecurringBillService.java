@@ -56,6 +56,7 @@ public class RecurringBillService {
         if (req.startDate() == null) {
             throw new BusinessException("Start date is required", "REC_BILL_START_REQUIRED", HttpStatus.BAD_REQUEST);
         }
+        requireEndAfterStart(req.startDate(), req.endDate());
         requireVendor(orgId, req.contactId());
         validateLines(req.lineItems());
 
@@ -89,7 +90,7 @@ public class RecurringBillService {
         }
         if (req.profileName() != null && !req.profileName().isBlank()) t.setProfileName(req.profileName().trim());
         if (req.frequency() != null) { validateFrequency(req.frequency()); t.setFrequency(req.frequency()); }
-        if (req.endDate() != null) t.setEndDate(req.endDate());
+        if (req.endDate() != null) { requireEndAfterStart(t.getStartDate(), req.endDate()); t.setEndDate(req.endDate()); }
         if (req.paymentTermsDays() != null) t.setPaymentTermsDays(req.paymentTermsDays());
         if (req.reverseCharge() != null) t.setReverseCharge(req.reverseCharge());
         if (req.placeOfSupply() != null) t.setPlaceOfSupply(req.placeOfSupply());
@@ -146,7 +147,11 @@ public class RecurringBillService {
 
     @Transactional
     public UUID generateFromTemplate(UUID templateId) {
-        RecurringBill t = billRepository.findById(templateId)
+        // Org-scoped: the daily job sets TenantContext to each template's own
+        // org before calling, and the generate-now endpoint must not reach a
+        // foreign org's template (it passes the raw path id straight in).
+        RecurringBill t = billRepository.findByIdAndOrgIdAndIsDeletedFalse(
+                        templateId, TenantContext.getCurrentOrgId())
                 .orElseThrow(() -> BusinessException.notFound("Recurring bill", templateId));
         if (!"ACTIVE".equals(t.getStatus())) {
             log.warn("Skipping non-ACTIVE recurring bill {} (status={})", templateId, t.getStatus());
@@ -228,6 +233,13 @@ public class RecurringBillService {
         } catch (Exception e) {
             throw new BusinessException("Invalid frequency: " + frequency,
                     "REC_BILL_BAD_FREQUENCY", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void requireEndAfterStart(LocalDate start, LocalDate end) {
+        if (start != null && end != null && end.isBefore(start)) {
+            throw new BusinessException("End date can't be before start date",
+                    "REC_BILL_END_BEFORE_START", HttpStatus.BAD_REQUEST);
         }
     }
 

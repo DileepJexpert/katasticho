@@ -152,6 +152,7 @@ class PaymentLinkServiceTest {
         PaymentLink link = createdLink("500.00");
         when(paymentLinkRepository.findByProviderAndProviderLinkIdAndIsDeletedFalse("RAZORPAY", "plink_123"))
                 .thenReturn(Optional.of(link));
+        when(paymentLinkRepository.findByIdAndIsDeletedFalse(link.getId())).thenReturn(Optional.of(link));
         when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
                 .thenReturn(Optional.of(payableInvoice("500.00")));
         UUID paymentId = UUID.randomUUID();
@@ -209,8 +210,10 @@ class PaymentLinkServiceTest {
         when(webhookEventRepository.existsByProviderAndEventId("RAZORPAY", "evt_3")).thenReturn(false);
         when(paymentLinkRepository.findByProviderAndProviderPaymentIdAndIsDeletedFalse("RAZORPAY", "pay_abc"))
                 .thenReturn(Optional.empty());
+        PaymentLink clampLink = createdLink("1000.00");
         when(paymentLinkRepository.findByProviderAndProviderLinkIdAndIsDeletedFalse("RAZORPAY", "plink_123"))
-                .thenReturn(Optional.of(createdLink("1000.00")));
+                .thenReturn(Optional.of(clampLink));
+        when(paymentLinkRepository.findByIdAndIsDeletedFalse(clampLink.getId())).thenReturn(Optional.of(clampLink));
         when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
                 .thenReturn(Optional.of(payableInvoice("300.00"))); // only ₹300 still owed
         when(paymentService.recordForInvoice(eq(invoiceId), any()))
@@ -230,8 +233,10 @@ class PaymentLinkServiceTest {
         when(webhookEventRepository.existsByProviderAndEventId("RAZORPAY", "evt_4")).thenReturn(false);
         when(paymentLinkRepository.findByProviderAndProviderPaymentIdAndIsDeletedFalse("RAZORPAY", "pay_abc"))
                 .thenReturn(Optional.empty());
+        PaymentLink fpLink = createdLink("500.00");
         when(paymentLinkRepository.findByProviderAndProviderLinkIdAndIsDeletedFalse("RAZORPAY", "plink_123"))
-                .thenReturn(Optional.of(createdLink("500.00")));
+                .thenReturn(Optional.of(fpLink));
+        when(paymentLinkRepository.findByIdAndIsDeletedFalse(fpLink.getId())).thenReturn(Optional.of(fpLink));
         when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
                 .thenReturn(Optional.of(payableInvoice("500.00")));
         UUID paymentId = UUID.randomUUID();
@@ -242,6 +247,30 @@ class PaymentLinkServiceTest {
 
         // money already collected → force settle past the approval gate
         verify(paymentService).postPayment(paymentId);
+    }
+
+    @Test
+    void webhook_propagates_a_transient_error_so_the_endpoint_can_retry() {
+        String body = paidPayload("plink_123", "pay_abc", 50000);
+        when(razorpayClient.verifyWebhookSignature(orgId, body, "sig")).thenReturn(true);
+        when(webhookEventRepository.existsByProviderAndEventId("RAZORPAY", "evt_5")).thenReturn(false);
+        when(paymentLinkRepository.findByProviderAndProviderPaymentIdAndIsDeletedFalse("RAZORPAY", "pay_abc"))
+                .thenReturn(Optional.empty());
+        PaymentLink link = createdLink("500.00");
+        when(paymentLinkRepository.findByProviderAndProviderLinkIdAndIsDeletedFalse("RAZORPAY", "plink_123"))
+                .thenReturn(Optional.of(link));
+        when(paymentLinkRepository.findByIdAndIsDeletedFalse(link.getId())).thenReturn(Optional.of(link));
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
+                .thenReturn(Optional.of(payableInvoice("500.00")));
+        // a transient infra error (deadlock/lock-timeout) — NOT a BusinessException
+        when(paymentService.recordForInvoice(eq(invoiceId), any()))
+                .thenThrow(new org.springframework.dao.PessimisticLockingFailureException("deadlock"));
+
+        // must propagate so the controller returns 5xx and Razorpay retries;
+        // the dedupe row must NOT be persisted (whole txn rolls back)
+        assertThatThrownBy(() -> svc.handleWebhook(orgId, body, "sig", "evt_5"))
+                .isInstanceOf(org.springframework.dao.PessimisticLockingFailureException.class);
+        verify(webhookEventRepository, never()).save(any());
     }
 
     private PaymentResponse paymentResponse(UUID id, String status) {

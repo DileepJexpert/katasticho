@@ -54,6 +54,7 @@ public class RecurringJournalService {
         if (req.startDate() == null) {
             throw new BusinessException("Start date is required", "REC_JRNL_START_REQUIRED", HttpStatus.BAD_REQUEST);
         }
+        requireEndAfterStart(req.startDate(), req.endDate());
         if (req.narration() == null || req.narration().isBlank()) {
             throw new BusinessException("Narration is required", "REC_JRNL_NARRATION_REQUIRED", HttpStatus.BAD_REQUEST);
         }
@@ -85,7 +86,7 @@ public class RecurringJournalService {
         }
         if (req.profileName() != null && !req.profileName().isBlank()) t.setProfileName(req.profileName().trim());
         if (req.frequency() != null) { validateFrequency(req.frequency()); t.setFrequency(req.frequency()); }
-        if (req.endDate() != null) t.setEndDate(req.endDate());
+        if (req.endDate() != null) { requireEndAfterStart(t.getStartDate(), req.endDate()); t.setEndDate(req.endDate()); }
         if (req.narration() != null && !req.narration().isBlank()) t.setNarration(req.narration());
         if (req.autoPost() != null) t.setAutoPost(req.autoPost());
         if (req.notes() != null) t.setNotes(req.notes());
@@ -138,7 +139,14 @@ public class RecurringJournalService {
 
     @Transactional
     public UUID generateFromTemplate(UUID templateId) {
-        RecurringJournal t = journalRepository.findById(templateId)
+        // Org-scoped: the daily job sets TenantContext to each template's own
+        // org before calling, and the generate-now endpoint must not reach a
+        // foreign org's template (it passes the raw path id straight in, and
+        // postJournal resolves accounts against the CALLER's org — a foreign
+        // template would otherwise post into the wrong books AND advance the
+        // victim org's cursor).
+        RecurringJournal t = journalRepository.findByIdAndOrgIdAndIsDeletedFalse(
+                        templateId, TenantContext.getCurrentOrgId())
                 .orElseThrow(() -> BusinessException.notFound("Recurring journal", templateId));
         if (!"ACTIVE".equals(t.getStatus())) {
             log.warn("Skipping non-ACTIVE recurring journal {} (status={})", templateId, t.getStatus());
@@ -157,14 +165,30 @@ public class RecurringJournalService {
                         l.getDescription(), l.getTaxComponentCode(), l.getCostCentre()))
                 .toList();
 
+        // Always create the entry as a DRAFT first (validates accounts +
+        // period), THEN best-effort post it — mirroring the bill path's
+        // create-DRAFT / best-effort-postBill split. An auto-post that fails
+        // for a post-specific reason (e.g. an approval workflow) leaves a valid
+        // DRAFT + still advances the cursor, instead of stalling the template
+        // with nothing generated.
         JournalEntry entry = journalService.postJournal(new JournalPostRequest(
                 LocalDate.now(clock),
                 "Auto-generated from recurring journal: " + t.getProfileName() + " — " + t.getNarration(),
-                "RECURRING_JOURNAL", null, lines, t.isAutoPost()));
+                "RECURRING_JOURNAL", null, lines, false));
+        boolean posted = false;
+        if (t.isAutoPost()) {
+            try {
+                journalService.postEntry(entry.getId());
+                posted = true;
+            } catch (Exception e) {
+                log.warn("Auto-post failed for recurring journal {} -> entry {}: {}",
+                        templateId, entry.getId(), e.getMessage());
+            }
+        }
 
         generationRepository.save(RecurringJournalGeneration.builder()
                 .recurringJournalId(t.getId()).journalEntryId(entry.getId())
-                .autoPosted(t.isAutoPost()).build());
+                .autoPosted(posted).build());
 
         RecurringFrequency freq = RecurringFrequency.valueOf(t.getFrequency());
         LocalDate next = freq.advance(t.getNextRunDate());
@@ -200,6 +224,13 @@ public class RecurringJournalService {
         } catch (Exception e) {
             throw new BusinessException("Invalid frequency: " + frequency,
                     "REC_JRNL_BAD_FREQUENCY", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void requireEndAfterStart(LocalDate start, LocalDate end) {
+        if (start != null && end != null && end.isBefore(start)) {
+            throw new BusinessException("End date can't be before start date",
+                    "REC_JRNL_END_BEFORE_START", HttpStatus.BAD_REQUEST);
         }
     }
 
