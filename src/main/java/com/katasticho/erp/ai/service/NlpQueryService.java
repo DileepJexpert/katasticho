@@ -53,15 +53,17 @@ public class NlpQueryService {
         // Step 1: Generate SQL from natural language
         String generatedSql = generateSql(userMessage, orgId);
 
-        // Step 2: Validate SQL safety
-        sqlValidator.validate(generatedSql);
-        generatedSql = sqlValidator.ensureLimit(generatedSql, aiConfig.getMaxSqlRows());
+        // Step 2: Rewrite any model-supplied org_id literal to the real tenant
+        // (keeps results correct), then let SqlValidator parse the statement
+        // and INJECT the tenant predicate into every select — the returned SQL
+        // is the only thing safe to execute.
+        String securedSql = sqlValidator.secure(bindOrgId(generatedSql, orgId), orgId);
+        securedSql = sqlValidator.ensureLimit(securedSql, aiConfig.getMaxSqlRows());
 
-        // Step 3: Bind org_id and execute
-        String boundSql = bindOrgId(generatedSql, orgId);
+        // Step 3: Execute the secured SQL
         List<Map<String, Object>> results;
         try {
-            results = jdbcTemplate.queryForList(boundSql);
+            results = jdbcTemplate.queryForList(securedSql);
         } catch (Exception e) {
             log.error("AI-generated SQL execution failed: {}", e.getMessage());
             throw new BusinessException(
@@ -72,13 +74,13 @@ public class NlpQueryService {
         }
 
         // Step 4: Generate human-readable answer from results
-        String answer = generateAnswer(userMessage, generatedSql, results);
+        String answer = generateAnswer(userMessage, securedSql, results);
 
         long elapsed = System.currentTimeMillis() - startTime;
 
         return new AiQueryResponse(
                 answer,
-                generatedSql,
+                securedSql,
                 results,
                 new AiQueryResponse.QueryMetadata(
                         "nlp_query",

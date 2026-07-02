@@ -144,7 +144,13 @@ public class PartnerNetworkService {
 
     @Transactional(readOnly = true)
     public TradingPartnerResponse getPartner(UUID partnerId) {
-        return toPartnerResponse(findPartner(partnerId));
+        TradingPartner partner = findPartner(partnerId);
+        UUID myOrgId = TenantContext.getCurrentOrgId();
+        if (!myOrgId.equals(partner.getSellerOrgId()) && !myOrgId.equals(partner.getBuyerOrgId())) {
+            throw new BusinessException("Trading partner not found",
+                    "PARTNER_NOT_FOUND", HttpStatus.NOT_FOUND);
+        }
+        return toPartnerResponse(partner);
     }
 
     // ══════════════════════════════════════════════════════════════

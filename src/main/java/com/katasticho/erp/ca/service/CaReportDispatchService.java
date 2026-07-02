@@ -75,6 +75,7 @@ public class CaReportDispatchService {
     @Transactional(readOnly = true)
     public ReportDispatchResponse status(UUID id) {
         return dispatchRepository.findById(id)
+                .filter(d -> TenantContext.getCurrentUserId().equals(d.getDispatchedBy()))
                 .map(this::toResponse)
                 .orElseThrow(() -> new BusinessException("Report dispatch not found", "CA_REPORT_NOT_FOUND", HttpStatus.NOT_FOUND));
     }

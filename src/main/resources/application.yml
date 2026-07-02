@@ -26,6 +26,13 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+  # Boot's 1MB default rejected every real-world upload: 100k-row drug-master
+  # CSVs (~15MB), Tally Day Book XMLs, POD/HR photo attachments.
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 60MB
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
