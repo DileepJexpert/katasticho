@@ -797,6 +797,8 @@ class ApiConfig {
   static const String drugMasterSearch = '/api/v1/drug-master/search';
   static String drugMasterById(String id) => '/api/v1/drug-master/$id';
   static const String saltMasterSearch = '/api/v1/drug-master/salts/search';
+  static const String drugMasterImport =
+      '/api/v1/drug-master/import'; // multipart CSV, OWNER/ADMIN, ?dry_run=
 
   // Pharmacy reference masters
   static const String manufacturerMasterSearch =
