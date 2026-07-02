@@ -125,7 +125,7 @@ public class InvoiceService {
                 ? request.dueDate()
                 : request.invoiceDate().plusDays(contact.getPaymentTermsDays());
 
-        BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.invoiceDate());
+        BigDecimal exchangeRate = currencyService.getRate(org.getBaseCurrency(), org.getBaseCurrency(), request.invoiceDate());
 
         // Stamp the org's default branch. Multi-branch selection comes later
         // via a request field; for now every new invoice rolls up to the
@@ -142,7 +142,7 @@ public class InvoiceService {
                 .invoiceDate(request.invoiceDate())
                 .dueDate(dueDate)
                 .status("DRAFT")
-                .currency("INR")
+                .currency(org.getBaseCurrency())
                 .exchangeRate(exchangeRate)
                 .placeOfSupply(placeOfSupply)
                 .reverseCharge(request.reverseCharge())
@@ -203,7 +203,7 @@ public class InvoiceService {
         LocalDate dueDate = request.dueDate() != null
                 ? request.dueDate()
                 : request.invoiceDate().plusDays(contact.getPaymentTermsDays());
-        BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.invoiceDate());
+        BigDecimal exchangeRate = currencyService.getRate(org.getBaseCurrency(), org.getBaseCurrency(), request.invoiceDate());
 
         // Reset the editable header. Number + status + branch stay as-is.
         invoice.setContactId(contact.getId());

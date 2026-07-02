@@ -97,7 +97,7 @@ public class PaymentService {
         requirePaymentWithinAvailableBalance(invoice, request.amount());
 
         // Exchange rate
-        BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.paymentDate());
+        BigDecimal exchangeRate = currencyService.getRate(org.getBaseCurrency(), org.getBaseCurrency(), request.paymentDate());
         BigDecimal baseAmount = request.amount().multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP);
 
         // Generate payment number
@@ -123,7 +123,7 @@ public class PaymentService {
                 .paymentNumber(paymentNumber)
                 .paymentDate(request.paymentDate())
                 .amount(request.amount())
-                .currency("INR")
+                .currency(org.getBaseCurrency())
                 .exchangeRate(exchangeRate)
                 .baseAmount(baseAmount)
                 .paymentMethod(request.paymentMethod())

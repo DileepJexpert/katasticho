@@ -115,7 +115,7 @@ public class VendorCreditService {
 
         int periodYear = billService.computeFiscalYear(request.creditDate(), org.getFiscalYearStart());
         String creditNumber = billService.generateNumber(orgId, "VCRED", periodYear);
-        BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.creditDate());
+        BigDecimal exchangeRate = currencyService.getRate(org.getBaseCurrency(), org.getBaseCurrency(), request.creditDate());
 
         UUID branchId = request.branchId() != null
                 ? request.branchId()
@@ -131,7 +131,7 @@ public class VendorCreditService {
                 .purchaseBillId(request.purchaseBillId())
                 .reason(request.reason())
                 .status("DRAFT")
-                .currency("INR")
+                .currency(org.getBaseCurrency())
                 .exchangeRate(exchangeRate)
                 .placeOfSupply(placeOfSupply)
                 .createdBy(userId)

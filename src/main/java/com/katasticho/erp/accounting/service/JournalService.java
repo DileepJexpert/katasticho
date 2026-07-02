@@ -127,12 +127,12 @@ public class JournalService {
             JournalLineRequest lineReq = request.lines().get(i);
             Account account = resolvedAccounts.get(i);
 
-            BigDecimal rate = currencyService.getRate("INR", org.getBaseCurrency(), request.effectiveDate());
+            BigDecimal rate = currencyService.getRate(org.getBaseCurrency(), org.getBaseCurrency(), request.effectiveDate());
 
             JournalLine line = JournalLine.builder()
                     .accountId(account.getId())
                     .description(lineReq.description())
-                    .currency("INR")
+                    .currency(org.getBaseCurrency())
                     .debit(lineReq.debit().setScale(2, RoundingMode.HALF_UP))
                     .credit(lineReq.credit().setScale(2, RoundingMode.HALF_UP))
                     .exchangeRate(rate)

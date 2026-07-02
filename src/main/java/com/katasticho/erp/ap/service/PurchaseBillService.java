@@ -131,7 +131,7 @@ public class PurchaseBillService {
                 ? request.dueDate()
                 : request.billDate().plusDays(contact.getPaymentTermsDays());
 
-        BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.billDate());
+        BigDecimal exchangeRate = currencyService.getRate(org.getBaseCurrency(), org.getBaseCurrency(), request.billDate());
 
         UUID branchId = request.branchId() != null
                 ? request.branchId()
@@ -147,7 +147,7 @@ public class PurchaseBillService {
                 .billDate(request.billDate())
                 .dueDate(dueDate)
                 .status("DRAFT")
-                .currency("INR")
+                .currency(org.getBaseCurrency())
                 .exchangeRate(exchangeRate)
                 .placeOfSupply(placeOfSupply)
                 .reverseCharge(request.reverseCharge())

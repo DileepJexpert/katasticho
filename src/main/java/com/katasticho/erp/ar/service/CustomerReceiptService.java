@@ -130,7 +130,7 @@ public class CustomerReceiptService {
         }
 
         // ── Exchange rate + receipt number ───────────────────────────────
-        BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.receiptDate());
+        BigDecimal exchangeRate = currencyService.getRate(org.getBaseCurrency(), org.getBaseCurrency(), request.receiptDate());
         BigDecimal baseAmount = request.amount().multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP);
         int periodYear = invoiceService.computeFiscalYear(request.receiptDate(), org.getFiscalYearStart());
         String receiptNumber = invoiceService.generateNumber(orgId, "RCPT", periodYear);
@@ -157,7 +157,7 @@ public class CustomerReceiptService {
                 .amount(request.amount())
                 .allocatedAmount(totalAllocated)
                 .advanceAmount(advance)
-                .currency("INR")
+                .currency(org.getBaseCurrency())
                 .exchangeRate(exchangeRate)
                 .baseAmount(baseAmount)
                 .paymentMethod(request.paymentMethod())
