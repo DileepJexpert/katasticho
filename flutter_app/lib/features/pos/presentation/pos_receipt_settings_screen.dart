@@ -605,11 +605,37 @@ class _BillingPolicySectionState extends ConsumerState<_BillingPolicySection> {
     }
   }
 
+  Future<void> _setAllowCreditSales(bool value) async {
+    setState(() => _saving = true);
+    try {
+      final client = ref.read(apiClientProvider);
+      await client.put('${ApiConfig.orgSettings}/pos.allow_credit_sales',
+          data: {'value': value.toString()});
+      ref.invalidate(posAllowCreditSalesProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(value
+                ? 'Khata sales are on — the POS shows a Khata payment button'
+                : 'Khata sales are off')));
+      }
+    } catch (e) {
+      ref.invalidate(posAllowCreditSalesProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final role = ref.watch(authProvider).role?.toUpperCase() ?? '';
     final canEdit = role == 'OWNER' || role == 'ADMIN';
     final allow = ref.watch(posAllowNegativeStockProvider).valueOrNull ?? true;
+    final allowCredit =
+        ref.watch(posAllowCreditSalesProvider).valueOrNull ?? false;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -620,16 +646,35 @@ class _BillingPolicySectionState extends ConsumerState<_BillingPolicySection> {
           margin: EdgeInsets.zero,
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Bill freely (sell without stock)'),
-              subtitle: const Text(
-                  'Add a medicine in one tap and sell any quantity even when '
-                  'stock shows 0. Stock can go negative and is corrected later '
-                  'with a stock receipt. Turn off for strict stock control.'),
-              value: allow,
-              onChanged:
-                  (canEdit && !_saving) ? (v) => _setAllowNegative(v) : null,
+            child: Column(
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Bill freely (sell without stock)'),
+                  subtitle: const Text(
+                      'Add a medicine in one tap and sell any quantity even when '
+                      'stock shows 0. Stock can go negative and is corrected later '
+                      'with a stock receipt. Turn off for strict stock control.'),
+                  value: allow,
+                  onChanged: (canEdit && !_saving)
+                      ? (v) => _setAllowNegative(v)
+                      : null,
+                ),
+                const Divider(height: 16),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Khata (credit) sales'),
+                  subtitle: const Text(
+                      'Show a Khata button at checkout: nothing is collected, '
+                      'the bill total goes on the selected customer\'s '
+                      'outstanding and shows in the credit ledger and '
+                      'collections. A customer must be selected on the bill.'),
+                  value: allowCredit,
+                  onChanged: (canEdit && !_saving)
+                      ? (v) => _setAllowCreditSales(v)
+                      : null,
+                ),
+              ],
             ),
           ),
         ),

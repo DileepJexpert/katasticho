@@ -198,6 +198,86 @@ public class CustomerReceiptService {
         return response;
     }
 
+    /**
+     * Khata settlement: collect against a customer's on-ledger outstanding
+     * that has no invoice behind it (POS credit sales). Journal: DR Cash/Bank,
+     * CR Accounts Receivable — the same shape as a fully-allocated receipt,
+     * just without invoice rows. The saved receipt carries
+     * {@code allocatedAmount = amount} with zero allocations, so
+     * {@link #voidReceipt} reverses it correctly (journal + outstanding).
+     */
+    @Transactional
+    public CustomerReceiptResponse recordKhataSettlement(UUID contactId, BigDecimal amount,
+                                                         String paymentMethod,
+                                                         java.time.LocalDate receiptDate,
+                                                         String notes) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        UUID userId = TenantContext.getCurrentUserId();
+
+        if (amount == null || amount.signum() <= 0) {
+            throw new BusinessException("Settlement amount must be positive",
+                    "AR_KHATA_AMOUNT_INVALID", HttpStatus.BAD_REQUEST);
+        }
+        Organisation org = organisationRepository.findById(orgId)
+                .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
+        Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Contact", contactId));
+        if (contact.getContactType() != ContactType.CUSTOMER && contact.getContactType() != ContactType.BOTH) {
+            throw new BusinessException("Contact is not a customer",
+                    "AR_CONTACT_NOT_CUSTOMER", HttpStatus.BAD_REQUEST);
+        }
+        BigDecimal outstanding = contact.getOutstandingAr() != null
+                ? contact.getOutstandingAr() : BigDecimal.ZERO;
+        if (amount.compareTo(outstanding) > 0) {
+            throw new BusinessException(
+                    "Settlement " + amount + " exceeds the customer's outstanding " + outstanding
+                            + " — collect against invoices instead, or reduce the amount.",
+                    "AR_KHATA_EXCEEDS_OUTSTANDING", HttpStatus.BAD_REQUEST);
+        }
+
+        BigDecimal exchangeRate = currencyService.getRate(
+                org.getBaseCurrency(), org.getBaseCurrency(), receiptDate);
+        int periodYear = invoiceService.computeFiscalYear(receiptDate, org.getFiscalYearStart());
+        String receiptNumber = invoiceService.generateNumber(orgId, "RCPT", periodYear);
+
+        JournalEntry journalEntry = postingEngine.postCustomerReceipt(
+                orgId, receiptNumber, receiptDate, amount, BigDecimal.ZERO,
+                paymentMethod, exchangeRate,
+                List.of(new AccountingPostingEngine.ArAllocationFx(amount, BigDecimal.ONE)));
+
+        UUID branchId = branchRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
+                .map(Branch::getId).orElse(null);
+
+        CustomerReceipt receipt = CustomerReceipt.builder()
+                .orgId(orgId)
+                .branchId(branchId)
+                .contactId(contact.getId())
+                .receiptNumber(receiptNumber)
+                .receiptDate(receiptDate)
+                .amount(amount)
+                .allocatedAmount(amount)
+                .advanceAmount(BigDecimal.ZERO)
+                .currency(org.getBaseCurrency())
+                .exchangeRate(exchangeRate)
+                .baseAmount(amount.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP))
+                .paymentMethod(paymentMethod)
+                .notes(notes != null && !notes.isBlank()
+                        ? "Khata settlement — " + notes : "Khata settlement")
+                .journalEntryId(journalEntry.getId())
+                .createdBy(userId)
+                .build();
+        receipt = receiptRepository.save(receipt);
+
+        adjustContactOutstandingAr(contact, amount.negate());
+
+        log.info("Khata settlement {} recorded: {} from {}",
+                receiptNumber, amount, contact.getDisplayName());
+
+        CustomerReceiptResponse response = toResponse(receipt);
+        documentSnapshotService.createSnapshot("CUSTOMER_RECEIPT", receipt.getId(), receiptNumber, response);
+        return response;
+    }
+
     @Transactional
     public CustomerReceiptResponse voidReceipt(UUID receiptId, String reason) {
         UUID orgId = TenantContext.getCurrentOrgId();

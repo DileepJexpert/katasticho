@@ -39,6 +39,26 @@ public class CustomerReceiptController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(response));
     }
 
+    /**
+     * Khata settlement — collect against a customer's invoice-less outstanding
+     * (POS credit sales). OPERATOR allowed: this happens at the counter.
+     * Body: {contactId, amount, paymentMethod?, receiptDate?, notes?}.
+     */
+    @PostMapping("/khata-settlement")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<CustomerReceiptResponse>> recordKhataSettlement(
+            @RequestBody Map<String, String> body) {
+        UUID contactId = UUID.fromString(body.get("contactId"));
+        BigDecimal amount = new BigDecimal(body.get("amount"));
+        String paymentMethod = body.getOrDefault("paymentMethod", "CASH");
+        java.time.LocalDate receiptDate = body.get("receiptDate") != null
+                ? java.time.LocalDate.parse(body.get("receiptDate"))
+                : java.time.LocalDate.now();
+        CustomerReceiptResponse response = receiptService.recordKhataSettlement(
+                contactId, amount, paymentMethod, receiptDate, body.get("notes"));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(response));
+    }
+
     @GetMapping
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<CustomerReceiptResponse>>> listReceipts(

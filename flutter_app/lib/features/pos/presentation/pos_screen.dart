@@ -665,6 +665,13 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       return;
     }
 
+    // Khata needs a customer — the receivable must land on someone's ledger.
+    if (mode == 'CREDIT' && !cart.hasCustomer) {
+      _showErrorSnackBar(
+          'Select a customer first — khata amounts go on their ledger.');
+      return;
+    }
+
     // Drug interaction check — pharmacy orgs only
     final safeToSell = await _checkDrugInteractions(cart);
     if (!safeToSell || !mounted) return;
@@ -1802,6 +1809,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                         onUpiTap: () => _onPaymentTap('UPI'),
                         onCardTap: () => _onPaymentTap('CARD'),
                         onSplitTap: () => _onPaymentTap('SPLIT'),
+                        onKhataTap: () => _onPaymentTap('CREDIT'),
                       ),
                     ],
                   ),

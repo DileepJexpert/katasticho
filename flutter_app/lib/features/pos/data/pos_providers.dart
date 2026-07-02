@@ -131,6 +131,25 @@ final posAllowNegativeStockProvider =
   }
 });
 
+/// Whether khata (credit / udhaar) sales are enabled at the POS counter —
+/// a CREDIT payment mode that collects nothing and books the total to the
+/// customer's outstanding (Accounts Receivable). Reads
+/// `pos.allow_credit_sales`; defaults to **false** — credit is opt-in
+/// because it creates receivables the owner must actively collect.
+final posAllowCreditSalesProvider =
+    FutureProvider.autoDispose<bool>((ref) async {
+  final client = ref.watch(apiClientProvider);
+  try {
+    final response =
+        await client.get('${ApiConfig.orgSettings}/pos.allow_credit_sales');
+    final data = response.data as Map<String, dynamic>? ?? {};
+    final raw = data['pos.allow_credit_sales']?.toString();
+    return raw != null && raw.toLowerCase() == 'true';
+  } catch (_) {
+    return false; // unset / network error → khata off
+  }
+});
+
 /// Pharmacy Rx-enforcement mode: OFF / WARN (default for IN) / STRICT.
 /// Country-driven default lives on the backend — Flutter just trusts whatever
 /// the server returns. When the call fails, default to WARN so the UX doesn't

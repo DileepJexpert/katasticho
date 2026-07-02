@@ -30,9 +30,13 @@ UI) are NOT repeated here.
 - [ ] **G6 India gratuity provision** (S) — Gulf accrual exists; add IN.
 
 ## Phase H — Daily-use money features
-- [ ] **G3 POS credit / khata → AR** (M) — CREDIT payment mode on receipt,
+- [x] **G3 POS credit / khata → AR** (M) — CREDIT payment mode on receipt,
   requires contact, posts DR AR (not cash), feeds contact outstanding +
-  collections. UI_FIELD_GAP C2.
+  collections. UI_FIELD_GAP C2. → DONE 2026-07-02 (V24 CHECK widen,
+  `PaymentMode.CREDIT` → DR 1100, `pos.allow_credit_sales` gate +
+  `POS_CREDIT_REQUIRES_CONTACT`, void restores outstanding, khata
+  settlement `POST /customer-receipts/khata-settlement` DR Cash / CR AR,
+  POS "Khata" button + sheet + settings toggle, 11 tests, live-verified)
 - [ ] **H1 Payment-gateway links on invoices** (M) — Razorpay/Stripe link +
   webhook → auto payment record (UPI QR exists).
 - [ ] **H2 Instalment payment terms + dunning levels** (M) — Odoo parity.
