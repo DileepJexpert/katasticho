@@ -525,6 +525,13 @@ const _accountingGroup = NavGroup(
         icon: Icons.schedule_outlined,
         activeIcon: Icons.schedule,
         route: Routes.amortization),
+    NavItem(
+        id: 'accounting.audit_trail',
+        label: 'Audit Trail',
+        icon: Icons.history_outlined,
+        activeIcon: Icons.history_rounded,
+        route: Routes.auditTrail,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT']),
   ],
 );
 

@@ -793,6 +793,10 @@ class ApiConfig {
   static String debitNoteById(String id) => '/api/v1/debit-notes/$id';
   static String submitDebitNote(String id) => '/api/v1/debit-notes/$id/submit';
 
+  // Edit Log / audit trail (MCA account-rules; OWNER/ADMIN/ACCOUNTANT)
+  static const String auditEditLog = '/api/v1/audit/edit-log';
+  static const String auditEditLogSummary = '/api/v1/audit/edit-log/summary';
+
   // Drug Master (platform reference — all pharma clients)
   static const String drugMasterSearch = '/api/v1/drug-master/search';
   static String drugMasterById(String id) => '/api/v1/drug-master/$id';

@@ -80,6 +80,7 @@ import '../features/inventory/presentation/item_group_create_screen.dart';
 import '../features/inventory/presentation/item_group_detail_screen.dart';
 import '../features/inventory/presentation/generate_variants_screen.dart';
 import '../features/inventory/presentation/rack_locations_screen.dart';
+import '../features/audit/presentation/edit_log_screen.dart';
 import '../features/inventory/presentation/drug_import_screen.dart';
 import '../features/inventory/presentation/hsn_master_screen.dart';
 import '../features/procurement/presentation/stock_receipt_list_screen.dart';
@@ -292,6 +293,7 @@ class Routes {
   static const rackLocations = '/inventory/rack-locations';
   static const hsnMaster = '/inventory/hsn-codes';
   static const drugImport = '/inventory/drug-import';
+  static const auditTrail = '/accounting/audit-trail';
   static const itemDetail = '/items/:id';
   static const itemGroups = '/item-groups';
   static const itemGroupCreate = '/item-groups/create';
@@ -1149,6 +1151,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.drugImport,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: DrugImportScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.auditTrail,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: EditLogScreen(),
             ),
           ),
           GoRoute(

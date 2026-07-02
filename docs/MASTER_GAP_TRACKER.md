@@ -13,9 +13,12 @@ ShedLock, S3 storage, attachment download, org-currency documents, drug-import
 UI) are NOT repeated here.
 
 ## Phase G — Compliance & trust (statutory, hardest to retrofit)
-- [ ] **G1 Edit Log / MCA audit trail** (L) — versioned create/alter/delete on
+- [x] **G1 Edit Log / MCA audit trail** (L) — versioned create/alter/delete on
   books documents+masters w/ user+time+field diff; query + summary API; viewer
-  screen. Tally 6.1 parity; statutory under MCA account-rules.
+  screen. Tally 6.1 parity; statutory under MCA account-rules. → DONE 2026-07-02
+  (V23 `edit_log`, Hibernate listener w/ same-txn JDBC writes, 18-entity
+  allowlist, `/api/v1/audit/edit-log` + `/summary`, `EditLogScreen`
+  @ `/accounting/audit-trail`, 17 tests, live-verified on fresh DB)
 - [ ] **G2 MSME Form 1 annexure** (S) — supplier-wise paid/outstanding within vs
   after 45 days + PAN, CSV export.
 - [ ] **G4 Vendor-TDS 26Q FVU/CSV file** (M) — mirror the salary 24Q generator
