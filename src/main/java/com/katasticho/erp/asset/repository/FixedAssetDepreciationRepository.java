@@ -18,4 +18,6 @@ public interface FixedAssetDepreciationRepository
 
     List<FixedAssetDepreciation> findByOrgIdAndFixedAssetIdOrderByPeriodYearAscPeriodMonthAsc(
             UUID orgId, UUID fixedAssetId);
+
+    long countByOrgIdAndFixedAssetId(UUID orgId, UUID fixedAssetId);
 }

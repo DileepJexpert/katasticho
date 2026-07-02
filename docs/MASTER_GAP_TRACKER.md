@@ -76,16 +76,45 @@ UI) are NOT repeated here.
 - [ ] **H8 Interest auto-voucher schedule + period-end forex revaluation
   voucher** (M).
 
+> **RESUME CHECKPOINT (paused 2026-07-02 eve — pick up here tomorrow):**
+> Working on the two research gaps *accounting module* (I6) + *custom workflow* (I2).
+> - **I6 IN PROGRESS (branch has WIP commit, compiles, additive):** discovery —
+>   fixed assets is NOT vestigial, it's ~90% built (tables, `FixedAssetService`
+>   SLM/WDV + dispose + IT-schedule, controller, 7 tests, CoA 1600/1690/5270,
+>   Flutter screen). Done this session: V29 `fixed_asset.status` CHECK
+>   (+FULLY_DEPRECIATED), `DepreciationJob` (monthly ShedLock cron, per-org,
+>   gated on `assets.auto_depreciation`), `computeScheduleFor` + `/schedule-preview`
+>   endpoint, terminal residue sweep + FULLY_DEPRECIATED flip in `runDepreciation`,
+>   FixedAsset added to EditLogPolicy allowlist. **TODO tomorrow:** write tests
+>   (DepreciationJobTest per-org/gated/idempotent + FixedAssetService
+>   computeScheduleFor Σ==cost−residual + terminal-status flip), fresh-DB boot
+>   (V29 applies), then commit final + tracker tick.
+> - **I2 NOT STARTED:** full greenfield build mapped (understand workflow done).
+>   Plan: V30 `workflow_rule` + `workflow_rule_execution`; `WorkflowRule`/`Execution`
+>   entities + JSONB criteria/actions; `WorkflowFieldResolver` (event payload +
+>   `DocumentSnapshotService` + `FieldExtractor` registry); `WorkflowRuleService`
+>   (CRUD + evaluate + criteria eval + actions EMAIL/WEBHOOK/FIELD_UPDATE[allowlist]/
+>   AI_SUGGESTION); `WorkflowRuleDomainEventHandler` (supports=ALL, rides the bus);
+>   `WorkflowRuleController` (+dry-run + execution log); public `send()` on
+>   EmailService; follow-up: add `domainEventPublisher.publish()` at bill/payment/
+>   SO/PO/DC/expense lifecycle points (bus only emits INVOICE_POSTED today).
+>   New pkg `com.katasticho.erp.workflow` (NOT common.workflow = approval engine).
+
 ## Phase I — Platform extensibility (the trio every competitor sells against us)
 - [ ] **I1 Custom fields** on core entities (L) — typed, org-scoped, on
   contact/item/invoice/bill first; DTO+UI plumbing.
 - [ ] **I2 Workflow rules + webhooks** (L) — criteria → email/field-update/
-  webhook on document events (domain_event bus already exists).
+  webhook on document events (domain_event bus already exists). **← next up
+  (mapped, not started; see RESUME CHECKPOINT above).**
 - [ ] **I3 Custom report builder + scheduled report emails + report tags** (L).
 - [ ] **I4 PDF template gallery** per document (M).
 - [ ] **I5 Customer & vendor portals** (L) — view/pay/accept/upload; MFA.
-- [ ] **I6 Fixed assets + depreciation schedules** (M) · **deferred
-  revenue/expense** (M).
+- [~] **I6 Fixed assets + depreciation schedules** (M) — IN PROGRESS (see RESUME
+  CHECKPOINT above): fixed-asset register + SLM/WDV depreciation + dispose already
+  existed; this session added the auto-monthly `DepreciationJob`, terminal
+  FULLY_DEPRECIATED status, schedule-preview, edit-log; **tests + boot pending.**
+  · **deferred revenue/expense** (M) — not started (amortization_schedule/entry
+  tables already exist in baseline).
 - [ ] **I7 Cash-basis report toggle** (M) · multi-dimension analytic plans (L).
 
 ## Phase J — Warehouse/WMS layer (Odoo parity)

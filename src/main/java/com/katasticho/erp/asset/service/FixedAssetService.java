@@ -121,6 +121,19 @@ public class FixedAssetService {
             }
             BigDecimal opening = a.bookValue();
             BigDecimal amount = monthlyBookDepreciation(a);
+            // Terminal-period residue sweep: on the asset's final scheduled
+            // period (once useful_life_months periods have been charged) book the
+            // exact remaining depreciable amount so both SLM and WDV land on
+            // residualValue to the paisa instead of leaving a rounding stub (WDV
+            // otherwise asymptotes toward residual and never terminates cleanly).
+            Integer life = a.getBookUsefulLifeMonths();
+            if (life != null && life > 0) {
+                long charged = depreciationRepository.countByOrgIdAndFixedAssetId(orgId, a.getId());
+                if (charged + 1 >= life) {
+                    amount = a.getCost().subtract(a.getResidualValue())
+                            .subtract(a.getAccumulatedDepreciation()).max(BigDecimal.ZERO);
+                }
+            }
             if (amount.signum() <= 0) continue;
             charges.add(new Charge(a, opening, amount, opening.subtract(amount)));
         }
@@ -157,20 +170,81 @@ public class FixedAssetService {
                     .build());
             c.asset().setAccumulatedDepreciation(
                     c.asset().getAccumulatedDepreciation().add(c.amount()));
+            // Terminal status: once book value has reached residual there is
+            // nothing left to charge — mark it so it drops out of future runs
+            // and the register reads correctly.
+            if (c.asset().bookValue().compareTo(c.asset().getResidualValue()) <= 0) {
+                c.asset().setStatus("FULLY_DEPRECIATED");
+            }
             assetRepository.save(c.asset());
         }
         return summary(year, month, charges.size(), total, je.getId());
     }
 
+    /**
+     * Forward-looking depreciation projection from the asset's current state to
+     * the end of its schedule — a read-only preview (posts nothing). Simulates
+     * the same monthly formula + terminal residue sweep the run uses.
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> computeScheduleFor(UUID id) {
+        FixedAsset a = load(id);
+        List<Map<String, Object>> rows = new ArrayList<>();
+        if ("DISPOSED".equals(a.getStatus())) return rows;
+
+        BigDecimal cost = a.getCost();
+        BigDecimal residual = a.getResidualValue();
+        BigDecimal accumulated = a.getAccumulatedDepreciation();
+        Integer life = a.getBookUsefulLifeMonths();
+        long charged = depreciationRepository.countByOrgIdAndFixedAssetId(a.getOrgId(), a.getId());
+
+        LocalDate cursor = YearMonth.from(
+                a.getAcquisitionDate().isAfter(LocalDate.now()) ? a.getAcquisitionDate() : LocalDate.now())
+                .atDay(1);
+        // Hard cap so a WDV asset with no useful life can't loop forever.
+        int cap = (life != null && life > 0) ? Math.max(life * 2, 12) : 600;
+        for (int i = 0; i < cap; i++) {
+            BigDecimal remaining = cost.subtract(residual).subtract(accumulated);
+            if (remaining.signum() <= 0) break;
+            BigDecimal amount = monthlyBookDepreciationOf(a, accumulated);
+            if (life != null && life > 0 && charged + 1 >= life) {
+                amount = remaining;
+            }
+            amount = amount.min(remaining);
+            if (amount.signum() <= 0) break;
+            accumulated = accumulated.add(amount);
+            charged++;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("periodYear", cursor.getYear());
+            row.put("periodMonth", cursor.getMonthValue());
+            row.put("opening", cost.subtract(accumulated).add(amount));
+            row.put("depreciation", amount);
+            row.put("closing", cost.subtract(accumulated));
+            rows.add(row);
+            cursor = cursor.plusMonths(1);
+        }
+        return rows;
+    }
+
     /** Monthly book depreciation, floored at residual value. */
     BigDecimal monthlyBookDepreciation(FixedAsset a) {
+        return monthlyBookDepreciationOf(a, a.getAccumulatedDepreciation());
+    }
+
+    /**
+     * Monthly book depreciation given a hypothetical accumulated total — lets
+     * {@link #computeScheduleFor} project future periods without mutating the
+     * entity. {@link #monthlyBookDepreciation} is this with the live accumulated.
+     */
+    BigDecimal monthlyBookDepreciationOf(FixedAsset a, BigDecimal accumulated) {
         BigDecimal depreciable = a.getCost().subtract(a.getResidualValue());
-        BigDecimal remaining = depreciable.subtract(a.getAccumulatedDepreciation());
+        BigDecimal remaining = depreciable.subtract(accumulated);
         if (remaining.signum() <= 0) return BigDecimal.ZERO;
 
         BigDecimal monthly;
         if ("WDV".equals(a.getBookMethod())) {
-            monthly = a.bookValue().multiply(a.getBookRatePct())
+            BigDecimal bookValue = a.getCost().subtract(accumulated);
+            monthly = bookValue.multiply(a.getBookRatePct())
                     .divide(HUNDRED, 6, RoundingMode.HALF_UP)
                     .divide(TWELVE, 2, RoundingMode.HALF_UP);
         } else { // SLM

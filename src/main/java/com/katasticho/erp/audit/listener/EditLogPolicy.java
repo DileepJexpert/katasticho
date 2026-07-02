@@ -39,7 +39,8 @@ final class EditLogPolicy {
             entry("com.katasticho.erp.pos.entity.SalesReceipt", "POS_RECEIPT"),
             entry("com.katasticho.erp.estimate.entity.Estimate", "ESTIMATE"),
             entry("com.katasticho.erp.contact.entity.Contact", "CONTACT"),
-            entry("com.katasticho.erp.inventory.entity.Item", "ITEM"));
+            entry("com.katasticho.erp.inventory.entity.Item", "ITEM"),
+            entry("com.katasticho.erp.asset.entity.FixedAsset", "FIXED_ASSET"));
 
     /**
      * Property names tried (in order) for a human-readable row label —
@@ -49,7 +50,7 @@ final class EditLogPolicy {
             "invoiceNumber", "billNumber", "receiptNumber", "paymentNumber",
             "creditNoteNumber", "creditNumber", "expenseNumber", "entryNumber",
             "salesorderNumber", "challanNumber", "poNumber", "estimateNumber",
-            "displayName", "name");
+            "assetCode", "displayName", "name");
 
     /**
      * Bookkeeping columns that change on every write and carry no audit
