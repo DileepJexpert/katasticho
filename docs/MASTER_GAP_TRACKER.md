@@ -62,7 +62,13 @@ UI) are NOT repeated here.
   (per-org path token, permit-all + per-org HMAC); `POST /invoices/{id}/payment-link`
   + masked `/settings/razorpay`; 13 tests. Flutter "Get payment link" button = follow-up.)
 - [ ] **H2 Instalment payment terms + dunning levels** (M) — Odoo parity.
-- [ ] **H3 Recurring bills + recurring journals** (S each).
+- [x] **H3 Recurring bills + recurring journals** (S each). → DONE 2026-07-02
+  (V28 `recurring_bill`/`recurring_journal` + generation audit tables, JSONB
+  line payload mirroring recurring_invoice; `RecurringBillService` drafts a
+  PurchaseBill each period, `RecurringJournalService` posts a JournalEntry
+  (DRAFT default, auto_post opt-in, template balance validated); ShedLock-guarded
+  `RecurringDocumentJob` sweeps both; `/api/v1/recurring-bills` + `/recurring-journals`
+  full CRUD + generate-now; 14 tests. Flutter screens = follow-up.)
 - [ ] **H4 User-defined bank matching rules** (M) — on top of suggestions.
 - [ ] **H5 Cheque printing + bank bulk e-payment files** (M).
 - [ ] **H6 Connected banking feeds** (L, aggregator dependent).
