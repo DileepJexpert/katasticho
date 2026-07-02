@@ -14,5 +14,7 @@ public interface VendorPaymentAllocationRepository extends JpaRepository<VendorP
 
     List<VendorPaymentAllocation> findByVendorPaymentId(UUID vendorPaymentId);
 
+    List<VendorPaymentAllocation> findByPurchaseBillIdIn(java.util.Collection<UUID> purchaseBillIds);
+
     boolean existsByPurchaseBillId(UUID purchaseBillId);
 }

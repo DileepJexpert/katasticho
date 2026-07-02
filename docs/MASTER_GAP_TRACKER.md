@@ -19,8 +19,11 @@ UI) are NOT repeated here.
   (V23 `edit_log`, Hibernate listener w/ same-txn JDBC writes, 18-entity
   allowlist, `/api/v1/audit/edit-log` + `/summary`, `EditLogScreen`
   @ `/accounting/audit-trail`, 17 tests, live-verified on fresh DB)
-- [ ] **G2 MSME Form 1 annexure** (S) — supplier-wise paid/outstanding within vs
-  after 45 days + PAN, CSV export.
+- [x] **G2 MSME Form 1 annexure** (S) — supplier-wise paid/outstanding within vs
+  after 45 days + PAN, CSV export. → DONE 2026-07-02 (`MsmeForm1Service`
+  deadline = min(dueDate, billDate+45d), `/api/v1/reports/msme-form1` +
+  `/export` CSV, @RequiresCountry("IN"), 6 tests; reads `contact.pan` +
+  `msme_registered` + `msme_registration_no` already on the master)
 - [ ] **G4 Vendor-TDS 26Q FVU/CSV file** (M) — mirror the salary 24Q generator
   for vendor TDS (report exists, file export doesn't).
 - [ ] **G5 GST rate history w/ effective dates** per item/HSN (M).
