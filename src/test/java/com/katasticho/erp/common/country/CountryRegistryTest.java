@@ -47,9 +47,10 @@ class CountryRegistryTest {
         assertEquals(3, om.currencyDecimals(), "OMR is 3 decimal places");
         assertEquals(java.util.Set.of(DayOfWeek.FRIDAY, DayOfWeek.SATURDAY), om.weekendDays(),
                 "Oman weekend is Fri-Sat");
-        // Oman reuses the Gulf CoA + VAT seed.
-        assertEquals("AE", om.coaTemplateCountry());
-        assertEquals("AE", om.taxSeedKey());
+        // Since V15/V22 Oman owns its own template rows and tax-seed case
+        // (same flat-5% Gulf shape as AE, labelled Oman VAT).
+        assertEquals("OM", om.coaTemplateCountry());
+        assertEquals("OM", om.taxSeedKey());
     }
 
     @Test
