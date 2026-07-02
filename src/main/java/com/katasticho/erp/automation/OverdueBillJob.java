@@ -1,5 +1,6 @@
 package com.katasticho.erp.automation;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.ap.entity.PurchaseBill;
 import com.katasticho.erp.ap.repository.PurchaseBillRepository;
 import com.katasticho.erp.auth.entity.AppUser;
@@ -38,6 +39,7 @@ public class OverdueBillJob {
     private final NotificationService notificationService;
 
     @Scheduled(cron = "${app.automation.overdue-bill.cron:0 5 1 * * *}")
+    @SchedulerLock(name = "OverdueBillJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
     @Transactional(readOnly = true)
     public void run() {
         LocalDate today = LocalDate.now();

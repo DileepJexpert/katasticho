@@ -1,5 +1,6 @@
 package com.katasticho.erp.automation;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.ai.service.ProactiveAgentService;
 import com.katasticho.erp.ai.service.ProactiveAgentService.ProactiveRunResult;
 import com.katasticho.erp.auth.entity.AppUser;
@@ -29,6 +30,7 @@ public class ProactiveAgentJob {
     private final ProactiveAgentService proactiveAgentService;
 
     @Scheduled(cron = "${app.automation.proactive-agents.cron:0 30 6 * * *}")
+    @SchedulerLock(name = "ProactiveAgentJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
     public void run() {
         List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
         int totalCollections = 0, totalMonthClose = 0, totalAnomalies = 0, totalFlux = 0,

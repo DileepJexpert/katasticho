@@ -33,6 +33,7 @@ spring:
       max-file-size: 50MB
       max-request-size: 60MB
 
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -72,6 +73,16 @@ management:
       show-details: when-authorized
 
 # Application configuration
+# Attachment file bodies. 'local' writes under storage-path (single-instance
+# only); switch to 's3' (AWS or MinIO) BEFORE running a second app replica —
+# uploads on local disk are invisible to other replicas and vanish with the
+# container.
+#   app.attachment.storage: s3
+#   app.attachment.s3.bucket: katasticho-attachments
+#   app.attachment.s3.region: ap-south-1
+#   app.attachment.s3.endpoint: http://minio:9000   # MinIO only
+#   app.attachment.s3.access-key: ...
+#   app.attachment.s3.secret-key: ...
 app:
   jwt:
     secret: ${JWT_SECRET:katixo-dev-secret-key-change-in-production-must-be-at-least-256-bits}

@@ -1,5 +1,6 @@
 package com.katasticho.erp.automation;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.auth.entity.AppUser;
 import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.common.service.NotificationService;
@@ -37,6 +38,7 @@ public class LowStockAlertJob {
     private final SmsService smsService;
 
     @Scheduled(cron = "${app.automation.low-stock-alert.cron:0 0 8 * * *}")
+    @SchedulerLock(name = "LowStockAlertJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
     @Transactional(readOnly = true)
     public void run() {
         List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();

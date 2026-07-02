@@ -4,7 +4,10 @@ import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.entity.EntityAttachment;
 import com.katasticho.erp.common.service.AttachmentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -32,6 +35,19 @@ public class AttachmentController {
             @PathVariable String entityType,
             @PathVariable UUID entityId) {
         return ApiResponse.ok(attachmentService.list(entityType, entityId));
+    }
+
+    @GetMapping("/{attachmentId}/download")
+    public ResponseEntity<byte[]> download(@PathVariable UUID attachmentId) {
+        AttachmentService.StoredFile stored = attachmentService.download(attachmentId);
+        String contentType = stored.attachment().getFileType() != null
+                ? stored.attachment().getFileType()
+                : MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + stored.attachment().getFileName().replace("\"", "") + "\"")
+                .header(HttpHeaders.CONTENT_TYPE, contentType)
+                .body(stored.content());
     }
 
     @DeleteMapping("/{attachmentId}")

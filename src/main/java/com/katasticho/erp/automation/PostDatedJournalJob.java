@@ -1,5 +1,6 @@
 package com.katasticho.erp.automation;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.accounting.entity.JournalEntry;
 import com.katasticho.erp.accounting.repository.JournalEntryRepository;
 import com.katasticho.erp.accounting.service.JournalService;
@@ -27,6 +28,7 @@ public class PostDatedJournalJob {
     private final JournalService journalService;
 
     @Scheduled(cron = "${app.automation.post-dated-journals.cron:0 15 0 * * *}")
+    @SchedulerLock(name = "PostDatedJournalJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
     public void run() {
         List<JournalEntry> due = journalEntryRepository
                 .findByStatusAndPostDatedTrueAndEffectiveDateLessThanEqual("DRAFT", LocalDate.now());

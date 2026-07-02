@@ -1,5 +1,6 @@
 package com.katasticho.erp.common.cache;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class DailyCacheWarmer {
     private final CacheService cacheService;
 
     @Scheduled(cron = "${cache.warmer.cron:0 0 5 * * *}")
+    @SchedulerLock(name = "DailyCacheWarmer", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
     public void warmAllOrgs() {
         log.info("[DailyCacheWarmer] === Starting daily cache warm for all orgs ===");
         Instant start = Instant.now();

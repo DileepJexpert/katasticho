@@ -1,5 +1,6 @@
 package com.katasticho.erp.ap.service;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
 import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.entity.Account;
@@ -488,6 +489,7 @@ public class PurchaseBillService {
     // ── Overdue scheduler ───────────────────────────────────────
 
     @Scheduled(cron = "0 0 1 * * *")
+    @SchedulerLock(name = "PurchaseBillService", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
     @Transactional
     public void markOverdueBills() {
         List<UUID> orgIds = organisationRepository.findAll().stream()

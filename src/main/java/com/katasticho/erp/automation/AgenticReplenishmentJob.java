@@ -1,5 +1,6 @@
 package com.katasticho.erp.automation;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.auth.entity.AppUser;
 import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.common.context.TenantContext;
@@ -34,6 +35,7 @@ public class AgenticReplenishmentJob {
     private final AgenticReplenishmentService service;
 
     @Scheduled(cron = "${app.automation.replenishment-agent.cron:0 0 7 * * *}")
+    @SchedulerLock(name = "AgenticReplenishmentJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
     public void run() {
         List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
         int totalCreated = 0;

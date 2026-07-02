@@ -1,5 +1,6 @@
 package com.katasticho.erp.automation;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.auth.entity.AppUser;
 import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.common.context.TenantContext;
@@ -30,6 +31,7 @@ public class CourierTrackingJob {
     private final CourierTrackingService trackingService;
 
     @Scheduled(cron = "${app.automation.courier-tracking.cron:0 0/30 * * * *}")  // every 30 min
+    @SchedulerLock(name = "CourierTrackingJob", lockAtMostFor = "PT20M", lockAtLeastFor = "PT30S")
     public void run() {
         List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
         int totalUpdated = 0, orgsTouched = 0;

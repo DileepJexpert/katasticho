@@ -1,5 +1,6 @@
 package com.katasticho.erp.automation;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
@@ -30,6 +31,7 @@ public class SupplierRateContractExpiryJob {
     private final Clock clock;
 
     @Scheduled(cron = "${app.automation.rate-contract-expiry.cron:0 30 2 * * *}")
+    @SchedulerLock(name = "SupplierRateContractExpiryJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
     public void run() {
         LocalDate today = LocalDate.now(clock);
         int total = 0;
