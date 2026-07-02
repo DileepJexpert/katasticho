@@ -24,7 +24,8 @@ public class OmanProfile implements CountryProfile {
     @Override public Set<DayOfWeek> weekendDays() { return Set.of(DayOfWeek.FRIDAY, DayOfWeek.SATURDAY); }
     @Override public int fiscalYearStartMonth() { return 1; }
     @Override public String taxIdLabel() { return "VAT No"; }
-    // Reuse the Gulf CoA + VAT-5% tax seed (identical to UAE).
-    @Override public String coaTemplateCountry() { return "AE"; }
-    @Override public String taxSeedKey() { return "AE"; }
+    // V15/V22 seed real ('OM', industry) template rows and TaxSeedService has
+    // an explicit OM case (same flat 5% VAT shape as UAE, labelled Oman VAT).
+    @Override public String coaTemplateCountry() { return "OM"; }
+    @Override public String taxSeedKey() { return "OM"; }
 }

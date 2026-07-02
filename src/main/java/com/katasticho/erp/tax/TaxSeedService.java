@@ -93,7 +93,9 @@ public class TaxSeedService {
         switch (org.getCountryCode()) {
             case "IN" -> seedIndia(org);
             case "VN" -> seedVietnam(org);
-            case "AE" -> seedUAE(org);
+            case "AE" -> seedGulfVat(org, "UAE VAT");
+            case "OM" -> seedGulfVat(org, "Oman VAT");
+            case "KE" -> seedKenya(org);
             case "GB" -> seedUK(org);
             case "US" -> seedUSA(org);
             case "MY" -> seedMalaysia(org);
@@ -187,8 +189,8 @@ public class TaxSeedService {
         TaxConfiguration config = configRepo.save(TaxConfiguration.builder()
                 .orgId(orgId).countryCode("VN").taxSystem("VAT").name("Vietnam VAT").build());
 
-        UUID glOutput = ensureAccount(orgId, "2040", "VAT Output", "LIABILITY", "CURRENT_LIABILITY");
-        UUID glInput  = ensureAccount(orgId, "1510", "VAT Input", "ASSET", "CURRENT_ASSET");
+        UUID glOutput = ensureAccount(org, "2040", "VAT Output", "LIABILITY", "CURRENT_LIABILITY");
+        UUID glInput  = ensureAccount(org, "1510", "VAT Input", "ASSET", "CURRENT_ASSET");
 
         groupRepo.save(TaxGroup.builder().orgId(orgId).name("Exempt").description("No tax").build());
 
@@ -205,16 +207,16 @@ public class TaxSeedService {
         }
     }
 
-    // ── UAE VAT ─────────────────────────────────────────────────
+    // ── Gulf VAT (UAE + Oman — identical flat 5% shape) ─────────
 
-    private void seedUAE(Organisation org) {
+    private void seedGulfVat(Organisation org, String name) {
         UUID orgId = org.getId();
 
         TaxConfiguration config = configRepo.save(TaxConfiguration.builder()
-                .orgId(orgId).countryCode("AE").taxSystem("VAT").name("UAE VAT").build());
+                .orgId(orgId).countryCode(org.getCountryCode()).taxSystem("VAT").name(name).build());
 
-        UUID glOutput = ensureAccount(orgId, "2041", "VAT Output", "LIABILITY", "CURRENT_LIABILITY");
-        UUID glInput  = ensureAccount(orgId, "1511", "VAT Input", "ASSET", "CURRENT_ASSET");
+        UUID glOutput = ensureAccount(org, "2041", "VAT Output", "LIABILITY", "CURRENT_LIABILITY");
+        UUID glInput  = ensureAccount(org, "1511", "VAT Input", "ASSET", "CURRENT_ASSET");
 
         groupRepo.save(TaxGroup.builder().orgId(orgId).name("Exempt").description("No tax").build());
 
@@ -237,8 +239,10 @@ public class TaxSeedService {
         TaxConfiguration config = configRepo.save(TaxConfiguration.builder()
                 .orgId(orgId).countryCode("GB").taxSystem("VAT").name("UK VAT").build());
 
-        UUID glOutput = ensureAccount(orgId, "2042", "VAT Output", "LIABILITY", "CURRENT_LIABILITY");
-        UUID glInput  = ensureAccount(orgId, "1512", "VAT Input", "ASSET", "CURRENT_ASSET");
+        // 2042 is Stock-Out Suspense in every CoA template (V5) — a UK org
+        // on the India-fallback chart would have had VAT rebound onto it.
+        UUID glOutput = ensureAccount(org, "2045", "VAT Output", "LIABILITY", "CURRENT_LIABILITY");
+        UUID glInput  = ensureAccount(org, "1512", "VAT Input", "ASSET", "CURRENT_ASSET");
 
         groupRepo.save(TaxGroup.builder().orgId(orgId).name("Exempt").description("No tax").build());
 
@@ -265,7 +269,9 @@ public class TaxSeedService {
         TaxConfiguration config = configRepo.save(TaxConfiguration.builder()
                 .orgId(orgId).countryCode("US").taxSystem("SALES_TAX").name("US Sales Tax").build());
 
-        UUID glOutput = ensureAccount(orgId, "2050", "Sales Tax Payable", "LIABILITY", "CURRENT_LIABILITY");
+        // 2050 means PF Payable (India) / Gratuity Provision (Gulf) in the
+        // CoA templates — never rebind it to sales tax.
+        UUID glOutput = ensureAccount(org, "2046", "Sales Tax Payable", "LIABILITY", "CURRENT_LIABILITY");
         // No input account — US sales tax is NOT recoverable on purchases
 
         groupRepo.save(TaxGroup.builder().orgId(orgId).name("Exempt").description("Tax exempt").build());
@@ -291,8 +297,8 @@ public class TaxSeedService {
         TaxConfiguration config = configRepo.save(TaxConfiguration.builder()
                 .orgId(orgId).countryCode("MY").taxSystem("SST").name("Malaysia SST").build());
 
-        UUID glOutput = ensureAccount(orgId, "2043", "SST Output", "LIABILITY", "CURRENT_LIABILITY");
-        UUID glInput  = ensureAccount(orgId, "1513", "SST Input", "ASSET", "CURRENT_ASSET");
+        UUID glOutput = ensureAccount(org, "2043", "SST Output", "LIABILITY", "CURRENT_LIABILITY");
+        UUID glInput  = ensureAccount(org, "1513", "SST Input", "ASSET", "CURRENT_ASSET");
 
         groupRepo.save(TaxGroup.builder().orgId(orgId).name("Exempt").description("No tax").build());
 
@@ -317,8 +323,8 @@ public class TaxSeedService {
         TaxConfiguration config = configRepo.save(TaxConfiguration.builder()
                 .orgId(orgId).countryCode("ID").taxSystem("PPN").name("Indonesia PPN").build());
 
-        UUID glOutput = ensureAccount(orgId, "2044", "PPN Output", "LIABILITY", "CURRENT_LIABILITY");
-        UUID glInput  = ensureAccount(orgId, "1514", "PPN Input", "ASSET", "CURRENT_ASSET");
+        UUID glOutput = ensureAccount(org, "2044", "PPN Output", "LIABILITY", "CURRENT_LIABILITY");
+        UUID glInput  = ensureAccount(org, "1514", "PPN Input", "ASSET", "CURRENT_ASSET");
 
         groupRepo.save(TaxGroup.builder().orgId(orgId).name("Exempt").description("No tax").build());
 
@@ -331,6 +337,34 @@ public class TaxSeedService {
                 .orgId(orgId).name("PPN 11%").description("Standard rate").build());
         groupRateRepo.save(TaxGroupRate.builder()
                 .taxGroupId(group.getId()).taxRateId(ppn.getId()).build());
+    }
+
+    // ── Kenya VAT ───────────────────────────────────────────────
+
+    private void seedKenya(Organisation org) {
+        UUID orgId = org.getId();
+
+        TaxConfiguration config = configRepo.save(TaxConfiguration.builder()
+                .orgId(orgId).countryCode("KE").taxSystem("VAT").name("Kenya VAT").build());
+
+        UUID glOutput = ensureAccount(org, "2041", "VAT Output", "LIABILITY", "CURRENT_LIABILITY");
+        UUID glInput  = ensureAccount(org, "1511", "VAT Input", "ASSET", "CURRENT_ASSET");
+
+        groupRepo.save(TaxGroup.builder().orgId(orgId).name("Exempt").description("No tax").build());
+
+        for (var entry : Map.of("Zero Rated", bd("0.00"), "VAT 16%", bd("16.00")).entrySet()) {
+            TaxRate vat = rateRepo.save(TaxRate.builder()
+                    .orgId(orgId).taxConfigId(config.getId())
+                    .name("VAT " + entry.getValue() + "%").rateCode("VAT")
+                    .percentage(entry.getValue()).taxType("BOTH")
+                    .glOutputAccountId(glOutput).glInputAccountId(glInput).build());
+
+            TaxGroup group = groupRepo.save(TaxGroup.builder()
+                    .orgId(orgId).name(entry.getKey())
+                    .description("VAT " + entry.getValue() + "%").build());
+            groupRateRepo.save(TaxGroupRate.builder()
+                    .taxGroupId(group.getId()).taxRateId(vat.getId()).build());
+        }
     }
 
     // ── Generic fallback ────────────────────────────────────────
@@ -355,15 +389,16 @@ public class TaxSeedService {
                 .map(Account::getId).orElse(null);
     }
 
-    private UUID ensureAccount(UUID orgId, String code, String name, String type, String subType) {
-        return accountRepo.findByOrgIdAndCodeAndIsDeletedFalse(orgId, code)
+    private UUID ensureAccount(Organisation org, String code, String name, String type, String subType) {
+        String currency = org.getBaseCurrency() == null ? "INR" : org.getBaseCurrency();
+        return accountRepo.findByOrgIdAndCodeAndIsDeletedFalse(org.getId(), code)
                 .map(Account::getId)
                 .orElseGet(() -> {
                     Account account = Account.builder()
                             .code(code).name(name)
                             .type(type).subType(subType).level(2)
-                            .currency("INR").active(true).build();
-                    account.setOrgId(orgId);
+                            .currency(currency).active(true).build();
+                    account.setOrgId(org.getId());
                     return accountRepo.save(account).getId();
                 });
     }

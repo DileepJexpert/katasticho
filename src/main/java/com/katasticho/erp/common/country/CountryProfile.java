@@ -58,7 +58,12 @@ public interface CountryProfile {
 
     /**
      * The key {@code TaxSeedService} switches on to seed tax groups/rates.
-     * Oman reuses "AE" (same VAT 5% shape).
      */
     String taxSeedKey();
+
+    /**
+     * Value stamped on {@code organisation.tax_regime} at signup. Everything
+     * outside India runs a VAT-shaped regime; India overrides to INDIA_GST.
+     */
+    default String taxRegime() { return "VAT"; }
 }

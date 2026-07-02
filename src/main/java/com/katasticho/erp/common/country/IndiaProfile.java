@@ -25,4 +25,5 @@ public class IndiaProfile implements CountryProfile {
     @Override public String taxIdLabel() { return "GSTIN"; }
     @Override public String coaTemplateCountry() { return "IN"; }
     @Override public String taxSeedKey() { return "IN"; }
+    @Override public String taxRegime() { return "INDIA_GST"; }
 }
