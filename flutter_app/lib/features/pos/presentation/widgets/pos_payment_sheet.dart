@@ -134,7 +134,9 @@ class _PaymentSheetContentState extends ConsumerState<_PaymentSheetContent> {
 
     Navigator.pop(context, {
       'paymentMode': widget.paymentMode,
-      'amountReceived': _amountReceived,
+      // Khata collects nothing at the counter — the total goes on the ledger.
+      'amountReceived':
+          widget.paymentMode == 'CREDIT' ? 0.0 : _amountReceived,
       'upiReference': _referenceController.text.trim().isEmpty
           ? null
           : _referenceController.text.trim(),
@@ -197,6 +199,8 @@ class _PaymentSheetContentState extends ConsumerState<_PaymentSheetContent> {
                     if (widget.paymentMode == 'CASH') _buildCashContent(total),
                     if (widget.paymentMode == 'UPI') _buildUpiContent(total),
                     if (widget.paymentMode == 'CARD') _buildCardContent(),
+                    if (widget.paymentMode == 'CREDIT')
+                      _buildKhataContent(total),
                   ],
                 ),
               ),
@@ -452,6 +456,52 @@ class _PaymentSheetContentState extends ConsumerState<_PaymentSheetContent> {
     );
   }
 
+  Widget _buildKhataContent(double total) {
+    final customerName = widget.cart.contactName ?? 'Customer';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: KColors.warningLight,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              const Icon(Icons.menu_book_outlined,
+                  size: 30, color: KColors.warning),
+              const SizedBox(height: 8),
+              Text(
+                CurrencyFormatter.formatIndian(total),
+                style: KTypography.h3.copyWith(
+                  color: KColors.warning,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Goes on $customerName\'s khata',
+                style: KTypography.labelLarge
+                    .copyWith(color: KColors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        KSpacing.vGapSm,
+        Text(
+          'Nothing is collected now. The full amount is added to the '
+          'customer\'s outstanding and shows up in the credit ledger and '
+          'collections. Settle later from the customer\'s ledger or at the '
+          'counter.',
+          style: KTypography.labelSmall.copyWith(color: KColors.textSecondary),
+        ),
+      ],
+    );
+  }
+
   double _roundUp(double amount, double step) {
     return (amount / step).ceil() * step.toDouble();
   }
@@ -460,6 +510,7 @@ class _PaymentSheetContentState extends ConsumerState<_PaymentSheetContent> {
         'CASH' => Icons.payments_outlined,
         'UPI' => Icons.qr_code_2,
         'CARD' => Icons.credit_card,
+        'CREDIT' => Icons.menu_book_outlined,
         _ => Icons.payment,
       };
 
@@ -467,6 +518,7 @@ class _PaymentSheetContentState extends ConsumerState<_PaymentSheetContent> {
         'CASH' => KColors.success,
         'UPI' => KColors.primary,
         'CARD' => KColors.secondary,
+        'CREDIT' => KColors.warning,
         _ => KColors.primary,
       };
 
@@ -474,6 +526,7 @@ class _PaymentSheetContentState extends ConsumerState<_PaymentSheetContent> {
         'CASH' => 'Cash',
         'UPI' => 'UPI',
         'CARD' => 'Card',
+        'CREDIT' => 'Khata (Credit)',
         _ => mode,
       };
 
@@ -481,6 +534,7 @@ class _PaymentSheetContentState extends ConsumerState<_PaymentSheetContent> {
         'CASH' => 'Complete Sale',
         'UPI' => 'Mark as Received & Complete',
         'CARD' => 'Confirm Payment & Complete',
+        'CREDIT' => 'Add to Khata & Complete',
         _ => 'Complete Sale',
       };
 }

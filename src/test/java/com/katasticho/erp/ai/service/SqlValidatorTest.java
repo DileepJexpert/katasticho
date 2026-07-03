@@ -4,43 +4,68 @@ import com.katasticho.erp.common.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+
+import java.sql.ResultSet;
+import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class SqlValidatorTest {
 
+    @Mock private JdbcTemplate jdbcTemplate;
+
     private SqlValidator validator;
+    private final UUID orgId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
 
     @BeforeEach
     void setUp() {
-        validator = new SqlValidator();
+        validator = new SqlValidator(jdbcTemplate);
+        // Simulated information_schema: org-scoped business tables, the
+        // platform organisation table (no org_id), a platform reference
+        // table, and a denylisted credential table.
+        stubSchema(
+                row("journal_line", true), row("account", true), row("invoice", true),
+                row("contact", true), row("payment", true),
+                row("organisation", false), row("gst_state_code", false),
+                row("app_user", true));
     }
 
-    // ── Valid Queries ──
-
-    @Test
-    @DisplayName("T-AI-01: Accepts valid SELECT with org_id")
-    void acceptsValidSelect() {
-        String sql = "SELECT SUM(base_debit) FROM journal_line WHERE org_id = '123'";
-        assertThatCode(() -> validator.validate(sql)).doesNotThrowAnyException();
+    private Object[] row(String table, boolean scoped) {
+        return new Object[]{table, scoped};
     }
 
-    @Test
-    @DisplayName("T-AI-02: Accepts SELECT with JOIN and org_id")
-    void acceptsSelectWithJoin() {
-        String sql = """
-                SELECT a.name, SUM(jl.base_debit) - SUM(jl.base_credit) AS balance
-                FROM journal_line jl
-                JOIN account a ON a.id = jl.account_id
-                WHERE jl.org_id = '550e8400-e29b-41d4-a716-446655440000'
-                GROUP BY a.name
-                """;
-        assertThatCode(() -> validator.validate(sql)).doesNotThrowAnyException();
+    @SuppressWarnings("unchecked")
+    private void stubSchema(Object[]... rows) {
+        when(jdbcTemplate.query(eq(SqlValidator.TABLE_SCOPE_SQL), any(RowMapper.class)))
+                .thenAnswer(invocation -> {
+                    RowMapper<Object> mapper = invocation.getArgument(1);
+                    java.sql.ResultSet rs = org.mockito.Mockito.mock(ResultSet.class);
+                    for (int i = 0; i < rows.length; i++) {
+                        lenient().when(rs.getString("table_name")).thenReturn((String) rows[i][0]);
+                        lenient().when(rs.getBoolean("scoped")).thenReturn((Boolean) rows[i][1]);
+                        mapper.mapRow(rs, i);
+                    }
+                    return List.of();
+                });
     }
 
-    // ── Rejected Mutations ──
+    // ── validate(): legacy fast-fail checks ──
 
     @ParameterizedTest
     @ValueSource(strings = {
@@ -55,8 +80,6 @@ class SqlValidatorTest {
     })
     @DisplayName("T-AI-03: Rejects DML/DDL statements")
     void rejectsMutations(String sql) {
-        // These are rejected either because they don't start with SELECT
-        // or because they contain forbidden keywords — both are correct
         assertThatThrownBy(() -> validator.validate(sql))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
@@ -71,34 +94,127 @@ class SqlValidatorTest {
                 .isInstanceOf(BusinessException.class);
     }
 
-    // ── Missing org_id ──
-
     @Test
-    @DisplayName("T-AI-05: Rejects SELECT without org_id filter")
-    void rejectsWithoutOrgId() {
-        String sql = "SELECT * FROM account WHERE name = 'Cash'";
-        assertThatThrownBy(() -> validator.validate(sql))
-                .isInstanceOf(BusinessException.class)
-                .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo("ERR_AI_MISSING_TENANT");
-    }
-
-    // ── Empty / null ──
-
-    @Test
-    @DisplayName("T-AI-06: Rejects empty SQL")
-    void rejectsEmptySql() {
+    @DisplayName("T-AI-06/07: Rejects empty and null SQL")
+    void rejectsEmptyAndNull() {
         assertThatThrownBy(() -> validator.validate(""))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo("ERR_AI_EMPTY_SQL");
+        assertThatThrownBy(() -> validator.validate(null))
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test
-    @DisplayName("T-AI-07: Rejects null SQL")
-    void rejectsNullSql() {
-        assertThatThrownBy(() -> validator.validate(null))
+    @DisplayName("T-AI-10: Rejects PostgreSQL-specific exploits")
+    void rejectsPostgresExploits() {
+        assertThatThrownBy(() -> validator.validate("SELECT pg_sleep(10) WHERE org_id = '123'"))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("T-AI-11: Rejects CTE containing DELETE")
+    void rejectsCteWithDelete() {
+        String sql = "WITH hack AS (DELETE FROM account WHERE org_id = '123' RETURNING *) SELECT * FROM hack";
+        assertThatThrownBy(() -> validator.validate(sql))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    // ── secure(): tenant predicate injection ──
+
+    @Test
+    @DisplayName("T-AI-20: Injects org filter when the model omitted it")
+    void injectsOrgFilterWhenMissing() {
+        String secured = validator.secure("SELECT * FROM account WHERE name = 'Cash'", orgId);
+        assertThat(secured).contains("account.org_id = '" + orgId + "'");
+        assertThat(secured).contains("(name = 'Cash') AND");
+    }
+
+    @Test
+    @DisplayName("T-AI-21: UNION branch without org filter gets one injected")
+    void securesUnionExfiltration() {
+        String sql = "SELECT total FROM invoice WHERE org_id = '" + orgId + "' "
+                + "UNION SELECT total FROM invoice";
+        String secured = validator.secure(sql, orgId);
+        // Injection is unconditional: the model's predicate (1) + injected in
+        // both branches (2) = 3 occurrences. The naked UNION branch is closed.
+        assertThat(secured.split("org_id = '" + orgId + "'", -1)).hasSize(4);
+    }
+
+    @Test
+    @DisplayName("T-AI-22: Subquery in WHERE gets its own org filter")
+    void securesWhereSubquery() {
+        String sql = "SELECT i.total FROM invoice i WHERE i.org_id = '" + orgId + "' "
+                + "AND i.total > (SELECT MAX(total) FROM invoice)";
+        String secured = validator.secure(sql, orgId);
+        // Model's predicate (1) + injected on outer select (1) + injected
+        // inside the previously-unfiltered subquery (1) = 3 occurrences.
+        assertThat(secured.split("org_id = '" + orgId + "'", -1)).hasSize(4);
+    }
+
+    @Test
+    @DisplayName("T-AI-23: Uses the table alias in the injected predicate")
+    void injectionUsesAlias() {
+        String secured = validator.secure(
+                "SELECT jl.debit FROM journal_line jl JOIN account a ON a.id = jl.account_id", orgId);
+        assertThat(secured).contains("jl.org_id = '" + orgId + "'");
+        assertThat(secured).contains("a.org_id = '" + orgId + "'");
+    }
+
+    @Test
+    @DisplayName("T-AI-24: OR 1=1 cannot widen results — injected predicate is conjoined outside")
+    void orTrickCannotBypass() {
+        String secured = validator.secure(
+                "SELECT * FROM invoice WHERE org_id = '" + orgId + "' OR 1 = 1", orgId);
+        // The original WHERE is parenthesized and our predicate AND-ed after it.
+        assertThat(secured).matches("(?s).*\\(.*OR 1 = 1\\) AND invoice\\.org_id = '" + orgId + "'.*");
+    }
+
+    @Test
+    @DisplayName("T-AI-25: organisation table is pinned to the caller's own row")
+    void organisationPinnedToOwnRow() {
+        String secured = validator.secure("SELECT name FROM organisation", orgId);
+        assertThat(secured).contains("organisation.id = '" + orgId + "'");
+    }
+
+    @Test
+    @DisplayName("T-AI-26: Platform reference tables stay unfiltered")
+    void platformTablesUnfiltered() {
+        String secured = validator.secure("SELECT * FROM gst_state_code", orgId);
+        assertThat(secured).doesNotContain("org_id");
+    }
+
+    @Test
+    @DisplayName("T-AI-27: Unknown tables are rejected")
+    void rejectsUnknownTable() {
+        assertThatThrownBy(() -> validator.secure("SELECT * FROM pg_shadow", orgId))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Unknown table");
+    }
+
+    @Test
+    @DisplayName("T-AI-28: Credential tables are denylisted even though org-scoped")
+    void rejectsDenylistedTable() {
+        assertThatThrownBy(() -> validator.secure("SELECT * FROM app_user", orgId))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("may not be queried");
+    }
+
+    @Test
+    @DisplayName("T-AI-29: Non-public schemas are rejected")
+    void rejectsForeignSchema() {
+        assertThatThrownBy(() -> validator.secure(
+                "SELECT * FROM information_schema.tables", orgId))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("T-AI-30: CTE body is filtered; CTE reference itself is not re-filtered")
+    void securesCteBody() {
+        String sql = "WITH rev AS (SELECT total FROM invoice) SELECT * FROM rev";
+        String secured = validator.secure(sql, orgId);
+        assertThat(secured).contains("invoice.org_id = '" + orgId + "'");
+        assertThat(secured).doesNotContain("rev.org_id");
     }
 
     // ── LIMIT injection ──
@@ -106,36 +222,15 @@ class SqlValidatorTest {
     @Test
     @DisplayName("T-AI-08: Injects LIMIT when missing")
     void injectsLimit() {
-        String sql = "SELECT * FROM account WHERE org_id = '123'";
-        String result = validator.ensureLimit(sql, 100);
+        String result = validator.ensureLimit("SELECT * FROM account WHERE org_id = '123'", 100);
         assertThat(result).endsWith("LIMIT 100");
     }
 
     @Test
     @DisplayName("T-AI-09: Preserves existing LIMIT")
     void preservesExistingLimit() {
-        String sql = "SELECT * FROM account WHERE org_id = '123' LIMIT 50";
-        String result = validator.ensureLimit(sql, 100);
-        assertThat(result).contains("LIMIT 50");
-        assertThat(result).doesNotContain("LIMIT 100");
-    }
-
-    @Test
-    @DisplayName("T-AI-10: Rejects PostgreSQL-specific exploits")
-    void rejectsPostgresExploits() {
-        String sql = "SELECT pg_sleep(10) WHERE org_id = '123'";
-        assertThatThrownBy(() -> validator.validate(sql))
-                .isInstanceOf(BusinessException.class);
-    }
-
-    // ── Non-SELECT ──
-
-    @Test
-    @DisplayName("T-AI-11: Rejects non-SELECT starting keyword")
-    void rejectsNonSelect() {
-        String sql = "WITH hack AS (DELETE FROM account WHERE org_id = '123' RETURNING *) SELECT * FROM hack";
-        // This starts with WITH, not SELECT — but more importantly contains DELETE
-        assertThatThrownBy(() -> validator.validate(sql))
-                .isInstanceOf(BusinessException.class);
+        String result = validator.ensureLimit(
+                "SELECT * FROM account WHERE org_id = '123' LIMIT 50", 100);
+        assertThat(result).contains("LIMIT 50").doesNotContain("LIMIT 100");
     }
 }

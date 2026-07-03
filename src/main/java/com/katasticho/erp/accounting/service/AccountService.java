@@ -34,6 +34,7 @@ public class AccountService {
     private final AccountRepository accountRepository;
     private final JournalLineRepository journalLineRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final com.katasticho.erp.common.country.CountryRegistry countryRegistry;
 
     public List<AccountResponse> listAccounts(UUID orgId) {
         List<Account> accounts = accountRepository.findByOrgIdAndIsDeletedFalseOrderByCode(orgId);
@@ -116,17 +117,22 @@ public class AccountService {
         String country = (countryCode == null || countryCode.isBlank())
                 ? "IN" : countryCode.toUpperCase();
 
-        // Fetch template rows for (country, industry); fall back to ('IN', industry).
-        List<Map<String, Object>> templates = jdbcTemplate.queryForList(
-                "SELECT code, name, type, sub_type, parent_code, level, is_system "
-                        + "FROM coa_template WHERE country = ? AND industry = ? ORDER BY code",
-                country, templateIndustry);
+        // Fetch template rows for (country, industry); fall back through the
+        // country profile's template family (e.g. an unmapped Gulf country ->
+        // AE) before landing on the India template — the old straight-to-IN
+        // fallback silently gave Gulf orgs GST/TDS/PF accounts and no VAT GLs.
+        List<Map<String, Object>> templates = loadTemplates(country, templateIndustry);
+        if (templates.isEmpty()) {
+            String profileCountry = countryRegistry.get(country).coaTemplateCountry();
+            if (!profileCountry.equals(country)) {
+                log.info("No CoA template for country {} industry {} — trying profile family {}",
+                        country, templateIndustry, profileCountry);
+                templates = loadTemplates(profileCountry, templateIndustry);
+            }
+        }
         if (templates.isEmpty() && !"IN".equals(country)) {
             log.info("No CoA template for country {} industry {} — falling back to IN", country, templateIndustry);
-            templates = jdbcTemplate.queryForList(
-                    "SELECT code, name, type, sub_type, parent_code, level, is_system "
-                            + "FROM coa_template WHERE country = 'IN' AND industry = ? ORDER BY code",
-                    templateIndustry);
+            templates = loadTemplates("IN", templateIndustry);
         }
 
         if (templates.isEmpty()) {
@@ -175,6 +181,13 @@ public class AccountService {
         if (codeToId.isEmpty()) return SeedResult.ALREADY_EXISTS;
         if (codeToId.size() < templates.size()) return SeedResult.REPAIRED_PARTIAL;
         return SeedResult.CREATED_NEW;
+    }
+
+    private List<Map<String, Object>> loadTemplates(String country, String industry) {
+        return jdbcTemplate.queryForList(
+                "SELECT code, name, type, sub_type, parent_code, level, is_system "
+                        + "FROM coa_template WHERE country = ? AND industry = ? ORDER BY code",
+                country, industry);
     }
 
     private String resolveIndustry(String industry) {

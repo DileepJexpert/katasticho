@@ -103,6 +103,14 @@ public class EmailService {
         send(adminEmail, "New signup: " + orgName, html);
     }
 
+    /**
+     * Generic HTML email send — used by the workflow-rules EMAIL action. Same
+     * best-effort delivery as the templated helpers (logs + swallows on failure).
+     */
+    public void sendHtml(String to, String subject, String html) {
+        send(to, subject, html);
+    }
+
     private void send(String to, String subject, String html) {
         try {
             MimeMessage message = mailSender.createMimeMessage();

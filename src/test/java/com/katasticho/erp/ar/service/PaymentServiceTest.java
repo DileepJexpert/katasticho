@@ -59,6 +59,7 @@ class PaymentServiceTest {
     @Mock private CommentService commentService;
     @Mock private CurrencyService currencyService;
     @Mock private com.katasticho.erp.common.snapshot.DocumentSnapshotService documentSnapshotService;
+    @Mock private com.katasticho.erp.common.event.DomainEventPublisher domainEventPublisher;
     @Mock private ApprovalWorkflowService approvalWorkflowService;
     @Mock private DocumentStateEngine documentStateEngine;
 
@@ -74,7 +75,7 @@ class PaymentServiceTest {
                 paymentRepository, invoiceRepository, contactRepository,
                 organisationRepository, branchRepository, journalService, postingEngine,
                 invoiceService, currencyService, auditService, commentService, documentSnapshotService,
-                approvalWorkflowService, documentStateEngine);
+                domainEventPublisher, approvalWorkflowService, documentStateEngine);
 
         lenient().when(currencyService.getRate(any(), any(), any())).thenReturn(BigDecimal.ONE);
         lenient().when(approvalWorkflowService.findMatchingWorkflow(any(), any(), anyMap()))

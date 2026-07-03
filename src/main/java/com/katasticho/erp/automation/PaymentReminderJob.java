@@ -1,5 +1,6 @@
 package com.katasticho.erp.automation;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.auth.entity.AppUser;
@@ -36,6 +37,7 @@ public class PaymentReminderJob {
     private final NotificationService notificationService;
 
     @Scheduled(cron = "${app.automation.payment-reminder.cron:0 0 9 * * *}")
+    @SchedulerLock(name = "PaymentReminderJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
     @Transactional
     public void run() {
         LocalDate today = LocalDate.now();

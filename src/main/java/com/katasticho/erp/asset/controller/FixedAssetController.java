@@ -37,6 +37,13 @@ public class FixedAssetController {
         return ResponseEntity.ok(ApiResponse.ok(service.get(id)));
     }
 
+    /** Forward-looking depreciation projection to end of schedule (posts nothing). */
+    @GetMapping("/{id}/schedule-preview")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> schedulePreview(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(service.computeScheduleFor(id)));
+    }
+
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<FixedAsset>> create(@RequestBody Map<String, Object> b) {

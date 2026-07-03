@@ -4,18 +4,13 @@ import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.entity.EntityAttachment;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.common.repository.EntityAttachmentRepository;
+import com.katasticho.erp.common.service.storage.AttachmentStorage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,9 +20,7 @@ import java.util.UUID;
 public class AttachmentService {
 
     private final EntityAttachmentRepository attachmentRepository;
-
-    @Value("${app.attachment.storage-path:./attachments}")
-    private String storagePath;
+    private final AttachmentStorage storage;
 
     @Transactional
     public EntityAttachment upload(String entityType, UUID entityId, MultipartFile file) {
@@ -39,17 +32,10 @@ public class AttachmentService {
         String extension = fileName.contains(".") ? fileName.substring(fileName.lastIndexOf('.')) : "";
         String storedName = fileId + extension;
 
-        Path dir = Paths.get(storagePath, orgId.toString(), entityType, entityId.toString());
-        try {
-            Files.createDirectories(dir);
-            file.transferTo(dir.resolve(storedName));
-        } catch (IOException e) {
-            log.error("Failed to store attachment: {}", e.getMessage());
-            throw new BusinessException("Failed to store file: " + e.getMessage(),
-                    "ATTACHMENT_STORE_FAILED", HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        String relativePath = orgId + "/" + entityType + "/" + entityId + "/" + storedName;
+        storage.store(relativePath, file);
 
-        String fileUrl = "/" + orgId + "/" + entityType + "/" + entityId + "/" + storedName;
+        String fileUrl = "/" + relativePath;
 
         EntityAttachment attachment = EntityAttachment.builder()
                 .orgId(orgId)
@@ -71,6 +57,24 @@ public class AttachmentService {
         return attachmentRepository.findByOrgIdAndEntityTypeAndEntityIdAndDeletedFalse(
                 orgId, entityType, entityId);
     }
+
+    /**
+     * Fetch the stored file body for an org-scoped attachment — the read half
+     * that never existed (uploads previously had no download endpoint at all).
+     */
+    @Transactional(readOnly = true)
+    public StoredFile download(UUID attachmentId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        EntityAttachment attachment = attachmentRepository.findByIdAndOrgId(attachmentId, orgId)
+                .filter(a -> !a.isDeleted())
+                .orElseThrow(() -> BusinessException.notFound("Attachment", attachmentId));
+        String relativePath = attachment.getFileUrl().startsWith("/")
+                ? attachment.getFileUrl().substring(1)
+                : attachment.getFileUrl();
+        return new StoredFile(attachment, storage.read(relativePath));
+    }
+
+    public record StoredFile(EntityAttachment attachment, byte[] content) {}
 
     @Transactional
     public void delete(UUID attachmentId) {

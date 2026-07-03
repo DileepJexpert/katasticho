@@ -118,7 +118,7 @@ public class StockReceiptService {
                 .supplierInvoiceDate(request.supplierInvoiceDate())
                 .purchaseOrderId(request.purchaseOrderId())
                 .status("DRAFT")
-                .currency("INR")
+                .currency(org.getBaseCurrency())
                 .notes(request.notes())
                 .freightAmount(nz(request.freightAmount()))
                 .dutyAmount(nz(request.dutyAmount()))

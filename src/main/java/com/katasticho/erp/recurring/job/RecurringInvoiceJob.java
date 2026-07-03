@@ -1,5 +1,6 @@
 package com.katasticho.erp.recurring.job;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.recurring.service.RecurringInvoiceService;
 import com.katasticho.erp.recurring.service.RecurringInvoiceService.DueTemplate;
@@ -33,6 +34,7 @@ public class RecurringInvoiceJob {
      * Override with {@code app.recurring-invoice.cron} if needed.
      */
     @Scheduled(cron = "${app.recurring-invoice.cron:0 0 6 * * *}")
+    @SchedulerLock(name = "RecurringInvoiceJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
     public void generateDueInvoices() {
         List<DueTemplate> due = recurringInvoiceService.findDueTemplates();
         if (due.isEmpty()) {

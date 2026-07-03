@@ -1,5 +1,6 @@
 package com.katasticho.erp.automation;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.auth.entity.AppUser;
 import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.common.service.NotificationService;
@@ -37,6 +38,7 @@ public class ExpiryAlertJob {
     private final NotificationService notificationService;
 
     @Scheduled(cron = "${app.automation.expiry-alert.cron:0 0 8 * * *}")
+    @SchedulerLock(name = "ExpiryAlertJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
     @Transactional
     public void run() {
         LocalDate today = LocalDate.now();

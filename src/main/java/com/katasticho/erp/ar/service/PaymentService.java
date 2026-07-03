@@ -70,6 +70,7 @@ public class PaymentService {
     private final AuditService auditService;
     private final CommentService commentService;
     private final DocumentSnapshotService documentSnapshotService;
+    private final com.katasticho.erp.common.event.DomainEventPublisher domainEventPublisher;
     private final ApprovalWorkflowService approvalWorkflowService;
     private final DocumentStateEngine documentStateEngine;
 
@@ -97,7 +98,7 @@ public class PaymentService {
         requirePaymentWithinAvailableBalance(invoice, request.amount());
 
         // Exchange rate
-        BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.paymentDate());
+        BigDecimal exchangeRate = currencyService.getRate(org.getBaseCurrency(), org.getBaseCurrency(), request.paymentDate());
         BigDecimal baseAmount = request.amount().multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP);
 
         // Generate payment number
@@ -123,7 +124,7 @@ public class PaymentService {
                 .paymentNumber(paymentNumber)
                 .paymentDate(request.paymentDate())
                 .amount(request.amount())
-                .currency("INR")
+                .currency(org.getBaseCurrency())
                 .exchangeRate(exchangeRate)
                 .baseAmount(baseAmount)
                 .paymentMethod(request.paymentMethod())
@@ -212,6 +213,11 @@ public class PaymentService {
                         + "\",\"amount\":\"" + payment.getAmount()
                         + "\",\"invoice\":\"" + invoice.getInvoiceNumber() + "\"}");
         documentSnapshotService.createSnapshot("PAYMENT", payment.getId(), payment.getPaymentNumber(), toResponse(payment));
+        domainEventPublisher.publish("PAYMENT_RECORDED", "PAYMENT", payment.getId(), java.util.Map.of(
+                "paymentNumber", payment.getPaymentNumber(),
+                "amount", payment.getAmount(),
+                "paymentMethod", payment.getPaymentMethod(),
+                "invoiceNumber", invoice.getInvoiceNumber()));
 
         log.info("Payment {} posted: {} for invoice {}", payment.getPaymentNumber(),
                 payment.getAmount(), invoice.getInvoiceNumber());

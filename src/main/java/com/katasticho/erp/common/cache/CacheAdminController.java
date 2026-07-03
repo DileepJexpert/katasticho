@@ -2,8 +2,10 @@ package com.katasticho.erp.common.cache;
 
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -33,6 +35,10 @@ public class CacheAdminController {
     @PostMapping("/warm/{orgId}")
     @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> warmOrg(@PathVariable UUID orgId) {
+        if (!orgId.equals(TenantContext.getCurrentOrgId())) {
+            throw new BusinessException("Can only warm the cache of your own organisation",
+                    "CACHE_FOREIGN_ORG", HttpStatus.FORBIDDEN);
+        }
         log.info("[CacheAdmin] Manual cache warm triggered for specific org={}", orgId);
         Map<String, Object> result = dailyCacheWarmer.warmSingleOrg(orgId);
         return ResponseEntity.ok(ApiResponse.ok(result, "Cache warmed for org " + orgId));

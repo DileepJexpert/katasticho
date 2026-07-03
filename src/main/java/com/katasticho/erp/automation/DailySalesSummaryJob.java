@@ -1,5 +1,6 @@
 package com.katasticho.erp.automation;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.ap.repository.VendorPaymentRepository;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.repository.PaymentRepository;
@@ -43,6 +44,7 @@ public class DailySalesSummaryJob {
     private final NotificationService notificationService;
 
     @Scheduled(cron = "${app.automation.daily-summary.cron:0 0 21 * * *}")
+    @SchedulerLock(name = "DailySalesSummaryJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
     @Transactional(readOnly = true)
     public void run() {
         LocalDate today = LocalDate.now();

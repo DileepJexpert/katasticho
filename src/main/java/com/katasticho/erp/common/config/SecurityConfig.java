@@ -39,7 +39,9 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:*}")
     private List<String> allowedOrigins;
 
-    @Value("${app.cors.dev-mode:true}")
+    // Secure by default: a missing property fails CLOSED (restrictive origins),
+    // never OPEN (wildcard). Local dev opts in via CORS_DEV_MODE=true.
+    @Value("${app.cors.dev-mode:false}")
     private boolean devMode;
 
     @Bean
@@ -59,6 +61,8 @@ public class SecurityConfig {
                                 "/api/v1/portal/auth/**",
                                 // Courier webhooks authenticate by a per-org token in the URL path.
                                 "/api/v1/courier/webhooks/**",
+                                // Razorpay payment webhooks: per-org path token + HMAC signature.
+                                "/api/v1/webhooks/razorpay/**",
                                 "/api/v1/health",
                                 "/api/platform-admin/v1/auth/login",
                                 "/actuator/health",

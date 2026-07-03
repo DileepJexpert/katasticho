@@ -51,6 +51,9 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
 
     List<Contact> findByOrgIdAndIsDeletedFalseAndIdIn(UUID orgId, Collection<UUID> ids);
 
+    /** MSME-registered contacts — MSME Form 1 filters vendors from these. */
+    List<Contact> findByOrgIdAndMsmeRegisteredTrueAndIsDeletedFalse(UUID orgId);
+
     @Query("""
             SELECT c FROM Contact c
             WHERE c.orgId = :orgId

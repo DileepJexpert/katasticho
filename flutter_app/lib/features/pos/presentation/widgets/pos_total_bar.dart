@@ -5,6 +5,7 @@ import '../../../../core/shortcuts/k_shortcuts.dart';
 import '../../../../core/theme/k_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../data/pos_cart_state.dart';
+import '../../data/pos_providers.dart';
 
 /// Sticky bottom bar with subtotal/tax/total breakdown and payment mode buttons.
 class PosTotalBar extends ConsumerWidget {
@@ -12,6 +13,7 @@ class PosTotalBar extends ConsumerWidget {
   final VoidCallback? onUpiTap;
   final VoidCallback? onCardTap;
   final VoidCallback? onSplitTap;
+  final VoidCallback? onKhataTap;
 
   const PosTotalBar({
     super.key,
@@ -19,11 +21,14 @@ class PosTotalBar extends ConsumerWidget {
     this.onUpiTap,
     this.onCardTap,
     this.onSplitTap,
+    this.onKhataTap,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cart = ref.watch(posCartProvider);
+    final khataEnabled =
+        ref.watch(posAllowCreditSalesProvider).valueOrNull ?? false;
     final cs = Theme.of(context).colorScheme;
 
     return Container(
@@ -200,6 +205,19 @@ class PosTotalBar extends ConsumerWidget {
                     onTap: cart.isEmpty ? null : onSplitTap,
                   ),
                 ),
+                if (khataEnabled) ...[
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _PaymentButton(
+                      icon: Icons.menu_book_outlined,
+                      label: 'Khata',
+                      shortcut: '',
+                      color: KColors.warning,
+                      isSelected: cart.paymentMode == 'CREDIT',
+                      onTap: cart.isEmpty ? null : onKhataTap,
+                    ),
+                  ),
+                ],
               ],
             ),
           ],

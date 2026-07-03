@@ -98,7 +98,7 @@ public class EstimateService {
                 .estimateDate(request.estimateDate())
                 .expiryDate(request.expiryDate())
                 .status(EstimateStatus.DRAFT.name())
-                .currency(request.currency() != null ? request.currency() : "INR")
+                .currency(request.currency() != null ? request.currency() : org.getBaseCurrency())
                 .referenceNumber(request.referenceNumber())
                 .subject(request.subject())
                 .notes(request.notes())

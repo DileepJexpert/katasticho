@@ -115,6 +115,7 @@ public class AuthService {
                 .countryCode(signupCountry.code())
                 .baseCurrency(signupCountry.currencyCode())
                 .timezone(signupCountry.defaultTimezone())
+                .taxRegime(signupCountry.taxRegime())
                 .fiscalYearStart(signupCountry.fiscalYearStartMonth())
                 .approvalStatus("APPROVED")
                 .build();

@@ -777,6 +777,7 @@ class _LineItemCard extends ConsumerStatefulWidget {
   final VoidCallback onChanged;
 
   const _LineItemCard({
+    super.key,
     required this.item,
     required this.index,
     this.onRemove,

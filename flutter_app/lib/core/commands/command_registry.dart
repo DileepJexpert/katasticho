@@ -437,6 +437,20 @@ List<KCommand> buildAppCommands() {
       keywords: ['hsn', 'gst rate', 'tax'],
     ),
     KCommand(
+      label: 'Medicine Catalogue Import',
+      icon: Icons.upload_file_rounded,
+      section: 'Navigate',
+      route: Routes.drugImport,
+      keywords: ['drug', 'medicine', 'import', 'csv', 'marg', '1mg', 'catalog', 'bulk'],
+    ),
+    KCommand(
+      label: 'Audit Trail (Edit Log)',
+      icon: Icons.history_rounded,
+      section: 'Navigate',
+      route: Routes.auditTrail,
+      keywords: ['edit log', 'audit', 'mca', 'alteration', 'who changed', 'history', 'compliance'],
+    ),
+    KCommand(
       label: 'Field Coverage Reports',
       icon: Icons.insights,
       section: 'Navigate',

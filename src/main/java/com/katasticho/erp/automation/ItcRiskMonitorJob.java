@@ -1,5 +1,6 @@
 package com.katasticho.erp.automation;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.auth.entity.AppUser;
 import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.common.context.TenantContext;
@@ -35,6 +36,7 @@ public class ItcRiskMonitorJob {
     private final ItcRiskMonitorService itcRiskMonitorService;
 
     @Scheduled(cron = "${app.automation.itc-risk-monitor.cron:0 0 9 5 * *}")
+    @SchedulerLock(name = "ItcRiskMonitorJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
     public void run() {
         // Month whose GSTR-1 deadline (11th) falls in the current month.
         String period = YearMonth.from(LocalDate.now().minusMonths(1)).toString();

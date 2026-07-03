@@ -96,7 +96,7 @@ public class CreditNoteService {
 
         int periodYear = invoiceService.computeFiscalYear(request.creditNoteDate(), org.getFiscalYearStart());
         String cnNumber = invoiceService.generateNumber(orgId, "CN", periodYear);
-        BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.creditNoteDate());
+        BigDecimal exchangeRate = currencyService.getRate(org.getBaseCurrency(), org.getBaseCurrency(), request.creditNoteDate());
 
         CreditNote cn = CreditNote.builder()
                 .orgId(orgId)
@@ -106,7 +106,7 @@ public class CreditNoteService {
                 .creditNoteDate(request.creditNoteDate())
                 .reason(request.reason())
                 .status("DRAFT")
-                .currency("INR")
+                .currency(org.getBaseCurrency())
                 .exchangeRate(exchangeRate)
                 .placeOfSupply(placeOfSupply)
                 .createdBy(userId)

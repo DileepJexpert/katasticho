@@ -1185,8 +1185,8 @@ public class PayrollService {
         // because 2050 doubles as PF Payable in the Indian CoA template.
         // See V15 migration + DefaultAccountPurpose.java for the carve-out.
         if (gratuityAccrualTotal.compareTo(BigDecimal.ZERO) > 0) {
-            requireGulfAccount(orgId, "5060", "Gratuity Expense");
-            requireGulfAccount(orgId, "2050", "Gratuity Provision");
+            ensureGulfAccount(orgId, "5060", "Gratuity Expense");
+            ensureGulfAccount(orgId, "2050", "Gratuity Provision");
             lines.add(new JournalLineRequest(
                     "5060", gratuityAccrualTotal, BigDecimal.ZERO,
                     "Gratuity accrual — end of service", null, null));
@@ -1198,13 +1198,33 @@ public class PayrollService {
         return lines;
     }
 
-    private void requireGulfAccount(UUID orgId, String code, String label) {
-        accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(orgId, code)
-                .orElseThrow(() -> new BusinessException(
-                        "Missing CoA account " + code + " (" + label
-                                + ") — re-seed the Gulf chart of accounts",
-                        "PAYROLL_GULF_ACCOUNT_MISSING_" + code,
-                        HttpStatus.PRECONDITION_FAILED));
+    /**
+     * Self-healing replacement for the old hard-fail: a Gulf org whose chart
+     * was seeded from the India fallback (pre-V22 non-TRADING industries) has
+     * no 5060/2050, and failing the whole payroll run over a missing GL row
+     * punished the employee, not the configuration. Create the account with
+     * the correct shape instead; the boot-time template repair sweep parents
+     * it properly on the next restart.
+     */
+    private void ensureGulfAccount(UUID orgId, String code, String label) {
+        if (accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(orgId, code).isPresent()) {
+            return;
+        }
+        String country = countryAccessService.countryOf(orgId);
+        String currency = switch (country) {
+            case "AE" -> "AED";
+            case "OM" -> "OMR";
+            default -> "INR";
+        };
+        boolean expense = code.startsWith("5");
+        Account account = Account.builder()
+                .code(code).name(label)
+                .type(expense ? "EXPENSE" : "LIABILITY")
+                .subType(expense ? "OPERATING_EXPENSE" : "CURRENT_LIABILITY")
+                .level(2).currency(currency).active(true).build();
+        account.setOrgId(orgId);
+        accountRepository.save(account);
+        log.warn("Self-healed missing Gulf payroll account {} ({}) for org {}", code, label, orgId);
     }
 
     /**

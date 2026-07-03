@@ -1,5 +1,6 @@
 package com.katasticho.erp.automation;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.fieldsales.entity.DcrReport;
 import com.katasticho.erp.fieldsales.entity.RouteExecution;
@@ -35,6 +36,7 @@ public class DailyReportReminderJob {
     private final PushNotificationService pushNotificationService;
 
     @Scheduled(cron = "${app.automation.daily-report-reminder.cron:0 30 18 * * *}")
+    @SchedulerLock(name = "DailyReportReminderJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
     public void run() {
         LocalDate today = LocalDate.now();
         int reminded = 0;

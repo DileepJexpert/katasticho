@@ -192,11 +192,18 @@ public class ThreeWayMatchService {
     }
 
     /**
-     * Gate for payment / posting paths. When {@code ap.three_way_match.required}
-     * is on (default) and the bill is in EXCEPTION, throws so the planner has
-     * to either fix the source documents (re-run match) or override (OWNER/ADMIN
-     * only). When required is off, EXCEPTION still surfaces in the inbox but
-     * payment is allowed — the advisory mode.
+     * Gate for the <b>vendor-payment</b> path only (not bill posting). When
+     * {@code ap.three_way_match.required} is on (default) and the bill is in
+     * EXCEPTION, throws so the planner has to either fix the source documents
+     * (re-run match) or override (OWNER/ADMIN only). When required is off,
+     * EXCEPTION still surfaces in the inbox but payment is allowed — advisory mode.
+     *
+     * <p><b>Deliberately not wired into bill posting.</b> A direct vendor bill
+     * (no PO on any line) rolls up to EXCEPTION (every line is NO_PO), so gating
+     * {@code postBill} here would block posting <i>every</i> direct bill by default.
+     * The design records the liability freely and gates only the cash-out; a
+     * posting-time gate that blocks genuine PO variances while letting direct
+     * bills through would need a distinct per-line check, not this method.
      *
      * <p>OVERRIDDEN bills always pass — the override is the planner's final
      * word on the variance.

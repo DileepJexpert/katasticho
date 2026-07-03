@@ -22,12 +22,14 @@ public class PharmacyMasterService {
 
     private final ManufacturerMasterRepository manufacturerRepository;
     private final HsnGstMasterRepository hsnRepository;
+    private final HsnGstRateHistoryRepository rateHistoryRepository;
     private final RackLocationRepository rackRepository;
     private final GenericSubstitutionRepository substitutionRepository;
     private final DrugInteractionRepository interactionRepository;
     private final DrugMasterRepository drugMasterRepository;
     private final SaltMasterRepository saltMasterRepository;
     private final WarehouseRepository warehouseRepository;
+    private final java.time.Clock clock;
 
     public List<ManufacturerMasterResponse> searchManufacturers(String query, int limit) {
         return manufacturerRepository
@@ -90,6 +92,122 @@ public class PharmacyMasterService {
         return hsnRepository.findByHsnCodeAndActiveTrue(code)
                 .map(this::toHsn)
                 .orElseThrow(() -> BusinessException.notFound("HSN", code));
+    }
+
+    // ── GST rate history (effective-dated) ──────────────────────────────────
+
+    /** All rate periods for a code, newest-first. */
+    public List<HsnGstRateHistoryResponse> rateHistory(String hsnCode) {
+        return rateHistoryRepository.findByHsnCodeOrderByEffectiveFromDesc(safeCode(hsnCode))
+                .stream().map(this::toRateHistory).toList();
+    }
+
+    /**
+     * The GST rate in force for a code on a given date. Returns {@code null}
+     * when no history period covers the date — the caller falls back to the
+     * hsn_gst_master current rate. Reference/advisory only: document posting
+     * still uses the snapshotted line rate, unchanged.
+     */
+    public HsnGstRateHistoryResponse rateAsOf(String hsnCode, java.time.LocalDate onDate) {
+        if (onDate == null) {
+            throw new BusinessException("Date is required", "HSN_RATE_DATE_REQUIRED", HttpStatus.BAD_REQUEST);
+        }
+        return rateHistoryRepository
+                .findEffectiveOn(safeCode(hsnCode), onDate, PageRequest.of(0, 1))
+                .stream().findFirst().map(this::toRateHistory).orElse(null);
+    }
+
+    /**
+     * Add a new effective-dated rate period (a statutory rate change). Mirrors
+     * upsertHsn's shared-platform write policy (OWNER/ADMIN add; the controller
+     * gates the endpoint). When the new period is open-ended (effectiveTo null)
+     * it auto-closes the prior open period the day before, and mirrors the new
+     * rate into hsn_gst_master.gst_rate so the current-rate fast-path stays
+     * consistent.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public HsnGstRateHistoryResponse addRateHistory(String hsnCode, java.math.BigDecimal gstRate,
+                                                    java.math.BigDecimal cessRate,
+                                                    java.time.LocalDate effectiveFrom,
+                                                    java.time.LocalDate effectiveTo,
+                                                    String notificationRef, String source,
+                                                    String description) {
+        String code = safeCode(hsnCode);
+        if (code.isBlank()) {
+            throw new BusinessException("HSN code is required", "HSN_CODE_REQUIRED", HttpStatus.BAD_REQUEST);
+        }
+        if (gstRate == null || gstRate.signum() < 0 || gstRate.compareTo(new java.math.BigDecimal("100")) > 0) {
+            throw new BusinessException("GST rate must be between 0 and 100", "HSN_RATE_INVALID", HttpStatus.BAD_REQUEST);
+        }
+        if (effectiveFrom == null) {
+            throw new BusinessException("effectiveFrom is required", "HSN_RATE_FROM_REQUIRED", HttpStatus.BAD_REQUEST);
+        }
+        if (effectiveTo != null && effectiveTo.isBefore(effectiveFrom)) {
+            throw new BusinessException("effectiveTo must not be before effectiveFrom",
+                    "HSN_RATE_RANGE_INVALID", HttpStatus.BAD_REQUEST);
+        }
+        if (rateHistoryRepository.existsByHsnCodeAndEffectiveFrom(code, effectiveFrom)) {
+            throw new BusinessException(
+                    "A rate period already starts on " + effectiveFrom + " for HSN " + code,
+                    "HSN_RATE_PERIOD_EXISTS", HttpStatus.CONFLICT);
+        }
+
+        boolean openEnded = effectiveTo == null;
+        if (openEnded) {
+            // An open-ended period IS the current rate — it closes the prior
+            // open period and (below) mutates the shared platform
+            // hsn_gst_master row that drives EVERY tenant's tax defaults. That
+            // is the same cross-tenant write upsertHsn reserves for a platform
+            // admin. OWNER/ADMIN may still backfill CLOSED historical periods
+            // (reference data, no live impact).
+            String role = com.katasticho.erp.common.context.TenantContext.getCurrentRole();
+            if (!"PLATFORM_ADMIN".equals(role)) {
+                throw new BusinessException(
+                        "Changing the current GST rate for HSN " + code
+                                + " needs a platform admin; add a closed historical period instead.",
+                        "HSN_PLATFORM_ROW_READONLY", HttpStatus.FORBIDDEN);
+            }
+            // Close any prior open period the day before the new one starts.
+            for (HsnGstRateHistory open : rateHistoryRepository.findByHsnCodeAndEffectiveToIsNull(code)) {
+                if (!open.getEffectiveFrom().isBefore(effectiveFrom)) {
+                    throw new BusinessException(
+                            "New open period must start after the current one (" + open.getEffectiveFrom() + ")",
+                            "HSN_RATE_PERIOD_OVERLAP", HttpStatus.BAD_REQUEST);
+                }
+                open.setEffectiveTo(effectiveFrom.minusDays(1));
+                rateHistoryRepository.save(open);
+            }
+        }
+
+        HsnGstRateHistory row = HsnGstRateHistory.builder()
+                .hsnCode(code).gstRate(gstRate).cessRate(cessRate)
+                .effectiveFrom(effectiveFrom).effectiveTo(effectiveTo)
+                .notificationRef(notificationRef).source(source != null ? source : "MANUAL")
+                .description(description)
+                .build();
+        HsnGstRateHistory saved = rateHistoryRepository.save(row);
+
+        // Sync hsn_gst_master's single current rate ONLY when this open-ended
+        // period is effective now or in the past — a future-dated change must
+        // NOT change live tax defaults before its effective_from arrives
+        // (rateAsOf still returns the correct period-for-a-date meanwhile).
+        if (openEnded && !effectiveFrom.isAfter(java.time.LocalDate.now(clock))) {
+            hsnRepository.findByHsnCodeAndActiveTrue(code).ifPresent(master -> {
+                master.setGstRate(gstRate);
+                hsnRepository.save(master);
+            });
+        }
+        return toRateHistory(saved);
+    }
+
+    private static String safeCode(String hsnCode) {
+        return hsnCode == null ? "" : hsnCode.trim();
+    }
+
+    private HsnGstRateHistoryResponse toRateHistory(HsnGstRateHistory h) {
+        return new HsnGstRateHistoryResponse(h.getHsnCode(), h.getGstRate(), h.getCessRate(),
+                h.getEffectiveFrom(), h.getEffectiveTo(), h.getNotificationRef(),
+                h.getSource(), h.getDescription());
     }
 
     public List<RackLocationResponse> rackLocations(UUID warehouseId) {

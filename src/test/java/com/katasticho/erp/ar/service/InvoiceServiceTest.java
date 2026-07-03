@@ -515,6 +515,38 @@ class InvoiceServiceTest {
     }
 
     @Test
+    void invoiceCarriesOrgBaseCurrencyNotHardcodedInr() {
+        // A UAE org's invoice used to be stored and printed as INR.
+        org.setBaseCurrency("AED");
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contact.getId(), orgId))
+                .thenReturn(Optional.of(contact));
+        stubContactLookup(contact);
+        when(sequenceRepository.findByOrgIdAndPrefixAndYear(eq(orgId), eq("INV"), anyInt()))
+                .thenReturn(Optional.empty());
+        when(sequenceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        final Invoice[] saved = new Invoice[1];
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> {
+            Invoice i = inv.getArgument(0);
+            if (i.getId() == null) i.setId(UUID.randomUUID());
+            stubTaxLineLookup(i.getId(), Collections.emptyList());
+            saved[0] = i;
+            return i;
+        });
+        when(taxEngine.calculate(eq(orgId), isNull(), any(BigDecimal.class), eq(TaxEngine.TransactionType.SALE)))
+                .thenReturn(new TaxEngine.TaxCalculationResult(List.of(), BigDecimal.ZERO));
+
+        invoiceService.createInvoiceFromSalesOrder(new CreateInvoiceRequest(
+                contact.getId(), LocalDate.of(2026, 4, 11),
+                null, "MH", false, null, null,
+                List.of(new InvoiceLineRequest("Panadol", "3004", BigDecimal.ONE,
+                        new BigDecimal("100"), BigDecimal.ZERO, BigDecimal.ZERO, "4010",
+                        UUID.randomUUID(), null, null))));
+
+        assertEquals("AED", saved[0].getCurrency());
+    }
+
+    @Test
     void createInvoiceFromSalesOrder_allowsZeroValueFreeLineWhenTotalIsPositive() {
         when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
         when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contact.getId(), orgId))

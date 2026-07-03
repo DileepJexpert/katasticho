@@ -149,6 +149,45 @@ class FixedAssetServiceTest {
     }
 
     @Test
+    void computeScheduleFor_slm_sumsToDepreciableAndTerminatesAtResidual() {
+        // 12000 cost, 12-month life, 1000 residual → depreciable 11000, ~916.67/mo
+        FixedAsset a = slm("12000", 12, "1000");
+        a.setAcquisitionDate(LocalDate.of(2026, 1, 1)); // in the past
+        when(assetRepository.findByIdAndOrgIdAndIsDeletedFalse(a.getId(), orgId))
+                .thenReturn(java.util.Optional.of(a));
+        when(depreciationRepository.countByOrgIdAndFixedAssetId(orgId, a.getId())).thenReturn(0L);
+
+        List<Map<String, Object>> schedule = service.computeScheduleFor(a.getId());
+
+        assertEquals(12, schedule.size());
+        BigDecimal totalDep = schedule.stream()
+                .map(row -> (BigDecimal) row.get("depreciation"))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Σ depreciation == cost − residual, exactly (final period carries the residue)
+        assertEquals(0, new BigDecimal("11000").compareTo(totalDep));
+        BigDecimal lastClosing = (BigDecimal) schedule.get(schedule.size() - 1).get("closing");
+        assertEquals(0, new BigDecimal("1000").compareTo(lastClosing)); // lands on residual
+    }
+
+    @Test
+    void runDepreciation_flipsToFullyDepreciatedOnFinalPeriod() {
+        // life 1 month, already charged 0, so this is the final scheduled period.
+        FixedAsset a = slm("5000", 1, "0");
+        a.setAcquisitionDate(LocalDate.of(2026, 4, 1));
+        when(assetRepository.findByOrgIdAndStatusAndIsDeletedFalseOrderByAcquisitionDateAsc(orgId, "ACTIVE"))
+                .thenReturn(List.of(a));
+        when(depreciationRepository.existsByOrgIdAndFixedAssetIdAndPeriodYearAndPeriodMonth(
+                orgId, a.getId(), 2026, 5)).thenReturn(false);
+        when(depreciationRepository.countByOrgIdAndFixedAssetId(orgId, a.getId())).thenReturn(0L);
+
+        service.runDepreciation(2026, 5);
+
+        // residue-swept to book value 0 → terminal status
+        assertEquals("FULLY_DEPRECIATED", a.getStatus());
+        assertEquals(0, new BigDecimal("5000").compareTo(a.getAccumulatedDepreciation()));
+    }
+
+    @Test
     void incomeTax_blockSchedule_appliesHalfRateInAcquisitionYearUnder180Days() {
         // Computer, 40% IT WDV, bought 2026-12-01 (FY 2026-27) → < 180 days → half rate 20%
         FixedAsset comp = FixedAsset.builder().id(UUID.randomUUID()).orgId(orgId)

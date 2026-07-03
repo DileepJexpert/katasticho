@@ -13,7 +13,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 
+import java.sql.ResultSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -32,6 +34,7 @@ class NlpQueryServiceTest {
     private final UUID orgId = UUID.randomUUID();
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     void setUp() {
         TenantContext.setCurrentOrgId(orgId);
 
@@ -39,9 +42,24 @@ class NlpQueryServiceTest {
         config.setMaxSqlRows(100);
         config.setModel("claude-sonnet-4-20250514");
 
-        SqlValidator validator = new SqlValidator();
+        SqlValidator validator = new SqlValidator(jdbcTemplate);
         SchemaProvider schemaProvider = new SchemaProvider();
         ObjectMapper objectMapper = new ObjectMapper();
+
+        // SqlValidator.secure() discovers org-scoped tables from
+        // information_schema — feed it the tables these tests reference.
+        lenient().when(jdbcTemplate.query(eq(SqlValidator.TABLE_SCOPE_SQL), any(RowMapper.class)))
+                .thenAnswer(invocation -> {
+                    RowMapper<Object> mapper = invocation.getArgument(1);
+                    String[] tables = {"invoice", "account", "journal_line"};
+                    ResultSet rs = mock(ResultSet.class);
+                    for (int i = 0; i < tables.length; i++) {
+                        lenient().when(rs.getString("table_name")).thenReturn(tables[i]);
+                        lenient().when(rs.getBoolean("scoped")).thenReturn(true);
+                        mapper.mapRow(rs, i);
+                    }
+                    return List.of();
+                });
 
         nlpQueryService = new NlpQueryService(
                 claudeApiClient, validator, schemaProvider,

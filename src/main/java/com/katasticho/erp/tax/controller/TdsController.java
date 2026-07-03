@@ -4,6 +4,7 @@ import com.katasticho.erp.common.country.RequiresCountry;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.tax.service.Form16PdfService;
 import com.katasticho.erp.tax.service.Form24QExporter;
+import com.katasticho.erp.tax.service.Form26QExporter;
 import com.katasticho.erp.tax.service.SalaryTdsService;
 import com.katasticho.erp.tax.service.TdsService;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class TdsController {
     private final TdsService tdsService;
     private final SalaryTdsService salaryTdsService;
     private final Form24QExporter form24QExporter;
+    private final Form26QExporter form26QExporter;
     private final Form16PdfService form16PdfService;
 
     /** Bills with TDS deducted in the range — what to deposit via ITNS-281. */
@@ -52,6 +54,30 @@ public class TdsController {
             @RequestParam int fy,
             @RequestParam int quarter) {
         return ResponseEntity.ok(ApiResponse.ok(tdsService.form26q(fy, quarter)));
+    }
+
+    /** Form 26Q downloadable CSV — vendor-TDS register for auditors. */
+    @GetMapping(value = "/26q/csv")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<byte[]> form26qCsv(@RequestParam int fy, @RequestParam int quarter) {
+        String body = form26QExporter.csv(fy, quarter);
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType("text/csv"))
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + form26QExporter.filename(fy, quarter, "csv") + "\"")
+                .body(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    /** Form 26Q FVU deductee-detail (DD) block — `^`-separated, prepend FH/BH/CD in your FVU tool. */
+    @GetMapping(value = "/26q/fvu")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<byte[]> form26qFvu(@RequestParam int fy, @RequestParam int quarter) {
+        String body = form26QExporter.fvuDeducteeDetail(fy, quarter);
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.TEXT_PLAIN)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + form26QExporter.filename(fy, quarter, "txt") + "\"")
+                .body(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     /** Quarterly Form 24Q data (salary TDS): deductee-wise summary from posted payroll runs. */

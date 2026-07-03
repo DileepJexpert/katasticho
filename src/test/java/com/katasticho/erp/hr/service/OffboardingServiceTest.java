@@ -45,6 +45,7 @@ class OffboardingServiceTest {
     @Mock private EmployeeRepository employeeRepo;
     @Mock private CountryAccessService countryAccess;
     @Mock private GulfPayrollService gulfPayrollService;
+    @Mock private com.katasticho.erp.payroll.india.IndiaGratuityService indiaGratuityService;
     @Mock private JournalService journalService;
     @Mock private AccountRepository accountRepo;
     @Mock private OrgSettingsService orgSettingsService;
@@ -61,8 +62,8 @@ class OffboardingServiceTest {
     @BeforeEach
     void setUp() {
         service = new OffboardingService(offboardingRepo, taskRepo, employeeRepo,
-                countryAccess, gulfPayrollService, journalService, accountRepo,
-                orgSettingsService, clock);
+                countryAccess, gulfPayrollService, indiaGratuityService, journalService,
+                accountRepo, orgSettingsService, clock);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
@@ -177,13 +178,52 @@ class OffboardingServiceTest {
     }
 
     @Test
-    void payGratuity_indiaOrg_throwsNotApplicable() {
+    void payGratuity_indiaOrg_postsPayoutAgainstProvision2080() {
+        UUID id = UUID.randomUUID();
+        UUID empPayrollId = UUID.randomUUID();
+        Offboarding ob = Offboarding.builder().id(id).orgId(orgId).employeeUserId(empUserId)
+                .status("INITIATED").lastWorkingDay(LocalDate.of(2026, 6, 30)).build();
+        when(offboardingRepo.findByIdAndOrgIdAndIsDeletedFalse(id, orgId))
+                .thenReturn(Optional.of(ob));
+        when(countryAccess.countryOf(orgId)).thenReturn("IN");
+        Employee emp = Employee.builder().id(empPayrollId).userId(empUserId)
+                .employeeCode("E010").employmentStatus("ACTIVE")
+                .dateOfJoining(LocalDate.of(2019, 1, 1)).build();
+        when(employeeRepo.findByOrgIdAndUserIdAndIsDeletedFalse(orgId, empUserId))
+                .thenReturn(Optional.of(emp));
+        // eligible, capped payout ₹75,000
+        when(indiaGratuityService.computeFor(empPayrollId, LocalDate.of(2026, 6, 30)))
+                .thenReturn(new com.katasticho.erp.payroll.india.IndiaGratuityResult(
+                        new BigDecimal("7.500"), 8, true, new BigDecimal("26000"),
+                        new BigDecimal("120000.00"), new BigDecimal("120000.00"), "India formula"));
+        when(orgSettingsService.get(eq(orgId), eq("payroll.gratuity_payment_account_code"), eq("")))
+                .thenReturn("");
+        stubAccount("2080");
+        stubAccount("1010");
+        JournalEntry je = JournalEntry.builder().entryNumber("JE-2026-000300").build();
+        je.setId(UUID.randomUUID());
+        ArgumentCaptor<com.katasticho.erp.accounting.dto.JournalPostRequest> captor =
+                ArgumentCaptor.forClass(com.katasticho.erp.accounting.dto.JournalPostRequest.class);
+        when(journalService.postJournal(any())).thenReturn(je);
+        when(offboardingRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        Offboarding result = service.payGratuity(id, null);
+
+        assertEquals(0, result.getGratuityAmount().compareTo(new BigDecimal("120000.00")));
+        assertEquals(je.getId(), result.getGratuityJournalEntryId());
+        verify(journalService).postJournal(captor.capture());
+        assertEquals("2080", captor.getValue().lines().get(0).accountCode());
+        assertEquals(0, captor.getValue().lines().get(0).debit().compareTo(new BigDecimal("120000.00")));
+    }
+
+    @Test
+    void payGratuity_unsupportedCountry_throwsNotApplicable() {
         UUID id = UUID.randomUUID();
         Offboarding ob = Offboarding.builder().id(id).orgId(orgId).employeeUserId(empUserId)
                 .status("INITIATED").build();
         when(offboardingRepo.findByIdAndOrgIdAndIsDeletedFalse(id, orgId))
                 .thenReturn(Optional.of(ob));
-        when(countryAccess.countryOf(orgId)).thenReturn("IN");
+        when(countryAccess.countryOf(orgId)).thenReturn("KE");
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> service.payGratuity(id, null));

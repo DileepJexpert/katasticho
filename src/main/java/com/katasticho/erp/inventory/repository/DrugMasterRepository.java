@@ -27,4 +27,8 @@ public interface DrugMasterRepository extends JpaRepository<DrugMaster, UUID> {
     List<DrugMaster> search(@Param("q") String q, Pageable pageable);
 
     Optional<DrugMaster> findByGtinIgnoreCase(String gtin);
+
+    /** All brand names lower-cased — the bulk importer's duplicate check. */
+    @Query("SELECT LOWER(d.brandName) FROM DrugMaster d")
+    List<String> findAllBrandNamesLower();
 }

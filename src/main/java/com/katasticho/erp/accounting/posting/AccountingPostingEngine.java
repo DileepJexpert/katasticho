@@ -634,6 +634,8 @@ public class AccountingPostingEngine {
         return switch (mode) {
             case CASH -> defaultAccountService.getCode(orgId, DefaultAccountPurpose.CASH);
             case UPI, CARD, MIXED -> defaultAccountService.getCode(orgId, DefaultAccountPurpose.BANK);
+            // Khata sale: nothing hits the till — the total is receivable.
+            case CREDIT -> defaultAccountService.getCode(orgId, DefaultAccountPurpose.AR);
         };
     }
 

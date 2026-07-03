@@ -213,8 +213,10 @@ public class RoutingService {
         }
 
         RoutingOperation succ = routingOperationRepository.findById(successorRoutingOpId)
+                .filter(op -> orgId.equals(op.getOrgId()))
                 .orElseThrow(() -> BusinessException.notFound("RoutingOperation", successorRoutingOpId));
         RoutingOperation pred = routingOperationRepository.findById(predecessorRoutingOpId)
+                .filter(op -> orgId.equals(op.getOrgId()))
                 .orElseThrow(() -> BusinessException.notFound("RoutingOperation", predecessorRoutingOpId));
         if (succ.isDeleted() || pred.isDeleted()) {
             throw BusinessException.notFound("RoutingOperation", predecessorRoutingOpId);

@@ -373,6 +373,13 @@ const _inventoryGroup = NavGroup(
         activeIcon: Icons.percent_rounded,
         route: Routes.hsnMaster),
     NavItem(
+        id: 'inventory.drug_import',
+        label: 'Medicine Import',
+        icon: Icons.upload_file_outlined,
+        activeIcon: Icons.upload_file_rounded,
+        route: Routes.drugImport,
+        roles: ['OWNER', 'ADMIN']),
+    NavItem(
         id: 'inventory.stock_counts',
         label: 'Stock Counts',
         icon: Icons.fact_check_outlined,
@@ -524,6 +531,13 @@ const _accountingGroup = NavGroup(
         icon: Icons.schedule_outlined,
         activeIcon: Icons.schedule,
         route: Routes.amortization),
+    NavItem(
+        id: 'accounting.audit_trail',
+        label: 'Audit Trail',
+        icon: Icons.history_outlined,
+        activeIcon: Icons.history_rounded,
+        route: Routes.auditTrail,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT']),
   ],
 );
 

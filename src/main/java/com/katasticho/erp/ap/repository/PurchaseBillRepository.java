@@ -19,6 +19,10 @@ public interface PurchaseBillRepository extends JpaRepository<PurchaseBill, UUID
 
     Optional<PurchaseBill> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
+    /** All bills of the given vendors — MSME Form 1 walks these (small vendor set). */
+    List<PurchaseBill> findByOrgIdAndContactIdInAndIsDeletedFalse(
+            UUID orgId, java.util.Collection<UUID> contactIds);
+
     Page<PurchaseBill> findByOrgIdAndIsDeletedFalseOrderByBillDateDesc(UUID orgId, Pageable pageable);
 
     Page<PurchaseBill> findByOrgIdAndStatusAndIsDeletedFalseOrderByBillDateDesc(

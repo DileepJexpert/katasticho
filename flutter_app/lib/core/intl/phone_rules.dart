@@ -7,8 +7,9 @@
 ///
 /// Only a **minimum** length is enforced (matching the previous `< 10` check), so
 /// India stays byte-identical and a user may still type a leading country code
-/// (e.g. +971 50…) without being rejected. Unknown countries fall back to a
-/// permissive 7-digit floor.
+/// (e.g. +971 50…) without being rejected. Unknown OR unset (null) countries fall
+/// back to a permissive 7-digit floor — defaulting an unknown country to India's
+/// 10-digit rule would wrongly reject valid Gulf/Kenya numbers, defeating the point.
 class PhoneRule {
   /// Minimum national-significant-number digits (excluding the country dial code).
   final int minDigits;
@@ -28,7 +29,9 @@ class PhoneRules {
   static const PhoneRule _fallback = PhoneRule(7);
 
   static PhoneRule forCountry(String? code) =>
-      _byCountry[(code ?? 'IN').toUpperCase()] ?? _fallback;
+      (code == null || code.isEmpty)
+          ? _fallback
+          : (_byCountry[code.toUpperCase()] ?? _fallback);
 
   /// Validate the entered phone for [country]. Returns an error string for the
   /// form validator, or null when valid. India ("IN") keeps the prior 10-digit

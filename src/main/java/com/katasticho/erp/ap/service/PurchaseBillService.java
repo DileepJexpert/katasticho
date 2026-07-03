@@ -1,5 +1,6 @@
 package com.katasticho.erp.ap.service;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
 import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.entity.Account;
@@ -98,6 +99,7 @@ public class PurchaseBillService {
     private final DefaultAccountService defaultAccountService;
     private final CommentService commentService;
     private final DocumentSnapshotService documentSnapshotService;
+    private final com.katasticho.erp.common.event.DomainEventPublisher domainEventPublisher;
     private final StockReceiptLineRepository stockReceiptLineRepository;
     @Lazy private final ThreeWayMatchService threeWayMatchService;
 
@@ -130,7 +132,7 @@ public class PurchaseBillService {
                 ? request.dueDate()
                 : request.billDate().plusDays(contact.getPaymentTermsDays());
 
-        BigDecimal exchangeRate = currencyService.getRate("INR", org.getBaseCurrency(), request.billDate());
+        BigDecimal exchangeRate = currencyService.getRate(org.getBaseCurrency(), org.getBaseCurrency(), request.billDate());
 
         UUID branchId = request.branchId() != null
                 ? request.branchId()
@@ -146,7 +148,7 @@ public class PurchaseBillService {
                 .billDate(request.billDate())
                 .dueDate(dueDate)
                 .status("DRAFT")
-                .currency("INR")
+                .currency(org.getBaseCurrency())
                 .exchangeRate(exchangeRate)
                 .placeOfSupply(placeOfSupply)
                 .reverseCharge(request.reverseCharge())
@@ -341,6 +343,10 @@ public class PurchaseBillService {
                 "Bill posted to accounts payable");
         PurchaseBillResponse response = toResponse(bill);
         documentSnapshotService.createSnapshot("PURCHASE_BILL", bill.getId(), bill.getBillNumber(), response);
+        domainEventPublisher.publish("BILL_POSTED", "PURCHASE_BILL", bill.getId(), java.util.Map.of(
+                "billNumber", bill.getBillNumber(),
+                "status", bill.getStatus(),
+                "totalAmount", bill.getTotalAmount()));
         log.info("Purchase bill {} posted, journal={}", bill.getBillNumber(),
                 journalEntry.getEntryNumber());
         return response;
@@ -488,6 +494,7 @@ public class PurchaseBillService {
     // ── Overdue scheduler ───────────────────────────────────────
 
     @Scheduled(cron = "0 0 1 * * *")
+    @SchedulerLock(name = "PurchaseBillService", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
     @Transactional
     public void markOverdueBills() {
         List<UUID> orgIds = organisationRepository.findAll().stream()

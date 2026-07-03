@@ -134,6 +134,33 @@ public class SalesReceiptService {
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
+        // 2b. Khata (credit) sale — nothing collected at the counter, total
+        // books to AR. Gated by an org setting, and a customer is mandatory:
+        // a receivable with nobody behind it isn't a receivable.
+        Contact khataContact = null;
+        if (request.paymentMode() == PaymentMode.CREDIT) {
+            boolean allowCreditSales = Boolean.parseBoolean(
+                    orgSettingsService.get(orgId, "pos.allow_credit_sales", "false"));
+            if (!allowCreditSales) {
+                throw new BusinessException(
+                        "Credit (khata) sales are disabled — enable them in POS settings first.",
+                        "POS_CREDIT_DISABLED", HttpStatus.BAD_REQUEST);
+            }
+            if (request.contactId() == null) {
+                throw new BusinessException(
+                        "A customer is required for a credit (khata) sale — the amount must land on someone's ledger.",
+                        "POS_CREDIT_REQUIRES_CONTACT", HttpStatus.BAD_REQUEST);
+            }
+            khataContact = contactRepository
+                    .findByIdAndOrgIdAndIsDeletedFalse(request.contactId(), orgId)
+                    .orElseThrow(() -> BusinessException.notFound("Contact", request.contactId()));
+            if (khataContact.getContactType() != com.katasticho.erp.contact.entity.ContactType.CUSTOMER
+                    && khataContact.getContactType() != com.katasticho.erp.contact.entity.ContactType.BOTH) {
+                throw new BusinessException("Contact is not a customer",
+                        "POS_CREDIT_CONTACT_NOT_CUSTOMER", HttpStatus.BAD_REQUEST);
+            }
+        }
+
         // 3. Process line items — compute tax, build lines
         BigDecimal totalTax = BigDecimal.ZERO;
         BigDecimal cgstTotal = BigDecimal.ZERO;
@@ -308,6 +335,13 @@ public class SalesReceiptService {
         // 6. Deduct stock for tracked items
         deductStock(receipt, itemMap);
 
+        // 6a. Khata: the sale total is now receivable from the customer —
+        // mirror it onto the denormalized outstanding so credit ledger,
+        // collections and field-sales views pick it up immediately.
+        if (khataContact != null) {
+            adjustContactOutstandingAr(khataContact, receipt.getTotal());
+        }
+
         // 6b. Statutory pharma registers (H1 / Schedule X / Narcotics) — Rule
         // 65(11)(h) D&C Rules. Best-effort: non-business failures are logged
         // and swallowed so a register-writer bug never wedges a sale.
@@ -390,6 +424,12 @@ public class SalesReceiptService {
             }
         }
 
+        // 3. A returned khata sale takes its receivable back off the ledger.
+        if (receipt.getPaymentMode() == PaymentMode.CREDIT && receipt.getContactId() != null) {
+            contactRepository.findByIdAndOrgIdAndIsDeletedFalse(receipt.getContactId(), orgId)
+                    .ifPresent(c -> adjustContactOutstandingAr(c, receipt.getTotal().negate()));
+        }
+
         receipt.setStatus("RETURNED");
         receipt.setReturnedAt(Instant.now());
         receipt.setReturnReason(reason);
@@ -419,6 +459,15 @@ public class SalesReceiptService {
     }
 
     // Journal posting is now delegated to AccountingPostingEngine
+
+    /** Mirrors CustomerReceiptService: denormalized outstanding, floored at zero. */
+    private void adjustContactOutstandingAr(Contact contact, BigDecimal delta) {
+        if (delta == null || delta.compareTo(BigDecimal.ZERO) == 0) return;
+        BigDecimal current = contact.getOutstandingAr() != null
+                ? contact.getOutstandingAr() : BigDecimal.ZERO;
+        contact.setOutstandingAr(current.add(delta).max(BigDecimal.ZERO));
+        contactRepository.save(contact);
+    }
 
     // ── Stock deduction ─────────────────────────────────────────
 
