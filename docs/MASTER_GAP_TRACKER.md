@@ -77,26 +77,30 @@ UI) are NOT repeated here.
   voucher** (M).
 
 > **PROGRESS (2026-07-03):** two research gaps — *accounting module* (I6) +
-> *custom workflow* (I2).
+> *custom workflow* (I2) — **both DONE.**
 > - **I6 DONE** (see the ticked I6 line below). Fixed-asset auto-depreciation
 >   scheduler + terminal status + preview shipped, tested, boot-verified.
-> - **I2 IN PROGRESS:** full greenfield build mapped (understand workflow done).
->   Plan: V30 `workflow_rule` + `workflow_rule_execution`; `WorkflowRule`/`Execution`
->   entities + JSONB criteria/actions; `WorkflowFieldResolver` (event payload +
->   `DocumentSnapshotService` + `FieldExtractor` registry); `WorkflowRuleService`
->   (CRUD + evaluate + criteria eval + actions EMAIL/WEBHOOK/FIELD_UPDATE[allowlist]/
->   AI_SUGGESTION); `WorkflowRuleDomainEventHandler` (supports=ALL, rides the bus);
->   `WorkflowRuleController` (+dry-run + execution log); public `send()` on
->   EmailService; follow-up: add `domainEventPublisher.publish()` at bill/payment/
->   SO/PO/DC/expense lifecycle points (bus only emits INVOICE_POSTED today).
->   New pkg `com.katasticho.erp.workflow` (NOT common.workflow = approval engine).
+> - **I2 DONE** (see the ticked I2 line below). Workflow-rules engine shipped:
+>   V30 `workflow_rule`/`workflow_rule_execution`, criteria evaluator, field
+>   resolver (event payload + snapshot), EMAIL/WEBHOOK/AI_SUGGESTION/FIELD_UPDATE
+>   actions, domain-event handler (supports=ALL), controller + dry-run + metadata,
+>   BILL_POSTED/PAYMENT_RECORDED publish. Adversarial review caught + fixed 3
+>   defects (worker-thread null TenantContext, SSRF resolve-and-inspect, LT/LTE
+>   on missing field). 1595 backend tests pass; V30 boot-verified.
 
 ## Phase I — Platform extensibility (the trio every competitor sells against us)
 - [ ] **I1 Custom fields** on core entities (L) — typed, org-scoped, on
   contact/item/invoice/bill first; DTO+UI plumbing.
-- [ ] **I2 Workflow rules + webhooks** (L) — criteria → email/field-update/
-  webhook on document events (domain_event bus already exists). **← next up
-  (mapped, not started; see RESUME CHECKPOINT above).**
+- [x] **I2 Workflow rules + webhooks** (L) — DONE 2026-07-03. Criteria →
+  EMAIL/WEBHOOK(signed, SSRF-guarded)/AI_SUGGESTION/FIELD_UPDATE(allowlisted) on
+  document events, riding the existing domain-event bus (handler supports=ALL).
+  V30 `workflow_rule` + `workflow_rule_execution` (idempotency); `WorkflowRuleService`
+  (CRUD + evaluate + per-rule isolation + REQUIRES_NEW execution recorder);
+  `WorkflowCriteriaEvaluator` (EQ/NE/GT/GTE/LT/LTE/CONTAINS/IN/IS_EMPTY numeric-coercing);
+  `WorkflowFieldResolver` (payload + snapshot); controller @ `/api/v1/workflow-rules`
+  (+dry-run + executions + metadata); BILL_POSTED/PAYMENT_RECORDED publish added.
+  Adversarial review fixed 3 defects (worker-thread TenantContext, SSRF, LT/LTE-null).
+  1595 backend tests pass. **Flutter rule-builder UI = follow-up.**
 - [ ] **I3 Custom report builder + scheduled report emails + report tags** (L).
 - [ ] **I4 PDF template gallery** per document (M).
 - [ ] **I5 Customer & vendor portals** (L) — view/pay/accept/upload; MFA.

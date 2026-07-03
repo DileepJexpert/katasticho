@@ -66,4 +66,18 @@ class WorkflowCriteriaEvaluatorTest {
     void empty_criteria_matches() {
         assertThat(ev.matches("ALL", List.of(), fields)).isTrue();
     }
+
+    @Test
+    void lt_lte_on_missing_field_do_not_match() {
+        // A missing/null field must NOT read as "less than" — otherwise a
+        // `field < N` rule would fire on every document lacking the field.
+        Map<String, Object> f = Map.of("status", "OVERDUE");
+        assertThat(ev.matches("ALL", List.of(c("totalAmount", "LT", "1000")), f)).isFalse();
+        assertThat(ev.matches("ALL", List.of(c("totalAmount", "LTE", "1000")), f)).isFalse();
+        // GT/GTE/EQ on a missing field are already false; NE is true (null != value).
+        assertThat(ev.matches("ALL", List.of(c("totalAmount", "GT", "1000")), f)).isFalse();
+        assertThat(ev.matches("ALL", List.of(c("totalAmount", "GTE", "1000")), f)).isFalse();
+        assertThat(ev.matches("ALL", List.of(c("totalAmount", "EQ", "1000")), f)).isFalse();
+        assertThat(ev.matches("ALL", List.of(c("totalAmount", "NE", "1000")), f)).isTrue();
+    }
 }

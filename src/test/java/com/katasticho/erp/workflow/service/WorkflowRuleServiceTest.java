@@ -230,4 +230,72 @@ class WorkflowRuleServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", "WORKFLOW_ACTIONS_REQUIRED");
     }
+
+    // ── worker-thread tenant context (evaluate is called with NO TenantContext) ──
+
+    @Test
+    void evaluate_on_worker_thread_resolves_org_from_event_not_thread_local() {
+        // The real domain-event worker never populates TenantContext — simulate it.
+        TenantContext.clear();
+        WorkflowRule r = rule(null, WorkflowAction.builder().type("FIELD_UPDATE")
+                .config(Map.of("field", "notes", "value", "flagged by workflow")).build());
+        when(ruleRepository.findByOrgIdAndEntityTypeAndTriggerEventAndActiveTrueAndIsDeletedFalseOrderByRunOrderAsc(
+                orgId, "INVOICE", "INVOICE_POSTED")).thenReturn(List.of(r));
+        when(fieldResolver.resolve(any(DomainEvent.class))).thenReturn(Map.of());
+        var inv = new com.katasticho.erp.ar.entity.Invoice();
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
+                .thenReturn(java.util.Optional.of(inv));
+
+        svc.evaluate(invoicePostedEvent());
+
+        // Mutator resolved the invoice with the EVENT's org (not the null ThreadLocal)…
+        verify(invoiceRepository).findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId);
+        assertThat(inv.getNotes()).isEqualTo("flagged by workflow");
+        // …the dedupe/execution row was recorded (idempotency backstop lives)…
+        verify(executionRecorder).record(eq(r.getId()), eq(eventId), eq("INVOICE"), eq(invoiceId),
+                eq(true), eq("MATCHED"), eq(1), anyMap());
+        // …and TenantContext was restored to its prior (empty) state afterwards.
+        assertThat(TenantContext.getCurrentOrgId()).isNull();
+    }
+
+    // ── SSRF webhook guard (resolve-and-inspect) ──
+
+    @Test
+    void create_rejects_webhook_to_ipv4_loopback() {
+        WorkflowRule r = rule(null, WorkflowAction.builder().type("WEBHOOK")
+                .config(Map.of("url", "https://127.0.0.1/hook")).build());
+        assertThatThrownBy(() -> svc.create(r))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", "WORKFLOW_WEBHOOK_INTERNAL_HOST");
+    }
+
+    @Test
+    void create_rejects_webhook_to_ipv6_loopback() {
+        WorkflowRule r = rule(null, WorkflowAction.builder().type("WEBHOOK")
+                .config(Map.of("url", "https://[::1]/hook")).build());
+        assertThatThrownBy(() -> svc.create(r))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", "WORKFLOW_WEBHOOK_INTERNAL_HOST");
+    }
+
+    @Test
+    void create_rejects_webhook_to_cloud_metadata_ip() {
+        // 169.254.169.254 is link-local (AWS/GCP/Azure metadata) — must be blocked.
+        WorkflowRule r = rule(null, WorkflowAction.builder().type("WEBHOOK")
+                .config(Map.of("url", "https://169.254.169.254/latest/meta-data/")).build());
+        assertThatThrownBy(() -> svc.create(r))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", "WORKFLOW_WEBHOOK_INTERNAL_HOST");
+    }
+
+    @Test
+    void create_rejects_webhook_to_decimal_encoded_loopback() {
+        // 2130706433 == 127.0.0.1. The OLD literal-prefix check let this through
+        // (a real SSRF hole); resolve-and-inspect catches it.
+        WorkflowRule r = rule(null, WorkflowAction.builder().type("WEBHOOK")
+                .config(Map.of("url", "https://2130706433/hook")).build());
+        assertThatThrownBy(() -> svc.create(r))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", "WORKFLOW_WEBHOOK_INTERNAL_HOST");
+    }
 }

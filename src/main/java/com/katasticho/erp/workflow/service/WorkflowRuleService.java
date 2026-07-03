@@ -131,25 +131,40 @@ public class WorkflowRuleService {
         if (rules.isEmpty()) {
             return;
         }
-        Map<String, Object> fields = fieldResolver.resolve(event);
 
-        for (WorkflowRule rule : rules) {
-            try {
-                if (event.getId() != null && executionRepository
-                        .existsByOrgIdAndRuleIdAndEventIdAndIsDeletedFalse(orgId, rule.getId(), event.getId())) {
-                    continue; // already run for this event (retry-safe)
+        // The domain-event worker thread does NOT populate TenantContext (the bus
+        // never sets it; the existing handlers pass event.getOrgId() explicitly).
+        // Our action executors, the InvoiceFieldMutator, AiSuggestionService.requireOrgId,
+        // and the execution recorder all read TenantContext, so establish it from the
+        // event for the duration of evaluation and restore it afterwards (mirrors
+        // DailyReportReminderJob / RecurringDocumentJob). Without this the execution
+        // dedupe row (org_id NOT NULL) never commits and matched EMAIL/WEBHOOK actions
+        // re-fire on every at-least-once retry.
+        UUID priorOrg = TenantContext.getCurrentOrgId();
+        try {
+            TenantContext.setCurrentOrgId(orgId);
+            Map<String, Object> fields = fieldResolver.resolve(event);
+
+            for (WorkflowRule rule : rules) {
+                try {
+                    if (event.getId() != null && executionRepository
+                            .existsByOrgIdAndRuleIdAndEventIdAndIsDeletedFalse(orgId, rule.getId(), event.getId())) {
+                        continue; // already run for this event (retry-safe)
+                    }
+                    if (!criteriaEvaluator.matches(rule.getMatchType(), rule.getCriteria(), fields)) {
+                        continue; // no side effects — safe to re-evaluate on a retry
+                    }
+                    ActionOutcome outcome = executeActions(rule, event.getEntityType(), event.getEntityId(), fields);
+                    executionRecorder.record(rule.getId(), event.getId(), event.getEntityType(),
+                            event.getEntityId(), true, outcome.status(), outcome.ran(), outcome.detail());
+                } catch (Exception e) {
+                    // Per-rule isolation: one bad rule must not fail the event (which
+                    // would retry-loop and starve the AI / e-invoice handlers).
+                    log.warn("Workflow rule {} failed on event {}: {}", rule.getId(), event.getId(), e.getMessage());
                 }
-                if (!criteriaEvaluator.matches(rule.getMatchType(), rule.getCriteria(), fields)) {
-                    continue; // no side effects — safe to re-evaluate on a retry
-                }
-                ActionOutcome outcome = executeActions(rule, event.getEntityType(), event.getEntityId(), fields);
-                executionRecorder.record(rule.getId(), event.getId(), event.getEntityType(),
-                        event.getEntityId(), true, outcome.status(), outcome.ran(), outcome.detail());
-            } catch (Exception e) {
-                // Per-rule isolation: one bad rule must not fail the event (which
-                // would retry-loop and starve the AI / e-invoice handlers).
-                log.warn("Workflow rule {} failed on event {}: {}", rule.getId(), event.getId(), e.getMessage());
             }
+        } finally {
+            TenantContext.setCurrentOrgId(priorOrg);
         }
     }
 
@@ -338,7 +353,15 @@ public class WorkflowRuleService {
         });
     }
 
-    /** Reject non-https and internal/loopback/link-local hosts (SSRF guard). */
+    /**
+     * SSRF guard: reject non-https URLs and any host that resolves to an
+     * internal/loopback/link-local/site-local address. Resolve-and-inspect (not
+     * literal string matching) so encoded IP literals (decimal/hex/octal), IPv6
+     * loopback forms, and public hostnames that resolve to internal ranges (incl.
+     * the 169.254.169.254 cloud-metadata endpoint) are all caught. A DNS-rebind
+     * between this check and the actual POST is a residual we accept for a
+     * semi-trusted admin-configured webhook.
+     */
     void validateWebhookUrl(String url) {
         if (url == null || url.isBlank()) {
             throw new BusinessException("WEBHOOK action needs a URL", "WORKFLOW_WEBHOOK_NO_URL", HttpStatus.BAD_REQUEST);
@@ -352,17 +375,47 @@ public class WorkflowRuleService {
         if (!"https".equalsIgnoreCase(uri.getScheme())) {
             throw new BusinessException("Webhook URL must be https", "WORKFLOW_WEBHOOK_NOT_HTTPS", HttpStatus.BAD_REQUEST);
         }
-        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase();
-        if (host.isEmpty() || host.equals("localhost") || host.endsWith(".local")
-                || host.equals("127.0.0.1") || host.equals("0.0.0.0") || host.equals("[::1]")
-                || host.startsWith("10.") || host.startsWith("192.168.")
-                || host.startsWith("169.254.") || host.startsWith("172.16.")
-                || host.startsWith("172.17.") || host.startsWith("172.18.") || host.startsWith("172.19.")
-                || host.startsWith("172.2") || host.startsWith("172.30.") || host.startsWith("172.31.")
-                || host.endsWith(".internal")) {
-            throw new BusinessException("Webhook host is not allowed (internal/loopback)",
-                    "WORKFLOW_WEBHOOK_INTERNAL_HOST", HttpStatus.BAD_REQUEST);
+        String host = uri.getHost();
+        if (host == null || host.isBlank()) {
+            // URI.getHost() returns null for malformed/unbracketed IPv6 or hosts with
+            // illegal chars — refuse rather than let RestTemplate resolve it.
+            throw new BusinessException("Webhook host is not allowed", "WORKFLOW_WEBHOOK_INTERNAL_HOST", HttpStatus.BAD_REQUEST);
         }
+        String cleanHost = host;
+        if (cleanHost.startsWith("[") && cleanHost.endsWith("]")) {
+            cleanHost = cleanHost.substring(1, cleanHost.length() - 1); // strip IPv6 brackets
+        }
+        java.net.InetAddress[] addrs;
+        try {
+            addrs = java.net.InetAddress.getAllByName(cleanHost);
+        } catch (java.net.UnknownHostException e) {
+            throw new BusinessException("Webhook host could not be resolved",
+                    "WORKFLOW_WEBHOOK_UNRESOLVABLE", HttpStatus.BAD_REQUEST);
+        }
+        if (addrs.length == 0) {
+            throw new BusinessException("Webhook host could not be resolved",
+                    "WORKFLOW_WEBHOOK_UNRESOLVABLE", HttpStatus.BAD_REQUEST);
+        }
+        for (java.net.InetAddress addr : addrs) {
+            if (isBlockedAddress(addr)) {
+                throw new BusinessException("Webhook host is not allowed (internal/loopback)",
+                        "WORKFLOW_WEBHOOK_INTERNAL_HOST", HttpStatus.BAD_REQUEST);
+            }
+        }
+    }
+
+    /** True for loopback/any-local/link-local (incl. 169.254 metadata)/site-local/multicast/CGNAT. */
+    private static boolean isBlockedAddress(java.net.InetAddress addr) {
+        if (addr.isAnyLocalAddress() || addr.isLoopbackAddress() || addr.isLinkLocalAddress()
+                || addr.isSiteLocalAddress() || addr.isMulticastAddress()) {
+            return true;
+        }
+        byte[] b = addr.getAddress();
+        if (b.length == 4) {
+            int o0 = b[0] & 0xFF, o1 = b[1] & 0xFF;
+            if (o0 == 100 && o1 >= 64 && o1 <= 127) return true; // 100.64.0.0/10 CGNAT
+        }
+        return false;
     }
 
     // ── helpers ───────────────────────────────────────────────────────────

@@ -46,8 +46,17 @@ public class WorkflowCriteriaEvaluator {
             case "NE" -> compare(actual, expected) != 0;
             case "GT" -> compare(actual, expected) > 0;
             case "GTE" -> compare(actual, expected) >= 0;
-            case "LT" -> compare(actual, expected) < 0;
-            case "LTE" -> compare(actual, expected) <= 0;
+            // MIN_VALUE is the "incomparable" sentinel (a null field vs a value).
+            // Guard it in LT/LTE so a missing field is never treated as "less than"
+            // — otherwise `field < N` would fire on every document lacking `field`.
+            case "LT" -> {
+                int r = compare(actual, expected);
+                yield r != Integer.MIN_VALUE && r < 0;
+            }
+            case "LTE" -> {
+                int r = compare(actual, expected);
+                yield r != Integer.MIN_VALUE && r <= 0;
+            }
             case "CONTAINS" -> actual != null && expected != null
                     && str(actual).toLowerCase().contains(str(expected).toLowerCase());
             case "IN" -> in(actual, expected);
