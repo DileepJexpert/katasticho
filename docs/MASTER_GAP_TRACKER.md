@@ -61,7 +61,15 @@ UI) are NOT repeated here.
   payment-id) → settles invoice; public `POST /api/v1/webhooks/razorpay/{orgToken}`
   (per-org path token, permit-all + per-org HMAC); `POST /invoices/{id}/payment-link`
   + masked `/settings/razorpay`; 13 tests. Flutter "Get payment link" button = follow-up.)
-- [ ] **H2 Instalment payment terms + dunning levels** (M) — Odoo parity.
+- [x] **H2 Instalment payment terms + dunning levels** (M) — Odoo parity. DONE 2026-07-03.
+  V31 `payment_term`/`payment_term_line`/`invoice_instalment` + `dunning_level`/`dunning_log`.
+  `PaymentTermService` (percent/BALANCE schedule, remainder-on-last, apply-to-invoice, derived
+  per-instalment status from amountPaid waterfall — payment engine untouched); `DunningService` +
+  `DunningDispatcher` (REQUIRES_NEW claim-before-send, instalment-aware overdue, EMAIL/WHATSAPP/
+  AI_INBOX/NONE, escalate-in-place) + ShedLock `DunningJob`. Endpoints `/api/v1/payment-terms`,
+  `/api/v1/invoices/{id}/instalments`, `/api/v1/dunning`. Adversarial review fixed 3 defects
+  (concurrent-sweep double-send/poison, duplicate-seq collision, >100% negative instalment).
+  27 tests; V31 boot-verified; 1622 backend pass. **Flutter UI = follow-up.**
 - [x] **H3 Recurring bills + recurring journals** (S each). → DONE 2026-07-02
   (V28 `recurring_bill`/`recurring_journal` + generation audit tables, JSONB
   line payload mirroring recurring_invoice; `RecurringBillService` drafts a
