@@ -99,6 +99,7 @@ public class PurchaseBillService {
     private final DefaultAccountService defaultAccountService;
     private final CommentService commentService;
     private final DocumentSnapshotService documentSnapshotService;
+    private final com.katasticho.erp.common.event.DomainEventPublisher domainEventPublisher;
     private final StockReceiptLineRepository stockReceiptLineRepository;
     @Lazy private final ThreeWayMatchService threeWayMatchService;
 
@@ -342,6 +343,10 @@ public class PurchaseBillService {
                 "Bill posted to accounts payable");
         PurchaseBillResponse response = toResponse(bill);
         documentSnapshotService.createSnapshot("PURCHASE_BILL", bill.getId(), bill.getBillNumber(), response);
+        domainEventPublisher.publish("BILL_POSTED", "PURCHASE_BILL", bill.getId(), java.util.Map.of(
+                "billNumber", bill.getBillNumber(),
+                "status", bill.getStatus(),
+                "totalAmount", bill.getTotalAmount()));
         log.info("Purchase bill {} posted, journal={}", bill.getBillNumber(),
                 journalEntry.getEntryNumber());
         return response;
