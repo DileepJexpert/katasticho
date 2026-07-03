@@ -5,9 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:katasticho/core/widgets/k_typeahead_field.dart';
 
 Future<List<String>> _alwaysFruit(String q) async {
+  // "Always fruit" — a deterministic stub for the WIDGET tests (debounce, overlay
+  // render, keyboard nav). It returns the full list for any non-empty query so the
+  // assertions don't depend on which letters happen to appear in each fruit.
   const all = ['Apple', 'Banana', 'Cherry'];
   if (q.isEmpty) return const [];
-  return all.where((s) => s.toLowerCase().contains(q.toLowerCase())).toList();
+  return all;
 }
 
 Widget _harness({

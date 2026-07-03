@@ -39,7 +39,9 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:*}")
     private List<String> allowedOrigins;
 
-    @Value("${app.cors.dev-mode:true}")
+    // Secure by default: a missing property fails CLOSED (restrictive origins),
+    // never OPEN (wildcard). Local dev opts in via CORS_DEV_MODE=true.
+    @Value("${app.cors.dev-mode:false}")
     private boolean devMode;
 
     @Bean

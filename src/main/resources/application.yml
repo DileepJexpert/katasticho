@@ -103,7 +103,9 @@ app:
     auth-requests-per-minute: ${RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE:20}
     ai-requests-per-minute: ${RATE_LIMIT_AI_REQUESTS_PER_MINUTE:10}
   cors:
-    dev-mode: ${CORS_DEV_MODE:true}
+    # Secure by default: a missing env var fails CLOSED (uses allowed-origins), not
+    # OPEN (wildcard). Local dev sets CORS_DEV_MODE=true to allow all origins.
+    dev-mode: ${CORS_DEV_MODE:false}
     allowed-origins: ${CORS_ALLOWED_ORIGINS:https://yourdomain.com}
   billing:
     # Keep disabled while the product is in build/free-beta mode so every
