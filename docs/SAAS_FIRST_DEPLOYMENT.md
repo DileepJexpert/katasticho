@@ -57,6 +57,7 @@ CORS_ALLOWED_ORIGINS=https://app.yourdomain.com
 DB_PASSWORD=<strong-password>
 REDIS_PASSWORD=<strong-password>
 JWT_SECRET=<openssl-rand-base64-64>
+JWT_PLATFORM_ADMIN_SECRET=<openssl-rand-base64-64>
 MAIL_PASSWORD=<smtp-or-resend-key>
 SENTRY_DSN=<optional-but-recommended>
 ```

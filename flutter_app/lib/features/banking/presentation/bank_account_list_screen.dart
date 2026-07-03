@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/bank_account_repository.dart';
 
@@ -55,7 +54,8 @@ class BankAccountListScreen extends ConsumerWidget {
             );
           }
           return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(bankAccountListProvider(false)),
+            onRefresh: () async =>
+                ref.invalidate(bankAccountListProvider(false)),
             child: ListView.separated(
               padding: const EdgeInsets.all(KSpacing.md),
               itemCount: rows.length,
@@ -106,13 +106,16 @@ class BankAccountListScreen extends ConsumerWidget {
                 Wrap(spacing: KSpacing.md, runSpacing: 2, children: [
                   if (acctNo.isNotEmpty)
                     Text('A/c $acctNo',
-                        style: KTypography.mono(size: 12, color: KColors.textSecondary)),
+                        style: KTypography.mono(
+                            size: 12, color: KColors.textSecondary)),
                   if (ifsc.isNotEmpty)
                     Text(ifsc,
-                        style: KTypography.mono(size: 12, color: KColors.textSecondary)),
+                        style: KTypography.mono(
+                            size: 12, color: KColors.textSecondary)),
                   if (glCode.isNotEmpty)
                     Text('GL $glCode',
-                        style: KTypography.mono(size: 12, color: KColors.textHint)),
+                        style: KTypography.mono(
+                            size: 12, color: KColors.textHint)),
                 ]),
               ],
             ),
@@ -122,7 +125,8 @@ class BankAccountListScreen extends ConsumerWidget {
             itemBuilder: (_) => [
               const PopupMenuItem(value: 'edit', child: Text('Edit')),
               if (!isDefault)
-                const PopupMenuItem(value: 'default', child: Text('Set as default')),
+                const PopupMenuItem(
+                    value: 'default', child: Text('Set as default')),
               const PopupMenuItem(value: 'delete', child: Text('Remove')),
             ],
           ),
@@ -165,7 +169,9 @@ class BankAccountListScreen extends ConsumerWidget {
         title: const Text('Remove bank account?'),
         content: Text('"$name" will be hidden. Its GL ledger is kept.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: KColors.error),
@@ -176,8 +182,8 @@ class BankAccountListScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _openForm(
-      BuildContext context, WidgetRef ref, Map<String, dynamic>? existing) async {
+  Future<void> _openForm(BuildContext context, WidgetRef ref,
+      Map<String, dynamic>? existing) async {
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -232,7 +238,16 @@ class _BankAccountFormSheetState extends ConsumerState<_BankAccountFormSheet> {
 
   @override
   void dispose() {
-    for (final c in [_name, _bankName, _accountNumber, _ifsc, _branch, _glCode, _opening, _notes]) {
+    for (final c in [
+      _name,
+      _bankName,
+      _accountNumber,
+      _ifsc,
+      _branch,
+      _glCode,
+      _opening,
+      _notes
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -278,7 +293,8 @@ class _BankAccountFormSheetState extends ConsumerState<_BankAccountFormSheet> {
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
-      padding: EdgeInsets.fromLTRB(KSpacing.md, KSpacing.md, KSpacing.md, bottom + KSpacing.md),
+      padding: EdgeInsets.fromLTRB(
+          KSpacing.md, KSpacing.md, KSpacing.md, bottom + KSpacing.md),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -287,9 +303,11 @@ class _BankAccountFormSheetState extends ConsumerState<_BankAccountFormSheet> {
             Text(_isEdit ? 'Edit bank account' : 'New bank account',
                 style: KTypography.labelLarge),
             const SizedBox(height: KSpacing.md),
-            KTextField(label: 'Name', controller: _name, hint: 'HDFC Current ••4521'),
+            KTextField(
+                label: 'Name', controller: _name, hint: 'HDFC Current ••4521'),
             const SizedBox(height: KSpacing.sm),
-            KTextField(label: 'Bank name', controller: _bankName, hint: 'HDFC Bank'),
+            KTextField(
+                label: 'Bank name', controller: _bankName, hint: 'HDFC Bank'),
             const SizedBox(height: KSpacing.sm),
             Row(children: [
               Expanded(
@@ -309,8 +327,11 @@ class _BankAccountFormSheetState extends ConsumerState<_BankAccountFormSheet> {
             KTextField(
               label: 'Opening balance',
               controller: _opening,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))
+              ],
               prefixIcon: Icons.currency_rupee,
             ),
             const SizedBox(height: KSpacing.sm),
@@ -326,7 +347,8 @@ class _BankAccountFormSheetState extends ConsumerState<_BankAccountFormSheet> {
               contentPadding: EdgeInsets.zero,
               title: const Text('Default account'),
               subtitle: Text('Used by reconciliation when none is picked',
-                  style: KTypography.bodySmall.copyWith(color: KColors.textHint)),
+                  style:
+                      KTypography.bodySmall.copyWith(color: KColors.textHint)),
               value: _isDefault,
               onChanged: (v) => setState(() => _isDefault = v),
             ),
@@ -345,7 +367,7 @@ class _BankAccountFormSheetState extends ConsumerState<_BankAccountFormSheet> {
 
   Widget _typeDropdown() {
     return DropdownButtonFormField<String>(
-      value: _type,
+      initialValue: _type,
       decoration: const InputDecoration(
         labelText: 'Type',
         border: OutlineInputBorder(),

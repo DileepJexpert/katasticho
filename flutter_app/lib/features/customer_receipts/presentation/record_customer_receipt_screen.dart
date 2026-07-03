@@ -151,7 +151,8 @@ class _RecordCustomerReceiptScreenState
     for (final inv in _invoices) {
       final id = inv['id'] as String;
       final balance = (inv['balanceDue'] as num?)?.toDouble() ?? 0;
-      final give = remaining <= 0 ? 0.0 : (remaining < balance ? remaining : balance);
+      final give =
+          remaining <= 0 ? 0.0 : (remaining < balance ? remaining : balance);
       _allocControllers[id]!.text = give > 0 ? give.toStringAsFixed(2) : '';
       remaining -= give;
     }
@@ -302,7 +303,7 @@ class _RecordCustomerReceiptScreenState
 
   Widget _methodDropdown() {
     return DropdownButtonFormField<String>(
-      value: _paymentMethod,
+      initialValue: _paymentMethod,
       decoration: const InputDecoration(
         labelText: 'Method',
         border: OutlineInputBorder(),
@@ -386,7 +387,8 @@ class _RecordCustomerReceiptScreenState
               icon: const Icon(Icons.auto_fix_high, size: 16),
               label: const Text('Auto-allocate'),
             ),
-            TextButton(onPressed: _clearAllocations, child: const Text('Clear')),
+            TextButton(
+                onPressed: _clearAllocations, child: const Text('Clear')),
           ],
         ),
         const SizedBox(height: KSpacing.sm),
@@ -456,8 +458,8 @@ class _RecordCustomerReceiptScreenState
         children: [
           _summaryRow('Received', _received, KColors.textPrimary),
           const Divider(height: KSpacing.md),
-          _summaryRow('Allocated to invoices', _totalAllocated,
-              KColors.textSecondary),
+          _summaryRow(
+              'Allocated to invoices', _totalAllocated, KColors.textSecondary),
           const Divider(height: KSpacing.md),
           _summaryRow(
             overAllocated ? 'Over-allocated' : 'Advance (unapplied)',

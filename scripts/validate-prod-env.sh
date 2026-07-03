@@ -13,6 +13,7 @@ require_var() {
 
 require_var DB_PASSWORD
 require_var JWT_SECRET
+require_var JWT_PLATFORM_ADMIN_SECRET
 
 if [ -n "$missing" ]; then
   echo "Missing required production environment variables:$missing" >&2
@@ -37,6 +38,12 @@ fi
 secret_len=$(printf '%s' "$JWT_SECRET" | wc -c | tr -d ' ')
 if [ "$secret_len" -lt 32 ]; then
   echo "JWT_SECRET is too short. Generate one with: openssl rand -base64 64" >&2
+  exit 1
+fi
+
+platform_secret_len=$(printf '%s' "$JWT_PLATFORM_ADMIN_SECRET" | wc -c | tr -d ' ')
+if [ "$platform_secret_len" -lt 32 ]; then
+  echo "JWT_PLATFORM_ADMIN_SECRET is too short. Generate one with: openssl rand -base64 64" >&2
   exit 1
 fi
 

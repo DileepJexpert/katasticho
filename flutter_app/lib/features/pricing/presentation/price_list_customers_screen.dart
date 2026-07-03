@@ -27,7 +27,9 @@ class PriceListCustomersScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(listName == null ? 'Price List Customers' : '$listName · Customers'),
+        title: Text(listName == null
+            ? 'Price List Customers'
+            : '$listName · Customers'),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _assign(context, ref),
@@ -111,6 +113,7 @@ class PriceListCustomersScreen extends ConsumerWidget {
       title: 'Assign a customer',
     );
     if (contact == null) return;
+    if (!context.mounted) return;
     final id = contact['id']?.toString();
     if (id == null) return;
     final messenger = ScaffoldMessenger.of(context);
@@ -126,8 +129,8 @@ class PriceListCustomersScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _unassign(
-      BuildContext context, WidgetRef ref, String contactId, String name) async {
+  Future<void> _unassign(BuildContext context, WidgetRef ref, String contactId,
+      String name) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -148,6 +151,7 @@ class PriceListCustomersScreen extends ConsumerWidget {
       ),
     );
     if (ok != true) return;
+    if (!context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     try {
       await ref

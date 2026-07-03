@@ -317,6 +317,9 @@ public class PurchaseBillService {
                     "AP_BILL_NOT_DRAFT", HttpStatus.BAD_REQUEST);
         }
 
+        threeWayMatchService.match(bill.getId());
+        threeWayMatchService.assertPostable(bill.getId());
+
         // Post journal via the accounting posting engine
         JournalEntry journalEntry = postingEngine.postPurchaseBill(bill);
 

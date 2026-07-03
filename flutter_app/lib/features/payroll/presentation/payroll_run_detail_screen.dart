@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -94,8 +92,7 @@ class _PayrollRunDetailScreenState
 
   Future<void> _calculate() => _confirmAndExecute(
         title: 'Calculate Payroll',
-        message:
-            'This will compute gross pay, deductions, and net pay for all '
+        message: 'This will compute gross pay, deductions, and net pay for all '
             'employees in this run. Continue?',
         actionLabel: 'Calculate',
         apiCall: () async {
@@ -107,8 +104,7 @@ class _PayrollRunDetailScreenState
 
   Future<void> _approve() => _confirmAndExecute(
         title: 'Approve Payroll',
-        message:
-            'Approving this payroll run will lock it for posting. '
+        message: 'Approving this payroll run will lock it for posting. '
             'Ensure all figures have been reviewed. Continue?',
         actionLabel: 'Approve',
         apiCall: () async {
@@ -133,8 +129,7 @@ class _PayrollRunDetailScreenState
 
   Future<void> _cancel() => _confirmAndExecute(
         title: 'Cancel Payroll Run',
-        message:
-            'Are you sure you want to cancel this payroll run? '
+        message: 'Are you sure you want to cancel this payroll run? '
             'This action cannot be undone.',
         actionLabel: 'Cancel Run',
         isDangerous: true,
@@ -257,7 +252,8 @@ class _PayrollRunDetailScreenState
     final status = _statusString(run);
     final periodStart = _parseDate(run['periodStart'] ?? run['periodFrom']);
     final periodEnd = _parseDate(run['periodEnd'] ?? run['periodTo']);
-    final employeeCount = _parseInt(run['employeeCount'] ?? run['totalEmployees']);
+    final employeeCount =
+        _parseInt(run['employeeCount'] ?? run['totalEmployees']);
     final notes = run['notes']?.toString();
 
     return KCard(
@@ -296,7 +292,8 @@ class _PayrollRunDetailScreenState
               _infoRow(
                 Icons.access_time_outlined,
                 'Created',
-                DateFormatter.dateTime(DateTime.parse(run['createdAt'].toString())),
+                DateFormatter.dateTime(
+                    DateTime.parse(run['createdAt'].toString())),
               ),
             ],
             if (notes != null && notes.isNotEmpty) ...[
@@ -318,8 +315,7 @@ class _PayrollRunDetailScreenState
     return Row(
       children: [
         Icon(icon,
-            size: 16,
-            color: Theme.of(context).colorScheme.onSurfaceVariant),
+            size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
         const SizedBox(width: KSpacing.sm),
         SizedBox(
           width: 80,
@@ -561,8 +557,7 @@ class _PayrollRunDetailScreenState
         children: [
           // Table header
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: KColors.draftBg,
               borderRadius: KSpacing.borderRadiusSm,
@@ -618,11 +613,13 @@ class _PayrollRunDetailScreenState
     final messenger = ScaffoldMessenger.of(context);
     final id = payslip['id']?.toString();
     if (id == null || id.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('Missing payslip id')));
+      messenger
+          .showSnackBar(const SnackBar(content: Text('Missing payslip id')));
       return;
     }
     final name = payslip['employeeName']?.toString() ?? 'Employee';
-    messenger.showSnackBar(SnackBar(content: Text('Rendering pay slip for $name…')));
+    messenger
+        .showSnackBar(SnackBar(content: Text('Rendering pay slip for $name…')));
     try {
       final res = await ref.read(apiClientProvider).get(
             ApiConfig.payslipPdf(id),
@@ -634,7 +631,8 @@ class _PayrollRunDetailScreenState
         filename: 'payslip-$id.pdf',
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Pay slip download failed: $e')));
+      messenger.showSnackBar(
+          SnackBar(content: Text('Pay slip download failed: $e')));
     }
   }
 
@@ -645,14 +643,16 @@ class _PayrollRunDetailScreenState
     final messenger = ScaffoldMessenger.of(context);
     final employeeId = payslip['employeeId']?.toString();
     if (employeeId == null || employeeId.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('Missing employee id')));
+      messenger
+          .showSnackBar(const SnackBar(content: Text('Missing employee id')));
       return;
     }
     final name = payslip['employeeName']?.toString() ?? 'Employee';
     final periodEnd = _parseDate(_run?['periodEnd'] ?? _run?['periodTo']);
     final fy = _fiscalYearStart(periodEnd ?? DateTime.now());
     messenger.showSnackBar(
-      SnackBar(content: Text('Rendering Form 16 (FY $fy-${fy + 1}) for $name…')),
+      SnackBar(
+          content: Text('Rendering Form 16 (FY $fy-${fy + 1}) for $name…')),
     );
     try {
       final res = await ref.read(apiClientProvider).get(
@@ -665,7 +665,8 @@ class _PayrollRunDetailScreenState
         filename: 'form16-$employeeId-fy$fy.pdf',
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Form 16 download failed: $e')));
+      messenger
+          .showSnackBar(SnackBar(content: Text('Form 16 download failed: $e')));
     }
   }
 
@@ -673,22 +674,20 @@ class _PayrollRunDetailScreenState
   int _fiscalYearStart(DateTime d) => d.month >= 4 ? d.year : d.year - 1;
 
   void _showPayslipDetail(Map<String, dynamic> payslip) {
-    final employeeName =
-        payslip['employeeName']?.toString() ?? 'Employee';
+    final employeeName = payslip['employeeName']?.toString() ?? 'Employee';
     final gross = _parseDouble(payslip['grossPay'] ?? payslip['gross']);
     final deductions =
         _parseDouble(payslip['totalDeductions'] ?? payslip['deductions']);
     final netPay = _parseDouble(payslip['netPay'] ?? payslip['net']);
     final earnings =
         (payslip['earnings'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-    final deductionLines =
-        (payslip['deductions'] is List
+    final deductionLines = (payslip['deductions'] is List
             ? payslip['deductions'] as List
             : payslip['deductionLines'] as List? ?? [])
-            .cast<Map<String, dynamic>>();
-    final employerLines =
-        (payslip['employerContributions'] as List?)
-            ?.cast<Map<String, dynamic>>() ?? [];
+        .cast<Map<String, dynamic>>();
+    final employerLines = (payslip['employerContributions'] as List?)
+            ?.cast<Map<String, dynamic>>() ??
+        [];
 
     showModalBottomSheet(
       context: context,
@@ -751,7 +750,9 @@ class _PayrollRunDetailScreenState
                     Text('Earnings', style: KTypography.h4),
                     KSpacing.vGapSm,
                     ...earnings.map((e) => _lineItemRow(
-                          e['name']?.toString() ?? e['componentName']?.toString() ?? '--',
+                          e['name']?.toString() ??
+                              e['componentName']?.toString() ??
+                              '--',
                           _parseDouble(e['amount']),
                         )),
                     _totalRow('Gross Pay', gross, KColors.info),
@@ -762,7 +763,9 @@ class _PayrollRunDetailScreenState
                     Text('Deductions', style: KTypography.h4),
                     KSpacing.vGapSm,
                     ...deductionLines.map((d) => _lineItemRow(
-                          d['name']?.toString() ?? d['componentName']?.toString() ?? '--',
+                          d['name']?.toString() ??
+                              d['componentName']?.toString() ??
+                              '--',
                           _parseDouble(d['amount']),
                         )),
                     _totalRow('Total Deductions', deductions, KColors.warning),
@@ -770,11 +773,12 @@ class _PayrollRunDetailScreenState
                   ],
                   // Employer contributions
                   if (employerLines.isNotEmpty) ...[
-                    Text('Employer Contributions',
-                        style: KTypography.h4),
+                    Text('Employer Contributions', style: KTypography.h4),
                     KSpacing.vGapSm,
                     ...employerLines.map((ec) => _lineItemRow(
-                          ec['name']?.toString() ?? ec['componentName']?.toString() ?? '--',
+                          ec['name']?.toString() ??
+                              ec['componentName']?.toString() ??
+                              '--',
                           _parseDouble(ec['amount']),
                         )),
                     KSpacing.vGapMd,
@@ -958,8 +962,7 @@ class _PayrollStatusChip extends StatelessWidget {
       _ => (KColors.textSecondary, KColors.draftBg),
     };
 
-    final displayLabel =
-        status[0] + status.substring(1).toLowerCase();
+    final displayLabel = status[0] + status.substring(1).toLowerCase();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -1065,8 +1068,7 @@ class _PayslipRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name =
-        payslip['employeeName']?.toString() ?? 'Unknown Employee';
+    final name = payslip['employeeName']?.toString() ?? 'Unknown Employee';
     final designation = payslip['designation']?.toString();
     final gross = _parseNum(payslip['grossPay'] ?? payslip['gross']);
     final deductions =
@@ -1076,12 +1078,10 @@ class _PayslipRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           border: Border(
-            bottom:
-                BorderSide(color: KColors.divider.withValues(alpha: 0.5)),
+            bottom: BorderSide(color: KColors.divider.withValues(alpha: 0.5)),
           ),
         ),
         child: Row(
@@ -1117,8 +1117,7 @@ class _PayslipRow extends StatelessWidget {
             Expanded(
               child: Text(
                 formatter.format(deductions),
-                style: KTypography.amountSmall
-                    .copyWith(color: KColors.warning),
+                style: KTypography.amountSmall.copyWith(color: KColors.warning),
                 textAlign: TextAlign.right,
                 overflow: TextOverflow.ellipsis,
               ),

@@ -153,6 +153,11 @@ class ThreeWayMatchServiceTest {
         when(billRepository.save(any(PurchaseBill.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
+    private void stubBillLookupFor(PurchaseBill b) {
+        when(billRepository.findByIdAndOrgIdAndIsDeletedFalse(b.getId(), orgId))
+                .thenReturn(Optional.of(b));
+    }
+
     @SuppressWarnings("unchecked")
     private List<BillMatchResultLine> captureSavedResults() {
         ArgumentCaptor<List<BillMatchResultLine>> c = ArgumentCaptor.forClass(List.class);
@@ -524,5 +529,66 @@ class ThreeWayMatchServiceTest {
         assertTrue(statuses.contains("NO_GRN"));
         assertFalse(statuses.contains("MATCHED"));
         assertFalse(statuses.contains("BYPASSED"));
+    }
+
+    @Test
+    void assertPostable_allows_direct_no_po_bill() {
+        stubDefaults();
+        Item item = goodsItem();
+        PurchaseBillLine line = billLine(new BigDecimal("1"), new BigDecimal("100"),
+                item.getId(), null);
+        PurchaseBill b = bill(new BigDecimal("100"), List.of(line));
+        b.setThreeWayMatchStatus("EXCEPTION");
+        stubBillLookupFor(b);
+        when(matchResultRepository.findByOrgIdAndBillId(orgId, b.getId()))
+                .thenReturn(List.of(BillMatchResultLine.builder()
+                        .orgId(orgId)
+                        .billId(b.getId())
+                        .billLineId(line.getId())
+                        .itemId(item.getId())
+                        .status("NO_PO")
+                        .build()));
+
+        assertDoesNotThrow(() -> service.assertPostable(b.getId()));
+    }
+
+    @Test
+    void assertPostable_blocks_po_backed_price_exception() {
+        stubDefaults();
+        UUID polId = UUID.randomUUID();
+        Item item = goodsItem();
+        PurchaseBillLine line = billLine(new BigDecimal("1"), new BigDecimal("120"),
+                item.getId(), polId);
+        PurchaseBill b = bill(new BigDecimal("120"), List.of(line));
+        b.setThreeWayMatchStatus("EXCEPTION");
+        stubBillLookupFor(b);
+        when(matchResultRepository.findByOrgIdAndBillId(orgId, b.getId()))
+                .thenReturn(List.of(BillMatchResultLine.builder()
+                        .orgId(orgId)
+                        .billId(b.getId())
+                        .billLineId(line.getId())
+                        .poLineId(polId)
+                        .itemId(item.getId())
+                        .status("PRICE_HIKE")
+                        .build()));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.assertPostable(b.getId()));
+        assertEquals("AP_BILL_3WM_POSTING_EXCEPTION", ex.getErrorCode());
+    }
+
+    @Test
+    void assertPostable_allows_overridden_po_exception() {
+        stubDefaults();
+        UUID polId = UUID.randomUUID();
+        Item item = goodsItem();
+        PurchaseBillLine line = billLine(new BigDecimal("1"), new BigDecimal("120"),
+                item.getId(), polId);
+        PurchaseBill b = bill(new BigDecimal("120"), List.of(line));
+        b.setThreeWayMatchStatus("OVERRIDDEN");
+        stubBillLookupFor(b);
+
+        assertDoesNotThrow(() -> service.assertPostable(b.getId()));
+        verify(matchResultRepository, never()).findByOrgIdAndBillId(any(), any());
     }
 }

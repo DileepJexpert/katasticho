@@ -159,7 +159,7 @@ class _WorkstationsTab extends ConsumerWidget {
         ],
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !context.mounted) return;
     if (codeCtl.text.trim().isEmpty || nameCtl.text.trim().isEmpty) {
       _toast(context, 'Code and name are required');
       return;
@@ -172,9 +172,11 @@ class _WorkstationsTab extends ConsumerWidget {
             hourlyRate: double.tryParse(rateCtl.text.trim()),
             capacityHours: double.tryParse(capCtl.text.trim()),
           );
+      if (!context.mounted) return;
       ref.invalidate(workstationsProvider);
       _toast(context, 'Workstation created');
     } catch (e) {
+      if (!context.mounted) return;
       _toast(context,
           'Could not create: ${e.toString().replaceAll('Exception: ', '')}');
     }
@@ -189,7 +191,8 @@ class _OperationsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(operationsProvider);
-    final workstations = ref.watch(workstationsProvider).valueOrNull ?? const [];
+    final workstations =
+        ref.watch(workstationsProvider).valueOrNull ?? const [];
     String wsName(String? id) {
       if (id == null) return '';
       final w = workstations.firstWhere((e) => e['id']?.toString() == id,
@@ -270,8 +273,8 @@ class _OperationsTab extends ConsumerWidget {
     );
   }
 
-  Future<void> _create(BuildContext context, WidgetRef ref,
-      List<dynamic> workstations) async {
+  Future<void> _create(
+      BuildContext context, WidgetRef ref, List<dynamic> workstations) async {
     final codeCtl = TextEditingController();
     final nameCtl = TextEditingController();
     final descCtl = TextEditingController();
@@ -326,7 +329,7 @@ class _OperationsTab extends ConsumerWidget {
         ),
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !context.mounted) return;
     if (codeCtl.text.trim().isEmpty || nameCtl.text.trim().isEmpty) {
       _toast(context, 'Code and name are required');
       return;
@@ -340,9 +343,11 @@ class _OperationsTab extends ConsumerWidget {
             setupTimeMinutes: int.tryParse(setupCtl.text.trim()),
             runTimePerUnit: double.tryParse(runCtl.text.trim()),
           );
+      if (!context.mounted) return;
       ref.invalidate(operationsProvider);
       _toast(context, 'Operation created');
     } catch (e) {
+      if (!context.mounted) return;
       _toast(context,
           'Could not create: ${e.toString().replaceAll('Exception: ', '')}');
     }

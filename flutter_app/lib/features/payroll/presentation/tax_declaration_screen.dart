@@ -133,16 +133,27 @@ class _MyDeclarationTabState extends ConsumerState<_MyDeclarationTab> {
   @override
   void dispose() {
     for (final c in [
-      _rent, _landlordPan, _lta, _homeLoan, _otherIncome, _notes,
-      _c80c, _c80ccd1b, _c80dSelf, _c80dParents, _c80e, _c80g, _c80tta, _c80ttb,
+      _rent,
+      _landlordPan,
+      _lta,
+      _homeLoan,
+      _otherIncome,
+      _notes,
+      _c80c,
+      _c80ccd1b,
+      _c80dSelf,
+      _c80dParents,
+      _c80e,
+      _c80g,
+      _c80tta,
+      _c80ttb,
     ]) {
       c.dispose();
     }
     super.dispose();
   }
 
-  String get _status =>
-      (_decl?['status']?.toString() ?? 'DRAFT').toUpperCase();
+  String get _status => (_decl?['status']?.toString() ?? 'DRAFT').toUpperCase();
   bool get _editable => _decl == null || _status == 'DRAFT';
   String? get _id => _decl?['id']?.toString();
 
@@ -229,7 +240,8 @@ class _MyDeclarationTabState extends ConsumerState<_MyDeclarationTab> {
           );
       _decl = res.data['data'] as Map<String, dynamic>?;
       _fill(_decl);
-      messenger.showSnackBar(const SnackBar(content: Text('Declaration saved')));
+      messenger
+          .showSnackBar(const SnackBar(content: Text('Declaration saved')));
     } on DioException catch (e) {
       messenger.showSnackBar(SnackBar(
         content: Text(_msg(e) ?? 'Save failed'),
@@ -261,13 +273,14 @@ class _MyDeclarationTabState extends ConsumerState<_MyDeclarationTab> {
       ),
     );
     if (ok != true) return;
+    if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     try {
       await ref
           .read(apiClientProvider)
           .post(ApiConfig.taxDeclarationSubmit(id));
-      messenger.showSnackBar(
-          const SnackBar(content: Text('Declaration submitted')));
+      messenger
+          .showSnackBar(const SnackBar(content: Text('Declaration submitted')));
       _load();
     } on DioException catch (e) {
       messenger.showSnackBar(SnackBar(
@@ -342,8 +355,7 @@ class _MyDeclarationTabState extends ConsumerState<_MyDeclarationTab> {
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
             value: _metro,
-            onChanged:
-                _editable ? (v) => setState(() => _metro = v) : null,
+            onChanged: _editable ? (v) => setState(() => _metro = v) : null,
             title: const Text('Metro city (Delhi/Mumbai/Kolkata/Chennai)'),
             subtitle: const Text('50% of basic vs 40% for non-metro'),
           ),
@@ -554,14 +566,17 @@ class _HrReviewTabState extends ConsumerState<_HrReviewTab> {
     if (id == null) return;
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(apiClientProvider).post(ApiConfig.taxDeclarationVerify(id));
-      messenger.showSnackBar(const SnackBar(content: Text('Declaration verified')));
+      await ref
+          .read(apiClientProvider)
+          .post(ApiConfig.taxDeclarationVerify(id));
+      messenger
+          .showSnackBar(const SnackBar(content: Text('Declaration verified')));
       _load();
     } on DioException catch (e) {
       final body = e.response?.data;
       messenger.showSnackBar(SnackBar(
-        content: Text(
-            (body is Map ? body['message'] as String? : null) ?? 'Verify failed'),
+        content: Text((body is Map ? body['message'] as String? : null) ??
+            'Verify failed'),
         backgroundColor: KColors.error,
       ));
     }
@@ -651,7 +666,7 @@ Future<void> downloadForm12BB(
       filename: 'form12bb-$id.pdf',
     );
   } catch (e) {
-    messenger.showSnackBar(
-        SnackBar(content: Text('Form 12BB download failed: $e')));
+    messenger
+        .showSnackBar(SnackBar(content: Text('Form 12BB download failed: $e')));
   }
 }

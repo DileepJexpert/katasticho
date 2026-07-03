@@ -192,18 +192,11 @@ public class ThreeWayMatchService {
     }
 
     /**
-     * Gate for the <b>vendor-payment</b> path only (not bill posting). When
+     * Gate for the vendor-payment path. When
      * {@code ap.three_way_match.required} is on (default) and the bill is in
      * EXCEPTION, throws so the planner has to either fix the source documents
      * (re-run match) or override (OWNER/ADMIN only). When required is off,
      * EXCEPTION still surfaces in the inbox but payment is allowed — advisory mode.
-     *
-     * <p><b>Deliberately not wired into bill posting.</b> A direct vendor bill
-     * (no PO on any line) rolls up to EXCEPTION (every line is NO_PO), so gating
-     * {@code postBill} here would block posting <i>every</i> direct bill by default.
-     * The design records the liability freely and gates only the cash-out; a
-     * posting-time gate that blocks genuine PO variances while letting direct
-     * bills through would need a distinct per-line check, not this method.
      *
      * <p>OVERRIDDEN bills always pass — the override is the planner's final
      * word on the variance.
@@ -227,6 +220,48 @@ public class ThreeWayMatchService {
     }
 
     // ── Tolerance loading ────────────────────────────────────────────
+
+    /**
+     * Posting-time gate: block PO-backed variances before they become open AP,
+     * while allowing direct/no-PO vendor bills to post normally.
+     */
+    @Transactional(readOnly = true)
+    public void assertPostable(UUID billId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        PurchaseBill bill = billRepository.findByIdAndOrgIdAndIsDeletedFalse(billId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("PurchaseBill", billId));
+        Tolerances tol = loadTolerances(orgId);
+        if (!tol.required) return;
+        if (STATUS_OVERRIDDEN.equals(bill.getThreeWayMatchStatus())) return;
+
+        List<BillMatchResultLine> results = matchResultRepository.findByOrgIdAndBillId(orgId, billId);
+        Map<UUID, PurchaseBillLine> billLinesById = new HashMap<>();
+        for (PurchaseBillLine line : bill.getLines()) {
+            billLinesById.put(line.getId(), line);
+        }
+
+        Optional<BillMatchResultLine> blocker = results.stream()
+                .filter(r -> !LINE_MATCHED.equals(r.getStatus())
+                        && !LINE_BYPASSED.equals(r.getStatus()))
+                .filter(r -> isPoBackedPostingException(r, billLinesById))
+                .findFirst();
+
+        if (blocker.isPresent()) {
+            throw new BusinessException(
+                    "Bill " + bill.getBillNumber() + " has unresolved PO-backed 3-way match "
+                            + "variance (" + blocker.get().getStatus() + "). Review variances "
+                            + "and either fix the source documents and re-run the match, or have "
+                            + "an OWNER/ADMIN override before posting.",
+                    "AP_BILL_3WM_POSTING_EXCEPTION", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private boolean isPoBackedPostingException(BillMatchResultLine result,
+                                               Map<UUID, PurchaseBillLine> billLinesById) {
+        PurchaseBillLine billLine = billLinesById.get(result.getBillLineId());
+        return result.getPoLineId() != null
+                || (billLine != null && billLine.getPurchaseOrderLineId() != null);
+    }
 
     Tolerances loadTolerances(UUID orgId) {
         boolean required = "true".equalsIgnoreCase(
