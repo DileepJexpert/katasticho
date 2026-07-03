@@ -76,20 +76,11 @@ UI) are NOT repeated here.
 - [ ] **H8 Interest auto-voucher schedule + period-end forex revaluation
   voucher** (M).
 
-> **RESUME CHECKPOINT (paused 2026-07-02 eve — pick up here tomorrow):**
-> Working on the two research gaps *accounting module* (I6) + *custom workflow* (I2).
-> - **I6 IN PROGRESS (branch has WIP commit, compiles, additive):** discovery —
->   fixed assets is NOT vestigial, it's ~90% built (tables, `FixedAssetService`
->   SLM/WDV + dispose + IT-schedule, controller, 7 tests, CoA 1600/1690/5270,
->   Flutter screen). Done this session: V29 `fixed_asset.status` CHECK
->   (+FULLY_DEPRECIATED), `DepreciationJob` (monthly ShedLock cron, per-org,
->   gated on `assets.auto_depreciation`), `computeScheduleFor` + `/schedule-preview`
->   endpoint, terminal residue sweep + FULLY_DEPRECIATED flip in `runDepreciation`,
->   FixedAsset added to EditLogPolicy allowlist. **TODO tomorrow:** write tests
->   (DepreciationJobTest per-org/gated/idempotent + FixedAssetService
->   computeScheduleFor Σ==cost−residual + terminal-status flip), fresh-DB boot
->   (V29 applies), then commit final + tracker tick.
-> - **I2 NOT STARTED:** full greenfield build mapped (understand workflow done).
+> **PROGRESS (2026-07-03):** two research gaps — *accounting module* (I6) +
+> *custom workflow* (I2).
+> - **I6 DONE** (see the ticked I6 line below). Fixed-asset auto-depreciation
+>   scheduler + terminal status + preview shipped, tested, boot-verified.
+> - **I2 IN PROGRESS:** full greenfield build mapped (understand workflow done).
 >   Plan: V30 `workflow_rule` + `workflow_rule_execution`; `WorkflowRule`/`Execution`
 >   entities + JSONB criteria/actions; `WorkflowFieldResolver` (event payload +
 >   `DocumentSnapshotService` + `FieldExtractor` registry); `WorkflowRuleService`
@@ -109,12 +100,16 @@ UI) are NOT repeated here.
 - [ ] **I3 Custom report builder + scheduled report emails + report tags** (L).
 - [ ] **I4 PDF template gallery** per document (M).
 - [ ] **I5 Customer & vendor portals** (L) — view/pay/accept/upload; MFA.
-- [~] **I6 Fixed assets + depreciation schedules** (M) — IN PROGRESS (see RESUME
-  CHECKPOINT above): fixed-asset register + SLM/WDV depreciation + dispose already
-  existed; this session added the auto-monthly `DepreciationJob`, terminal
-  FULLY_DEPRECIATED status, schedule-preview, edit-log; **tests + boot pending.**
+- [x] **I6 Fixed assets + depreciation schedules** (M) — DONE 2026-07-03. Register
+  + SLM/WDV depreciation + dispose + income-tax schedule already existed; this
+  session completed the "auto monthly journals": V29 `fixed_asset.status` CHECK
+  (+FULLY_DEPRECIATED), `DepreciationJob` (monthly ShedLock cron, per-org, gated on
+  `assets.auto_depreciation`, idempotent), terminal residue sweep + status flip in
+  `runDepreciation`, `computeScheduleFor` + `GET /fixed-assets/{id}/schedule-preview`,
+  FixedAsset in the G1 edit-log allowlist. 11 asset tests (2 new) + DepreciationJobTest
+  (2); live-verified V29 constraint + endpoint on fresh DB.
   · **deferred revenue/expense** (M) — not started (amortization_schedule/entry
-  tables already exist in baseline).
+  tables already exist in baseline; same DepreciationJob pattern would drive it).
 - [ ] **I7 Cash-basis report toggle** (M) · multi-dimension analytic plans (L).
 
 ## Phase J — Warehouse/WMS layer (Odoo parity)
