@@ -26,7 +26,7 @@ public class PaymentMatch {
     @Column(name = "bank_transaction_id", nullable = false)
     private UUID bankTransactionId;
 
-    /** INVOICE (credit/money-in) or BILL (debit/money-out). */
+    /** INVOICE (credit/money-in), BILL (debit/money-out), or ACCOUNT (rule categorisation). */
     @Column(name = "match_type", nullable = false, length = 20)
     @Builder.Default
     private String matchType = "INVOICE";
@@ -36,6 +36,14 @@ public class PaymentMatch {
 
     @Column(name = "bill_id")
     private UUID billId;
+
+    /** For an ACCOUNT (bank-rule) match: the GL code to categorise the transaction to. */
+    @Column(name = "account_code", length = 40)
+    private String accountCode;
+
+    /** For an ACCOUNT match: the bank_rule that produced this suggestion (audit). */
+    @Column(name = "bank_rule_id")
+    private UUID bankRuleId;
 
     @Column(name = "contact_id")
     private UUID contactId;
