@@ -1,10 +1,13 @@
 package com.katasticho.erp.banking.repository;
 
 import com.katasticho.erp.banking.entity.BankTransaction;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -21,6 +24,15 @@ public interface BankTransactionRepository extends JpaRepository<BankTransaction
             UUID orgId, String status, Pageable pageable);
 
     Optional<BankTransaction> findByIdAndOrgId(UUID id, UUID orgId);
+
+    /**
+     * Row-locking lookup used at accept time: two concurrent accepts on the same
+     * transaction serialise on this lock, so the second reads the first's committed
+     * MATCHED status and is rejected — preventing a duplicate settlement/journal.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM BankTransaction t WHERE t.id = :id AND t.orgId = :orgId")
+    Optional<BankTransaction> findByIdAndOrgIdForUpdate(@Param("id") UUID id, @Param("orgId") UUID orgId);
 
     List<BankTransaction> findByOrgIdAndIdIn(UUID orgId, Collection<UUID> ids);
 
