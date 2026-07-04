@@ -39,7 +39,10 @@ public class LowStockAlertJob {
 
     @Scheduled(cron = "${app.automation.low-stock-alert.cron:0 0 8 * * *}")
     @SchedulerLock(name = "LowStockAlertJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
-    @Transactional(readOnly = true)
+    // NOT readOnly: notificationService.send() persists a Notification (UUID @GeneratedValue
+    // → in-memory id, INSERT deferred to flush). A readOnly tx sets FlushMode.MANUAL, so the
+    // INSERT would never flush on commit and the notification would be silently dropped.
+    @Transactional
     public void run() {
         List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
         int itemCount = 0;

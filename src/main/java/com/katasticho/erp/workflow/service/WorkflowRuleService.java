@@ -404,7 +404,8 @@ public class WorkflowRuleService {
         }
     }
 
-    /** True for loopback/any-local/link-local (incl. 169.254 metadata)/site-local/multicast/CGNAT. */
+    /** True for loopback/any-local/link-local (incl. 169.254 metadata)/site-local/multicast/CGNAT
+     *  and IPv6 Unique-Local Addresses (fc00::/7), which the InetAddress predicates do not cover. */
     private static boolean isBlockedAddress(java.net.InetAddress addr) {
         if (addr.isAnyLocalAddress() || addr.isLoopbackAddress() || addr.isLinkLocalAddress()
                 || addr.isSiteLocalAddress() || addr.isMulticastAddress()) {
@@ -414,6 +415,12 @@ public class WorkflowRuleService {
         if (b.length == 4) {
             int o0 = b[0] & 0xFF, o1 = b[1] & 0xFF;
             if (o0 == 100 && o1 >= 64 && o1 <= 127) return true; // 100.64.0.0/10 CGNAT
+        } else if (b.length == 16 && (b[0] & 0xFE) == 0xFC) {
+            // RFC 4193 IPv6 Unique-Local Addresses (fc00::/7). Inet6Address.isSiteLocalAddress()
+            // only matches the deprecated fec0::/10 block, NOT fc00::/7 — the modern IPv6 private
+            // range on internal/dual-stack networks — so an fd00::/8 host would otherwise slip
+            // through the guard. Check the top 7 bits explicitly.
+            return true;
         }
         return false;
     }

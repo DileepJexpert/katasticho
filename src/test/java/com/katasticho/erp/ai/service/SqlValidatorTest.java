@@ -43,6 +43,10 @@ class SqlValidatorTest {
                 row("journal_line", true), row("account", true), row("invoice", true),
                 row("contact", true), row("payment", true),
                 row("organisation", false), row("gst_state_code", false),
+                row("drug_master", false),           // allowlisted platform reference (no org_id)
+                row("refresh_token", false),          // credential table, no org_id, NOT allowlisted
+                row("platform_admin", false),         // credential table, no org_id, NOT allowlisted
+                row("trading_partner", false),        // cross-org business table, no org_id, NOT allowlisted
                 row("app_user", true));
     }
 
@@ -182,6 +186,35 @@ class SqlValidatorTest {
     void platformTablesUnfiltered() {
         String secured = validator.secure("SELECT * FROM gst_state_code", orgId);
         assertThat(secured).doesNotContain("org_id");
+    }
+
+    @Test
+    @DisplayName("T-AI-26b: Allowlisted platform reference table stays unfiltered")
+    void allowlistedReferenceTableUnfiltered() {
+        String secured = validator.secure("SELECT brand FROM drug_master", orgId);
+        assertThat(secured).doesNotContain("org_id");
+    }
+
+    @ParameterizedTest
+    @DisplayName("T-AI-26c: no-org_id tables NOT on the allowlist are rejected (credential/cross-org)")
+    @ValueSource(strings = {
+            "SELECT user_id, token_hash FROM refresh_token",
+            "SELECT email, password_hash, role FROM platform_admin",
+            "SELECT * FROM trading_partner",
+    })
+    void rejectsNonAllowlistedNoOrgTable(String sql) {
+        assertThatThrownBy(() -> validator.secure(sql, orgId))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("may not be queried");
+    }
+
+    @Test
+    @DisplayName("T-AI-26d: credential table can't be smuggled via UNION with a reference table")
+    void rejectsCredentialTableInUnion() {
+        assertThatThrownBy(() -> validator.secure(
+                "SELECT code FROM gst_state_code UNION SELECT token_hash FROM refresh_token", orgId))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("may not be queried");
     }
 
     @Test

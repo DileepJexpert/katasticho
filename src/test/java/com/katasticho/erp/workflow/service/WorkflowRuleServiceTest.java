@@ -298,4 +298,16 @@ class WorkflowRuleServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", "WORKFLOW_WEBHOOK_INTERNAL_HOST");
     }
+
+    @Test
+    void create_rejects_webhook_to_ipv6_unique_local_address() {
+        // fd00::1 is an RFC 4193 Unique-Local Address (fc00::/7). Inet6Address
+        // .isSiteLocalAddress() only catches the deprecated fec0::/10 block, so the
+        // guard used to let ULAs through — a real SSRF hole to internal dual-stack hosts.
+        WorkflowRule r = rule(null, WorkflowAction.builder().type("WEBHOOK")
+                .config(Map.of("url", "https://[fd00::1]/hook")).build());
+        assertThatThrownBy(() -> svc.create(r))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", "WORKFLOW_WEBHOOK_INTERNAL_HOST");
+    }
 }

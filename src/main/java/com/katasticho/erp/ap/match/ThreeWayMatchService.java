@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -87,6 +88,20 @@ public class ThreeWayMatchService {
     public static final String LINE_NO_GRN = "NO_GRN";
     public static final String LINE_BYPASSED = "BYPASSED";
 
+    /**
+     * Only genuine price/quantity variances gate posting. NO_GRN is deliberately
+     * NOT here: a PO-linked line with no received GRN is the documented
+     * "supplier-bill-first / bill-as-stock-source" shape that
+     * {@code PurchaseBillService.recordStockForBill} posts stock for; blocking it
+     * would make that flow's bills permanently unpostable under the default
+     * {@code ap.three_way_match.required=true}. QTY_OVER / PRICE_HIKE / AMOUNT_MISMATCH
+     * only arise once a GRN exists ({@code matchLine} returns NO_GRN before it checks
+     * qty/price), and there recordStockForBill already skips the stock post — so gating
+     * the AP posting on those is the correct 3-way-match behaviour.
+     */
+    private static final Set<String> POSTING_BLOCKING_STATUSES =
+            Set.of(LINE_QTY_OVER, LINE_PRICE_HIKE, LINE_AMOUNT_MISMATCH);
+
     public static final String SUGGESTION_TYPE = "THREE_WAY_MATCH_EXCEPTION";
     public static final String ENTITY_TYPE = "PURCHASE_BILL";
 
@@ -120,16 +135,22 @@ public class ThreeWayMatchService {
         }
         matchResultRepository.saveAll(results);
 
+        boolean wasOverridden = STATUS_OVERRIDDEN.equals(bill.getThreeWayMatchStatus());
         String overall = computeOverallStatus(results, bill, tol);
         // Preserve OVERRIDDEN if the bill was already overridden — don't re-flip it
         // on every match run.
-        if (!STATUS_OVERRIDDEN.equals(bill.getThreeWayMatchStatus())) {
+        if (!wasOverridden) {
             bill.setThreeWayMatchStatus(overall);
             bill.setThreeWayMatchAt(Instant.now());
             billRepository.save(bill);
         }
 
-        if (STATUS_EXCEPTION.equals(overall)) {
+        // Don't resurrect an AI-Inbox suggestion for a bill the planner already
+        // overrode — the override IS their decision on the variance. Since match()
+        // now re-runs at postBill time, an OVERRIDDEN bill whose lines still compute
+        // to EXCEPTION would otherwise spawn a fresh THREE_WAY_MATCH_EXCEPTION item on
+        // every post (createSuggestionIfAbsent only dedupes against still-OPEN ones).
+        if (STATUS_EXCEPTION.equals(overall) && !wasOverridden) {
             createSuggestionIfAbsent(bill, results);
         }
 
@@ -222,8 +243,13 @@ public class ThreeWayMatchService {
     // ── Tolerance loading ────────────────────────────────────────────
 
     /**
-     * Posting-time gate: block PO-backed variances before they become open AP,
-     * while allowing direct/no-PO vendor bills to post normally.
+     * Posting-time gate: block PO-backed price/quantity variances
+     * ({@link #POSTING_BLOCKING_STATUSES}) before they become open AP, while
+     * allowing direct/no-PO vendor bills AND the supplier-bill-first / bill-as-
+     * stock-source flow (PO-linked line, no GRN yet → NO_GRN) to post normally.
+     * NO_GRN is intentionally NOT a blocker — {@code PurchaseBillService.recordStockForBill}
+     * books stock for exactly that shape, so gating it here would make those bills
+     * permanently unpostable under the default {@code required=true}.
      */
     @Transactional(readOnly = true)
     public void assertPostable(UUID billId) {
@@ -241,8 +267,7 @@ public class ThreeWayMatchService {
         }
 
         Optional<BillMatchResultLine> blocker = results.stream()
-                .filter(r -> !LINE_MATCHED.equals(r.getStatus())
-                        && !LINE_BYPASSED.equals(r.getStatus()))
+                .filter(r -> POSTING_BLOCKING_STATUSES.contains(r.getStatus()))
                 .filter(r -> isPoBackedPostingException(r, billLinesById))
                 .findFirst();
 
