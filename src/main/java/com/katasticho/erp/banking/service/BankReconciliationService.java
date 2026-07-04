@@ -2,6 +2,12 @@ package com.katasticho.erp.banking.service;
 
 import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
 import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
+import com.katasticho.erp.accounting.dto.JournalLineRequest;
+import com.katasticho.erp.accounting.dto.JournalPostRequest;
+import com.katasticho.erp.accounting.entity.Account;
+import com.katasticho.erp.accounting.entity.JournalEntry;
+import com.katasticho.erp.accounting.repository.AccountRepository;
+import com.katasticho.erp.accounting.service.JournalService;
 import com.katasticho.erp.ap.dto.VendorPaymentRequest;
 import com.katasticho.erp.ap.dto.VendorPaymentResponse;
 import com.katasticho.erp.ap.entity.PurchaseBill;
@@ -16,6 +22,7 @@ import com.katasticho.erp.banking.dto.BankTransactionImportResponse;
 import com.katasticho.erp.banking.dto.BankTransactionResponse;
 import com.katasticho.erp.banking.dto.ImportBankTransactionsRequest;
 import com.katasticho.erp.banking.dto.PaymentMatchResponse;
+import com.katasticho.erp.banking.entity.BankRule;
 import com.katasticho.erp.banking.entity.BankTransaction;
 import com.katasticho.erp.banking.entity.PaymentMatch;
 import com.katasticho.erp.banking.repository.BankTransactionRepository;
@@ -64,6 +71,9 @@ public class BankReconciliationService {
     private final DefaultAccountService defaultAccountService;
     private final BankStatementParser statementParser;
     private final BankAccountService bankAccountService;
+    private final BankRuleService bankRuleService;
+    private final JournalService journalService;
+    private final AccountRepository accountRepository;
 
     @Transactional
     public BankTransactionImportResponse importCsv(ImportBankTransactionsRequest request) {
@@ -103,6 +113,38 @@ public class BankReconciliationService {
                             .status("UNMATCHED")
                             .build()
             );
+
+            // User-defined bank rules take precedence: a matched transaction is a
+            // categorisation (charges/interest/utility/etc.), not a document payment,
+            // so it skips invoice/bill scoring entirely.
+            Optional<BankRule> rule = bankRuleService.firstMatch(orgId, transaction);
+            if (rule.isPresent()) {
+                PaymentMatch accountMatch = paymentMatchRepository.save(
+                        buildAccountMatch(orgId, transaction, rule.get()));
+                boolean hasReference = row.reference() != null && !row.reference().isBlank();
+                boolean autoApplied = false;
+                // Auto-post ONLY when the rule opts in AND the row carries a reference:
+                // a reference-less row bypasses import dedup (existsByOrgIdAndUtrAndDirection),
+                // so auto-posting it would re-book the journal on every re-import. Reference-less
+                // matches fall back to a suggestion so a human catches re-import duplicates.
+                if (rule.get().isAutoApply() && hasReference) {
+                    try {
+                        imported.add(acceptMatch(accountMatch.getId())); // posts journal + marks MATCHED
+                        autoApplied = true;
+                    } catch (RuntimeException e) {
+                        // An un-postable auto-apply (e.g. the target GL was deleted) must not
+                        // sink the whole statement import — leave it as a suggestion.
+                        log.warn("Auto-apply failed for bank rule on transaction {}: {} — left as a suggestion",
+                                transaction.getId(), e.getMessage());
+                    }
+                }
+                if (!autoApplied) {
+                    transaction.setStatus("SUGGESTED");
+                    transaction = bankTransactionRepository.save(transaction);
+                    imported.add(toResponse(transaction, List.of(accountMatch)));
+                }
+                continue;
+            }
 
             List<PaymentMatch> matches = buildMatches(orgId, transaction);
             if (!matches.isEmpty()) {
@@ -158,11 +200,27 @@ public class BankReconciliationService {
         UUID orgId = requireOrgId();
         BankTransaction transaction = getTransaction(transactionId, orgId);
 
+        // A MATCHED transaction has already settled (payment/journal posted). Re-running
+        // would delete only the SUGGESTED rows, leave the ACCEPTED one, re-suggest a fresh
+        // match and reset the status to SUGGESTED — defeating the accept-time MATCHED guard
+        // and enabling a duplicate posting. Force an explicit un-match first.
+        if ("MATCHED".equals(transaction.getStatus())) {
+            throw new BusinessException(
+                    "Transaction is already matched — reject its match before re-running",
+                    "BANK_TX_ALREADY_MATCHED", HttpStatus.CONFLICT);
+        }
+
         paymentMatchRepository.deleteByOrgIdAndBankTransactionIdAndMatchStatus(orgId, transactionId, "SUGGESTED");
 
-        List<PaymentMatch> matches = buildMatches(orgId, transaction);
+        // A re-run re-suggests but never auto-posts (auto-apply is an import-time act).
+        Optional<BankRule> rule = bankRuleService.firstMatch(orgId, transaction);
+        List<PaymentMatch> matches = rule.isPresent()
+                ? List.of(paymentMatchRepository.save(buildAccountMatch(orgId, transaction, rule.get())))
+                : buildMatches(orgId, transaction);
         if (!matches.isEmpty()) {
-            paymentMatchRepository.saveAll(matches);
+            if (rule.isEmpty()) {
+                paymentMatchRepository.saveAll(matches);
+            }
             transaction.setStatus("SUGGESTED");
         } else if (!"MATCHED".equals(transaction.getStatus()) && !"IGNORED".equals(transaction.getStatus())) {
             transaction.setStatus("UNMATCHED");
@@ -205,7 +263,23 @@ public class BankReconciliationService {
 
         PaymentMatch match = paymentMatchRepository.findByIdAndOrgId(matchId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("PaymentMatch", matchId));
-        BankTransaction transaction = getTransaction(match.getBankTransactionId(), orgId);
+
+        // Only a still-pending suggestion may be accepted — an already ACCEPTED /
+        // REJECTED / IGNORED match must not (re-)post a payment or journal.
+        if (!"SUGGESTED".equals(match.getMatchStatus())) {
+            throw new BusinessException(
+                    "This match is no longer pending (" + match.getMatchStatus() + ")",
+                    "BANK_MATCH_NOT_SUGGESTED",
+                    HttpStatus.CONFLICT
+            );
+        }
+
+        // Pessimistic row lock: two concurrent accepts on the same transaction
+        // serialise here, so the second reads the first's committed MATCHED status
+        // below and is rejected — preventing a double settlement / duplicate journal.
+        BankTransaction transaction = bankTransactionRepository
+                .findByIdAndOrgIdForUpdate(match.getBankTransactionId(), orgId)
+                .orElseThrow(() -> BusinessException.notFound("BankTransaction", match.getBankTransactionId()));
 
         if ("MATCHED".equals(transaction.getStatus())) {
             throw new BusinessException(
@@ -216,7 +290,12 @@ public class BankReconciliationService {
         }
 
         UUID createdPaymentId;
-        if ("BILL".equals(match.getMatchType())) {
+        if ("ACCOUNT".equals(match.getMatchType())) {
+            // Bank-rule categorisation → a direct bank <-> account journal (no
+            // invoice/bill/payment). CREDIT (money in): DR bank / CR account;
+            // DEBIT (money out): DR account / CR bank.
+            createdPaymentId = postAccountJournal(orgId, transaction, match, bankAccountId);
+        } else if ("BILL".equals(match.getMatchType())) {
             // Money out → record a vendor payment allocated to the matched bill,
             // paid through the chosen bank account (or the org default BANK).
             UUID paidThroughId = bankAccountId != null
@@ -303,6 +382,75 @@ public class BankReconciliationService {
     private BankTransaction getTransaction(UUID transactionId, UUID orgId) {
         return bankTransactionRepository.findByIdAndOrgId(transactionId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("BankTransaction", transactionId));
+    }
+
+    // ── Bank-rule (ACCOUNT) categorisation ───────────────────────────────────
+
+    private PaymentMatch buildAccountMatch(UUID orgId, BankTransaction transaction, BankRule rule) {
+        return PaymentMatch.builder()
+                .orgId(orgId)
+                .bankTransactionId(transaction.getId())
+                .matchType("ACCOUNT")
+                .accountCode(rule.getAccountCode())
+                .bankRuleId(rule.getId())
+                .contactId(rule.getContactId())
+                .matchedAmount(transaction.getAmount().setScale(2, RoundingMode.HALF_UP))
+                .confidence(new BigDecimal("0.9900"))
+                .matchStatus("SUGGESTED")
+                .build();
+    }
+
+    /**
+     * Post the direct bank &lt;-&gt; account journal for an accepted ACCOUNT match.
+     * CREDIT (money in): DR bank / CR account. DEBIT (money out): DR account / CR bank.
+     * Returns the posted journal entry id (stored as the transaction's paymentId for audit).
+     */
+    private UUID postAccountJournal(UUID orgId, BankTransaction transaction,
+                                    PaymentMatch match, UUID bankAccountId) {
+        String bankCode = resolveBankAccountCode(orgId, bankAccountId);
+        String accountCode = match.getAccountCode();
+        // The target account may have been deleted between suggest and accept.
+        accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(orgId, accountCode)
+                .orElseThrow(() -> new BusinessException(
+                        "Categorisation account " + accountCode + " no longer exists",
+                        "BANK_RULE_ACCOUNT_MISSING", HttpStatus.BAD_REQUEST));
+
+        BigDecimal amount = match.getMatchedAmount().setScale(2, RoundingMode.HALF_UP);
+        boolean moneyIn = "CREDIT".equalsIgnoreCase(transaction.getDirection());
+        String memo = ruleMemo(orgId, match, transaction);
+
+        List<JournalLineRequest> lines = moneyIn
+                ? List.of(
+                        new JournalLineRequest(bankCode, amount, BigDecimal.ZERO, memo, null, null),
+                        new JournalLineRequest(accountCode, BigDecimal.ZERO, amount, memo, null, null))
+                : List.of(
+                        new JournalLineRequest(accountCode, amount, BigDecimal.ZERO, memo, null, null),
+                        new JournalLineRequest(bankCode, BigDecimal.ZERO, amount, memo, null, null));
+
+        JournalEntry entry = journalService.postJournal(new JournalPostRequest(
+                transaction.getTransactionDate(), memo, "BANKING", transaction.getId(), lines, true));
+        return entry.getId();
+    }
+
+    private String resolveBankAccountCode(UUID orgId, UUID bankAccountId) {
+        if (bankAccountId != null) {
+            UUID glAccountId = bankAccountService.resolveGlAccountId(bankAccountId);
+            return accountRepository.findByOrgIdAndIdAndIsDeletedFalse(orgId, glAccountId)
+                    .map(Account::getCode)
+                    .orElseThrow(() -> new BusinessException("Bank GL account not found",
+                            "BANK_GL_ACCOUNT_MISSING", HttpStatus.BAD_REQUEST));
+        }
+        return defaultAccountService.get(orgId, DefaultAccountPurpose.BANK).getCode();
+    }
+
+    private String ruleMemo(UUID orgId, PaymentMatch match, BankTransaction transaction) {
+        String memo = bankRuleService.findEntity(orgId, match.getBankRuleId())
+                .map(BankRule::getMemo).orElse(null);
+        String base = firstNonBlank(memo, transaction.getNarration());
+        if (base == null || base.isBlank()) {
+            base = firstNonBlank(transaction.getUtr(), "categorisation");
+        }
+        return "Bank rule: " + base;
     }
 
     private List<PaymentMatch> buildMatches(UUID orgId, BankTransaction transaction) {
@@ -521,9 +669,14 @@ public class BankReconciliationService {
 
         List<PaymentMatchResponse> matchResponses = matches.stream()
                 .map(match -> {
-                    Contact contact = contactMap.get(match.getContactId());
+                    // Guard the null key: an ACCOUNT (bank-rule) match may carry no contact,
+                    // and an immutable Map.of() throws NPE on get(null).
+                    Contact contact = match.getContactId() == null
+                            ? null : contactMap.get(match.getContactId());
                     String documentNumber;
-                    if ("BILL".equals(match.getMatchType())) {
+                    if ("ACCOUNT".equals(match.getMatchType())) {
+                        documentNumber = match.getAccountCode();
+                    } else if ("BILL".equals(match.getMatchType())) {
                         PurchaseBill bill = billMap.get(match.getBillId());
                         documentNumber = bill != null
                                 ? firstNonBlank(bill.getVendorBillNumber(), bill.getBillNumber())
