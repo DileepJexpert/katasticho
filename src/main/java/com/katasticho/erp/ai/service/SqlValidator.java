@@ -75,6 +75,23 @@ public class SqlValidator {
     private static final Set<String> DENYLISTED_TABLES = Set.of(
             "app_user", "api_key", "push_token", "flyway_schema_history", "shedlock");
 
+    /**
+     * The ONLY no-{@code org_id} public tables the AI may read unfiltered — genuine
+     * shared platform reference data. Everything else lacking an org_id column is
+     * rejected by {@link #appendPredicateFor} (fail-closed). This is an ALLOWLIST,
+     * not a denylist, precisely because the no-org bucket also contains credential/
+     * token tables ({@code refresh_token}, {@code password_reset_token},
+     * {@code email_verification_token}, {@code delegated_access_token},
+     * {@code platform_admin}) and cross-org business tables ({@code trading_partner},
+     * {@code network_order}, {@code ca_client_link}, ...) that a denylist would keep
+     * missing. Restores the pre-rewrite validator's fail-closed posture (which required
+     * an {@code org_id} filter on every query).
+     */
+    private static final Set<String> PLATFORM_REFERENCE_TABLES = Set.of(
+            "salt_master", "drug_master", "manufacturer_master", "hsn_gst_master",
+            "generic_substitution", "drug_interaction", "gst_state_code", "currency",
+            "coa_template", "pt_slab", "lwf_rule", "ai_model_registry");
+
     private static final List<Pattern> FORBIDDEN_PATTERNS = List.of(
             Pattern.compile("\\b(INSERT|UPDATE|DELETE|MERGE|UPSERT)\\b", Pattern.CASE_INSENSITIVE),
             Pattern.compile("\\b(CREATE|DROP|ALTER|TRUNCATE|RENAME)\\b", Pattern.CASE_INSENSITIVE),
@@ -280,8 +297,16 @@ public class SqlValidator {
             predicates.add(equalsPredicate(reference, "id", orgId));
         } else if (orgScoped) {
             predicates.add(equalsPredicate(reference, "org_id", orgId));
+        } else if (!PLATFORM_REFERENCE_TABLES.contains(name)) {
+            // Deny-by-default: a public table with NO org_id column is NOT automatically
+            // "shared reference data" — that bucket also holds credential/token tables
+            // (refresh_token, password_reset_token, delegated_access_token, platform_admin)
+            // and cross-org business tables (trading_partner, network_order, ...). Only the
+            // explicit PLATFORM_REFERENCE_TABLES allowlist may run unfiltered; anything else
+            // is rejected so it can never leak cross-tenant through the AI query feature.
+            throw unsafe("Non-tenant table '" + name + "' may not be queried");
         }
-        // Platform reference tables (no org_id) are shared by design.
+        // else: allowlisted platform reference table — shared by design, no predicate.
     }
 
     private Expression equalsPredicate(String tableReference, String column, UUID orgId) {

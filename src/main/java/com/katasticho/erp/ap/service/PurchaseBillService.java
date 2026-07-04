@@ -317,7 +317,16 @@ public class PurchaseBillService {
                     "AP_BILL_NOT_DRAFT", HttpStatus.BAD_REQUEST);
         }
 
-        threeWayMatchService.match(bill.getId());
+        // Refresh the 3-way match verdict before the posting gate. Best-effort,
+        // exactly like createBill (line ~283): a match-computation hiccup (bad
+        // tolerance config, transient DB) must NOT hard-fail an otherwise-valid
+        // posting. assertPostable then reads the last computed verdict (or none)
+        // and only throws on a genuine PO-backed price/quantity variance.
+        try {
+            threeWayMatchService.match(bill.getId());
+        } catch (Exception e) {
+            log.warn("3-way match failed for bill {} at posting: {}", bill.getBillNumber(), e.getMessage());
+        }
         threeWayMatchService.assertPostable(bill.getId());
 
         // Post journal via the accounting posting engine

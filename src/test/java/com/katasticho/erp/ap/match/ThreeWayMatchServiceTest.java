@@ -350,6 +350,70 @@ class ThreeWayMatchServiceTest {
     }
 
     @Test
+    void assertPostable_allows_po_linked_line_with_no_grn() {
+        // Supplier-bill-first: PO-linked line, no GRN yet → NO_GRN. recordStockForBill
+        // books stock for exactly this shape, so posting must NOT be blocked even with
+        // required=true (regression: assertPostable used to throw on NO_GRN).
+        stubDefaults();
+        UUID polId = UUID.randomUUID();
+        PurchaseBillLine line = billLine(new BigDecimal("10"), new BigDecimal("100"),
+                UUID.randomUUID(), polId);
+        PurchaseBill b = bill(new BigDecimal("1000"), List.of(line));
+        stubBillLookupFor(b);
+        when(matchResultRepository.findByOrgIdAndBillId(orgId, b.getId()))
+                .thenReturn(List.of(BillMatchResultLine.builder()
+                        .orgId(orgId).billId(b.getId()).billLineId(line.getId())
+                        .poLineId(polId).status(ThreeWayMatchService.LINE_NO_GRN).build()));
+
+        assertDoesNotThrow(() -> service.assertPostable(b.getId()));
+    }
+
+    @Test
+    void assertPostable_blocks_po_linked_price_hike() {
+        // A genuine price variance (GRN exists → stock already booked) still gates the
+        // AP posting — that is the correct 3-way-match behaviour.
+        stubDefaults();
+        UUID polId = UUID.randomUUID();
+        PurchaseBillLine line = billLine(new BigDecimal("10"), new BigDecimal("150"),
+                UUID.randomUUID(), polId);
+        PurchaseBill b = bill(new BigDecimal("1500"), List.of(line));
+        stubBillLookupFor(b);
+        when(matchResultRepository.findByOrgIdAndBillId(orgId, b.getId()))
+                .thenReturn(List.of(BillMatchResultLine.builder()
+                        .orgId(orgId).billId(b.getId()).billLineId(line.getId())
+                        .poLineId(polId).status(ThreeWayMatchService.LINE_PRICE_HIKE).build()));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.assertPostable(b.getId()));
+        assertEquals("AP_BILL_3WM_POSTING_EXCEPTION", ex.getErrorCode());
+    }
+
+    @Test
+    void match_does_not_recreate_suggestion_for_overridden_bill() {
+        // Bill has a real PRICE_HIKE the planner already OVERRODE. Re-running match at
+        // postBill time must not resurrect the AI-Inbox suggestion nor re-flip the status.
+        stubDefaults();
+        UUID polId = UUID.randomUUID();
+        Item item = goodsItem();
+        PurchaseBillLine line = billLine(new BigDecimal("5"), new BigDecimal("120"),
+                item.getId(), polId);
+        PurchaseBill b = bill(new BigDecimal("600"), List.of(line));
+        b.setThreeWayMatchStatus("OVERRIDDEN");
+        stubBillLookupFor(b);
+        when(purchaseOrderLineRepository.findByIdAndPoOrgId(polId, orgId))
+                .thenReturn(Optional.of(poLine(polId, new BigDecimal("5"), new BigDecimal("100"))));
+        when(stockReceiptLineRepository.sumReceivedQuantityForPurchaseOrderLine(polId))
+                .thenReturn(new BigDecimal("5")); // GRN exists → PRICE_HIKE (not NO_GRN)
+        when(itemRepository.findById(item.getId())).thenReturn(Optional.of(item));
+
+        String status = service.match(b.getId());
+        assertEquals("EXCEPTION", status);                      // variance still computes EXCEPTION
+        assertEquals("OVERRIDDEN", b.getThreeWayMatchStatus()); // but override is preserved
+        verify(aiSuggestionService, never()).createSuggestion(any()); // no resurrected inbox item
+        verify(billRepository, never()).save(any());            // overridden status not re-saved
+    }
+
+    @Test
     void match_bill_below_bypass_threshold_with_no_PO_returns_BYPASSED() {
         // bypass_threshold = 5000, bill total 1000 < threshold → BYPASSED
         stubTolerances("0", "1", "0.005", "5000");

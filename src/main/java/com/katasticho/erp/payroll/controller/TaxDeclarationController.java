@@ -58,20 +58,14 @@ public class TaxDeclarationController {
     @PostMapping("/{id}/submit")
     public ResponseEntity<ApiResponse<EmployeeTaxDeclaration>> submit(@PathVariable UUID id) {
         EmployeeTaxDeclaration d = service.get(id);
-        Employee me = resolveMeOrNull();
-        if (me != null && !d.getEmployeeId().equals(me.getId())) {
-            ensureAdmin();
-        }
+        assertOwnerOrAdmin(d);
         return ResponseEntity.ok(ApiResponse.ok(service.submit(id), "Declaration submitted"));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteDraft(@PathVariable UUID id) {
         EmployeeTaxDeclaration d = service.get(id);
-        Employee me = resolveMeOrNull();
-        if (me != null && !d.getEmployeeId().equals(me.getId())) {
-            ensureAdmin();
-        }
+        assertOwnerOrAdmin(d);
         service.delete(id);
         return ResponseEntity.ok(ApiResponse.ok(null, "Declaration removed"));
     }
@@ -83,10 +77,7 @@ public class TaxDeclarationController {
     @GetMapping("/{id}/pdf")
     public ResponseEntity<byte[]> downloadForm12BB(@PathVariable UUID id) {
         EmployeeTaxDeclaration d = service.get(id);
-        Employee me = resolveMeOrNull();
-        if (me != null && !d.getEmployeeId().equals(me.getId())) {
-            ensureAdmin();
-        }
+        assertOwnerOrAdmin(d);
         Employee emp = employeeRepository
                 .findByIdAndOrgIdAndIsDeletedFalse(d.getEmployeeId(), d.getOrgId())
                 .orElse(null);
@@ -137,6 +128,21 @@ public class TaxDeclarationController {
         UUID userId = TenantContext.getCurrentUserId();
         if (userId == null) return null;
         return employeeRepository.findByOrgIdAndUserIdAndIsDeletedFalse(orgId, userId).orElse(null);
+    }
+
+    /**
+     * Owner-or-admin gate for a specific declaration. A caller with NO linked
+     * Employee ({@code me == null}) cannot be the owner, so they are forced through
+     * the admin gate — otherwise a non-admin user without an employee record could
+     * read/submit/delete any employee's Form 12BB (PAN, rent, deduction PII). The
+     * previous {@code me != null && !owner} form skipped ensureAdmin() entirely when
+     * me was null.
+     */
+    private void assertOwnerOrAdmin(EmployeeTaxDeclaration d) {
+        Employee me = resolveMeOrNull();
+        if (me == null || !d.getEmployeeId().equals(me.getId())) {
+            ensureAdmin();
+        }
     }
 
     private void ensureAdmin() {

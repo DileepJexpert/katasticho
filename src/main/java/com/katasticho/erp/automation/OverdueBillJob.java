@@ -40,7 +40,10 @@ public class OverdueBillJob {
 
     @Scheduled(cron = "${app.automation.overdue-bill.cron:0 5 1 * * *}")
     @SchedulerLock(name = "OverdueBillJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
-    @Transactional(readOnly = true)
+    // NOT readOnly: notificationService.send() persists a Notification (UUID @GeneratedValue
+    // → in-memory id, INSERT deferred to flush). A readOnly tx sets FlushMode.MANUAL, so the
+    // INSERT would never flush on commit and the notification would be silently dropped.
+    @Transactional
     public void run() {
         LocalDate today = LocalDate.now();
         List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
