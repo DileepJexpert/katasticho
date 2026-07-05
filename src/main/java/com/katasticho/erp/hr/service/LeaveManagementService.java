@@ -183,6 +183,13 @@ public class LeaveManagementService {
         UUID orgId = TenantContext.getCurrentOrgId();
         LeaveRequest req = leaveRequestRepository.findByIdAndOrgIdAndIsDeletedFalse(leaveId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("LeaveRequest", leaveId));
+        // Only the requester (or an OWNER/ADMIN) may cancel — the endpoint has no
+        // role guard, so without this any org user could cancel a colleague's leave,
+        // silently restoring their balance or erasing a payroll LOP.
+        if (!isAdmin() && !req.getUserId().equals(TenantContext.getCurrentUserId())) {
+            throw new BusinessException("Only the requester can cancel this leave",
+                    "LEAVE_NOT_OWNER", HttpStatus.FORBIDDEN);
+        }
         if ("CANCELLED".equals(req.getStatus()) || "REJECTED".equals(req.getStatus())) {
             return req;
         }
@@ -269,9 +276,26 @@ public class LeaveManagementService {
                 .findByIdAndOrgIdAndIsDeletedFalse(req.getLeaveTypeId(), req.getOrgId()).orElse(null);
         if (type == null || !type.isPaid()) return;
         LeaveBalance b = getOrCreateBalance(req.getUserId(), type, req.getFromDate().getYear());
-        b.setUsed(consume ? b.getUsed().add(req.getWorkingDays())
-                          : b.getUsed().subtract(req.getWorkingDays()).max(BigDecimal.ZERO));
+        if (consume) {
+            // Re-check availability at APPROVAL time — two disjoint PENDING requests
+            // both pass the apply-time check (balance untouched until approval), so
+            // without this both could be approved past entitlement (negative balance).
+            if (b.getAvailable().compareTo(req.getWorkingDays()) < 0) {
+                throw new BusinessException(
+                        "Insufficient " + type.getName() + " balance to approve this leave (available "
+                                + b.getAvailable() + ", requested " + req.getWorkingDays() + ")",
+                        "HR_LEAVE_INSUFFICIENT_BALANCE", HttpStatus.BAD_REQUEST);
+            }
+            b.setUsed(b.getUsed().add(req.getWorkingDays()));
+        } else {
+            b.setUsed(b.getUsed().subtract(req.getWorkingDays()).max(BigDecimal.ZERO));
+        }
         balanceRepository.save(b);
+    }
+
+    private static boolean isAdmin() {
+        String role = TenantContext.getCurrentRole();
+        return role != null && (role.contains("OWNER") || role.contains("ADMIN"));
     }
 
     private LeaveType loadType(UUID id) {

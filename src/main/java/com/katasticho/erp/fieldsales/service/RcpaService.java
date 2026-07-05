@@ -41,13 +41,23 @@ public class RcpaService {
         contactRepository.findByIdAndOrgIdAndIsDeletedFalse(chemistContactId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Contact", chemistContactId));
 
-        RcpaAudit audit = auditId != null
-                ? load(auditId)
-                : RcpaAudit.builder()
-                        .orgId(orgId)
-                        .salespersonId(TenantContext.getCurrentUserId())
-                        .createdBy(TenantContext.getCurrentUserId())
-                        .build();
+        RcpaAudit audit;
+        if (auditId != null) {
+            audit = load(auditId);
+            // Only the audit's owning MR (or an OWNER/ADMIN) may edit it — the update
+            // never re-stamps salespersonId, so without this an OPERATOR could
+            // overwrite a colleague's audit while it stays attributed to the victim.
+            if (!isAdmin() && !TenantContext.getCurrentUserId().equals(audit.getSalespersonId())) {
+                throw new BusinessException("Only the audit owner can modify this RCPA audit",
+                        "RCPA_NOT_OWNER", HttpStatus.FORBIDDEN);
+            }
+        } else {
+            audit = RcpaAudit.builder()
+                    .orgId(orgId)
+                    .salespersonId(TenantContext.getCurrentUserId())
+                    .createdBy(TenantContext.getCurrentUserId())
+                    .build();
+        }
         audit.setChemistContactId(chemistContactId);
         audit.setAuditDate(auditDate);
         audit.setFieldVisitId(fieldVisitId);
@@ -157,6 +167,11 @@ public class RcpaService {
     private RcpaAudit load(UUID id) {
         return auditRepository.findByIdAndOrgIdAndIsDeletedFalse(id, TenantContext.getCurrentOrgId())
                 .orElseThrow(() -> BusinessException.notFound("RcpaAudit", id));
+    }
+
+    private static boolean isAdmin() {
+        String role = TenantContext.getCurrentRole();
+        return role != null && (role.contains("OWNER") || role.contains("ADMIN"));
     }
 
     private Map<String, Object> view(RcpaAudit audit, List<RcpaLine> lines) {

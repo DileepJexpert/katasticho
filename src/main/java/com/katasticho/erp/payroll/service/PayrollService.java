@@ -49,6 +49,11 @@ public class PayrollService {
 
     // ──────────────────────────────── Settings ────────────────────────────────
 
+    // Writeable override of the class-level readOnly default: the create branch
+    // INSERTs a defaults row, which a readOnly tx (FlushMode.MANUAL) would silently
+    // drop — leaving the fresh-org GET returning an unpersisted object and the
+    // subsequent PUT /settings 404-ing forever.
+    @Transactional
     public PayrollSettings getOrCreateSettings() {
         UUID orgId = TenantContext.getCurrentOrgId();
         return settingsRepository.findByOrgId(orgId)
@@ -542,7 +547,7 @@ public class PayrollService {
         UUID orgId = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
 
-        PayrollRun run = runRepository.findByIdAndOrgId(runId, orgId)
+        PayrollRun run = runRepository.findByIdAndOrgIdForUpdate(runId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("PayrollRun", runId));
 
         if (!"CALCULATED".equals(run.getStatus())) {
@@ -572,7 +577,11 @@ public class PayrollService {
     public PayrollRun postRun(UUID runId) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
-        PayrollRun run = runRepository.findByIdAndOrgId(runId, orgId)
+        // Pessimistic lock: two concurrent posts (double-click / two admins) would
+        // both read APPROVED and both book the full salary expense journal, orphaning
+        // the first entry. The FOR-UPDATE re-read serialises them — the second reads
+        // POSTED and is rejected below.
+        PayrollRun run = runRepository.findByIdAndOrgIdForUpdate(runId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("PayrollRun", runId));
 
         if (!"APPROVED".equals(run.getStatus())) {
@@ -683,6 +692,24 @@ public class PayrollService {
                     "PAYROLL_RUN_NOT_POSTED", HttpStatus.BAD_REQUEST);
         }
 
+        // A negative/zero amount would violate the journal_line CHECK and 500; a
+        // positive over-payment silently over-draws the salary-payable liability.
+        if (payment.getAmount() == null || payment.getAmount().signum() <= 0) {
+            throw new BusinessException("Payment amount must be positive",
+                    "PAYROLL_PAYMENT_AMOUNT_INVALID", HttpStatus.BAD_REQUEST);
+        }
+        BigDecimal alreadyPaid = paymentRepository.findByOrgIdAndPayrollRunId(orgId, runId).stream()
+                .map(PayrollPayment::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal netPay = run.getNetPayTotal() != null ? run.getNetPayTotal() : BigDecimal.ZERO;
+        if (alreadyPaid.add(payment.getAmount()).compareTo(netPay) > 0) {
+            throw new BusinessException(
+                    "Payment exceeds net pay for this run (net " + netPay
+                            + ", already paid " + alreadyPaid + ")",
+                    "PAYROLL_PAYMENT_EXCEEDS_NET", HttpStatus.BAD_REQUEST);
+        }
+
         payment.setOrgId(orgId);
         payment.setPayrollRunId(runId);
 
@@ -726,6 +753,11 @@ public class PayrollService {
     public StatutoryPayment recordStatutoryPayment(StatutoryPayment payment) {
         UUID orgId = TenantContext.getCurrentOrgId();
         payment.setOrgId(orgId);
+
+        if (payment.getAmount() == null || payment.getAmount().signum() <= 0) {
+            throw new BusinessException("Statutory payment amount must be positive",
+                    "PAYROLL_PAYMENT_AMOUNT_INVALID", HttpStatus.BAD_REQUEST);
+        }
 
         if (payment.getStatus() == null) {
             payment.setStatus("PAID");
@@ -870,9 +902,15 @@ public class PayrollService {
             }
         }
 
-        // If no structure components produced gross, use structure.grossMonthly as fallback
+        // If no structure components produced gross, use structure.grossMonthly as
+        // fallback — and apply the SAME loss-of-pay proration the per-EARNING-line
+        // path uses, so a line-less structure with approved unpaid leave isn't paid
+        // the full month (the payslip already stamped lopDays above).
         if (grossPay.compareTo(BigDecimal.ZERO) == 0 && structure.getGrossMonthly() != null) {
             grossPay = structure.getGrossMonthly();
+            if (lopFactor.compareTo(BigDecimal.ONE) < 0) {
+                grossPay = grossPay.multiply(lopFactor).setScale(2, RoundingMode.HALF_UP);
+            }
         }
 
         // Resolve BASIC amount for PF calculation
@@ -1177,6 +1215,25 @@ public class PayrollService {
                     resolveAccountCode(settings.getDefaultTdsPayableAccountId()),
                     BigDecimal.ZERO, tdsTotal,
                     "TDS payable", null, null));
+        }
+
+        // CR "Other deductions payable" — any deduction that reduced net pay but
+        // maps to no statutory payable CR line above (a custom DEDUCTION component,
+        // or a statutory deduction whose component/line is missing). Without this,
+        // DR (gross + employer legs) would exceed CR by exactly that amount and the
+        // whole run would be un-postable with ACCT_JOURNAL_IMBALANCE. Derived from
+        // run.getDeductionTotal() (the figure that actually drove net pay), not from
+        // the payslip lines, so a MISSING line is caught too.
+        BigDecimal recognisedEmployeeDeductions = pfEmployeeTotal
+                .add(esiEmployeeTotal).add(ptTotal).add(lwfEmployeeTotal).add(tdsTotal);
+        BigDecimal runDeductionTotal = run.getDeductionTotal() != null
+                ? run.getDeductionTotal() : BigDecimal.ZERO;
+        BigDecimal otherDeductions = runDeductionTotal.subtract(recognisedEmployeeDeductions);
+        if (otherDeductions.compareTo(BigDecimal.ZERO) > 0) {
+            lines.add(new JournalLineRequest(
+                    resolveAccountCode(settings.getDefaultSalaryPayableAccountId()),
+                    BigDecimal.ZERO, otherDeductions,
+                    "Other deductions payable", null, null));
         }
 
         // Gulf-only gratuity accrual: DR Gratuity Expense (5060)

@@ -63,6 +63,10 @@ class PayrollServiceTest {
                 ptCalculator, lwfCalculator, countryAccess, gulfPayrollService);
         // Default: India org so existing statutory assertions hold.
         org.mockito.Mockito.lenient().when(countryAccess.isCountry("IN")).thenReturn(true);
+        // approveRun/postRun now use the pessimistic-locked finder — delegate it to
+        // the plain finder so per-test stubs on the latter flow through.
+        org.mockito.Mockito.lenient().when(runRepo.findByIdAndOrgIdForUpdate(any(), any()))
+                .thenAnswer(inv -> runRepo.findByIdAndOrgId(inv.getArgument(0), inv.getArgument(1)));
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
 
@@ -155,6 +159,57 @@ class PayrollServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> service.recordPayment(runId, payment));
         assertEquals("PAYROLL_RUN_NOT_POSTED", ex.getErrorCode());
+    }
+
+    @Test
+    void recordPayment_negativeAmount_throws() {
+        UUID runId = UUID.randomUUID();
+        PayrollRun run = PayrollRun.builder()
+                .id(runId).orgId(orgId).status("POSTED").netPayTotal(BigDecimal.valueOf(200000)).build();
+        when(runRepo.findByIdAndOrgId(runId, orgId)).thenReturn(Optional.of(run));
+
+        PayrollPayment payment = PayrollPayment.builder()
+                .paymentDate(LocalDate.now()).paymentAccountId(bankAccountId)
+                .amount(BigDecimal.valueOf(-50000)).build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.recordPayment(runId, payment));
+        assertEquals("PAYROLL_PAYMENT_AMOUNT_INVALID", ex.getErrorCode());
+        verify(journalService, never()).postJournal(any());
+    }
+
+    @Test
+    void recordPayment_exceedingNetPay_throws() {
+        UUID runId = UUID.randomUUID();
+        PayrollRun run = PayrollRun.builder()
+                .id(runId).orgId(orgId).status("POSTED").netPayTotal(BigDecimal.valueOf(200000)).build();
+        when(runRepo.findByIdAndOrgId(runId, orgId)).thenReturn(Optional.of(run));
+        // 200000 already paid → a second 1 over-draws the salary-payable liability.
+        when(paymentRepo.findByOrgIdAndPayrollRunId(orgId, runId)).thenReturn(List.of(
+                PayrollPayment.builder().amount(BigDecimal.valueOf(200000)).build()));
+
+        PayrollPayment payment = PayrollPayment.builder()
+                .paymentDate(LocalDate.now()).paymentAccountId(bankAccountId)
+                .amount(BigDecimal.ONE).build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.recordPayment(runId, payment));
+        assertEquals("PAYROLL_PAYMENT_EXCEEDS_NET", ex.getErrorCode());
+        verify(journalService, never()).postJournal(any());
+    }
+
+    @Test
+    void postRun_usesPessimisticLock_andRejectsAlreadyPosted() {
+        UUID runId = UUID.randomUUID();
+        // Second concurrent post sees POSTED (via the FOR-UPDATE re-read) → rejected.
+        PayrollRun posted = PayrollRun.builder().id(runId).orgId(orgId).status("POSTED").build();
+        when(runRepo.findByIdAndOrgIdForUpdate(runId, orgId)).thenReturn(Optional.of(posted));
+
+        // Only findByIdAndOrgIdForUpdate is stubbed for this run, so reaching the
+        // NOT_APPROVED guard (rather than NOT_FOUND) proves postRun took the locked path.
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.postRun(runId));
+        assertEquals("PAYROLL_RUN_NOT_APPROVED", ex.getErrorCode());
+        verify(journalService, never()).postJournal(any());
     }
 
     // ── Statutory payment with journal ──

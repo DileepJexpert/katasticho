@@ -195,6 +195,24 @@ class FieldAllowanceServiceTest {
     }
 
     @Test
+    void claim_flexibleMode_capsRequestedKmAtGpsTrail() {
+        // FLEXIBLE mode allows adjusting DOWN, never inflating above the GPS trail.
+        stubTrail();
+        stubRates("5", "0");
+        stubMode("FLEXIBLE");
+        when(claimRepo.findByOrgIdAndSalespersonIdAndClaimDate(orgId, userId, date))
+                .thenReturn(Optional.empty());
+        stubAccountsAndExpense();
+        when(claimRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        FieldAllowanceClaim claim = service.claim(date, new BigDecimal("100000"));
+
+        // Claimed km is capped at the GPS distance (~11.1), not the inflated 100000.
+        assertEquals(0, claim.getDistanceKm().compareTo(claim.getGpsDistanceKm()));
+        assertTrue(claim.getDistanceKm().doubleValue() < 12);
+    }
+
+    @Test
     void claim_gpsMode_ignoresRequestedKm() {
         stubTrail();
         stubRates("5", "0");

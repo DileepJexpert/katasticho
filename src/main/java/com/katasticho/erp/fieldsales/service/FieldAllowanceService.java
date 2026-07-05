@@ -168,8 +168,10 @@ public class FieldAllowanceService {
                 }
                 yield requestedKm;
             }
-            // FLEXIBLE: salesperson may adjust (e.g. deduct personal travel); defaults to GPS
-            default -> requestedKm != null ? requestedKm : gpsKm;
+            // FLEXIBLE: salesperson may adjust DOWN (e.g. deduct personal travel),
+            // but never above the GPS-recorded trail — cap at gpsKm so a claim can't
+            // inflate the reimbursable distance beyond what was actually driven.
+            default -> requestedKm != null ? requestedKm.min(gpsKm) : gpsKm;
         };
         if (km.signum() < 0) {
             throw new BusinessException("Distance cannot be negative",

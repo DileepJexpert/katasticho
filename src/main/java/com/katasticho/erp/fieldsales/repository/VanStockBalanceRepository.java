@@ -16,4 +16,10 @@ public interface VanStockBalanceRepository extends JpaRepository<VanStockBalance
     Optional<VanStockBalance> findByOrgIdAndVanIdAndItemId(UUID orgId, UUID vanId, UUID itemId);
 
     Optional<VanStockBalance> findByOrgIdAndVanIdAndItemIdAndBatchId(UUID orgId, UUID vanId, UUID itemId, UUID batchId);
+
+    /** The null-batch grain (its own row under the COALESCE(batch_id, zero-uuid)
+     *  unique index). A null-batch lookup must target ONLY this row — the plain
+     *  findByOrgIdAndVanIdAndItemId matched every batch row and blew up (500) once
+     *  a van held the item in two batches. */
+    Optional<VanStockBalance> findByOrgIdAndVanIdAndItemIdAndBatchIdIsNull(UUID orgId, UUID vanId, UUID itemId);
 }

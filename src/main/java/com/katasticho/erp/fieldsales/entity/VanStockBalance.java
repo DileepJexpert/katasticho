@@ -36,6 +36,12 @@ public class VanStockBalance {
     @Builder.Default
     private BigDecimal quantityOnHand = BigDecimal.ZERO;
 
+    /** Weighted-average cost the goods carried when loaded (V39). Null for legacy
+     *  rows → confirmVanReturn falls back to item.purchasePrice. Kept so a van
+     *  round-trip re-opens the warehouse lot at the same basis (value-neutral). */
+    @Column(name = "average_cost")
+    private BigDecimal averageCost;
+
     @Column(name = "last_movement_at")
     private Instant lastMovementAt;
 

@@ -177,4 +177,46 @@ class LeaveManagementServiceTest {
         assertEquals("APPROVED", result.getStatus());
         assertEquals(0, cap.getValue().getUsed().compareTo(new BigDecimal("2")));
     }
+
+    @Test
+    void approveLeave_exceedsRemainingBalance_throws() {
+        // Two disjoint PENDING requests both pass the apply-time check (balance
+        // untouched until approval); the second approval must be rejected once the
+        // first has consumed the balance.
+        LeaveRequest req = LeaveRequest.builder()
+                .id(UUID.randomUUID()).orgId(orgId).userId(userId)
+                .fromDate(mon).toDate(tue).status("PENDING")
+                .leaveType("CL").leaveTypeId(typeId).workingDays(new BigDecimal("2"))
+                .build();
+        when(leaveRepo.findByIdAndOrgIdAndIsDeletedFalse(req.getId(), orgId)).thenReturn(Optional.of(req));
+        when(typeRepo.findByIdAndOrgIdAndIsDeletedFalse(typeId, orgId))
+                .thenReturn(Optional.of(type(true, true, "12")));
+        // Balance already fully used (entitled 12, used 11 → available 1 < 2).
+        LeaveBalance bal = LeaveBalance.builder().orgId(orgId).userId(userId).leaveTypeId(typeId)
+                .year(2026).entitled(new BigDecimal("12")).used(new BigDecimal("11")).build();
+        when(balanceRepo.findByOrgIdAndUserIdAndLeaveTypeIdAndYearAndIsDeletedFalse(orgId, userId, typeId, 2026))
+                .thenReturn(Optional.of(bal));
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.approveLeave(req.getId()));
+        assertEquals("HR_LEAVE_INSUFFICIENT_BALANCE", ex.getErrorCode());
+        verify(balanceRepo, never()).save(any());
+    }
+
+    @Test
+    void cancelLeave_byNonOwner_throwsAndDoesNotRestoreBalance() {
+        LeaveRequest req = LeaveRequest.builder()
+                .id(UUID.randomUUID()).orgId(orgId).userId(UUID.randomUUID()) // owned by someone else
+                .fromDate(mon).toDate(tue).status("APPROVED")
+                .leaveType("CL").leaveTypeId(typeId).workingDays(new BigDecimal("2"))
+                .build();
+        when(leaveRepo.findByIdAndOrgIdAndIsDeletedFalse(req.getId(), orgId)).thenReturn(Optional.of(req));
+        TenantContext.setCurrentRole("OPERATOR"); // caller is not the owner, not admin
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.cancelLeave(req.getId()));
+        assertEquals("LEAVE_NOT_OWNER", ex.getErrorCode());
+        assertEquals("APPROVED", req.getStatus());
+        verify(balanceRepo, never()).save(any());
+    }
 }

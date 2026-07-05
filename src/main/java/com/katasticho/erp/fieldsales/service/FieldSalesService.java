@@ -8,6 +8,7 @@ import com.katasticho.erp.inventory.dto.StockMovementRequest;
 import com.katasticho.erp.inventory.entity.MovementType;
 import com.katasticho.erp.inventory.entity.ReferenceType;
 import com.katasticho.erp.inventory.entity.StockBalance;
+import com.katasticho.erp.inventory.entity.StockMovement;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
 import com.katasticho.erp.inventory.service.InventoryService;
 import com.katasticho.erp.organisation.OrgSettingsService;
@@ -503,8 +504,10 @@ public class FieldSalesService {
         UUID orgId = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
 
+        // Pessimistic lock so a concurrent double-confirm can't both pass the DRAFT
+        // check and post duplicate stock movements / double van credit.
         VanStockTransfer transfer = vanStockTransferRepository
-                .findByIdAndOrgIdAndIsDeletedFalse(transferId, orgId)
+                .findByIdAndOrgIdForUpdate(transferId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("VanStockTransfer", transferId));
 
         if (!"DRAFT".equals(transfer.getStatus())) {
@@ -530,13 +533,16 @@ public class FieldSalesService {
 
         // Process each line: deduct from warehouse, add to van
         for (VanStockTransferLine line : lines) {
-            // Deduct warehouse stock via InventoryService
-            inventoryService.recordMovement(new StockMovementRequest(
+            // Deduct warehouse stock via InventoryService. The returned movement
+            // carries the TRUE (FIFO/weighted-avg) unit cost the goods left the
+            // warehouse at — stamp it on the van so the return leg re-opens the
+            // warehouse lot at the same basis (value-neutral round-trip).
+            StockMovement outMovement = inventoryService.recordMovement(new StockMovementRequest(
                     line.getItemId(),
                     transfer.getWarehouseId(),
                     MovementType.TRANSFER_OUT,
                     line.getQuantity().negate(),  // negative = stock out
-                    null,                         // unitCost
+                    null,                         // unitCost — resolved by the gate
                     transfer.getTransferDate(),
                     ReferenceType.VAN_LOAD,
                     transfer.getId(),
@@ -545,9 +551,10 @@ public class FieldSalesService {
                     line.getBatchId()
             ));
 
-            // Add to van stock balance
+            // Add to van stock balance, carrying the recorded load cost.
+            BigDecimal loadCost = outMovement != null ? outMovement.getUnitCost() : null;
             adjustVanStockBalance(orgId, transfer.getVanId(), line.getItemId(),
-                    line.getBatchId(), line.getQuantity());
+                    line.getBatchId(), line.getQuantity(), loadCost);
         }
 
         transfer.setStatus("CONFIRMED");
@@ -600,8 +607,10 @@ public class FieldSalesService {
         UUID orgId = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
 
+        // Pessimistic lock so a concurrent double-confirm can't both post the
+        // TRANSFER_IN and double-credit the warehouse.
         VanStockTransfer transfer = vanStockTransferRepository
-                .findByIdAndOrgIdAndIsDeletedFalse(transferId, orgId)
+                .findByIdAndOrgIdForUpdate(transferId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("VanStockTransfer", transferId));
 
         if (!"DRAFT".equals(transfer.getStatus())) {
@@ -627,17 +636,28 @@ public class FieldSalesService {
 
         // Process each line: deduct from van, add to warehouse
         for (VanStockTransferLine line : lines) {
+            // Read the cost the goods carried on the van BEFORE deducting, so the
+            // warehouse lot re-opens at the load-leg basis (a pure custody move must
+            // not mint/destroy inventory value). Null → gate falls back to
+            // item.purchasePrice (legacy behaviour for un-costed vans).
+            BigDecimal returnCost = (line.getBatchId() != null
+                    ? vanStockBalanceRepository.findByOrgIdAndVanIdAndItemIdAndBatchId(
+                            orgId, transfer.getVanId(), line.getItemId(), line.getBatchId())
+                    : vanStockBalanceRepository.findByOrgIdAndVanIdAndItemIdAndBatchIdIsNull(
+                            orgId, transfer.getVanId(), line.getItemId()))
+                    .map(VanStockBalance::getAverageCost).orElse(null);
+
             // Deduct from van stock balance
             adjustVanStockBalance(orgId, transfer.getVanId(), line.getItemId(),
                     line.getBatchId(), line.getQuantity().negate());
 
-            // Add warehouse stock via InventoryService
+            // Add warehouse stock via InventoryService at the van's carried cost
             inventoryService.recordMovement(new StockMovementRequest(
                     line.getItemId(),
                     transfer.getWarehouseId(),
                     MovementType.TRANSFER_IN,
                     line.getQuantity(),           // positive = stock in
-                    null,                         // unitCost
+                    returnCost,                   // load-leg cost (null → purchasePrice)
                     transfer.getTransferDate(),
                     ReferenceType.VAN_RETURN,
                     transfer.getId(),
@@ -708,18 +728,38 @@ public class FieldSalesService {
      */
     private void adjustVanStockBalance(UUID orgId, UUID vanId, UUID itemId,
                                         UUID batchId, BigDecimal delta) {
-        Optional<VanStockBalance> existing;
-        if (batchId != null) {
-            existing = vanStockBalanceRepository
-                    .findByOrgIdAndVanIdAndItemIdAndBatchId(orgId, vanId, itemId, batchId);
-        } else {
-            existing = vanStockBalanceRepository
-                    .findByOrgIdAndVanIdAndItemId(orgId, vanId, itemId);
-        }
+        adjustVanStockBalance(orgId, vanId, itemId, batchId, delta, null);
+    }
+
+    /**
+     * Adjusts a van_stock_balance row and maintains its weighted-average cost.
+     * On a positive delta (load) with a supplied {@code unitCost}, averageCost is
+     * blended so the van tracks what the goods cost when loaded; on a negative
+     * delta (return/unload) averageCost is left unchanged (it is the cost of what
+     * remains). The null-batch path targets ONLY the null-batch grain so a
+     * batch-less line can never match — or crash against — batched rows.
+     */
+    private void adjustVanStockBalance(UUID orgId, UUID vanId, UUID itemId,
+                                        UUID batchId, BigDecimal delta, BigDecimal unitCost) {
+        Optional<VanStockBalance> existing = batchId != null
+                ? vanStockBalanceRepository.findByOrgIdAndVanIdAndItemIdAndBatchId(orgId, vanId, itemId, batchId)
+                : vanStockBalanceRepository.findByOrgIdAndVanIdAndItemIdAndBatchIdIsNull(orgId, vanId, itemId);
 
         if (existing.isPresent()) {
             VanStockBalance balance = existing.get();
-            balance.setQuantityOnHand(balance.getQuantityOnHand().add(delta));
+            BigDecimal newQty = balance.getQuantityOnHand().add(delta);
+            // Blend the average cost only when adding costed stock.
+            if (delta.signum() > 0 && unitCost != null) {
+                BigDecimal existingQty = balance.getQuantityOnHand().max(BigDecimal.ZERO);
+                BigDecimal existingCost = balance.getAverageCost() != null
+                        ? balance.getAverageCost() : unitCost;
+                BigDecimal totalQty = existingQty.add(delta);
+                if (totalQty.signum() > 0) {
+                    balance.setAverageCost(existingQty.multiply(existingCost).add(delta.multiply(unitCost))
+                            .divide(totalQty, 4, RoundingMode.HALF_UP));
+                }
+            }
+            balance.setQuantityOnHand(newQty);
             balance.setLastMovementAt(Instant.now());
             vanStockBalanceRepository.save(balance);
         } else {
@@ -729,6 +769,7 @@ public class FieldSalesService {
                     .itemId(itemId)
                     .batchId(batchId)
                     .quantityOnHand(delta)
+                    .averageCost(delta.signum() > 0 ? unitCost : null)
                     .lastMovementAt(Instant.now())
                     .build();
             vanStockBalanceRepository.save(balance);
@@ -760,14 +801,9 @@ public class FieldSalesService {
      */
     private void validateVanStock(UUID orgId, UUID vanId, UUID itemId,
                                    UUID batchId, BigDecimal requiredQty) {
-        Optional<VanStockBalance> existing;
-        if (batchId != null) {
-            existing = vanStockBalanceRepository
-                    .findByOrgIdAndVanIdAndItemIdAndBatchId(orgId, vanId, itemId, batchId);
-        } else {
-            existing = vanStockBalanceRepository
-                    .findByOrgIdAndVanIdAndItemId(orgId, vanId, itemId);
-        }
+        Optional<VanStockBalance> existing = batchId != null
+                ? vanStockBalanceRepository.findByOrgIdAndVanIdAndItemIdAndBatchId(orgId, vanId, itemId, batchId)
+                : vanStockBalanceRepository.findByOrgIdAndVanIdAndItemIdAndBatchIdIsNull(orgId, vanId, itemId);
 
         BigDecimal available = existing.map(VanStockBalance::getQuantityOnHand)
                 .orElse(BigDecimal.ZERO);
@@ -793,6 +829,14 @@ public class FieldSalesService {
     public RouteExecution startExecution(UUID routeId, UUID salespersonId,
                                          UUID vanId, LocalDate executionDate) {
         UUID orgId = TenantContext.getCurrentOrgId();
+
+        // A non-admin may only start an execution for themselves; admins legitimately
+        // plan for others.
+        if (!isFieldAdmin() && !salespersonId.equals(TenantContext.getCurrentUserId())) {
+            throw new BusinessException(
+                    "Only the assigned salesperson can start this execution",
+                    "FS_NOT_ASSIGNED_SALESPERSON", HttpStatus.FORBIDDEN);
+        }
 
         routeRepository.findByIdAndOrgIdAndIsDeletedFalse(routeId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Route", routeId));
@@ -892,6 +936,7 @@ public class FieldSalesService {
         RouteExecution execution = routeExecutionRepository
                 .findByIdAndOrgIdAndIsDeletedFalse(executionId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("RouteExecution", executionId));
+        ensureExecutionOwnership(execution);
 
         if (!"PLANNED".equals(execution.getStatus())) {
             throw new BusinessException(
@@ -918,6 +963,7 @@ public class FieldSalesService {
         RouteExecution execution = routeExecutionRepository
                 .findByIdAndOrgIdAndIsDeletedFalse(executionId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("RouteExecution", executionId));
+        ensureExecutionOwnership(execution);
 
         if (!"IN_PROGRESS".equals(execution.getStatus())) {
             throw new BusinessException(
@@ -1148,6 +1194,31 @@ public class FieldSalesService {
         }
     }
 
+    private static boolean isFieldAdmin() {
+        String role = TenantContext.getCurrentRole();
+        return role != null && (role.contains("OWNER") || role.contains("ADMIN"));
+    }
+
+    /** OWNER/ADMIN or the execution's assigned salesperson only. */
+    private void ensureExecutionOwnership(RouteExecution execution) {
+        if (isFieldAdmin()) return;
+        if (!execution.getSalespersonId().equals(TenantContext.getCurrentUserId())) {
+            throw new BusinessException(
+                    "Only the assigned salesperson can perform this action",
+                    "FS_NOT_ASSIGNED_SALESPERSON", HttpStatus.FORBIDDEN);
+        }
+    }
+
+    /** OWNER/ADMIN or the day-close's assigned salesperson only. */
+    private void ensureDayCloseOwnership(DayClose dayClose) {
+        if (isFieldAdmin()) return;
+        if (!dayClose.getSalespersonId().equals(TenantContext.getCurrentUserId())) {
+            throw new BusinessException(
+                    "Only the assigned salesperson can perform this action",
+                    "FS_NOT_ASSIGNED_SALESPERSON", HttpStatus.FORBIDDEN);
+        }
+    }
+
     // =====================================================================
     // Day Close
     // =====================================================================
@@ -1163,6 +1234,7 @@ public class FieldSalesService {
         RouteExecution execution = routeExecutionRepository
                 .findByIdAndOrgIdAndIsDeletedFalse(routeExecutionId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("RouteExecution", routeExecutionId));
+        ensureExecutionOwnership(execution);
 
         if (!"COMPLETED".equals(execution.getStatus())) {
             throw new BusinessException(
@@ -1251,6 +1323,7 @@ public class FieldSalesService {
 
         DayClose dayClose = dayCloseRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
                 .orElseThrow(() -> BusinessException.notFound("DayClose", id));
+        ensureDayCloseOwnership(dayClose);
 
         if (!"PENDING".equals(dayClose.getStatus())) {
             throw new BusinessException(

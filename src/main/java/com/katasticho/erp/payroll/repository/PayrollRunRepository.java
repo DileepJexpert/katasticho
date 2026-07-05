@@ -17,6 +17,11 @@ public interface PayrollRunRepository extends JpaRepository<PayrollRun, UUID> {
 
     Optional<PayrollRun> findByIdAndOrgId(UUID id, UUID orgId);
 
+    /** Pessimistic-write re-read so concurrent approve/post serialise (no double-book). */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT pr FROM PayrollRun pr WHERE pr.id = :id AND pr.orgId = :orgId")
+    Optional<PayrollRun> findByIdAndOrgIdForUpdate(UUID id, UUID orgId);
+
     Page<PayrollRun> findByOrgIdOrderByPeriodStartDesc(UUID orgId, Pageable pageable);
 
     /**
