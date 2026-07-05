@@ -173,7 +173,7 @@ class BomServiceTest {
                 .thenReturn(Optional.of(parent));
         when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(childId, orgId))
                 .thenReturn(Optional.of(child));
-        when(bomRepository.existsByOrgIdAndParentItemIdAndChildItemIdAndIsDeletedFalse(
+        when(bomRepository.existsInCurrentBom(
                 orgId, parentId, childId)).thenReturn(true);
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -197,7 +197,7 @@ class BomServiceTest {
                 .thenReturn(Optional.of(parent));
         when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(childId, orgId))
                 .thenReturn(Optional.of(child));
-        when(bomRepository.existsByOrgIdAndParentItemIdAndChildItemIdAndIsDeletedFalse(
+        when(bomRepository.existsInCurrentBom(
                 orgId, parentId, childId)).thenReturn(false);
         when(bomRepository.save(any(BomComponent.class)))
                 .thenAnswer(inv -> {
@@ -232,7 +232,7 @@ class BomServiceTest {
                 .thenReturn(Optional.of(parent));
         when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(childId, orgId))
                 .thenReturn(Optional.of(phantomChild));
-        when(bomRepository.existsByOrgIdAndParentItemIdAndChildItemIdAndIsDeletedFalse(
+        when(bomRepository.existsInCurrentBom(
                 orgId, parentId, childId)).thenReturn(false);
         when(bomRepository.save(any(BomComponent.class)))
                 .thenAnswer(inv -> {
@@ -268,9 +268,9 @@ class BomServiceTest {
         BomComponent rowRm2 = component(phantomId, rm2Id, new BigDecimal("4"));
         rowRm2.setScrapPercent(new BigDecimal("5"));
 
-        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentId))
+        when(bomRepository.findCurrentBom(orgId, parentId))
                 .thenReturn(java.util.List.of(rowRm1, rowPhantom));
-        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, phantomId))
+        when(bomRepository.findCurrentBom(orgId, phantomId))
                 .thenReturn(java.util.List.of(rowRm2));
         when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(rm1Id, orgId))
                 .thenReturn(Optional.of(rm1));
@@ -308,11 +308,11 @@ class BomServiceTest {
         phantomB.setId(phantomBId);
         phantomB.setPhantom(true);
 
-        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentId))
+        when(bomRepository.findCurrentBom(orgId, parentId))
                 .thenReturn(java.util.List.of(component(parentId, phantomAId, BigDecimal.ONE)));
-        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, phantomAId))
+        when(bomRepository.findCurrentBom(orgId, phantomAId))
                 .thenReturn(java.util.List.of(component(phantomAId, phantomBId, BigDecimal.ONE)));
-        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, phantomBId))
+        when(bomRepository.findCurrentBom(orgId, phantomBId))
                 .thenReturn(java.util.List.of(component(phantomBId, phantomAId, BigDecimal.ONE)));
         when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(phantomAId, orgId))
                 .thenReturn(Optional.of(phantomA));
@@ -357,7 +357,7 @@ class BomServiceTest {
 
         when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(parentId, orgId))
                 .thenReturn(Optional.of(item("PARENT", ItemType.COMPOSITE, false)));
-        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentId))
+        when(bomRepository.findCurrentBom(orgId, parentId))
                 .thenReturn(java.util.List.of(universal));
 
         java.util.List<BomComponent> result = service.resolveBomForVariant(parentId,
@@ -376,7 +376,7 @@ class BomServiceTest {
 
         when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(parentId, orgId))
                 .thenReturn(Optional.of(item("PARENT", ItemType.COMPOSITE, false)));
-        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentId))
+        when(bomRepository.findCurrentBom(orgId, parentId))
                 .thenReturn(java.util.List.of(redOnly));
 
         java.util.List<BomComponent> matched = service.resolveBomForVariant(parentId,
@@ -397,7 +397,7 @@ class BomServiceTest {
 
         when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(parentId, orgId))
                 .thenReturn(Optional.of(item("PARENT", ItemType.COMPOSITE, false)));
-        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentId))
+        when(bomRepository.findCurrentBom(orgId, parentId))
                 .thenReturn(java.util.List.of(both));
 
         // Both axes match → included.
@@ -421,7 +421,7 @@ class BomServiceTest {
 
         when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(parentId, orgId))
                 .thenReturn(Optional.of(item("PARENT", ItemType.COMPOSITE, false)));
-        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentId))
+        when(bomRepository.findCurrentBom(orgId, parentId))
                 .thenReturn(java.util.List.of(
                         component(parentId, cotton, BigDecimal.valueOf(1.5)),
                         componentWithFilter(parentId, redDye, BigDecimal.valueOf(20),
@@ -454,7 +454,7 @@ class BomServiceTest {
 
         when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(parentId, orgId))
                 .thenReturn(Optional.of(item("PARENT", ItemType.COMPOSITE, false)));
-        when(bomRepository.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentId))
+        when(bomRepository.findCurrentBom(orgId, parentId))
                 .thenReturn(java.util.List.of(
                         component(parentId, universal, BigDecimal.ONE),
                         componentWithFilter(parentId, variantOnly, BigDecimal.ONE,

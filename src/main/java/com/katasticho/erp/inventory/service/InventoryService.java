@@ -228,6 +228,23 @@ public class InventoryService {
      * {@code isReversal=true}, then marks the original as {@code isReversed=true}
      * (the only update the trigger allows on a posted row).
      */
+    /**
+     * Reverse every non-reversed movement of {@code movementType} recorded against
+     * (referenceType, referenceId) for the org. Returns how many were reversed.
+     * Used to undo a document's stock legs (e.g. cancelling a WO must reverse its
+     * FG receipts, not just return the raw material).
+     */
+    @Transactional
+    public int reverseMovementsByReference(UUID orgId, ReferenceType referenceType, UUID referenceId,
+                                           MovementType movementType, String reason) {
+        List<StockMovement> originals = stockMovementRepository
+                .findOriginalsByReference(orgId, referenceType, referenceId, movementType);
+        for (StockMovement m : originals) {
+            reverseMovement(m.getId(), reason);
+        }
+        return originals.size();
+    }
+
     @Transactional
     public StockMovement reverseMovement(UUID movementId, String reason) {
         UUID orgId = TenantContext.getCurrentOrgId();
@@ -472,7 +489,7 @@ public class InventoryService {
             // that carries its own revenue account).
             if (item.getItemType() == ItemType.COMPOSITE) {
                 List<BomComponent> components = bomComponentRepository
-                        .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(
+                        .findCurrentBom(
                                 orgId, item.getId());
                 if (components.isEmpty()) {
                     log.warn("Composite item {} sold on invoice {} has no BOM — no stock deducted",
@@ -635,7 +652,7 @@ public class InventoryService {
         // non-composite, so there's no batch/FEFO path here.
         if (item.getItemType() == ItemType.COMPOSITE) {
             List<BomComponent> components = bomComponentRepository
-                    .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, itemId);
+                    .findCurrentBom(orgId, itemId);
             if (components.isEmpty()) {
                 log.warn("Credit note {} returns composite {} with no BOM — no stock restored",
                         creditNoteNumber, item.getSku());

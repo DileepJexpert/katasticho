@@ -153,7 +153,7 @@ public class ManufacturingService {
             resolvedVersion = bomVersion;
         } else {
             bom = bomComponentRepository
-                    .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, finishedGoodId);
+                    .findCurrentBom(orgId, finishedGoodId);
             resolvedVersion = bomComponentRepository.findMaxVersion(orgId, finishedGoodId);
         }
 
@@ -553,10 +553,19 @@ public class ManufacturingService {
         BigDecimal totalQty = sources.stream()
                 .map(WorkOrder::getQuantityToProduce)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Carry the sources' planned conversion costs into the merged WO so its WIP
+        // journal isn't undervalued (summing, not averaging — the merged WO produces
+        // the combined quantity). Passing ZERO/ZERO silently discarded them.
+        BigDecimal totalLabor = sources.stream()
+                .map(WorkOrder::getDirectLaborCost).filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalOverhead = sources.stream()
+                .map(WorkOrder::getOverheadCost).filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         WorkOrder merged = createWorkOrder(ref.getFinishedGoodId(), ref.getWarehouseId(),
                 totalQty, ref.getPlannedStartDate(), ref.getPlannedEndDate(),
-                BigDecimal.ZERO, BigDecimal.ZERO,
+                totalLabor, totalOverhead,
                 "Merged from " + sources.stream()
                         .map(WorkOrder::getWorkOrderNumber)
                         .collect(Collectors.joining(", ")),
@@ -672,7 +681,10 @@ public class ManufacturingService {
     public WorkOrder issueToProduction(UUID workOrderId) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
-        WorkOrder wo = workOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(workOrderId, orgId)
+        // Pessimistic lock: serialise concurrent double-submits so the second
+        // transaction re-reads the flipped status and fails the DRAFT check below,
+        // instead of both issuing materials + posting the WIP journal twice.
+        WorkOrder wo = workOrderRepository.findByIdAndOrgIdForUpdate(workOrderId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("WorkOrder", workOrderId));
 
         if (!"DRAFT".equals(wo.getStatus())) {
@@ -754,7 +766,7 @@ public class ManufacturingService {
                         .findByOrgIdAndParentItemIdAndVersionAndIsDeletedFalseOrderByCreatedAtAsc(
                                 wo.getOrgId(), wo.getFinishedGoodId(), wo.getBomVersion())
                 : bomComponentRepository
-                        .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(
+                        .findCurrentBom(
                                 wo.getOrgId(), wo.getFinishedGoodId());
         Map<UUID, BigDecimal> scrapByChild = new HashMap<>();
         for (BomComponent comp : bom) {
@@ -792,7 +804,9 @@ public class ManufacturingService {
                                           String batchNumber, LocalDate expiryDate) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
-        WorkOrder wo = workOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(workOrderId, orgId)
+        // Pessimistic lock: serialise concurrent FG receipts so a double-submit
+        // can't record duplicate FG movements + post the completion journal twice.
+        WorkOrder wo = workOrderRepository.findByIdAndOrgIdForUpdate(workOrderId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("WorkOrder", workOrderId));
 
         if (!"IN_PROGRESS".equals(wo.getStatus())) {
@@ -1072,7 +1086,11 @@ public class ManufacturingService {
 
     private void backflushMaterials(WorkOrder wo, BigDecimal quantityReceived) {
         BigDecimal ratio = quantityReceived.divide(wo.getQuantityToProduce(), 8, RoundingMode.HALF_UP);
-        BigDecimal actualRmCost = wo.getRawMaterialCost();
+        // Rebuild the RM cost from the CUMULATIVE per-line issued quantity each time
+        // (backflushMaterials runs per FG receipt). Seeding from wo.getRawMaterialCost()
+        // — which starts at the full PLANNED cost — and then adding the backflushed
+        // slices double-counted the RM cost on the first receipt.
+        BigDecimal actualRmCost = BigDecimal.ZERO;
 
         for (WorkOrderLine line : wo.getLines()) {
             if (line.isDeleted()) continue;
@@ -1088,8 +1106,7 @@ public class ManufacturingService {
             BigDecimal lineCost = line.getUnitCost().multiply(newIssued)
                     .setScale(2, RoundingMode.HALF_UP);
             line.setLineCost(lineCost);
-            actualRmCost = actualRmCost.add(line.getUnitCost().multiply(issueQty)
-                    .setScale(2, RoundingMode.HALF_UP));
+            actualRmCost = actualRmCost.add(lineCost);
         }
         wo.setRawMaterialCost(actualRmCost);
     }
@@ -1225,6 +1242,16 @@ public class ManufacturingService {
                 ));
             }
 
+            // Reverse any FG (and co-product) receipts already booked on a partially
+            // received WO — otherwise the received FG stays in stock while all raw
+            // material is returned, corrupting the inventory subledger. Mirrors the
+            // full-RM return + WIP reversal this method already performs.
+            if (wo.getQuantityProduced() != null && wo.getQuantityProduced().signum() > 0) {
+                inventoryService.reverseMovementsByReference(orgId, ReferenceType.WORK_ORDER,
+                        wo.getId(), MovementType.PRODUCTION_RECEIVE,
+                        "Reversal — work order " + wo.getWorkOrderNumber() + " cancelled");
+            }
+
             if (wo.getWipJournalEntryId() != null) {
                 journalService.reverseEntry(wo.getWipJournalEntryId());
             }
@@ -1279,7 +1306,7 @@ public class ManufacturingService {
             if ("MTS".equals(item.getProductionMode())) continue;
 
             List<BomComponent> bom = bomComponentRepository
-                    .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, line.getItemId());
+                    .findCurrentBom(orgId, line.getItemId());
             if (bom.isEmpty()) continue;
 
             WorkOrder wo = createWorkOrder(
@@ -1925,7 +1952,7 @@ public class ManufacturingService {
         int newVersion = currentMax + 1;
 
         List<BomComponent> current = bomComponentRepository
-                .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentItemId);
+                .findCurrentBom(orgId, parentItemId);
 
         for (BomComponent comp : current) {
             if (comp.getEffectiveTo() == null) {
@@ -1939,6 +1966,8 @@ public class ManufacturingService {
                     .parentItemId(parentItemId)
                     .childItemId(comp.getChildItemId())
                     .quantity(comp.getQuantity())
+                    .scrapPercent(comp.getScrapPercent())
+                    .variantFilter(comp.getVariantFilter())
                     .version(newVersion)
                     .effectiveFrom(LocalDate.now())
                     .changeNotes(changeNotes)
@@ -2163,7 +2192,7 @@ public class ManufacturingService {
                         .findByOrgIdAndParentItemIdAndVersionAndIsDeletedFalseOrderByCreatedAtAsc(
                                 orgId, wo.getFinishedGoodId(), wo.getBomVersion())
                 : bomComponentRepository
-                        .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(
+                        .findCurrentBom(
                                 orgId, wo.getFinishedGoodId());
         BomComponent comp = bom.stream()
                 .filter(c -> c.getChildItemId().equals(line.getItemId()))
@@ -2323,7 +2352,7 @@ public class ManufacturingService {
     private List<Map<String, Object>> rollupChildren(UUID orgId, UUID parentItemId,
                                                      java.util.Set<UUID> visiting) {
         List<BomComponent> bom = bomComponentRepository
-                .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentItemId);
+                .findCurrentBom(orgId, parentItemId);
 
         List<Map<String, Object>> nodes = new ArrayList<>();
         for (BomComponent comp : bom) {
@@ -2384,26 +2413,24 @@ public class ManufacturingService {
 
     // ── WIP Journal Posting ──────────────────────────────────────────
 
+    // The WIP/completion posts do NOT swallow exceptions: a failed post must roll
+    // back the enclosing @Transactional (issueToProduction / receiveFinishedGoods)
+    // so a stock movement never commits without its matching GL entry, and the WO
+    // status doesn't flip on a failed post. The operator is blocked until the missing
+    // default account (WIP 1210 / Labor 5040 / Overhead 5030 / Variance 5050) or the
+    // closed period is fixed — the correct posture for books integrity.
     private void postWipJournal(WorkOrder wo) {
-        try {
-            PostingContext ctx = PostingContext.manufacturingWip(wo);
-            JournalEntry entry = journalService.postJournal(wipPostingRule.generate(ctx));
-            wo.setWipJournalEntryId(entry.getId());
-            log.info("WIP journal {} posted for work order {}", entry.getEntryNumber(), wo.getWorkOrderNumber());
-        } catch (Exception e) {
-            log.warn("WIP journal posting failed for work order {} — {}", wo.getWorkOrderNumber(), e.getMessage());
-        }
+        PostingContext ctx = PostingContext.manufacturingWip(wo);
+        JournalEntry entry = journalService.postJournal(wipPostingRule.generate(ctx));
+        wo.setWipJournalEntryId(entry.getId());
+        log.info("WIP journal {} posted for work order {}", entry.getEntryNumber(), wo.getWorkOrderNumber());
     }
 
     private void postCompletionJournal(WorkOrder wo) {
-        try {
-            PostingContext ctx = PostingContext.manufacturingCompletion(wo);
-            JournalEntry entry = journalService.postJournal(wipPostingRule.generate(ctx));
-            wo.setJournalEntryId(entry.getId());
-            log.info("Completion journal {} posted for work order {}", entry.getEntryNumber(), wo.getWorkOrderNumber());
-        } catch (Exception e) {
-            log.warn("Completion journal posting failed for work order {} — {}", wo.getWorkOrderNumber(), e.getMessage());
-        }
+        PostingContext ctx = PostingContext.manufacturingCompletion(wo);
+        JournalEntry entry = journalService.postJournal(wipPostingRule.generate(ctx));
+        wo.setJournalEntryId(entry.getId());
+        log.info("Completion journal {} posted for work order {}", entry.getEntryNumber(), wo.getWorkOrderNumber());
     }
 
     // ── Cost Summary (on completion) ─────────────────────────────────

@@ -178,6 +178,31 @@ class ScrapServiceTest {
         verify(inventoryService).recordMovement(any());
     }
 
+    @Test
+    void recordScrap_nonBackflush_skipsWarehouseMovement_butRecordsScrapRow() {
+        WorkOrder wo = buildWorkOrder("IN_PROGRESS");
+        wo.setBackflushMode(false); // RM already left the warehouse at issueToProduction
+
+        when(workOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
+                .thenReturn(Optional.of(wo));
+        when(scrapRepository.save(any())).thenAnswer(inv -> {
+            var e = inv.getArgument(0);
+            if (((BaseEntity) e).getId() == null) ((BaseEntity) e).setId(UUID.randomUUID());
+            return e;
+        });
+        when(workOrderRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ProductionScrap result = service.recordScrap(
+                wo.getId(), rmItemId, BigDecimal.valueOf(5), reasonCodeId, null, "Defective");
+
+        // No second warehouse deduction (RM was already deducted at issue)...
+        verify(inventoryService, never()).recordMovement(any());
+        // ...but the scrap row + WO totals are still recorded.
+        assertNotNull(result.getId());
+        assertEquals(0, BigDecimal.valueOf(5).compareTo(wo.getScrapQty()));
+        assertEquals(0, BigDecimal.valueOf(250).setScale(2).compareTo(wo.getScrapCost()));
+    }
+
     // ── helpers ──────────────────────────────────────────────────
 
     private WorkOrder buildWorkOrder(String status) {
@@ -197,6 +222,9 @@ class ScrapServiceTest {
                 .quantityToProduce(BigDecimal.TEN)
                 .quantityProduced(BigDecimal.ZERO)
                 .status(status)
+                // Backflush so the scrap genuinely consumes warehouse stock (RM is
+                // still there); the non-backflush skip is covered by its own test.
+                .backflushMode(true)
                 .rawMaterialCost(BigDecimal.valueOf(1500))
                 .directLaborCost(BigDecimal.ZERO)
                 .overheadCost(BigDecimal.ZERO)

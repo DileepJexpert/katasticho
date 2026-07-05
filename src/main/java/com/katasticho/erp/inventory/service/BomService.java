@@ -122,7 +122,7 @@ public class BomService {
         // filters (e.g., same dye item with different colour filters).
         boolean isParameterized = request.variantFilter() != null
                 && !request.variantFilter().isEmpty();
-        if (!isParameterized && bomRepository.existsByOrgIdAndParentItemIdAndChildItemIdAndIsDeletedFalse(
+        if (!isParameterized && bomRepository.existsInCurrentBom(
                 orgId, parentItemId, request.childItemId())) {
             throw new BusinessException(
                     "Child " + child.getSku() + " is already part of this BOM — edit its quantity instead",
@@ -150,7 +150,7 @@ public class BomService {
         itemRepository.findByIdAndOrgIdAndIsDeletedFalse(parentItemId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Item", parentItemId));
         return bomRepository
-                .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentItemId);
+                .findCurrentBom(orgId, parentItemId);
     }
 
     /**
@@ -208,7 +208,7 @@ public class BomService {
                 .orElseThrow(() -> BusinessException.notFound("Item", parentItemId));
 
         List<BomComponent> rows = bomRepository
-                .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentItemId);
+                .findCurrentBom(orgId, parentItemId);
         if (rows.isEmpty()) {
             return List.of();
         }
@@ -282,7 +282,7 @@ public class BomService {
     private void flatten(UUID orgId, UUID rootParentId, UUID parentItemId,
                          BigDecimal multiplier, Set<UUID> visiting, List<BomComponent> out) {
         List<BomComponent> rows = bomRepository
-                .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, parentItemId);
+                .findCurrentBom(orgId, parentItemId);
         for (BomComponent row : rows) {
             Item child = itemRepository
                     .findByIdAndOrgIdAndIsDeletedFalse(row.getChildItemId(), orgId)

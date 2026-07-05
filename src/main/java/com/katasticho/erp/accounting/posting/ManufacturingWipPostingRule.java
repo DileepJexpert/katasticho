@@ -102,38 +102,29 @@ public class ManufacturingWipPostingRule implements PostingRuleStrategy {
     private JournalPostRequest generateCompletionEntry(WorkOrder wo) {
         List<JournalLineRequest> lines = new ArrayList<>();
 
-        lines.add(new JournalLineRequest(
-                resolveCode(wo, DefaultAccountPurpose.INVENTORY_ASSET),
-                wo.getTotalCost(), BigDecimal.ZERO,
-                "FG receipt: " + wo.getWorkOrderNumber(), null, null));
+        // Relieve WIP by EXACTLY the total cost that was debited to it at issue, and
+        // split the DEBIT side between finished-goods inventory and scrap. The old
+        // shape credited WIP for totalCost + scrapCost while WIP only ever held
+        // totalCost, driving WIP negative by the scrap amount on every scrapped WO.
+        BigDecimal scrapCost = calculateMaterialVariance(wo); // >= 0
+        BigDecimal fgValue = wo.getTotalCost().subtract(scrapCost);
 
+        if (fgValue.signum() > 0) {
+            lines.add(new JournalLineRequest(
+                    resolveCode(wo, DefaultAccountPurpose.INVENTORY_ASSET),
+                    fgValue, BigDecimal.ZERO,
+                    "FG receipt: " + wo.getWorkOrderNumber(), null, null));
+        }
+        if (scrapCost.signum() > 0) {
+            lines.add(new JournalLineRequest(
+                    resolveCode(wo, DefaultAccountPurpose.MATERIAL_VARIANCE),
+                    scrapCost, BigDecimal.ZERO,
+                    "Production scrap: " + wo.getWorkOrderNumber(), null, null));
+        }
         lines.add(new JournalLineRequest(
                 resolveCode(wo, DefaultAccountPurpose.WIP_INVENTORY),
                 BigDecimal.ZERO, wo.getTotalCost(),
                 "WIP relieved: " + wo.getWorkOrderNumber(), null, null));
-
-        BigDecimal materialVariance = calculateMaterialVariance(wo);
-        if (materialVariance.signum() != 0) {
-            if (materialVariance.signum() > 0) {
-                lines.add(new JournalLineRequest(
-                        resolveCode(wo, DefaultAccountPurpose.MATERIAL_VARIANCE),
-                        materialVariance, BigDecimal.ZERO,
-                        "Unfavorable variance: " + wo.getWorkOrderNumber(), null, null));
-                lines.add(new JournalLineRequest(
-                        resolveCode(wo, DefaultAccountPurpose.WIP_INVENTORY),
-                        BigDecimal.ZERO, materialVariance,
-                        "Variance offset: " + wo.getWorkOrderNumber(), null, null));
-            } else {
-                lines.add(new JournalLineRequest(
-                        resolveCode(wo, DefaultAccountPurpose.WIP_INVENTORY),
-                        materialVariance.negate(), BigDecimal.ZERO,
-                        "Variance offset: " + wo.getWorkOrderNumber(), null, null));
-                lines.add(new JournalLineRequest(
-                        resolveCode(wo, DefaultAccountPurpose.MATERIAL_VARIANCE),
-                        BigDecimal.ZERO, materialVariance.negate(),
-                        "Favorable variance: " + wo.getWorkOrderNumber(), null, null));
-            }
-        }
 
         return new JournalPostRequest(
                 wo.getActualEndDate() != null ? wo.getActualEndDate() : LocalDate.now(),

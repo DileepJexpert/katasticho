@@ -61,7 +61,7 @@ class YearEndCloseServiceTest {
     void setUp() {
         TenantContext.setCurrentOrgId(orgId);
         Organisation org = Organisation.builder().fiscalYearStart(4).build(); // April → FY2025 = 2025-04-01..2026-03-31
-        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        lenient().when(organisationRepository.findByIdForUpdate(orgId)).thenReturn(Optional.of(org));
     }
 
     @AfterEach
@@ -166,6 +166,37 @@ class YearEndCloseServiceTest {
         BusinessException ex = assertThrows(BusinessException.class, () -> service.closeYear(2025));
         assertEquals("YEAR_END_ALREADY_CLOSED", ex.getErrorCode());
         verify(journalService, never()).postJournal(any());
+    }
+
+    @Test
+    void reopenYear_reversesTheCloseEntryInItsOwnPeriod() {
+        // A live close entry dated the FY-end (2026-03-31). Reopen must reverse it
+        // dated in-period, NOT with a current-date reversal (which would corrupt the
+        // current year's P&L + Retained Earnings).
+        JournalEntry close = JournalEntry.builder()
+                .entryNumber("JE-CLOSE").reversed(false).reversal(false)
+                .effectiveDate(LocalDate.of(2026, 3, 31)).build();
+        close.setId(UUID.randomUUID());
+        when(journalEntryRepository.findBySourceModuleAndSourceIdAndStatus(
+                eq("YEAR_END_CLOSE"), any(), eq("POSTED"))).thenReturn(List.of(close));
+        JournalEntry reversal = entry("JE-REVERSAL");
+        when(journalService.reverseEntry(eq(close.getId()), eq(LocalDate.of(2026, 3, 31))))
+                .thenReturn(reversal);
+
+        JournalEntry result = service.reopenYear(2025);
+
+        assertEquals(reversal.getId(), result.getId());
+        // Reversal is dated the close's period end, never LocalDate.now().
+        verify(journalService).reverseEntry(close.getId(), LocalDate.of(2026, 3, 31));
+        verify(journalService, never()).reverseEntry(any());
+    }
+
+    @Test
+    void reopenYear_notClosed_throws() {
+        when(journalEntryRepository.findBySourceModuleAndSourceIdAndStatus(
+                eq("YEAR_END_CLOSE"), any(), eq("POSTED"))).thenReturn(List.of());
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.reopenYear(2025));
+        assertEquals("YEAR_END_NOT_CLOSED", ex.getErrorCode());
     }
 
     @Test

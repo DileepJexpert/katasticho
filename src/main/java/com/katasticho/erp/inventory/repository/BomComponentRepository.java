@@ -38,10 +38,32 @@ public interface BomComponentRepository extends JpaRepository<BomComponent, UUID
     boolean existsByOrgIdAndParentItemIdAndChildItemIdAndIsDeletedFalse(
             UUID orgId, UUID parentItemId, UUID childItemId);
 
+    /** Version-aware duplicate-child guard: only checks the CURRENT (max) version
+     * so a child that exists in an OLD version doesn't block editing the new one. */
+    @Query("SELECT CASE WHEN COUNT(b) > 0 THEN true ELSE false END FROM BomComponent b "
+            + "WHERE b.orgId = :orgId AND b.parentItemId = :parentItemId AND b.childItemId = :childItemId "
+            + "AND b.isDeleted = false AND b.version = ("
+            + "  SELECT COALESCE(MAX(b2.version), 1) FROM BomComponent b2 "
+            + "  WHERE b2.orgId = :orgId AND b2.parentItemId = :parentItemId AND b2.isDeleted = false)")
+    boolean existsInCurrentBom(UUID orgId, UUID parentItemId, UUID childItemId);
+
     @Query("SELECT COALESCE(MAX(b.version), 0) FROM BomComponent b " +
            "WHERE b.orgId = :orgId AND b.parentItemId = :parentItemId AND b.isDeleted = false")
     int findMaxVersion(UUID orgId, UUID parentItemId);
 
     List<BomComponent> findByOrgIdAndParentItemIdAndVersionAndIsDeletedFalseOrderByCreatedAtAsc(
             UUID orgId, UUID parentItemId, int version);
+
+    /**
+     * The CURRENT (latest-version) BOM for a parent. createBomVersion keeps old
+     * versions live as history, so every "current BOM" consumer must filter to the
+     * max version — otherwise it would see v1+v2 rows together and double every
+     * component's quantity/cost. Version-specific readers keep the version finder.
+     */
+    @Query("SELECT b FROM BomComponent b WHERE b.orgId = :orgId AND b.parentItemId = :parentItemId "
+            + "AND b.isDeleted = false AND b.version = ("
+            + "  SELECT COALESCE(MAX(b2.version), 1) FROM BomComponent b2 "
+            + "  WHERE b2.orgId = :orgId AND b2.parentItemId = :parentItemId AND b2.isDeleted = false) "
+            + "ORDER BY b.createdAt")
+    List<BomComponent> findCurrentBom(UUID orgId, UUID parentItemId);
 }

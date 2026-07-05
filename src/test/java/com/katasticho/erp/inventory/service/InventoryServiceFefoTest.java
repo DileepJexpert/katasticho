@@ -389,7 +389,7 @@ class InventoryServiceFefoTest {
         when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(card.getId(), orgId))
                 .thenReturn(Optional.of(card));
         when(bomComponentRepository
-                .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, hamper.getId()))
+                .findCurrentBom(orgId, hamper.getId()))
                 .thenReturn(List.of(chocolateRow, cardRow));
 
         Invoice invoice = buildInvoice();

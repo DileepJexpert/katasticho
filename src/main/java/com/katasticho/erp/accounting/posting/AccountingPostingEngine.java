@@ -452,8 +452,14 @@ public class AccountingPostingEngine {
                     .setScale(2, java.math.RoundingMode.HALF_UP);
             paidBase = amount.multiply(payRate).setScale(2, java.math.RoundingMode.HALF_UP);
         } else {
-            apDebitBase = amount.subtract(tdsAmount);
-            paidBase = amount;
+            // Payment-time withholding: the vendor is owed `amount`, we pay
+            // (amount − TDS) cash and withhold TDS as a liability. AP must be
+            // debited by the FULL amount to match the subledger (which reduces the
+            // bill + outstandingAp by amount), the cash CR is net, and TDS Payable
+            // is CREDITED (a liability created). The old shape debited TDS Payable
+            // and paid full cash, under-debiting AP and diverging GL from subledger.
+            apDebitBase = amount;
+            paidBase = amount.subtract(tdsAmount);
         }
 
         List<JournalLineRequest> lines = new ArrayList<>();
@@ -466,8 +472,8 @@ public class AccountingPostingEngine {
         if (tdsAmount.compareTo(BigDecimal.ZERO) > 0) {
             lines.add(new JournalLineRequest(
                     defaultAccountService.getCode(orgId, DefaultAccountPurpose.TDS_PAYABLE),
-                    tdsAmount, BigDecimal.ZERO,
-                    "TDS: " + paymentNumber,
+                    BigDecimal.ZERO, tdsAmount,
+                    "TDS withheld: " + paymentNumber,
                     null, null));
         }
 
