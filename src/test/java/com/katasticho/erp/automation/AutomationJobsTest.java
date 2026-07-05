@@ -70,6 +70,7 @@ class AutomationJobsTest {
     @Mock private SalesReceiptRepository salesReceiptRepository;
     @Mock private ExpenseRepository expenseRepository;
     @Mock private VendorPaymentRepository vendorPaymentRepository;
+    @Mock private OrgBatchTxRunner txRunner;
 
     private PaymentReminderJob paymentReminderJob;
     private ExpiryAlertJob expiryAlertJob;
@@ -83,18 +84,22 @@ class AutomationJobsTest {
 
     @BeforeEach
     void setUp() {
+        // Per-org tx isolation: run the body inline so the assertions below still hold.
+        doAnswer(inv -> { ((Runnable) inv.getArgument(0)).run(); return null; })
+                .when(txRunner).runInTx(any(Runnable.class));
+
         paymentReminderJob = new PaymentReminderJob(
-                orgRepository, invoiceRepository, contactRepository, userRepository, notificationService);
+                orgRepository, invoiceRepository, contactRepository, userRepository, notificationService, txRunner);
         expiryAlertJob = new ExpiryAlertJob(
-                orgRepository, batchRepository, batchBalanceRepository, itemRepository, userRepository, notificationService);
+                orgRepository, batchRepository, batchBalanceRepository, itemRepository, userRepository, notificationService, txRunner);
         lowStockAlertJob = new LowStockAlertJob(
-                orgRepository, stockBalanceRepository, itemRepository, contactRepository, userRepository, notificationService, smsService);
+                orgRepository, stockBalanceRepository, itemRepository, contactRepository, userRepository, notificationService, smsService, txRunner);
         dailySummaryJob = new DailySalesSummaryJob(
                 orgRepository, invoiceRepository, paymentRepository, salesReceiptRepository,
                 expenseRepository, vendorPaymentRepository, stockMovementRepository,
-                itemRepository, userRepository, notificationService);
+                itemRepository, userRepository, notificationService, txRunner);
         overdueBillJob = new OverdueBillJob(
-                orgRepository, billRepository, contactRepository, userRepository, notificationService);
+                orgRepository, billRepository, contactRepository, userRepository, notificationService, txRunner);
 
         orgId = UUID.randomUUID();
         adminId = UUID.randomUUID();

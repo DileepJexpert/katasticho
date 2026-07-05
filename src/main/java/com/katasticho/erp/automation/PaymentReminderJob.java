@@ -35,10 +35,10 @@ public class PaymentReminderJob {
     private final ContactRepository contactRepository;
     private final AppUserRepository userRepository;
     private final NotificationService notificationService;
+    private final OrgBatchTxRunner txRunner;
 
     @Scheduled(cron = "${app.automation.payment-reminder.cron:0 0 9 * * *}")
     @SchedulerLock(name = "PaymentReminderJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
-    @Transactional
     public void run() {
         LocalDate today = LocalDate.now();
         List<LocalDate> dates = List.of(
@@ -50,18 +50,23 @@ public class PaymentReminderJob {
         );
 
         List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
-        int total = 0;
-        int orgCount = 0;
-
         for (Organisation org : orgs) {
+            try {
+                txRunner.runInTx(() -> processOrg(org, today, dates));
+            } catch (Exception e) {
+                log.warn("Payment-reminder sweep failed for org {}: {}", org.getId(), e.getMessage());
+            }
+        }
+    }
+
+    void processOrg(Organisation org, LocalDate today, List<LocalDate> dates) {
             List<Invoice> invoices = invoiceRepository.findDueOnDates(org.getId(), dates);
-            if (invoices.isEmpty()) continue;
+            if (invoices.isEmpty()) return;
 
             AppUser admin = userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(org.getId(), "OWNER")
                     .orElse(null);
-            if (admin == null) continue;
+            if (admin == null) return;
 
-            orgCount++;
             for (Invoice inv : invoices) {
                 if (notificationService.existsTodayForEntity(org.getId(), "PAYMENT_REMINDER", inv.getId())) {
                     continue;
@@ -105,12 +110,6 @@ public class PaymentReminderJob {
                 String severity = daysOverdue >= 15 ? "CRITICAL" : daysOverdue >= 3 ? "WARNING" : "INFO";
                 notificationService.send(org.getId(), admin.getId(), title, message,
                         severity, "PAYMENT_REMINDER", "INVOICE", inv.getId(), metadata);
-                total++;
             }
-        }
-
-        if (total > 0) {
-            log.info("Payment reminders sent: {} for {} orgs", total, orgCount);
-        }
     }
 }

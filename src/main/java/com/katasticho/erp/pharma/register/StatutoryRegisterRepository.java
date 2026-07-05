@@ -15,6 +15,8 @@ public interface StatutoryRegisterRepository extends JpaRepository<StatutoryRegi
 
     Optional<StatutoryRegisterEntry> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
+    List<StatutoryRegisterEntry> findByOrgIdAndSaleReceiptIdAndIsDeletedFalse(UUID orgId, UUID saleReceiptId);
+
     Page<StatutoryRegisterEntry> findByOrgIdAndRegisterTypeAndSaleDateBetweenAndIsDeletedFalseOrderBySaleDateDescCreatedAtDesc(
             UUID orgId, RegisterType registerType, LocalDate from, LocalDate to, Pageable pageable);
 

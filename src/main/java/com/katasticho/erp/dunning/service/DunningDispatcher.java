@@ -108,8 +108,11 @@ public class DunningDispatcher {
                 String subject = render(level.getSubject() == null || level.getSubject().isBlank()
                         ? "Payment reminder: invoice {{invoiceNumber}}" : level.getSubject(),
                         invoice, contact, days, "");
-                emailService.sendHtml(contact.getEmail(), subject, message); // best-effort, swallows
-                return true;
+                // Honour the actual send outcome (mirrors the WHATSAPP branch) — a
+                // swallowed failure must NOT commit a false SENT that the partial
+                // unique index then permanently suppresses; false → NotDelivered →
+                // the claim rolls back and the level retries next sweep.
+                return emailService.sendHtml(contact.getEmail(), subject, message);
             }
             case "WHATSAPP" -> {
                 WhatsAppMessage msg = whatsAppDocumentService.sendReminder(contact.getId());

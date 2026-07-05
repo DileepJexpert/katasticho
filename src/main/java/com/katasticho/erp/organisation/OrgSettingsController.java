@@ -111,8 +111,10 @@ public class OrgSettingsController {
         Map<String, String> result = new java.util.HashMap<>();
         result.put("enabled", settingsService.get(orgId, "sms.enabled", "false"));
         result.put("provider", settingsService.get(orgId, "sms.provider", "FAST2SMS"));
-        String apiKey = settingsService.get(orgId, "sms.api_key", null);
-        if (apiKey != null) result.put("apiKey", apiKey);
+        // Never echo the raw provider key — mirror the WhatsApp endpoint's
+        // write-only "set" flag (the generic settings reads already mask sms.api_key).
+        result.put("apiKeySet",
+                settingsService.get(orgId, "sms.api_key", "").isBlank() ? "false" : "true");
         result.put("senderId", settingsService.get(orgId, "sms.sender_id", "KTSEPR"));
         return ResponseEntity.ok(result);
     }

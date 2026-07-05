@@ -357,7 +357,12 @@ public class AuthService {
         }
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         user.resetFailedLogins();
+        // Invalidate all existing sessions on a password change: bump the token
+        // version (rejects old access tokens) and revoke refresh tokens (stops a
+        // stolen refresh token from minting fresh access tokens).
+        user.incrementTokenVersion();
         userRepository.save(user);
+        refreshTokenRepository.revokeAllByUserId(user.getId());
         auditService.logSync(user.getOrgId(), user.getId(), "APP_USER", user.getId(),
                 "PASSWORD_CHANGE", null,
                 "{\"method\":\"self_service\",\"at\":\"" + Instant.now() + "\"}");
@@ -381,7 +386,11 @@ public class AuthService {
         for (AppUser user : matches) {
             user.setPasswordHash(hash);
             user.resetFailedLogins();
+            // Compromise-recovery: bump the token version and revoke refresh tokens
+            // so a forgot-password reset actually evicts any attacker session.
+            user.incrementTokenVersion();
             userRepository.save(user);
+            refreshTokenRepository.revokeAllByUserId(user.getId());
             auditService.logSync(user.getOrgId(), user.getId(), "APP_USER", user.getId(),
                     "PASSWORD_RESET", null, "{\"method\":\"self_service_otp\",\"at\":\"" + now + "\"}");
         }
@@ -583,7 +592,11 @@ public class AuthService {
 
     private AuthResponse buildAuthResponse(AppUser user, Organisation org) {
         requireApprovedForLogin(user, org);
-        String accessToken = jwtService.generateAccessToken(user.getId(), user.getOrgId(), user.getRole());
+        // Carry the user's CURRENT tokenVersion so a bump (password reset / admin
+        // suspend) invalidates only pre-existing tokens — the 3-arg overload
+        // hardcoded version 0, so any bump permanently 401'd a fresh login too.
+        String accessToken = jwtService.generateAccessToken(
+                user.getId(), user.getOrgId(), user.getRole(), user.getTokenVersion());
         String refreshToken = jwtService.generateRefreshToken();
 
         // Store refresh token hash

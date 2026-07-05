@@ -7,6 +7,7 @@ import com.katasticho.erp.pharma.dto.PrescriptionRequest;
 import com.katasticho.erp.pharma.dto.PrescriptionResponse;
 import com.katasticho.erp.pharma.entity.PrescriptionRecord;
 import com.katasticho.erp.pharma.entity.PrescriptionRecordItem;
+import com.katasticho.erp.pharma.register.StatutoryRegisterService;
 import com.katasticho.erp.pharma.repository.PrescriptionRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -25,6 +26,7 @@ import java.util.UUID;
 public class PrescriptionService {
 
     private final PrescriptionRecordRepository prescriptionRecordRepository;
+    private final StatutoryRegisterService statutoryRegisterService;
 
     @Transactional
     public PrescriptionResponse create(PrescriptionRequest request) {
@@ -55,7 +57,17 @@ public class PrescriptionService {
             }
         }
 
-        return toResponse(prescriptionRecordRepository.save(record));
+        PrescriptionRecord saved = prescriptionRecordRepository.save(record);
+
+        // If this Rx is linked to an already-rung sale, backfill the statutory
+        // register rows that were written at sale time with blank prescriber
+        // columns (the common flow — the Rx is captured just after the receipt).
+        if (saved.getReceiptId() != null) {
+            statutoryRegisterService.backfillPrescriber(saved.getReceiptId(),
+                    saved.getDoctorName(), saved.getDoctorRegNumber(), saved.getNotes());
+        }
+
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)

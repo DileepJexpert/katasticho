@@ -371,7 +371,12 @@ public class SalesReceiptService {
         // pharma.h1_strict=true) is intentionally allowed to bubble so the
         // transaction rolls the receipt back.
         try {
-            statutoryRegisterService.recordSaleEntries(receipt, itemMap);
+            var prescriber = new com.katasticho.erp.pharma.register.StatutoryRegisterService.PrescriberContext(
+                    request.prescriptionNumber(),
+                    request.prescriberName(),
+                    request.prescriberRegNumber(),
+                    request.prescriberAddress());
+            statutoryRegisterService.recordSaleEntries(receipt, itemMap, prescriber);
         } catch (BusinessException be) {
             throw be;
         } catch (Exception ex) {

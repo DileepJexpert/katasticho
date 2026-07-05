@@ -144,6 +144,7 @@ class PosKhataSaleTest {
         return new CreateSalesReceiptRequest(
                 null, contact, LocalDate.of(2026, 7, 2), PaymentMode.CREDIT,
                 null, BigDecimal.ZERO, null, null, null, null,
+                null, null, null, null,
                 List.of(new CreateSalesReceiptRequest.LineRequest(
                         null, "Loose sugar", new BigDecimal("2"), null,
                         new BigDecimal("50.00"), null, null, null, null, null, null)));
@@ -193,6 +194,7 @@ class PosKhataSaleTest {
         var request = new CreateSalesReceiptRequest(
                 null, null, LocalDate.of(2026, 7, 2), PaymentMode.CASH,
                 null, new BigDecimal("100.00"), null, null, null, null,
+                null, null, null, null,
                 List.of(new CreateSalesReceiptRequest.LineRequest(
                         null, "Loose sugar", new BigDecimal("2"), null,
                         new BigDecimal("50.00"), null, null, null, null, null, null)));

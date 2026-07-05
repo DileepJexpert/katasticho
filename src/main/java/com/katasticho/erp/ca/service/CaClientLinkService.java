@@ -103,7 +103,16 @@ public class CaClientLinkService {
         }
         UUID caUserId = TenantContext.getCurrentUserId();
         Instant expiresAt = Instant.now().plusSeconds(15 * 60L);
-        String token = jwtService.generateAccessToken(caUserId, link.getClientOrgId(), "CA_EXTERNAL", 15);
+        // `..., "CA_EXTERNAL", 15` bound the int 15 to the tokenVersion overload
+        // (wrong claim → JwtAuthenticationFilter 401'd every CA user) and used the
+        // default 60-min expiry. Pass the CA user's REAL tokenVersion + an explicit
+        // 15L-minute lifetime so the token-version check passes and the JWT actually
+        // expires in 15 minutes.
+        AppUser caUser = appUserRepository.findById(caUserId)
+                .orElseThrow(() -> new BusinessException("CA user not found",
+                        "CA_USER_NOT_FOUND", HttpStatus.NOT_FOUND));
+        String token = jwtService.generateAccessToken(
+                caUserId, link.getClientOrgId(), "CA_EXTERNAL", caUser.getTokenVersion(), 15L);
         delegatedTokenRepository.save(DelegatedAccessToken.builder()
                 .caUserId(caUserId)
                 .clientOrgId(link.getClientOrgId())

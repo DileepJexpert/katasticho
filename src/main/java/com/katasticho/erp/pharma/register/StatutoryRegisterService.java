@@ -69,27 +69,16 @@ public class StatutoryRegisterService {
     private final OrgSettingsService orgSettingsService;
 
     /**
-     * Strict-mode pre-check the POS layer can call BEFORE persisting the receipt,
-     * so an H1 line without a prescription record fails fast rather than rolling
-     * back the journal + stock movement after the fact. No-op in non-strict mode.
+     * Prescriber details captured inline at the counter (POS request fields).
+     * Blank/absent → no inline prescriber; the sale-time entry falls back to a
+     * PrescriptionRecord already linked to the receipt (rare) or null columns.
      */
-    @Transactional(readOnly = true)
-    public void preflightStrictMode(SalesReceipt receipt, Map<UUID, Item> itemMap) {
-        UUID orgId = TenantContext.getCurrentOrgId();
-        if (!strictMode(orgId)) return;
+    public record PrescriberContext(String prescriptionNumber, String prescriberName,
+                                    String prescriberRegNumber, String prescriberAddress) {
+        public static final PrescriberContext EMPTY = new PrescriberContext(null, null, null, null);
 
-        boolean anyH1 = receipt.getLines().stream()
-                .map(l -> l.getItemId() != null ? itemMap.get(l.getItemId()) : null)
-                .anyMatch(i -> i != null && classify(i.getDrugSchedule()) == RegisterType.H1);
-        if (!anyH1) return;
-
-        boolean hasRx = receipt.getId() != null
-                && prescriptionRepository.findByReceiptIdAndOrgIdAndIsDeletedFalse(receipt.getId(), orgId).isPresent();
-        if (!hasRx) {
-            throw new BusinessException(
-                    "Schedule H1 sale requires a linked prescription record (pharma.h1_strict=true).",
-                    "RX_PRESCRIPTION_REQUIRED",
-                    HttpStatus.BAD_REQUEST);
+        public boolean hasPrescriber() {
+            return prescriberName != null && !prescriberName.isBlank();
         }
     }
 
@@ -105,17 +94,40 @@ public class StatutoryRegisterService {
      */
     @Transactional
     public List<StatutoryRegisterEntry> recordSaleEntries(SalesReceipt receipt, Map<UUID, Item> itemMap) {
+        return recordSaleEntries(receipt, itemMap, PrescriberContext.EMPTY);
+    }
+
+    /**
+     * As {@link #recordSaleEntries(SalesReceipt, Map)}, but with prescriber
+     * details captured inline on the POS request. The prescriber columns are
+     * resolved (in precedence order) from: the inline context, then a
+     * PrescriptionRecord already linked to the receipt. Under
+     * {@code pharma.h1_strict=true} an H1 line is allowed when EITHER source
+     * supplies a prescriber name — otherwise {@code RX_PRESCRIPTION_REQUIRED}.
+     */
+    @Transactional
+    public List<StatutoryRegisterEntry> recordSaleEntries(SalesReceipt receipt, Map<UUID, Item> itemMap,
+                                                          PrescriberContext prescriber) {
         UUID orgId = receipt.getOrgId() != null ? receipt.getOrgId() : TenantContext.getCurrentOrgId();
         boolean strict = strictMode(orgId);
+        PrescriberContext ctx = prescriber != null ? prescriber : PrescriberContext.EMPTY;
 
-        // Resolve once per receipt
+        // A prescription record may already be linked (uncommon — normally the Rx
+        // is created after the sale and backfilled). Inline context takes precedence.
         PrescriptionRecord rx = receipt.getId() == null ? null
                 : prescriptionRepository.findByReceiptIdAndOrgIdAndIsDeletedFalse(receipt.getId(), orgId)
                 .orElse(null);
+        boolean prescriberKnown = ctx.hasPrescriber() || rx != null;
+
         Contact patient = receipt.getContactId() == null ? null
                 : contactRepository
                         .findByIdAndOrgIdAndIsDeletedFalse(receipt.getContactId(), orgId)
                         .orElse(null);
+
+        String prescriberName = firstNonBlank(ctx.prescriberName(), rx != null ? rx.getDoctorName() : null);
+        String prescriberRegNumber = firstNonBlank(ctx.prescriberRegNumber(),
+                rx != null ? rx.getDoctorRegNumber() : null);
+        String prescriberAddress = firstNonBlank(ctx.prescriberAddress(), rx != null ? rx.getNotes() : null);
 
         List<StatutoryRegisterEntry> created = new java.util.ArrayList<>();
         Map<UUID, String> batchNumberCache = new HashMap<>();
@@ -132,9 +144,9 @@ public class StatutoryRegisterService {
             RegisterType type = classify(item.getDrugSchedule());
             if (type == null) continue;
 
-            if (strict && type == RegisterType.H1 && rx == null) {
+            if (strict && type == RegisterType.H1 && !prescriberKnown) {
                 throw new BusinessException(
-                        "Schedule H1 sale requires a linked prescription record (pharma.h1_strict=true).",
+                        "Schedule H1 sale requires prescriber details (pharma.h1_strict=true).",
                         "RX_PRESCRIPTION_REQUIRED",
                         HttpStatus.BAD_REQUEST);
             }
@@ -161,9 +173,9 @@ public class StatutoryRegisterService {
                     .quantity(line.getQuantity() != null ? line.getQuantity() : BigDecimal.ZERO)
                     .saleDate(saleDate)
                     .retentionUntil(retentionUntil)
-                    .prescriberName(rx != null ? rx.getDoctorName() : null)
-                    .prescriberRegNumber(rx != null ? rx.getDoctorRegNumber() : null)
-                    .prescriberAddress(rx != null ? rx.getNotes() : null)
+                    .prescriberName(prescriberName)
+                    .prescriberRegNumber(prescriberRegNumber)
+                    .prescriberAddress(prescriberAddress)
                     .patientName(patient != null ? patient.getDisplayName() : null)
                     .patientAddress(patient != null ? joinAddress(patient) : null)
                     .patientPhone(patient != null ? prefer(patient.getMobile(), patient.getPhone()) : null)
@@ -172,6 +184,45 @@ public class StatutoryRegisterService {
             created.add(registerRepository.save(entry));
         }
         return created;
+    }
+
+    /**
+     * Backfill prescriber columns onto register rows already written at sale
+     * time, once a {@link PrescriptionRecord} is linked to the receipt after the
+     * fact. Called from {@code PrescriptionService.create} when the request
+     * carries a {@code receiptId}. Only fills BLANK prescriber columns so an
+     * inline capture at the counter is never overwritten.
+     *
+     * @return number of register rows updated.
+     */
+    @Transactional
+    public int backfillPrescriber(UUID receiptId, String prescriberName,
+                                  String prescriberRegNumber, String prescriberAddress) {
+        if (receiptId == null) return 0;
+        UUID orgId = TenantContext.getCurrentOrgId();
+        List<StatutoryRegisterEntry> rows =
+                registerRepository.findByOrgIdAndSaleReceiptIdAndIsDeletedFalse(orgId, receiptId);
+        int updated = 0;
+        for (StatutoryRegisterEntry row : rows) {
+            boolean changed = false;
+            if (isBlank(row.getPrescriberName()) && !isBlank(prescriberName)) {
+                row.setPrescriberName(prescriberName);
+                changed = true;
+            }
+            if (isBlank(row.getPrescriberRegNumber()) && !isBlank(prescriberRegNumber)) {
+                row.setPrescriberRegNumber(prescriberRegNumber);
+                changed = true;
+            }
+            if (isBlank(row.getPrescriberAddress()) && !isBlank(prescriberAddress)) {
+                row.setPrescriberAddress(prescriberAddress);
+                changed = true;
+            }
+            if (changed) {
+                registerRepository.save(row);
+                updated++;
+            }
+        }
+        return updated;
     }
 
     @Transactional(readOnly = true)
@@ -293,6 +344,14 @@ public class StatutoryRegisterService {
 
     private static String prefer(String a, String b) {
         return (a != null && !a.isBlank()) ? a : b;
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
+    }
+
+    private static String firstNonBlank(String a, String b) {
+        return !isBlank(a) ? a : (!isBlank(b) ? b : null);
     }
 
     private static String joinAddress(Contact c) {

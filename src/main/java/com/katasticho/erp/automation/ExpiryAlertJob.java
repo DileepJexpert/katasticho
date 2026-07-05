@@ -36,27 +36,36 @@ public class ExpiryAlertJob {
     private final ItemRepository itemRepository;
     private final AppUserRepository userRepository;
     private final NotificationService notificationService;
+    private final OrgBatchTxRunner txRunner;
 
+    // run() is deliberately NOT @Transactional — each org commits in its own
+    // transaction (via txRunner) so one org's failure can't roll back every other
+    // org's markExpired flips + alerts or abort the whole sweep.
     @Scheduled(cron = "${app.automation.expiry-alert.cron:0 0 8 * * *}")
     @SchedulerLock(name = "ExpiryAlertJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
-    @Transactional
     public void run() {
         LocalDate today = LocalDate.now();
         LocalDate horizon = today.plusDays(30);
 
         List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
-        int batchCount = 0;
-        int orgCount = 0;
-
         for (Organisation org : orgs) {
+            try {
+                txRunner.runInTx(() -> processOrg(org, today, horizon));
+            } catch (Exception e) {
+                log.warn("Expiry alert failed for org {}: {}", org.getId(), e.getMessage());
+            }
+        }
+    }
+
+    void processOrg(Organisation org, LocalDate today, LocalDate horizon) {
             batchRepository.markExpired(org.getId(), today);
 
             List<StockBatch> expiring = batchRepository.findExpiringWithStock(org.getId(), horizon);
-            if (expiring.isEmpty()) continue;
+            if (expiring.isEmpty()) return;
 
             AppUser admin = userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(org.getId(), "OWNER")
                     .orElse(null);
-            if (admin == null) continue;
+            if (admin == null) return;
 
             int expired = 0, critical = 0, warning = 0;
             List<Map<String, Object>> items = new ArrayList<>();
@@ -92,9 +101,7 @@ public class ExpiryAlertJob {
                 items.add(entry);
             }
 
-            if (items.isEmpty()) continue;
-            orgCount++;
-            batchCount += items.size();
+            if (items.isEmpty()) return;
 
             String title = String.format("Expiry alert: %d batches expiring", items.size());
             String message = String.format("%d expired, %d expiring within 7 days, %d expiring within 30 days",
@@ -105,10 +112,6 @@ public class ExpiryAlertJob {
 
             notificationService.send(org.getId(), admin.getId(), title, message,
                     severity, "EXPIRY_ALERT", null, null, metadata);
-        }
-
-        if (batchCount > 0) {
-            log.info("Expiry alerts: {} batches across {} orgs", batchCount, orgCount);
-        }
+            log.info("Expiry alerts: {} batches for org {}", items.size(), org.getId());
     }
 }

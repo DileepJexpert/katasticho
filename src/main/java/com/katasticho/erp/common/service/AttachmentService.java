@@ -21,6 +21,7 @@ public class AttachmentService {
 
     private final EntityAttachmentRepository attachmentRepository;
     private final AttachmentStorage storage;
+    private final AttachmentAccessPolicy accessPolicy;
 
     @Transactional
     public EntityAttachment upload(String entityType, UUID entityId, MultipartFile file) {
@@ -54,6 +55,7 @@ public class AttachmentService {
     @Transactional(readOnly = true)
     public List<EntityAttachment> list(String entityType, UUID entityId) {
         UUID orgId = TenantContext.getCurrentOrgId();
+        accessPolicy.assertCanRead(entityType, entityId);
         return attachmentRepository.findByOrgIdAndEntityTypeAndEntityIdAndDeletedFalse(
                 orgId, entityType, entityId);
     }
@@ -68,6 +70,7 @@ public class AttachmentService {
         EntityAttachment attachment = attachmentRepository.findByIdAndOrgId(attachmentId, orgId)
                 .filter(a -> !a.isDeleted())
                 .orElseThrow(() -> BusinessException.notFound("Attachment", attachmentId));
+        accessPolicy.assertCanRead(attachment.getEntityType(), attachment.getEntityId());
         String relativePath = attachment.getFileUrl().startsWith("/")
                 ? attachment.getFileUrl().substring(1)
                 : attachment.getFileUrl();
@@ -81,6 +84,7 @@ public class AttachmentService {
         UUID orgId = TenantContext.getCurrentOrgId();
         EntityAttachment attachment = attachmentRepository.findByIdAndOrgId(attachmentId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Attachment", attachmentId));
+        accessPolicy.assertCanDelete(attachment.getEntityType(), attachment.getEntityId());
         attachment.setDeleted(true);
         attachmentRepository.save(attachment);
     }

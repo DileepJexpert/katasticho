@@ -65,6 +65,22 @@ class DomainEventWorkerTest {
     }
 
     @Test
+    void poisonEventIsMarkedFailedAndBatchContinues() {
+        List<DomainEvent> events = List.of(event("EVT_1"), event("EVT_2"), event("EVT_3"));
+        when(eventRepository.findByProcessedFalseAndDeadLetterFalseOrderByCreatedAtAsc(any()))
+                .thenReturn(events);
+        // The middle event's processOne throws (its REQUIRES_NEW tx rolled back);
+        // the worker must record the failure in a fresh tx and keep going.
+        doThrow(new RuntimeException("boom")).when(eventProcessor).processOne(events.get(1));
+
+        worker.processPendingEvents();
+
+        verify(eventProcessor, times(3)).processOne(any(DomainEvent.class));
+        verify(eventProcessor).markFailed(events.get(1).getId(), "boom");
+        verify(eventProcessor).processOne(events.get(2)); // batch not aborted
+    }
+
+    @Test
     void emptyBatchCompletesWithoutErrors() {
         when(eventRepository.findByProcessedFalseAndDeadLetterFalseOrderByCreatedAtAsc(
                 PageRequest.of(0, 50))).thenReturn(List.of());

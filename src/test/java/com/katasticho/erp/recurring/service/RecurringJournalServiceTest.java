@@ -58,6 +58,10 @@ class RecurringJournalServiceTest {
             if (j.getId() == null) j.setId(templateId);
             return j;
         });
+        // generateFromTemplate now pessimistic-locks the template row; delegate the
+        // locked finder to the plain finder the tests stub.
+        when(journalRepository.findByIdAndOrgIdForUpdate(any(), any())).thenAnswer(inv ->
+                journalRepository.findByIdAndOrgIdAndIsDeletedFalse(inv.getArgument(0), inv.getArgument(1)));
         JournalEntry entry = mock(JournalEntry.class);
         when(entry.getId()).thenReturn(entryId);
         when(journalService.postJournal(any())).thenReturn(entry);

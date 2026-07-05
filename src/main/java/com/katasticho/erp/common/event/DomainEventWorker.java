@@ -25,7 +25,14 @@ public class DomainEventWorker {
         List<DomainEvent> events = eventRepository.findByProcessedFalseAndDeadLetterFalseOrderByCreatedAtAsc(
                 PageRequest.of(0, BATCH_SIZE));
         for (DomainEvent event : events) {
-            eventProcessor.processOne(event);
+            try {
+                eventProcessor.processOne(event);
+            } catch (Exception e) {
+                // Isolate one poison event: record its failure in a fresh tx
+                // (markFailed) so retryCount advances toward dead-letter, and keep
+                // processing the rest of the batch instead of aborting the sweep.
+                eventProcessor.markFailed(event.getId(), e.getMessage());
+            }
         }
     }
 }

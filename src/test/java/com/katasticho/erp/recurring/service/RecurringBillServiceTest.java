@@ -64,6 +64,10 @@ class RecurringBillServiceTest {
             if (b.getId() == null) b.setId(templateId);
             return b;
         });
+        // generateFromTemplate now pessimistic-locks the template row; delegate the
+        // locked finder to the plain finder the tests stub.
+        when(billRepository.findByIdAndOrgIdForUpdate(any(), any())).thenAnswer(inv ->
+                billRepository.findByIdAndOrgIdAndIsDeletedFalse(inv.getArgument(0), inv.getArgument(1)));
         Contact vendor = new Contact();
         vendor.setId(contactId);
         vendor.setOrgId(orgId);
