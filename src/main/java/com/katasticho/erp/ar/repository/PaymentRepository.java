@@ -24,6 +24,8 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     List<Payment> findByInvoiceIdAndIsDeletedFalse(UUID invoiceId);
 
+    List<Payment> findByOrgIdAndInvoiceIdAndIsDeletedFalse(UUID orgId, UUID invoiceId);
+
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.invoiceId = :invoiceId AND p.status = 'POSTED' AND p.isDeleted = false")
     BigDecimal sumPaymentsByInvoice(UUID invoiceId);
 

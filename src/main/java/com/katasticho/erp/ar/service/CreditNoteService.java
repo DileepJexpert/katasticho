@@ -88,6 +88,7 @@ public class CreditNoteService {
         if (request.invoiceId() != null) {
             invoice = invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(request.invoiceId(), orgId)
                     .orElseThrow(() -> BusinessException.notFound("Invoice", request.invoiceId()));
+            requireInvoiceApplicable(invoice);
         }
 
         String placeOfSupply = request.placeOfSupply() != null
@@ -215,7 +216,10 @@ public class CreditNoteService {
     public CreditNote issueCreditNote(UUID creditNoteId) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
-        CreditNote cn = creditNoteRepository.findByIdAndOrgIdAndIsDeletedFalse(creditNoteId, orgId)
+        // Pessimistic lock: a concurrent double-issue serialises here so the
+        // second transaction re-reads the flipped status and fails the DRAFT
+        // check below (otherwise both would post a CR-AR journal + apply twice).
+        CreditNote cn = creditNoteRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(creditNoteId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("CreditNote", creditNoteId));
 
         if (!"DRAFT".equals(cn.getStatus())) {
@@ -249,7 +253,7 @@ public class CreditNoteService {
     public CreditNote issueApprovedCreditNote(UUID creditNoteId) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
-        CreditNote cn = creditNoteRepository.findByIdAndOrgIdAndIsDeletedFalse(creditNoteId, orgId)
+        CreditNote cn = creditNoteRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(creditNoteId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("CreditNote", creditNoteId));
 
         if (!"PENDING_APPROVAL".equals(cn.getStatus())) {
@@ -262,34 +266,55 @@ public class CreditNoteService {
     }
 
     private CreditNote postCreditNote(CreditNote cn) {
-        // Post journal via the accounting posting engine
-        JournalEntry journalEntry = postingEngine.postCreditNote(cn);
-
-        // Restore stock for any itemised lines (returns / damages refunded).
-        // For batch-tracked items the line MUST carry the batch_id of the
-        // returned goods — the inventory gate rejects auto-picking on restore.
+        // Restore stock for any itemised lines (returns / damages refunded) FIRST,
+        // accumulating the actual COST re-entered into inventory. We pass
+        // unitCost=null so the movement gate re-opens the lot at the item's cost
+        // (purchasePrice) — not the SALE price the line carries — then post the
+        // reversal journal WITH matching DR Inventory / CR COGS legs so the GL
+        // tracks the stock ledger (the invoice's send booked DR COGS / CR Inventory).
+        // For batch-tracked items the line MUST carry the batch_id of the returned
+        // goods — the inventory gate rejects auto-picking on restore.
+        BigDecimal restoredInventoryCost = BigDecimal.ZERO;
         for (CreditNoteLine line : cn.getLines()) {
             if (line.getItemId() != null) {
-                inventoryService.restoreStockForCreditNote(
-                        cn.getOrgId(),
-                        line.getItemId(),
-                        line.getQuantity(),
-                        line.getUnitPrice(),
-                        cn.getId(),
-                        cn.getCreditNoteNumber(),
-                        cn.getCreditNoteDate(),
-                        line.getBatchId());
+                restoredInventoryCost = restoredInventoryCost.add(
+                        inventoryService.restoreStockForCreditNote(
+                                cn.getOrgId(),
+                                line.getItemId(),
+                                line.getQuantity(),
+                                null,
+                                cn.getId(),
+                                cn.getCreditNoteNumber(),
+                                cn.getCreditNoteDate(),
+                                line.getBatchId()));
             }
         }
+
+        // Post journal via the accounting posting engine (includes the inventory/
+        // COGS reversal legs when stock was restored above).
+        JournalEntry journalEntry = postingEngine.postCreditNote(cn, restoredInventoryCost);
 
         cn.setStatus("ISSUED");
         cn.setJournalEntryId(journalEntry.getId());
         cn = creditNoteRepository.save(cn);
 
-        // If linked to invoice, reduce balance due
+        // If linked to invoice, reduce balance due. Load the invoice org-scoped
+        // WITH a pessimistic lock, re-validate it is still applicable, and cap
+        // the applied amount at the current balanceDue so a CN can never
+        // over-credit AR, resurrect a CANCELLED invoice, or flip a DRAFT to PAID.
         if (cn.getInvoiceId() != null) {
-            Invoice invoice = invoiceRepository.findById(cn.getInvoiceId()).orElse(null);
+            Invoice invoice = invoiceRepository
+                    .findLockedByIdAndOrgIdAndIsDeletedFalse(cn.getInvoiceId(), cn.getOrgId())
+                    .orElse(null);
             if (invoice != null) {
+                requireInvoiceApplicable(invoice);
+                if (cn.getTotalAmount().compareTo(invoice.getBalanceDue()) > 0) {
+                    throw new BusinessException(
+                            "Credit note total " + cn.getTotalAmount() + " exceeds invoice "
+                                    + invoice.getInvoiceNumber() + " balance due " + invoice.getBalanceDue()
+                                    + " — reduce the credit note or unlink the invoice.",
+                            "AR_CN_EXCEEDS_BALANCE", HttpStatus.BAD_REQUEST);
+                }
                 invoiceService.updatePaymentStatus(invoice, cn.getTotalAmount());
                 cn.setStatus("APPLIED");
                 cn = creditNoteRepository.save(cn);
@@ -303,6 +328,21 @@ public class CreditNoteService {
         log.info("Credit note {} issued, journal={}", cn.getCreditNoteNumber(), journalEntry.getEntryNumber());
         return cn;
     }
+
+    /** A credit note may only be linked/applied to an invoice that has posted its
+     *  own AR debit and still carries a live receivable — never a DRAFT (no AR yet)
+     *  or a CANCELLED/PAID invoice (AR already gone). */
+    private void requireInvoiceApplicable(Invoice invoice) {
+        if (!APPLICABLE_INVOICE_STATUSES.contains(invoice.getStatus())) {
+            throw new BusinessException(
+                    "Credit note cannot be applied to invoice " + invoice.getInvoiceNumber()
+                            + " (status: " + invoice.getStatus() + ") — only SENT, PARTIALLY_PAID or OVERDUE invoices are eligible.",
+                    "AR_CN_INVOICE_NOT_APPLICABLE", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private static final java.util.Set<String> APPLICABLE_INVOICE_STATUSES =
+            java.util.Set.of("SENT", "PARTIALLY_PAID", "OVERDUE");
 
     private Map<String, Object> creditNoteApprovalContext(CreditNote cn) {
         return Map.of(

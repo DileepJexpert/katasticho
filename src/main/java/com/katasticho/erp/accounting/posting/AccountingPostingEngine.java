@@ -275,6 +275,17 @@ public class AccountingPostingEngine {
     // ── Credit Note ────────────────────────────────────────────
 
     public JournalEntry postCreditNote(CreditNote cn) {
+        return postCreditNote(cn, BigDecimal.ZERO);
+    }
+
+    /**
+     * Credit-note reversal journal. {@code restoredInventoryCost} is the total COST
+     * of goods physically returned to stock by this credit note (0 for a non-itemised
+     * / service credit). When positive we book DR Inventory / CR COGS to mirror the
+     * invoice's DR COGS / CR Inventory, so returning goods relieves COGS and restores
+     * the inventory asset instead of leaving the GL adrift from the stock ledger.
+     */
+    public JournalEntry postCreditNote(CreditNote cn, BigDecimal restoredInventoryCost) {
         UUID orgId = cn.getOrgId();
         List<JournalLineRequest> lines = new ArrayList<>();
 
@@ -304,6 +315,28 @@ public class AccountingPostingEngine {
                 BigDecimal.ZERO, cn.getTotalAmount(),
                 "AR credit: CN " + cn.getCreditNoteNumber(),
                 null, null));
+
+        // DR Inventory / CR COGS for the cost of goods returned to stock (mirror of
+        // the invoice's appendCogs). Both legs equal, so the journal stays balanced.
+        if (restoredInventoryCost != null && restoredInventoryCost.signum() > 0) {
+            try {
+                lines.add(new JournalLineRequest(
+                        defaultAccountService.getCode(orgId, DefaultAccountPurpose.INVENTORY_ASSET),
+                        restoredInventoryCost, BigDecimal.ZERO,
+                        "Inventory restored: CN " + cn.getCreditNoteNumber(),
+                        null, null));
+                lines.add(new JournalLineRequest(
+                        defaultAccountService.getCode(orgId, DefaultAccountPurpose.COGS),
+                        BigDecimal.ZERO, restoredInventoryCost,
+                        "COGS reversal: CN " + cn.getCreditNoteNumber(),
+                        null, null));
+            } catch (BusinessException e) {
+                // Inventory/COGS accounts not configured — skip the cost legs
+                // (mirrors the POS-receipt COGS-account fallback) rather than
+                // fail the whole credit note. Revenue/tax/AR reversal still posts.
+                log.warn("Inventory/COGS accounts not configured — skipping CN cost reversal: {}", e.getMessage());
+            }
+        }
 
         return journalService.postJournal(new JournalPostRequest(
                 cn.getCreditNoteDate(),

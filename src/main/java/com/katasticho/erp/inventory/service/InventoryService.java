@@ -604,7 +604,15 @@ public class InventoryService {
      * items continue to restore via a plain aggregate movement.
      */
     @Transactional
-    public void restoreStockForCreditNote(UUID orgId,
+    /**
+     * Restore stock for a returned/credited credit-note line and return the total
+     * COST value re-entered into inventory (Σ movement.totalCost across the line +
+     * any BOM children). Callers should pass {@code unitCost = null} so the movement
+     * gate re-opens the lot at the item's recorded cost (purchasePrice) — never the
+     * SALE price — and use the returned amount to book the DR Inventory / CR COGS
+     * reversal so the GL tracks the stock ledger.
+     */
+    public BigDecimal restoreStockForCreditNote(UUID orgId,
                                           UUID itemId,
                                           BigDecimal quantity,
                                           BigDecimal unitCost,
@@ -631,9 +639,10 @@ public class InventoryService {
             if (components.isEmpty()) {
                 log.warn("Credit note {} returns composite {} with no BOM — no stock restored",
                         creditNoteNumber, item.getSku());
-                return;
+                return BigDecimal.ZERO;
             }
             BigDecimal parentQty = quantity.abs();
+            BigDecimal restoredCost = BigDecimal.ZERO;
             for (BomComponent comp : components) {
                 BigDecimal childTotalQty = comp.getQuantity().multiply(parentQty);
                 Item child = itemRepository
@@ -654,9 +663,10 @@ public class InventoryService {
                         creditNoteNumber,
                         "Return via " + creditNoteNumber + " (BOM child of " + item.getSku() + ")",
                         null);
-                recordMovement(childReq);
+                StockMovement m = recordMovement(childReq);
+                if (m.getTotalCost() != null) restoredCost = restoredCost.add(m.getTotalCost());
             }
-            return;
+            return restoredCost;
         }
 
         // Guard batch-tracked items early so the operator sees an
@@ -674,7 +684,7 @@ public class InventoryService {
                 defaultWarehouse.getId(),
                 MovementType.RETURN_IN,
                 quantity.abs(), // positive — stock comes back in
-                unitCost,
+                unitCost,       // caller passes null → gate uses item.purchasePrice (cost, not sale price)
                 creditNoteDate,
                 ReferenceType.CREDIT_NOTE,
                 creditNoteId,
@@ -682,7 +692,8 @@ public class InventoryService {
                 "Return via " + creditNoteNumber,
                 batchId);
 
-        recordMovement(req);
+        StockMovement m = recordMovement(req);
+        return m.getTotalCost() != null ? m.getTotalCost() : BigDecimal.ZERO;
     }
 
     /**

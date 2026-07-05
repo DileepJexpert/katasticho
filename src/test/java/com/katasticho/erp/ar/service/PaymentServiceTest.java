@@ -689,7 +689,11 @@ class PaymentServiceTest {
     }
 
     @Test
-    void voidPostedPayment_restoresContactOutstandingAr() {
+    void voidPostedPayment_doesNotTouchKhataOutstanding() {
+        // contact.outstanding_ar is the KHATA (invoice-less) ledger only. Voiding
+        // an invoice-backed payment restores the invoice's balanceDue but must NOT
+        // re-increment this column (doing so mints phantom khata the settlement
+        // endpoint would collect against with no receivable behind it).
         UUID contactId = UUID.randomUUID();
         UUID invoiceId = UUID.randomUUID();
 
@@ -701,10 +705,6 @@ class PaymentServiceTest {
                 .balanceDue(BigDecimal.ZERO)
                 .build();
         invoice.setId(invoiceId);
-
-        Contact contact = new Contact();
-        contact.setId(contactId);
-        contact.setOutstandingAr(BigDecimal.ZERO);
 
         JournalEntry journal = JournalEntry.builder().entryNumber("JE-001").build();
         journal.setId(UUID.randomUUID());
@@ -723,20 +723,18 @@ class PaymentServiceTest {
 
         when(invoiceRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
                 .thenReturn(Optional.of(invoice));
-        when(contactRepository.findById(contactId)).thenReturn(Optional.of(contact));
-        when(contactRepository.save(any(Contact.class))).thenAnswer(inv -> inv.getArgument(0));
 
         paymentService.voidPayment(payment.getId(), "Test void");
 
-        ArgumentCaptor<Contact> contactCaptor = ArgumentCaptor.forClass(Contact.class);
-        verify(contactRepository).save(contactCaptor.capture());
-        assertEquals(0, new BigDecimal("1000.00").compareTo(contactCaptor.getValue().getOutstandingAr()));
-
+        // The khata ledger column is never written by the invoice-payment path.
+        verify(contactRepository, never()).save(any(Contact.class));
         assertEquals(com.katasticho.erp.ar.entity.PaymentStatus.VOIDED, payment.getStatus());
     }
 
     @Test
-    void postPayment_decrementsContactOutstandingAr() {
+    void postPayment_doesNotTouchKhataOutstanding() {
+        // Mirror of the void test: settling an invoice reduces its balanceDue only,
+        // never the khata (invoice-less) outstanding column.
         UUID contactId = UUID.randomUUID();
 
         Invoice invoice = Invoice.builder()
@@ -748,18 +746,12 @@ class PaymentServiceTest {
                 .build();
         invoice.setId(UUID.randomUUID());
 
-        Contact contact = new Contact();
-        contact.setId(contactId);
-        contact.setOutstandingAr(new BigDecimal("500.00"));
-
         when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
         when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoice.getId(), orgId))
                 .thenReturn(Optional.of(invoice));
         when(invoiceService.computeFiscalYear(any(LocalDate.class), anyInt())).thenReturn(2026);
         when(invoiceService.generateNumber(eq(orgId), eq("PAY"), anyInt()))
                 .thenReturn("PAY-2026-000011");
-        when(contactRepository.findById(contactId)).thenReturn(Optional.of(contact));
-        when(contactRepository.save(any(Contact.class))).thenAnswer(inv -> inv.getArgument(0));
 
         JournalEntry mockJournal = JournalEntry.builder().entryNumber("JE-011").build();
         mockJournal.setId(UUID.randomUUID());
@@ -770,9 +762,7 @@ class PaymentServiceTest {
                 invoice.getId(), contactId, LocalDate.now(),
                 new BigDecimal("500.00"), "CASH", null, null, null));
 
-        ArgumentCaptor<Contact> captor = ArgumentCaptor.forClass(Contact.class);
-        verify(contactRepository).save(captor.capture());
-        assertEquals(0, BigDecimal.ZERO.compareTo(captor.getValue().getOutstandingAr()));
+        verify(contactRepository, never()).save(any(Contact.class));
     }
 
     @Test
@@ -794,7 +784,7 @@ class PaymentServiceTest {
                 .paymentMethod("UPI").build();
         p2.setId(UUID.randomUUID());
 
-        when(paymentRepository.findByInvoiceIdAndIsDeletedFalse(invoiceId))
+        when(paymentRepository.findByOrgIdAndInvoiceIdAndIsDeletedFalse(orgId, invoiceId))
                 .thenReturn(List.of(p1, p2));
 
         List<PaymentResponse> result = paymentService.listForInvoice(invoiceId);
