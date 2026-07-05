@@ -363,66 +363,11 @@ public class WorkflowRuleService {
      * semi-trusted admin-configured webhook.
      */
     void validateWebhookUrl(String url) {
-        if (url == null || url.isBlank()) {
-            throw new BusinessException("WEBHOOK action needs a URL", "WORKFLOW_WEBHOOK_NO_URL", HttpStatus.BAD_REQUEST);
-        }
-        java.net.URI uri;
-        try {
-            uri = java.net.URI.create(url.trim());
-        } catch (Exception e) {
-            throw new BusinessException("Invalid webhook URL", "WORKFLOW_WEBHOOK_BAD_URL", HttpStatus.BAD_REQUEST);
-        }
-        if (!"https".equalsIgnoreCase(uri.getScheme())) {
-            throw new BusinessException("Webhook URL must be https", "WORKFLOW_WEBHOOK_NOT_HTTPS", HttpStatus.BAD_REQUEST);
-        }
-        String host = uri.getHost();
-        if (host == null || host.isBlank()) {
-            // URI.getHost() returns null for malformed/unbracketed IPv6 or hosts with
-            // illegal chars — refuse rather than let RestTemplate resolve it.
-            throw new BusinessException("Webhook host is not allowed", "WORKFLOW_WEBHOOK_INTERNAL_HOST", HttpStatus.BAD_REQUEST);
-        }
-        String cleanHost = host;
-        if (cleanHost.startsWith("[") && cleanHost.endsWith("]")) {
-            cleanHost = cleanHost.substring(1, cleanHost.length() - 1); // strip IPv6 brackets
-        }
-        java.net.InetAddress[] addrs;
-        try {
-            addrs = java.net.InetAddress.getAllByName(cleanHost);
-        } catch (java.net.UnknownHostException e) {
-            throw new BusinessException("Webhook host could not be resolved",
-                    "WORKFLOW_WEBHOOK_UNRESOLVABLE", HttpStatus.BAD_REQUEST);
-        }
-        if (addrs.length == 0) {
-            throw new BusinessException("Webhook host could not be resolved",
-                    "WORKFLOW_WEBHOOK_UNRESOLVABLE", HttpStatus.BAD_REQUEST);
-        }
-        for (java.net.InetAddress addr : addrs) {
-            if (isBlockedAddress(addr)) {
-                throw new BusinessException("Webhook host is not allowed (internal/loopback)",
-                        "WORKFLOW_WEBHOOK_INTERNAL_HOST", HttpStatus.BAD_REQUEST);
-            }
-        }
-    }
-
-    /** True for loopback/any-local/link-local (incl. 169.254 metadata)/site-local/multicast/CGNAT
-     *  and IPv6 Unique-Local Addresses (fc00::/7), which the InetAddress predicates do not cover. */
-    private static boolean isBlockedAddress(java.net.InetAddress addr) {
-        if (addr.isAnyLocalAddress() || addr.isLoopbackAddress() || addr.isLinkLocalAddress()
-                || addr.isSiteLocalAddress() || addr.isMulticastAddress()) {
-            return true;
-        }
-        byte[] b = addr.getAddress();
-        if (b.length == 4) {
-            int o0 = b[0] & 0xFF, o1 = b[1] & 0xFF;
-            if (o0 == 100 && o1 >= 64 && o1 <= 127) return true; // 100.64.0.0/10 CGNAT
-        } else if (b.length == 16 && (b[0] & 0xFE) == 0xFC) {
-            // RFC 4193 IPv6 Unique-Local Addresses (fc00::/7). Inet6Address.isSiteLocalAddress()
-            // only matches the deprecated fec0::/10 block, NOT fc00::/7 — the modern IPv6 private
-            // range on internal/dual-stack networks — so an fd00::/8 host would otherwise slip
-            // through the guard. Check the top 7 bits explicitly.
-            return true;
-        }
-        return false;
+        // Delegates to the shared guard so the resolve-and-inspect SSRF logic
+        // (https-only + loopback/link-local/site-local/CGNAT/IPv6-ULA rejection)
+        // lives in one place — see com.katasticho.erp.common.net.OutboundUrlGuard.
+        // The WORKFLOW_WEBHOOK prefix preserves the existing error codes.
+        com.katasticho.erp.common.net.OutboundUrlGuard.validate(url, "WORKFLOW_WEBHOOK");
     }
 
     // ── helpers ───────────────────────────────────────────────────────────

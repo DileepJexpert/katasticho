@@ -104,7 +104,24 @@ public class TdsService {
                 BigDecimal excess = aggregateWithThis.subtract(annual);
                 deductibleBase = excess.min(taxableBase);
                 note = "194Q — on purchases above " + annual.toPlainString() + " this FY";
+            } else if (annualHit && aggregateBefore.compareTo(annual) <= 0) {
+                // First bill to push the FY aggregate over the threshold. For an
+                // aggregate-threshold section, once crossed TDS applies to the WHOLE
+                // amount paid/credited in the year — the earlier sub-threshold bills
+                // that escaped deduction must be caught up now, NOT just this bill.
+                // Net out any base already taxed under 194C's single-bill limb so a
+                // prior single-limb bill isn't double-deducted (0 for pure-aggregate
+                // sections 194J/H/I/A → collapses to the full aggregate).
+                BigDecimal alreadyTaxedBase = nz(purchaseBillRepository
+                        .sumPostedTaxedSubtotalByOrgAndContactAndDateRange(
+                                orgId, vendor.getId(), fy.from(), fy.to()));
+                deductibleBase = aggregateWithThis.subtract(alreadyTaxedBase).max(BigDecimal.ZERO);
+                note = section + " — FY aggregate above " + annual.toPlainString()
+                        + " (caught up on the whole year)";
             } else {
+                // Single-bill crossing with the aggregate still under, OR a
+                // subsequent bill after the aggregate already crossed (prior
+                // aggregate already bore TDS) — deduct on this bill's base only.
                 deductibleBase = taxableBase;
                 note = section + (singleHit
                         ? " — single bill above " + single.toPlainString()

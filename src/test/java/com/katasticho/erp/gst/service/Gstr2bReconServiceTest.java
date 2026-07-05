@@ -204,6 +204,44 @@ class Gstr2bReconServiceTest {
     }
 
     @Test
+    void reUploadPreservesPriorImsActionForSameInvoice() {
+        when(contactRepository.findByOrgIdAndIsDeletedFalseAndIdIn(eq(orgId), any()))
+                .thenReturn(List.of());
+        when(purchaseBillRepository.findPostedByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(List.of());
+
+        // First upload of one supplier invoice.
+        Map<String, Object> portal = Map.of("entries", List.of(entry("INV-200", "5000")));
+        service.upload("2026-05", portal);
+
+        // Simulate an IMS Section-38 ACCEPT decision recorded on the saved row.
+        UUID actor = UUID.randomUUID();
+        Gstr2bEntry actioned = savedRef.get().get(0);
+        actioned.setImsAction("ACCEPT");
+        actioned.setImsRemarks("Verified against GRN");
+        actioned.setImsActionBy(actor);
+
+        // Re-upload the SAME period (portal JSON carries NO IMS fields) with the
+        // same supplier invoice PLUS a brand-new one.
+        Map<String, Object> reupload = Map.of("entries",
+                List.of(entry("INV-200", "5000"), entry("INV-201", "3000")));
+        service.upload("2026-05", reupload);
+
+        List<Gstr2bEntry> after = savedRef.get();
+        Gstr2bEntry preserved = after.stream()
+                .filter(e -> "INV-200".equals(e.getInvoiceNumber())).findFirst().orElseThrow();
+        Gstr2bEntry fresh = after.stream()
+                .filter(e -> "INV-201".equals(e.getInvoiceNumber())).findFirst().orElseThrow();
+
+        // The prior IMS decision is carried onto the re-parsed row, not wiped.
+        assertThat(preserved.getImsAction()).isEqualTo("ACCEPT");
+        assertThat(preserved.getImsRemarks()).isEqualTo("Verified against GRN");
+        assertThat(preserved.getImsActionBy()).isEqualTo(actor);
+        // A new invoice starts with no IMS action.
+        assertThat(fresh.getImsAction()).isNull();
+    }
+
+    @Test
     void matchKeyNormalizesNumberAndCase() {
         assertThat(Gstr2bReconService.matchKey("27X", "INV-001"))
                 .isEqualTo(Gstr2bReconService.matchKey("27x", "inv/001"));

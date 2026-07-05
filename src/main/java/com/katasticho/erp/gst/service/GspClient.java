@@ -142,6 +142,17 @@ public class GspClient {
         String base = s.getOrDefault(BASE_URL, "").trim();
         if (base.endsWith("/")) base = base.substring(0, base.length() - 1);
 
+        // SSRF guard: refuse to probe an internal/loopback/non-https host. Return
+        // a structured "not allowed" result (testConnection never throws).
+        try {
+            com.katasticho.erp.common.net.OutboundUrlGuard.validate(base, "GSP_URL");
+        } catch (BusinessException be) {
+            out.put("ok", false);
+            out.put("reachable", false);
+            out.put("message", be.getMessage());
+            return out;
+        }
+
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(s.getOrDefault(TOKEN, ""));
         if (notBlank(s.get(GSTIN))) headers.set("gstin", s.get(GSTIN).trim());
@@ -195,6 +206,10 @@ public class GspClient {
 
     private Map<String, Object> exchange(UUID orgId, String url, HttpMethod method,
                                          Map<String, Object> payload) {
+        // Authoritative SSRF gate: validate the fully-composed URL immediately
+        // before the RestTemplate call, closing the window even if a bad setting
+        // was written by some other path.
+        com.katasticho.erp.common.net.OutboundUrlGuard.validate(url, "GSP_URL");
         Map<String, String> s = orgSettingsService.getAll(orgId);
         HttpHeaders headers = new HttpHeaders();
         if (payload != null) headers.setContentType(MediaType.APPLICATION_JSON);
@@ -222,6 +237,7 @@ public class GspClient {
     }
 
     private Map<String, Object> get(UUID orgId, String url) {
+        com.katasticho.erp.common.net.OutboundUrlGuard.validate(url, "GSP_URL");
         Map<String, String> s = orgSettingsService.getAll(orgId);
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(s.getOrDefault(TOKEN, ""));

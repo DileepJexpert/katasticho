@@ -140,6 +140,21 @@ public interface PurchaseBillRepository extends JpaRepository<PurchaseBill, UUID
     BigDecimal sumPostedSubtotalByOrgAndContactAndDateRange(
             UUID orgId, UUID contactId, LocalDate from, LocalDate to);
 
+    /** Vendor's posted taxable turnover that ALREADY bore TDS this FY — the base
+     *  to net out when catching up on a 194C aggregate crossing so a bill already
+     *  taxed under the single-bill limb isn't double-deducted. */
+    @Query("""
+        SELECT COALESCE(SUM(b.subtotal), 0) FROM PurchaseBill b
+        WHERE b.orgId = :orgId
+          AND b.contactId = :contactId
+          AND b.isDeleted = false
+          AND b.status NOT IN ('DRAFT','CANCELLED','VOID')
+          AND COALESCE(b.tdsAmount, 0) > 0
+          AND b.billDate BETWEEN :from AND :to
+    """)
+    BigDecimal sumPostedTaxedSubtotalByOrgAndContactAndDateRange(
+            UUID orgId, UUID contactId, LocalDate from, LocalDate to);
+
     @Query("""
         SELECT COALESCE(SUM(b.totalAmount), 0) FROM PurchaseBill b
         WHERE b.orgId = :orgId

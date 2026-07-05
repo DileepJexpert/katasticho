@@ -138,8 +138,18 @@ public class SalesReceiptService {
         // mode, not just CREDIT — so a foreign org's contact can't be stamped on
         // the receipt (leaking it into that contact's purchase history/ledger).
         if (request.contactId() != null) {
-            contactRepository.findByIdAndOrgIdAndIsDeletedFalse(request.contactId(), orgId)
+            Contact receiptContact = contactRepository
+                    .findByIdAndOrgIdAndIsDeletedFalse(request.contactId(), orgId)
                     .orElseThrow(() -> BusinessException.notFound("Contact", request.contactId()));
+            // Record the buyer's state as place of supply so an inter-state POS
+            // receipt reports the DESTINATION state in GSTR-1 B2CS. Prefer the
+            // explicit place-of-supply, else the billing state code, else GSTIN
+            // prefix. Left null for a walk-in — GstService falls back to org state.
+            String pos = firstNonBlank(receiptContact.getPlaceOfSupply(),
+                    receiptContact.getBillingStateCode(),
+                    receiptContact.getGstin() != null && receiptContact.getGstin().length() >= 2
+                            ? receiptContact.getGstin().substring(0, 2) : null);
+            receipt.setPlaceOfSupply(pos);
         }
 
         // 2b. Khata (credit) sale — nothing collected at the counter, total
@@ -474,6 +484,15 @@ public class SalesReceiptService {
     }
 
     // Journal posting is now delegated to AccountingPostingEngine
+
+    /** First non-blank value, or null. */
+    private static String firstNonBlank(String... values) {
+        if (values == null) return null;
+        for (String v : values) {
+            if (v != null && !v.isBlank()) return v.trim();
+        }
+        return null;
+    }
 
     /** Mirrors CustomerReceiptService: denormalized outstanding, floored at zero. */
     private void adjustContactOutstandingAr(Contact contact, BigDecimal delta) {
