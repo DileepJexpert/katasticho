@@ -113,7 +113,10 @@ public class PicklistService {
 
     @Transactional(readOnly = true)
     public List<PicklistResponse> listBySalesOrder(UUID salesOrderId) {
-        return picklistRepository.findBySalesOrderIdAndIsDeletedFalse(salesOrderId)
+        // Org-scope: the endpoint carries only a SO UUID, so filter by the caller's
+        // org to prevent cross-tenant reads of another org's picklists.
+        UUID orgId = TenantContext.getCurrentOrgId();
+        return picklistRepository.findBySalesOrderIdAndOrgIdAndIsDeletedFalse(salesOrderId, orgId)
                 .stream().map(this::toResponseWithNames).toList();
     }
 

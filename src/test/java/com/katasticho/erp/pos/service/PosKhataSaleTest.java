@@ -51,6 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -115,6 +116,11 @@ class PosKhataSaleTest {
         when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
                 .thenReturn(Optional.of(customer));
         when(contactRepository.findById(contactId)).thenReturn(Optional.of(customer));
+        // voidReceipt now uses the pessimistic-locked finder — delegate it to the
+        // plain finder so the void test's stub on the latter flows through.
+        lenient().when(receiptRepository.findByIdAndOrgIdForUpdate(any(), any()))
+                .thenAnswer(inv -> receiptRepository
+                        .findByIdAndOrgIdAndIsDeletedFalse(inv.getArgument(0), inv.getArgument(1)));
         when(taxEngine.calculate(any(), any(), any(), any()))
                 .thenReturn(new TaxEngine.TaxCalculationResult(List.of(), BigDecimal.ZERO));
         when(receiptRepository.save(any(SalesReceipt.class))).thenAnswer(inv -> {

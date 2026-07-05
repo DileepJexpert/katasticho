@@ -104,7 +104,11 @@ public class StockCountService {
     public StockCountResponse post(UUID id) {
         UUID orgId = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
-        StockCount sc = findOrThrow(id, orgId);
+        // Pessimistic lock: a concurrent double-post serialises so the second reads
+        // the flipped status and fails the DRAFT check, instead of both posting the
+        // variance adjustment movements twice.
+        StockCount sc = stockCountRepository.findByIdAndOrgIdForUpdate(id, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Stock Count", id));
 
         if (!"DRAFT".equals(sc.getStatus())) {
             throw new BusinessException("Only DRAFT stock counts can be posted",

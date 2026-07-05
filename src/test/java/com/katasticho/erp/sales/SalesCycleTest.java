@@ -149,6 +149,11 @@ class SalesCycleTest {
                 .thenAnswer(inv -> inv.getArgument(0));
         lenient().when(invoiceRepository.countBySalesOrderId(any())).thenReturn(0);
         lenient().when(priceListService.resolvePrice(any(), any(), any())).thenReturn(Optional.empty());
+        // convertToInvoice now uses the pessimistic-locked finder — delegate it to
+        // the plain finder so per-test stubs on the latter flow through.
+        lenient().when(salesOrderRepository.findByIdAndOrgIdForUpdate(any(), any()))
+                .thenAnswer(inv -> salesOrderRepository
+                        .findByIdAndOrgIdAndIsDeletedFalse(inv.getArgument(0), inv.getArgument(1)));
     }
 
     @AfterEach

@@ -196,8 +196,12 @@ public class PurchaseOrderService {
     // ── Helpers ──
 
     private String generatePoNumber(UUID orgId) {
-        long count = poRepository.countByOrgIdAndIsDeletedFalse(orgId) + 1;
-        return String.format("PO-%05d", count);
+        // Use the shared monotonic InvoiceNumberSequence generator (PESSIMISTIC_WRITE
+        // per org/prefix/year) instead of a soft-delete-sensitive row count — deleting
+        // a PO used to shift the count and mint a duplicate number. V42 adds a unique
+        // partial index as the backstop.
+        int year = java.time.LocalDate.now().getYear();
+        return purchaseBillService.generateNumber(orgId, "PO", year);
     }
 
     private List<PurchaseOrderLine> buildLines(UUID poId, UUID orgId, UUID supplierId,

@@ -52,6 +52,11 @@ class TransferOrderServiceTest {
                 transferOrderRepository, warehouseRepository,
                 itemRepository, stockBalanceRepository,
                 batchRepository, stockMovementRepository, inventoryService);
+        // ship/receive/cancel now use the pessimistic-locked finder — delegate it
+        // to the plain finder so per-test stubs on the latter flow through.
+        lenient().when(transferOrderRepository.findByIdAndOrgIdForUpdate(any(), any()))
+                .thenAnswer(inv -> transferOrderRepository
+                        .findByIdAndOrgIdAndIsDeletedFalse(inv.getArgument(0), inv.getArgument(1)));
     }
 
     @AfterEach
@@ -170,13 +175,18 @@ class TransferOrderServiceTest {
         to.setStatus("IN_TRANSIT");
         when(transferOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(to.getId(), orgId))
                 .thenReturn(Optional.of(to));
-        when(inventoryService.recordMovement(any())).thenReturn(new StockMovement());
         when(transferOrderRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         service.cancel(to.getId());
 
         assertEquals("CANCELLED", to.getStatus());
-        verify(inventoryService).recordMovement(any());
+        // Cancellation now unwinds the TRANSFER_OUT leg via append-only REVERSAL
+        // rows keyed to the transfer reference (never a re-recorded TRANSFER_IN),
+        // matching the ledger's append-only correction rule.
+        verify(inventoryService).reverseMovementsByReference(
+                eq(orgId), eq(ReferenceType.STOCK_TRANSFER), eq(to.getId()),
+                eq(MovementType.TRANSFER_OUT), anyString());
+        verify(inventoryService, never()).recordMovement(any());
     }
 
     @Test

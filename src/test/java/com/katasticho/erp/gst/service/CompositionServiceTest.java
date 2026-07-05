@@ -50,7 +50,7 @@ class CompositionServiceTest {
         when(invoiceRepository.sumPostedTotalByOrgAndDateRange(
                 eq(orgId), eq(LocalDate.of(2026, 4, 1)), eq(LocalDate.of(2026, 6, 30))))
                 .thenReturn(new BigDecimal("300000"));
-        when(salesReceiptRepository.sumTotalByOrgAndDateRange(
+        when(salesReceiptRepository.sumActiveTotalByOrgAndDateRange(
                 eq(orgId), eq(LocalDate.of(2026, 4, 1)), eq(LocalDate.of(2026, 6, 30))))
                 .thenReturn(new BigDecimal("200000"));
 
@@ -72,7 +72,7 @@ class CompositionServiceTest {
         when(invoiceRepository.sumPostedTotalByOrgAndDateRange(eq(orgId),
                 eq(LocalDate.of(2026, 7, 1)), eq(LocalDate.of(2026, 9, 30))))
                 .thenReturn(new BigDecimal("100000"));
-        when(salesReceiptRepository.sumTotalByOrgAndDateRange(eq(orgId),
+        when(salesReceiptRepository.sumActiveTotalByOrgAndDateRange(eq(orgId),
                 eq(LocalDate.of(2026, 7, 1)), eq(LocalDate.of(2026, 9, 30))))
                 .thenReturn(BigDecimal.ZERO);
 
@@ -86,7 +86,7 @@ class CompositionServiceTest {
         when(invoiceRepository.sumPostedTotalByOrgAndDateRange(eq(orgId),
                 eq(LocalDate.of(2027, 1, 1)), eq(LocalDate.of(2027, 3, 31))))
                 .thenReturn(BigDecimal.ZERO);
-        when(salesReceiptRepository.sumTotalByOrgAndDateRange(eq(orgId),
+        when(salesReceiptRepository.sumActiveTotalByOrgAndDateRange(eq(orgId),
                 eq(LocalDate.of(2027, 1, 1)), eq(LocalDate.of(2027, 3, 31))))
                 .thenReturn(BigDecimal.ZERO);
 

@@ -92,7 +92,7 @@ public class GstService {
                 .collect(Collectors.toMap(Contact::getId, c -> c));
 
         // POS receipts are B2C retail sales — they belong in B2CS + HSN summary.
-        List<SalesReceipt> receipts = salesReceiptRepository.findByOrgAndDateRange(orgId, from, to);
+        List<SalesReceipt> receipts = salesReceiptRepository.findActiveByOrgAndDateRange(orgId, from, to);
         String orgState = org != null ? nvl(org.getStateCode()) : "";
 
         // Build sections
@@ -578,7 +578,7 @@ public class GstService {
         TaxSums outCn = sumTax(outCnLines);
 
         // POS receipts (retail B2C) — header already carries the GST split.
-        List<SalesReceipt> receipts = salesReceiptRepository.findByOrgAndDateRange(orgId, from, to);
+        List<SalesReceipt> receipts = salesReceiptRepository.findActiveByOrgAndDateRange(orgId, from, to);
         BigDecimal posTaxable = BigDecimal.ZERO, posCgst = BigDecimal.ZERO,
                 posSgst = BigDecimal.ZERO, posIgst = BigDecimal.ZERO;
         for (SalesReceipt receipt : receipts) {

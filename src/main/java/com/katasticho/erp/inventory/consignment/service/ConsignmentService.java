@@ -150,7 +150,11 @@ public class ConsignmentService {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private String generateSettlementNumber(UUID orgId) {
-        long count = settlementRepo.count();
-        return "CS-" + (count + 1);
+        // Per-org sequence (was a GLOBAL count() → cross-org collisions + a tenant
+        // volume leak). The V41 partial unique index (org, settlement_number)
+        // backstops the residual MAX+1 race.
+        String prefix = "CS-" + java.time.LocalDate.now().getYear();
+        int seq = settlementRepo.nextSequence(orgId, prefix);
+        return String.format("%s-%06d", prefix, seq);
     }
 }

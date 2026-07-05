@@ -23,7 +23,10 @@ public record SalesOrderLineRequest(
         String unit,
         BigDecimal discountPct,
         UUID taxGroupId,
-        String hsnCode
+        String hsnCode,
+        /** Optional raw GST percent (e.g. 18). Used when no taxGroupId is supplied
+         *  (e.g. estimate→SO) so the tax rate survives into the SO and its invoice. */
+        BigDecimal gstRate
 ) {
     public SalesOrderLineRequest {
         if (discountPct == null) discountPct = BigDecimal.ZERO;

@@ -850,7 +850,13 @@ public class PurchaseBillService {
 
     // ── Number generation ───────────────────────────────────────
 
-    String generateNumber(UUID orgId, String prefix, int year) {
+    /**
+     * Shared monotonic document-number generator (PESSIMISTIC_WRITE per
+     * org/prefix/year via {@code InvoiceNumberSequence}). Public so sibling
+     * services (e.g. {@code PurchaseOrderService} PO numbering) can reuse the
+     * same locked sequence instead of a soft-delete-sensitive row count.
+     */
+    public String generateNumber(UUID orgId, String prefix, int year) {
         var seqOpt = sequenceRepository.findByOrgIdAndPrefixAndYear(orgId, prefix, year);
         long nextVal;
 

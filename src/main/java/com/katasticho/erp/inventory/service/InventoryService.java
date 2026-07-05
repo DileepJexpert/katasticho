@@ -55,6 +55,7 @@ public class InventoryService {
     private final StockMovementRepository stockMovementRepository;
     private final StockBalanceRepository stockBalanceRepository;
     private final BomComponentRepository bomComponentRepository;
+    private final BomService bomService;
     private final BatchService batchService;
     private final FifoCostingService fifoCostingService;
     private final AuditService auditService;
@@ -115,6 +116,18 @@ public class InventoryService {
             throw new BusinessException(
                     "Item " + item.getSku() + " is not batch-tracked — batchId must be null",
                     "INV_BATCH_NOT_ALLOWED", HttpStatus.BAD_REQUEST);
+        }
+        // When a batch is supplied, it MUST belong to this org AND this item — an
+        // explicit pick against another item's (or another org's) batch would
+        // corrupt that batch's balance ledger. Reversals carry the original's
+        // already-validated batch, so exempt them.
+        if (request.batchId() != null && request.movementType() != MovementType.REVERSAL) {
+            StockBatch batch = batchService.getBatch(request.batchId()); // org-scoped; 404 if foreign
+            if (!batch.getItemId().equals(item.getId())) {
+                throw new BusinessException(
+                        "Batch " + request.batchId() + " does not belong to item " + item.getSku(),
+                        "INV_BATCH_ITEM_MISMATCH", HttpStatus.BAD_REQUEST);
+            }
         }
 
         // Step 4: cost. FIFO orgs cost an outgoing movement by drawing down
@@ -488,9 +501,12 @@ public class InventoryService {
             // the item this way on purpose (e.g. a pure labour charge
             // that carries its own revenue account).
             if (item.getItemType() == ItemType.COMPOSITE) {
-                List<BomComponent> components = bomComponentRepository
-                        .findCurrentBom(
-                                orgId, item.getId());
+                // explode() flattens PHANTOM composite sub-assemblies through
+                // to their real components (recursively, with cycle detection),
+                // so a phantom child's grandchildren are actually deducted —
+                // findCurrentBom() returned the phantom row itself, which the
+                // trackInventory/SERVICE skip below then silently dropped.
+                List<BomComponent> components = bomService.explode(orgId, item.getId());
                 if (components.isEmpty()) {
                     log.warn("Composite item {} sold on invoice {} has no BOM — no stock deducted",
                             item.getSku(), invoice.getInvoiceNumber());
@@ -601,7 +617,9 @@ public class InventoryService {
                 warehouseId,
                 MovementType.SALE,
                 signedQty,
-                line.getUnitPrice(),
+                null, // resolve COST from item.purchasePrice (weighted-avg) / FIFO lots,
+                      // NOT the SALE price — passing the sale price corrupted the FIFO
+                      // fallback COGS + weighted-average cost on reversal re-blend.
                 invoice.getInvoiceDate(),
                 ReferenceType.INVOICE,
                 invoice.getId(),
@@ -651,8 +669,10 @@ public class InventoryService {
         // own id. BomService guarantees children are non-batch and
         // non-composite, so there's no batch/FEFO path here.
         if (item.getItemType() == ItemType.COMPOSITE) {
-            List<BomComponent> components = bomComponentRepository
-                    .findCurrentBom(orgId, itemId);
+            // Mirror the invoice-send explosion: explode() flattens PHANTOM
+            // composite sub-assemblies to their real components so the return
+            // restores the same units the sale deducted.
+            List<BomComponent> components = bomService.explode(orgId, itemId);
             if (components.isEmpty()) {
                 log.warn("Credit note {} returns composite {} with no BOM — no stock restored",
                         creditNoteNumber, item.getSku());

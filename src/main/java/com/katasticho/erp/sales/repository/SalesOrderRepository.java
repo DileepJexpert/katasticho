@@ -18,6 +18,11 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID> {
 
     Optional<SalesOrder> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
+    /** Pessimistic-write variant to serialise concurrent SO→Invoice conversions. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from SalesOrder s where s.id = :id and s.orgId = :orgId and s.isDeleted = false")
+    Optional<SalesOrder> findByIdAndOrgIdForUpdate(@Param("id") UUID id, @Param("orgId") UUID orgId);
+
     Page<SalesOrder> findByOrgIdAndIsDeletedFalseOrderByOrderDateDesc(UUID orgId, Pageable pageable);
 
     Page<SalesOrder> findByOrgIdAndStatusAndIsDeletedFalse(UUID orgId, String status, Pageable pageable);

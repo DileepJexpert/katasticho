@@ -29,7 +29,8 @@ public final class FieldPayloadParser {
                     (String) m.get("unit"),
                     num(m.get("discountPct")),
                     uuid(m.get("taxGroupId")),
-                    (String) m.get("hsnCode")));
+                    (String) m.get("hsnCode"),
+                    null)); // gstRate — resolved from taxGroup/item
         }
         return lines;
     }

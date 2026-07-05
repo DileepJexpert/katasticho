@@ -15,6 +15,12 @@ public interface TransferOrderRepository extends JpaRepository<TransferOrder, UU
 
     Optional<TransferOrder> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
+    /** Pessimistic-write variant to serialise concurrent ship/receive/cancel. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from TransferOrder t where t.id = :id and t.orgId = :orgId and t.isDeleted = false")
+    Optional<TransferOrder> findByIdAndOrgIdForUpdate(@org.springframework.data.repository.query.Param("id") UUID id,
+                                                      @org.springframework.data.repository.query.Param("orgId") UUID orgId);
+
     Page<TransferOrder> findByOrgIdAndIsDeletedFalseOrderByTransferDateDesc(UUID orgId, Pageable pageable);
 
     @Query("SELECT COALESCE(MAX(CAST(SUBSTRING(t.transferNumber, LENGTH(:prefix) + 2) AS int)), 0) + 1 " +

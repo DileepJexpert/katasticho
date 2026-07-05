@@ -134,6 +134,14 @@ public class SalesReceiptService {
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
+        // Validate any attached contact belongs to THIS org — for every payment
+        // mode, not just CREDIT — so a foreign org's contact can't be stamped on
+        // the receipt (leaking it into that contact's purchase history/ledger).
+        if (request.contactId() != null) {
+            contactRepository.findByIdAndOrgIdAndIsDeletedFalse(request.contactId(), orgId)
+                    .orElseThrow(() -> BusinessException.notFound("Contact", request.contactId()));
+        }
+
         // 2b. Khata (credit) sale — nothing collected at the counter, total
         // books to AR. Gated by an org setting, and a customer is mandatory:
         // a receivable with nobody behind it isn't a receivable.
@@ -200,7 +208,11 @@ public class SalesReceiptService {
                 }
             }
 
-            boolean isTaxInclusive = Boolean.TRUE.equals(lineReq.taxInclusive());
+            // Default to tax-INCLUSIVE (retail/MRP semantics — the rate is the
+            // shelf price incl. GST, matching the Flutter client and the pharma MRP
+            // model). A null taxInclusive previously computed tax on top of a total
+            // that never included it, over-remitting GST.
+            boolean isTaxInclusive = !Boolean.FALSE.equals(lineReq.taxInclusive());
             BigDecimal taxableBase;
             TaxEngine.TaxCalculationResult taxResult;
 
@@ -400,7 +412,10 @@ public class SalesReceiptService {
         UUID orgId = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
 
-        SalesReceipt receipt = receiptRepository.findByIdAndOrgIdAndIsDeletedFalse(receiptId, orgId)
+        // Pessimistic lock so a concurrent double-void serialises: the second
+        // transaction re-reads status=RETURNED and short-circuits below, instead
+        // of both reversing the journal + restocking twice.
+        SalesReceipt receipt = receiptRepository.findByIdAndOrgIdForUpdate(receiptId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("SalesReceipt", receiptId));
 
         if ("RETURNED".equals(receipt.getStatus())) {

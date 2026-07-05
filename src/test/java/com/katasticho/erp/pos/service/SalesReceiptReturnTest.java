@@ -53,6 +53,11 @@ class SalesReceiptReturnTest {
     void setUp() {
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
+        // voidReceipt now uses the pessimistic-locked finder — delegate it to the
+        // plain finder so per-test stubs on the latter flow through.
+        lenient().when(receiptRepository.findByIdAndOrgIdForUpdate(any(), any()))
+                .thenAnswer(inv -> receiptRepository
+                        .findByIdAndOrgIdAndIsDeletedFalse(inv.getArgument(0), inv.getArgument(1)));
     }
 
     @AfterEach

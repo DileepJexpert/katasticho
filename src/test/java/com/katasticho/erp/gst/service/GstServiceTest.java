@@ -80,7 +80,7 @@ class GstServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void gstr1IncludesPosReceiptsInB2csAndHsnSummary() {
-        when(salesReceiptRepository.findByOrgAndDateRange(eq(orgId), any(), any()))
+        when(salesReceiptRepository.findActiveByOrgAndDateRange(eq(orgId), any(), any()))
                 .thenReturn(List.of(intraStateReceipt()));
 
         Map<String, Object> gstr1 = service.generateGstr1(2026, 5);
@@ -107,7 +107,7 @@ class GstServiceTest {
 
     @Test
     void gstr3bIncludesPosReceiptsInOutwardSupplies() {
-        when(salesReceiptRepository.findByOrgAndDateRange(eq(orgId), any(), any()))
+        when(salesReceiptRepository.findActiveByOrgAndDateRange(eq(orgId), any(), any()))
                 .thenReturn(List.of(intraStateReceipt()));
         when(taxLineItemRepository.findByOrgAndSourceTypesAndRegimeAndSourceIds(
                 any(), any(), any(), any())).thenReturn(List.of());
@@ -141,7 +141,7 @@ class GstServiceTest {
                 .build();
         when(invoiceRepository.findPostedByOrgAndDateRange(eq(orgId), any(), any()))
                 .thenReturn(List.of(a, b));
-        when(salesReceiptRepository.findByOrgAndDateRange(eq(orgId), any(), any()))
+        when(salesReceiptRepository.findActiveByOrgAndDateRange(eq(orgId), any(), any()))
                 .thenReturn(List.of());
         when(taxLineItemRepository.findByOrgAndSourceTypesAndRegimeAndSourceIds(
                 any(), any(), any(), any()))

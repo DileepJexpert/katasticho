@@ -166,6 +166,12 @@ public class SalesOrderService {
                 taxRate = taxResult.totalTaxAmount().multiply(BigDecimal.valueOf(100))
                         .divide(lineAmount.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ONE : lineAmount, 2, RoundingMode.HALF_UP);
                 totalTax = totalTax.add(taxResult.totalTaxAmount());
+            } else if (lr.gstRate() != null && lr.gstRate().signum() > 0) {
+                // No tax group but a raw GST% supplied (estimate→SO) — carry the rate
+                // so it survives into the SO line and the downstream invoice.
+                taxRate = lr.gstRate();
+                totalTax = totalTax.add(lineAmount.multiply(taxRate)
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
             }
 
             subtotal = subtotal.add(lineAmount);
@@ -257,7 +263,8 @@ public class SalesOrderService {
         List<SalesOrderLineRequest> lineRequests = estimate.getLines().stream()
                 .map(el -> new SalesOrderLineRequest(
                         el.getItemId(), el.getDescription(), el.getQuantity(), el.getRate(),
-                        el.getUnit(), el.getDiscountPct(), null, el.getHsnCode()))
+                        el.getUnit(), el.getDiscountPct(), null, el.getHsnCode(),
+                        el.getTaxRate())) // carry the estimate line's GST% into the SO
                 .toList();
 
         CreateSalesOrderRequest soRequest = new CreateSalesOrderRequest(
@@ -462,7 +469,11 @@ public class SalesOrderService {
     @Transactional
     public InvoiceResponse convertToInvoice(UUID soId, ConvertToInvoiceRequest request) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        SalesOrder so = findOrThrow(soId, orgId);
+        // Pessimistic lock so two concurrent conversions serialise on the SO line's
+        // quantityInvoiced gate — otherwise both read the same quantityInvoiced and
+        // each invoice the full shipped quantity (double-invoicing).
+        SalesOrder so = salesOrderRepository.findByIdAndOrgIdForUpdate(soId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("SalesOrder", soId));
 
         String status = so.getStatus();
         if (!"CONFIRMED".equals(status) && !"PARTIALLY_SHIPPED".equals(status)
