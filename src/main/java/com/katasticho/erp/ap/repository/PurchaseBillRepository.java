@@ -19,6 +19,11 @@ public interface PurchaseBillRepository extends JpaRepository<PurchaseBill, UUID
 
     Optional<PurchaseBill> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
+    /** Pessimistic-write variant to serialise concurrent post/pay/void on one bill. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM PurchaseBill b WHERE b.id = :id AND b.orgId = :orgId AND b.isDeleted = false")
+    Optional<PurchaseBill> findByIdAndOrgIdForUpdate(@Param("id") UUID id, @Param("orgId") UUID orgId);
+
     /** All bills of the given vendors — MSME Form 1 walks these (small vendor set). */
     List<PurchaseBill> findByOrgIdAndContactIdInAndIsDeletedFalse(
             UUID orgId, java.util.Collection<UUID> contactIds);

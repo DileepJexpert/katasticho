@@ -26,6 +26,7 @@ import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.inventory.dto.StockMovementRequest;
 import com.katasticho.erp.inventory.entity.MovementType;
+import com.katasticho.erp.inventory.entity.StockMovement;
 import com.katasticho.erp.inventory.entity.ReferenceType;
 import com.katasticho.erp.inventory.entity.Warehouse;
 import com.katasticho.erp.inventory.repository.WarehouseRepository;
@@ -84,6 +85,7 @@ public class VendorCreditService {
     private final TaxEngine taxEngine;
     private final CurrencyService currencyService;
     private final InventoryService inventoryService;
+    private final com.katasticho.erp.inventory.repository.StockMovementRepository stockMovementRepository;
     private final DocumentSnapshotService documentSnapshotService;
 
     // ── Create ──────────────────────────────────────────────────
@@ -313,6 +315,16 @@ public class VendorCreditService {
             journalService.reverseEntry(credit.getJournalEntryId());
         }
 
+        // Reverse the RETURN_OUT movements postCredit recorded so stock comes back
+        // in (and, for FIFO orgs, the consumed cost lots are restored). Without this
+        // a voided vendor credit left inventory permanently short vs the GL — the
+        // mirror of PurchaseBillService.reverseStockForBill.
+        for (StockMovement movement : stockMovementRepository.findOriginalsByReference(
+                orgId, ReferenceType.DEBIT_NOTE, credit.getId(), MovementType.RETURN_OUT)) {
+            inventoryService.reverseMovement(movement.getId(),
+                    "Vendor credit void: " + credit.getCreditNumber());
+        }
+
         // Restore vendor's outstanding AP
         Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(credit.getContactId(), orgId)
                 .orElse(null);
@@ -345,6 +357,14 @@ public class VendorCreditService {
 
         PurchaseBill bill = billRepository.findByIdAndOrgIdAndIsDeletedFalse(request.billId(), orgId)
                 .orElseThrow(() -> BusinessException.notFound("PurchaseBill", request.billId()));
+
+        // The bill must belong to the SAME vendor as the credit — applying a
+        // vendor's credit to another vendor's bill diverges both subledgers.
+        if (!bill.getContactId().equals(credit.getContactId())) {
+            throw new BusinessException(
+                    "Bill " + bill.getBillNumber() + " belongs to a different vendor than this credit",
+                    "AP_ALLOCATION_WRONG_VENDOR", HttpStatus.BAD_REQUEST);
+        }
 
         if ("DRAFT".equals(bill.getStatus()) || "VOID".equals(bill.getStatus()) || "PAID".equals(bill.getStatus())) {
             throw new BusinessException(

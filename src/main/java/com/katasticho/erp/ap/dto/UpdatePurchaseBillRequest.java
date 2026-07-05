@@ -31,7 +31,11 @@ public record UpdatePurchaseBillRequest(
             BigDecimal gstRate,
             UUID taxGroupId,
             UUID unitUomId,
-            BigDecimal unitConversionFactor
+            BigDecimal unitConversionFactor,
+            // P2P: the PO line this bill line settles. When omitted on an edit, the
+            // service preserves the existing line's FK positionally so the GRN
+            // double-stock guard is not silently defeated.
+            UUID purchaseOrderLineId
     ) {
         public BillLineRequest {
             if (discountPercent == null) discountPercent = BigDecimal.ZERO;

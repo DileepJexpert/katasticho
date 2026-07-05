@@ -309,7 +309,10 @@ public class PurchaseBillService {
     public PurchaseBillResponse postBill(UUID billId) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
-        PurchaseBill bill = billRepository.findByIdAndOrgIdAndIsDeletedFalse(billId, orgId)
+        // Pessimistic lock: a concurrent double-post serialises here so the second
+        // transaction re-reads status=OPEN and fails the DRAFT check below, instead
+        // of both posting a duplicate journal + duplicate PURCHASE stock movements.
+        PurchaseBill bill = billRepository.findByIdAndOrgIdForUpdate(billId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("PurchaseBill", billId));
 
         if (!"DRAFT".equals(bill.getStatus())) {
@@ -343,11 +346,16 @@ public class PurchaseBillService {
         bill.setJournalEntryId(journalEntry.getId());
         bill = billRepository.save(bill);
 
-        // Increase vendor's outstanding AP
+        // Increase vendor's outstanding AP by what the vendor is actually owed:
+        // total − TDS (the TDS portion is deposited to the government, never paid to
+        // the vendor). Adding the gross total left the TDS amount stranded in
+        // outstandingAp forever once the bill was fully paid (payments reduce it by
+        // total − TDS).
         Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(bill.getContactId(), orgId)
                 .orElse(null);
         if (contact != null) {
-            contact.setOutstandingAp(contact.getOutstandingAp().add(bill.getTotalAmount()));
+            BigDecimal tds = bill.getTdsAmount() == null ? BigDecimal.ZERO : bill.getTdsAmount();
+            contact.setOutstandingAp(contact.getOutstandingAp().add(bill.getTotalAmount().subtract(tds)));
             contactRepository.save(contact);
         }
 
@@ -371,12 +379,21 @@ public class PurchaseBillService {
         UUID orgId = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
 
-        PurchaseBill bill = billRepository.findByIdAndOrgIdAndIsDeletedFalse(billId, orgId)
+        PurchaseBill bill = billRepository.findByIdAndOrgIdForUpdate(billId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("PurchaseBill", billId));
 
         if ("VOID".equals(bill.getStatus())) {
             throw new BusinessException("Bill is already voided",
                     "AP_BILL_ALREADY_VOID", HttpStatus.BAD_REQUEST);
+        }
+
+        // A DRAFT bill never posted a journal, never moved stock, and never bumped
+        // outstandingAp — voiding it would subtract a phantom amount and drive the
+        // vendor's outstanding negative. Deleting is the DRAFT path.
+        if ("DRAFT".equals(bill.getStatus())) {
+            throw new BusinessException(
+                    "A DRAFT bill cannot be voided — delete it instead",
+                    "AP_BILL_DRAFT_USE_DELETE", HttpStatus.BAD_REQUEST);
         }
 
         if (bill.getAmountPaid().compareTo(BigDecimal.ZERO) > 0) {
@@ -400,11 +417,14 @@ public class PurchaseBillService {
         // path (marks originals reversed; closes FIFO cost lots).
         reverseStockForBill(bill);
 
-        // Reduce vendor's outstanding AP
+        // Reduce vendor's outstanding AP by the SAME net-of-TDS amount postBill added
+        // (total − TDS). Void requires amountPaid == 0, so this is symmetric with the
+        // post and can't leave the TDS amount stranded.
         Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(bill.getContactId(), orgId)
                 .orElse(null);
         if (contact != null) {
-            contact.setOutstandingAp(contact.getOutstandingAp().subtract(bill.getBalanceDue()));
+            BigDecimal tds = bill.getTdsAmount() == null ? BigDecimal.ZERO : bill.getTdsAmount();
+            contact.setOutstandingAp(contact.getOutstandingAp().subtract(bill.getTotalAmount().subtract(tds)));
             contactRepository.save(contact);
         }
 
@@ -591,6 +611,13 @@ public class PurchaseBillService {
         Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(vendorContactId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Contact", vendorContactId));
 
+        // Capture the existing lines' PO-line FKs BY POSITION before clearing, so an
+        // edit that doesn't re-send them (the common case — the Flutter form has no
+        // such field) preserves the link and the GRN double-stock guard keeps working.
+        List<UUID> priorPoLineIds = bill.getLines().stream()
+                .map(PurchaseBillLine::getPurchaseOrderLineId)
+                .toList();
+
         // Clear existing lines (orphanRemoval removes them) and tax line items
         bill.getLines().clear();
         taxLineItemRepository.deleteBySourceTypeAndSourceId("BILL", billId);
@@ -646,6 +673,13 @@ public class PurchaseBillService {
                         .setScale(4, RoundingMode.HALF_UP);
             }
 
+            // Preserve the PO-line FK: explicit request value wins, else carry over
+            // the prior line's FK at the same position (defeats the double-stock guard
+            // bypass where any innocuous edit silently cleared the link).
+            UUID poLineId = lineReq.purchaseOrderLineId() != null
+                    ? lineReq.purchaseOrderLineId()
+                    : (i < priorPoLineIds.size() ? priorPoLineIds.get(i) : null);
+
             PurchaseBillLine line = PurchaseBillLine.builder()
                     .lineNumber(i + 1)
                     .description(lineReq.description())
@@ -667,6 +701,7 @@ public class PurchaseBillService {
                     .baseTaxableAmount(baseTaxable)
                     .baseTaxAmount(baseTax)
                     .baseLineTotal(baseTotal)
+                    .purchaseOrderLineId(poLineId)
                     .build();
 
             bill.addLine(line);
