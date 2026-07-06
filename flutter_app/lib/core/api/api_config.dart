@@ -475,6 +475,8 @@ class ApiConfig {
       '/api/v1/bank-accounts/$id/set-default';
 
   // Banking / reconciliation
+  static const String bankRules = '/api/v1/bank-rules';
+  static String bankRuleById(String id) => '/api/v1/bank-rules/$id';
   static const String bankingTransactions = '/api/v1/banking/transactions';
   static const String bankingImportCsv =
       '/api/v1/banking/transactions/import-csv';
@@ -1398,6 +1400,14 @@ class ApiConfig {
   static String currencyByCode(String code) => '/api/v1/currencies/$code';
   static const String currencyRates = '/api/v1/currencies/rates';
   static const String currencyConvert = '/api/v1/currencies/convert';
+
+  // Period-end forex revaluation
+  static const String forexRevaluationPreview =
+      '/api/v1/reports/forex-revaluation/preview';
+  static const String forexRevaluationRun =
+      '/api/v1/reports/forex-revaluation/run';
+  static const String forexRevaluationRuns =
+      '/api/v1/reports/forex-revaluation/runs';
 
   // Consignment / VMI (real ConsignmentController endpoints)
   static const String consignmentStock =
