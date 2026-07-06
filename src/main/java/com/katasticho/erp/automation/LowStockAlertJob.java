@@ -63,7 +63,7 @@ public class LowStockAlertJob {
 
             List<Map<String, Object>> items = new ArrayList<>();
             for (StockBalance sb : lowStock) {
-                Item item = itemRepository.findById(sb.getItemId()).orElse(null);
+                Item item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(sb.getItemId(), org.getId()).orElse(null);
                 if (item == null || item.getReorderLevel().signum() <= 0) continue;
 
                 Map<String, Object> entry = new HashMap<>();
@@ -74,7 +74,7 @@ public class LowStockAlertJob {
                 entry.put("reorderQty", item.getReorderQuantity());
 
                 if (item.getPreferredVendorId() != null) {
-                    contactRepository.findById(item.getPreferredVendorId())
+                    contactRepository.findByIdAndOrgIdAndIsDeletedFalse(item.getPreferredVendorId(), org.getId())
                             .map(Contact::getDisplayName)
                             .ifPresent(name -> entry.put("preferredVendorName", name));
                 }
@@ -92,7 +92,7 @@ public class LowStockAlertJob {
 
             if (admin.getPhone() != null && !admin.getPhone().isBlank()) {
                 for (StockBalance sb : lowStock) {
-                    Item item = itemRepository.findById(sb.getItemId()).orElse(null);
+                    Item item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(sb.getItemId(), org.getId()).orElse(null);
                     if (item == null || item.getReorderLevel().signum() <= 0) continue;
                     smsService.sendLowStockAlert(org.getId(), admin.getPhone(),
                             item.getName(), sb.getQuantityOnHand().doubleValue());

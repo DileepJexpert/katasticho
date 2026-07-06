@@ -89,7 +89,7 @@ public class ExpiryAlertJob {
                     warning++;
                 }
 
-                String itemName = itemRepository.findById(batch.getItemId())
+                String itemName = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(batch.getItemId(), org.getId())
                         .map(Item::getName).orElse("Unknown");
 
                 Map<String, Object> entry = new HashMap<>();

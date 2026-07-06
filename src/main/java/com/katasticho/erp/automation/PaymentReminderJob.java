@@ -78,7 +78,7 @@ public class PaymentReminderJob {
 
                 String customerName = "Customer";
                 String customerPhone = null;
-                Contact contact = contactRepository.findById(inv.getContactId()).orElse(null);
+                Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(inv.getContactId(), org.getId()).orElse(null);
                 if (contact != null) {
                     customerName = contact.getDisplayName();
                     customerPhone = contact.getPhone() != null ? contact.getPhone() : contact.getMobile();

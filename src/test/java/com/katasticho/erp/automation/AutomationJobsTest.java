@@ -88,6 +88,13 @@ class AutomationJobsTest {
         doAnswer(inv -> { ((Runnable) inv.getArgument(0)).run(); return null; })
                 .when(txRunner).runInTx(any(Runnable.class));
 
+        // Jobs now enrich notifications via org-scoped finders (tenant hardening);
+        // delegate them to the plain findById the per-test stubs still target.
+        lenient().when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(any(), any()))
+                .thenAnswer(inv -> itemRepository.findById(inv.getArgument(0)));
+        lenient().when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(any(), any()))
+                .thenAnswer(inv -> contactRepository.findById(inv.getArgument(0)));
+
         paymentReminderJob = new PaymentReminderJob(
                 orgRepository, invoiceRepository, contactRepository, userRepository, notificationService, txRunner);
         expiryAlertJob = new ExpiryAlertJob(

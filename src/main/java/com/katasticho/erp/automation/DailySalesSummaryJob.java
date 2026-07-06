@@ -91,7 +91,7 @@ public class DailySalesSummaryJob {
             List<StockMovementRepository.TopSellingRow> topSelling =
                     stockMovementRepository.findTopSellingByDate(org.getId(), today);
             for (var row : topSelling) {
-                String name = itemRepository.findById(row.getItemId())
+                String name = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(row.getItemId(), org.getId())
                         .map(Item::getName).orElse("Unknown");
                 Map<String, Object> entry = new HashMap<>();
                 entry.put("name", name);
