@@ -260,6 +260,18 @@ public class LeaveManagementService {
                         .build()));
     }
 
+    /** As {@link #getOrCreateBalance} but pessimistic-write locks the existing row,
+     *  so concurrent approve/reject/cancel decisions on the same balance serialise
+     *  (the plain read-then-write path lets two approvals both consume it). */
+    private LeaveBalance getOrCreateBalanceForUpdate(UUID userId, LeaveType type, int year) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        return balanceRepository.findForUpdate(orgId, userId, type.getId(), year)
+                .orElseGet(() -> balanceRepository.save(LeaveBalance.builder()
+                        .orgId(orgId).userId(userId).leaveTypeId(type.getId()).year(year)
+                        .entitled(entitledFor(type, year))
+                        .build()));
+    }
+
     /** Entitlement at creation: full quota, or accrued-to-date for MONTHLY in the current year. */
     private BigDecimal entitledFor(LeaveType type, int year) {
         if ("MONTHLY".equals(type.getAccrualMethod()) && year == LocalDate.now().getYear()) {
@@ -275,7 +287,9 @@ public class LeaveManagementService {
         LeaveType type = leaveTypeRepository
                 .findByIdAndOrgIdAndIsDeletedFalse(req.getLeaveTypeId(), req.getOrgId()).orElse(null);
         if (type == null || !type.isPaid()) return;
-        LeaveBalance b = getOrCreateBalance(req.getUserId(), type, req.getFromDate().getYear());
+        // Lock the balance row for the decision so concurrent approvals can't both
+        // read the same available and both consume it (lost update → over-entitlement).
+        LeaveBalance b = getOrCreateBalanceForUpdate(req.getUserId(), type, req.getFromDate().getYear());
         if (consume) {
             // Re-check availability at APPROVAL time — two disjoint PENDING requests
             // both pass the apply-time check (balance untouched until approval), so

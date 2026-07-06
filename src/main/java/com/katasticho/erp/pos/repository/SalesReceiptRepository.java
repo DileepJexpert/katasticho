@@ -86,16 +86,20 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
     @Query("SELECT COUNT(r) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate = :date AND r.isDeleted = false AND (r.status IS NULL OR r.status <> 'RETURNED')")
     long countByOrgAndDate(UUID orgId, LocalDate date);
 
-    @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate BETWEEN :from AND :to AND r.isDeleted = false")
+    // RETURNED (voided) receipts must not inflate revenue/count aggregates —
+    // the same guard the same-day drawer queries carry, applied to every range
+    // sum/count so dashboards, branch rollups and the contact statement match.
+    @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate BETWEEN :from AND :to AND r.isDeleted = false AND (r.status IS NULL OR r.status <> 'RETURNED')")
     BigDecimal sumTotalByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
 
-    @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.branchId = :branchId AND r.receiptDate BETWEEN :from AND :to AND r.isDeleted = false")
+    @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.branchId = :branchId AND r.receiptDate BETWEEN :from AND :to AND r.isDeleted = false AND (r.status IS NULL OR r.status <> 'RETURNED')")
     BigDecimal sumTotalByOrgBranchAndDateRange(UUID orgId, UUID branchId, LocalDate from, LocalDate to);
 
     @Query("""
         SELECT r.branchId AS branchId, COALESCE(SUM(r.total), 0) AS total
         FROM SalesReceipt r
         WHERE r.orgId = :orgId AND r.isDeleted = false
+          AND (r.status IS NULL OR r.status <> 'RETURNED')
           AND r.receiptDate BETWEEN :from AND :to
           AND r.branchId IS NOT NULL
         GROUP BY r.branchId
@@ -111,6 +115,7 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
         SELECT r.receiptDate AS date, COALESCE(SUM(r.total), 0) AS total
         FROM SalesReceipt r
         WHERE r.orgId = :orgId AND r.isDeleted = false
+          AND (r.status IS NULL OR r.status <> 'RETURNED')
           AND r.receiptDate BETWEEN :from AND :to
         GROUP BY r.receiptDate
         ORDER BY r.receiptDate
@@ -122,10 +127,10 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
         BigDecimal getTotal();
     }
 
-    @Query("SELECT COUNT(r) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate BETWEEN :from AND :to AND r.isDeleted = false")
+    @Query("SELECT COUNT(r) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate BETWEEN :from AND :to AND r.isDeleted = false AND (r.status IS NULL OR r.status <> 'RETURNED')")
     long countByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
 
-    @Query("SELECT COUNT(r) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.branchId = :branchId AND r.receiptDate BETWEEN :from AND :to AND r.isDeleted = false")
+    @Query("SELECT COUNT(r) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.branchId = :branchId AND r.receiptDate BETWEEN :from AND :to AND r.isDeleted = false AND (r.status IS NULL OR r.status <> 'RETURNED')")
     long countByOrgBranchAndDateRange(UUID orgId, UUID branchId, LocalDate from, LocalDate to);
 
     @Query("""

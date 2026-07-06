@@ -146,7 +146,9 @@ public class WhatsAppService {
                 .build();
         HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
         if (resp.statusCode() / 100 != 2) {
-            return SendResult.fail("META", "HTTP " + resp.statusCode() + ": " + resp.body());
+            // Status only — don't reflect the raw upstream body into the stored result
+            // (mirrors the CUSTOM branch; avoids leaking provider error detail).
+            return SendResult.fail("META", "HTTP " + resp.statusCode());
         }
         JsonNode node = objectMapper.readTree(resp.body());
         String msgId = node.path("messages").path(0).path("id").asText(null);

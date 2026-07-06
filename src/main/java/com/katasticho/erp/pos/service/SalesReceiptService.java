@@ -282,7 +282,12 @@ public class SalesReceiptService {
                     .build();
             receipt.addLine(line);
 
-            grossTotal = grossTotal.add(lineAmount);
+            // Tax-inclusive lines already carry GST inside lineAmount (MRP semantics);
+            // tax-EXCLUSIVE lines must add the computed tax so the receipt total,
+            // subtotal (= total − tax) and each tax line's taxableAmount stay coherent
+            // (previously exclusive lines never added lineTax → subtotal understated).
+            BigDecimal lineGross = isTaxInclusive ? lineAmount : lineAmount.add(lineTax);
+            grossTotal = grossTotal.add(lineGross);
             totalTax = totalTax.add(lineTax);
 
             // Build tax line items and accumulate GST breakdown
@@ -396,7 +401,7 @@ public class SalesReceiptService {
         final BigDecimal smsTotal = receipt.getTotal();
         final String orgName = org.getName();
         if (smsContactId != null) {
-            contactRepository.findById(smsContactId).ifPresent(contact -> {
+            contactRepository.findByIdAndOrgIdAndIsDeletedFalse(smsContactId, orgId).ifPresent(contact -> {
                 String phone = (contact.getMobile() != null && !contact.getMobile().isBlank())
                         ? contact.getMobile() : contact.getPhone();
                 smsService.sendReceiptSms(orgId, phone, receiptNumber, smsTotal, orgName);
@@ -595,7 +600,7 @@ public class SalesReceiptService {
 
         String contactName = null;
         if (receipt.getContactId() != null) {
-            contactName = contactRepository.findById(receipt.getContactId())
+            contactName = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(receipt.getContactId(), orgId)
                     .map(Contact::getDisplayName)
                     .orElse(null);
         }

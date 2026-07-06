@@ -53,6 +53,13 @@ class LeaveManagementServiceTest {
         // India weekend (Sat+Sun) so existing working-day assertions hold.
         org.mockito.Mockito.lenient().when(countryAccess.weekendDays())
                 .thenReturn(java.util.Set.of(java.time.DayOfWeek.SATURDAY, java.time.DayOfWeek.SUNDAY));
+        // Approval/adjustment now pessimistic-locks the balance row; delegate the
+        // locked finder to the plain finder the tests stub.
+        org.mockito.Mockito.lenient().when(balanceRepo.findForUpdate(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenAnswer(inv -> balanceRepo.findByOrgIdAndUserIdAndLeaveTypeIdAndYearAndIsDeletedFalse(
+                        inv.getArgument(0), inv.getArgument(1), inv.getArgument(2), inv.getArgument(3)));
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }

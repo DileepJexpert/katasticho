@@ -205,6 +205,34 @@ class PosKhataSaleTest {
     }
 
     @Test
+    void exclusiveTaxLineKeepsTotalSubtotalAndTaxCoherent() {
+        // Regression: a tax-EXCLUSIVE line (taxInclusive=false) must add its computed
+        // tax to the receipt gross, so total = base + tax and subtotal = total − tax.
+        UUID taxGroupId = UUID.randomUUID();
+        when(taxEngine.calculate(org.mockito.ArgumentMatchers.eq(orgId),
+                        org.mockito.ArgumentMatchers.eq(taxGroupId), any(), any()))
+                .thenReturn(new TaxEngine.TaxCalculationResult(List.of(), new BigDecimal("18")));
+
+        var request = new CreateSalesReceiptRequest(
+                null, null, LocalDate.of(2026, 7, 2), PaymentMode.CASH,
+                null, new BigDecimal("118.00"), null, null, null, null,
+                null, null, null, null,
+                List.of(new CreateSalesReceiptRequest.LineRequest(
+                        null, "Widget", new BigDecimal("1"), null,
+                        new BigDecimal("100.00"), taxGroupId, null, null, null, null, Boolean.FALSE)));
+
+        org.mockito.ArgumentCaptor<SalesReceipt> cap = org.mockito.ArgumentCaptor.forClass(SalesReceipt.class);
+        var response = service.create(request);
+        verify(receiptRepository, org.mockito.Mockito.atLeastOnce()).save(cap.capture());
+        SalesReceipt saved = cap.getValue();
+
+        assertThat(saved.getTotal()).isEqualByComparingTo("118.00");
+        assertThat(saved.getTaxAmount()).isEqualByComparingTo("18.00");
+        assertThat(saved.getSubtotal()).isEqualByComparingTo("100.00");
+        assertThat(response.total()).isEqualByComparingTo("118.00");
+    }
+
+    @Test
     void voidingCreditSaleRestoresTheOutstanding() {
         customer.setOutstandingAr(new BigDecimal("150.00"));
         UUID receiptId = UUID.randomUUID();

@@ -1125,7 +1125,9 @@ public class ManufacturingService {
     public WorkOrder executeDisassembly(UUID workOrderId) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
-        WorkOrder wo = workOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(workOrderId, orgId)
+        // Pessimistic-write re-read so two concurrent executes can't both read DRAFT
+        // and double-consume the FG / double-post the recovery journal (TOCTOU).
+        WorkOrder wo = workOrderRepository.findByIdAndOrgIdForUpdate(workOrderId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("WorkOrder", workOrderId));
 
         if (!wo.isDisassembly()) {
@@ -1212,7 +1214,9 @@ public class ManufacturingService {
     public WorkOrder cancelWorkOrder(UUID workOrderId) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
-        WorkOrder wo = workOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(workOrderId, orgId)
+        // Pessimistic-write re-read so a concurrent cancel can't reverse the WIP
+        // journal twice (both readers pass the status gate before either writes).
+        WorkOrder wo = workOrderRepository.findByIdAndOrgIdForUpdate(workOrderId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("WorkOrder", workOrderId));
 
         if ("COMPLETED".equals(wo.getStatus())) {
