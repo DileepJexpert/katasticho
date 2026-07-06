@@ -69,7 +69,7 @@ public class OverdueBillJob {
                 }
 
                 String vendorName = "Vendor";
-                Contact vendor = contactRepository.findById(bill.getContactId()).orElse(null);
+                Contact vendor = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(bill.getContactId(), org.getId()).orElse(null);
                 if (vendor != null) {
                     vendorName = vendor.getDisplayName();
                 }
