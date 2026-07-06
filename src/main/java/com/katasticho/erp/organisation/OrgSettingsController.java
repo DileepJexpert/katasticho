@@ -76,6 +76,7 @@ public class OrgSettingsController {
         String value = body.get("value");
         if (value == null) value = body.get(key);
         if (!MASKED.equals(value)) {
+            validateOutboundUrlSetting(key, value);
             settingsService.set(orgId, key, value);
         }
         String stored = settingsService.get(orgId, key, "");
@@ -171,6 +172,22 @@ public class OrgSettingsController {
     }
 
     private void setIf(UUID orgId, Map<String, String> body, String field, String key) {
-        if (body.containsKey(field)) settingsService.set(orgId, key, body.get(field));
+        if (body.containsKey(field)) {
+            validateOutboundUrlSetting(key, body.get(field));
+            settingsService.set(orgId, key, body.get(field));
+        }
+    }
+
+    /** org_settings keys whose value is used as an outbound request URL — must pass
+     *  the SSRF guard on write, so a loopback/internal/non-https URL is rejected at
+     *  save time rather than only being caught at send time (defense-in-depth). */
+    private static final java.util.Set<String> OUTBOUND_URL_KEYS =
+            java.util.Set.of("whatsapp.custom_url");
+
+    private void validateOutboundUrlSetting(String key, String value) {
+        if (OUTBOUND_URL_KEYS.contains(key) && value != null
+                && !value.isBlank() && !MASKED.equals(value)) {
+            com.katasticho.erp.common.net.OutboundUrlGuard.validate(value, "SETTING_URL");
+        }
     }
 }
