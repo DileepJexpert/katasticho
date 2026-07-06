@@ -136,3 +136,86 @@ Then roll into B3–B5 (AI recommendations + rate re-mapper + close pack), then 
 ## 6. Re-evaluate triggers
 - Tally (TallyPrime 7.x) or Zoho (Zia) ship genuinely *agentic* India AI → accelerate Lane B/C.
 - A funded India-native AI-ledger startup (hisabkitab, AI Accountant, Flick AI) moves from overlay to full ledger replacement **with distributor depth** → compresses our window.
+
+---
+
+## 7. DualEntry deep teardown (2026-07-06)
+
+Multi-source research pass (25 sources, 90 extracted claims; GL-page architecture
+claims adversarially verified 3/3 against live fetches; funding facts corroborated
+4+ outlets; demo-video claims first-party single-source). Key sources: Contrary
+Research company breakdown, dualentry.com GL + NextDay Migration pages, Accounting
+Today / SiliconANGLE / PYMNTS Series-A coverage, founder podcasts (SaaS CFO,
+Future Finance), G2 review corpus, and DualEntry's own "Live Demo + Q&A" video
+(published 2026-07-06).
+
+### 7.1 What they actually built
+- **Company:** founded 2024 (NYC) by Santiago Nestares + Benedict Dohmen (ex-Benitago,
+  Amazon aggregator); $6M seed May 2024 (Contrary + Tim Dilly, ex-NetSuite CCO);
+  **$90M Series A Oct 2 2025** co-led Lightspeed + Khosla, GV participating —
+  **$415M valuation**, $100M+ total in ~15 months, ~40 people. Segment: US
+  mid-market → IPO finance teams (QuickBooks graduates / NetSuite refugees).
+- **Architecture (verified on their GL page):** Unified Ledger (single source of
+  truth) + Control Layer (rules engine governing the AI) + Accounting Workflows.
+  Marketing perf claims: <200ms any transaction/entity, 400B records/month,
+  unlimited nested dimensions. Append-only ledger + audit trails. Multi-book
+  parallel GAAP/IFRS/tax ledgers via posting rules.
+- **The automation ladder (founder-stated):** per transaction — (1) integration
+  ingestion, (2) deterministic rules engine, (3) **AI suggestion only as fallback**,
+  human approves AI-drafted entries. AI lives in micro-interactions (top-3 dropdown
+  ranking, NL → "version one" report, approved txns as reinforcement signal). No
+  model/provider ever disclosed.
+- **AI surface (verified list):** auto bank-rec (per-customer trained; 80–90% of
+  matches at confidence scores after 1–2 closes, bulk "post to match all"),
+  auto-categorization, AI bulk-import anomaly resolution, AI P&L allocation
+  templates, automated accruals, flux commentary, intercompany allocations/
+  eliminations, anomaly detectors (out-of-box duplicate + amount-change, plus
+  custom rules), copilot chat (users report it unreliable). **Experimental MCP
+  server** — demoed connecting external LLM clients and scheduling an AR-ageing
+  agent that delivers to Slack at 9am.
+- **Migration ("switch in a day" decoded):** NextDay Migration = API data load
+  (few hours–24h, throttling-dependent), AI account-mapping w/ claimed 99%
+  accuracy + human verify, **full transaction-level history** (not TB-only),
+  parallel run w/ 15-min refreshes. Their own page says go-live is **4–6 weeks**;
+  sales reps say 2–4 weeks; G2 user average is **2 months**. Wrapper: $0
+  implementation fee, CPA-led onboarding, free sandbox where the prospect sees
+  their own books tie out.
+- **GTM:** quote-only 3-tier pricing w/ usage caps; free tier for VC-backed
+  founders; sales staffed with CPAs; auditors courted early as "broker of trust";
+  success metric = speed-to-live + user happiness; attacks "ERP trauma".
+- **Gaps (their words + reviewers):** **no inventory module (July 2026, in
+  development), no procurement plans**; G2 cons cluster on limited customization
+  + missing features; 97%-five-star Asia-weighted review corpus looks
+  campaign-driven; finance-platform scope, not full ops ERP.
+
+### 7.2 Steal list → our lanes (with effort, solo-dev days)
+
+| # | Steal | What exists already | New work | Effort |
+|---|---|---|---|---|
+| S1 | Confidence % + bulk-accept on bank matching | `PaymentMatch.confidence`, TOCTOU-safe `acceptMatch`, H4 rules | `POST /banking/matches/accept-bulk?minConfidence=` loop + confidence badge + "Accept all ≥90%" in recon screen | **1–1.5d** |
+| S2 | Scheduled daily report agent → WhatsApp (their MCP→Slack demo, Indianized) | AR ageing report, WhatsAppService, ShedLock job pattern, org settings | `DailyOutstandingReportJob` + `reports.daily_whatsapp` toggle + settings switch (Meta template approval = ops) | **1–2d** |
+| S3 | "Handled by" provenance chip (ladder visibility) | matchType/bankRuleId on matches, AI-inbox links, edit_log | Surface RULE:<name> / AI / MANUAL source chip in recon (extend to bills later) | **1d** |
+| S4 | Tally sandbox tie-out + parallel run ("books in an hour, TB-verified") | Masters import (rerun-safe), voucher import, TB verify (CA Bridge) | Voucher-level re-import dedupe key (GUID/voucher no+date) + "Re-sync from Tally" button + guided sandbox flow | **2–3d** |
+| S5 | Flux/variance commentary agent | P&L via FinancialReportService, AI inbox, ClaudeApiClient | Month-over-month per-account delta → `FLUX_COMMENTARY` suggestion (rule-based v1, optional LLM phrasing) | **1.5–2d** |
+| S6 | Named, toggleable anomaly detectors | RuleBasedAiAgentService checks | Detector registry + per-detector `ai.detector.*` org toggle + `GET /ai/detectors` + settings list | **1.5–2d** |
+| S7 | CA channel = their CPA/auditor "broker of trust" GTM | CA console, CA client links, CA pack | Positioning only — zero code | **0d** |
+| S8 | Per-org learning from accepted matches | `ai_pattern` (vendor+HSN→account precedent) | Learn narration-pattern→account on acceptMatch, boost future suggestions | **2–3d** |
+
+**Total steal list ≈ 10–14 dev-days (~2–3 solo weeks). Quick-win trio S1+S2+S6 ≈ 1 week.**
+Flutter pieces need local `flutter analyze` (no SDK in cloud env).
+
+### 7.3 Avoid list
+1. **"Switch in a day" overclaim** — their own reps/pages/G2 contradict it; market
+   honest tiers instead: *books visible in an hour, live in a week*.
+2. **Review farming** (97% five-star, Asia-weighted for a US product) — free ammo
+   for rivals; never do this.
+3. **Copilot chat as headline** — their users call it unreliable; embedded
+   micro-AI is what they actually praise. Keep AI in-flow (inbox/suggestions).
+4. **Their scope** — no inventory/procurement is viable for US SaaS CFOs, fatal
+   for Indian SMB. Our inventory/batch/FEFO/POS/GST depth IS the moat; don't
+   dilute it chasing finance-only polish.
+5. **Absolutist "AI never posts" messaging** — even they bulk-post at confidence.
+   Say "graded autonomy with org-controlled gates" (which we actually have).
+6. Their #1 user con = limited customization → **validates MASTER_GAP_TRACKER
+   Lane I** (custom fields, workflow rules, report builder) as a real
+   differentiator, not a nice-to-have.
