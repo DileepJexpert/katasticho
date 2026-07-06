@@ -474,6 +474,14 @@ const _bankingGroup = NavGroup(
       activeIcon: Icons.compare_arrows_rounded,
       route: Routes.bankReconciliation,
     ),
+    NavItem(
+      id: 'banking.rules',
+      label: 'Bank Rules',
+      icon: Icons.rule_folder_outlined,
+      activeIcon: Icons.rule_folder,
+      route: Routes.bankRules,
+      roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'],
+    ),
   ],
 );
 
@@ -519,6 +527,13 @@ const _accountingGroup = NavGroup(
         icon: Icons.event_busy_outlined,
         activeIcon: Icons.event_busy_rounded,
         route: Routes.periodClose),
+    NavItem(
+        id: 'accounting.forex_revaluation',
+        label: 'Forex Revaluation',
+        icon: Icons.currency_exchange_outlined,
+        activeIcon: Icons.currency_exchange_rounded,
+        route: Routes.forexRevaluation,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT']),
     NavItem(
         id: 'accounting.fixed_assets',
         label: 'Fixed Assets',

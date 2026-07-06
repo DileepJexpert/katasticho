@@ -44,6 +44,7 @@ import '../features/reports/presentation/operational_report_screen.dart';
 import '../features/ai_chat/presentation/ai_chat_screen.dart';
 import '../features/banking/presentation/bank_reconciliation_screen.dart';
 import '../features/banking/presentation/bank_account_list_screen.dart';
+import '../features/banking/presentation/bank_rules_screen.dart';
 import '../features/settings/presentation/business_configuration_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/settings/presentation/inventory_features_screen.dart';
@@ -257,6 +258,7 @@ import '../features/inventory/presentation/batch_recall_screen.dart';
 import '../features/inventory/presentation/fssai_screen.dart';
 import '../features/inventory/presentation/batch_trace_screen.dart';
 import '../features/currency/presentation/currency_screen.dart';
+import '../features/forex_revaluation/presentation/forex_revaluation_screen.dart';
 import '../features/integrations/presentation/integration_list_screen.dart';
 import '../features/workflow/presentation/workflow_settings_screen.dart';
 import 'shell_screen.dart';
@@ -365,6 +367,7 @@ class Routes {
   static const aiChat = '/ai-chat';
   static const bankReconciliation = '/banking/reconciliation';
   static const bankAccounts = '/bank-accounts';
+  static const bankRules = '/banking/rules';
   static const gst = '/gst';
   static const gstItcRisk = '/gst/itc-risk';
   static const courierShipments = '/courier/shipments';
@@ -549,6 +552,7 @@ class Routes {
 
   // Currency
   static const currencies = '/currencies';
+  static const forexRevaluation = '/accounting/forex-revaluation';
 
   // Integrations
   static const integrations = '/settings/integrations';
@@ -2117,6 +2121,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.bankAccounts,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: BankAccountListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.bankRules,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: BankRulesScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.forexRevaluation,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ForexRevaluationScreen(),
             ),
           ),
           GoRoute(
