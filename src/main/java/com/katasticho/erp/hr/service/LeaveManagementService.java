@@ -133,9 +133,19 @@ public class LeaveManagementService {
                     "LEAVE_OVERLAPS", HttpStatus.CONFLICT);
         }
 
+        boolean autoApprove = !type.isRequiresApproval();
         LeaveBalance balance = null;
         if (type.isPaid()) {
-            balance = getOrCreateBalance(userId, type, from.getYear());
+            // An auto-approved paid leave DEDUCTS the balance right here, so it must
+            // lock the row (same pessimistic path as the manual approve/reject/cancel
+            // decision) — otherwise two concurrent auto-approvals both read the same
+            // available and both consume it (lost update → over-entitlement). A
+            // requires-approval leave only PRE-CHECKS here (the authoritative locked
+            // deduction happens later in adjustBalanceOnDecision), so the plain read
+            // is fine for it.
+            balance = autoApprove
+                    ? getOrCreateBalanceForUpdate(userId, type, from.getYear())
+                    : getOrCreateBalance(userId, type, from.getYear());
             if (balance.getAvailable().compareTo(days) < 0) {
                 throw new BusinessException(
                         "Insufficient " + type.getName() + " balance (available "
@@ -144,7 +154,6 @@ public class LeaveManagementService {
             }
         }
 
-        boolean autoApprove = !type.isRequiresApproval();
         LeaveRequest req = LeaveRequest.builder()
                 .orgId(orgId).userId(userId)
                 .fromDate(from).toDate(to)

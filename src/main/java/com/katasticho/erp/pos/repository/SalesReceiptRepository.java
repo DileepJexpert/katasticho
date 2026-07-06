@@ -149,11 +149,15 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
     """)
     List<SalesReceipt> findByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
 
+    // RETURNED (voided) receipts must not appear in a customer's purchase
+    // history nor inflate their totalSpent — same guard the day/range/branch
+    // aggregates carry, applied to the contact-scoped list + sum.
     @Query("""
         SELECT r FROM SalesReceipt r
         WHERE r.orgId = :orgId
           AND r.contactId = :contactId
           AND r.isDeleted = false
+          AND (r.status IS NULL OR r.status <> 'RETURNED')
           AND r.receiptDate >= :from
         ORDER BY r.receiptDate DESC, r.createdAt DESC
     """)
@@ -168,6 +172,7 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
         WHERE r.orgId = :orgId
           AND r.contactId = :contactId
           AND r.isDeleted = false
+          AND (r.status IS NULL OR r.status <> 'RETURNED')
           AND r.receiptDate >= :from
     """)
     BigDecimal sumTotalByContact(

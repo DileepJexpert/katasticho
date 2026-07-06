@@ -146,6 +146,53 @@ class LeaveManagementServiceTest {
     }
 
     @Test
+    void applyLeave_autoApprovePaid_locksBalanceRow() {
+        // The auto-approved paid path DEDUCTS the balance at apply time, so it must
+        // take the pessimistic-write finder (findForUpdate) — not the plain read —
+        // to stop two concurrent auto-approvals both consuming the same balance
+        // (lost update). The manual-approval path already locks; this closes the
+        // sibling gap on the apply-time deduction.
+        when(typeRepo.findByIdAndOrgIdAndIsDeletedFalse(typeId, orgId))
+                .thenReturn(Optional.of(type(true, false, "12")));   // paid, requiresApproval = false
+        when(holidayRepo.findByOrgIdAndHolidayDateBetweenAndIsDeletedFalseOrderByHolidayDateAsc(
+                eq(orgId), any(), any())).thenReturn(List.of());
+        noOverlap();
+        LeaveBalance bal = LeaveBalance.builder().orgId(orgId).userId(userId).leaveTypeId(typeId)
+                .year(2026).entitled(new BigDecimal("12")).used(BigDecimal.ZERO).build();
+        when(balanceRepo.findByOrgIdAndUserIdAndLeaveTypeIdAndYearAndIsDeletedFalse(orgId, userId, typeId, 2026))
+                .thenReturn(Optional.of(bal));
+        when(balanceRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(leaveRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.applyLeave(typeId, mon, tue, "trip");
+
+        verify(balanceRepo).findForUpdate(orgId, userId, typeId, 2026);
+    }
+
+    @Test
+    void applyLeave_requiresApprovalPaid_doesNotLockAtApplyTime() {
+        // A requires-approval leave only PRE-CHECKS the balance at apply time
+        // (the authoritative locked deduction happens later at approval), so the
+        // apply-time read must NOT take the row lock — that would needlessly
+        // serialise every pending application on the balance row.
+        when(typeRepo.findByIdAndOrgIdAndIsDeletedFalse(typeId, orgId))
+                .thenReturn(Optional.of(type(true, true, "12")));    // paid, requiresApproval = true
+        when(holidayRepo.findByOrgIdAndHolidayDateBetweenAndIsDeletedFalseOrderByHolidayDateAsc(
+                eq(orgId), any(), any())).thenReturn(List.of());
+        noOverlap();
+        when(balanceRepo.findByOrgIdAndUserIdAndLeaveTypeIdAndYearAndIsDeletedFalse(orgId, userId, typeId, 2026))
+                .thenReturn(Optional.of(LeaveBalance.builder().orgId(orgId).userId(userId).leaveTypeId(typeId)
+                        .year(2026).entitled(new BigDecimal("12")).used(BigDecimal.ZERO).build()));
+        when(leaveRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        LeaveRequest req = service.applyLeave(typeId, mon, tue, "trip");
+
+        assertEquals("PENDING", req.getStatus());
+        verify(balanceRepo, never()).findForUpdate(any(), any(), any(), anyInt());
+        verify(balanceRepo, never()).save(any());   // nothing deducted until approval
+    }
+
+    @Test
     void applyLeave_unpaid_marksUnpaidNoBalance() {
         when(typeRepo.findByIdAndOrgIdAndIsDeletedFalse(typeId, orgId))
                 .thenReturn(Optional.of(type(false, true, "0")));
