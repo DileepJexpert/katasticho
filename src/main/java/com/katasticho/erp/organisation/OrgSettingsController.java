@@ -54,6 +54,10 @@ public class OrgSettingsController {
         // can't overwrite a real credential with "********".
         Map<String, String> writable = new java.util.HashMap<>(settings);
         writable.entrySet().removeIf(e -> MASKED.equals(e.getValue()));
+        // The bulk write bypasses the typed setters (setOne/setIf), so re-run the
+        // SSRF guard here — otherwise PUT /api/v1/settings could still save an
+        // internal/loopback whatsapp.custom_url that the per-key path already blocks.
+        writable.forEach(this::validateOutboundUrlSetting);
         settingsService.setBulk(orgId, writable);
         return ResponseEntity.ok(maskSecrets(settingsService.getAll(orgId)));
     }
