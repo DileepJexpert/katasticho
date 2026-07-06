@@ -19,6 +19,11 @@ public interface PurchaseBillRepository extends JpaRepository<PurchaseBill, UUID
 
     Optional<PurchaseBill> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
+    /** Pessimistic-write variant to serialise concurrent post/pay/void on one bill. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM PurchaseBill b WHERE b.id = :id AND b.orgId = :orgId AND b.isDeleted = false")
+    Optional<PurchaseBill> findByIdAndOrgIdForUpdate(@Param("id") UUID id, @Param("orgId") UUID orgId);
+
     /** All bills of the given vendors — MSME Form 1 walks these (small vendor set). */
     List<PurchaseBill> findByOrgIdAndContactIdInAndIsDeletedFalse(
             UUID orgId, java.util.Collection<UUID> contactIds);
@@ -133,6 +138,21 @@ public interface PurchaseBillRepository extends JpaRepository<PurchaseBill, UUID
           AND b.billDate BETWEEN :from AND :to
     """)
     BigDecimal sumPostedSubtotalByOrgAndContactAndDateRange(
+            UUID orgId, UUID contactId, LocalDate from, LocalDate to);
+
+    /** Vendor's posted taxable turnover that ALREADY bore TDS this FY — the base
+     *  to net out when catching up on a 194C aggregate crossing so a bill already
+     *  taxed under the single-bill limb isn't double-deducted. */
+    @Query("""
+        SELECT COALESCE(SUM(b.subtotal), 0) FROM PurchaseBill b
+        WHERE b.orgId = :orgId
+          AND b.contactId = :contactId
+          AND b.isDeleted = false
+          AND b.status NOT IN ('DRAFT','CANCELLED','VOID')
+          AND COALESCE(b.tdsAmount, 0) > 0
+          AND b.billDate BETWEEN :from AND :to
+    """)
+    BigDecimal sumPostedTaxedSubtotalByOrgAndContactAndDateRange(
             UUID orgId, UUID contactId, LocalDate from, LocalDate to);
 
     @Query("""

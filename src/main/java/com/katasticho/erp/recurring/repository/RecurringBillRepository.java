@@ -17,6 +17,11 @@ public interface RecurringBillRepository extends JpaRepository<RecurringBill, UU
 
     Optional<RecurringBill> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
+    /** Pessimistic re-read so concurrent generate-now runs serialise (no double-post). */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from RecurringBill t where t.id = :id and t.orgId = :orgId and t.isDeleted = false")
+    Optional<RecurringBill> findByIdAndOrgIdForUpdate(UUID id, UUID orgId);
+
     Page<RecurringBill> findByOrgIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID orgId, Pageable pageable);
 
     Page<RecurringBill> findByOrgIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(

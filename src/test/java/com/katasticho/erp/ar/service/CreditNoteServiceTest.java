@@ -164,17 +164,19 @@ class CreditNoteServiceTest {
                 .taxAmount(new BigDecimal("450.00")).build();
         TaxLineItem sgst = TaxLineItem.builder().componentCode("SGST").accountCode("2021")
                 .taxAmount(new BigDecimal("450.00")).build();
-        when(creditNoteRepository.findByIdAndOrgIdAndIsDeletedFalse(cn.getId(), orgId))
+        when(creditNoteRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(cn.getId(), orgId))
                 .thenReturn(Optional.of(cn));
         when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(invoiceRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
+                .thenReturn(Optional.of(invoice));
 
         JournalEntry mockJournal = JournalEntry.builder().entryNumber("JE-2026-000003").build();
         mockJournal.setId(UUID.randomUUID());
-        when(postingEngine.postCreditNote(any(CreditNote.class))).thenReturn(mockJournal);
+        when(postingEngine.postCreditNote(any(CreditNote.class), any(BigDecimal.class))).thenReturn(mockJournal);
 
         CreditNote issued = creditNoteService.issueCreditNote(cn.getId());
 
-        verify(postingEngine).postCreditNote(cn);
+        verify(postingEngine).postCreditNote(eq(cn), any(BigDecimal.class));
         assertEquals("APPLIED", issued.getStatus());
         assertEquals(mockJournal.getId(), issued.getJournalEntryId());
 
@@ -186,7 +188,7 @@ class CreditNoteServiceTest {
         CreditNote issuedCn = CreditNote.builder().orgId(orgId).status("ISSUED").build();
         issuedCn.setId(UUID.randomUUID());
 
-        when(creditNoteRepository.findByIdAndOrgIdAndIsDeletedFalse(issuedCn.getId(), orgId))
+        when(creditNoteRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(issuedCn.getId(), orgId))
                 .thenReturn(Optional.of(issuedCn));
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -216,7 +218,7 @@ class CreditNoteServiceTest {
         workflow.setId(UUID.randomUUID());
         workflow.setOrgId(orgId);
 
-        when(creditNoteRepository.findByIdAndOrgIdAndIsDeletedFalse(draftCn.getId(), orgId))
+        when(creditNoteRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(draftCn.getId(), orgId))
                 .thenReturn(Optional.of(draftCn));
         when(approvalWorkflowService.findMatchingWorkflow(eq(orgId), eq("CREDIT_NOTE"), anyMap()))
                 .thenReturn(Optional.of(workflow));
@@ -225,7 +227,7 @@ class CreditNoteServiceTest {
         CreditNote result = creditNoteService.issueCreditNote(draftCn.getId());
 
         assertEquals("PENDING_APPROVAL", result.getStatus());
-        verify(postingEngine, never()).postCreditNote(any());
+        verify(postingEngine, never()).postCreditNote(any(), any());
         verify(approvalWorkflowService).requestApproval(
                 eq(orgId),
                 eq(workflow),
@@ -250,16 +252,16 @@ class CreditNoteServiceTest {
         JournalEntry mockJournal = JournalEntry.builder().entryNumber("JE-2026-000004").build();
         mockJournal.setId(UUID.randomUUID());
 
-        when(creditNoteRepository.findByIdAndOrgIdAndIsDeletedFalse(pendingCn.getId(), orgId))
+        when(creditNoteRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(pendingCn.getId(), orgId))
                 .thenReturn(Optional.of(pendingCn));
-        when(postingEngine.postCreditNote(pendingCn)).thenReturn(mockJournal);
+        when(postingEngine.postCreditNote(eq(pendingCn), any(BigDecimal.class))).thenReturn(mockJournal);
         when(creditNoteRepository.save(any(CreditNote.class))).thenAnswer(inv -> inv.getArgument(0));
 
         CreditNote result = creditNoteService.issueApprovedCreditNote(pendingCn.getId());
 
         assertEquals("ISSUED", result.getStatus());
         assertEquals(mockJournal.getId(), result.getJournalEntryId());
-        verify(postingEngine).postCreditNote(pendingCn);
+        verify(postingEngine).postCreditNote(eq(pendingCn), any(BigDecimal.class));
     }
 
     @Test
@@ -290,10 +292,12 @@ class CreditNoteServiceTest {
         JournalEntry mockJournal = JournalEntry.builder().entryNumber("JE-2026-000005").build();
         mockJournal.setId(UUID.randomUUID());
 
-        when(creditNoteRepository.findByIdAndOrgIdAndIsDeletedFalse(pendingCn.getId(), orgId))
+        when(creditNoteRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(pendingCn.getId(), orgId))
                 .thenReturn(Optional.of(pendingCn));
-        when(postingEngine.postCreditNote(pendingCn)).thenReturn(mockJournal);
+        when(postingEngine.postCreditNote(eq(pendingCn), any(BigDecimal.class))).thenReturn(mockJournal);
         when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(invoiceRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
+                .thenReturn(Optional.of(invoice));
         when(creditNoteRepository.save(any(CreditNote.class))).thenAnswer(inv -> inv.getArgument(0));
 
         CreditNote result = creditNoteService.issueApprovedCreditNote(pendingCn.getId());
@@ -302,7 +306,70 @@ class CreditNoteServiceTest {
         assertEquals(mockJournal.getId(), result.getJournalEntryId());
         verify(documentStateEngine).validateTransition(
                 eq(orgId), eq("CREDIT_NOTE"), eq("PENDING_APPROVAL"), eq("ISSUED"));
-        verify(postingEngine).postCreditNote(pendingCn);
+        verify(postingEngine).postCreditNote(eq(pendingCn), any(BigDecimal.class));
         verify(invoiceService).updatePaymentStatus(invoice, new BigDecimal("2500.00"));
+    }
+
+    @Test
+    void postCreditNote_rejectsWhenTotalExceedsInvoiceBalance() {
+        UUID invoiceId = UUID.randomUUID();
+        Invoice invoice = Invoice.builder()
+                .orgId(orgId).contactId(contact.getId())
+                .invoiceNumber("INV-2026-000020").status("PARTIALLY_PAID")
+                .totalAmount(new BigDecimal("1000.00"))
+                .amountPaid(new BigDecimal("800.00"))
+                .balanceDue(new BigDecimal("200.00"))
+                .build();
+        invoice.setId(invoiceId);
+
+        // A full-value ₹1000 return CN against an invoice with only ₹200 left —
+        // must be rejected rather than over-crediting AR to a negative balance.
+        CreditNote cn = CreditNote.builder()
+                .orgId(orgId).contactId(contact.getId()).invoiceId(invoiceId)
+                .creditNoteNumber("CN-2026-000020").creditNoteDate(LocalDate.of(2026, 4, 15))
+                .status("DRAFT").totalAmount(new BigDecimal("1000.00"))
+                .build();
+        cn.setId(UUID.randomUUID());
+
+        JournalEntry mockJournal = JournalEntry.builder().entryNumber("JE").build();
+        mockJournal.setId(UUID.randomUUID());
+        when(creditNoteRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(cn.getId(), orgId))
+                .thenReturn(Optional.of(cn));
+        when(postingEngine.postCreditNote(eq(cn), any(BigDecimal.class))).thenReturn(mockJournal);
+        when(creditNoteRepository.save(any(CreditNote.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(invoiceRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
+                .thenReturn(Optional.of(invoice));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> creditNoteService.issueCreditNote(cn.getId()));
+        assertEquals("AR_CN_EXCEEDS_BALANCE", ex.getErrorCode());
+        verify(invoiceService, never()).updatePaymentStatus(any(), any());
+    }
+
+    @Test
+    void createCreditNote_rejectsLinkToDraftInvoice() {
+        UUID invoiceId = UUID.randomUUID();
+        Invoice draftInvoice = Invoice.builder()
+                .orgId(orgId).contactId(contact.getId())
+                .invoiceNumber("INV-2026-000021").status("DRAFT")
+                .totalAmount(new BigDecimal("500.00"))
+                .amountPaid(BigDecimal.ZERO).balanceDue(new BigDecimal("500.00"))
+                .build();
+        draftInvoice.setId(invoiceId);
+
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contact.getId(), orgId))
+                .thenReturn(Optional.of(contact));
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
+                .thenReturn(Optional.of(draftInvoice));
+
+        var request = new CreateCreditNoteRequest(
+                contact.getId(), invoiceId, LocalDate.of(2026, 4, 15), "Return", "MH",
+                List.of(new CreditNoteLineRequest("Widget", "8471", new BigDecimal("1"),
+                        new BigDecimal("100"), new BigDecimal("18"), "4010", null, null, null)));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> creditNoteService.createCreditNote(request));
+        assertEquals("AR_CN_INVOICE_NOT_APPLICABLE", ex.getErrorCode());
     }
 }

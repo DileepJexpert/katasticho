@@ -87,6 +87,15 @@ class ManufacturingServiceTest {
                 stockBalanceRepo, batchService, jobCardRepo, workstationRepo, orgSettingsService);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
+        // The pessimistic-lock finder used by issueToProduction / receiveFinishedGoods
+        // resolves to whatever a test stubbed for the plain finder.
+        lenient().when(workOrderRepo.findByIdAndOrgIdForUpdate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(inv.getArgument(0), inv.getArgument(1)));
+        // WIP/completion posts no longer swallow — give the mock a real entry so the
+        // wo.setWipJournalEntryId(entry.getId()) plumbing doesn't NPE.
+        JournalEntry mockJe = JournalEntry.builder().entryNumber("JE-MFG").build();
+        mockJe.setId(UUID.randomUUID());
+        lenient().when(journalService.postJournal(org.mockito.ArgumentMatchers.any())).thenReturn(mockJe);
     }
 
     @AfterEach
@@ -135,7 +144,7 @@ class ManufacturingServiceTest {
         BomComponent bom = buildBomComponent();
 
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(bom));
         when(bomComponentRepo.findMaxVersion(orgId, fgItemId)).thenReturn(1);
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId)).thenReturn(Optional.of(rm));
@@ -184,7 +193,7 @@ class ManufacturingServiceTest {
         redItem.setOrgId(orgId);
 
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(redLine, blueLine));
         when(bomComponentRepo.findMaxVersion(orgId, fgItemId)).thenReturn(1);
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(redChild, orgId)).thenReturn(Optional.of(redItem));
@@ -222,7 +231,7 @@ class ManufacturingServiceTest {
         Item fg = buildCompositeItem();
 
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of());
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -744,7 +753,7 @@ class ManufacturingServiceTest {
                 org.mockito.ArgumentMatchers.eq(orgId),
                 org.mockito.ArgumentMatchers.eq(rmItemId),
                 org.mockito.ArgumentMatchers.anyList())).thenReturn(false);
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, rmItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, rmItemId))
                 .thenReturn(List.of(subBom));
         when(bomComponentRepo.findMaxVersion(orgId, rmItemId)).thenReturn(1);
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(subAssemblyRm.getId(), orgId))
@@ -959,7 +968,7 @@ class ManufacturingServiceTest {
                 org.mockito.ArgumentMatchers.eq(fgItemId),
                 org.mockito.ArgumentMatchers.anyList())).thenReturn(false);
         // createWorkOrder internals — same shape as createWorkOrder_compositeItem_succeeds
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(bom));
         when(bomComponentRepo.findMaxVersion(orgId, fgItemId)).thenReturn(1);
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId)).thenReturn(Optional.of(rm));
@@ -1287,7 +1296,7 @@ class ManufacturingServiceTest {
                 .thenReturn(Optional.of(fg));
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId))
                 .thenReturn(Optional.of(rm));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(bom));
         when(bomComponentRepo.findMaxVersion(orgId, fgItemId)).thenReturn(1);
         when(workOrderRepo.findMaxWorkOrderNumber(orgId)).thenReturn(0);
@@ -1458,7 +1467,7 @@ class ManufacturingServiceTest {
 
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
         when(bomComponentRepo.findMaxVersion(orgId, fgItemId)).thenReturn(1);
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(comp));
         when(bomComponentRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -1497,7 +1506,7 @@ class ManufacturingServiceTest {
 
         when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
                 .thenReturn(Optional.of(wo));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(comp));
         when(inventoryService.recordMovement(any())).thenReturn(null);
         when(workOrderRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -1522,7 +1531,7 @@ class ManufacturingServiceTest {
 
         when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
                 .thenReturn(Optional.of(wo));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(comp));
         when(inventoryService.recordMovement(any())).thenReturn(null);
         when(workOrderRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -1624,7 +1633,7 @@ class ManufacturingServiceTest {
 
         when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
                 .thenReturn(Optional.of(wo));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(comp));
         when(bomAlternateRepo.existsByOrgIdAndBomComponentIdAndAlternateItemIdAndIsDeletedFalse(
                 orgId, comp.getId(), alternateItemId)).thenReturn(true);
@@ -1654,7 +1663,7 @@ class ManufacturingServiceTest {
 
         when(workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(wo.getId(), orgId))
                 .thenReturn(Optional.of(wo));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(comp));
         when(bomAlternateRepo.existsByOrgIdAndBomComponentIdAndAlternateItemIdAndIsDeletedFalse(
                 orgId, comp.getId(), alternateItemId)).thenReturn(false);
@@ -1770,9 +1779,9 @@ class ManufacturingServiceTest {
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(root));
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(subAssemblyId, orgId)).thenReturn(Optional.of(sub));
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(leafId, orgId)).thenReturn(Optional.of(leaf));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(rootComp));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, subAssemblyId))
+        when(bomComponentRepo.findCurrentBom(orgId, subAssemblyId))
                 .thenReturn(List.of(subComp));
 
         Map<String, Object> result = service.getBomCostRollup(fgItemId);

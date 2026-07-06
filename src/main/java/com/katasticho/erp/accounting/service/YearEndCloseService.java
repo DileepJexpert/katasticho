@@ -55,7 +55,11 @@ public class YearEndCloseService {
     @Transactional
     public CloseResult closeYear(int fiscalYear) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        Organisation org = organisationRepository.findById(orgId)
+        // Pessimistic org-row lock held for the whole transaction so two concurrent
+        // closes serialise: the first posts + commits, the second re-reads the
+        // just-posted close and throws YEAR_END_ALREADY_CLOSED instead of both
+        // posting a full closing journal (which would double Retained Earnings).
+        Organisation org = organisationRepository.findByIdForUpdate(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
         int fyStart = org.getFiscalYearStart() != null ? org.getFiscalYearStart() : 4;
@@ -64,10 +68,13 @@ public class YearEndCloseService {
 
         UUID closeId = closeId(orgId, fiscalYear);
 
-        // Idempotency: an existing non-reversed close entry blocks a re-close.
+        // Idempotency: an existing LIVE close entry (posted, not reversed, and not
+        // itself a reversal) blocks a re-close. Excluding is_reversal is essential —
+        // after a reopen the reversal entry is POSTED but must not count as a live
+        // close, or the year could never be re-closed.
         boolean alreadyClosed = journalEntryRepository
                 .findBySourceModuleAndSourceIdAndStatus(SOURCE_MODULE, closeId, "POSTED")
-                .stream().anyMatch(e -> !e.isReversed());
+                .stream().anyMatch(e -> !e.isReversed() && !e.isReversal());
         if (alreadyClosed) {
             throw new BusinessException("Fiscal year " + fiscalYear + " is already closed",
                     "YEAR_END_ALREADY_CLOSED", HttpStatus.CONFLICT);
@@ -129,6 +136,32 @@ public class YearEndCloseService {
                 fiscalYear, orgId, lines.size() - 1, netIncome, entry.getEntryNumber());
 
         return new CloseResult(fiscalYear, start, end, netIncome, lines.size() - 1, entry.getId());
+    }
+
+    /**
+     * Reopen a closed fiscal year by reversing its close entry IN-PERIOD (dated the
+     * FY's last day) so the reversal nets the close lines within the same year —
+     * P&L accounts return to their pre-close balances and Retained Earnings is
+     * restored. Reversing the close via the generic current-dated path instead would
+     * post phantom P&L into the CURRENT year and zero out RE (cross-year corruption).
+     * After a reopen closeYear can legitimately re-run (the reversal is is_reversal,
+     * so the idempotency guard no longer sees a live close).
+     */
+    @Transactional
+    public JournalEntry reopenYear(int fiscalYear) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        UUID closeId = closeId(orgId, fiscalYear);
+        JournalEntry live = journalEntryRepository
+                .findBySourceModuleAndSourceIdAndStatus(SOURCE_MODULE, closeId, "POSTED")
+                .stream().filter(e -> !e.isReversed() && !e.isReversal())
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(
+                        "Fiscal year " + fiscalYear + " is not closed",
+                        "YEAR_END_NOT_CLOSED", HttpStatus.BAD_REQUEST));
+        JournalEntry reversal = journalService.reverseEntry(live.getId(), live.getEffectiveDate());
+        log.info("Year-end close FY{} org {} reopened via reversal {}",
+                fiscalYear, orgId, reversal.getEntryNumber());
+        return reversal;
     }
 
     /** Deterministic per (org, fiscalYear) so a re-close is detectable. */

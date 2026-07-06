@@ -203,6 +203,106 @@ class StatutoryRegisterServiceTest {
     }
 
     @Test
+    void inline_prescriber_satisfies_strict_mode_and_populates_columns() {
+        // The Rx is normally created AFTER the sale, so strict mode must be
+        // satisfiable by prescriber details captured inline at the counter.
+        Item h1Item = pharmaItem("Augmentin 625", "H1");
+        SalesReceipt receipt = receiptOf(LocalDate.now(), line(h1Item, "1"));
+
+        when(orgSettingsService.get(orgId, "pharma.h1_strict", "false")).thenReturn("true");
+        when(prescriptionRepository.findByReceiptIdAndOrgIdAndIsDeletedFalse(receiptId, orgId))
+                .thenReturn(Optional.empty());
+
+        var ctx = new StatutoryRegisterService.PrescriberContext(
+                "RX-9001", "Dr. K. Menon", "TNMC-77821", "Anna Nagar Clinic, Chennai");
+
+        List<StatutoryRegisterEntry> rows =
+                service.recordSaleEntries(receipt, Map.of(h1Item.getId(), h1Item), ctx);
+
+        assertEquals(1, rows.size(), "inline prescriber must let an H1 sale complete under strict mode");
+        StatutoryRegisterEntry r = rows.get(0);
+        assertEquals("Dr. K. Menon", r.getPrescriberName());
+        assertEquals("TNMC-77821", r.getPrescriberRegNumber());
+        assertEquals("Anna Nagar Clinic, Chennai", r.getPrescriberAddress());
+    }
+
+    @Test
+    void inline_prescriber_takes_precedence_over_linked_rx() {
+        Item h1Item = pharmaItem("Augmentin 625", "H1");
+        SalesReceipt receipt = receiptOf(LocalDate.now(), line(h1Item, "1"));
+
+        PrescriptionRecord rx = PrescriptionRecord.builder()
+                .doctorName("Dr. Linked")
+                .doctorRegNumber("LINK-1")
+                .notes("Linked clinic")
+                .receiptId(receiptId)
+                .build();
+
+        when(orgSettingsService.get(orgId, "pharma.h1_strict", "false")).thenReturn("false");
+        when(prescriptionRepository.findByReceiptIdAndOrgIdAndIsDeletedFalse(receiptId, orgId))
+                .thenReturn(Optional.of(rx));
+
+        var ctx = new StatutoryRegisterService.PrescriberContext(
+                null, "Dr. Inline", "INLINE-9", null);
+
+        List<StatutoryRegisterEntry> rows =
+                service.recordSaleEntries(receipt, Map.of(h1Item.getId(), h1Item), ctx);
+
+        StatutoryRegisterEntry r = rows.get(0);
+        assertEquals("Dr. Inline", r.getPrescriberName(), "inline name wins");
+        assertEquals("INLINE-9", r.getPrescriberRegNumber(), "inline reg wins");
+        // address absent inline -> falls back to the linked Rx notes
+        assertEquals("Linked clinic", r.getPrescriberAddress());
+    }
+
+    @Test
+    void backfill_prescriber_fills_blank_columns_only() {
+        StatutoryRegisterEntry blank = StatutoryRegisterEntry.builder()
+                .registerType(RegisterType.H1)
+                .saleReceiptId(receiptId)
+                .itemId(UUID.randomUUID())
+                .drugName("Augmentin 625")
+                .quantity(BigDecimal.ONE)
+                .saleDate(LocalDate.now())
+                .retentionUntil(LocalDate.now().plusYears(3))
+                .build();
+        StatutoryRegisterEntry alreadyCaptured = StatutoryRegisterEntry.builder()
+                .registerType(RegisterType.H1)
+                .saleReceiptId(receiptId)
+                .itemId(UUID.randomUUID())
+                .drugName("Zithromax 500")
+                .quantity(BigDecimal.ONE)
+                .saleDate(LocalDate.now())
+                .retentionUntil(LocalDate.now().plusYears(3))
+                .prescriberName("Dr. Counter")     // fully captured inline at sale time
+                .prescriberRegNumber("COUNTER-1")
+                .prescriberAddress("Counter clinic")
+                .build();
+
+        when(registerRepository.findByOrgIdAndSaleReceiptIdAndIsDeletedFalse(orgId, receiptId))
+                .thenReturn(List.of(blank, alreadyCaptured));
+
+        int updated = service.backfillPrescriber(receiptId, "Dr. Backfill", "REG-7", "Backfill clinic");
+
+        assertEquals(1, updated, "only the blank row is backfilled");
+        assertEquals("Dr. Backfill", blank.getPrescriberName());
+        assertEquals("REG-7", blank.getPrescriberRegNumber());
+        assertEquals("Backfill clinic", blank.getPrescriberAddress());
+        // A fully-captured inline row is never overwritten by backfill.
+        assertEquals("Dr. Counter", alreadyCaptured.getPrescriberName());
+        assertEquals("COUNTER-1", alreadyCaptured.getPrescriberRegNumber());
+        assertEquals("Counter clinic", alreadyCaptured.getPrescriberAddress());
+        verify(registerRepository, times(1)).save(blank);
+        verify(registerRepository, never()).save(alreadyCaptured);
+    }
+
+    @Test
+    void backfill_prescriber_noop_for_null_receipt() {
+        assertEquals(0, service.backfillPrescriber(null, "Dr. X", "R", "A"));
+        verify(registerRepository, never()).findByOrgIdAndSaleReceiptIdAndIsDeletedFalse(any(), any());
+    }
+
+    @Test
     void strict_mode_only_blocks_h1_not_schedule_x_or_narcotics() {
         // Spec: strict gate is for H1 only — X and NARCOTICS still record even without Rx.
         Item xItem = pharmaItem("Pentazocine", "SCHEDULE_X");

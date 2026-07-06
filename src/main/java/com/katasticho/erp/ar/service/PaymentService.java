@@ -203,7 +203,11 @@ public class PaymentService {
         payment = paymentRepository.save(payment);
 
         invoiceService.updatePaymentStatus(invoice, payment.getAmount());
-        adjustContactOutstandingAr(payment.getContactId(), payment.getAmount().negate());
+        // NOTE: contact.outstanding_ar is the KHATA (invoice-less) ledger only \u2014
+        // it is maintained solely by the POS credit-sale + khata-settlement paths.
+        // Invoice-backed AR lives in the invoice's balanceDue and is served by the
+        // computed outstanding cache, so an invoice payment must NOT touch this
+        // column (doing so mints phantom khata on void and erases real khata here).
 
         commentService.addSystemComment("INVOICE", invoice.getId(),
                 "Payment of \u20b9" + payment.getAmount() + " received (" + payment.getPaymentMethod() + ")");
@@ -252,7 +256,8 @@ public class PaymentService {
 
         journalService.reverseEntry(payment.getJournalEntryId());
         invoiceService.updatePaymentStatus(invoice, payment.getAmount().negate());
-        adjustContactOutstandingAr(payment.getContactId(), payment.getAmount());
+        // Symmetric with postPayment: the invoice's balanceDue is restored above;
+        // contact.outstanding_ar (khata ledger) is intentionally left untouched.
 
         payment.setStatus(PaymentStatus.VOIDED);
         payment.setVoidReason(reason);
@@ -326,12 +331,15 @@ public class PaymentService {
     }
 
     public List<PaymentResponse> listForInvoice(UUID invoiceId) {
-        return paymentRepository.findByInvoiceIdAndIsDeletedFalse(invoiceId).stream()
+        return getPaymentsForInvoice(invoiceId).stream()
                 .map(this::toResponse).toList();
     }
 
     public List<Payment> getPaymentsForInvoice(UUID invoiceId) {
-        return paymentRepository.findByInvoiceIdAndIsDeletedFalse(invoiceId);
+        // Org-scope: the endpoints only carry an invoice UUID, so filter by the
+        // caller's org to prevent cross-tenant reads of another org's payments.
+        UUID orgId = TenantContext.getCurrentOrgId();
+        return paymentRepository.findByOrgIdAndInvoiceIdAndIsDeletedFalse(orgId, invoiceId);
     }
 
     public PaymentResponse toResponse(Payment p) {
@@ -348,15 +356,6 @@ public class PaymentService {
                 p.getReferenceNumber(), p.getBankAccount(), p.getNotes(),
                 p.getStatus() != null ? p.getStatus().name() : null,
                 p.getJournalEntryId(), p.getPostedAt(), p.getCreatedAt());
-    }
-
-    private void adjustContactOutstandingAr(UUID contactId, BigDecimal delta) {
-        if (contactId == null || delta == null || delta.compareTo(BigDecimal.ZERO) == 0) return;
-        contactRepository.findById(contactId).ifPresent(contact -> {
-            BigDecimal current = contact.getOutstandingAr() != null ? contact.getOutstandingAr() : BigDecimal.ZERO;
-            contact.setOutstandingAr(current.add(delta).max(BigDecimal.ZERO));
-            contactRepository.save(contact);
-        });
     }
 
     private PaymentApprovalDecision evaluateApproval(UUID orgId, Payment payment, Invoice invoice) {

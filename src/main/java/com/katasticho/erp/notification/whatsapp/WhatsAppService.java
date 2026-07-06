@@ -202,6 +202,10 @@ public class WhatsAppService {
         if (url == null || url.isBlank()) {
             return SendResult.fail("CUSTOM", "whatsapp.custom_url not configured");
         }
+        // SSRF guard: this URL is an org-admin-writable setting, so an internal /
+        // loopback / metadata host must be refused before the server-side POST.
+        // sendTemplate wraps this in try/catch → a blocked URL becomes a FAILED row.
+        com.katasticho.erp.common.net.OutboundUrlGuard.validate(url, "WHATSAPP_URL");
         ObjectNode root = objectMapper.createObjectNode();
         root.put("to", to);
         root.put("template", template);
@@ -220,7 +224,9 @@ public class WhatsAppService {
                 .build();
         HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
         if (resp.statusCode() / 100 != 2) {
-            return SendResult.fail("CUSTOM", "HTTP " + resp.statusCode() + ": " + resp.body());
+            // Status only — never reflect the raw response body into the readable
+            // message log (an internal endpoint's body would otherwise leak there).
+            return SendResult.fail("CUSTOM", "HTTP " + resp.statusCode());
         }
         JsonNode node = safeTree(resp.body());
         String msgId = node == null ? null

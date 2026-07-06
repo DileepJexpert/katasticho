@@ -91,8 +91,22 @@ public class GstService {
         Map<UUID, Contact> contactMap = contactRepository.findAllById(contactIds).stream()
                 .collect(Collectors.toMap(Contact::getId, c -> c));
 
+        // Original-invoice values for the period's credit notes — needed to
+        // qualify a CDNUR "B2CL" note (inter-state B2C, original value > ₹1L). The
+        // original invoice may predate this period, so fetch it directly rather
+        // than relying on the period `invoices` list.
+        Set<UUID> cnInvoiceIds = creditNotes.stream()
+                .map(CreditNote::getInvoiceId).filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<UUID, BigDecimal> cnOriginalValue = cnInvoiceIds.isEmpty()
+                ? Map.of()
+                : invoiceRepository.findAllById(cnInvoiceIds).stream()
+                        .collect(Collectors.toMap(Invoice::getId,
+                                i -> i.getTotalAmount() != null ? i.getTotalAmount() : BigDecimal.ZERO,
+                                (a, b) -> a));
+
         // POS receipts are B2C retail sales — they belong in B2CS + HSN summary.
-        List<SalesReceipt> receipts = salesReceiptRepository.findByOrgAndDateRange(orgId, from, to);
+        List<SalesReceipt> receipts = salesReceiptRepository.findActiveByOrgAndDateRange(orgId, from, to);
         String orgState = org != null ? nvl(org.getStateCode()) : "";
 
         // Build sections
@@ -101,10 +115,10 @@ public class GstService {
         // reported invoice-level (Table 5) and excluded from the B2CS summary.
         List<Map<String, Object>> b2cl = buildB2CL(invoices, taxBySource, contactMap);
         List<Map<String, Object>> b2cs = mergeB2cs(
-                buildB2CS(invoices, taxBySource, contactMap),
+                buildB2CS(invoices, taxBySource, contactMap, creditNotes, cnOriginalValue),
                 buildPosB2cs(receipts, orgState));
         List<Map<String, Object>> cdnr = buildCDNR(creditNotes, taxBySource, contactMap);
-        List<Map<String, Object>> cdnur = buildCDNUR(creditNotes, taxBySource, contactMap);
+        List<Map<String, Object>> cdnur = buildCDNUR(creditNotes, taxBySource, contactMap, cnOriginalValue);
         List<Map<String, Object>> hsn = mergeHsn(
                 buildHsnSummary(allTaxLines),
                 buildPosHsn(receipts));
@@ -199,11 +213,16 @@ public class GstService {
         return interState && val.compareTo(B2CL_THRESHOLD) > 0;
     }
 
-    // B2CS — unregistered / consumer customers, grouped by rate + state
+    // B2CS — unregistered / consumer customers, grouped by rate + state.
+    // Credit notes to unregistered customers that are NOT CDNUR-B2CL are netted
+    // out here (GSTR-1 has no separate B2C-return table for them), matching how
+    // GSTR-3B nets all credit notes out of outward supplies.
     private List<Map<String, Object>> buildB2CS(
             List<Invoice> invoices,
             Map<UUID, List<TaxLineItem>> taxBySource,
-            Map<UUID, Contact> contacts) {
+            Map<UUID, Contact> contacts,
+            List<CreditNote> creditNotes,
+            Map<UUID, BigDecimal> cnOriginalValue) {
 
         record Key(BigDecimal rate, String pos) {}
         Map<Key, BigDecimal[]> buckets = new LinkedHashMap<>();
@@ -227,6 +246,31 @@ public class GstService {
                         case "IGST" -> sums[1] = sums[1].add(tl.getTaxAmount());
                         case "CGST" -> sums[2] = sums[2].add(tl.getTaxAmount());
                         case "SGST" -> sums[3] = sums[3].add(tl.getTaxAmount());
+                    }
+                }
+            }
+        }
+
+        // Subtract unregistered, non-B2CL credit notes so B2CS reconciles with
+        // GSTR-3B's net outward supplies (a fully-netted-to-zero bucket is fine).
+        for (CreditNote cn : creditNotes) {
+            Contact c = contacts.get(cn.getContactId());
+            if (c != null && !isBlank(c.getGstin())) continue; // registered → CDNR
+            List<TaxLineItem> tls = taxBySource.getOrDefault(cn.getId(), List.of());
+            if (isCdnurB2cl(cn, tls, cnOriginalValue)) continue; // reported in CDNUR
+            String pos = nvl(cn.getPlaceOfSupply());
+            Map<BigDecimal, List<TaxLineItem>> byRate = tls.stream()
+                    .collect(Collectors.groupingBy(TaxLineItem::getRate));
+            for (Map.Entry<BigDecimal, List<TaxLineItem>> re : byRate.entrySet()) {
+                Key key = new Key(re.getKey(), pos);
+                BigDecimal[] sums = buckets.computeIfAbsent(key, k -> new BigDecimal[]{
+                        BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO});
+                for (TaxLineItem tl : re.getValue()) {
+                    sums[0] = sums[0].subtract(tl.getTaxableAmount());
+                    switch (tl.getComponentCode()) {
+                        case "IGST" -> sums[1] = sums[1].subtract(tl.getTaxAmount());
+                        case "CGST" -> sums[2] = sums[2].subtract(tl.getTaxAmount());
+                        case "SGST" -> sums[3] = sums[3].subtract(tl.getTaxAmount());
                     }
                 }
             }
@@ -282,17 +326,24 @@ public class GstService {
         return records;
     }
 
-    // CDNUR — credit notes to unregistered customers
+    // CDNUR — credit notes to unregistered customers. Table 9B (CDNUR) only accepts
+    // note type B2CL (inter-state B2C, original invoice value > ₹1L). Intra-state
+    // and small inter-state B2C returns are netted into B2CS instead (see buildB2CS),
+    // so only genuine B2CL notes are emitted here — the old code dumped EVERY
+    // unregistered CN here with a hardcoded typ "B2CL" carrying CGST/SGST, an
+    // invalid combination the portal rejects.
     private List<Map<String, Object>> buildCDNUR(
             List<CreditNote> creditNotes,
             Map<UUID, List<TaxLineItem>> taxBySource,
-            Map<UUID, Contact> contacts) {
+            Map<UUID, Contact> contacts,
+            Map<UUID, BigDecimal> cnOriginalValue) {
 
         List<Map<String, Object>> result = new ArrayList<>();
         for (CreditNote cn : creditNotes) {
             Contact c = contacts.get(cn.getContactId());
             if (c != null && !isBlank(c.getGstin())) continue; // skip registered
             List<TaxLineItem> tls = taxBySource.getOrDefault(cn.getId(), List.of());
+            if (!isCdnurB2cl(cn, tls, cnOriginalValue)) continue; // only B2CL belongs here
             result.add(Map.of(
                     "ntty", "C",
                     "nt_num", cn.getCreditNoteNumber(),
@@ -304,6 +355,20 @@ public class GstService {
             ));
         }
         return result;
+    }
+
+    /** A CDNUR note qualifies as B2CL when it is inter-state (a positive IGST tax
+     *  line) AND the original invoice value exceeds ₹1L. Mirrors {@link #isB2cl}. */
+    private boolean isCdnurB2cl(CreditNote cn, List<TaxLineItem> tls,
+                                Map<UUID, BigDecimal> cnOriginalValue) {
+        boolean interState = tls.stream().anyMatch(tl -> "IGST".equals(tl.getComponentCode())
+                && tl.getTaxAmount() != null && tl.getTaxAmount().signum() > 0);
+        BigDecimal originalValue = cn.getInvoiceId() != null
+                ? cnOriginalValue.get(cn.getInvoiceId()) : null;
+        if (originalValue == null) {
+            originalValue = cn.getTotalAmount() != null ? cn.getTotalAmount() : BigDecimal.ZERO;
+        }
+        return interState && originalValue.compareTo(B2CL_THRESHOLD) > 0;
     }
 
     // HSN/SAC summary — all tax lines grouped by HSN code
@@ -376,12 +441,27 @@ public class GstService {
      * and the intra/inter split follows the receipt header's IGST flag.
      */
     private List<Map<String, Object>> buildPosB2cs(List<SalesReceipt> receipts, String orgState) {
-        record Key(BigDecimal rate, String typ) {}
+        // Key includes the place of supply so an INTER receipt reports the buyer's
+        // DESTINATION state (not the seller's own state, which is an invalid B2CS
+        // INTER row). INTRA rows always report the org state.
+        record Key(BigDecimal rate, String typ, String pos) {}
         Map<String, BigDecimal> rateCache = new HashMap<>();
         Map<Key, BigDecimal[]> buckets = new LinkedHashMap<>();
 
         for (SalesReceipt receipt : receipts) {
             boolean inter = receipt.getIgst() != null && receipt.getIgst().signum() > 0;
+            String pos;
+            if (inter) {
+                // An inter-state B2CS row MUST carry the destination state and it
+                // must differ from the supplier state. Drop the receipt if we
+                // don't have a valid destination (would emit an invalid row).
+                pos = nvl(receipt.getPlaceOfSupply());
+                if (pos.isBlank() || pos.equals(orgState)) {
+                    continue;
+                }
+            } else {
+                pos = orgState;
+            }
             for (SalesReceiptLine line : receipt.getLines()) {
                 BigDecimal rate = hsnRate(line.getHsnCode(), rateCache);
                 BigDecimal amount = line.getAmount() == null ? BigDecimal.ZERO : line.getAmount();
@@ -389,7 +469,7 @@ public class GstService {
                         .divide(new BigDecimal("100").add(rate), 2, java.math.RoundingMode.HALF_UP);
                 BigDecimal tax = amount.subtract(taxable);
 
-                Key key = new Key(rate, inter ? "INTER" : "INTRA");
+                Key key = new Key(rate, inter ? "INTER" : "INTRA", pos);
                 BigDecimal[] sums = buckets.computeIfAbsent(key, k -> new BigDecimal[]{
                         BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO});
                 sums[0] = sums[0].add(taxable);
@@ -408,7 +488,7 @@ public class GstService {
             BigDecimal[] s = e.getValue();
             rows.add(Map.of(
                     "sply_tp", e.getKey().typ(),
-                    "pos", orgState,
+                    "pos", e.getKey().pos(),
                     "rt", e.getKey().rate(),
                     "txval", s[0],
                     "iamt", s[1],
@@ -578,7 +658,7 @@ public class GstService {
         TaxSums outCn = sumTax(outCnLines);
 
         // POS receipts (retail B2C) — header already carries the GST split.
-        List<SalesReceipt> receipts = salesReceiptRepository.findByOrgAndDateRange(orgId, from, to);
+        List<SalesReceipt> receipts = salesReceiptRepository.findActiveByOrgAndDateRange(orgId, from, to);
         BigDecimal posTaxable = BigDecimal.ZERO, posCgst = BigDecimal.ZERO,
                 posSgst = BigDecimal.ZERO, posIgst = BigDecimal.ZERO;
         for (SalesReceipt receipt : receipts) {

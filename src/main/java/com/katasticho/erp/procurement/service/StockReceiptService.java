@@ -38,11 +38,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -233,6 +236,17 @@ public class StockReceiptService {
         // lines by taxable value, then add per-unit so stock cost is fully landed.
         Map<UUID, BigDecimal> landedUnitCostByLine = apportionLandedCost(receipt);
 
+        // Provisional-COGS true-ups are collected here and fired only AFTER this
+        // transaction commits (see the afterCommit registration below). The
+        // reconciler runs in REQUIRES_NEW and commits its correction journal +
+        // settle-stamps in its own physical transaction — if we called it inline
+        // and a LATER line threw, the outer receive() would roll back (GRN reverts
+        // to DRAFT, PURCHASE movements gone) but the already-committed reconcile
+        // journal + stamps would survive, orphaned, and no cancel() path would
+        // unwind them (DRAFT-cancel skips revert). Deferring to after-commit means
+        // reconciliation only ever runs for a GRN that durably reached RECEIVED.
+        List<PendingReconcile> pendingReconciles = new ArrayList<>();
+
         for (StockReceiptLine line : receipt.getLines()) {
             Item item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(line.getItemId(), orgId)
                     .orElseThrow(() -> BusinessException.notFound("Item", line.getItemId()));
@@ -292,20 +306,12 @@ public class StockReceiptService {
 
             // Bill-freely true-up: if this item had any prior provisional SALE
             // movements (booked against Stock-Out Suspense because purchasePrice
-            // was unknown), this GRN reveals the actual cost — reconcile now.
+            // was unknown), this GRN reveals the actual cost — reconcile it.
             // Skip for SERVICE items (movement == null) — they never deduct stock.
-            // The reconciler runs in REQUIRES_NEW so a failure in there can't
-            // mark THIS transaction rollback-only (the previous catch would
-            // have failed at commit with UnexpectedRollbackException).
+            // Collected here and fired after commit (see below), never inline, so
+            // a later-line failure can't leave a committed-but-orphaned true-up.
             if (movement != null) {
-                try {
-                    provisionalCostReconciler.reconcileForItem(
-                            orgId, item.getId(), landedUnitCost,
-                            receipt.getReceiptNumber(), receipt.getId());
-                } catch (Exception e) {
-                    log.warn("Provisional COGS reconciliation failed for item {} on GRN {}: {}",
-                            item.getId(), receipt.getReceiptNumber(), e.getMessage());
-                }
+                pendingReconciles.add(new PendingReconcile(item.getId(), landedUnitCost));
             }
         }
 
@@ -332,9 +338,53 @@ public class StockReceiptService {
             }
         }
 
+        // Fire provisional-COGS true-ups only after this transaction commits, so
+        // a rolled-back receive never leaves an orphaned correction journal. If
+        // no transaction synchronization is active (should not happen inside a
+        // @Transactional method) fall back to running them inline. The reconciler
+        // is REQUIRES_NEW + idempotent, so first-call-wins settles all pending
+        // rows for the item. Same after-commit pattern as POS WhatsApp auto-send.
+        if (!pendingReconciles.isEmpty()) {
+            final UUID grnId = receipt.getId();
+            final String grnNumber = receipt.getReceiptNumber();
+            final List<PendingReconcile> toReconcile = pendingReconciles;
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        runReconciles(orgId, grnId, grnNumber, toReconcile);
+                    }
+                });
+            } else {
+                runReconciles(orgId, grnId, grnNumber, toReconcile);
+            }
+        }
+
         log.info("StockReceipt {} received: {} stock movements posted",
                 receipt.getReceiptNumber(), receipt.getLines().size());
         return toResponse(receipt);
+    }
+
+    /** Inputs for one deferred provisional-COGS true-up (per received item line). */
+    private record PendingReconcile(UUID itemId, BigDecimal actualUnitCost) {}
+
+    /**
+     * Run each collected provisional-COGS reconcile. Keeps the per-item try/catch
+     * so a reconcile hiccup is logged, not thrown — this runs on the request
+     * thread after commit while TenantContext is still populated, and
+     * reconcileForItem takes orgId as a param and opens its own REQUIRES_NEW tx.
+     */
+    private void runReconciles(UUID orgId, UUID grnId, String grnNumber,
+                               List<PendingReconcile> pending) {
+        for (PendingReconcile p : pending) {
+            try {
+                provisionalCostReconciler.reconcileForItem(
+                        orgId, p.itemId(), p.actualUnitCost(), grnNumber, grnId);
+            } catch (Exception e) {
+                log.warn("Provisional COGS reconciliation failed for item {} on GRN {}: {}",
+                        p.itemId(), grnNumber, e.getMessage());
+            }
+        }
     }
 
     /**
@@ -368,17 +418,20 @@ public class StockReceiptService {
             // marked back as having more remaining qty. DRAFTs never incremented,
             // so DRAFT-cancellation is a no-op for the PO ledger.
             decrementReceivedQuantityForPoLines(receipt);
-            // Unwind any provisional-COGS settlements this GRN posted: reverses
-            // the correction JE(s) and clears the cost_settled_at / by_grn_id
-            // stamps on the affected SALE movements so a future GRN can
-            // re-reconcile them against the new actual cost. Without this, a
-            // cancelled-then-replaced GRN double-clears Stock-Out Suspense.
-            try {
-                provisionalCostReconciler.revertSettlementForGrn(receipt.getId());
-            } catch (Exception e) {
-                log.warn("Failed to revert provisional-COGS settlement for cancelled GRN {}: {}",
-                        receipt.getReceiptNumber(), e.getMessage());
-            }
+        }
+
+        // Unwind any provisional-COGS settlements keyed to this GRN: reverses the
+        // correction JE(s) and clears the cost_settled_at / by_grn_id stamps on
+        // the affected SALE movements so a future GRN can re-reconcile them
+        // against the new actual cost. Run on EVERY cancel (not just RECEIVED) —
+        // it's idempotent (a no-op when no settlement rows match the grnId), so a
+        // normal DRAFT cancel is unaffected, but a DRAFT left orphaned by a
+        // rolled-back receive (legacy state) still gets swept clean.
+        try {
+            provisionalCostReconciler.revertSettlementForGrn(receipt.getId());
+        } catch (Exception e) {
+            log.warn("Failed to revert provisional-COGS settlement for cancelled GRN {}: {}",
+                    receipt.getReceiptNumber(), e.getMessage());
         }
 
         receipt.setStatus("CANCELLED");

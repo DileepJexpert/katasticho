@@ -302,7 +302,7 @@ class InvoiceServiceTest {
         TaxLineItem sgst = TaxLineItem.builder().componentCode("SGST").accountCode("2021")
                 .taxAmount(new BigDecimal("900.00")).build();
 
-        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(draftInvoice.getId(), orgId))
+        when(invoiceRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(draftInvoice.getId(), orgId))
                 .thenReturn(Optional.of(draftInvoice));
         when(taxLineItemRepository.findBySourceTypeAndSourceId("INVOICE", draftInvoice.getId()))
                 .thenReturn(List.of(cgst, sgst));
@@ -326,7 +326,7 @@ class InvoiceServiceTest {
     void sendStandaloneInvoice_postsJournalAndMovesInventory() {
         Invoice draftInvoice = draftInvoiceWithLine();
 
-        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(draftInvoice.getId(), orgId))
+        when(invoiceRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(draftInvoice.getId(), orgId))
                 .thenReturn(Optional.of(draftInvoice));
         when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));
         stubContactLookup(contact);
@@ -351,7 +351,7 @@ class InvoiceServiceTest {
         Invoice draftInvoice = draftInvoiceWithLine();
         draftInvoice.setSalesOrderId(UUID.randomUUID());
 
-        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(draftInvoice.getId(), orgId))
+        when(invoiceRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(draftInvoice.getId(), orgId))
                 .thenReturn(Optional.of(draftInvoice));
         when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));
         stubContactLookup(contact);
@@ -376,7 +376,7 @@ class InvoiceServiceTest {
         Invoice sentInvoice = Invoice.builder().orgId(orgId).status("SENT").build();
         sentInvoice.setId(UUID.randomUUID());
 
-        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(sentInvoice.getId(), orgId))
+        when(invoiceRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(sentInvoice.getId(), orgId))
                 .thenReturn(Optional.of(sentInvoice));
 
         BusinessException ex = assertThrows(BusinessException.class,

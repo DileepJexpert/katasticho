@@ -5,9 +5,13 @@ import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.accounting.dto.JournalLineRequest;
 import com.katasticho.erp.accounting.dto.JournalPostRequest;
 import com.katasticho.erp.accounting.entity.Account;
+import com.katasticho.erp.accounting.entity.FiscalPeriod;
 import com.katasticho.erp.accounting.entity.JournalEntry;
 import com.katasticho.erp.accounting.repository.AccountRepository;
+import com.katasticho.erp.accounting.repository.FiscalPeriodRepository;
 import com.katasticho.erp.accounting.service.JournalService;
+import com.katasticho.erp.organisation.Organisation;
+import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.ap.dto.VendorPaymentRequest;
 import com.katasticho.erp.ap.dto.VendorPaymentResponse;
 import com.katasticho.erp.ap.entity.PurchaseBill;
@@ -74,6 +78,8 @@ public class BankReconciliationService {
     private final BankRuleService bankRuleService;
     private final JournalService journalService;
     private final AccountRepository accountRepository;
+    private final FiscalPeriodRepository fiscalPeriodRepository;
+    private final OrganisationRepository organisationRepository;
 
     @Transactional
     public BankTransactionImportResponse importCsv(ImportBankTransactionsRequest request) {
@@ -92,10 +98,16 @@ public class BankReconciliationService {
         List<BankTransactionResponse> imported = new ArrayList<>();
 
         for (ParsedBankRow row : rows) {
+            // Dedupe on the FULL identity (ref + date + amount + direction), not
+            // ref + direction alone — recurring same-reference rows (NACH/EMI
+            // mandates repeat the UMRN; split charge+GST rows share a ref on one
+            // day) were silently dropped as "duplicates". Amount is scaled to
+            // match the persisted value so a true re-import still dedupes.
             if (row.reference() != null
                     && !row.reference().isBlank()
-                    && bankTransactionRepository.existsByOrgIdAndUtrAndDirection(
-                            orgId, row.reference(), row.direction())) {
+                    && bankTransactionRepository.existsByOrgIdAndUtrAndDirectionAndTransactionDateAndAmount(
+                            orgId, row.reference(), row.direction(), row.date(),
+                            row.amount().setScale(2, RoundingMode.HALF_UP))) {
                 skipped++;
                 continue;
             }
@@ -233,6 +245,17 @@ public class BankReconciliationService {
     public BankTransactionResponse ignoreTransaction(UUID transactionId) {
         UUID orgId = requireOrgId();
         BankTransaction transaction = getTransaction(transactionId, orgId);
+
+        // A MATCHED / already-posted transaction must not be flippable to IGNORED:
+        // it would strand the ACCEPTED match, and a later re-run → accept would
+        // double-post the same physical money (the MATCHED guards elsewhere only
+        // fire on status MATCHED, which IGNORED erases). Require an explicit reject
+        // of the settled match first.
+        if ("MATCHED".equals(transaction.getStatus()) || transaction.getPaymentId() != null) {
+            throw new BusinessException(
+                    "Transaction is already matched — reject its match before ignoring",
+                    "BANK_TX_ALREADY_MATCHED", HttpStatus.CONFLICT);
+        }
         transaction.setStatus("IGNORED");
 
         List<PaymentMatch> matches = paymentMatchRepository
@@ -281,7 +304,10 @@ public class BankReconciliationService {
                 .findByIdAndOrgIdForUpdate(match.getBankTransactionId(), orgId)
                 .orElseThrow(() -> BusinessException.notFound("BankTransaction", match.getBankTransactionId()));
 
-        if ("MATCHED".equals(transaction.getStatus())) {
+        if ("MATCHED".equals(transaction.getStatus()) || transaction.getPaymentId() != null) {
+            // paymentId != null also catches a MATCHED tx that was flipped to
+            // IGNORED then re-run (the status is no longer MATCHED but the money
+            // was already posted) — refusing on the payment id closes that path.
             throw new BusinessException(
                     "Bank transaction is already matched",
                     "BANK_TX_ALREADY_MATCHED",
@@ -415,6 +441,14 @@ public class BankReconciliationService {
                         "Categorisation account " + accountCode + " no longer exists",
                         "BANK_RULE_ACCOUNT_MISSING", HttpStatus.BAD_REQUEST));
 
+        // Pre-validate the fiscal period with a DIRECT repository read (NOT
+        // FiscalPeriodService.requireOpen — that is @Transactional, so its throw
+        // crosses a proxy boundary and marks the OUTER import tx rollback-only,
+        // making the whole statement import fail with UnexpectedRollbackException).
+        // Throwing from this same bean lets importRows' catch degrade the row to a
+        // suggestion (mirrors the same-bean BANK_RULE_ACCOUNT_MISSING guard above).
+        assertPeriodOpenForBankRule(orgId, transaction.getTransactionDate());
+
         BigDecimal amount = match.getMatchedAmount().setScale(2, RoundingMode.HALF_UP);
         boolean moneyIn = "CREDIT".equalsIgnoreCase(transaction.getDirection());
         String memo = ruleMemo(orgId, match, transaction);
@@ -430,6 +464,28 @@ public class BankReconciliationService {
         JournalEntry entry = journalService.postJournal(new JournalPostRequest(
                 transaction.getTransactionDate(), memo, "BANKING", transaction.getId(), lines, true));
         return entry.getId();
+    }
+
+    /**
+     * Same-bean fiscal-period gate for the bank-rule journal. Reads the period
+     * row directly (no @Transactional proxy) and throws ACCT_PERIOD_CLOSED if it
+     * is closed, computing the period exactly as JournalService does.
+     */
+    private void assertPeriodOpenForBankRule(UUID orgId, LocalDate date) {
+        int fyStart = organisationRepository.findById(orgId)
+                .map(Organisation::getFiscalYearStart)
+                .filter(Objects::nonNull)
+                .orElse(4);
+        int periodYear = date.getMonthValue() >= fyStart ? date.getYear() : date.getYear() - 1;
+        int periodMonth = date.getMonthValue();
+        fiscalPeriodRepository.findByOrgIdAndPeriodYearAndPeriodMonth(orgId, periodYear, periodMonth)
+                .filter(FiscalPeriod::isClosed)
+                .ifPresent(fp -> {
+                    throw new BusinessException(
+                            "Fiscal period " + periodYear + "-" + String.format("%02d", periodMonth)
+                                    + " is closed. Reopen it before posting.",
+                            "ACCT_PERIOD_CLOSED", HttpStatus.CONFLICT);
+                });
     }
 
     private String resolveBankAccountCode(UUID orgId, UUID bankAccountId) {

@@ -85,6 +85,13 @@ public class SalesReceipt extends BaseEntity {
     @Column(length = 500)
     private String notes;
 
+    /** GSTIN-style 2-digit state code of the buyer (place of supply). Needed so
+     *  an inter-state POS receipt reports the DESTINATION state in GSTR-1 B2CS,
+     *  not the seller's own state. Null for the common intra-state counter sale
+     *  (GstService falls back to the org state). Column added in V40. */
+    @Column(name = "place_of_supply", length = 2)
+    private String placeOfSupply;
+
     /** Client temp number (OFF-xxxx) if this sale was rung up offline. */
     @Column(name = "offline_receipt_number", length = 30)
     private String offlineReceiptNumber;

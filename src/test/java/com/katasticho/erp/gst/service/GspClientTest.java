@@ -39,10 +39,16 @@ class GspClientTest {
         client = new GspClient(gspRestTemplate, orgSettingsService);
     }
 
+    // A public IP literal: the SSRF guard resolves it without a DNS lookup (so the
+    // test is deterministic and offline) and it is a public unicast address, so the
+    // guard lets the probe through — leaving the HTTP-status→reachable mapping as
+    // the thing actually under test. (93.184.215.14 is example.com's own address.)
+    private static final String BASE = "https://93.184.215.14";
+
     private void configured() {
         Map<String, String> s = new HashMap<>();
         s.put(GspClient.ENABLED, "true");
-        s.put(GspClient.BASE_URL, "https://api.gsp.example.com");
+        s.put(GspClient.BASE_URL, BASE);
         s.put(GspClient.TOKEN, "secret");
         s.put(GspClient.GSTIN, "27AABCT1234A1Z5");
         when(orgSettingsService.getAll(orgId)).thenReturn(s);
@@ -61,7 +67,7 @@ class GspClientTest {
     @Test
     void testConnection_hostAnswers200_isReachable() {
         configured();
-        when(gspRestTemplate.exchange(eq("https://api.gsp.example.com"), eq(HttpMethod.GET),
+        when(gspRestTemplate.exchange(eq(BASE), eq(HttpMethod.GET),
                 any(HttpEntity.class), eq(String.class)))
                 .thenReturn(ResponseEntity.ok("pong"));
 

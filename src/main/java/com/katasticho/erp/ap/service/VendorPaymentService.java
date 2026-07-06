@@ -108,10 +108,20 @@ public class VendorPaymentService {
         List<com.katasticho.erp.accounting.posting.AccountingPostingEngine.VendorAllocationFx> allocationFx =
                 new java.util.ArrayList<>();
         for (VendorPaymentRequest.AllocationRequest alloc : request.allocations()) {
-            PurchaseBill bill = billRepository.findByIdAndOrgIdAndIsDeletedFalse(alloc.billId(), orgId)
+            // Pessimistic lock: serialise concurrent payments against the same bill
+            // so two allocations of the full balance can't both pass the check below.
+            PurchaseBill bill = billRepository.findByIdAndOrgIdForUpdate(alloc.billId(), orgId)
                     .orElseThrow(() -> BusinessException.notFound("PurchaseBill", alloc.billId()));
             allocationFx.add(new com.katasticho.erp.accounting.posting.AccountingPostingEngine.VendorAllocationFx(
                     alloc.amountApplied(), bill.getExchangeRate()));
+
+            // The bill must belong to the SAME vendor the payment is recorded against,
+            // or the journal + outstanding subledger diverge across two vendors.
+            if (!bill.getContactId().equals(contact.getId())) {
+                throw new BusinessException(
+                        "Bill " + bill.getBillNumber() + " belongs to a different vendor than this payment",
+                        "AP_ALLOCATION_WRONG_VENDOR", HttpStatus.BAD_REQUEST);
+            }
 
             if ("DRAFT".equals(bill.getStatus()) || "VOID".equals(bill.getStatus()) || "PAID".equals(bill.getStatus())) {
                 throw new BusinessException(
@@ -184,7 +194,7 @@ public class VendorPaymentService {
                     .build();
             payment.addAllocation(allocation);
 
-            PurchaseBill bill = billRepository.findByIdAndOrgIdAndIsDeletedFalse(allocReq.billId(), orgId)
+            PurchaseBill bill = billRepository.findByIdAndOrgIdForUpdate(allocReq.billId(), orgId)
                     .orElseThrow(() -> BusinessException.notFound("PurchaseBill", allocReq.billId()));
             billService.updatePaymentStatus(bill, allocReq.amountApplied());
 
@@ -259,18 +269,23 @@ public class VendorPaymentService {
             journalService.reverseEntry(payment.getJournalEntryId());
         }
 
-        // Restore bill payment statuses
+        // Restore bill payment statuses. balanceDue = totalAmount − TDS − amountPaid,
+        // matching PurchaseBillService.updatePaymentStatus — the TDS portion is never
+        // owed to the vendor, so restoring the full total would over-state the balance
+        // and let the next payment over-pay by the TDS amount.
         for (VendorPaymentAllocation alloc : payment.getAllocations()) {
             PurchaseBill bill = billRepository.findById(alloc.getPurchaseBillId()).orElse(null);
             if (bill != null) {
+                BigDecimal tds = bill.getTdsAmount() == null ? BigDecimal.ZERO : bill.getTdsAmount();
+                BigDecimal netTotal = bill.getTotalAmount().subtract(tds);
                 BigDecimal newAmountPaid = bill.getAmountPaid().subtract(alloc.getAmountApplied());
                 if (newAmountPaid.compareTo(BigDecimal.ZERO) <= 0) {
                     bill.setAmountPaid(BigDecimal.ZERO);
-                    bill.setBalanceDue(bill.getTotalAmount());
+                    bill.setBalanceDue(netTotal);
                     bill.setStatus("OPEN");
                 } else {
                     bill.setAmountPaid(newAmountPaid);
-                    bill.setBalanceDue(bill.getTotalAmount().subtract(newAmountPaid));
+                    bill.setBalanceDue(netTotal.subtract(newAmountPaid));
                     bill.setStatus("PARTIALLY_PAID");
                 }
                 billRepository.save(bill);

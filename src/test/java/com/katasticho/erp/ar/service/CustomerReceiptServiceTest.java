@@ -174,8 +174,9 @@ class CustomerReceiptServiceTest {
         assertEquals(0, BigDecimal.ZERO.compareTo(adv.getValue()));
         assertEquals(2, fx.getValue().size());
 
-        // applied amount (9000) leaves the receivable; advance is 0 here
-        assertEquals(0, new BigDecimal("91000").compareTo(customer.getOutstandingAr()));
+        // Invoice-backed receipts settle each invoice's balanceDue (verified above);
+        // the khata (invoice-less) outstanding_ar column is intentionally untouched.
+        assertEquals(0, new BigDecimal("100000").compareTo(customer.getOutstandingAr()));
         assertEquals(0, new BigDecimal("9000").compareTo(resp.allocatedAmount()));
         assertEquals(0, BigDecimal.ZERO.compareTo(resp.advanceAmount()));
         assertEquals(2, resp.allocations().size());
@@ -197,8 +198,8 @@ class CustomerReceiptServiceTest {
 
         assertEquals(0, new BigDecimal("3000").compareTo(resp.advanceAmount()));
         assertEquals(0, new BigDecimal("5000").compareTo(resp.allocatedAmount()));
-        // only the applied 5000 reduces AR, not the full 8000
-        assertEquals(0, new BigDecimal("95000").compareTo(customer.getOutstandingAr()));
+        // khata outstanding_ar untouched by an invoice-backed receipt
+        assertEquals(0, new BigDecimal("100000").compareTo(customer.getOutstandingAr()));
     }
 
     @Test
@@ -296,8 +297,9 @@ class CustomerReceiptServiceTest {
 
         verify(journalService).reverseEntry(journalId);
         verify(invoiceService).updatePaymentStatus(inv, new BigDecimal("6000").negate());
-        // AR restored by the applied amount
-        assertEquals(0, new BigDecimal("6000").compareTo(customer.getOutstandingAr()));
+        // Invoice-backed receipt (has allocations) → the invoice's balanceDue is
+        // restored above, but the khata outstanding_ar column is untouched on void.
+        assertEquals(0, BigDecimal.ZERO.compareTo(customer.getOutstandingAr()));
         assertTrue(saved.get(receipt.getId()).isDeleted());
         assertNotNull(resp);
     }

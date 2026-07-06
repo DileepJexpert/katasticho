@@ -42,22 +42,31 @@ public class DailySalesSummaryJob {
     private final ItemRepository itemRepository;
     private final AppUserRepository userRepository;
     private final NotificationService notificationService;
+    private final OrgBatchTxRunner txRunner;
 
+    // run() is NOT @Transactional — each org runs in its own tx (via txRunner) so
+    // one org's failure can't roll back others' notifications or abort the sweep.
     @Scheduled(cron = "${app.automation.daily-summary.cron:0 0 21 * * *}")
     @SchedulerLock(name = "DailySalesSummaryJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
-    // NOT readOnly: notificationService.send() persists a Notification (UUID @GeneratedValue
-    // → in-memory id, INSERT deferred to flush). A readOnly tx sets FlushMode.MANUAL, so the
-    // INSERT would never flush on commit and the notification would be silently dropped.
-    @Transactional
     public void run() {
         LocalDate today = LocalDate.now();
         List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
-        int orgCount = 0;
-
         for (Organisation org : orgs) {
+            try {
+                txRunner.runInTx(() -> processOrg(org, today));
+            } catch (Exception e) {
+                log.warn("Daily summary failed for org {}: {}", org.getId(), e.getMessage());
+            }
+        }
+    }
+
+    // NOT readOnly: notificationService.send() persists a Notification (UUID @GeneratedValue
+    // → in-memory id, INSERT deferred to flush). A readOnly tx sets FlushMode.MANUAL, so the
+    // INSERT would never flush on commit and the notification would be silently dropped.
+    void processOrg(Organisation org, LocalDate today) {
             AppUser admin = userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(org.getId(), "OWNER")
                     .orElse(null);
-            if (admin == null) continue;
+            if (admin == null) return;
 
             BigDecimal invoiceRevenue = invoiceRepository.sumRevenueByOrgAndDateRange(org.getId(), today, today);
             BigDecimal receiptRevenue = salesReceiptRepository.sumTotalByOrgAndDate(org.getId(), today);
@@ -75,7 +84,7 @@ public class DailySalesSummaryJob {
 
             if (revenue.signum() == 0 && collections.signum() == 0
                     && expenses.signum() == 0 && invoiceCount == 0 && receiptCount == 0) {
-                continue;
+                return;
             }
 
             List<Map<String, Object>> topItems = new ArrayList<>();
@@ -90,7 +99,6 @@ public class DailySalesSummaryJob {
                 topItems.add(entry);
             }
 
-            orgCount++;
             String title = String.format("Daily summary: ₹%s revenue", revenue.toPlainString());
             String message = String.format(
                     "Revenue ₹%s | Collected ₹%s | Expenses ₹%s | %d invoices | %d counter sales",
@@ -107,10 +115,5 @@ public class DailySalesSummaryJob {
 
             notificationService.send(org.getId(), admin.getId(), title, message,
                     "INFO", "DAILY_SUMMARY", null, null, metadata);
-        }
-
-        if (orgCount > 0) {
-            log.info("Daily summaries sent for {} orgs", orgCount);
-        }
     }
 }

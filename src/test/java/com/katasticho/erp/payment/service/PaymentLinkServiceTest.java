@@ -50,6 +50,10 @@ class PaymentLinkServiceTest {
     @Mock private InvoiceRepository invoiceRepository;
     @Mock private ContactRepository contactRepository;
     @Mock private PaymentService paymentService;
+    @Mock private com.katasticho.erp.ai.service.AiSuggestionService aiSuggestionService;
+    @Mock private com.katasticho.erp.ai.repository.AiSuggestionRepository aiSuggestionRepository;
+    @Mock private com.katasticho.erp.auth.repository.AppUserRepository appUserRepository;
+    @Mock private jakarta.persistence.EntityManager entityManager;
 
     private PaymentLinkService svc;
     private final UUID orgId = UUID.randomUUID();
@@ -60,7 +64,8 @@ class PaymentLinkServiceTest {
         Clock clock = Clock.fixed(LocalDate.of(2026, 7, 2).atStartOfDay(ZoneId.systemDefault()).toInstant(),
                 ZoneId.systemDefault());
         svc = new PaymentLinkService(razorpayClient, paymentLinkRepository, webhookEventRepository,
-                invoiceRepository, contactRepository, paymentService, clock);
+                invoiceRepository, contactRepository, paymentService, aiSuggestionService,
+                aiSuggestionRepository, appUserRepository, entityManager, clock);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(UUID.randomUUID());
         when(paymentLinkRepository.save(any())).thenAnswer(i -> {
@@ -277,5 +282,60 @@ class PaymentLinkServiceTest {
         return new PaymentResponse(id, UUID.randomUUID(), null, invoiceId, "INV-001",
                 "PAY-1", LocalDate.now(), new BigDecimal("500.00"), "INR", "BANK_TRANSFER",
                 null, null, null, status, null, null, null);
+    }
+
+    @Test
+    void webhook_supplies_the_link_creator_as_the_actor_on_the_system_thread() {
+        // The webhook runs on a SYSTEM thread with no acting user, but the
+        // settlement journal needs a non-null created_by. The link's creator must
+        // be stamped onto TenantContext before recordForInvoice posts the journal.
+        TenantContext.setCurrentUserId(null);
+        UUID creator = UUID.randomUUID();
+        String body = paidPayload("plink_123", "pay_actor", 50000);
+        when(razorpayClient.verifyWebhookSignature(orgId, body, "sig")).thenReturn(true);
+        when(webhookEventRepository.existsByProviderAndEventId("RAZORPAY", "evt_actor")).thenReturn(false);
+        when(paymentLinkRepository.findByProviderAndProviderPaymentIdAndIsDeletedFalse("RAZORPAY", "pay_actor"))
+                .thenReturn(Optional.empty());
+        PaymentLink link = createdLink("500.00");
+        link.setCreatedBy(creator);
+        when(paymentLinkRepository.findByProviderAndProviderLinkIdAndIsDeletedFalse("RAZORPAY", "plink_123"))
+                .thenReturn(Optional.of(link));
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
+                .thenReturn(Optional.of(payableInvoice("500.00")));
+        UUID[] actorAtRecord = new UUID[1];
+        when(paymentService.recordForInvoice(eq(invoiceId), any())).thenAnswer(inv -> {
+            actorAtRecord[0] = TenantContext.getCurrentUserId();
+            return paymentResponse(UUID.randomUUID(), "POSTED");
+        });
+
+        assertThat(svc.handleWebhook(orgId, body, "sig", "evt_actor")).isEqualTo("recorded");
+        assertThat(actorAtRecord[0]).isEqualTo(creator);
+    }
+
+    @Test
+    void webhook_flags_an_unattributed_capture_when_the_invoice_is_already_settled() {
+        String body = paidPayload("plink_123", "pay_unattr", 50000);
+        when(razorpayClient.verifyWebhookSignature(orgId, body, "sig")).thenReturn(true);
+        when(webhookEventRepository.existsByProviderAndEventId("RAZORPAY", "evt_unattr")).thenReturn(false);
+        when(paymentLinkRepository.findByProviderAndProviderPaymentIdAndIsDeletedFalse("RAZORPAY", "pay_unattr"))
+                .thenReturn(Optional.empty());
+        PaymentLink link = createdLink("500.00");
+        when(paymentLinkRepository.findByProviderAndProviderLinkIdAndIsDeletedFalse("RAZORPAY", "plink_123"))
+                .thenReturn(Optional.of(link));
+        Invoice paid = payableInvoice("500.00");
+        paid.setStatus("PAID"); // already settled by a manual receipt
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId))
+                .thenReturn(Optional.of(paid));
+        when(aiSuggestionRepository.existsOpenSuggestion(any(), any(), any(), any(), any(), any()))
+                .thenReturn(false);
+
+        String result = svc.handleWebhook(orgId, body, "sig", "evt_unattr");
+
+        assertThat(result).isEqualTo("unapplied capture flagged");
+        verify(aiSuggestionService).createSuggestion(any());
+        verify(paymentService, never()).recordForInvoice(any(), any());
+        assertThat(link.getStatus()).isEqualTo("PAID");
+        assertThat(link.getProviderPaymentId()).isEqualTo("pay_unattr");
+        assertThat(link.getRecordedPaymentId()).isNull();
     }
 }

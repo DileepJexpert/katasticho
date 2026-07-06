@@ -55,6 +55,7 @@ public class InventoryService {
     private final StockMovementRepository stockMovementRepository;
     private final StockBalanceRepository stockBalanceRepository;
     private final BomComponentRepository bomComponentRepository;
+    private final BomService bomService;
     private final BatchService batchService;
     private final FifoCostingService fifoCostingService;
     private final AuditService auditService;
@@ -115,6 +116,18 @@ public class InventoryService {
             throw new BusinessException(
                     "Item " + item.getSku() + " is not batch-tracked — batchId must be null",
                     "INV_BATCH_NOT_ALLOWED", HttpStatus.BAD_REQUEST);
+        }
+        // When a batch is supplied, it MUST belong to this org AND this item — an
+        // explicit pick against another item's (or another org's) batch would
+        // corrupt that batch's balance ledger. Reversals carry the original's
+        // already-validated batch, so exempt them.
+        if (request.batchId() != null && request.movementType() != MovementType.REVERSAL) {
+            StockBatch batch = batchService.getBatch(request.batchId()); // org-scoped; 404 if foreign
+            if (!batch.getItemId().equals(item.getId())) {
+                throw new BusinessException(
+                        "Batch " + request.batchId() + " does not belong to item " + item.getSku(),
+                        "INV_BATCH_ITEM_MISMATCH", HttpStatus.BAD_REQUEST);
+            }
         }
 
         // Step 4: cost. FIFO orgs cost an outgoing movement by drawing down
@@ -228,6 +241,23 @@ public class InventoryService {
      * {@code isReversal=true}, then marks the original as {@code isReversed=true}
      * (the only update the trigger allows on a posted row).
      */
+    /**
+     * Reverse every non-reversed movement of {@code movementType} recorded against
+     * (referenceType, referenceId) for the org. Returns how many were reversed.
+     * Used to undo a document's stock legs (e.g. cancelling a WO must reverse its
+     * FG receipts, not just return the raw material).
+     */
+    @Transactional
+    public int reverseMovementsByReference(UUID orgId, ReferenceType referenceType, UUID referenceId,
+                                           MovementType movementType, String reason) {
+        List<StockMovement> originals = stockMovementRepository
+                .findOriginalsByReference(orgId, referenceType, referenceId, movementType);
+        for (StockMovement m : originals) {
+            reverseMovement(m.getId(), reason);
+        }
+        return originals.size();
+    }
+
     @Transactional
     public StockMovement reverseMovement(UUID movementId, String reason) {
         UUID orgId = TenantContext.getCurrentOrgId();
@@ -471,9 +501,12 @@ public class InventoryService {
             // the item this way on purpose (e.g. a pure labour charge
             // that carries its own revenue account).
             if (item.getItemType() == ItemType.COMPOSITE) {
-                List<BomComponent> components = bomComponentRepository
-                        .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(
-                                orgId, item.getId());
+                // explode() flattens PHANTOM composite sub-assemblies through
+                // to their real components (recursively, with cycle detection),
+                // so a phantom child's grandchildren are actually deducted —
+                // findCurrentBom() returned the phantom row itself, which the
+                // trackInventory/SERVICE skip below then silently dropped.
+                List<BomComponent> components = bomService.explode(orgId, item.getId());
                 if (components.isEmpty()) {
                     log.warn("Composite item {} sold on invoice {} has no BOM — no stock deducted",
                             item.getSku(), invoice.getInvoiceNumber());
@@ -584,7 +617,9 @@ public class InventoryService {
                 warehouseId,
                 MovementType.SALE,
                 signedQty,
-                line.getUnitPrice(),
+                null, // resolve COST from item.purchasePrice (weighted-avg) / FIFO lots,
+                      // NOT the SALE price — passing the sale price corrupted the FIFO
+                      // fallback COGS + weighted-average cost on reversal re-blend.
                 invoice.getInvoiceDate(),
                 ReferenceType.INVOICE,
                 invoice.getId(),
@@ -604,7 +639,15 @@ public class InventoryService {
      * items continue to restore via a plain aggregate movement.
      */
     @Transactional
-    public void restoreStockForCreditNote(UUID orgId,
+    /**
+     * Restore stock for a returned/credited credit-note line and return the total
+     * COST value re-entered into inventory (Σ movement.totalCost across the line +
+     * any BOM children). Callers should pass {@code unitCost = null} so the movement
+     * gate re-opens the lot at the item's recorded cost (purchasePrice) — never the
+     * SALE price — and use the returned amount to book the DR Inventory / CR COGS
+     * reversal so the GL tracks the stock ledger.
+     */
+    public BigDecimal restoreStockForCreditNote(UUID orgId,
                                           UUID itemId,
                                           BigDecimal quantity,
                                           BigDecimal unitCost,
@@ -626,14 +669,17 @@ public class InventoryService {
         // own id. BomService guarantees children are non-batch and
         // non-composite, so there's no batch/FEFO path here.
         if (item.getItemType() == ItemType.COMPOSITE) {
-            List<BomComponent> components = bomComponentRepository
-                    .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, itemId);
+            // Mirror the invoice-send explosion: explode() flattens PHANTOM
+            // composite sub-assemblies to their real components so the return
+            // restores the same units the sale deducted.
+            List<BomComponent> components = bomService.explode(orgId, itemId);
             if (components.isEmpty()) {
                 log.warn("Credit note {} returns composite {} with no BOM — no stock restored",
                         creditNoteNumber, item.getSku());
-                return;
+                return BigDecimal.ZERO;
             }
             BigDecimal parentQty = quantity.abs();
+            BigDecimal restoredCost = BigDecimal.ZERO;
             for (BomComponent comp : components) {
                 BigDecimal childTotalQty = comp.getQuantity().multiply(parentQty);
                 Item child = itemRepository
@@ -654,9 +700,10 @@ public class InventoryService {
                         creditNoteNumber,
                         "Return via " + creditNoteNumber + " (BOM child of " + item.getSku() + ")",
                         null);
-                recordMovement(childReq);
+                StockMovement m = recordMovement(childReq);
+                if (m.getTotalCost() != null) restoredCost = restoredCost.add(m.getTotalCost());
             }
-            return;
+            return restoredCost;
         }
 
         // Guard batch-tracked items early so the operator sees an
@@ -674,7 +721,7 @@ public class InventoryService {
                 defaultWarehouse.getId(),
                 MovementType.RETURN_IN,
                 quantity.abs(), // positive — stock comes back in
-                unitCost,
+                unitCost,       // caller passes null → gate uses item.purchasePrice (cost, not sale price)
                 creditNoteDate,
                 ReferenceType.CREDIT_NOTE,
                 creditNoteId,
@@ -682,7 +729,8 @@ public class InventoryService {
                 "Return via " + creditNoteNumber,
                 batchId);
 
-        recordMovement(req);
+        StockMovement m = recordMovement(req);
+        return m.getTotalCost() != null ? m.getTotalCost() : BigDecimal.ZERO;
     }
 
     /**

@@ -163,7 +163,19 @@ public class DeliveryChallanService {
                     .findFirst()
                     .orElseThrow();
 
-            soLine.setQuantityShipped(soLine.getQuantityShipped().add(line.getQuantity()));
+            // Re-validate against the ordered quantity at DISPATCH time: draft
+            // challans aren't counted at create, so two challans (or a re-dispatch)
+            // could otherwise over-ship the same SO line beyond what was ordered.
+            BigDecimal newShipped = soLine.getQuantityShipped().add(line.getQuantity());
+            if (newShipped.compareTo(soLine.getQuantity()) > 0) {
+                throw new BusinessException(
+                        "Dispatch would over-ship SO line " + soLine.getId() + ": ordered "
+                                + soLine.getQuantity() + ", already shipped " + soLine.getQuantityShipped()
+                                + ", this dispatch " + line.getQuantity(),
+                        "DC_OVER_DISPATCH", HttpStatus.BAD_REQUEST);
+            }
+
+            soLine.setQuantityShipped(newShipped);
 
             if (line.getItemId() == null) continue;
 

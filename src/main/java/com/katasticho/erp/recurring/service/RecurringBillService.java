@@ -150,7 +150,9 @@ public class RecurringBillService {
         // Org-scoped: the daily job sets TenantContext to each template's own
         // org before calling, and the generate-now endpoint must not reach a
         // foreign org's template (it passes the raw path id straight in).
-        RecurringBill t = billRepository.findByIdAndOrgIdAndIsDeletedFalse(
+        // Pessimistic lock so concurrent generate-now clicks serialise on the
+        // template row and can't both post for the same cursor (double-post).
+        RecurringBill t = billRepository.findByIdAndOrgIdForUpdate(
                         templateId, TenantContext.getCurrentOrgId())
                 .orElseThrow(() -> BusinessException.notFound("Recurring bill", templateId));
         if (!"ACTIVE".equals(t.getStatus())) {

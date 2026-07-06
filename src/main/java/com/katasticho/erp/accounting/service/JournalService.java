@@ -74,12 +74,15 @@ public class JournalService {
             resolvedAccounts.add(account);
         }
 
-        // Step 3: Validate double-entry balance in TRANSACTION currency
+        // Step 3: Validate double-entry balance in TRANSACTION currency. Round each
+        // line to 2dp HALF_UP FIRST and check the rounded sums — the same values
+        // that get persisted (Step 9) — so a raw-balanced request whose per-line
+        // rounding introduces a sub-paise drift can't persist an imbalanced entry.
         BigDecimal totalDebit = request.lines().stream()
-                .map(JournalLineRequest::debit)
+                .map(l -> l.debit().setScale(2, RoundingMode.HALF_UP))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalCredit = request.lines().stream()
-                .map(JournalLineRequest::credit)
+                .map(l -> l.credit().setScale(2, RoundingMode.HALF_UP))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         if (totalDebit.compareTo(totalCredit) != 0) {
@@ -195,6 +198,17 @@ public class JournalService {
      */
     @Transactional
     public JournalEntry reverseEntry(UUID entryId) {
+        return reverseEntry(entryId, LocalDate.now());
+    }
+
+    /**
+     * Reverse a POSTED entry dated {@code reversalDate}. Passing the original's
+     * period date keeps the reversal in the same fiscal period — essential for
+     * reopening a year-end close (a current-dated reversal would post phantom
+     * P&L into the CURRENT year and net Retained Earnings to zero).
+     */
+    @Transactional
+    public JournalEntry reverseEntry(UUID entryId, LocalDate reversalDate) {
         UUID orgId = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
 
@@ -211,7 +225,7 @@ public class JournalService {
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = reversalDate;
         int periodYear = computeFiscalYear(today, org.getFiscalYearStart());
         int periodMonth = today.getMonthValue();
         fiscalPeriodService.requireOpen(orgId, periodYear, periodMonth);

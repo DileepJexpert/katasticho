@@ -52,6 +52,11 @@ class StockCountServiceTest {
                 stockCountRepository, lineRepository,
                 stockBalanceRepository, warehouseRepository,
                 itemRepository, inventoryService);
+        // post() now uses the pessimistic-locked finder — delegate it to the
+        // plain finder so per-test stubs on the latter flow through.
+        lenient().when(stockCountRepository.findByIdAndOrgIdForUpdate(any(), any()))
+                .thenAnswer(inv -> stockCountRepository
+                        .findByIdAndOrgIdAndIsDeletedFalse(inv.getArgument(0), inv.getArgument(1)));
     }
 
     @AfterEach

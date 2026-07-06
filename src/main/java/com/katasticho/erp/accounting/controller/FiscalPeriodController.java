@@ -71,4 +71,20 @@ public class FiscalPeriodController {
         YearEndCloseService.CloseResult result = yearEndCloseService.closeYear(fiscalYear);
         return ResponseEntity.ok(ApiResponse.ok(result, "Year-end close posted"));
     }
+
+    /**
+     * Reopen a closed fiscal year — reverses the close entry IN-PERIOD (never the
+     * generic current-dated reverse, which would corrupt both years). After this
+     * the year can be re-closed.
+     */
+    @PostMapping("/year-end-close/{fiscalYear}/reopen")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> reopenYear(
+            @PathVariable int fiscalYear) {
+        var reversal = yearEndCloseService.reopenYear(fiscalYear);
+        return ResponseEntity.ok(ApiResponse.ok(
+                java.util.Map.of("reversalEntryId", reversal.getId(),
+                        "reversalEntryNumber", reversal.getEntryNumber()),
+                "Year-end close reopened"));
+    }
 }

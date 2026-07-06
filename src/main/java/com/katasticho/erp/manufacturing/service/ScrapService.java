@@ -83,18 +83,26 @@ public class ScrapService {
 
         BigDecimal scrapCost = unitCost.multiply(scrapQty).setScale(2, RoundingMode.HALF_UP);
 
-        inventoryService.recordMovement(new StockMovementRequest(
-                itemId,
-                wo.getWarehouseId(),
-                MovementType.PRODUCTION_SCRAP,
-                scrapQty.negate(),
-                unitCost,
-                LocalDate.now(),
-                ReferenceType.WORK_ORDER,
-                wo.getId(),
-                wo.getWorkOrderNumber(),
-                "Production scrap — " + wo.getWorkOrderNumber()
-        ));
+        // Only deduct warehouse stock in BACKFLUSH mode. In backflush the RM is still
+        // in the warehouse (issueMaterials is deferred to FG receipt), so scrapping it
+        // genuinely consumes warehouse stock. In the non-backflush path the RM already
+        // left the warehouse at issueToProduction, so a second negative movement here
+        // would double-deduct it. Either way the ProductionScrap row + WO scrap totals
+        // are recorded (they drive scrap-rate reporting and the WIP scrap allocation).
+        if (wo.isBackflushMode()) {
+            inventoryService.recordMovement(new StockMovementRequest(
+                    itemId,
+                    wo.getWarehouseId(),
+                    MovementType.PRODUCTION_SCRAP,
+                    scrapQty.negate(),
+                    unitCost,
+                    LocalDate.now(),
+                    ReferenceType.WORK_ORDER,
+                    wo.getId(),
+                    wo.getWorkOrderNumber(),
+                    "Production scrap — " + wo.getWorkOrderNumber()
+            ));
+        }
 
         ProductionScrap scrap = ProductionScrap.builder()
                 .workOrderId(workOrderId)

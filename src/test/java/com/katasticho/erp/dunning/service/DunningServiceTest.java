@@ -75,6 +75,8 @@ class DunningServiceTest {
         when(logRepository.existsByOrgIdAndInvoiceIdAndDunningLevelIdAndOutcomeAndIsDeletedFalse(any(), any(), any(), any()))
                 .thenReturn(false);
         when(logRepository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
+        // EMAIL delivery now honours sendHtml's boolean; default to a successful send.
+        when(emailService.sendHtml(any(), any(), any())).thenReturn(true);
     }
 
     @AfterEach

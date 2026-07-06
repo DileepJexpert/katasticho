@@ -20,6 +20,8 @@ public interface PicklistRepository extends JpaRepository<Picklist, UUID> {
 
     List<Picklist> findBySalesOrderIdAndIsDeletedFalse(UUID salesOrderId);
 
+    List<Picklist> findBySalesOrderIdAndOrgIdAndIsDeletedFalse(UUID salesOrderId, UUID orgId);
+
     @Query("SELECT COALESCE(MAX(CAST(SUBSTRING(p.picklistNumber, LENGTH(:prefix) + 2) AS int)), 0) + 1 " +
             "FROM Picklist p WHERE p.orgId = :orgId AND p.picklistNumber LIKE CONCAT(:prefix, '-%')")
     int nextSequence(UUID orgId, String prefix);

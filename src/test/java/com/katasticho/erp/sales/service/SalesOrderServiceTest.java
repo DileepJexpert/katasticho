@@ -151,6 +151,11 @@ class SalesOrderServiceTest {
         lenient().when(approvalWorkflowService.findMatchingWorkflow(eq(orgId), eq("SALES_ORDER"), anyMap()))
                 .thenReturn(Optional.empty());
         lenient().when(priceListService.resolvePrice(any(), any(), any())).thenReturn(Optional.empty());
+        // convertToInvoice now uses the pessimistic-locked finder — delegate it to
+        // the plain finder so per-test stubs on the latter flow through.
+        lenient().when(salesOrderRepository.findByIdAndOrgIdForUpdate(any(), any()))
+                .thenAnswer(inv -> salesOrderRepository
+                        .findByIdAndOrgIdAndIsDeletedFalse(inv.getArgument(0), inv.getArgument(1)));
     }
 
     @AfterEach
@@ -389,6 +394,7 @@ class SalesOrderServiceTest {
                         rate,
                         "PCS",
                         BigDecimal.ZERO,
+                        null,
                         null,
                         null)),
                 LocalDate.now(),

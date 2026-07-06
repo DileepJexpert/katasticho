@@ -201,7 +201,7 @@ public class MrpService {
                 Item item = itemOpt.get();
 
                 List<BomComponent> bom = bomComponentRepo
-                        .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, itemId);
+                        .findCurrentBom(orgId, itemId);
 
                 boolean isComposite = item.getItemType() == ItemType.COMPOSITE && !bom.isEmpty();
                 // Phantom sub-assemblies are never produced on their own:

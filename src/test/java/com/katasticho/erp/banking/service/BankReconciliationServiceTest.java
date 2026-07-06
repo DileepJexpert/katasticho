@@ -64,6 +64,8 @@ class BankReconciliationServiceTest {
     @Mock private BankRuleService bankRuleService;
     @Mock private JournalService journalService;
     @Mock private AccountRepository accountRepository;
+    @Mock private com.katasticho.erp.accounting.repository.FiscalPeriodRepository fiscalPeriodRepository;
+    @Mock private com.katasticho.erp.organisation.OrganisationRepository organisationRepository;
     @Mock private VisionModelRouter claudeApiClient;
 
     private BankReconciliationService service;
@@ -85,7 +87,9 @@ class BankReconciliationServiceTest {
                 bankAccountService,
                 bankRuleService,
                 journalService,
-                accountRepository
+                accountRepository,
+                fiscalPeriodRepository,
+                organisationRepository
         );
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
@@ -121,7 +125,7 @@ class BankReconciliationServiceTest {
                 .build();
         contact.setId(contactId);
 
-        when(bankTransactionRepository.existsByOrgIdAndUtrAndDirection(any(), any(), any()))
+        when(bankTransactionRepository.existsByOrgIdAndUtrAndDirectionAndTransactionDateAndAmount(any(), any(), any(), any(), any()))
                 .thenReturn(false);
         when(invoiceRepository.findOutstandingInvoicesForBankMatching(eq(orgId), eq(new BigDecimal("1000.00")), any(Pageable.class)))
                 .thenReturn(List.of(invoice));
@@ -252,7 +256,7 @@ class BankReconciliationServiceTest {
         Contact vendor = Contact.builder().displayName("ABC Pharma Supplies").build();
         vendor.setId(vendorId);
 
-        when(bankTransactionRepository.existsByOrgIdAndUtrAndDirection(any(), any(), any()))
+        when(bankTransactionRepository.existsByOrgIdAndUtrAndDirectionAndTransactionDateAndAmount(any(), any(), any(), any(), any()))
                 .thenReturn(false);
         when(purchaseBillRepository.findOutstandingBillsForBankMatching(
                 eq(orgId), eq(new BigDecimal("22000.00")), any(Pageable.class)))
@@ -382,6 +386,100 @@ class BankReconciliationServiceTest {
         return r;
     }
 
+    @Test
+    void importCsv_ruleMatch_autoApply_closedPeriod_fallsBackToSuggestedNotAbort() {
+        // A closed-period auto-apply must degrade to a suggestion, NOT poison the
+        // whole import tx (the same-bean fiscal-period guard throws without marking
+        // the outer tx rollback-only).
+        BankRule r = rule("5230", true);
+        UUID acctMatchId = UUID.randomUUID();
+        java.util.concurrent.atomic.AtomicReference<PaymentMatch> saved = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<BankTransaction> savedTx = new java.util.concurrent.atomic.AtomicReference<>();
+        Account bank = Account.builder().code("1020").name("Bank").type("ASSET").build();
+        Account charges = Account.builder().code("5230").name("Bank Charges").type("EXPENSE").build();
+
+        when(bankRuleService.firstMatch(eq(orgId), any(BankTransaction.class))).thenReturn(Optional.of(r));
+        when(bankTransactionRepository.existsByOrgIdAndUtrAndDirectionAndTransactionDateAndAmount(any(), any(), any(), any(), any())).thenReturn(false);
+        when(bankTransactionRepository.save(any(BankTransaction.class))).thenAnswer(inv -> {
+            BankTransaction tx = inv.getArgument(0);
+            if (tx.getId() == null) tx.setId(UUID.randomUUID());
+            if (tx.getCreatedAt() == null) tx.setCreatedAt(Instant.now());
+            savedTx.set(tx);
+            return tx;
+        });
+        when(paymentMatchRepository.save(any(PaymentMatch.class))).thenAnswer(inv -> {
+            PaymentMatch m = inv.getArgument(0);
+            if (m.getId() == null) m.setId(acctMatchId);
+            saved.set(m);
+            return m;
+        });
+        when(paymentMatchRepository.findByIdAndOrgId(eq(acctMatchId), eq(orgId)))
+                .thenAnswer(inv -> Optional.of(saved.get()));
+        when(bankTransactionRepository.findByIdAndOrgIdForUpdate(any(), eq(orgId)))
+                .thenAnswer(inv -> Optional.ofNullable(savedTx.get()));
+        when(defaultAccountService.get(orgId, DefaultAccountPurpose.BANK)).thenReturn(bank);
+        when(accountRepository.findByOrgIdAndCodeAndIsDeletedFalse(orgId, "5230"))
+                .thenReturn(Optional.of(charges)); // account exists — it's the PERIOD that's closed
+        when(fiscalPeriodRepository.findByOrgIdAndPeriodYearAndPeriodMonth(eq(orgId), anyInt(), anyInt()))
+                .thenReturn(Optional.of(com.katasticho.erp.accounting.entity.FiscalPeriod.builder()
+                        .orgId(orgId).periodYear(2026).periodMonth(5).status("CLOSED").build()));
+
+        String csv = """
+                date,amount,direction,narration,utr
+                2026-05-20,150,DEBIT,MONTHLY BANK CHARGES,REF-9
+                """;
+        BankTransactionImportResponse response = service.importCsv(new ImportBankTransactionsRequest(csv));
+
+        assertEquals(1, response.imported());
+        assertEquals("SUGGESTED", response.transactions().getFirst().status());
+        verify(journalService, never()).postJournal(any());
+    }
+
+    @Test
+    void ignoreTransaction_onMatchedTransaction_rejected() {
+        // A settled (MATCHED / payment-posted) transaction must not be flippable
+        // to IGNORED — otherwise ignore → rerun → accept re-posts the same money.
+        BankTransaction tx = accountTx("CREDIT", new BigDecimal("5000.00"));
+        tx.setStatus("MATCHED");
+        tx.setPaymentId(UUID.randomUUID());
+        when(bankTransactionRepository.findByIdAndOrgId(tx.getId(), orgId)).thenReturn(Optional.of(tx));
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.ignoreTransaction(tx.getId()));
+        assertEquals("BANK_TX_ALREADY_MATCHED", ex.getErrorCode());
+        verify(bankTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void import_sameReferenceDifferentAmount_bothImport_trueDuplicateSkipped() {
+        // Dedupe on the full identity: a repeated reference with a different amount
+        // (NACH/EMI, split charge+GST) must import; only an identical re-import
+        // (same ref+date+amount+direction) is a duplicate.
+        when(bankTransactionRepository.existsByOrgIdAndUtrAndDirectionAndTransactionDateAndAmount(
+                eq(orgId), eq("UMRN1"), eq("DEBIT"), any(), eq(new BigDecimal("15000.00"))))
+                .thenReturn(false);
+        when(bankTransactionRepository.existsByOrgIdAndUtrAndDirectionAndTransactionDateAndAmount(
+                eq(orgId), eq("UMRN1"), eq("DEBIT"), any(), eq(new BigDecimal("18000.00"))))
+                .thenReturn(false);
+        when(bankTransactionRepository.save(any(BankTransaction.class))).thenAnswer(inv -> {
+            BankTransaction tx = inv.getArgument(0);
+            if (tx.getId() == null) tx.setId(UUID.randomUUID());
+            if (tx.getCreatedAt() == null) tx.setCreatedAt(Instant.now());
+            return tx;
+        });
+        when(purchaseBillRepository.findOutstandingBillsForBankMatching(any(), any(), any())).thenReturn(List.of());
+
+        String csv = """
+                date,amount,direction,narration,utr
+                2026-05-10,15000,DEBIT,EMI mandate,UMRN1
+                2026-06-10,18000,DEBIT,EMI mandate,UMRN1
+                """;
+        BankTransactionImportResponse response = service.importCsv(new ImportBankTransactionsRequest(csv));
+
+        assertEquals(2, response.imported());
+        assertEquals(0, response.skipped());
+    }
+
     private BankTransaction accountTx(String direction, BigDecimal amount) {
         BankTransaction tx = BankTransaction.builder()
                 .orgId(orgId).transactionDate(LocalDate.of(2026, 5, 20))
@@ -502,7 +600,7 @@ class BankReconciliationServiceTest {
     void importCsv_ruleMatch_noAutoApply_suggestsAccountMatch() {
         BankRule r = rule("5230", false);
         when(bankRuleService.firstMatch(eq(orgId), any(BankTransaction.class))).thenReturn(Optional.of(r));
-        when(bankTransactionRepository.existsByOrgIdAndUtrAndDirection(any(), any(), any())).thenReturn(false);
+        when(bankTransactionRepository.existsByOrgIdAndUtrAndDirectionAndTransactionDateAndAmount(any(), any(), any(), any(), any())).thenReturn(false);
         when(bankTransactionRepository.save(any(BankTransaction.class))).thenAnswer(inv -> {
             BankTransaction tx = inv.getArgument(0);
             if (tx.getId() == null) tx.setId(UUID.randomUUID());
@@ -542,7 +640,7 @@ class BankReconciliationServiceTest {
 
         when(bankRuleService.firstMatch(eq(orgId), any(BankTransaction.class))).thenReturn(Optional.of(r));
         when(bankRuleService.findEntity(eq(orgId), any())).thenReturn(Optional.of(r));
-        when(bankTransactionRepository.existsByOrgIdAndUtrAndDirection(any(), any(), any())).thenReturn(false);
+        when(bankTransactionRepository.existsByOrgIdAndUtrAndDirectionAndTransactionDateAndAmount(any(), any(), any(), any(), any())).thenReturn(false);
         when(bankTransactionRepository.save(any(BankTransaction.class))).thenAnswer(inv -> {
             BankTransaction tx = inv.getArgument(0);
             if (tx.getId() == null) tx.setId(UUID.randomUUID());
@@ -645,7 +743,7 @@ class BankReconciliationServiceTest {
         Account bank = Account.builder().code("1020").name("Bank").type("ASSET").build();
 
         when(bankRuleService.firstMatch(eq(orgId), any(BankTransaction.class))).thenReturn(Optional.of(r));
-        when(bankTransactionRepository.existsByOrgIdAndUtrAndDirection(any(), any(), any())).thenReturn(false);
+        when(bankTransactionRepository.existsByOrgIdAndUtrAndDirectionAndTransactionDateAndAmount(any(), any(), any(), any(), any())).thenReturn(false);
         when(bankTransactionRepository.save(any(BankTransaction.class))).thenAnswer(inv -> {
             BankTransaction tx = inv.getArgument(0);
             if (tx.getId() == null) tx.setId(UUID.randomUUID());

@@ -455,4 +455,69 @@ class FieldSalesServiceTest {
         exec.setOrgId(orgId);
         return exec;
     }
+
+    @Test
+    void confirmVanLoad_alreadyConfirmed_throwsViaLockAndPostsNothing() {
+        UUID transferId = UUID.randomUUID();
+        com.katasticho.erp.fieldsales.entity.VanStockTransfer transfer =
+                com.katasticho.erp.fieldsales.entity.VanStockTransfer.builder()
+                        .vanId(UUID.randomUUID()).warehouseId(UUID.randomUUID())
+                        .transferType("LOAD").status("CONFIRMED").build();
+        transfer.setId(transferId);
+        transfer.setOrgId(orgId);
+        // The locked re-read is the path exercised (serialises concurrent confirms).
+        when(vanStockTransferRepo.findByIdAndOrgIdForUpdate(transferId, orgId))
+                .thenReturn(Optional.of(transfer));
+
+        var ex = assertThrows(BusinessException.class, () -> service.confirmVanLoad(transferId));
+        assertEquals("FS_TRANSFER_NOT_DRAFT", ex.getErrorCode());
+        verify(inventoryService, never()).recordMovement(any());
+    }
+
+    @Test
+    void submitDayClose_byNonOwnerOperator_throws() {
+        UUID dayCloseId = UUID.randomUUID();
+        com.katasticho.erp.fieldsales.entity.DayClose dayClose =
+                com.katasticho.erp.fieldsales.entity.DayClose.builder()
+                        .salespersonId(otherUserId).status("PENDING").build();
+        dayClose.setId(dayCloseId);
+        dayClose.setOrgId(orgId);
+        when(dayCloseRepo.findByIdAndOrgIdAndIsDeletedFalse(dayCloseId, orgId))
+                .thenReturn(Optional.of(dayClose));
+        TenantContext.setCurrentRole("OPERATOR"); // caller is userId, not the owner
+
+        var ex = assertThrows(BusinessException.class,
+                () -> service.submitDayClose(dayCloseId, BigDecimal.TEN, BigDecimal.ZERO, "fake"));
+        assertEquals("FS_NOT_ASSIGNED_SALESPERSON", ex.getErrorCode());
+        verify(dayCloseRepo, never()).save(any());
+    }
+
+    @Test
+    void confirmVanReturn_nullBatchLineAgainstBatchedVan_throwsInsufficientNotCrash() {
+        UUID transferId = UUID.randomUUID();
+        UUID vanId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        com.katasticho.erp.fieldsales.entity.VanStockTransfer transfer =
+                com.katasticho.erp.fieldsales.entity.VanStockTransfer.builder()
+                        .vanId(vanId).warehouseId(UUID.randomUUID())
+                        .transferType("RETURN").status("DRAFT").build();
+        transfer.setId(transferId);
+        transfer.setOrgId(orgId);
+        com.katasticho.erp.fieldsales.entity.VanStockTransferLine line =
+                com.katasticho.erp.fieldsales.entity.VanStockTransferLine.builder()
+                        .itemId(itemId).batchId(null).quantity(BigDecimal.valueOf(3)).build();
+
+        when(vanStockTransferRepo.findByIdAndOrgIdForUpdate(transferId, orgId))
+                .thenReturn(Optional.of(transfer));
+        when(vanStockTransferLineRepo.findByOrgIdAndVanStockTransferId(orgId, transferId))
+                .thenReturn(List.of(line));
+        // The van holds the item only in batches; the null-batch grain is empty →
+        // available 0 < 3 → clean FS_VAN_INSUFFICIENT_STOCK (not a 500 crash from a
+        // multi-row match on the old findByOrgIdAndVanIdAndItemId lookup).
+        when(vanStockBalanceRepo.findByOrgIdAndVanIdAndItemIdAndBatchIdIsNull(orgId, vanId, itemId))
+                .thenReturn(Optional.empty());
+
+        var ex = assertThrows(BusinessException.class, () -> service.confirmVanReturn(transferId));
+        assertEquals("FS_VAN_INSUFFICIENT_STOCK", ex.getErrorCode());
+    }
 }

@@ -36,25 +36,30 @@ public class LowStockAlertJob {
     private final AppUserRepository userRepository;
     private final NotificationService notificationService;
     private final SmsService smsService;
+    private final OrgBatchTxRunner txRunner;
 
     @Scheduled(cron = "${app.automation.low-stock-alert.cron:0 0 8 * * *}")
     @SchedulerLock(name = "LowStockAlertJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
-    // NOT readOnly: notificationService.send() persists a Notification (UUID @GeneratedValue
-    // → in-memory id, INSERT deferred to flush). A readOnly tx sets FlushMode.MANUAL, so the
-    // INSERT would never flush on commit and the notification would be silently dropped.
-    @Transactional
     public void run() {
         List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
-        int itemCount = 0;
-        int orgCount = 0;
-
         for (Organisation org : orgs) {
+            try {
+                txRunner.runInTx(() -> processOrg(org));
+            } catch (Exception e) {
+                log.warn("Low-stock sweep failed for org {}: {}", org.getId(), e.getMessage());
+            }
+        }
+    }
+
+    // NOT readOnly: notificationService.send() persists a Notification whose INSERT
+    // is deferred to flush; a readOnly tx (FlushMode.MANUAL) would silently drop it.
+    void processOrg(Organisation org) {
             List<StockBalance> lowStock = stockBalanceRepository.findLowStock(org.getId());
-            if (lowStock.isEmpty()) continue;
+            if (lowStock.isEmpty()) return;
 
             AppUser admin = userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(org.getId(), "OWNER")
                     .orElse(null);
-            if (admin == null) continue;
+            if (admin == null) return;
 
             List<Map<String, Object>> items = new ArrayList<>();
             for (StockBalance sb : lowStock) {
@@ -76,9 +81,7 @@ public class LowStockAlertJob {
                 items.add(entry);
             }
 
-            if (items.isEmpty()) continue;
-            orgCount++;
-            itemCount += items.size();
+            if (items.isEmpty()) return;
 
             String title = String.format("Low stock: %d items need reorder", items.size());
             String message = String.format("%d items below reorder level", items.size());
@@ -95,10 +98,5 @@ public class LowStockAlertJob {
                             item.getName(), sb.getQuantityOnHand().doubleValue());
                 }
             }
-        }
-
-        if (itemCount > 0) {
-            log.info("Low stock alerts: {} items across {} orgs", itemCount, orgCount);
-        }
     }
 }

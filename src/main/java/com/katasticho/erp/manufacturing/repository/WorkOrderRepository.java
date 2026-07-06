@@ -18,6 +18,11 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, UUID> {
 
     Optional<WorkOrder> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
+    /** Pessimistic-write variant to serialise concurrent WO state transitions. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select w from WorkOrder w where w.id = :id and w.orgId = :orgId and w.isDeleted = false")
+    Optional<WorkOrder> findByIdAndOrgIdForUpdate(@Param("id") UUID id, @Param("orgId") UUID orgId);
+
     /** Shop-floor lookup by the printed/scanned WO number (case-insensitive). */
     Optional<WorkOrder> findByOrgIdAndWorkOrderNumberIgnoreCaseAndIsDeletedFalse(
             UUID orgId, String workOrderNumber);

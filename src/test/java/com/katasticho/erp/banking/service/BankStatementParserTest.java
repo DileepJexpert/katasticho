@@ -73,6 +73,25 @@ class BankStatementParserTest {
     }
 
     @Test
+    void singleAmountColumnHonoursInlineCrDrSuffix() {
+        // Indian PSU/co-op export: one amount column with inline Dr/Cr. The suffix
+        // must win over the (positive) sign so a debit isn't misread as a credit.
+        String csv = """
+                Date,Particulars,Ref,Amount,Balance
+                01/01/2024,Vendor payment,REF1,"5,000.00 Dr","95,000.00"
+                02/01/2024,Customer receipt,REF2,"1,200.00 Cr","96,200.00"
+                """;
+
+        List<ParsedBankRow> rows = parser.parseText(csv);
+
+        assertThat(rows).hasSize(2);
+        assertThat(rows.get(0).direction()).isEqualTo("DEBIT");
+        assertThat(rows.get(0).amount()).isEqualByComparingTo("5000.00");
+        assertThat(rows.get(1).direction()).isEqualTo("CREDIT");
+        assertThat(rows.get(1).amount()).isEqualByComparingTo("1200.00");
+    }
+
+    @Test
     void parsesMonthNameDates() {
         String csv = """
                 Date,Description,Debit,Credit

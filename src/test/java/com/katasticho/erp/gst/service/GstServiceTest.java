@@ -80,7 +80,7 @@ class GstServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void gstr1IncludesPosReceiptsInB2csAndHsnSummary() {
-        when(salesReceiptRepository.findByOrgAndDateRange(eq(orgId), any(), any()))
+        when(salesReceiptRepository.findActiveByOrgAndDateRange(eq(orgId), any(), any()))
                 .thenReturn(List.of(intraStateReceipt()));
 
         Map<String, Object> gstr1 = service.generateGstr1(2026, 5);
@@ -107,7 +107,7 @@ class GstServiceTest {
 
     @Test
     void gstr3bIncludesPosReceiptsInOutwardSupplies() {
-        when(salesReceiptRepository.findByOrgAndDateRange(eq(orgId), any(), any()))
+        when(salesReceiptRepository.findActiveByOrgAndDateRange(eq(orgId), any(), any()))
                 .thenReturn(List.of(intraStateReceipt()));
         when(taxLineItemRepository.findByOrgAndSourceTypesAndRegimeAndSourceIds(
                 any(), any(), any(), any())).thenReturn(List.of());
@@ -141,7 +141,7 @@ class GstServiceTest {
                 .build();
         when(invoiceRepository.findPostedByOrgAndDateRange(eq(orgId), any(), any()))
                 .thenReturn(List.of(a, b));
-        when(salesReceiptRepository.findByOrgAndDateRange(eq(orgId), any(), any()))
+        when(salesReceiptRepository.findActiveByOrgAndDateRange(eq(orgId), any(), any()))
                 .thenReturn(List.of());
         when(taxLineItemRepository.findByOrgAndSourceTypesAndRegimeAndSourceIds(
                 any(), any(), any(), any()))
@@ -168,6 +168,97 @@ class GstServiceTest {
 
         Map<String, Object> meta = (Map<String, Object>) gstr1.get("_meta");
         assertThat(meta.get("b2clCount")).isEqualTo(1);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void posInterStateB2csReportsDestinationStateNotOrgState() {
+        // Org is in state 27; an inter-state POS receipt (IGST>0) to state 29 must
+        // report pos=29 (destination), not 27, and a receipt whose place of supply
+        // equals the org state (invalid inter combo) is dropped.
+        com.katasticho.erp.organisation.Organisation org =
+                com.katasticho.erp.organisation.Organisation.builder().stateCode("27").build();
+        when(organisationRepository.findById(orgId)).thenReturn(Optional.of(org));
+        when(salesReceiptRepository.findActiveByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(List.of(interStateReceipt("29"), interStateReceipt("27")));
+
+        Map<String, Object> gstr1 = service.generateGstr1(2026, 5);
+
+        List<Map<String, Object>> b2cs = (List<Map<String, Object>>) gstr1.get("b2cs");
+        // Only the valid inter-state receipt (pos 29) survives.
+        assertThat(b2cs).hasSize(1);
+        assertThat(b2cs.get(0).get("sply_tp")).isEqualTo("INTER");
+        assertThat(b2cs.get(0).get("pos")).isEqualTo("29");
+        assertThat((BigDecimal) b2cs.get(0).get("iamt")).isEqualByComparingTo("12.00");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void intraStateB2cCreditNoteNetsIntoB2csAndNotCdnur() {
+        UUID invId = UUID.randomUUID();
+        UUID cnId = UUID.randomUUID();
+        Invoice inv = Invoice.builder()
+                .id(invId).orgId(orgId).contactId(UUID.randomUUID())
+                .invoiceNumber("INV-C").invoiceDate(LocalDate.of(2026, 5, 10))
+                .totalAmount(new BigDecimal("5000")).placeOfSupply("27").status("POSTED")
+                .build();
+        com.katasticho.erp.ar.entity.CreditNote cn = com.katasticho.erp.ar.entity.CreditNote.builder()
+                .id(cnId).orgId(orgId).contactId(UUID.randomUUID()).invoiceId(invId)
+                .creditNoteNumber("CN-1").creditNoteDate(LocalDate.of(2026, 5, 15))
+                .totalAmount(new BigDecimal("5000")).placeOfSupply("27").status("APPROVED")
+                .build();
+        when(invoiceRepository.findPostedByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(List.of(inv));
+        when(creditNoteRepository.findByOrgIdAndIsDeletedFalseAndCreditNoteDateBetweenAndStatusNot(
+                eq(orgId), any(), any(), anyString())).thenReturn(List.of(cn));
+        when(salesReceiptRepository.findActiveByOrgAndDateRange(eq(orgId), any(), any()))
+                .thenReturn(List.of());
+        // Same rate/pos on invoice + credit note (intra-state CGST/SGST).
+        when(taxLineItemRepository.findByOrgAndSourceTypesAndRegimeAndSourceIds(
+                any(), any(), any(), any()))
+                .thenReturn(List.of(
+                        cgstSgstLine(invId, "INVOICE", "5000", "300"),
+                        cgstSgstLine(cnId, "CREDIT_NOTE", "5000", "300")));
+
+        Map<String, Object> gstr1 = service.generateGstr1(2026, 5);
+
+        // The CN nets the B2CS bucket to zero (invoice minus credit note).
+        List<Map<String, Object>> b2cs = (List<Map<String, Object>>) gstr1.get("b2cs");
+        BigDecimal netTxval = b2cs.stream()
+                .map(m -> (BigDecimal) m.get("txval"))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(netTxval).isEqualByComparingTo("0");
+        // And it is NOT dumped into CDNUR (only inter-state B2CL notes belong there).
+        List<Map<String, Object>> cdnur = (List<Map<String, Object>>) gstr1.get("cdnur");
+        assertThat(cdnur).isEmpty();
+    }
+
+    private SalesReceipt interStateReceipt(String placeOfSupply) {
+        SalesReceipt receipt = SalesReceipt.builder()
+                .receiptNumber("RCT-INT")
+                .receiptDate(LocalDate.of(2026, 5, 10))
+                .subtotal(new BigDecimal("100")).taxAmount(new BigDecimal("12"))
+                .cgst(BigDecimal.ZERO).sgst(BigDecimal.ZERO).igst(new BigDecimal("12"))
+                .total(new BigDecimal("112")).placeOfSupply(placeOfSupply)
+                .build();
+        receipt.setOrgId(orgId);
+        receipt.addLine(SalesReceiptLine.builder()
+                .lineNumber(1).description("Crocin 500mg").quantity(BigDecimal.ONE)
+                .rate(new BigDecimal("112")).hsnCode("3004").amount(new BigDecimal("112"))
+                .build());
+        return receipt;
+    }
+
+    private TaxLineItem cgstSgstLine(UUID sourceId, String sourceType, String taxable, String halfTax) {
+        // Two components (CGST+SGST) share the taxable base; return CGST only here
+        // and let the caller add SGST — but for netting the taxable-per-component
+        // matters, so emit a CGST line carrying the full taxable + one tax half.
+        return TaxLineItem.builder()
+                .sourceId(sourceId).sourceType(sourceType).componentCode("CGST")
+                .rate(new BigDecimal("12"))
+                .taxableAmount(new BigDecimal(taxable))
+                .taxAmount(new BigDecimal(halfTax))
+                .build();
     }
 
     private TaxLineItem igstLine(UUID sourceId, String taxable, String tax) {

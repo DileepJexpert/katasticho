@@ -226,7 +226,7 @@ class MrpServiceTest {
         when(reorderPolicyRepo.findByOrgIdAndItemIdAndWarehouseIdIsNullAndIsDeletedFalse(orgId, rmItemId))
                 .thenReturn(Optional.empty());
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId)).thenReturn(Optional.of(rm));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, rmItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, rmItemId))
                 .thenReturn(List.of()); // not composite
         when(itemSupplierRepo.findByOrgIdAndItemIdAndPreferredTrueAndIsDeletedFalse(orgId, rmItemId))
                 .thenReturn(Optional.empty());
@@ -263,14 +263,14 @@ class MrpServiceTest {
         when(reorderPolicyRepo.findByOrgIdAndItemIdAndWarehouseIdIsNullAndIsDeletedFalse(orgId, fgItemId))
                 .thenReturn(Optional.empty());
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(bom));
 
         // RM item (child from explosion)
         when(reorderPolicyRepo.findByOrgIdAndItemIdAndWarehouseIdIsNullAndIsDeletedFalse(orgId, rmItemId))
                 .thenReturn(Optional.empty());
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId)).thenReturn(Optional.of(rm));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, rmItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, rmItemId))
                 .thenReturn(List.of());
         when(itemSupplierRepo.findByOrgIdAndItemIdAndPreferredTrueAndIsDeletedFalse(orgId, rmItemId))
                 .thenReturn(Optional.empty());
@@ -309,9 +309,9 @@ class MrpServiceTest {
                 .thenReturn(Optional.empty());
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId)).thenReturn(Optional.of(rm));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(bom));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, rmItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, rmItemId))
                 .thenReturn(List.of());
         when(itemSupplierRepo.findByOrgIdAndItemIdAndPreferredTrueAndIsDeletedFalse(orgId, rmItemId))
                 .thenReturn(Optional.empty());
@@ -358,9 +358,9 @@ class MrpServiceTest {
                 .thenReturn(Optional.empty());
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(phantomFg));
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId)).thenReturn(Optional.of(rm));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(bom));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, rmItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, rmItemId))
                 .thenReturn(List.of());
         when(itemSupplierRepo.findByOrgIdAndItemIdAndPreferredTrueAndIsDeletedFalse(orgId, rmItemId))
                 .thenReturn(Optional.empty());
@@ -407,7 +407,7 @@ class MrpServiceTest {
         when(reorderPolicyRepo.findByOrgIdAndItemIdAndWarehouseIdIsNullAndIsDeletedFalse(orgId, rmItemId))
                 .thenReturn(Optional.empty());
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId)).thenReturn(Optional.of(rm));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, rmItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, rmItemId))
                 .thenReturn(List.of());
         when(itemSupplierRepo.findByOrgIdAndItemIdAndPreferredTrueAndIsDeletedFalse(orgId, rmItemId))
                 .thenReturn(Optional.empty());
@@ -532,7 +532,7 @@ class MrpServiceTest {
         when(plannedOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(planned.getId(), orgId))
                 .thenReturn(Optional.of(planned));
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(bom));
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId)).thenReturn(Optional.of(rm));
         when(workOrderRepo.findMaxWorkOrderNumber(orgId)).thenReturn(0);

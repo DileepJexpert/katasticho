@@ -145,7 +145,10 @@ public class RecurringJournalService {
         // postJournal resolves accounts against the CALLER's org — a foreign
         // template would otherwise post into the wrong books AND advance the
         // victim org's cursor).
-        RecurringJournal t = journalRepository.findByIdAndOrgIdAndIsDeletedFalse(
+        // Pessimistic lock so two concurrent generate-now clicks (or a click racing
+        // the daily sweep) serialise on the template row — otherwise both read the
+        // same ACTIVE cursor and both post, double-booking an auto_post journal.
+        RecurringJournal t = journalRepository.findByIdAndOrgIdForUpdate(
                         templateId, TenantContext.getCurrentOrgId())
                 .orElseThrow(() -> BusinessException.notFound("Recurring journal", templateId));
         if (!"ACTIVE".equals(t.getStatus())) {

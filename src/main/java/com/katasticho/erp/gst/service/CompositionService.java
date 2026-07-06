@@ -80,7 +80,7 @@ public class CompositionService {
         BigDecimal invoiceTurnover = nz(invoiceRepository
                 .sumPostedTotalByOrgAndDateRange(orgId, from, to));
         BigDecimal posTurnover = nz(salesReceiptRepository
-                .sumTotalByOrgAndDateRange(orgId, from, to));
+                .sumActiveTotalByOrgAndDateRange(orgId, from, to)); // exclude RETURNED from CMP-08 turnover
         BigDecimal turnover = invoiceTurnover.add(posTurnover);
 
         BigDecimal pct = rate(orgId);

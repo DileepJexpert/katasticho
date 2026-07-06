@@ -275,7 +275,8 @@ public class WhatsAppOrderService {
                     null,                  // unit
                     null,                  // discountPct
                     null,                  // taxGroupId — invoiced at item's default
-                    null                   // hsnCode — derived from item
+                    null,                  // hsnCode — derived from item
+                    null                   // gstRate — item default
             ));
         }
         if (soLines.isEmpty()) {

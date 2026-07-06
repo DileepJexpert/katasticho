@@ -144,9 +144,11 @@ class PaymentForexPostingTest {
                 List.of(new AccountingPostingEngine.VendorAllocationFx(
                         new BigDecimal("3000"), new BigDecimal("82"))));
         List<JournalLineRequest> lines = req.lines();
-        assertEquals(3, lines.size()); // AP + TDS + bank, no forex line
-        assertEquals(0, new BigDecimal("2970").compareTo(lines.get(0).debit()));
-        assertEquals(0, new BigDecimal("3000").compareTo(lines.get(2).credit()));
+        assertEquals(3, lines.size()); // AP + TDS + bank, no forex line (rates ignored when TDS>0)
+        // Payment-time withholding: DR AP full amount, CR TDS Payable, CR bank net.
+        assertEquals(0, new BigDecimal("3000").compareTo(lines.get(0).debit()));   // AP debited in full
+        assertEquals(0, new BigDecimal("30").compareTo(lines.get(1).credit()));    // TDS Payable CREDITED
+        assertEquals(0, new BigDecimal("2970").compareTo(lines.get(2).credit()));  // bank paid net of TDS
     }
 
     @Test

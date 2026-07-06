@@ -38,6 +38,12 @@ public interface BankTransactionRepository extends JpaRepository<BankTransaction
 
     boolean existsByOrgIdAndUtrAndDirection(UUID orgId, String utr, String direction);
 
+    /** Full-identity import dedupe: ref + direction + date + amount. Recurring
+     *  same-reference rows (NACH/EMI, split charge+GST) differ by date/amount and
+     *  must import; only a true re-import (all four equal) is a duplicate. */
+    boolean existsByOrgIdAndUtrAndDirectionAndTransactionDateAndAmount(
+            UUID orgId, String utr, String direction, LocalDate transactionDate, BigDecimal amount);
+
     long countByOrgIdAndStatusAndTransactionDateBefore(UUID orgId, String status, LocalDate date);
 
     long countByOrgIdAndStatus(UUID orgId, String status);

@@ -91,6 +91,12 @@ class WorkOrderEnhancementsTest {
                 null, null, null);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
+        org.mockito.Mockito.lenient().when(workOrderRepo.findByIdAndOrgIdForUpdate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> workOrderRepo.findByIdAndOrgIdAndIsDeletedFalse(inv.getArgument(0), inv.getArgument(1)));
+        com.katasticho.erp.accounting.entity.JournalEntry mockJe =
+                com.katasticho.erp.accounting.entity.JournalEntry.builder().entryNumber("JE-MFG").build();
+        mockJe.setId(java.util.UUID.randomUUID());
+        org.mockito.Mockito.lenient().when(journalService.postJournal(org.mockito.ArgumentMatchers.any())).thenReturn(mockJe);
     }
 
     @AfterEach
@@ -128,7 +134,7 @@ class WorkOrderEnhancementsTest {
     void createWorkOrder_invalidPriority_throws() {
         Item fg = buildCompositeItem();
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(buildBomComponent()));
         when(bomComponentRepo.findMaxVersion(orgId, fgItemId)).thenReturn(1);
         when(workOrderRepo.findMaxWorkOrderNumber(orgId)).thenReturn(0);
@@ -428,7 +434,7 @@ class WorkOrderEnhancementsTest {
         BomComponent bom = buildBomComponent();
 
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(fgItemId, orgId)).thenReturn(Optional.of(fg));
-        when(bomComponentRepo.findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, fgItemId))
+        when(bomComponentRepo.findCurrentBom(orgId, fgItemId))
                 .thenReturn(List.of(bom));
         when(bomComponentRepo.findMaxVersion(orgId, fgItemId)).thenReturn(1);
         when(itemRepo.findByIdAndOrgIdAndIsDeletedFalse(rmItemId, orgId)).thenReturn(Optional.of(rm));

@@ -37,6 +37,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -240,10 +241,13 @@ class SupplierRateContractServiceTest {
         PurchaseOrderLineRepository lineRepo = mock(PurchaseOrderLineRepository.class);
         StockReceiptLineRepository stockLineRepo = mock(StockReceiptLineRepository.class);
         SupplierRateContractService rateMock = mock(SupplierRateContractService.class);
+        com.katasticho.erp.ap.service.PurchaseBillService billMock =
+                mock(com.katasticho.erp.ap.service.PurchaseBillService.class);
+        when(billMock.generateNumber(any(), eq("PO"), anyInt())).thenReturn("PO-00001");
 
         PurchaseOrderService poService = new PurchaseOrderService(
                 poRepo, lineRepo, supplierRepository, itemRepository,
-                stockLineRepo, contactRepository, null, null, rateMock);
+                stockLineRepo, contactRepository, null, billMock, rateMock);
 
         UUID supplierId = UUID.randomUUID();
         UUID itemId = UUID.randomUUID();
@@ -281,10 +285,13 @@ class SupplierRateContractServiceTest {
         PurchaseOrderLineRepository lineRepo = mock(PurchaseOrderLineRepository.class);
         StockReceiptLineRepository stockLineRepo = mock(StockReceiptLineRepository.class);
         SupplierRateContractService rateMock = mock(SupplierRateContractService.class);
+        com.katasticho.erp.ap.service.PurchaseBillService billMock =
+                mock(com.katasticho.erp.ap.service.PurchaseBillService.class);
+        when(billMock.generateNumber(any(), eq("PO"), anyInt())).thenReturn("PO-00001");
 
         PurchaseOrderService poService = new PurchaseOrderService(
                 poRepo, lineRepo, supplierRepository, itemRepository,
-                stockLineRepo, contactRepository, null, null, rateMock);
+                stockLineRepo, contactRepository, null, billMock, rateMock);
 
         UUID supplierId = UUID.randomUUID();
         UUID itemId = UUID.randomUUID();

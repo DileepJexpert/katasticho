@@ -17,6 +17,11 @@ public interface RecurringJournalRepository extends JpaRepository<RecurringJourn
 
     Optional<RecurringJournal> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
+    /** Pessimistic re-read so concurrent generate-now runs serialise (no double-post). */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from RecurringJournal t where t.id = :id and t.orgId = :orgId and t.isDeleted = false")
+    Optional<RecurringJournal> findByIdAndOrgIdForUpdate(UUID id, UUID orgId);
+
     Page<RecurringJournal> findByOrgIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID orgId, Pageable pageable);
 
     Page<RecurringJournal> findByOrgIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(

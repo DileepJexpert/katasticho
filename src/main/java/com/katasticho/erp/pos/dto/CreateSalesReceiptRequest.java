@@ -37,6 +37,16 @@ public record CreateSalesReceiptRequest(
          *  offline — kept on the posted receipt so a paper bill can be traced. */
         String offlineReceiptNumber,
 
+        // ── Inline prescriber capture (Schedule H1 / X / Narcotics) ──
+        // Captured at the counter so the statutory register is populated at
+        // sale time. Without these, prescriber columns are null until a
+        // PrescriptionRecord is later linked to the receipt (and under
+        // pharma.h1_strict=true, an H1 sale can't be completed at all).
+        String prescriptionNumber,
+        String prescriberName,
+        String prescriberRegNumber,
+        String prescriberAddress,
+
         @NotEmpty(message = "At least one line item is required")
         @Valid
         List<LineRequest> lines

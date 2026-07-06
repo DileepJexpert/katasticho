@@ -120,11 +120,20 @@ public class BankStatementParser {
             } else {
                 BigDecimal single = parseAmount(cell(row, cols.amount));
                 if (single == null || single.signum() == 0) continue;
+                // Precedence: inline Cr/Dr suffix > explicit direction column > sign.
+                // The suffix is authoritative for Indian PSU/co-op single-amount
+                // exports where parseAmount would otherwise drop it and the sign
+                // fallback misreads every debit as a credit.
+                String suffix = directionSuffix(cell(row, cols.amount));
                 String explicit = upper(cell(row, cols.direction));
-                direction = explicit != null && (explicit.startsWith("D") || explicit.startsWith("W"))
-                        ? "DEBIT"
-                        : explicit != null ? "CREDIT"
-                        : (single.signum() >= 0 ? "CREDIT" : "DEBIT");
+                if (suffix != null) {
+                    direction = suffix;
+                } else if (explicit != null) {
+                    direction = (explicit.startsWith("D") || explicit.startsWith("W"))
+                            ? "DEBIT" : "CREDIT";
+                } else {
+                    direction = single.signum() >= 0 ? "CREDIT" : "DEBIT";
+                }
                 amount = single.abs();
             }
 
@@ -308,6 +317,23 @@ public class BankStatementParser {
             try {
                 return LocalDate.parse(v, f);
             } catch (Exception ignored) { }
+        }
+        return null;
+    }
+
+    /**
+     * Extract an inline Cr/Dr suffix from a raw amount cell (e.g. "5,000.00 Dr").
+     * parseAmount strips this suffix and returns an unsigned magnitude, dropping
+     * the direction — so a single-amount-column statement misclassified every
+     * debit as a credit. Returns "DEBIT" for a trailing dr, "CREDIT" for cr, else
+     * null (no suffix → caller falls back to the sign / explicit column).
+     */
+    static String directionSuffix(String raw) {
+        if (raw == null) return null;
+        String v = raw.trim();
+        var m = java.util.regex.Pattern.compile("(?i)(cr|dr)\\.?$").matcher(v);
+        if (m.find()) {
+            return m.group(1).equalsIgnoreCase("dr") ? "DEBIT" : "CREDIT";
         }
         return null;
     }

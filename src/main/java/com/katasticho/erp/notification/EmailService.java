@@ -107,11 +107,17 @@ public class EmailService {
      * Generic HTML email send — used by the workflow-rules EMAIL action. Same
      * best-effort delivery as the templated helpers (logs + swallows on failure).
      */
-    public void sendHtml(String to, String subject, String html) {
-        send(to, subject, html);
+    public boolean sendHtml(String to, String subject, String html) {
+        return send(to, subject, html);
     }
 
-    private void send(String to, String subject, String html) {
+    /**
+     * Best-effort send: returns true on success, false on any failure (logged, not
+     * thrown). Callers that care whether delivery happened (e.g. the dunning
+     * dispatcher, which must NOT claim a level SENT on a swallowed failure) check
+     * the boolean; the fire-and-forget templated helpers ignore it.
+     */
+    private boolean send(String to, String subject, String html) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -120,8 +126,17 @@ public class EmailService {
             helper.setSubject(subject);
             helper.setText(html, true);
             mailSender.send(message);
+            return true;
         } catch (MessagingException e) {
+            // MimeMessageHelper.setTo / InternetAddress.parse throw AddressException
+            // (a MessagingException) on a malformed recipient.
             log.error("Failed to send email to {}: {}", to, e.getMessage());
+            return false;
+        } catch (org.springframework.mail.MailException e) {
+            // Spring's transport-layer failure is a RuntimeException — honour the
+            // documented "logs + swallows" contract instead of propagating.
+            log.error("Mail transport failed sending to {}: {}", to, e.getMessage());
+            return false;
         }
     }
 }

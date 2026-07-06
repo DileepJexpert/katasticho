@@ -37,26 +37,31 @@ public class OverdueBillJob {
     private final ContactRepository contactRepository;
     private final AppUserRepository userRepository;
     private final NotificationService notificationService;
+    private final OrgBatchTxRunner txRunner;
 
     @Scheduled(cron = "${app.automation.overdue-bill.cron:0 5 1 * * *}")
     @SchedulerLock(name = "OverdueBillJob", lockAtMostFor = "PT25M", lockAtLeastFor = "PT30S")
-    // NOT readOnly: notificationService.send() persists a Notification (UUID @GeneratedValue
-    // → in-memory id, INSERT deferred to flush). A readOnly tx sets FlushMode.MANUAL, so the
-    // INSERT would never flush on commit and the notification would be silently dropped.
-    @Transactional
     public void run() {
         LocalDate today = LocalDate.now();
         List<Organisation> orgs = orgRepository.findByIsDeletedFalseAndActiveTrue();
-        int count = 0;
-        int orgCount = 0;
-
         for (Organisation org : orgs) {
+            try {
+                txRunner.runInTx(() -> processOrg(org, today));
+            } catch (Exception e) {
+                log.warn("Overdue-bill sweep failed for org {}: {}", org.getId(), e.getMessage());
+            }
+        }
+    }
+
+    // NOT readOnly: notificationService.send() persists a Notification whose INSERT
+    // is deferred to flush; a readOnly tx (FlushMode.MANUAL) would silently drop it.
+    void processOrg(Organisation org, LocalDate today) {
             List<PurchaseBill> overdue = billRepository.findOverdueBills(org.getId(), today);
-            if (overdue.isEmpty()) continue;
+            if (overdue.isEmpty()) return;
 
             AppUser admin = userRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(org.getId(), "OWNER")
                     .orElse(null);
-            if (admin == null) continue;
+            if (admin == null) return;
 
             for (PurchaseBill bill : overdue) {
                 if (notificationService.existsTodayForEntity(org.getId(), "BILL_OVERDUE", bill.getId())) {
@@ -82,14 +87,6 @@ public class OverdueBillJob {
 
                 notificationService.send(org.getId(), admin.getId(), title, message,
                         "WARNING", "BILL_OVERDUE", "BILL", bill.getId(), metadata);
-                count++;
             }
-
-            if (count > 0) orgCount++;
-        }
-
-        if (count > 0) {
-            log.info("Overdue bills notified: {} across {} orgs", count, orgCount);
-        }
     }
 }

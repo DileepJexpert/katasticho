@@ -151,6 +151,18 @@ public class SqlValidator {
         List<PlainSelect> plainSelects = new ArrayList<>();
         collectSelect(select, plainSelects, cteNames);
 
+        // Fail closed on a CTE whose name shadows a real table. Non-recursive
+        // Postgres CTEs don't bring their own name into scope inside their body,
+        // so `WITH invoice AS (SELECT ... FROM invoice) SELECT ... FROM invoice`
+        // reads the UNFILTERED base table in the CTE body while appendPredicateFor
+        // skips both FROMs as "CTE names" — a full cross-tenant leak. Users never
+        // need to name a CTE after a real table, so reject the collision outright.
+        for (String cte : cteNames) {
+            if (tableScopes().containsKey(cte)) {
+                throw unsafe("CTE name '" + cte + "' collides with a real table");
+            }
+        }
+
         for (PlainSelect ps : plainSelects) {
             injectOrgFilter(ps, cteNames, orgId);
         }

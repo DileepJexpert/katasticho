@@ -68,6 +68,7 @@ class InventoryServiceFefoTest {
     @Mock private StockMovementRepository stockMovementRepository;
     @Mock private StockBalanceRepository stockBalanceRepository;
     @Mock private BomComponentRepository bomComponentRepository;
+    @Mock private BomService bomService;
     @Mock private BatchService batchService;
     @Mock private FifoCostingService fifoCostingService;
     @Mock private AuditService auditService;
@@ -84,7 +85,7 @@ class InventoryServiceFefoTest {
     void setUp() {
         inventoryService = new InventoryService(
                 itemRepository, warehouseRepository, stockMovementRepository,
-                stockBalanceRepository, bomComponentRepository, batchService, fifoCostingService,
+                stockBalanceRepository, bomComponentRepository, bomService, batchService, fifoCostingService,
                 auditService, cacheInvalidationService, documentSnapshotService);
 
         // These tests exercise the weighted-average path; FIFO stays off.
@@ -126,6 +127,17 @@ class InventoryServiceFefoTest {
                     StockMovement m = inv.getArgument(0);
                     if (m.getId() == null) m.setId(UUID.randomUUID());
                     return m;
+                });
+        // recordMovement now validates that an explicitly-supplied batch belongs
+        // to the item being moved (batch↔item mismatch guard). Every batch in
+        // this fixture is paracetamol's, so a default matching-itemId batch keeps
+        // the guard satisfied without per-test stubbing.
+        lenient().when(batchService.getBatch(any(UUID.class)))
+                .thenAnswer(inv -> {
+                    StockBatch b = StockBatch.builder().itemId(paracetamol.getId()).build();
+                    b.setId(inv.getArgument(0));
+                    b.setOrgId(orgId);
+                    return b;
                 });
     }
 
@@ -388,8 +400,9 @@ class InventoryServiceFefoTest {
                 .thenReturn(Optional.of(chocolate));
         when(itemRepository.findByIdAndOrgIdAndIsDeletedFalse(card.getId(), orgId))
                 .thenReturn(Optional.of(card));
-        when(bomComponentRepository
-                .findByOrgIdAndParentItemIdAndIsDeletedFalseOrderByCreatedAtAsc(orgId, hamper.getId()))
+        // Composite deduction now flattens phantom sub-assemblies via
+        // bomService.explode() (was bomComponentRepository.findCurrentBom).
+        when(bomService.explode(orgId, hamper.getId()))
                 .thenReturn(List.of(chocolateRow, cardRow));
 
         Invoice invoice = buildInvoice();

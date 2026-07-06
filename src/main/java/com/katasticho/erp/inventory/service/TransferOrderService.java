@@ -101,7 +101,7 @@ public class TransferOrderService {
     public TransferOrderResponse ship(UUID id) {
         UUID orgId = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
-        TransferOrder to = findOrThrow(id, orgId);
+        TransferOrder to = findOrThrowLocked(id, orgId);
 
         if (!"DRAFT".equals(to.getStatus())) {
             throw new BusinessException("Only DRAFT transfer orders can be shipped",
@@ -139,7 +139,7 @@ public class TransferOrderService {
     public TransferOrderResponse receive(UUID id) {
         UUID orgId = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
-        TransferOrder to = findOrThrow(id, orgId);
+        TransferOrder to = findOrThrowLocked(id, orgId);
 
         if (!"IN_TRANSIT".equals(to.getStatus())) {
             throw new BusinessException("Only IN_TRANSIT transfer orders can be received",
@@ -192,7 +192,7 @@ public class TransferOrderService {
     @Transactional
     public void cancel(UUID id) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        TransferOrder to = findOrThrow(id, orgId);
+        TransferOrder to = findOrThrowLocked(id, orgId);
 
         if ("RECEIVED".equals(to.getStatus())) {
             throw new BusinessException("Cannot cancel a received transfer order",
@@ -200,21 +200,12 @@ public class TransferOrderService {
         }
 
         if ("IN_TRANSIT".equals(to.getStatus())) {
-            for (TransferOrderLine line : to.getLines()) {
-                inventoryService.recordMovement(new StockMovementRequest(
-                        line.getItemId(),
-                        to.getFromWarehouseId(),
-                        MovementType.TRANSFER_IN,
-                        line.getQuantity(),
-                        null,
-                        LocalDate.now(),
-                        ReferenceType.STOCK_TRANSFER,
-                        to.getId(),
-                        to.getTransferNumber(),
-                        "Transfer cancelled — stock returned",
-                        line.getBatchId()
-                ));
-            }
+            // Reverse the TRANSFER_OUT legs at their RECORDED cost (closing/restoring
+            // the FIFO lots), rather than posting a fresh TRANSFER_IN at the item's
+            // current purchasePrice — a fresh-costed return mints or destroys
+            // inventory value on FIFO orgs (or after any price change).
+            inventoryService.reverseMovementsByReference(orgId, ReferenceType.STOCK_TRANSFER,
+                    to.getId(), MovementType.TRANSFER_OUT, "Transfer cancelled — stock returned");
         }
 
         to.setStatus("CANCELLED");
@@ -238,6 +229,13 @@ public class TransferOrderService {
 
     private TransferOrder findOrThrow(UUID id, UUID orgId) {
         return transferOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Transfer Order", id));
+    }
+
+    /** Pessimistic-locked load for lifecycle transitions (ship/receive/cancel) so a
+     *  concurrent double-submit serialises and the second sees the flipped status. */
+    private TransferOrder findOrThrowLocked(UUID id, UUID orgId) {
+        return transferOrderRepository.findByIdAndOrgIdForUpdate(id, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Transfer Order", id));
     }
 

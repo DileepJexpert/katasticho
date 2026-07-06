@@ -20,6 +20,28 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
 
     Optional<SalesReceipt> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
+    /** Pessimistic-write variant so a concurrent double-void serialises. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM SalesReceipt r WHERE r.id = :id AND r.orgId = :orgId AND r.isDeleted = false")
+    Optional<SalesReceipt> findByIdAndOrgIdForUpdate(@Param("id") UUID id, @Param("orgId") UUID orgId);
+
+    /** ACTIVE (non-RETURNED) receipts in a date range — GST returns must exclude
+     *  voided sales. Kept separate from findByOrgAndDateRange (day-book/dashboards). */
+    @Query("""
+        SELECT r FROM SalesReceipt r
+        WHERE r.orgId = :orgId AND r.isDeleted = false
+          AND (r.status IS NULL OR r.status <> 'RETURNED')
+          AND r.receiptDate BETWEEN :from AND :to
+        ORDER BY r.receiptDate DESC, r.createdAt DESC
+    """)
+    List<SalesReceipt> findActiveByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
+
+    /** ACTIVE turnover in a range — CMP-08 composition turnover must exclude returns. */
+    @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId "
+            + "AND r.receiptDate BETWEEN :from AND :to AND r.isDeleted = false "
+            + "AND (r.status IS NULL OR r.status <> 'RETURNED')")
+    BigDecimal sumActiveTotalByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
+
     /**
      * Filtered receipt list. Uses a native query so PostgreSQL can infer the
      * type of nullable parameters via explicit CAST — JPQL's
@@ -53,13 +75,15 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
                                      @Param("paymentMode") String paymentMode,
                                      Pageable pageable);
 
-    @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate = :date AND r.isDeleted = false")
+    // RETURNED (voided) receipts must not count as sales in the day's revenue,
+    // the cash-drawer expected-closing, or the transaction count.
+    @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate = :date AND r.isDeleted = false AND (r.status IS NULL OR r.status <> 'RETURNED')")
     BigDecimal sumTotalByOrgAndDate(UUID orgId, LocalDate date);
 
-    @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate = :date AND r.paymentMode = :mode AND r.isDeleted = false")
+    @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate = :date AND r.paymentMode = :mode AND r.isDeleted = false AND (r.status IS NULL OR r.status <> 'RETURNED')")
     BigDecimal sumByOrgDateAndMode(@Param("orgId") UUID orgId, @Param("date") LocalDate date, @Param("mode") PaymentMode mode);
 
-    @Query("SELECT COUNT(r) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate = :date AND r.isDeleted = false")
+    @Query("SELECT COUNT(r) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate = :date AND r.isDeleted = false AND (r.status IS NULL OR r.status <> 'RETURNED')")
     long countByOrgAndDate(UUID orgId, LocalDate date);
 
     @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate BETWEEN :from AND :to AND r.isDeleted = false")

@@ -5,6 +5,11 @@ import com.katasticho.erp.ar.dto.RecordPaymentForInvoiceRequest;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.service.PaymentService;
+import com.katasticho.erp.ai.entity.AiSuggestion;
+import com.katasticho.erp.ai.repository.AiSuggestionRepository;
+import com.katasticho.erp.ai.service.AiSuggestionService;
+import com.katasticho.erp.auth.entity.AppUser;
+import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.contact.entity.Contact;
@@ -13,6 +18,8 @@ import com.katasticho.erp.payment.entity.PaymentLink;
 import com.katasticho.erp.payment.entity.PaymentWebhookEvent;
 import com.katasticho.erp.payment.repository.PaymentLinkRepository;
 import com.katasticho.erp.payment.repository.PaymentWebhookEventRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -23,6 +30,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,12 +47,21 @@ import java.util.UUID;
 @Slf4j
 public class PaymentLinkService {
 
+    /** Idempotent AI-Inbox flag raised when a gateway capture can't be applied. */
+    private static final String UNAPPLIED_SUGGESTION_TYPE = "GATEWAY_CAPTURE_UNAPPLIED";
+    private static final String PAYMENT_LINK_ENTITY = "PAYMENT_LINK";
+    private static final List<String> OPEN_STATUSES = List.of("PENDING", "IN_PROGRESS");
+
     private final RazorpayClient razorpayClient;
     private final PaymentLinkRepository paymentLinkRepository;
     private final PaymentWebhookEventRepository webhookEventRepository;
     private final InvoiceRepository invoiceRepository;
     private final ContactRepository contactRepository;
     private final PaymentService paymentService;
+    private final AiSuggestionService aiSuggestionService;
+    private final AiSuggestionRepository aiSuggestionRepository;
+    private final AppUserRepository appUserRepository;
+    private final EntityManager entityManager;
     private final Clock clock;
 
     // ── Create ──────────────────────────────────────────────────────────────
@@ -175,8 +192,13 @@ public class PaymentLinkService {
         }
         // Take a pessimistic write lock on the link before the settled-check +
         // record, so two concurrent settlement events for the same capture
-        // serialise: the second blocks here, then re-reads a PAID link below.
-        PaymentLink link = paymentLinkRepository.findByIdAndIsDeletedFalse(resolved.getId()).orElse(resolved);
+        // serialise: the second blocks here. A locked JPQL re-read would return
+        // the STALE first-level-cache instance loaded by resolveLink (Hibernate
+        // doesn't re-hydrate an already-managed entity), leaving check (4) dead —
+        // entityManager.refresh(..., PESSIMISTIC_WRITE) both takes the row lock
+        // AND re-reads committed state, so the second event sees tx1's PAID stamp.
+        PaymentLink link = resolved;
+        entityManager.refresh(link, LockModeType.PESSIMISTIC_WRITE);
         logRow.setPaymentLinkId(link.getId());
 
         // (4) this link already settled → no-op.
@@ -190,9 +212,13 @@ public class PaymentLinkService {
             return "invoice gone";
         }
         if (!List.of("SENT", "PARTIALLY_PAID", "OVERDUE").contains(invoice.getStatus())) {
-            // e.g. already fully paid by a manual receipt — nothing to settle.
+            // e.g. already fully paid by a manual receipt — the gateway still
+            // captured real money, so flag it for a human (refund / apply as
+            // advance) instead of silently swallowing it.
+            handleUnattributedCapture(orgId, link, wp, invoice,
+                    "invoice already settled (status " + invoice.getStatus() + ")");
             stampPaid(link, wp, eventId, null);
-            return "invoice not payable";
+            return "unapplied capture flagged";
         }
 
         // Never over-collect: clamp to the current outstanding balance. The
@@ -201,12 +227,20 @@ public class PaymentLinkService {
         BigDecimal amount = wp.amount != null ? wp.amount : link.getAmount();
         BigDecimal balance = invoice.getBalanceDue();
         if (balance == null || balance.signum() <= 0) {
+            handleUnattributedCapture(orgId, link, wp, invoice, "nothing due on the invoice");
             stampPaid(link, wp, eventId, null);
-            return "nothing due";
+            return "unapplied capture flagged";
         }
         if (amount.compareTo(balance) > 0) {
             amount = balance;
         }
+
+        // The webhook runs on a SYSTEM thread with no TenantContext user, but
+        // journal_entry.created_by is NOT NULL. Supply the link's creator (a real
+        // org user set at link-creation) as the actor so the settlement journal
+        // can post; fall back to the org OWNER, else fail deterministically (→
+        // caught as BusinessException → 200 + dedupe, no retry storm).
+        ensureWebhookActor(orgId, link);
 
         PaymentResponse pr = paymentService.recordForInvoice(link.getInvoiceId(),
                 new RecordPaymentForInvoiceRequest(amount, "BANK_TRANSFER",
@@ -223,6 +257,65 @@ public class PaymentLinkService {
         stampPaid(link, wp, eventId, pr.id());
         logRow.setProcessed(true);
         return "recorded";
+    }
+
+    /**
+     * Populate the acting user on TenantContext for the webhook thread so the
+     * settlement journal ({@code journal_entry.created_by NOT NULL}) can post.
+     * Uses the link's creator, then the org OWNER; a genuinely un-actorable
+     * event throws a deterministic BusinessException (caught upstream → 200 +
+     * dedupe row, so Razorpay stops resending rather than storming forever).
+     */
+    private void ensureWebhookActor(UUID orgId, PaymentLink link) {
+        if (TenantContext.getCurrentUserId() != null) {
+            return;
+        }
+        if (link.getCreatedBy() != null) {
+            TenantContext.setCurrentUserId(link.getCreatedBy());
+            return;
+        }
+        UUID owner = appUserRepository.findFirstByOrgIdAndRoleAndIsDeletedFalse(orgId, "OWNER")
+                .map(AppUser::getId).orElse(null);
+        if (owner == null) {
+            throw new BusinessException(
+                    "No actor available to book the gateway settlement (link has no creator and org has no OWNER)",
+                    "PAYLINK_NO_ACTOR", HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+        TenantContext.setCurrentUserId(owner);
+    }
+
+    /**
+     * A gateway capture that can't be applied to the invoice (already settled /
+     * nothing due) is real collected money — raise an idempotent HIGH AI-Inbox
+     * suggestion so a human refunds it or applies it as an advance. Idempotent
+     * via existsOpenSuggestion (the at-least-once bus sends captured + link.paid).
+     */
+    private void handleUnattributedCapture(UUID orgId, PaymentLink link, WebhookPayment wp,
+                                           Invoice invoice, String reason) {
+        boolean exists = aiSuggestionRepository.existsOpenSuggestion(
+                orgId, PAYMENT_LINK_ENTITY, link.getId(), null,
+                UNAPPLIED_SUGGESTION_TYPE, OPEN_STATUSES);
+        if (exists) return;
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("invoiceNumber", invoice.getInvoiceNumber());
+        payload.put("providerPaymentId", wp != null ? wp.paymentId : null);
+        payload.put("amount", wp != null && wp.amount != null ? wp.amount : link.getAmount());
+        payload.put("reason", reason);
+
+        aiSuggestionService.createSuggestion(AiSuggestion.builder()
+                .orgId(orgId)
+                .entityType(PAYMENT_LINK_ENTITY)
+                .entityId(link.getId())
+                .suggestionType(UNAPPLIED_SUGGESTION_TYPE)
+                .suggestedAction("REFUND_OR_APPLY_ADVANCE")
+                .suggestedValue(payload)
+                .priority("HIGH")
+                .reasoning("Gateway captured money for invoice " + invoice.getInvoiceNumber()
+                        + " but it could not be applied (" + reason
+                        + ") — refund the customer or apply it as an advance.")
+                .agentName("PaymentLinkService")
+                .build());
     }
 
     private void stampPaid(PaymentLink link, WebhookPayment wp, String eventId, UUID paymentId) {

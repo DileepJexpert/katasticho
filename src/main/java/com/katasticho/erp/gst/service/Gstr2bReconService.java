@@ -119,6 +119,30 @@ public class Gstr2bReconService {
                     prior.stream().map(Gstr2bEntry::getId).toList());
         }
 
+        // Portal JSON carries NO IMS data, so a naive delete+recreate wipes every
+        // Section-38 Accept/Reject decision (actor + timestamp + remarks) recorded
+        // on the prior rows — statutory audit-trail loss, auto-triggered monthly by
+        // ItcRiskMonitorJob for GSP orgs. Snapshot the prior IMS actions by
+        // (gstin, invoice#) and carry them onto the freshly-parsed rows that still
+        // exist in the new feed. Rows dropped from the new 2A/2B legitimately vanish.
+        Map<String, Gstr2bEntry> priorByKey = prior.stream()
+                .filter(e -> e.getImsAction() != null)
+                .collect(java.util.stream.Collectors.toMap(
+                        e -> matchKey(e.getSupplierGstin(), e.getInvoiceNumber()),
+                        e -> e, (a, b) -> a));
+        if (!priorByKey.isEmpty()) {
+            for (Gstr2bEntry p : parsed) {
+                Gstr2bEntry old = priorByKey.get(matchKey(p.getSupplierGstin(), p.getInvoiceNumber()));
+                if (old != null) {
+                    p.setImsAction(old.getImsAction());
+                    p.setImsActionAt(old.getImsActionAt());
+                    p.setImsActionBy(old.getImsActionBy());
+                    p.setImsRemarks(old.getImsRemarks());
+                    p.setImsAiRecommendation(old.getImsAiRecommendation());
+                }
+            }
+        }
+
         entryRepository.deleteByOrgIdAndReturnPeriod(orgId, ym.toString());
         List<Gstr2bEntry> saved = entryRepository.saveAll(parsed);
         reconcile(orgId, ym, saved);

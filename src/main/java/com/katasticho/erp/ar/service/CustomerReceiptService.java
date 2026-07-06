@@ -184,11 +184,10 @@ public class CustomerReceiptService {
 
         receipt = receiptRepository.save(receipt);
 
-        // Reduce the customer's outstanding AR by the APPLIED amount only.
-        // The advance is a 2100 liability, not a receivable reduction.
-        if (totalAllocated.signum() > 0) {
-            adjustContactOutstandingAr(contact, totalAllocated.negate());
-        }
+        // contact.outstanding_ar is the KHATA (invoice-less) ledger only — an
+        // invoice-backed receipt settles the invoice's balanceDue (done above via
+        // updatePaymentStatus) and must NOT touch this column. Only the khata
+        // settlement path (recordKhataSettlement) maintains it.
 
         log.info("Customer receipt {} recorded: {} across {} invoice(s), advance {}",
                 receiptNumber, request.amount(), request.allocations().size(), advance);
@@ -301,10 +300,14 @@ public class CustomerReceiptService {
             }
         }
 
-        // Restore the customer's outstanding AR for the reversed allocations.
+        // Restore the khata ledger ONLY for a khata settlement (zero allocations
+        // + positive allocatedAmount). Invoice-backed receipts never decremented
+        // outstanding_ar, so voiding one must not re-increment it either.
         Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(receipt.getContactId(), orgId)
                 .orElse(null);
-        if (contact != null && receipt.getAllocatedAmount().signum() > 0) {
+        boolean isKhataSettlement = receipt.getAllocations().isEmpty()
+                && receipt.getAllocatedAmount().signum() > 0;
+        if (contact != null && isKhataSettlement) {
             adjustContactOutstandingAr(contact, receipt.getAllocatedAmount());
         }
 

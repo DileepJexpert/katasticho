@@ -12,6 +12,11 @@ import java.util.UUID;
 @Repository
 public interface OrganisationRepository extends JpaRepository<Organisation, UUID> {
 
+    /** Pessimistic-write lock on the org row — used to serialise year-end close per org. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from Organisation o where o.id = :id")
+    java.util.Optional<Organisation> findByIdForUpdate(@Param("id") UUID id);
+
     List<Organisation> findByIsDeletedFalseAndActiveTrue();
 
     List<Organisation> findByIsDeletedFalseOrderByCreatedAtDesc();

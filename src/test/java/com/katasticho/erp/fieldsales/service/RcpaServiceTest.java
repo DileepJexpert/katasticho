@@ -59,6 +59,43 @@ class RcpaServiceTest {
     }
 
     @Test
+    void record_updateByNonOwnerOperator_throwsAndDoesNotMutate() {
+        // An audit owned by MR "A"; a different OPERATOR "B" must not overwrite it.
+        UUID auditId = UUID.randomUUID();
+        UUID ownerA = UUID.randomUUID();
+        RcpaAudit existing = RcpaAudit.builder().id(auditId).orgId(orgId).salespersonId(ownerA).build();
+        when(contactRepo.findByIdAndOrgIdAndIsDeletedFalse(chemistId, orgId))
+                .thenReturn(Optional.of(com.katasticho.erp.contact.entity.Contact.builder().build()));
+        when(auditRepo.findByIdAndOrgIdAndIsDeletedFalse(auditId, orgId)).thenReturn(Optional.of(existing));
+
+        TenantContext.setCurrentUserId(UUID.randomUUID()); // caller B, not the owner
+        TenantContext.setCurrentRole("OPERATOR");
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.record(auditId, chemistId, day, null, "tampered", List.of()));
+        assertEquals("RCPA_NOT_OWNER", ex.getErrorCode());
+        verify(lineRepo, never()).deleteByOrgIdAndAuditId(any(), any());
+        verify(auditRepo, never()).save(any());
+    }
+
+    @Test
+    void record_updateByAdmin_isAllowedOnForeignAudit() {
+        UUID auditId = UUID.randomUUID();
+        RcpaAudit existing = RcpaAudit.builder().id(auditId).orgId(orgId)
+                .salespersonId(UUID.randomUUID()).build();
+        when(contactRepo.findByIdAndOrgIdAndIsDeletedFalse(chemistId, orgId))
+                .thenReturn(Optional.of(com.katasticho.erp.contact.entity.Contact.builder().build()));
+        when(auditRepo.findByIdAndOrgIdAndIsDeletedFalse(auditId, orgId)).thenReturn(Optional.of(existing));
+        when(auditRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        TenantContext.setCurrentUserId(UUID.randomUUID());
+        TenantContext.setCurrentRole("ADMIN");
+
+        service.record(auditId, chemistId, day, null, "admin edit", List.of());
+        verify(auditRepo).save(any());
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void record_stampsSalespersonAndNormalisesBrandType() {
         when(contactRepo.findByIdAndOrgIdAndIsDeletedFalse(chemistId, orgId))

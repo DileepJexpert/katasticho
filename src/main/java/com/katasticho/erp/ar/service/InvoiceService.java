@@ -247,6 +247,11 @@ public class InvoiceService {
         BigDecimal totalSubtotal = BigDecimal.ZERO;
         BigDecimal totalTax = BigDecimal.ZERO;
         List<TaxLineItem> allTaxLines = new ArrayList<>();
+        // Parallel list: for each entry in allTaxLines, the 0-based index of the
+        // invoice line that produced it. Indian GST yields 1 (IGST) or 2
+        // (CGST+SGST) components per line — never a fixed 3 — so we record the
+        // owning line as components are built instead of guessing a slot window.
+        List<Integer> taxLineToLineIdx = new ArrayList<>();
 
         // Process each line
         for (int i = 0; i < request.lines().size(); i++) {
@@ -354,6 +359,7 @@ public class InvoiceService {
                         .baseTaxableAmount(baseTaxable)
                         .baseTaxAmount(comp.amount().multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP))
                         .build());
+                taxLineToLineIdx.add(i);
             }
         }
 
@@ -391,14 +397,15 @@ public class InvoiceService {
 
         // Save tax line items with source references
         final UUID savedInvoiceId = invoice.getId();
+        List<InvoiceLine> savedLines = invoice.getLines();
         for (int i = 0; i < allTaxLines.size(); i++) {
             TaxLineItem tli = allTaxLines.get(i);
             tli.setSourceId(savedInvoiceId);
-            // Link to invoice line if we can determine it
-            if (invoice.getLines().size() > 0) {
-                // Tax lines are grouped per invoice line; we'll set sourceLineId
-                // based on accumulated count
-                tli.setSourceLineId(findLineIdForTaxLine(invoice, allTaxLines, i));
+            // Link each tax line to the exact invoice line that produced it,
+            // using the per-component owning-line index recorded above.
+            int ownerIdx = taxLineToLineIdx.get(i);
+            if (ownerIdx >= 0 && ownerIdx < savedLines.size()) {
+                tli.setSourceLineId(savedLines.get(ownerIdx).getId());
             }
         }
         taxLineItemRepository.saveAll(allTaxLines);
@@ -422,7 +429,10 @@ public class InvoiceService {
     public InvoiceResponse sendInvoice(UUID invoiceId, boolean skipStockMovement) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
-        Invoice invoice = invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)
+        // Pessimistic lock so a concurrent double-send serialises: the second
+        // transaction re-reads the flipped status and fails the DRAFT check
+        // below, instead of both deducting stock + posting a duplicate journal.
+        Invoice invoice = invoiceRepository.findLockedByIdAndOrgIdAndIsDeletedFalse(invoiceId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Invoice", invoiceId));
 
         if (!"DRAFT".equals(invoice.getStatus())) {
@@ -715,24 +725,4 @@ public class InvoiceService {
         return date.getYear() - 1;
     }
 
-    private UUID findLineIdForTaxLine(Invoice invoice, List<TaxLineItem> allTaxLines, int taxLineIndex) {
-        // Simple approach: map tax lines back to invoice lines based on order
-        // Tax components are generated per invoice line, so we track the accumulated count
-        int lineIdx = 0;
-        int accumulated = 0;
-        for (InvoiceLine invLine : invoice.getLines()) {
-            // Count how many tax components this line would generate
-            int componentCount = 0;
-            for (int j = accumulated; j < allTaxLines.size() && j < accumulated + 3; j++) {
-                if (j == taxLineIndex) {
-                    return invLine.getId();
-                }
-                componentCount++;
-            }
-            accumulated += componentCount;
-            lineIdx++;
-            if (lineIdx >= invoice.getLines().size()) break;
-        }
-        return invoice.getLines().isEmpty() ? null : invoice.getLines().get(0).getId();
-    }
 }

@@ -40,6 +40,12 @@ public class GspController {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> update(@RequestBody Map<String, String> body) {
         UUID orgId = TenantContext.getCurrentOrgId();
+        // Reject an internal/loopback/non-https base URL at save time (the host is
+        // shared across every composed path); GspClient re-validates before each
+        // call as the authoritative gate.
+        if (body.get("baseUrl") != null && !body.get("baseUrl").isBlank()) {
+            com.katasticho.erp.common.net.OutboundUrlGuard.validate(body.get("baseUrl").trim(), "GSP_URL");
+        }
         putIfPresent(orgId, body, "enabled", GspClient.ENABLED);
         putIfPresent(orgId, body, "provider", GspClient.PROVIDER);
         putIfPresent(orgId, body, "baseUrl", GspClient.BASE_URL);

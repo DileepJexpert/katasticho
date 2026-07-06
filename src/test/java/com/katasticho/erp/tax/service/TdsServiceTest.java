@@ -54,6 +54,13 @@ class TdsServiceTest {
                 .thenReturn(new BigDecimal(amount));
     }
 
+    /** Base already taxed this FY (194C single-limb) — nets out of the catch-up. */
+    private void fyTaxedAggregate(String amount) {
+        when(purchaseBillRepository.sumPostedTaxedSubtotalByOrgAndContactAndDateRange(
+                eq(orgId), eq(vendorId), any(), any()))
+                .thenReturn(new BigDecimal(amount));
+    }
+
     @Test
     void notApplicableVendorGetsNoTds() {
         Contact c = vendor("194C", "2");
@@ -82,13 +89,55 @@ class TdsServiceTest {
 
     @Test
     void fyAggregateCrossing1LakhTriggers194c() {
-        fyAggregate("95000"); // 95k + 20k = 1.15L > 1L
+        fyAggregate("95000");       // 95k (all untaxed) + 20k = 1.15L > 1L
+        fyTaxedAggregate("0");      // nothing taxed yet
         var tds = service.computeForBill(orgId, vendor("194C", "2"),
                 new BigDecimal("20000"), LocalDate.of(2026, 6, 10));
 
         assertThat(tds).isNotNull();
-        assertThat(tds.amount()).isEqualByComparingTo("400.00"); // 2% of the bill
+        // First crossing catches up on the WHOLE year: 2% of 1,15,000 = 2,300,
+        // not 2% of just this bill (the earlier sub-threshold bills escaped TDS).
+        assertThat(tds.amount()).isEqualByComparingTo("2300.00");
         assertThat(tds.note()).contains("aggregate");
+    }
+
+    @Test
+    void aggregateOnlySectionCatchesUpWholeAggregate() {
+        fyAggregate("25000");       // 25k (untaxed) + 10k = 35k > 30k (194J annual)
+        fyTaxedAggregate("0");
+        var tds = service.computeForBill(orgId, vendor("194J", "10"),
+                new BigDecimal("10000"), LocalDate.of(2026, 6, 10));
+
+        assertThat(tds).isNotNull();
+        assertThat(tds.baseAmount()).isEqualByComparingTo("35000"); // whole aggregate
+        assertThat(tds.amount()).isEqualByComparingTo("3500.00");   // 10% of 35,000
+    }
+
+    @Test
+    void subsequentBillAfterCrossingDeductsOnlyOwnBase() {
+        fyAggregate("60000");       // already over the 30k 194J threshold
+        fyTaxedAggregate("60000");
+        var tds = service.computeForBill(orgId, vendor("194J", "10"),
+                new BigDecimal("10000"), LocalDate.of(2026, 6, 10));
+
+        assertThat(tds).isNotNull();
+        assertThat(tds.baseAmount()).isEqualByComparingTo("10000"); // this bill only
+        assertThat(tds.amount()).isEqualByComparingTo("1000.00");   // 10% of 10,000
+    }
+
+    @Test
+    void section194cSingleLimbNotDoubleTaxedOnAggregateCrossing() {
+        // A 40,000 bill was already taxed under 194C's single-bill limb; now more
+        // bills push the FY aggregate over 1L. The catch-up must exclude the 40k.
+        fyAggregate("95000");       // 95k before (incl. the already-taxed 40k)
+        fyTaxedAggregate("40000");  // 40k already bore TDS under the single limb
+        var tds = service.computeForBill(orgId, vendor("194C", "2"),
+                new BigDecimal("20000"), LocalDate.of(2026, 6, 10));
+
+        assertThat(tds).isNotNull();
+        // Aggregate-with-this 1,15,000 − already-taxed 40,000 = 75,000 base.
+        assertThat(tds.baseAmount()).isEqualByComparingTo("75000");
+        assertThat(tds.amount()).isEqualByComparingTo("1500.00");   // 2% of 75,000
     }
 
     @Test
