@@ -4,6 +4,14 @@ public final class ModuleCode {
 
     private ModuleCode() {}
 
+    /** Every module code, for callers that need to enumerate/validate them
+     *  (test-account seed, per-org module-visibility overrides). */
+    public static final java.util.List<String> ALL = java.util.List.of(
+            "ACCOUNTING", "AR", "AP", "GST", "BANK_RECON", "AI_INBOX", "REPORTS",
+            "COLLECTIONS", "POS", "INVENTORY", "DISTRIBUTION", "PHARMA", "MANUFACTURING",
+            "RECURRING_BILLING", "MULTI_ENTITY", "PAYMENTS", "BATCH_EXPIRY", "CA_CONSOLE",
+            "PAYROLL", "FIELD_SALES", "PARTNER_NETWORK", "SUPPLY_CHAIN", "COURIER", "TRANSPORT");
+
     public static final String ACCOUNTING = "ACCOUNTING";
     public static final String AR = "AR";
     public static final String AP = "AP";

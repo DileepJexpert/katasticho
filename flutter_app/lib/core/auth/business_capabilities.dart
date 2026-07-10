@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/onboarding/data/organisation_repository.dart';
 import '../../features/settings/data/feature_flag_repository.dart';
 import 'auth_state.dart';
+import 'module_overrides.dart';
 
 class BusinessCapabilities {
   final bool canUseAccounting;
@@ -164,6 +165,34 @@ class BusinessCapabilities {
     );
   }
 
+  /// Apply per-org authoritative module-visibility overrides on top of the
+  /// computed capabilities. A module present in [overrides] uses that explicit
+  /// value (an admin's Show/Hide decision wins); a module absent keeps its
+  /// computed default. This is what lets an org tweak the vertical default in
+  /// both directions without affecting any other org.
+  BusinessCapabilities applyModuleOverrides(Map<String, bool> overrides) {
+    if (overrides.isEmpty) return this;
+    bool eff(String code, bool base) =>
+        overrides.containsKey(code) ? overrides[code]! : base;
+    return BusinessCapabilities(
+      canUseAccounting: eff('ACCOUNTING', canUseAccounting),
+      canUseAiInbox: eff('AI_INBOX', canUseAiInbox),
+      canUsePos: eff('POS', canUsePos),
+      canUseInventory: eff('INVENTORY', canUseInventory),
+      canUseDistribution: eff('DISTRIBUTION', canUseDistribution),
+      canUsePharma: eff('PHARMA', canUsePharma),
+      canUseManufacturing: eff('MANUFACTURING', canUseManufacturing),
+      canUseBatchExpiry: eff('BATCH_EXPIRY', canUseBatchExpiry),
+      canUseBankRecon: eff('BANK_RECON', canUseBankRecon),
+      canUseReports: eff('REPORTS', canUseReports),
+      canUseFieldSales: eff('FIELD_SALES', canUseFieldSales),
+      canUsePartnerNetwork: eff('PARTNER_NETWORK', canUsePartnerNetwork),
+      canUsePayroll: eff('PAYROLL', canUsePayroll),
+      canUseSupplyChain: eff('SUPPLY_CHAIN', canUseSupplyChain),
+      canUseCourier: eff('COURIER', canUseCourier),
+    );
+  }
+
   static String _normalized(String? value) =>
       (value ?? '').trim().toUpperCase();
 }
@@ -227,11 +256,14 @@ final businessCapabilitiesProvider =
   if (previewAllModules) {
     return BusinessCapabilities.allEnabled;
   }
-  if (enabledFeatures == null || enabledFeatures.isEmpty) {
-    return BusinessCapabilities.fallback(profileAuth);
-  }
-  return BusinessCapabilities.fromEnabledFeaturesAndProfile(
-    enabledFeatures,
-    profileAuth,
-  );
+  final overrides =
+      ref.watch(moduleOverridesProvider).valueOrNull ?? const <String, bool>{};
+  final base = (enabledFeatures == null || enabledFeatures.isEmpty)
+      ? BusinessCapabilities.fallback(profileAuth)
+      : BusinessCapabilities.fromEnabledFeaturesAndProfile(
+          enabledFeatures,
+          profileAuth,
+        );
+  // Per-org admin Show/Hide decisions win over the computed default.
+  return base.applyModuleOverrides(overrides);
 });
