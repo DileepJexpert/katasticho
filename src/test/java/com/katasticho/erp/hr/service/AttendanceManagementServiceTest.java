@@ -114,4 +114,44 @@ class AttendanceManagementServiceTest {
         // two 8h days = 16.0h
         assertEquals(0, ((BigDecimal) s.get("totalHours")).compareTo(new BigDecimal("16.0")));
     }
+
+    @Test
+    void monthlySummary_unpaidLeaveExcludedFromPayableDays() {
+        LocalDate from = LocalDate.of(2026, 5, 1);
+        LocalDate to = LocalDate.of(2026, 5, 31);
+        when(leaveMgmt.workingDays(from, to)).thenReturn(new BigDecimal("22"));
+
+        Instant in = Instant.parse("2026-05-04T09:00:00Z");
+        Instant out = Instant.parse("2026-05-04T17:00:00Z");
+        FieldAttendance a1 = FieldAttendance.builder().orgId(orgId).userId(userId)
+                .workDate(LocalDate.of(2026, 5, 4)).punchInAt(in).punchOutAt(out).build();   // present = 1
+        when(attendanceRepo.findByOrgIdAndUserIdAndWorkDateBetweenOrderByWorkDateDesc(orgId, userId, from, to))
+                .thenReturn(List.of(a1));
+
+        // One PAID leave (2 days) + one UNPAID leave (3 days). Both are APPROVED.
+        LeaveRequest paid = LeaveRequest.builder()
+                .orgId(orgId).userId(userId).status("APPROVED").leaveType("CL")
+                .fromDate(LocalDate.of(2026, 5, 11)).toDate(LocalDate.of(2026, 5, 12)).build();
+        LeaveRequest unpaid = LeaveRequest.builder()
+                .orgId(orgId).userId(userId).status("APPROVED").leaveType("UNPAID")
+                .fromDate(LocalDate.of(2026, 5, 18)).toDate(LocalDate.of(2026, 5, 20)).build();
+        when(leaveRepo.findByOrgIdAndUserIdAndStatusInAndFromDateLessThanEqualAndToDateGreaterThanEqualAndIsDeletedFalse(
+                eq(orgId), eq(userId), any(), eq(to), eq(from))).thenReturn(List.of(paid, unpaid));
+        when(leaveMgmt.workingDays(LocalDate.of(2026, 5, 11), LocalDate.of(2026, 5, 12)))
+                .thenReturn(new BigDecimal("2"));
+        when(leaveMgmt.workingDays(LocalDate.of(2026, 5, 18), LocalDate.of(2026, 5, 20)))
+                .thenReturn(new BigDecimal("3"));
+        when(holidayRepo.findByOrgIdAndHolidayDateBetweenAndIsDeletedFalseOrderByHolidayDateAsc(orgId, from, to))
+                .thenReturn(List.of());
+
+        Map<String, Object> s = service.monthlySummary(null, from);
+
+        assertEquals(1, s.get("presentDays"));
+        // leaveDays = ALL approved leave (paid 2 + unpaid 3 = 5) — used for the absent tie-out.
+        assertEquals(0, ((BigDecimal) s.get("leaveDays")).compareTo(new BigDecimal("5")));
+        // payableDays = present 1 + PAID leave 2 = 3 (unpaid leave excluded).
+        assertEquals(0, ((BigDecimal) s.get("payableDays")).compareTo(new BigDecimal("3")));
+        // 22 working - 1 present - 5 leave = 16 absent
+        assertEquals(0, ((BigDecimal) s.get("absentDays")).compareTo(new BigDecimal("16")));
+    }
 }

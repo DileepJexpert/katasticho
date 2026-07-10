@@ -173,6 +173,7 @@ public class LeaveManagementService {
     @Transactional
     public LeaveRequest approveLeave(UUID leaveId) {
         LeaveRequest req = loadPending(leaveId);
+        ensureNotSelfApproval(req);
         req.setStatus("APPROVED");
         req.setApprovedBy(TenantContext.getCurrentUserId());
         adjustBalanceOnDecision(req, true);
@@ -182,9 +183,22 @@ public class LeaveManagementService {
     @Transactional
     public LeaveRequest rejectLeave(UUID leaveId, String reason) {
         LeaveRequest req = loadPending(leaveId);
+        ensureNotSelfApproval(req);
         req.setStatus("REJECTED");
         req.setRejectionReason(reason);
         return leaveRequestRepository.save(req);
+    }
+
+    /**
+     * A user may not approve or reject their own leave request — even an
+     * OWNER/ADMIN who applied for their own leave must have someone else in the
+     * chain decide it. Mirrors the guard on the legacy attendance leave path.
+     */
+    private void ensureNotSelfApproval(LeaveRequest req) {
+        if (req.getUserId() != null && req.getUserId().equals(TenantContext.getCurrentUserId())) {
+            throw new BusinessException("You cannot approve or reject your own leave",
+                    "LEAVE_SELF_APPROVAL_FORBIDDEN", HttpStatus.FORBIDDEN);
+        }
     }
 
     @Transactional

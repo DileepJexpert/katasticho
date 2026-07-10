@@ -260,6 +260,15 @@ public class OffboardingService {
     @Transactional
     public Offboarding cancel(UUID id) {
         Offboarding ob = load(id);
+        // Only an in-progress offboarding may be cancelled. A COMPLETED exit has
+        // already flipped the payroll employee to EXITED; cancelling it would
+        // wrongly imply a rollback that never happens (the employee stays EXITED),
+        // and a CANCELLED one is a no-op.
+        if (!"INITIATED".equals(ob.getStatus())) {
+            throw new BusinessException(
+                    "Cannot cancel offboarding in status " + ob.getStatus(),
+                    "OFFB_FINAL_STATE", HttpStatus.BAD_REQUEST);
+        }
         ob.setStatus("CANCELLED");
         return offboardingRepository.save(ob);
     }

@@ -114,13 +114,21 @@ public class AttendanceManagementService {
             }
         }
 
-        BigDecimal leaveDays = BigDecimal.ZERO;
+        BigDecimal leaveDays = BigDecimal.ZERO;      // all approved leave (paid + unpaid)
+        BigDecimal paidLeaveDays = BigDecimal.ZERO;  // paid leave only — drives payableDays
         for (LeaveRequest lr : leaveRequestRepository
                 .findByOrgIdAndUserIdAndStatusInAndFromDateLessThanEqualAndToDateGreaterThanEqualAndIsDeletedFalse(
                         orgId, uid, List.of("APPROVED"), to, from)) {
             LocalDate s = lr.getFromDate().isBefore(from) ? from : lr.getFromDate();
             LocalDate e = lr.getToDate().isAfter(to) ? to : lr.getToDate();
-            leaveDays = leaveDays.add(leaveManagementService.workingDays(s, e));
+            BigDecimal days = leaveManagementService.workingDays(s, e);
+            leaveDays = leaveDays.add(days);
+            // Unpaid leave is persisted with leaveType "UNPAID" (see
+            // LeaveManagementService.applyLeave) — it is netted out of pay via
+            // payroll LOP and must NOT inflate payableDays.
+            if (!"UNPAID".equals(lr.getLeaveType())) {
+                paidLeaveDays = paidLeaveDays.add(days);
+            }
         }
 
         int holidays = holidayRepository
@@ -144,8 +152,9 @@ public class AttendanceManagementService {
         out.put("weekends", weekends);
         out.put("absentDays", absent);
         out.put("totalHours", BigDecimal.valueOf(hours).setScale(1, RoundingMode.HALF_UP));
-        // Payroll-relevant payable days = present + paid leave (LOP already nets unpaid out).
-        out.put("payableDays", BigDecimal.valueOf(present).add(leaveDays));
+        // Payroll-relevant payable days = present + PAID leave only (unpaid leave is
+        // netted out via payroll LOP, so it must not count as a payable day).
+        out.put("payableDays", BigDecimal.valueOf(present).add(paidLeaveDays));
         return out;
     }
 
