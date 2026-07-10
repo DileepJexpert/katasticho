@@ -132,12 +132,13 @@ message — record which. No crash; the list stays readable.
 | **Priority / Type** | P1 / Role |
 | **Route** | `/contacts` · **Role:** VIEWER |
 
-**Expected result:** The New/Save **UI action is hidden** for VIEWER. **KNOWN
-GAP:** the API currently allows any authenticated role to create/update/delete
-contacts — `ContactController.create/update/delete` carry no `@PreAuthorize`, so
-a direct `POST /api/v1/contacts` as VIEWER succeeds (2xx). Verify only the UI
-behaviour here and **log a product bug** for the missing role guard; do not mark
-the case FAIL solely because the API accepts the request.
+**Expected result:** The New/Save **UI action is hidden** for VIEWER, **and** a
+direct `POST /api/v1/contacts` as VIEWER is rejected **403**.
+`ContactController.create/update/addPerson/deletePerson` now carry
+`@PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")` and
+`delete` is `hasAnyRole('OWNER','ADMIN','ACCOUNTANT')` — VIEWER is blocked at the
+API, not just hidden in the UI. Confirm both the hidden UI action and the 403 on
+a raw API call. (Fixed 2026-07-10; regression: `ContactControllerAuthzTest`.)
 
 **Actual / Status / Notes:**
 
@@ -502,9 +503,13 @@ serialized per org/prefix/year). Two fast consecutive posts never share a number
 
 **Expected result**
 - (1) Status → **CANCELLED**, balance due → ₹0; the posting journal is
-  **reversed** (a reversal entry exists; TB unchanged net). **Note:** stock
-  deducted by a direct invoice is **NOT restored** by cancel — record on-hand
-  before/after and log the observed behaviour explicitly.
+  **reversed** (a reversal entry exists; TB unchanged net) **and stock deducted
+  by the direct invoice is restored** — on-hand returns to the pre-send level via
+  REVERSAL movements scoped to `ReferenceType.INVOICE`. Record on-hand
+  before/after and confirm it is back to the starting quantity. (An SO-based
+  invoice's stock was deducted at DC dispatch, not by the invoice, so cancelling
+  it does **not** double-restore.) (Fixed 2026-07-10; regression:
+  `InvoiceServiceTest.cancelSentInvoice_restoresStockScopedToInvoiceReference`.)
 - (2) Rejected with **`AR_INVOICE_CANCEL_INVALID`** ("Cannot cancel PAID invoice").
 - (3) Rejected with **`AR_INVOICE_HAS_PAYMENTS`** ("…Issue a credit note instead.").
 
