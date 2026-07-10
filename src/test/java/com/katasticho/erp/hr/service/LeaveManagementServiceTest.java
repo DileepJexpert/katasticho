@@ -210,17 +210,20 @@ class LeaveManagementServiceTest {
 
     @Test
     void approveLeave_deductsBalance() {
+        // The approver (current userId) approves a colleague's (requester) leave —
+        // a user may not approve their own request (see self-approval test below).
+        UUID requester = UUID.randomUUID();
         LeaveRequest req = LeaveRequest.builder()
-                .id(UUID.randomUUID()).orgId(orgId).userId(userId)
+                .id(UUID.randomUUID()).orgId(orgId).userId(requester)
                 .fromDate(mon).toDate(tue).status("PENDING")
                 .leaveType("CL").leaveTypeId(typeId).workingDays(new BigDecimal("2"))
                 .build();
         when(leaveRepo.findByIdAndOrgIdAndIsDeletedFalse(req.getId(), orgId)).thenReturn(Optional.of(req));
         when(typeRepo.findByIdAndOrgIdAndIsDeletedFalse(typeId, orgId))
                 .thenReturn(Optional.of(type(true, true, "12")));
-        LeaveBalance bal = LeaveBalance.builder().orgId(orgId).userId(userId).leaveTypeId(typeId)
+        LeaveBalance bal = LeaveBalance.builder().orgId(orgId).userId(requester).leaveTypeId(typeId)
                 .year(2026).entitled(new BigDecimal("12")).used(BigDecimal.ZERO).build();
-        when(balanceRepo.findByOrgIdAndUserIdAndLeaveTypeIdAndYearAndIsDeletedFalse(orgId, userId, typeId, 2026))
+        when(balanceRepo.findByOrgIdAndUserIdAndLeaveTypeIdAndYearAndIsDeletedFalse(orgId, requester, typeId, 2026))
                 .thenReturn(Optional.of(bal));
         ArgumentCaptor<LeaveBalance> cap = ArgumentCaptor.forClass(LeaveBalance.class);
         when(balanceRepo.save(cap.capture())).thenAnswer(inv -> inv.getArgument(0));
@@ -233,12 +236,47 @@ class LeaveManagementServiceTest {
     }
 
     @Test
+    void approveLeave_ownRequest_throwsSelfApproval() {
+        // A user (even an admin) cannot approve their OWN leave request.
+        LeaveRequest req = LeaveRequest.builder()
+                .id(UUID.randomUUID()).orgId(orgId).userId(userId)   // owned by the current user
+                .fromDate(mon).toDate(tue).status("PENDING")
+                .leaveType("CL").leaveTypeId(typeId).workingDays(new BigDecimal("2"))
+                .build();
+        when(leaveRepo.findByIdAndOrgIdAndIsDeletedFalse(req.getId(), orgId)).thenReturn(Optional.of(req));
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.approveLeave(req.getId()));
+        assertEquals("LEAVE_SELF_APPROVAL_FORBIDDEN", ex.getErrorCode());
+        assertEquals("PENDING", req.getStatus());
+        verify(balanceRepo, never()).save(any());
+        verify(leaveRepo, never()).save(any());
+    }
+
+    @Test
+    void rejectLeave_ownRequest_throwsSelfApproval() {
+        LeaveRequest req = LeaveRequest.builder()
+                .id(UUID.randomUUID()).orgId(orgId).userId(userId)   // owned by the current user
+                .fromDate(mon).toDate(tue).status("PENDING")
+                .leaveType("CL").leaveTypeId(typeId).workingDays(new BigDecimal("2"))
+                .build();
+        when(leaveRepo.findByIdAndOrgIdAndIsDeletedFalse(req.getId(), orgId)).thenReturn(Optional.of(req));
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.rejectLeave(req.getId(), "no"));
+        assertEquals("LEAVE_SELF_APPROVAL_FORBIDDEN", ex.getErrorCode());
+        assertEquals("PENDING", req.getStatus());
+        verify(leaveRepo, never()).save(any());
+    }
+
+    @Test
     void approveLeave_exceedsRemainingBalance_throws() {
         // Two disjoint PENDING requests both pass the apply-time check (balance
         // untouched until approval); the second approval must be rejected once the
         // first has consumed the balance.
+        UUID requester = UUID.randomUUID();
         LeaveRequest req = LeaveRequest.builder()
-                .id(UUID.randomUUID()).orgId(orgId).userId(userId)
+                .id(UUID.randomUUID()).orgId(orgId).userId(requester)
                 .fromDate(mon).toDate(tue).status("PENDING")
                 .leaveType("CL").leaveTypeId(typeId).workingDays(new BigDecimal("2"))
                 .build();
@@ -246,9 +284,9 @@ class LeaveManagementServiceTest {
         when(typeRepo.findByIdAndOrgIdAndIsDeletedFalse(typeId, orgId))
                 .thenReturn(Optional.of(type(true, true, "12")));
         // Balance already fully used (entitled 12, used 11 → available 1 < 2).
-        LeaveBalance bal = LeaveBalance.builder().orgId(orgId).userId(userId).leaveTypeId(typeId)
+        LeaveBalance bal = LeaveBalance.builder().orgId(orgId).userId(requester).leaveTypeId(typeId)
                 .year(2026).entitled(new BigDecimal("12")).used(new BigDecimal("11")).build();
-        when(balanceRepo.findByOrgIdAndUserIdAndLeaveTypeIdAndYearAndIsDeletedFalse(orgId, userId, typeId, 2026))
+        when(balanceRepo.findByOrgIdAndUserIdAndLeaveTypeIdAndYearAndIsDeletedFalse(orgId, requester, typeId, 2026))
                 .thenReturn(Optional.of(bal));
 
         var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,

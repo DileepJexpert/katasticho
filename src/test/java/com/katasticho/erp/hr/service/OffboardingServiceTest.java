@@ -130,6 +130,32 @@ class OffboardingServiceTest {
         assertEquals(LocalDate.of(2026, 5, 31), cap.getValue().getDateOfExit());
     }
 
+    @Test
+    void cancel_initiated_setsCancelled() {
+        UUID id = UUID.randomUUID();
+        Offboarding ob = Offboarding.builder().id(id).orgId(orgId).employeeUserId(empUserId)
+                .status("INITIATED").build();
+        when(offboardingRepo.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)).thenReturn(Optional.of(ob));
+        when(offboardingRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        assertEquals("CANCELLED", service.cancel(id).getStatus());
+    }
+
+    @Test
+    void cancel_completed_throwsFinalState() {
+        // A COMPLETED offboarding already flipped the employee to EXITED; cancelling
+        // it would falsely imply a rollback that never happens.
+        UUID id = UUID.randomUUID();
+        Offboarding ob = Offboarding.builder().id(id).orgId(orgId).employeeUserId(empUserId)
+                .status("COMPLETED").build();
+        when(offboardingRepo.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)).thenReturn(Optional.of(ob));
+
+        var ex = assertThrows(BusinessException.class, () -> service.cancel(id));
+        assertEquals("OFFB_FINAL_STATE", ex.getErrorCode());
+        assertEquals("COMPLETED", ob.getStatus());
+        verify(offboardingRepo, never()).save(any());
+    }
+
     // ── Gulf gratuity payout (V16) ──
 
     private Account stubAccount(String code) {

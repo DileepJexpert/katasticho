@@ -34,6 +34,7 @@ public class ContactController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ApiResponse<ContactResponse> create(@Valid @RequestBody CreateContactRequest req) {
         return ApiResponse.created(contactService.create(req));
     }
@@ -52,6 +53,7 @@ public class ContactController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ApiResponse<ContactResponse> update(
             @PathVariable UUID id,
             @Valid @RequestBody CreateContactRequest req) {
@@ -60,12 +62,14 @@ public class ContactController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public void delete(@PathVariable UUID id) {
         contactService.delete(id);
     }
 
     @PostMapping("/{id}/persons")
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ApiResponse<ContactPersonResponse> addPerson(
             @PathVariable UUID id,
             @Valid @RequestBody ContactPersonRequest req) {
@@ -74,6 +78,7 @@ public class ContactController {
 
     @DeleteMapping("/{id}/persons/{personId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public void deletePerson(@PathVariable UUID id, @PathVariable UUID personId) {
         contactService.deletePerson(id, personId);
     }
