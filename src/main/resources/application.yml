@@ -98,6 +98,18 @@ app:
     phone: ${PLATFORM_ADMIN_PHONE:}
     email: ${PLATFORM_ADMIN_EMAIL:}
     password: ${PLATFORM_ADMIN_PASSWORD:}
+  # Fixed QA login for manual testing / bug-fixing. Seeds ONE org + OWNER with
+  # every module enabled on first boot; idempotent (skips if the phone exists);
+  # never touches real signups. Disabled by default — set TEST_ACCOUNT_ENABLED=true
+  # in a dev/test environment only. Do NOT enable in production (known password).
+  test-account:
+    enabled: ${TEST_ACCOUNT_ENABLED:false}
+    phone: ${TEST_ACCOUNT_PHONE:9000000001}
+    password: ${TEST_ACCOUNT_PASSWORD:Test@12345}
+    full-name: ${TEST_ACCOUNT_FULL_NAME:Test QA Owner}
+    org-name: ${TEST_ACCOUNT_ORG_NAME:Test QA Company}
+    business-type: ${TEST_ACCOUNT_BUSINESS_TYPE:DISTRIBUTOR}
+    country-code: ${TEST_ACCOUNT_COUNTRY:IN}
   rate-limit:
     requests-per-minute: ${RATE_LIMIT_REQUESTS_PER_MINUTE:1000}
     auth-requests-per-minute: ${RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE:20}
