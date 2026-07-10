@@ -6,10 +6,10 @@ edge cases) with the exact data to type on-screen and the exact result to verify
 Print them, or copy the tables into a sheet, and fill the **Actual result /
 Status** columns as you go.
 
-> **Scope of this pack:** Sales, Purchase, Inventory, Accounting, HR, Payroll.
-> These are the six modules the business runs on day-to-day. Field-sales, GST
-> filing, manufacturing, AI inbox, and partner-network have their own flows — add
-> packs for them later using the same format.
+> **Scope of this pack:** Sales, Purchase, Inventory, Accounting, HR, Payroll,
+> plus Settings/Module-visibility (07) and GST & Tax Compliance (08). Field-sales,
+> manufacturing, AI inbox, and partner-network have their own flows — add packs
+> for them later using the same format.
 
 ---
 
@@ -24,6 +24,7 @@ Status** columns as you go.
 | 05 | **HR** | [`05_HR_test_cases.md`](05_HR_test_cases.md) | Employees + profile, leave, attendance/regularization, shifts, timesheets, help desk, documents, offboarding, analytics |
 | 06 | **Payroll** | [`06_PAYROLL_test_cases.md`](06_PAYROLL_test_cases.md) | Employees (payroll), salary structure, payroll run lifecycle, PF/ESI/PT/LWF/TDS, LOP, journal posting, statutory payment |
 | 07 | **Settings: Modules** | [`07_SETTINGS_MODULES_test_cases.md`](07_SETTINGS_MODULES_test_cases.md) | Per-org module visibility (`/settings/modules` Show/Hide/Default), vertical defaults, multi-org isolation, fixed QA test login |
+| 08 | **GST & Tax Compliance** | [`08_GST_COMPLIANCE_test_cases.md`](08_GST_COMPLIANCE_test_cases.md) | GSTR-1/3B, GSTR-2B recon + IMS, e-invoice (IRN), e-way bills, composition (CMP-08), TDS (26Q), TCS (27EQ), compliance calendar, ITC risk |
 
 ---
 
