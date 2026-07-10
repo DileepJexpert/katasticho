@@ -58,10 +58,12 @@ transfer orders → picklists → valuation (FIFO / weighted-average) → low-st
 | **Route** | `/items` · **Role:** OWNER |
 
 **Test data:** create Cough Syrup 100ml, Digital Thermometer (non-batch),
-Vitamin C (12% GST) per the README standard-data table, each with opening stock.
+Vitamin C (supplement, HSN 2106 @ **18%** GST) per the README standard-data
+table, each with opening stock.
 
 **Expected result:** All four items exist with correct HSN/GST/price and opening
 on-hand. The non-batch Thermometer books opening stock **without** a batch.
+Vitamin C's HSN 2106 auto-fills 18% (matches the seed — see TC-INV-003).
 
 **Actual / Status / Notes:**
 
@@ -90,8 +92,10 @@ shows. Selecting `2106` (supplements) fills **18%**.
 
 **Steps:** Create a second item with SKU `PARA500`.
 
-**Expected result:** Duplicate SKU rejected with a clear message (or auto-suffixed
-— record which). No silent overwrite of the first item.
+**Expected result:** Rejected with "Item with SKU PARA500 already exists" —
+**`INV_DUPLICATE_SKU`**, HTTP **409**. The same guard fires on rename/update.
+(Auto-suffixing exists only in the POS catalog quick-add SKU generator, never on
+the item form.) No silent overwrite of the first item.
 
 **Actual / Status / Notes:**
 
@@ -167,31 +171,38 @@ reverts to MRP.
 
 ---
 
-### TC-INV-012 — UoM conversion
+### TC-INV-012 — UoM conversion (price, not quantity)
 | | |
 |---|---|
 | **Priority / Type** | P2 / Edge |
 | **Route** | item form · **Role:** OWNER |
-| **Preconditions** | An item with base + purchase UoM (e.g. Strip / Box of 10) |
+| **Preconditions** | An item with base + purchase UoM (e.g. Strip / Box of 10, ₹80/box) |
 
-**Expected result:** Buying in "Box of 10" adds the right base-unit qty to stock
-(1 box → 10 strips). Conversion factor is honoured on GRN and sale.
+**Expected result:** The purchase-UoM conversion factor converts **PRICE, not
+quantity** — an item with purchase UoM "Box of 10" @ ₹80/box gets
+`purchasePrice = ₹8/strip`. **GRN and sale quantities must be entered in the
+item's base unit** (a GRN qty of 10 means 10 strips → on-hand +10; entering "1
+box" as qty 1 books 1 strip). Quantity auto-conversion on GRN/sale is not
+implemented — treat it as a feature gap, not a test expectation.
 
 **Actual / Status / Notes:**
 
 ---
 
-### TC-INV-013 — Composite (BOM) item stock is derived
+### TC-INV-013 — Composite (BOM) item — no own stock, components deduct
 | | |
 |---|---|
 | **Priority / Type** | P1 / Edge |
 | **Route** | `/items` (composite) · **Role:** OWNER |
 | **Preconditions** | A composite item with a BOM of 2+ components that have stock |
 
-**Expected result:** The composite's available qty = **min buildable** across
-components (e.g. component A=100, B=40, ratio 1:1 → buildable 40). The composite
-**never** has its own stock movement; changing a component's stock changes the
-derived buildable count.
+**Expected result**
+- Creating a composite **with opening stock is rejected** —
+  **`INV_COMPOSITE_OPENING_NOT_ALLOWED`** (composites never hold own stock).
+- Selling the composite (invoice/POS) **deducts each BOM child's stock** by
+  ratio × qty and records **no movement for the parent**.
+- The parent shows no on-hand of its own. (A displayed "min-buildable" quantity
+  is **not implemented** — don't test for it.)
 
 **Actual / Status / Notes:**
 
@@ -203,14 +214,20 @@ derived buildable count.
 | | |
 |---|---|
 | **Priority / Type** | P0 / Edge |
-| **Route** | `/items` + `/delivery-challans` · **Role:** OPERATOR |
-| **Preconditions** | Paracetamol with Batch-A (expiry 2026-06) qty 100 and Batch-B (expiry 2027-06) qty 100 |
+| **Route** | `/pos` or a **direct** invoice (`/invoices`) · **Role:** OPERATOR |
+| **Preconditions** | Paracetamol with Batch-A (expiry 2026-12) qty 100 and Batch-B (expiry 2027-06) qty 100 |
 
-**Steps:** Sell/dispatch 120 units.
+**Steps:** Sell 120 units via POS or a direct sales invoice, **leaving the batch
+unselected** (auto-pick).
 
-**Expected result:** **FEFO** consumes Batch-A first (100), then Batch-B (20).
-Batch-A → 0, Batch-B → 80. Never consumes the later-expiry batch while an earlier
-one has stock.
+**Expected result**
+- **FEFO auto-pick** consumes Batch-A first (100), then Batch-B (20) — **two**
+  SALE movements. Batch-A → 0, Batch-B → 80. Never consumes the later-expiry
+  batch while an earlier one has stock. Selling more than both batches hold →
+  **`INV_INSUFFICIENT_BATCH_STOCK`** (409).
+- **DC path is different:** delivery-challan dispatch does **NOT** auto-FEFO —
+  the operator picks the batch **per line** (two lines: 100 from A + 20 from B);
+  a single over-sized line against one batch fails with `DC_INSUFFICIENT_STOCK`.
 
 **Actual / Status / Notes:**
 
@@ -297,10 +314,13 @@ on stock movements.
 | | |
 |---|---|
 | **Priority / Type** | P1 / Edge |
-| **Route** | `/inventory/transfer-orders` · **Role:** OWNER |
+| **Route** | `/inventory/transfer-orders` · **Role:** OWNER/ADMIN/ACCOUNTANT (cancel excludes OPERATOR) |
 
-**Expected result:** Cancelling a shipped-but-not-received (or received) transfer
-reverses the legs so both warehouse balances return to pre-transfer values.
+**Expected result:** Cancelling an **IN_TRANSIT** (shipped-but-not-received)
+transfer reverses the TRANSFER_OUT legs so the source warehouse returns to its
+pre-transfer balance (REVERSAL rows, original cost carried). Cancelling a
+**RECEIVED** transfer is **blocked** with **`TO_ALREADY_RECEIVED`** (400) — a
+correcting counter-transfer is required. Cancelling a DRAFT is a stock no-op.
 
 **Actual / Status / Notes:**
 
@@ -312,13 +332,16 @@ reverses the legs so both warehouse balances return to pre-transfer values.
 | | |
 |---|---|
 | **Priority / Type** | P1 / Happy |
-| **Route** | `/inventory/stock-counts` · **Role:** OWNER/OPERATOR |
+| **Route** | `/inventory/stock-counts` · **Role:** OPERATOR creates/counts; **OWNER/ADMIN/ACCOUNTANT posts** |
 | **Preconditions** | Paracetamol system on-hand = 200 |
 
-**Steps:** New count → enter **counted = 205** → post.
+**Steps:** New count (OPERATOR may create + enter quantities) → enter **counted =
+205** → post as OWNER/ADMIN/ACCOUNTANT.
 
-**Expected result:** A **+5 variance** adjustment movement is recorded; on-hand →
-205. The count document shows system vs counted vs variance per line.
+**Expected result:** A **+5 variance** movement of type **STOCK_COUNT** is
+recorded; on-hand → 205. The count document shows system vs counted vs variance
+per line. **Role sub-check:** an OPERATOR attempting the **post** gets **403**
+(post/cancel are OWNER/ADMIN/ACCOUNTANT only).
 
 **Actual / Status / Notes:**
 
@@ -328,12 +351,12 @@ reverses the legs so both warehouse balances return to pre-transfer values.
 | | |
 |---|---|
 | **Priority / Type** | P1 / Happy |
-| **Route** | `/inventory/stock-counts` · **Role:** OPERATOR |
+| **Route** | `/inventory/stock-counts` · **Role:** OWNER/ADMIN/ACCOUNTANT (post step) |
 
 **Steps:** Counted = 195 (system 205) → post.
 
-**Expected result:** A **−10 variance** adjustment; on-hand → 195. Ledger shows a
-new adjustment row (append-only; the prior rows are untouched).
+**Expected result:** A **−10 variance** movement (type **STOCK_COUNT**); on-hand
+→ 195. Ledger shows a new row (append-only; the prior rows are untouched).
 
 **Actual / Status / Notes:**
 
@@ -347,13 +370,13 @@ new adjustment row (append-only; the prior rows are untouched).
 
 **Expected result:** Cancelling a **draft** (unposted) count records no movement;
 stock unchanged. A posted count cannot be silently edited — a correcting count is
-required.
+required. (Cancel is also OWNER/ADMIN/ACCOUNTANT only.)
 
 **Actual / Status / Notes:**
 
 ---
 
-## F. Picklists
+## F. Picklists & serial numbers
 
 ### TC-INV-050 — Generate a picklist from a sales order
 | | |
@@ -365,6 +388,25 @@ required.
 **Expected result:** A picklist generates with lines/quantities/rack locations
 from the SO; lifecycle create → start → complete works; completing does **not**
 itself deduct stock (dispatch does that).
+
+**Actual / Status / Notes:**
+
+---
+
+### TC-INV-051 — Serial-number tracking (receive → sell → return)
+| | |
+|---|---|
+| **Priority / Type** | P2 / Edge |
+| **Route** | `/inventory/serial-numbers` (API `/api/v1/serial-numbers`) · **Role:** OWNER/OPERATOR |
+| **Preconditions** | A serial-tracked item (e.g. Digital Thermometer with serial tracking on) |
+
+**Steps:** Receive units with serials `SN-001`…`SN-003` → sell `SN-002` → view
+the serial list → process a return/damage on one serial.
+
+**Expected result:** Each serial exists in stock **exactly once**; selling a
+serial marks it sold (it can't be sold twice); the return/damage transition
+updates its status. The serial screen shows the current status per serial.
+Record any deviation — this flow has fewer guards than batches.
 
 **Actual / Status / Notes:**
 
@@ -396,9 +438,14 @@ itself deduct stock (dispatch does that).
 | **Route** | Settings + reports · **Role:** OWNER/ACCOUNTANT |
 | **Preconditions** | Set `inventory.valuation_method = WEIGHTED_AVERAGE`; two receipts 100@8 + 100@10 |
 
-**Expected result:** Average cost = (800+1000)/200 = **₹9.00**; selling 120 →
-COGS = 120×9 = **₹1,080**; remaining 80 valued at ₹9 = **₹720**. (Compare with the
-FIFO numbers in TC-INV-060 — they should differ.)
+**Expected result:** Average cost on the **stock summary** = (800+1000)/200 =
+**₹9.00**; remaining 80 valued at **₹720** (the summary's Value column).
+**COGS is different:** the WA path books COGS at the item's current
+`purchasePrice`, which the GRN sets to the **latest** receipt cost (₹10) — so
+selling 120 posts COGS = 120 × 10 = **₹1,200**, *not* 120 × 9. This asymmetry
+(valuation at moving average, COGS at last purchase price) is the implemented
+behaviour — don't fail the case when COGS ≠ average. (Compare with the FIFO
+numbers in TC-INV-060 — all three figures differ.)
 
 **Actual / Status / Notes:**
 
@@ -411,12 +458,20 @@ FIFO numbers in TC-INV-060 — they should differ.)
 | **Route** | POS + GRN · **Role:** OWNER |
 | **Preconditions** | A brand-new item with **no purchase price**, sold via POS bill-freely |
 
-**Steps:** Sell the item at POS before any purchase (provisional COGS booked
-against Stock-Out Suspense) → later receive it via a GRN at a real cost.
+**Steps:** Sell 2 units at POS before any purchase (MRP ₹100; default provisional
+margin 25% → provisional cost ₹75/unit) → later receive 10 via a GRN at actual
+cost ₹80.
 
-**Expected result:** At GRN, a **true-up correction journal** posts — Stock-Out
-Suspense clears, COGS adjusts to the real cost, the settled movements are stamped.
-P&L reads correctly afterwards; balance sheet matches physical stock.
+**Expected result**
+- The sale journal shows **DR COGS ₹150 / CR Stock-Out Suspense (2042) ₹150**
+  (not CR Inventory 1200 — that leg is only for items with a real purchase
+  price); the SALE movements are flagged `cost_provisional`.
+- At GRN, exactly **one** correction journal (source `GRN_RECONCILE`) posts:
+  **DR 2042 ₹150 / CR Inventory (1200) ₹160 / DR COGS ₹10** (variance: actual 80
+  > provisional 75, × 2 units); the provisional movements get `cost_settled_at`
+  stamped.
+- A **second** GRN posts no further correction (idempotent — nothing pending).
+- P&L reads correctly afterwards; balance sheet matches physical stock.
 
 **Actual / Status / Notes:**
 
@@ -445,9 +500,12 @@ P&L reads correctly afterwards; balance sheet matches physical stock.
 | **Route** | reports → stock summary / item movements · **Role:** ACCOUNTANT |
 
 **Expected result:** Stock summary lists each item's on-hand + value (FIFO lot
-value for FIFO orgs). The movement ledger shows every OPENING/PURCHASE/SALE/
-TRANSFER/ADJUSTMENT row for an item, chronologically — an **append-only** trail
-(reverses appear as new rows, never edits).
+value for FIFO orgs). The movement ledger shows every row for an item
+chronologically with the **real movement types**: `OPENING / PURCHASE / SALE /
+TRANSFER_OUT / TRANSFER_IN / STOCK_COUNT / ADJUSTMENT / REVERSAL` — note that
+**stock-count variances post as `STOCK_COUNT`** (not ADJUSTMENT) and transfers
+appear as the OUT/IN pair. An **append-only** trail: reverses appear as REVERSAL
+rows flagged `is_reversal`, never edits.
 
 **Actual / Status / Notes:**
 
@@ -476,7 +534,7 @@ balance cache never drifts from the ledger.
 | C Batches/expiry | 3 | | | |
 | D Warehouses/transfers | 4 | | | |
 | E Stock counts | 3 | | | |
-| F Picklists | 1 | | | |
+| F Picklists & serials | 2 | | | |
 | G Valuation | 3 | | | |
 | H Low-stock/reports | 3 | | | |
-| **Total** | **28** | | | |
+| **Total** | **29** | | | |

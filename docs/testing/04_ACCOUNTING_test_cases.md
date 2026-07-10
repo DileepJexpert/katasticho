@@ -27,10 +27,13 @@ Balance Sheet → Bank reconciliation → Audit trail.**
 | **Route** | `/accounts` · **Role:** OWNER |
 | **Preconditions** | Fresh org |
 
-**Expected result:** The chart of accounts is pre-seeded (~61 accounts) covering
-Assets (Cash 1010, Bank 1020, AR 1100, Inventory 1200), Liabilities (AP 2010, GST
-payable, TCS/TDS payable), Equity, Income (Sales 4010), Expenses (COGS 5xxx). No
-manual setup needed to start trading.
+**Expected result:** The chart of accounts is pre-seeded — **~64 accounts for an
+India TRADING org** (61 base template rows + 2042 Stock-Out Suspense + 2080
+Gratuity Provision + 5130 Gratuity Expense); **RETAIL/SERVICES/F&B orgs seed
+~59** (56 base + the same 3) — covering Assets (Cash 1010, Bank 1020, AR 1100,
+Inventory 1200), Liabilities (AP 2010, GST payable, TCS/TDS payable), Equity,
+Income (Sales 4010), Expenses (COGS 5xxx). No manual setup needed to start
+trading.
 
 **Actual / Status / Notes:**
 
@@ -110,8 +113,12 @@ the Day Book / Journal Register. TB stays balanced.
 
 **Test data:** Debit Bank 10,000 / Credit Capital **9,000** (Σ ≠).
 
-**Expected result:** Posting is **rejected** — "debits must equal credits". No
-partial post.
+**Expected result:** In the **UI** the unbalanced journal cannot even be
+submitted — the balance indicator turns red showing **"Difference: ₹1,000"** and
+both **Save Draft** and **Post** stay disabled until Σdebits = Σcredits. Via
+**API**, creation is rejected with **`ACCT_JOURNAL_IMBALANCE`** (400 — "Journal
+does not balance. Debit: 10000.00, Credit: 9000.00"). An all-zero journal is
+rejected with **`ACCT_JOURNAL_ZERO`**. No partial post either way.
 
 **Actual / Status / Notes:**
 
@@ -121,10 +128,15 @@ partial post.
 | | |
 |---|---|
 | **Priority / Type** | P1 / Happy |
-| **Route** | `/accounting/journal-entries` · **Role:** ACCOUNTANT |
+| **Route** | `/accounting/journal-entries` (post = API) · **Role:** ACCOUNTANT |
 
-**Expected result:** A DRAFT journal does not affect balances; posting it does.
-A draft can be edited before posting.
+**Expected result:** A DRAFT journal (created via **Save Draft**) does not affect
+balances or reports; posting it does. A draft **cannot be edited** — there is no
+update endpoint and no edit screen; to change one, **delete it** (Delete on the
+journal detail, manual entries only) and re-create. Posting an existing draft is
+currently **API-only**: `POST /api/v1/journal-entries/{id}/post`
+(OWNER/ADMIN/ACCOUNTANT) — the detail screen has no Post action (known UI gap;
+note it in Actual/Notes).
 
 **Actual / Status / Notes:**
 
@@ -134,13 +146,16 @@ A draft can be edited before posting.
 | | |
 |---|---|
 | **Priority / Type** | P1 / Edge |
-| **Route** | `/accounting/journal-entries` · **Role:** OWNER |
+| **Route** | **API only** — `POST /api/v1/journal-entries/{id}/reverse` (no Reverse button in the UI yet) · **Role:** OWNER/ADMIN/ACCOUNTANT |
 
-**Steps:** Open a posted journal → **Reverse**.
+**Steps:** Reverse a posted journal via the API.
 
-**Expected result:** A mirror-image reversing entry posts (debits↔credits); net
-effect on all accounts = 0. The original entry is not edited/deleted — the reverse
-is a **new** entry.
+**Expected result:** A mirror-image reversing entry is created as a **new POSTED
+entry dated TODAY** (not the original's date — today's period must be open, else
+**`ACCT_PERIOD_CLOSED`** 409) with debits↔credits swapped; net effect on all
+accounts = 0. The original is not edited/deleted — it only gets
+`isReversed=true`. Reversing a non-POSTED entry → **`ACCT_ENTRY_NOT_POSTED`**
+(400); reversing twice → **`ACCT_ENTRY_ALREADY_REVERSED`** (409).
 
 **Actual / Status / Notes:**
 
@@ -151,10 +166,12 @@ is a **new** entry.
 |---|---|
 | **Priority / Type** | P2 / Edge |
 | **Route** | `/accounting/journal-entries` · **Role:** ACCOUNTANT |
-| **Preconditions** | A cost centre exists |
+| **Preconditions** | None — cost centre is a **free-text tag** typed on the journal line (there is no cost-centre master) |
 
 **Expected result:** A line tagged with a cost centre appears in the **Cost-centre
-P&L** report under that centre.
+P&L** report under that centre. Use a consistent spelling (e.g. "MUMBAI") across
+lines — the report groups by the **exact tag string**, so "Mumbai" and "MUMBAI"
+would appear as two different centres.
 
 **Actual / Status / Notes:**
 
@@ -169,6 +186,47 @@ P&L** report under that centre.
 
 **Expected result:** A journal dated in a closed period is rejected; an open-period
 date posts.
+
+**Actual / Status / Notes:**
+
+---
+
+### TC-ACC-016 — Post-dated journal (stays DRAFT until effective date)
+| | |
+|---|---|
+| **Priority / Type** | P2 / Edge |
+| **Route** | `/accounting/journal-entries` (create form) · **Role:** ACCOUNTANT |
+
+**Test data:** balanced journal (DR Bank 1020 ₹5,000 / CR Capital ₹5,000),
+effective date = **tomorrow**; tick the **"Post-dated voucher"** checkbox (it
+appears only once a future effective date is picked).
+
+**Expected result:** The entry is created **DRAFT** even if "Post" was chosen —
+post-dated vouchers always stay DRAFT. Today's Trial Balance / Day Book do
+**not** include it. After the post-dated job fires on/after the effective date
+(daily, default 00:15), the entry flips to **POSTED** automatically and balances
+update as of the effective date. TB balanced after auto-post.
+
+**Actual / Status / Notes:**
+
+---
+
+## B2. Expenses
+
+### TC-ACC-020 — Record an expense
+| | |
+|---|---|
+| **Priority / Type** | P1 / Happy |
+| **Route** | `/expenses` · **Role:** ACCOUNTANT/OWNER |
+
+**Test data:** expense "Shop electricity" ₹2,500 · category/account an expense GL
+(e.g. Utilities) · paid via Cash.
+
+**Steps:** Expenses → New → fill amount/account/payment mode → save/post.
+
+**Expected result:** Expense posts **DR Expense account ₹2,500 / CR Cash (1010)
+₹2,500** (Bank if paid via bank). It appears in the expense list, the Day Book,
+and reduces net profit on the P&L. No stock, no AR/AP involvement.
 
 **Actual / Status / Notes:**
 
@@ -255,7 +313,7 @@ totals. No document is missing or duplicated.
 | | |
 |---|---|
 | **Priority / Type** | P1 / Happy |
-| **Route** | contact detail → Ledger · **Role:** ACCOUNTANT |
+| **Route** | contact detail → overflow menu → **View Statement** (`/contacts/:id/statement`; API `GET /api/v1/contacts/{id}/ledger`) · **Role:** ACCOUNTANT |
 | **Preconditions** | A customer with invoices + a payment |
 
 **Expected result:** The ledger shows opening balance, each invoice (debit), each
@@ -283,14 +341,42 @@ it are blocked (verified by TC-SAL-045 / TC-PUR-034 / TC-ACC-015).
 
 ---
 
-### TC-ACC-051 — Re-open a period (if allowed)
+### TC-ACC-051 — Re-open a period
 | | |
 |---|---|
 | **Priority / Type** | P2 / Edge |
-| **Route** | `/accounting/period-close` · **Role:** OWNER |
+| **Route** | `/accounting/period-close` (`POST /api/v1/accounting/periods/{year}/{month}/reopen`) · **Role:** OWNER/ADMIN/ACCOUNTANT |
 
-**Expected result:** Only an authorised role can re-open; after re-open, postings
-into that period succeed again. Record whether re-open is permitted.
+**Expected result:** Re-open **is permitted** for a CLOSED period with the **same
+roles as close** (no elevated gate). After re-open, postings into that period
+succeed again. A **LOCKED** period cannot be re-opened — rejected with
+**`ACCT_PERIOD_LOCKED`** (409). Locking (`POST .../lock`) is the only
+OWNER/ADMIN-restricted period action, and only CLOSED periods can be locked
+(**`ACCT_PERIOD_NOT_CLOSED`**, 400).
+
+**Actual / Status / Notes:**
+
+---
+
+### TC-ACC-052 — Year-end close sweeps P&L to Retained Earnings
+| | |
+|---|---|
+| **Priority / Type** | P1 / Edge |
+| **Route** | `/accounting/period-close` (`POST /api/v1/accounting/periods/year-end-close/{fiscalYear}`) · **Role:** OWNER/ADMIN/ACCOUNTANT |
+| **Preconditions** | A fiscal year with posted revenue + expense journals |
+
+**Steps:** Run the year-end close → try to re-run it → then reopen it.
+
+**Expected result**
+- One posted closing journal (source `YEAR_END_CLOSE`) zeroes every REVENUE and
+  EXPENSE account's FY net into **Retained Earnings**; next-FY P&L starts from
+  zero; the Balance Sheet equity includes the swept profit; TB still balances.
+- Re-running the same close → **`YEAR_END_ALREADY_CLOSED`** (409) — no doubled
+  Retained Earnings.
+- Reopen (`POST .../year-end-close/{fiscalYear}/reopen`) reverses the close
+  journal **in the closed year's period** (dated the close entry's own date, not
+  today); P&L balances reappear; reopening a never-closed year →
+  **`YEAR_END_NOT_CLOSED`** (400). The year can then be re-closed.
 
 **Actual / Status / Notes:**
 
@@ -375,7 +461,7 @@ guards against double-posting.
 
 ---
 
-## F. Forex revaluation (multi-currency orgs)
+## F. Forex revaluation & fixed assets
 
 ### TC-ACC-070 — Preview + post period-end forex revaluation
 | | |
@@ -391,6 +477,37 @@ guards against double-posting.
 base-currency/zero-balance/no-rate docs). Post books one consolidated revaluation
 journal on the as-of date **plus an auto-reversing entry the next day**. A
 **zero-delta** run posts nothing and does **not** lock the date.
+
+**Actual / Status / Notes:**
+
+---
+
+### TC-ACC-072 — Fixed asset depreciation run (SLM, idempotent)
+| | |
+|---|---|
+| **Priority / Type** | P1 / Happy |
+| **Route** | `/accounting/fixed-assets` · **Role:** ACCOUNTANT |
+
+**Test data:** asset FA-01 · cost 1,20,000 · residual 0 · method SLM · useful
+life 12 months.
+
+**Steps**
+1. Create the asset. Validation: SLM without life → **`FA_NEED_LIFE`**; WDV
+   without rate → **`FA_NEED_RATE`**; duplicate code → **`FA_CODE_DUP`** (409).
+2. Open the schedule preview — verify 12 monthly charges of **₹10,000**.
+3. Run depreciation for the current month
+   (`POST /api/v1/fixed-assets/depreciation/run?year=&month=`).
+4. Re-run the same month.
+5. Dispose the asset; dispose again.
+
+**Expected result**
+- (3) **One** posted journal dated month-end: **DR Depreciation Expense (5270)
+  ₹10,000 / CR Accumulated Depreciation (1690) ₹10,000**; book value drops to
+  ₹1,10,000; TB balanced.
+- (4) Idempotent — 0 assets charged, no second journal.
+- Final period sweeps the exact residue so book value lands on residualValue to
+  the paisa and the asset flips FULLY_DEPRECIATED.
+- (5) Second dispose → **`FA_NOT_ACTIVE`** (400).
 
 **Actual / Status / Notes:**
 
@@ -466,11 +583,12 @@ the Day Book.
 | Section | Cases | Pass | Fail | Blocked |
 |---------|-------|------|------|---------|
 | A Chart of Accounts | 4 | | | |
-| B Journal entries | 6 | | | |
+| B Journal entries | 7 | | | |
+| B2 Expenses | 1 | | | |
 | C TB / P&L / BS | 6 | | | |
-| D Period close | 2 | | | |
+| D Period close | 3 | | | |
 | E Bank reconciliation | 5 | | | |
-| F Forex revaluation | 1 | | | |
+| F Forex reval & fixed assets | 2 | | | |
 | G Audit trail | 2 | | | |
 | H Regression | 2 | | | |
-| **Total** | **28** | | | |
+| **Total** | **32** | | | |

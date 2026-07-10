@@ -9,14 +9,28 @@ posting → statutory payment.**
 > Money numbers below are exact for the given salary inputs — use them verbatim so
 > the on-screen result can be checked to the paisa.
 
-**Statutory rules exercised here (defaults)**
-- **PF** = 12% of **Basic** (employee) + 12% employer.
-- **ESI** = 0.75% (employee) / 3.25% (employer) of **Gross**, **only if Gross ≤ ₹21,000**.
-- **PT** (Professional Tax) = ₹200 default (state slab).
-- **LWF** = ₹25 employee + ₹75 employer (per the configured period).
-- **TDS** = per the employee's declaration/slab (₹0 for these low-salary examples).
+**Statutory rules exercised here (as implemented)**
+- **Two-level gating:** every statutory deduction needs BOTH the org toggle
+  (payroll settings, all default **off**) AND the **per-employee applicable
+  flag** (pf/esi/pt/lwf on the employee form, all default **off**). Miss either
+  and the line silently won't appear.
+- **PF** = 12% of **Basic** (employee) + 12% employer — **no ₹15,000 wage
+  ceiling** is applied.
+- **ESI** = 0.75% (employee) / 3.25% (employer) of **Gross**, **only if Gross ≤
+  ₹21,000**; computed at 2 dp HALF_UP (no ESIC whole-rupee round-up — ₹112.50
+  stays ₹112.50).
+- **PT** = state-wise **slab** (`pt_slab` master) resolved from the **org's GST
+  state code** + gender + monthly gross; **₹0** for non-PT states or when the
+  org has no state code. Maharashtra: ₹200/month (₹300 in February) for gross ≥
+  ₹7,500 (male).
+- **LWF** = state-wise `lwf_rule` master, deducted **only in the state's
+  collection months** (MH: ₹25/₹75 in **June + December** only; ₹0 other months).
+- **TDS** = **manual** — appears only if a TDS deduction line is added to the
+  salary structure; the system does not auto-compute slab TDS from tax
+  declarations at run time (declarations feed Form 12BB/24Q reporting only).
 - **Lifecycle:** DRAFT → CALCULATED → APPROVED → POSTED (each step gated).
-- **LOP:** earnings prorate by `(periodDays − lopDays) / periodDays`.
+- **LOP:** each earning line prorates by `(periodDays − lopDays) / periodDays`
+  (factor rounded to 6 dp, each line to 2 dp).
 
 ---
 
@@ -71,11 +85,14 @@ created.
 | Conveyance | 1,000 |
 | **Gross** | **15,000** (≤ ₹21,000 → ESI applies) |
 | Pay type | SALARY |
+| Statutory flags | **PF, ESI, PT, LWF all marked applicable** (default OFF) |
 
-**Steps:** Create employee → add salary structure with the components above → save.
+**Steps:** Create employee → **mark PF/ESI/PT/LWF applicable on the employee
+form** → add salary structure with the components above → save.
 
 **Expected result:** Employee + structure save; **gross earnings = ₹15,000**;
-the structure is picked up by a payroll run.
+the structure is picked up by a payroll run. Remember: a statutory line appears
+only when BOTH the org toggle (TC-PAY-001) and this employee flag are on.
 
 **Actual / Status / Notes:**
 
@@ -93,9 +110,11 @@ the structure is picked up by a payroll run.
 | Name | Sneha Iyer · Code EMP-B |
 | Basic | 30,000 · HRA 12,000 · Special 8,000 |
 | **Gross** | **50,000** (> ₹21,000 → **no ESI**) |
+| Statutory flags | PF, ESI, PT, LWF marked applicable |
 
 **Expected result:** Employee + structure save with gross ₹50,000. This employee
-verifies the ESI threshold (no ESI line on her payslip).
+verifies the ESI threshold (no ESI line on her payslip even though her ESI flag
+is on — the ₹21,000 gross gate wins).
 
 **Actual / Status / Notes:**
 
@@ -109,8 +128,9 @@ verifies the ESI threshold (no ESI line on her payslip).
 | **Preconditions** | An employee marked EXITED (via TC-HR-082) before the run month |
 
 **Expected result:** A new payroll run for a month **after** exit does **not**
-include the exited employee. (An arrears run for a month they were employed still
-includes them where applicable.)
+include the exited employee. **Note:** runs include only currently-ACTIVE
+employees — an arrears run for a past month will **NOT** include a now-EXITED
+employee either (known limitation; verify exclusion only).
 
 **Actual / Status / Notes:**
 
@@ -123,7 +143,7 @@ includes them where applicable.)
 |---|---|
 | **Priority / Type** | P0 / Happy |
 | **Route** | `/payroll/runs` · **Role:** OWNER/ADMIN → ACCOUNTANT |
-| **Preconditions** | Employees A + B with structures |
+| **Preconditions** | Employees A + B with structures **and statutory flags on**; org statutory toggles on (TC-PAY-001); **org GSTIN/state = Maharashtra (27)** — otherwise PT = ₹0; run month **not February** (MH PT is ₹300 in Feb) |
 
 **Steps:**
 1. Create a payroll run for the current month → status **DRAFT**.
@@ -131,19 +151,21 @@ includes them where applicable.)
 3. **Approve** → **APPROVED**.
 4. **Post** → **POSTED** (journal posts).
 
-**Expected result — Employee A payslip (gross ₹15,000)**
+**Expected result — Employee A payslip (gross ₹15,000, MH org)**
 | Line | Amount |
 |------|--------|
 | Gross earnings | ₹15,000.00 |
 | PF (employee) 12% × 10,000 | ₹1,200.00 |
-| ESI (employee) 0.75% × 15,000 | ₹112.50 *(ESIC rounds up to ₹113 — confirm which the system uses)* |
-| PT | ₹200.00 |
-| LWF (employee) | ₹25.00 *(if in the LWF period)* |
-| TDS | ₹0.00 |
-| **Net pay** | **₹13,462.50** *(₹13,462 if ESI rounds to ₹113)* |
+| ESI (employee) 0.75% × 15,000 | ₹112.50 (2 dp HALF_UP — the system does **not** apply the ESIC whole-rupee round-up) |
+| PT (MH slab, gross ≥ ₹7,500) | ₹200.00 |
+| LWF (employee) | ₹0.00 in most months — **₹25.00 only when the run month is an MH collection month (June or December)** |
+| TDS | ₹0.00 (no TDS line configured — TDS is manual) |
+| **Net pay** | **₹13,487.50** (normal months) · **₹13,462.50** (June/December, when LWF ₹25 deducts) |
 
 **Employer contributions (not deducted from net):** PF ₹1,200 + ESI 3.25% ×
-15,000 = ₹487.50 + LWF ₹75.
+15,000 = ₹487.50 (+ LWF ₹75 in collection months).
+**If PT/LWF show ₹0 unexpectedly:** check the org state code and the run month
+before filing a bug — both are state/month-resolved, not flat defaults.
 
 **On POST the journal:** **DR Salary Expense + Employer Contributions / CR Salary
 Payable + PF Payable + ESI Payable + PT Payable + LWF Payable + TDS Payable.**
@@ -162,9 +184,10 @@ Payable + PF Payable + ESI Payable + PT Payable + LWF Payable + TDS Payable.**
 
 **Expected result — Employee B (gross ₹50,000)**
 - **No ESI line** (gross > ₹21,000).
-- PF (employee) = 12% × 30,000 = **₹3,600** *(note if the system caps PF wage at
-  ₹15,000 → ₹1,800; record which)*.
-- PT ₹200; net = 50,000 − 3,600 − 200 − LWF − TDS.
+- PF (employee) = 12% × 30,000 = **₹3,600** — the system applies **no ₹15,000
+  EPF wage ceiling**; employer PF also ₹3,600.
+- PT ₹200 (MH org, non-February); LWF only in Jun/Dec.
+- Net (normal months) = 50,000 − 3,600 − 200 = **₹46,200.00**.
 
 **Actual / Status / Notes:**
 
@@ -198,17 +221,21 @@ APPROVED. Same for Post before Approve.
 
 ---
 
-### TC-PAY-024 — Recalculate after editing a structure
+### TC-PAY-024 — Recompute after editing a structure (cancel + new run)
 | | |
 |---|---|
 | **Priority / Type** | P2 / Edge |
 | **Route** | `/payroll/runs` · **Role:** ADMIN |
 
 **Steps:** On a CALCULATED (not yet posted) run, change an employee's Basic →
-Recalculate.
+try **Calculate** again on the same run → then Cancel + re-create.
 
-**Expected result:** Payslip figures update to the new Basic (PF changes
-accordingly). Once POSTED, the run is locked — corrections need a new run.
+**Expected result:** Calculate on a CALCULATED run is **blocked** with 400
+**`PAYROLL_RUN_NOT_DRAFT`** ("Only DRAFT payroll runs can be calculated") —
+there is no recalculate/reset-to-DRAFT endpoint. To recompute: **Cancel** the
+run (allowed for DRAFT/CALCULATED) → create a **new run** for the same period →
+Calculate — the new payslips reflect the new Basic. Once POSTED the run is
+locked (`PAYROLL_RUN_POSTED_CANNOT_CANCEL` on cancel).
 
 **Actual / Status / Notes:**
 
@@ -227,10 +254,12 @@ accordingly). Once POSTED, the run is locked — corrections need a new run.
 
 **Expected result**
 - **lopDays = 2** on the payslip.
-- Earnings prorate by `(30 − 2) / 30 = 28/30`:
-  - Gross ₹15,000 × 28/30 = **₹14,000.00**.
-- PF recomputes on the **prorated Basic** (10,000 × 28/30 = ₹9,333.33 → PF 12% =
-  **₹1,120.00**) — confirm whether PF is on prorated or full Basic per your config.
+- Earnings prorate **per line** with the LOP factor rounded to 6 dp (28/30 →
+  0.933333), each line then HALF_UP to 2 dp: Basic 10,000 → ₹9,333.33, HRA 4,000
+  → ₹3,733.33, Conveyance 1,000 → ₹933.33 → **gross = ₹13,999.99** (one paisa
+  off gross × 28/30 = 14,000.00 — this is correct behaviour, not a bug).
+- PF **is** computed on the prorated Basic: 9,333.33 × 12% = **₹1,120.00**.
+- If ESI is enabled: 13,999.99 × 0.75% = **₹105.00**.
 - Net pay drops accordingly.
 
 **Actual / Status / Notes:**
@@ -331,14 +360,19 @@ TC-PAY-020.
 
 ---
 
-### TC-PAY-051 — Employee sees only own payslip
+### TC-PAY-051 — Payroll is admin-only (no self-service payslips yet)
 | | |
 |---|---|
 | **Priority / Type** | P1 / Role |
-| **Route** | payslip / self-service · **Role:** the employee's user |
+| **Route** | `/payroll/*` APIs · **Role:** an OPERATOR/VIEWER (non-admin employee user) |
 
-**Expected result:** An employee can view **their own** payslip only, not
-colleagues'. An OPERATOR/VIEWER cannot run or approve payroll.
+**Expected result:** A non-admin user gets **403 on every `/api/v1/payroll`
+endpoint** — they cannot view ANY payslip, including their own (self-service
+payslip viewing is not yet implemented; the whole controller is gated
+OWNER/ADMIN/ACCOUNTANT), and cannot create/calculate/approve/post runs. The only
+payroll self-service today is **tax declarations** (`/payroll/tax-declaration` →
+`/api/v1/payroll/tax-declarations/me`). If an employee-facing payslip is
+expected, log it as a feature request, not a test failure.
 
 **Actual / Status / Notes:**
 

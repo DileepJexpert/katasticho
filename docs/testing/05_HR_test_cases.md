@@ -15,7 +15,9 @@ Timesheets → Help desk → Documents → Analytics → Offboarding.**
 - Paid leave checks the balance; **insufficient balance is rejected**
   (`HR_LEAVE_INSUFFICIENT_BALANCE`). Unpaid leave feeds payroll **LOP**.
 - Working days exclude **weekends + org holidays**.
-- Overlapping leave is blocked; **self-approval is blocked**.
+- Overlapping leave is blocked. **Self-approval is blocked only on the legacy
+  attendance leave path** (`LEAVE_SELF_APPROVAL_FORBIDDEN`) — the HR leave module
+  (`/hr/leave`) currently has **no** self-approval guard (see TC-HR-017).
 - Offboarding cannot complete until all clearance tasks are done.
 
 ---
@@ -243,14 +245,60 @@ balance.
 
 ---
 
-### TC-HR-017 — Self-approval is blocked
+### TC-HR-017 — Self-approval is blocked (attendance leave path only)
 | | |
 |---|---|
 | **Priority / Type** | P1 / Negative |
-| **Route** | `/hr/leave` · **Role:** a manager applying for own leave |
+| **Route** | API `POST /api/v1/attendance/leave/{id}/approve` (legacy attendance-module leave) · **Role:** an ADMIN approving their **own** leave |
 
-**Expected result:** A manager cannot approve their **own** leave request; someone
-else in the approval chain must.
+**Expected result:** On the **attendance-module** leave path, approving or
+rejecting your own request is rejected with **`LEAVE_SELF_APPROVAL_FORBIDDEN`**
+(403). **Known gap:** the HR leave module (`/hr/leave` → `POST
+/api/v1/hr/leave/{id}/approve`) has **no** self-approval guard — an OWNER/ADMIN
+*can* approve their own leave there. If observed, record it as a product-bug
+candidate, not a test failure.
+
+**Actual / Status / Notes:**
+
+---
+
+### TC-HR-018 — Approving past entitlement is blocked at approval time
+| | |
+|---|---|
+| **Priority / Type** | P1 / Negative |
+| **Route** | `/hr/leave` · **Role:** anita (apply) → ADMIN (approve) |
+| **Preconditions** | A paid leave type with available balance = 3 days |
+
+**Steps**
+1. As Anita, apply for leave A = 2 working days (PENDING).
+2. Without approving A, apply for a **non-overlapping** leave B = 2 working days
+   (also PENDING — both pass the apply-time check since the balance is only
+   pre-checked, not reserved, until approval).
+3. As ADMIN, approve A → APPROVED, balance drops to 1.
+4. Approve B.
+
+**Expected result:** Step 4 is **rejected** with
+**`HR_LEAVE_INSUFFICIENT_BALANCE`** (400) — available 1 vs requested 2; B stays
+PENDING; balance stays 1 with no partial deduction. Reject B to clean up.
+
+**Actual / Status / Notes:**
+
+---
+
+### TC-HR-019 — Only the requester (or OWNER/ADMIN) can cancel a leave
+| | |
+|---|---|
+| **Priority / Type** | P1 / Negative |
+| **Route** | API `POST /api/v1/hr/leave/{id}/cancel` · **Role:** a second non-admin user |
+| **Preconditions** | Anita has an APPROVED paid leave |
+
+**Steps:** As a different non-admin user, cancel Anita's leave; then as Anita;
+then as OWNER/ADMIN.
+
+**Expected result:** The colleague is rejected with **`LEAVE_NOT_OWNER`** (403) —
+leave stays APPROVED, balance unchanged. Anita's own cancel succeeds →
+CANCELLED, balance restored (per TC-HR-016). OWNER/ADMIN cancelling another
+user's leave **is** allowed (admin bypass by design).
 
 **Actual / Status / Notes:**
 
@@ -262,7 +310,7 @@ else in the approval chain must.
 | | |
 |---|---|
 | **Priority / Type** | P1 / Happy |
-| **Route** | `/hr/attendance` (or field app) · **Role:** anita |
+| **Route** | Field app (Today dashboard attendance card) or API `POST /api/v1/attendance/punch-in` / `punch-out` · **Role:** anita — the ERP `/hr/attendance` screen is view/regularize-only (Summary, Regularize, Approvals tabs); verify the punch results there |
 
 **Steps:** Punch in, then later punch out.
 
@@ -298,7 +346,11 @@ attendance record; the monthly summary updates.
 
 **Expected result:** For a month, the summary shows working days, present days,
 approved leave (clipped to the month), holidays, weekends, absent, total hours,
-and **payable days = present + paid leave**. The arithmetic ties out
+and **payable days = present + ALL approved leave days in the month** — the
+current implementation does **not** exclude unpaid leave (if the 2 unpaid days
+from TC-HR-014 fall in this month, payableDays includes them; payroll LOP nets
+unpaid leave separately). The code comment claims paid-leave-only — flag the
+discrepancy as a product-bug candidate. The arithmetic ties out
 (present + leave + holidays + weekends + absent = calendar days).
 
 **Actual / Status / Notes:**
@@ -483,7 +535,7 @@ still blocked.
 
 **Expected result:** The linked payroll **Employee is marked EXITED** with the
 date of exit; the offboarding record → COMPLETED. An exited employee is excluded
-from new payroll runs (verify in TC-PAY-011).
+from new payroll runs (verify in TC-PAY-012).
 
 **Actual / Status / Notes:**
 
@@ -495,8 +547,38 @@ from new payroll runs (verify in TC-PAY-011).
 | **Priority / Type** | P2 / Edge |
 | **Route** | `/hr/offboarding` · **Role:** OWNER |
 
-**Expected result:** An INITIATED offboarding can be cancelled; the employee stays
-ACTIVE. A COMPLETED one cannot be re-cancelled.
+**Expected result:** An INITIATED offboarding can be cancelled; the employee
+stays ACTIVE (only **Complete** marks the employee EXITED). **Known gap:** the
+backend currently allows cancelling a COMPLETED offboarding too — `cancel()` has
+no status guard and the UI shows "Cancel exit" for every status; the cancel
+succeeds and the employee **remains EXITED** (the exit is never rolled back). If
+a block on re-cancelling COMPLETED is expected, file it as a product bug, not a
+test failure.
+
+**Actual / Status / Notes:**
+
+---
+
+### TC-HR-084 — Gratuity payout on exit (India)
+| | |
+|---|---|
+| **Priority / Type** | P1 / Edge |
+| **Route** | API `POST /api/v1/hr/offboarding/{id}/pay-gratuity` · **Role:** OWNER/ADMIN |
+| **Preconditions** | IN org; an offboarding for an employee with a salary structure (BASIC+DA) and **> 5 years** of service |
+
+**Steps:** Pay gratuity → pay again → repeat on an offboarding whose employee has
+< 5 years of service.
+
+**Expected result**
+- A posted journal **DR 2080 Gratuity Provision / CR Cash (1010)** (or the org's
+  configured payout account) for the computed amount — (basic+DA) × 15/26 ×
+  §4(2)-rounded completed years (final year ≥ 6 months rounds up), ₹20L cap;
+  `gratuityAmount`/journal id/`gratuityPaidAt` stamped on the offboarding.
+- Second attempt → **`OFFB_GRATUITY_ALREADY_PAID`** (409).
+- **< 5 years:** gratuityAmount = 0, paid-at stamped, **no journal** created.
+- Non-IN/AE/OM org → `OFFB_GRATUITY_NOT_APPLICABLE`; no linked payroll employee
+  → `OFFB_GRATUITY_NO_EMPLOYEE`. (This exit path is **not** gated by
+  `payroll.india_gratuity_enabled` — that setting only gates the monthly accrual.)
 
 **Actual / Status / Notes:**
 
@@ -507,12 +589,12 @@ ACTIVE. A COMPLETED one cannot be re-cancelled.
 | Section | Cases | Pass | Fail | Blocked |
 |---------|-------|------|------|---------|
 | A Employee + profile | 6 | | | |
-| B Leave | 8 | | | |
+| B Leave | 10 | | | |
 | C Attendance | 3 | | | |
 | D Shifts | 2 | | | |
 | E Timesheets | 2 | | | |
 | F Help desk | 1 | | | |
 | G Documents | 2 | | | |
 | H Analytics | 1 | | | |
-| I Offboarding | 4 | | | |
-| **Total** | **29** | | | |
+| I Offboarding | 5 | | | |
+| **Total** | **32** | | | |
