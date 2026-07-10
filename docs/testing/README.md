@@ -6,10 +6,10 @@ edge cases) with the exact data to type on-screen and the exact result to verify
 Print them, or copy the tables into a sheet, and fill the **Actual result /
 Status** columns as you go.
 
-> **Scope of this pack:** Sales, Purchase, Inventory, Accounting, HR, Payroll,
-> plus Settings/Module-visibility (07), GST & Tax Compliance (08), Field Sales &
-> MR (09), and Manufacturing (10). AI inbox and partner-network have their own
-> flows — add packs for them later using the same format.
+> **Scope of this pack:** the full app — Sales, Purchase, Inventory, Accounting,
+> HR, Payroll (01–06), plus Settings/Module-visibility (07), GST & Tax Compliance
+> (08), Field Sales & MR (09), Manufacturing (10), AI Inbox (11), and Partner
+> Network (12). All twelve packs share the same execute-from-the-screen format.
 
 ---
 
@@ -27,6 +27,8 @@ Status** columns as you go.
 | 08 | **GST & Tax Compliance** | [`08_GST_COMPLIANCE_test_cases.md`](08_GST_COMPLIANCE_test_cases.md) | GSTR-1/3B, GSTR-2B recon + IMS, e-invoice (IRN), e-way bills, composition (CMP-08), TDS (26Q), TCS (27EQ), compliance calendar, ITC risk |
 | 09 | **Field Sales & MR** | [`09_FIELD_SALES_MR_test_cases.md`](09_FIELD_SALES_MR_test_cases.md) | Beats/routes/vans, route execution + visits (geofence, ownership), van stock, day-close, targets, TA/DA, samples, live tracking, tour plan/DCR/detailing, RCPA, secondary sales, coverage, hierarchy, attendance |
 | 10 | **Manufacturing** | [`10_MANUFACTURING_test_cases.md`](10_MANUFACTURING_test_cases.md) | BOM + routing, work-order lifecycle + WIP accounting, backflush, job cards/shop floor, job work, QC + disposition/NCR, scrap, MRP, maintenance (MTBF/MTTR), advanced BOM, production reports, pharma BMR, CAPA |
+| 11 | **AI Inbox** | [`11_AI_INBOX_test_cases.md`](11_AI_INBOX_test_cases.md) | AI Inbox accept/reject, AI-first bill/GRN/conversational-journal drafting, natural-language query (tenant-safe), proactive + rule agents, AI settings |
+| 12 | **Partner Network** | [`12_PARTNER_NETWORK_test_cases.md`](12_PARTNER_NETWORK_test_cases.md) | Trading partnerships (request/approve/suspend), published catalog, supplier search, cross-org network-order lifecycle, PO/SO linking |
 
 ---
 
