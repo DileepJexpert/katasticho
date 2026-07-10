@@ -250,6 +250,13 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push(Routes.apiKeys),
             ),
             _SettingsTile(
+              icon: Icons.widgets_outlined,
+              title: 'Modules',
+              subtitle:
+                  'Choose which modules this organisation sees (Show / Hide / Default)',
+              onTap: () => context.push(Routes.modules),
+            ),
+            _SettingsTile(
               icon: Icons.view_list_rounded,
               title: 'Sidebar Customisation',
               subtitle:

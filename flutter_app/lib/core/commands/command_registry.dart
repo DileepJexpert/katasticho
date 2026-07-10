@@ -845,6 +845,13 @@ List<KCommand> buildAppCommands() {
       keywords: ['mcp', 'integration'],
     ),
     KCommand(
+      label: 'Modules',
+      icon: Icons.widgets_outlined,
+      section: 'Settings',
+      route: Routes.modules,
+      keywords: ['module', 'modules', 'visibility', 'show', 'hide', 'vertical', 'payroll', 'manufacturing', 'field sales', 'enable', 'disable'],
+    ),
+    KCommand(
       label: 'Sidebar Customisation',
       icon: Icons.view_list_rounded,
       section: 'Settings',

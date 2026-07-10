@@ -42,15 +42,7 @@ import java.util.UUID;
 public class TestAccountBootstrapService implements ApplicationRunner {
 
     /** Every module code — the QA account gets them all so nothing is hidden. */
-    private static final List<String> ALL_MODULES = List.of(
-            ModuleCode.ACCOUNTING, ModuleCode.AR, ModuleCode.AP, ModuleCode.GST,
-            ModuleCode.BANK_RECON, ModuleCode.AI_INBOX, ModuleCode.REPORTS,
-            ModuleCode.COLLECTIONS, ModuleCode.POS, ModuleCode.INVENTORY,
-            ModuleCode.DISTRIBUTION, ModuleCode.PHARMA, ModuleCode.MANUFACTURING,
-            ModuleCode.RECURRING_BILLING, ModuleCode.MULTI_ENTITY, ModuleCode.PAYMENTS,
-            ModuleCode.BATCH_EXPIRY, ModuleCode.CA_CONSOLE, ModuleCode.PAYROLL,
-            ModuleCode.FIELD_SALES, ModuleCode.PARTNER_NETWORK, ModuleCode.SUPPLY_CHAIN,
-            ModuleCode.COURIER, ModuleCode.TRANSPORT);
+    private static final List<String> ALL_MODULES = ModuleCode.ALL;
 
     private final AuthService authService;
     private final AppUserRepository userRepository;

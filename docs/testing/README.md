@@ -23,6 +23,7 @@ Status** columns as you go.
 | 04 | **Accounting** | [`04_ACCOUNTING_test_cases.md`](04_ACCOUNTING_test_cases.md) | Chart of accounts, journal entries, period close, Trial Balance, P&L, Balance Sheet, bank reconciliation, audit trail |
 | 05 | **HR** | [`05_HR_test_cases.md`](05_HR_test_cases.md) | Employees + profile, leave, attendance/regularization, shifts, timesheets, help desk, documents, offboarding, analytics |
 | 06 | **Payroll** | [`06_PAYROLL_test_cases.md`](06_PAYROLL_test_cases.md) | Employees (payroll), salary structure, payroll run lifecycle, PF/ESI/PT/LWF/TDS, LOP, journal posting, statutory payment |
+| 07 | **Settings: Modules** | [`07_SETTINGS_MODULES_test_cases.md`](07_SETTINGS_MODULES_test_cases.md) | Per-org module visibility (`/settings/modules` Show/Hide/Default), vertical defaults, multi-org isolation, fixed QA test login |
 
 ---
 

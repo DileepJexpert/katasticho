@@ -224,6 +224,7 @@ class ApiConfig {
 
   // AI Model Settings
   static const String orgSettings = '/api/v1/settings';
+  static const String moduleVisibility = '/api/v1/settings/module-visibility';
   static const String upiSettings = '/api/v1/settings/upi';
   static const String smsSettings = '/api/v1/settings/sms';
   static const String aiSettings = '/api/v1/settings/ai';
