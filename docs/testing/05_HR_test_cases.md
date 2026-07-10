@@ -15,9 +15,10 @@ Timesheets → Help desk → Documents → Analytics → Offboarding.**
 - Paid leave checks the balance; **insufficient balance is rejected**
   (`HR_LEAVE_INSUFFICIENT_BALANCE`). Unpaid leave feeds payroll **LOP**.
 - Working days exclude **weekends + org holidays**.
-- Overlapping leave is blocked. **Self-approval is blocked only on the legacy
-  attendance leave path** (`LEAVE_SELF_APPROVAL_FORBIDDEN`) — the HR leave module
-  (`/hr/leave`) currently has **no** self-approval guard (see TC-HR-017).
+- Overlapping leave is blocked. **Self-approval is blocked on both leave paths**
+  (`LEAVE_SELF_APPROVAL_FORBIDDEN`) — the legacy attendance path and the HR leave
+  module (`/hr/leave`) both reject an approver acting on their own request (see
+  TC-HR-017).
 - Offboarding cannot complete until all clearance tasks are done.
 
 ---
@@ -245,18 +246,19 @@ balance.
 
 ---
 
-### TC-HR-017 — Self-approval is blocked (attendance leave path only)
+### TC-HR-017 — Self-approval is blocked (both leave paths)
 | | |
 |---|---|
 | **Priority / Type** | P1 / Negative |
-| **Route** | API `POST /api/v1/attendance/leave/{id}/approve` (legacy attendance-module leave) · **Role:** an ADMIN approving their **own** leave |
+| **Route** | API `POST /api/v1/attendance/leave/{id}/approve` **and** `POST /api/v1/hr/leave/{id}/approve` · **Role:** an ADMIN approving their **own** leave |
 
-**Expected result:** On the **attendance-module** leave path, approving or
-rejecting your own request is rejected with **`LEAVE_SELF_APPROVAL_FORBIDDEN`**
-(403). **Known gap:** the HR leave module (`/hr/leave` → `POST
-/api/v1/hr/leave/{id}/approve`) has **no** self-approval guard — an OWNER/ADMIN
-*can* approve their own leave there. If observed, record it as a product-bug
-candidate, not a test failure.
+**Expected result:** On **both** leave paths, approving or rejecting your own
+request is rejected with **`LEAVE_SELF_APPROVAL_FORBIDDEN`** (403). The HR leave
+module (`/hr/leave`) now enforces the same guard as the legacy attendance path —
+`LeaveManagementService.approveLeave/rejectLeave` call `ensureNotSelfApproval`, so
+an OWNER/ADMIN can no longer approve their own HR leave. Test the negative on
+both endpoints. (Fixed 2026-07-10; regression: `LeaveManagementServiceTest`
+self-approval cases.)
 
 **Actual / Status / Notes:**
 
@@ -346,12 +348,14 @@ attendance record; the monthly summary updates.
 
 **Expected result:** For a month, the summary shows working days, present days,
 approved leave (clipped to the month), holidays, weekends, absent, total hours,
-and **payable days = present + ALL approved leave days in the month** — the
-current implementation does **not** exclude unpaid leave (if the 2 unpaid days
-from TC-HR-014 fall in this month, payableDays includes them; payroll LOP nets
-unpaid leave separately). The code comment claims paid-leave-only — flag the
-discrepancy as a product-bug candidate. The arithmetic ties out
-(present + leave + holidays + weekends + absent = calendar days).
+and **payable days = present + PAID approved leave days only** — unpaid leave
+(type `"UNPAID"`) is **excluded** from payableDays (payroll LOP nets it
+separately, so counting it here would double-pay). If the 2 unpaid days from
+TC-HR-014 fall in this month, `leaveDays` still totals all approved leave (for
+the absent tie-out) but `payableDays` does **not** include them. The arithmetic
+ties out (present + leave + holidays + weekends + absent = calendar days).
+(Fixed 2026-07-10; regression:
+`AttendanceManagementServiceTest.monthlySummary_unpaidLeaveExcludedFromPayableDays`.)
 
 **Actual / Status / Notes:**
 
@@ -548,12 +552,12 @@ from new payroll runs (verify in TC-PAY-012).
 | **Route** | `/hr/offboarding` · **Role:** OWNER |
 
 **Expected result:** An INITIATED offboarding can be cancelled; the employee
-stays ACTIVE (only **Complete** marks the employee EXITED). **Known gap:** the
-backend currently allows cancelling a COMPLETED offboarding too — `cancel()` has
-no status guard and the UI shows "Cancel exit" for every status; the cancel
-succeeds and the employee **remains EXITED** (the exit is never rolled back). If
-a block on re-cancelling COMPLETED is expected, file it as a product bug, not a
-test failure.
+stays ACTIVE (only **Complete** marks the employee EXITED). Cancelling a
+**COMPLETED** (or already CANCELLED) offboarding is now **rejected with
+`OFFB_FINAL_STATE`** (400) — `cancel()` guards on status, so an EXITED employee
+can't be silently left EXITED by a no-op cancel. Test both: cancel an INITIATED
+one (succeeds, employee ACTIVE) and attempt to cancel a COMPLETED one (rejected).
+(Fixed 2026-07-10; regression: `OffboardingServiceTest` cancel-guard cases.)
 
 **Actual / Status / Notes:**
 

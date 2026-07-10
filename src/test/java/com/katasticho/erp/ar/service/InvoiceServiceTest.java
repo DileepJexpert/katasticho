@@ -20,6 +20,8 @@ import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.accounting.defaults.DefaultAccountPurpose;
 import com.katasticho.erp.accounting.defaults.service.DefaultAccountService;
 import com.katasticho.erp.currency.CurrencyService;
+import com.katasticho.erp.inventory.entity.MovementType;
+import com.katasticho.erp.inventory.entity.ReferenceType;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
 import com.katasticho.erp.inventory.service.InventoryService;
@@ -422,6 +424,44 @@ class InvoiceServiceTest {
 
         assertEquals("CANCELLED", result.status());
         verify(journalService).reverseEntry(journalId);
+    }
+
+    @Test
+    void cancelSentInvoice_restoresStockScopedToInvoiceReference() {
+        // Regression: a direct invoice deducts stock at send (ReferenceType.INVOICE),
+        // but cancel used to reverse only the journal — the inventory VALUE came back on
+        // the GL while the stock LEDGER stayed short. Cancel must now reverse the SALE
+        // movements this invoice booked, scoped to ReferenceType.INVOICE + MovementType.SALE
+        // so an SO-based invoice's challan-referenced movements are never double-restored.
+        UUID journalId = UUID.randomUUID();
+        Invoice sentInvoice = Invoice.builder().orgId(orgId).contactId(contact.getId())
+                .status("SENT").invoiceNumber("INV-2026-000007")
+                .journalEntryId(journalId)
+                .amountPaid(BigDecimal.ZERO)
+                .build();
+        sentInvoice.setId(UUID.randomUUID());
+
+        JournalEntry reversal = JournalEntry.builder().entryNumber("JE-2026-000008").build();
+        reversal.setId(UUID.randomUUID());
+
+        when(invoiceRepository.findByIdAndOrgIdAndIsDeletedFalse(sentInvoice.getId(), orgId))
+                .thenReturn(Optional.of(sentInvoice));
+        when(journalService.reverseEntry(journalId)).thenReturn(reversal);
+        when(invoiceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(inventoryService.reverseMovementsByReference(
+                eq(orgId), eq(ReferenceType.INVOICE), eq(sentInvoice.getId()),
+                eq(MovementType.SALE), anyString())).thenReturn(2);
+        stubContactLookup(contact);
+        stubTaxLineLookup(sentInvoice.getId(), Collections.emptyList());
+
+        InvoiceResponse result = invoiceService.cancelInvoice(sentInvoice.getId(), "Wrong customer");
+
+        assertEquals("CANCELLED", result.status());
+        verify(journalService).reverseEntry(journalId);
+        // The stock legs are reversed by this invoice's own reference only.
+        verify(inventoryService).reverseMovementsByReference(
+                eq(orgId), eq(ReferenceType.INVOICE), eq(sentInvoice.getId()),
+                eq(MovementType.SALE), anyString());
     }
 
     @Test

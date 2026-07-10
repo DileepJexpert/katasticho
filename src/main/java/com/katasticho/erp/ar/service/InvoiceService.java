@@ -18,6 +18,8 @@ import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.currency.CurrencyService;
 import com.katasticho.erp.inventory.entity.Item;
+import com.katasticho.erp.inventory.entity.MovementType;
+import com.katasticho.erp.inventory.entity.ReferenceType;
 import com.katasticho.erp.inventory.entity.StockBatch;
 import com.katasticho.erp.inventory.repository.ItemRepository;
 import com.katasticho.erp.inventory.repository.StockBatchRepository;
@@ -534,9 +536,28 @@ public class InvoiceService {
                     "AR_INVOICE_HAS_PAYMENTS", HttpStatus.BAD_REQUEST);
         }
 
-        // If journal was posted, reverse it
+        // If journal was posted, reverse it. reverseEntry restores the
+        // inventory VALUE on the GL (the DR Inventory / CR COGS legs the
+        // posting rule wrote for a direct invoice), so the stock LEDGER must
+        // be put back too or the two diverge — GL asset up, quantity still gone.
         if (invoice.getJournalEntryId() != null) {
             journalService.reverseEntry(invoice.getJournalEntryId());
+        }
+
+        // Restore the stock this invoice deducted. Only DIRECT invoices
+        // (salesOrderId == null) deduct at send, stamping their SALE movements
+        // with ReferenceType.INVOICE + this invoice's id — so reversing by that
+        // reference is self-guarding: an SO-based invoice's stock was deducted
+        // at DC dispatch (ReferenceType.DELIVERY_CHALLAN) and is left untouched,
+        // and a skip-stock or DRAFT invoice simply has nothing to reverse.
+        // The amountPaid > 0 guard above already blocks any invoice a credit
+        // note has restored stock against, so there is no double-restore path.
+        int restored = inventoryService.reverseMovementsByReference(
+                orgId, ReferenceType.INVOICE, invoice.getId(), MovementType.SALE,
+                "Invoice " + invoice.getInvoiceNumber() + " cancelled: " + reason);
+        if (restored > 0) {
+            log.info("Invoice {} cancel restored {} stock movement(s)",
+                    invoice.getInvoiceNumber(), restored);
         }
 
         invoice.setStatus("CANCELLED");
