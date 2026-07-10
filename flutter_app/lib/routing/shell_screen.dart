@@ -1866,6 +1866,19 @@ bool _isNavItemVisible(String route, BusinessCapabilities capabilities) {
   if (route.startsWith('/field-sales')) return capabilities.canUseFieldSales;
   if (route.startsWith('/partner-network')) return capabilities.canUsePartnerNetwork;
   if (route.startsWith('/manufacturing')) return capabilities.canUseManufacturing;
+  // HR & Payroll, Supply Planning, and Courier & Transport are capability-gated
+  // so they don't render for verticals that don't use them. Before this, these
+  // routes had no case and fell through to the `return true` default below, so
+  // a plain retailer saw all three groups. A distributor/manufacturer still
+  // sees them (via the industry fallback), and any org can opt in via its
+  // PAYROLL / SUPPLY_CHAIN / COURIER feature flags.
+  if (route.startsWith('/hr') || route.startsWith('/payroll')) {
+    return capabilities.canUsePayroll;
+  }
+  if (route.startsWith('/supply-chain')) return capabilities.canUseSupplyChain;
+  if (route.startsWith('/courier') || route.startsWith('/transport')) {
+    return capabilities.canUseCourier;
+  }
   if (route == Routes.bankReconciliation) return capabilities.canUseBankRecon;
   if (route == '/accounting/dashboard' ||
       route == Routes.guidedTransactionCreate ||

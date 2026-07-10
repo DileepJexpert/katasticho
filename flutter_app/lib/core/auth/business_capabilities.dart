@@ -19,6 +19,9 @@ class BusinessCapabilities {
   final bool canUseReports;
   final bool canUseFieldSales;
   final bool canUsePartnerNetwork;
+  final bool canUsePayroll;
+  final bool canUseSupplyChain;
+  final bool canUseCourier;
 
   const BusinessCapabilities({
     required this.canUseAccounting,
@@ -33,6 +36,9 @@ class BusinessCapabilities {
     required this.canUseReports,
     required this.canUseFieldSales,
     required this.canUsePartnerNetwork,
+    required this.canUsePayroll,
+    required this.canUseSupplyChain,
+    required this.canUseCourier,
   });
 
   static const none = BusinessCapabilities(
@@ -48,6 +54,9 @@ class BusinessCapabilities {
     canUseReports: false,
     canUseFieldSales: false,
     canUsePartnerNetwork: false,
+    canUsePayroll: false,
+    canUseSupplyChain: false,
+    canUseCourier: false,
   );
 
   static const allEnabled = BusinessCapabilities(
@@ -63,6 +72,9 @@ class BusinessCapabilities {
     canUseReports: true,
     canUseFieldSales: true,
     canUsePartnerNetwork: true,
+    canUsePayroll: true,
+    canUseSupplyChain: true,
+    canUseCourier: true,
   );
 
   factory BusinessCapabilities.fromEnabledFeatures(Set<String> features) {
@@ -80,6 +92,9 @@ class BusinessCapabilities {
       canUseReports: has('REPORTS'),
       canUseFieldSales: has('FIELD_SALES'),
       canUsePartnerNetwork: has('PARTNER_NETWORK'),
+      canUsePayroll: has('PAYROLL'),
+      canUseSupplyChain: has('SUPPLY_CHAIN'),
+      canUseCourier: has('COURIER') || has('TRANSPORT'),
     );
   }
 
@@ -108,6 +123,10 @@ class BusinessCapabilities {
           fromFlags.canUseFieldSales || fromProfile.canUseFieldSales,
       canUsePartnerNetwork:
           fromFlags.canUsePartnerNetwork || fromProfile.canUsePartnerNetwork,
+      canUsePayroll: fromFlags.canUsePayroll || fromProfile.canUsePayroll,
+      canUseSupplyChain:
+          fromFlags.canUseSupplyChain || fromProfile.canUseSupplyChain,
+      canUseCourier: fromFlags.canUseCourier || fromProfile.canUseCourier,
     );
   }
 
@@ -134,6 +153,14 @@ class BusinessCapabilities {
       canUseReports: true,
       canUseFieldSales: isDistributor,
       canUsePartnerNetwork: isDistributor,
+      // Vertical-appropriate defaults. A plain retailer does not see HR &
+      // Payroll / Supply Planning / Courier by default (they were leaking
+      // before because these routes had no capability gate); a distributor or
+      // manufacturer does. Any org can still turn a module on via its feature
+      // flags (which OR-in above), which is what the QA test account relies on.
+      canUsePayroll: isDistributor || isManufacturer,
+      canUseSupplyChain: isDistributor || isManufacturer,
+      canUseCourier: isDistributor,
     );
   }
 
