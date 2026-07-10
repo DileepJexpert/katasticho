@@ -42,8 +42,9 @@ cd flutter_app && flutter run -d chrome
 ```
 
 On first boot Flyway applies the baseline migrations and the org-signup flow
-seeds the chart of accounts (≈61 accounts), reference masters (drug/HSN/GST
-state codes), and default settings. If the app can't reach `localhost:8080`,
+seeds the chart of accounts (~64 accounts for an India TRADING org: 61 baseline
++ Stock-Out Suspense 2042 + Gratuity 2080/5130; RETAIL/SERVICES/F&B seed ~59),
+reference masters (drug/HSN/GST state codes), and default settings. If the app can't reach `localhost:8080`,
 check the Dio `baseUrl` in `flutter_app/lib/core/api/api_config.dart`.
 
 ### 2.2 Create the test organisation
@@ -117,7 +118,11 @@ Using the same names/values makes every downstream expected-result number exact.
 | Paracetamol 500mg Strip | PARA500 | 3004 | 5 | 8.00 | 15.00 | Yes |
 | Cough Syrup 100ml | COUGH100 | 3004 | 5 | 45.00 | 78.00 | Yes |
 | Digital Thermometer | THERMO1 | 9018 | 5 | 90.00 | 180.00 | No |
-| Vitamin C Tablets | VITC | 3004 | 12 | 40.00 | 95.00 | No |
+| Vitamin C Tablets (supplement) | VITC | 2106 | 18 | 40.00 | 95.00 | No |
+
+> Vitamin C is deliberately classified as a **supplement (HSN 2106 @ 18%)** —
+> that matches the seeded `hsn_gst_master` rate and gives the pack a non-5%
+> item. (As a chapter-30 medicament it would auto-fill 5%; don't mix the two.)
 
 > **GST intra vs inter-state:** when customer state = org state (both 27) GST
 > splits **CGST + SGST** (2.5% + 2.5% for a 5% item). When customer state ≠ org
@@ -161,12 +166,12 @@ Before a release, run just the **P0 Happy** case from each module for a 20-minut
 smoke test:
 
 - [ ] TC-INV-001 — Create item + opening stock
-- [ ] TC-PUR-010 — PO → GRN receive (stock goes up)
-- [ ] TC-PUR-020 — Vendor bill posts (AP + inventory journal)
-- [ ] TC-SAL-020 — SO → DC dispatch (stock goes down)
-- [ ] TC-SAL-030 — DC → Invoice (no double stock movement)
-- [ ] TC-SAL-040 — Record payment (AR clears)
-- [ ] TC-SAL-060 — POS cash sale (cash + revenue, no AR)
+- [ ] TC-PUR-020 — GRN receive (stock goes up)
+- [ ] TC-PUR-030 — Vendor bill posts (AP + purchase-account journal)
+- [ ] TC-SAL-031 — DC dispatch (stock goes down)
+- [ ] TC-SAL-040 — DC → Invoice (no double stock movement)
+- [ ] TC-SAL-050 — Record payment (AR clears)
+- [ ] TC-SAL-070 — POS cash sale (cash + revenue, no AR)
 - [ ] TC-ACC-030 — Trial Balance balances (Dr = Cr)
 - [ ] TC-HR-010 — Apply + approve leave
 - [ ] TC-PAY-020 — Payroll run DRAFT→POSTED with PF/ESI/PT

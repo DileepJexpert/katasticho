@@ -13,8 +13,14 @@ Payments/Receipts → Credit Notes**, plus **POS** (cash / UPI / bill-freely / k
 - DC does **not** post accounting. **Invoice posting is the accounting step.**
 - Invoicing from an SO/DC path must **not** deduct stock again.
 - POS receipts post **Cash/Revenue**, never Accounts Receivable (except khata = credit).
-- Payment cannot exceed balance due (`AR_PAYMENT_EXCEEDS_BALANCE`).
+- Payment cannot exceed balance due — `AR_PAYMENT_EXCEEDS_BALANCE` on the
+  invoice-payment path; `AR_RECEIPT_ALLOCATION_EXCEEDS_BALANCE` on the
+  customer-receipts path (there, un-allocated excess books as a customer
+  **advance** by design).
 - Dispatch cannot exceed available stock (`DC_INSUFFICIENT_STOCK`).
+- The contact list's **Outstanding** column is the **khata-only** (invoice-less
+  POS credit) ledger — invoice/receipt transactions move the invoice balance and
+  the contact **statement** (`/contacts/:id/statement`), not that column.
 
 ---
 
@@ -94,8 +100,12 @@ is not created. (A blank GSTIN is allowed — unregistered/B2C customer.)
 
 **Test data:** name `Old Khata Cust` · opening balance `5000`.
 
-**Expected result:** Contact saves; **outstanding = ₹5,000** immediately (opening
-balance is part of AR outstanding). Verify on the contact detail / ledger.
+**Expected result:** Contact saves; the contact **statement** (contact detail →
+View Statement, `/contacts/:id/statement`, backed by `GET
+/api/v1/contacts/{id}/ledger`) shows an opening/running balance of **₹5,000**.
+The **Outstanding column on the contact list stays ₹0** — that column is the
+khata-only ledger and does not include opening balance; ₹0 there is correct
+behaviour, not a bug.
 
 **Actual / Status / Notes:**
 
@@ -122,8 +132,12 @@ message — record which. No crash; the list stays readable.
 | **Priority / Type** | P1 / Role |
 | **Route** | `/contacts` · **Role:** VIEWER |
 
-**Expected result:** The New/Save action is hidden or returns **403**. No contact
-created. (Pass = correctly blocked.)
+**Expected result:** The New/Save **UI action is hidden** for VIEWER. **KNOWN
+GAP:** the API currently allows any authenticated role to create/update/delete
+contacts — `ContactController.create/update/delete` carry no `@PreAuthorize`, so
+a direct `POST /api/v1/contacts` as VIEWER succeeds (2xx). Verify only the UI
+behaviour here and **log a product bug** for the missing role guard; do not mark
+the case FAIL solely because the API accepts the request.
 
 **Actual / Status / Notes:**
 
@@ -157,17 +171,22 @@ created. (Pass = correctly blocked.)
 
 ---
 
-### TC-SAL-011 — Convert estimate → sales order
+### TC-SAL-011 — Convert estimate → invoice
 | | |
 |---|---|
 | **Priority / Type** | P1 / Happy |
 | **Route** | `/estimates` · **Role:** OWNER |
 | **Preconditions** | TC-SAL-010 |
 
-**Steps:** Open the estimate → **Convert to Sales Order** (or Accept).
+**Steps:** Open the estimate → **Accept** (optional) → **Convert to Invoice**
+(`POST /api/v1/estimates/{id}/convert-to-invoice`).
 
-**Expected result:** An SO is created with the same lines/amounts; estimate marked
-Accepted/Converted. Still **no stock/journal** at this point.
+**Expected result:** A **DRAFT invoice** is created with the same lines/amounts;
+estimate status → **INVOICED** (the detail screen shows a converted-invoice link
+that opens the invoice). Still **no stock/journal** until the invoice is posted.
+**Note:** there is **no estimate→SO conversion** in the product (lifecycle is
+DRAFT → SENT → ACCEPTED → INVOICED | DECLINED) — if an SO flow is needed, create
+the SO manually per TC-SAL-020.
 
 **Actual / Status / Notes:**
 
@@ -252,11 +271,16 @@ total reflects the discount. If schemes are DISABLED for the org, nothing applie
 | **Priority / Type** | P1 / Edge |
 | **Route** | `/sales-orders` · **Role:** OWNER |
 
-**Test data:** Order qty (e.g. 500) **greater** than on-hand (200).
+**Test data:** Order qty (e.g. 500) **greater** than on-hand (200). Test both
+branches of the **Allow backorder** flag (default OFF).
 
-**Expected result:** SO is **allowed** (SO supports backorder — it's demand, not
-fulfilment). No stock error at SO stage. The shortfall shows in dispatch/pending
-reports later.
+**Expected result**
+- **Allow backorder OFF (default):** confirm is **rejected** with
+  **`SO_INSUFFICIENT_STOCK`** ("Insufficient stock for `<item>`: Available X,
+  Requested Y").
+- **Allow backorder ON:** confirm succeeds with status **BACKORDER** (not
+  CONFIRMED); the available 200 is reserved and the line records
+  `quantityBackordered = 300`. The shortfall shows in dispatch/pending reports.
 
 **Actual / Status / Notes:**
 
@@ -268,8 +292,8 @@ reports later.
 | **Priority / Type** | P1 / Edge |
 | **Route** | `/sales-orders` · **Role:** OWNER |
 
-**Steps:** On the SO, override the rate to `14.00` (below MRP). Later convert to
-invoice (TC-SAL-030).
+**Steps:** On the SO, override the rate to `14.00` (below MRP). Carry the SO
+through TC-SAL-030/031 (DC draft + dispatch) into TC-SAL-040 (DC → Invoice).
 
 **Expected result:** The **overridden ₹14.00 rate carries through** to the DC and
 invoice — it is not reset to the item's MRP.
@@ -364,7 +388,9 @@ Attempting to dispatch more than a batch holds is blocked.
 - **Stock does NOT change again** (still 100 — already deducted at dispatch).
 - A journal posts: **DR Accounts Receivable ₹1,575 / CR Sales Revenue ₹1,500 /
   CR CGST ₹37.50 / CR SGST ₹37.50** (+ COGS legs: DR COGS / CR Inventory at cost).
-- Customer **outstanding rises by ₹1,575**.
+- The customer **statement** (contact detail → View Statement) shows the ₹1,575
+  invoice in its running balance. The contact-list **Outstanding column does NOT
+  move** (it is the khata-only ledger) — no change there is correct behaviour.
 
 **Actual / Status / Notes:**
 
@@ -380,8 +406,9 @@ Attempting to dispatch more than a batch holds is blocked.
 
 **Expected result**
 - This is a **direct** invoice (no DC behind it) → stock **is** deducted at send.
-- Because customer is **inter-state (09 ≠ 27)**, tax is a single **IGST 12% =
-  ₹114.00** line (not CGST+SGST). Total = ₹950 + ₹114 = **₹1,064.00**.
+- Because customer is **inter-state (09 ≠ 27)**, tax is a single **IGST 18% =
+  ₹171.00** line (not CGST+SGST; Vitamin C is HSN 2106 @ 18%). Total = ₹950 +
+  ₹171 = **₹1,121.00**.
 - Vitamin C on-hand drops by 10.
 
 **Actual / Status / Notes:**
@@ -461,6 +488,49 @@ serialized per org/prefix/year). Two fast consecutive posts never share a number
 
 ---
 
+### TC-SAL-047 — Cancel a posted invoice (journal reversal + guards)
+| | |
+|---|---|
+| **Priority / Type** | P0 / Edge |
+| **Route** | `/invoices` (detail → Cancel; `POST /api/v1/invoices/{id}/cancel`) · **Role:** OWNER/ADMIN/ACCOUNTANT |
+| **Preconditions** | A SENT invoice with **zero payments** (fresh direct invoice like TC-SAL-041) |
+
+**Steps**
+1. Open the posted invoice → **Cancel** → give a reason.
+2. Negative: try to cancel a **PAID** invoice (TC-SAL-050's).
+3. Negative: record a ₹100 partial payment on another invoice, then try to cancel it.
+
+**Expected result**
+- (1) Status → **CANCELLED**, balance due → ₹0; the posting journal is
+  **reversed** (a reversal entry exists; TB unchanged net). **Note:** stock
+  deducted by a direct invoice is **NOT restored** by cancel — record on-hand
+  before/after and log the observed behaviour explicitly.
+- (2) Rejected with **`AR_INVOICE_CANCEL_INVALID`** ("Cannot cancel PAID invoice").
+- (3) Rejected with **`AR_INVOICE_HAS_PAYMENTS`** ("…Issue a credit note instead.").
+
+**Actual / Status / Notes:**
+
+---
+
+### TC-SAL-048 — TCS 206C(1H) auto-collection above ₹50L (India)
+| | |
+|---|---|
+| **Priority / Type** | P2 / Edge |
+| **Route** | `/invoices` · **Role:** OWNER (setting) → ACCOUNTANT (invoice) |
+| **Preconditions** | Org setting `tax.tcs_enabled = true` (default **off**); a customer whose FY consideration (incl. GST) will cross ₹50,00,000 |
+
+**Steps:** Post invoices to one buyer totalling just under ₹50L, then one more
+that crosses it (e.g. ₹49,90,000 booked, next invoice ₹1,00,000).
+
+**Expected result:** TCS collects on the **excess over ₹50L only** (₹90,000 ×
+0.1% default = ₹90), added to the crossing invoice's `tcsAmount` / total /
+balance due; journal carries **CR TCS Payable (2031)**. Below the threshold or
+with the setting off, no TCS line appears. FY is Apr–Mar.
+
+**Actual / Status / Notes:**
+
+---
+
 ## F. Payments / Customer Receipts
 
 ### TC-SAL-050 — Record a full payment against an invoice
@@ -470,12 +540,17 @@ serialized per org/prefix/year). Two fast consecutive posts never share a number
 | **Route** | `/customer-receipts` · **Role:** OWNER/ACCOUNTANT |
 | **Preconditions** | TC-SAL-040 (invoice, balance ₹1,575) |
 
-**Test data:** amount 1575 · method Bank/UPI · allocate to that invoice.
+**Test data:** amount 1575 · method **Bank transfer** · allocate to that invoice.
 
 **Expected result**
 - Receipt posts; invoice balance → **₹0**, status **PAID**.
 - Journal: **DR Bank ₹1,575 / CR Accounts Receivable ₹1,575**.
-- Customer **outstanding drops by ₹1,575**.
+- The customer **statement** running balance drops by ₹1,575 (contact-list
+  Outstanding column is khata-only and does not move).
+- **Method-mapping note:** on AR receipts/payments, method **UPI posts DR Cash
+  (1010)**, not Bank — only BANK_TRANSFER/CHEQUE/CARD route to Bank (1020). This
+  deliberately differs from POS, where UPI routes to Bank. Use "Bank transfer"
+  for the DR-Bank expectation above.
 
 **Actual / Status / Notes:**
 
@@ -486,28 +561,39 @@ serialized per org/prefix/year). Two fast consecutive posts never share a number
 |---|---|
 | **Priority / Type** | P1 / Happy |
 | **Route** | `/customer-receipts` · **Role:** ACCOUNTANT |
-| **Preconditions** | An invoice with balance ₹1,064 (TC-SAL-041) |
+| **Preconditions** | An invoice with balance ₹1,121 (TC-SAL-041) |
 
 **Test data:** amount 500.
 
-**Expected result:** Invoice → **PARTIALLY_PAID**, balance ₹564. Outstanding drops
-by ₹500.
+**Expected result:** Invoice → **PARTIALLY_PAID**, balance ₹621. The customer
+statement reflects the ₹500 receipt (contact-list Outstanding is khata-only).
 
 **Actual / Status / Notes:**
 
 ---
 
-### TC-SAL-052 — Over-collection is rejected
+### TC-SAL-052 — Over-collection is rejected (two paths, two codes)
 | | |
 |---|---|
 | **Priority / Type** | P0 / Negative |
-| **Route** | `/customer-receipts` · **Role:** ACCOUNTANT |
-| **Preconditions** | Invoice balance = ₹564 |
+| **Route** | `/customer-receipts` **and** invoice detail → Record Payment · **Role:** ACCOUNTANT |
+| **Preconditions** | Invoice balance = ₹621 |
 
 **Test data:** amount 1000 (more than balance).
 
-**Expected result:** Rejected with **`AR_PAYMENT_EXCEEDS_BALANCE`**. No receipt
-posted; balance unchanged. (Collect exactly ≤ balance.)
+**Expected result — two distinct branches:**
+- **(a) Customer-receipts path** (`/customer-receipts`): the error
+  **`AR_RECEIPT_ALLOCATION_EXCEEDS_BALANCE`** ("Allocation X exceeds balance due
+  Y on invoice N") fires only when the **allocation to the invoice** exceeds that
+  invoice's balance. Merely *receiving* more than you allocate is **NOT** an
+  error — the excess books as a customer **advance** by design. The Flutter form
+  auto-caps allocations at balance and shows a client-side "Allocation to
+  `<invoice>` exceeds its balance" message, so the server code is reachable only
+  via raw API.
+- **(b) Invoice-payment path** (invoice detail → Record Payment, `POST
+  /api/v1/invoices/{id}/payments`): rejected with
+  **`AR_PAYMENT_EXCEEDS_BALANCE`** ("Payment amount X exceeds available balance Y
+  after pending payments Z"). No payment posted; balance unchanged.
 
 **Actual / Status / Notes:**
 
@@ -523,24 +609,61 @@ posted; balance unchanged. (Collect exactly ≤ balance.)
 **Steps:** Open the receipt → **Void**.
 
 **Expected result:** The receipt journal is **reversed**; the invoice returns to
-its prior balance (**₹1,575**, status back to SENT/OVERDUE); customer outstanding
-increases by ₹1,575 again. No orphan/half-reversed state.
+its prior balance (**₹1,575**, status back to SENT/OVERDUE); the customer
+statement reflects the reversal. (Contact-list Outstanding is khata-only and
+stays untouched — by design.) No orphan/half-reversed state.
 
 **Actual / Status / Notes:**
 
 ---
 
-### TC-SAL-054 — Khata settlement (invoice-less outstanding)
+### TC-SAL-054 — Khata settlement (invoice-less outstanding) — API only
 | | |
 |---|---|
 | **Priority / Type** | P1 / Happy |
-| **Route** | `/customer-receipts` · **Role:** OPERATOR |
-| **Preconditions** | A customer with khata/outstanding but no specific invoice (see POS khata TC-SAL-072) |
+| **Route** | **API only** — `POST /api/v1/customer-receipts/khata-settlement` · **Role:** OPERATOR (allowed) |
+| **Preconditions** | A customer with khata/outstanding but no specific invoice (see POS khata TC-SAL-073) |
 
-**Test data:** contact with outstanding ₹100 → settle ₹40 cash.
+**Test data:** contact with outstanding ₹100 → settle ₹40:
+`{"contactId": "...", "amount": 40, "paymentMethod": "CASH"}`
 
-**Expected result:** **DR Cash / CR AR ₹40**; outstanding drops 100 → 60.
-Over-settling (₹999) is rejected with **`AR_KHATA_EXCEEDS_OUTSTANDING`**.
+**Expected result:** **DR Cash (1010) / CR AR (1100) ₹40**; contact-list
+outstanding drops 100 → 60. Over-settling (₹999 against ₹60) is rejected with
+**`AR_KHATA_EXCEEDS_OUTSTANDING`**.
+**Notes:** no khata-settlement **UI** exists in the ERP app yet ("khata" appears
+only in the POS screens) — this is an endpoint test. To verify the resulting
+receipt row (notes prefixed "Khata settlement") and journal, log in as
+OWNER/ADMIN/ACCOUNTANT/VIEWER — the `GET /customer-receipts` list excludes
+OPERATOR, so an OPERATOR cannot do the verification step themselves.
+
+**Actual / Status / Notes:**
+
+---
+
+### TC-SAL-055 — Payment approval workflow (PENDING_APPROVAL lifecycle)
+| | |
+|---|---|
+| **Priority / Type** | P1 / Role |
+| **Route** | invoice detail → Record Payment + approval inbox · **Role:** ACCOUNTANT (requester) → OWNER (approver) |
+| **Preconditions** | The seeded PAYMENT approval workflow **activated** (ships `active=false`); an invoice with balance due; two users |
+
+**Steps**
+1. As ACCOUNTANT, record a payment matching the workflow criteria.
+2. As the **same** requester, try to approve your own request.
+3. As OWNER, approve.
+4. Repeat with a second payment and **Reject** instead.
+
+**Expected result**
+- (1) Payment lands **PENDING_APPROVAL** (visible with that status in the
+  payment list); invoice balance **unchanged** and **no journal yet** — the
+  pending branch never posts.
+- (2) Rejected with **`WORKFLOW_SELF_APPROVAL_FORBIDDEN`** (403).
+- (3) Payment **posts**: journal DR Bank/Cash / CR AR; balance drops; status
+  PAID/PARTIALLY_PAID.
+- (4) Payment → **VOIDED** with no journal ever posted; balance unchanged.
+- Bonus: a further payment while one is PENDING_APPROVAL is capped by
+  `AR_PAYMENT_EXCEEDS_BALANCE` against "available balance **after pending
+  payments**".
 
 **Actual / Status / Notes:**
 
@@ -557,9 +680,17 @@ Over-settling (₹999) is rejected with **`AR_KHATA_EXCEEDS_OUTSTANDING`**.
 
 **Test data:** credit Paracetamol × 20 @ 15.00 against the Sharma invoice.
 
+**Steps:** draft the CN → **select the batch being returned on the line**
+(Paracetamol is batch-tracked) → approve/post.
+
 **Expected result:** Credit note drafts with value ₹300 + GST ₹15 = **₹315**.
-On approval/post it **reduces AR** (DR Sales Return/Revenue, DR tax / CR AR) and,
-if it restocks, **adds 20 back to inventory**.
+On post it **reduces AR** (DR Sales Return/Revenue, DR tax / CR AR) and restocks
+**+20** into the selected batch. Two important details:
+- Posting a batch-tracked line **without a batch** fails with
+  **`CN_BATCH_REQUIRED`** — the inventory gate refuses to auto-pick on restore.
+- The restock re-enters inventory **at item COST** (purchasePrice ₹8.00, not the
+  ₹15.00 sale rate); the CN journal carries matching **DR Inventory / CR COGS**
+  legs alongside the AR reversal.
 
 **Actual / Status / Notes:**
 
@@ -813,9 +944,9 @@ still balances afterwards (cross-check in TC-ACC-030).
 | B Estimates | 2 | | | |
 | C Sales Orders | 6 | | | |
 | D Delivery Challans | 4 | | | |
-| E Invoices | 7 | | | |
-| F Payments | 5 | | | |
+| E Invoices | 9 | | | |
+| F Payments | 6 | | | |
 | G Credit Notes | 3 | | | |
 | H POS | 10 | | | |
 | I Regression | 3 | | | |
-| **Total** | **46** | | | |
+| **Total** | **49** | | | |

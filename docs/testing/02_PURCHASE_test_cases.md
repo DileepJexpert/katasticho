@@ -8,7 +8,9 @@ Vendor Payments → Vendor Credits.**
 
 **Key business rules exercised here**
 - PO does **not** post stock. **GRN "Receive Stock" is the only stock-posting step.**
-- GRN posts **no accounting journal** (stock only); the **vendor bill** posts AP + inventory.
+- GRN posts **no accounting journal** (stock only); the **vendor bill** posts AP
+  + a purchase/expense journal (default line account **5020 Purchase Expense** —
+  DR Inventory 1200 only when explicitly selected on the lines).
 - With the full P2P loop (PO→GRN→Bill), the bill must **not** double-count stock
   that the GRN already booked.
 - **3-way match** (PO ↔ GRN ↔ Bill) flags QTY_OVER / PRICE_HIKE variances.
@@ -68,7 +70,7 @@ appears in the vendor list; outstanding payable = ₹0.
 · PAN filled.
 
 **Expected result:** Vendor saves with TDS flag/section. Later bills for this
-vendor will auto-deduct TDS (TC-PUR-024).
+vendor will auto-deduct TDS (TC-PUR-033).
 
 **Actual / Status / Notes:**
 
@@ -95,7 +97,7 @@ report later. (India-only.)
 | | |
 |---|---|
 | **Priority / Type** | P0 / Happy |
-| **Route** | `/purchase-orders` · **Role:** OWNER/OPERATOR |
+| **Route** | `/purchase-orders` · **Role:** OWNER/ADMIN/ACCOUNTANT |
 | **Preconditions** | TC-PUR-001; items exist |
 
 **Test data**
@@ -107,9 +109,12 @@ report later. (India-only.)
 **Steps:** New PO → vendor MediSupply → add lines → save.
 
 **Expected result**
-- PO saves; total = 500×8 + 100×45 = ₹4,000 + ₹4,500 = **₹8,500** + 5% GST ₹425 =
-  **₹8,925.00**.
+- PO saves; total = 500×8 + 100×45 = ₹4,000 + ₹4,500 = **₹8,500.00** — PO totals
+  are **pre-tax** (the backend never adds GST to a purchase order; the ₹425 @5%
+  GST first appears on the vendor bill).
 - **No stock movement, no journal** — a PO is an intent to buy.
+- Role note: PO create/update/send/cancel are **OWNER/ADMIN/ACCOUNTANT**; an
+  OPERATOR gets **403** (OPERATOR is read-only for POs plus the create-GRN action).
 
 **Actual / Status / Notes:**
 
@@ -261,11 +266,13 @@ down by the received qty); the linked **PO line `receivedQuantity` decrements**
 | **Priority / Type** | P1 / Validation |
 | **Route** | `/stock-receipts` · **Role:** OPERATOR |
 
-**Steps:** Try to receive a batch-tracked item **without** a batch number/expiry.
+**Steps:** Try to receive a batch-tracked item **without** a batch number.
 
-**Expected result:** Blocked with a validation message — a batch-tracked item
-cannot be received into stock without a batch + expiry. Non-batch items receive
-without a batch.
+**Expected result:** Blocked with **`GRN_BATCH_REQUIRED`** (400) — a batch-tracked
+item cannot be received without a batch **number**. **Expiry is NOT enforced by
+the backend** — a receive with a batch but no expiry succeeds and creates the
+stock batch with a null expiry (record the actual UI behaviour if the GRN form
+adds its own validation). Non-batch items receive without a batch.
 
 **Actual / Status / Notes:**
 
@@ -286,7 +293,11 @@ without a batch.
 
 **Expected result**
 - Bill posts; balance due = ₹8,500 + GST ₹425 = **₹8,925**.
-- Journal: **DR Inventory ₹8,500 / DR Input GST ₹425 / CR Accounts Payable ₹8,925**.
+- Journal: **DR Purchase Expense (5020 — the default when no line account is
+  chosen; the Flutter bill form defaults to 5000 Expenses) ₹8,500 / DR GST Input
+  Credit (1500) ₹425 / CR Accounts Payable (2010) ₹8,925**. DR-ing **Inventory
+  (1200)** requires explicitly selecting the 1200 account on the bill lines —
+  the backend never routes bill lines to Inventory by default.
 - Vendor **outstanding payable rises** by ₹8,925.
 - **If this bill is behind a PO with an active GRN, it does NOT re-post the stock
   movement** (GRN already booked it) — verify stock did **not** jump again.
@@ -304,8 +315,9 @@ without a batch.
 **Test data:** a **direct** bill (no PO behind it) for Thermometer × 10 @ 90.00.
 
 **Expected result:** For a small-org direct bill (no GRN), the bill **is** the
-inventory source → stock rises by 10 and AP + inventory journal posts. (This is
-the intentional fallback for shops that skip GRNs.)
+inventory source → stock rises by 10 and the AP + purchase-account journal posts
+(default 5020, not Inventory — see TC-PUR-030). This is the intentional fallback
+for shops that skip GRNs.
 
 **Actual / Status / Notes:**
 
@@ -334,12 +346,14 @@ GST / CR AP); **no stock movement**.
 | **Route** | `/bills` · **Role:** ACCOUNTANT |
 | **Preconditions** | TC-PUR-003 (TDS vendor, 194C) |
 
-**Test data:** bill to "Contract Labour Co", base ₹1,00,000 (crosses 194C ₹1L
-aggregate threshold).
+**Test data:** bill to "Contract Labour Co", base ₹1,00,000 (this trips the 194C
+**single-bill limb**: > ₹30,000 — as a first bill it does *not* cross the
+FY-aggregate limb, which is strictly > ₹1,00,000).
 
-**Expected result:** TDS deducts on the **base (excl GST)** at the 194C rate;
-**balance due = total − TDS**; a TDS payable liability is booked. Below the
-threshold, no TDS. FY is Apr–Mar.
+**Expected result:** TDS deducts on the **base (excl GST)** at the vendor-master
+194C rate; **balance due = total − TDS**; a TDS payable liability is booked.
+No TDS only when the single bill is ≤ ₹30,000 **and** the FY aggregate stays
+≤ ₹1,00,000 (both limbs are strict greater-than). FY is Apr–Mar.
 
 **Actual / Status / Notes:**
 
@@ -354,6 +368,31 @@ threshold, no TDS. FY is Apr–Mar.
 
 **Expected result:** Posting a bill dated in a closed period is rejected; an
 open-period date posts.
+
+**Actual / Status / Notes:**
+
+---
+
+### TC-PUR-035 — Void a posted vendor bill (journal, stock, outstanding reverse)
+| | |
+|---|---|
+| **Priority / Type** | P0 / Edge |
+| **Route** | `/bills` (`POST /api/v1/bills/{id}/void`) · **Role:** OWNER/ADMIN/ACCOUNTANT |
+| **Preconditions** | TC-PUR-031 (direct posted bill that booked stock — Thermometer ×10, no payments/credits) |
+
+**Steps:** Note current stock + vendor outstanding → open the OPEN bill → **Void**
+with a reason.
+
+**Expected result**
+- Bill → **VOID**; the journal is reversed (a reversal entry appears in the
+  journal register).
+- Each PURCHASE stock movement gets an append-only **REVERSE** row — Thermometer
+  stock drops back by 10.
+- Vendor outstanding payable drops by (total − TDS).
+- Negative sub-checks: voiding a DRAFT bill → **`AP_BILL_DRAFT_USE_DELETE`**;
+  a bill with a recorded payment → **`AP_BILL_HAS_PAYMENTS`** (void the payment
+  first); a bill with an applied vendor credit → **`AP_BILL_HAS_ALLOCATIONS`**;
+  voiding twice → **`AP_BILL_ALREADY_VOID`**.
 
 **Actual / Status / Notes:**
 
@@ -401,10 +440,12 @@ until overridden.
 |---|---|
 | **Priority / Type** | P0 / Negative |
 | **Route** | match panel · **Role:** ACCOUNTANT |
-| **Preconditions** | PO price ₹8.00; bill unit price ₹9.00 (> ₹1 abs & > 0.5%) |
+| **Preconditions** | PO price ₹8.00; bill unit price ₹9.50 (diff ₹1.50 must EXCEED the ₹1 abs tolerance) |
 
 **Expected result:** Line = **PRICE_HIKE**; overall EXCEPTION; inbox suggestion.
-A price within tolerance (e.g. ₹8.50) → **MATCHED**.
+A price within tolerance (e.g. ₹8.50) → **MATCHED**. **Boundary sub-case:** a
+bill price of exactly ₹9.00 (diff = ₹1.00) is also **MATCHED** — the check is
+strictly greater-than the tolerance (`max(₹1 abs, 0.5% of PO price)`).
 
 **Actual / Status / Notes:**
 
@@ -449,7 +490,7 @@ no-PO bill above the threshold → **NO_PO**.
 |---|---|
 | **Priority / Type** | P0 / Happy |
 | **Route** | `/vendor-payments` · **Role:** OWNER/ACCOUNTANT |
-| **Preconditions** | TC-PUR-030 (bill balance ₹8,925) |
+| **Preconditions** | TC-PUR-030 (bill balance ₹8,925). **The bill must be 3-way-match MATCHED/BYPASSED/OVERRIDDEN** — a fresh direct (no-PO) bill classifies NO_PO → overall EXCEPTION, and under the default `ap.three_way_match.required=true` the payment is rejected with **`AP_BILL_3WM_EXCEPTION`** (the bill still POSTS fine; only payment is blocked). Use the PO→GRN→Bill path, override first (TC-PUR-043), or set `required=false`. |
 
 **Test data:** amount 8925 · paid via Bank · allocate to the bill.
 
@@ -501,6 +542,28 @@ balance reduces by its allocated share; total allocated = amount paid.
 
 ---
 
+### TC-PUR-054 — Void a vendor payment (balance + outstanding restore)
+| | |
+|---|---|
+| **Priority / Type** | P1 / Edge |
+| **Route** | `/vendor-payments` (`POST /api/v1/vendor-payments/{id}/void`) · **Role:** OWNER/ADMIN/ACCOUNTANT |
+| **Preconditions** | TC-PUR-051 (partial payment ₹5,000 against the ₹8,925 bill → balance ₹3,925) |
+
+**Steps:** Open the payment → **Void**.
+
+**Expected result**
+- Payment journal reversed (reversal entry posted).
+- Bill amountPaid drops by ₹5,000 → balance restored to **₹8,925**, status back
+  to OPEN; vendor outstanding payable rises by ₹5,000.
+- The payment disappears from the list (soft-deleted); a system comment
+  "Payment of ₹5000 reversed (payment voided)" appears on the bill.
+- For a **TDS bill**: the restored balance = total − TDS − remaining amountPaid
+  (the TDS portion must NOT reappear in balance due).
+
+**Actual / Status / Notes:**
+
+---
+
 ## G. Vendor Credits (purchase returns / debit notes)
 
 ### TC-PUR-060 — Create a vendor credit (purchase return)
@@ -512,9 +575,14 @@ balance reduces by its allocated share; total allocated = amount paid.
 
 **Test data:** return Paracetamol × 50 @ 8.00 (₹400 + GST ₹20 = ₹420).
 
-**Expected result:** Vendor credit posts; **reduces AP** (DR AP / CR Inventory,
-CR Input-GST-reversal); if it removes stock, **inventory drops by 50**. Can be
-applied against an open bill or refunded.
+**Expected result:** Vendor credit posts; journal = **DR Accounts Payable (2010)
+₹420 / CR the per-line account chosen on the credit ₹400 / CR GST Input Credit
+(1500) ₹20** reversal. Vendor-credit lines require an **explicit account** —
+there is no service-side default; pick the same purchase/expense account the
+original bill used (or 1200 Inventory if the bill was booked there). Lines with
+an itemId also record a **RETURN_OUT** stock movement — inventory drops by 50.
+The credit can be **applied against open bills** (auto-applies on post when
+linked to a bill); there is **no cash-refund flow** for vendor credits.
 
 **Actual / Status / Notes:**
 
@@ -546,8 +614,9 @@ reduces payable.
 **Steps:** PO → GRN receive → Bill post → Vendor payment, end to end.
 
 **Expected result:** **Stock rises exactly once** (at GRN, not again at bill);
-AP + inventory journal posts at the **bill**; payment clears AP; 3-way match =
-MATCHED; TB still balances (TC-ACC-030).
+the AP + purchase-account journal posts at the **bill** (default 5020 — see
+TC-PUR-030); payment clears AP; 3-way match = MATCHED; TB still balances
+(TC-ACC-030).
 
 **Actual / Status / Notes:**
 
@@ -576,9 +645,9 @@ variance).
 | A Vendors | 4 | | | |
 | B Purchase Orders | 5 | | | |
 | C GRN | 5 | | | |
-| D Vendor Bills | 5 | | | |
+| D Vendor Bills | 6 | | | |
 | E 3-Way Match | 5 | | | |
-| F Vendor Payments | 4 | | | |
+| F Vendor Payments | 5 | | | |
 | G Vendor Credits | 2 | | | |
 | H Regression | 2 | | | |
-| **Total** | **32** | | | |
+| **Total** | **34** | | | |
