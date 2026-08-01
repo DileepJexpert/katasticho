@@ -1,5 +1,6 @@
 package com.katasticho.erp.pos.service;
 
+import com.katasticho.erp.common.module.ModuleAccessService;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.entity.RackLocation;
 import com.katasticho.erp.inventory.entity.StockBalance;
@@ -42,6 +43,7 @@ class PosSearchServiceTest {
     @Mock private TaxGroupRepository taxGroupRepository;
     @Mock private OrganisationRepository organisationRepository;
     @Mock private TaxEngine taxEngine;
+    @Mock private ModuleAccessService moduleAccessService;
 
     private PosSearchService posSearchService;
 
@@ -55,7 +57,8 @@ class PosSearchServiceTest {
                 warehouseRepository,
                 taxGroupRepository,
                 organisationRepository,
-                taxEngine);
+                taxEngine,
+                moduleAccessService);
     }
 
     @Test

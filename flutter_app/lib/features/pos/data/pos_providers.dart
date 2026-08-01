@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/api/api_client.dart';
+import '../../../core/auth/business_capabilities.dart';
 import '../../../core/storage/pos_database.dart';
 import 'offline_pos_service.dart';
 import 'pos_favourites.dart';
@@ -20,9 +21,12 @@ bool _isNetworkError(Object e) {
 /// item master. Only fetched when the catalog section is actually built.
 final posCatalogSearchProvider = FutureProvider.autoDispose
     .family<List<Map<String, dynamic>>, String>((ref, query) async {
-  if (query.trim().length < 2) return [];
+  final trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+  final capabilities = ref.watch(businessCapabilitiesProvider);
+  if (!capabilities.canUsePharma) return [];
   final repo = ref.watch(posRepositoryProvider);
-  return repo.catalogSearch(query: query.trim());
+  return repo.catalogSearch(query: trimmed);
 });
 
 /// POS search — **local-first**. Searches the local SQLite catalog (instant,
@@ -185,3 +189,5 @@ final posFavouriteItemsProvider =
   }
   return results;
 });
+
+

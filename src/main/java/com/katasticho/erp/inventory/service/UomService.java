@@ -332,94 +332,108 @@ public class UomService {
      */
     @Transactional
     public SeedResult seedDefaultsForOrg(UUID orgId, String industryCode) {
-        if (uomRepository.existsByOrgIdAndAbbreviationIgnoreCaseAndIsDeletedFalse(orgId, "PCS")) {
-            return SeedResult.ALREADY_EXISTS;
-        }
-        seedCommonUoms(orgId);
-        seedIndustryUoms(orgId, industryCode);
+        int inserted = seedCommonUoms(orgId);
+        inserted += seedIndustryUoms(orgId, industryCode);
         log.info("Seeded UoMs for org {} (industry={})", orgId, industryCode);
-        return SeedResult.CREATED_NEW;
+        return seedResult(inserted);
     }
 
     @Transactional
     public SeedResult seedDefaultsForOrg(UUID orgId, List<String> subCategories) {
-        if (uomRepository.existsByOrgIdAndAbbreviationIgnoreCaseAndIsDeletedFalse(orgId, "PCS")) {
-            return SeedResult.ALREADY_EXISTS;
-        }
-        seedCommonUoms(orgId);
+        int inserted = seedCommonUoms(orgId);
         if (subCategories == null || subCategories.isEmpty()) {
-            seedIndustryUoms(orgId, null);
+            inserted += seedIndustryUoms(orgId, null);
         } else {
             for (String code : subCategories) {
-                seedIndustryUoms(orgId, code);
+                inserted += seedIndustryUoms(orgId, code);
             }
         }
         log.info("Seeded UoMs for org {} (subCategories={})", orgId, subCategories);
-        return SeedResult.CREATED_NEW;
+        return seedResult(inserted);
     }
 
-    private void seedCommonUoms(UUID orgId) {
-        seedUom(orgId, "Pieces",      "PCS",    UomCategory.COUNT,     true);
-        seedUom(orgId, "Dozen",       "DOZEN",  UomCategory.COUNT,     false);
-        seedUom(orgId, "Box",         "BOX",    UomCategory.PACKAGING, true);
-        seedUom(orgId, "Kilogram",    "KG",     UomCategory.WEIGHT,    true);
-        seedUom(orgId, "Gram",        "GM",     UomCategory.WEIGHT,    false);
-        seedUom(orgId, "Litre",       "LTR",    UomCategory.VOLUME,    true);
-        seedUom(orgId, "Millilitre",  "ML",     UomCategory.VOLUME,    false);
-        seedUom(orgId, "Set",         "SET",    UomCategory.COUNT,     false);
+    private SeedResult seedResult(int inserted) {
+        return inserted > 0 ? SeedResult.CREATED_NEW : SeedResult.ALREADY_EXISTS;
     }
 
-    private void seedIndustryUoms(UUID orgId, String industryCode) {
+    private int seedCommonUoms(UUID orgId) {
+        int inserted = 0;
+        inserted += seedUom(orgId, "Pieces",     "PCS",   UomCategory.COUNT,     true);
+        inserted += seedUom(orgId, "Dozen",      "DOZEN", UomCategory.COUNT,     false);
+        inserted += seedUom(orgId, "Box",        "BOX",   UomCategory.PACKAGING, true);
+        inserted += seedUom(orgId, "Kilogram",   "KG",    UomCategory.WEIGHT,    true);
+        inserted += seedUom(orgId, "Gram",       "GM",    UomCategory.WEIGHT,    false);
+        inserted += seedUom(orgId, "Litre",      "LTR",   UomCategory.VOLUME,    true);
+        inserted += seedUom(orgId, "Millilitre", "ML",    UomCategory.VOLUME,    false);
+        inserted += seedUom(orgId, "Set",        "SET",   UomCategory.COUNT,     false);
+        return inserted;
+    }
+
+    private int seedIndustryUoms(UUID orgId, String industryCode) {
         if (industryCode == null) {
-            seedUomIfKnown(orgId, "PACK");
-            seedUomIfKnown(orgId, "MTR");
-            return;
+            return seedUomIfKnown(orgId, "PACK") + seedUomIfKnown(orgId, "MTR");
         }
 
         // Prefer DB-driven uomList from industry template feature config
         List<String> dbUomList = resolveUomListFromDb(industryCode);
         if (!dbUomList.isEmpty()) {
+            int inserted = 0;
             for (String uomName : dbUomList) {
-                seedUomIfKnown(orgId, uomName);
+                inserted += seedUomIfKnown(orgId, uomName);
             }
-            return;
+            // Keep older template rows compatible with the current grocery pack model.
+            if (isGroceryIndustry(industryCode)) {
+                inserted += seedGroceryPackUoms(orgId);
+            }
+            return inserted;
         }
 
         // Fallback: hardcoded defaults (kept until all templates are seeded)
         switch (industryCode) {
             case "PHARMACY", "AYURVEDIC", "PHARMA_MANUFACTURER" -> {
-                seedUomIfKnown(orgId, "STRIP"); seedUomIfKnown(orgId, "BOTTLE");
-                seedUomIfKnown(orgId, "TUBE"); seedUomIfKnown(orgId, "VIAL");
-                seedUomIfKnown(orgId, "SACHET"); seedUomIfKnown(orgId, "TAB");
-                seedUomIfKnown(orgId, "MG");
+                return seedUomIfKnown(orgId, "STRIP") + seedUomIfKnown(orgId, "BOTTLE")
+                        + seedUomIfKnown(orgId, "TUBE") + seedUomIfKnown(orgId, "VIAL")
+                        + seedUomIfKnown(orgId, "SACHET") + seedUomIfKnown(orgId, "TAB")
+                        + seedUomIfKnown(orgId, "MG");
             }
             case "GROCERY", "SUPERMARKET", "FRUITS_VEG", "ORGANIC", "KIRANA" -> {
-                seedUomIfKnown(orgId, "PACK"); seedUomIfKnown(orgId, "PKT");
-                seedUomIfKnown(orgId, "BAG"); seedUomIfKnown(orgId, "BORA");
-                seedUomIfKnown(orgId, "KATTA"); seedUomIfKnown(orgId, "CTN");
-                seedUomIfKnown(orgId, "TIN"); seedUomIfKnown(orgId, "TRAY");
-                seedUomIfKnown(orgId, "PETI"); seedUomIfKnown(orgId, "BUNDLE");
-                seedUomIfKnown(orgId, "BOTTLE"); seedUomIfKnown(orgId, "PAIR");
+                return seedGroceryPackUoms(orgId);
             }
-            case "ELECTRONICS", "MOBILE", "APPLIANCES", "LED", "CCTV", "ELECTRONICS_MANUFACTURER" ->
-                seedUomIfKnown(orgId, "PAIR");
+            case "ELECTRONICS", "MOBILE", "APPLIANCES", "LED", "CCTV", "ELECTRONICS_MANUFACTURER" -> {
+                return seedUomIfKnown(orgId, "PAIR");
+            }
             case "HARDWARE", "PLUMBING", "ELECTRICAL", "PAINT", "BUILDING" -> {
-                seedUomIfKnown(orgId, "MTR"); seedUomIfKnown(orgId, "FT");
-                seedUomIfKnown(orgId, "SQFT"); seedUomIfKnown(orgId, "CUFT");
-                seedUomIfKnown(orgId, "BAG");
+                return seedUomIfKnown(orgId, "MTR") + seedUomIfKnown(orgId, "FT")
+                        + seedUomIfKnown(orgId, "SQFT") + seedUomIfKnown(orgId, "CUFT")
+                        + seedUomIfKnown(orgId, "BAG");
             }
             case "GARMENTS", "FABRIC", "FOOTWEAR", "JEWELRY", "COSMETICS", "GARMENT_MANUFACTURER" -> {
-                seedUomIfKnown(orgId, "PAIR"); seedUomIfKnown(orgId, "MTR");
+                return seedUomIfKnown(orgId, "PAIR") + seedUomIfKnown(orgId, "MTR");
             }
             case "FOOD", "BAKERY", "CATERING", "CLOUD_KITCHEN", "JUICE", "FOOD_MANUFACTURER" -> {
-                seedUomIfKnown(orgId, "PLATE"); seedUomIfKnown(orgId, "GLASS");
+                return seedUomIfKnown(orgId, "PLATE") + seedUomIfKnown(orgId, "GLASS");
             }
             default -> {
-                seedUomIfKnown(orgId, "PACK"); seedUomIfKnown(orgId, "MTR");
+                return seedUomIfKnown(orgId, "PACK") + seedUomIfKnown(orgId, "MTR");
             }
         }
     }
 
+    private boolean isGroceryIndustry(String industryCode) {
+        return switch (industryCode) {
+            case "GROCERY", "SUPERMARKET", "FRUITS_VEG", "ORGANIC", "KIRANA" -> true;
+            default -> false;
+        };
+    }
+
+    private int seedGroceryPackUoms(UUID orgId) {
+        return seedUomIfKnown(orgId, "PACK") + seedUomIfKnown(orgId, "PKT")
+                + seedUomIfKnown(orgId, "BAG") + seedUomIfKnown(orgId, "BORA")
+                + seedUomIfKnown(orgId, "KATTA") + seedUomIfKnown(orgId, "CTN")
+                + seedUomIfKnown(orgId, "TIN") + seedUomIfKnown(orgId, "TRAY")
+                + seedUomIfKnown(orgId, "PETI") + seedUomIfKnown(orgId, "BUNDLE")
+                + seedUomIfKnown(orgId, "BOTTLE") + seedUomIfKnown(orgId, "PAIR");
+    }
     private List<String> resolveUomListFromDb(String industryCode) {
         return industryTemplateRepository.findByIndustryCode(industryCode)
                 .map(template -> {
@@ -432,18 +446,19 @@ public class UomService {
                 .orElse(Collections.emptyList());
     }
 
-    private void seedUomIfKnown(UUID orgId, String nameOrAbbr) {
+    private int seedUomIfKnown(UUID orgId, String nameOrAbbr) {
         UomDef def = UOM_REGISTRY.get(nameOrAbbr.toUpperCase());
         if (def != null) {
-            seedUom(orgId, def.name(), def.abbr(), def.category(), def.base());
+            return seedUom(orgId, def.name(), def.abbr(), def.category(), def.base());
         } else {
             log.warn("Unknown UoM '{}' in template config — skipping", nameOrAbbr);
+            return 0;
         }
     }
 
-    private void seedUom(UUID orgId, String name, String abbr, UomCategory cat, boolean isBase) {
+    private int seedUom(UUID orgId, String name, String abbr, UomCategory cat, boolean isBase) {
         if (uomRepository.existsByOrgIdAndAbbreviationIgnoreCaseAndIsDeletedFalse(orgId, abbr)) {
-            return;
+            return 0;
         }
         Uom uom = Uom.builder()
                 .name(name)
@@ -453,8 +468,8 @@ public class UomService {
                 .build();
         uom.setOrgId(orgId);
         uomRepository.save(uom);
+        return 1;
     }
-
     private Uom findForOrg(UUID id, UUID orgId) {
         return uomRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Uom", id));

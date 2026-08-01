@@ -42,6 +42,7 @@ class NavItem {
   final List<String>? roles;
   final List<String>? industries;
   final List<String>? countries;
+  final String Function(String? industryCode)? labelResolver;
 
   const NavItem({
     this.id,
@@ -52,7 +53,20 @@ class NavItem {
     this.roles,
     this.industries,
     this.countries,
+    this.labelResolver,
   });
+
+  NavItem resolvedForIndustry(String? industryCode) => NavItem(
+        id: id,
+        label: labelResolver?.call(industryCode) ?? label,
+        icon: icon,
+        activeIcon: activeIcon,
+        route: route,
+        roles: roles,
+        industries: industries,
+        countries: countries,
+        labelResolver: labelResolver,
+      );
 }
 
 // ── Top-level nav items used by compact tablet/mobile shells ──
@@ -95,6 +109,14 @@ const _dashboardNavItem = NavItem(
   icon: Icons.dashboard_outlined,
   activeIcon: Icons.dashboard_rounded,
   route: Routes.dashboard,
+);
+
+const _testingGuideNavItem = NavItem(
+  id: 'testing_guide',
+  label: 'Testing Guide',
+  icon: Icons.menu_book_outlined,
+  activeIcon: Icons.menu_book_rounded,
+  route: Routes.testingGuide,
 );
 
 const _caConsoleNavItem = NavItem(
@@ -817,10 +839,11 @@ const _fieldSalesGroup = NavGroup(
         route: Routes.fieldSalesLiveTracking),
     NavItem(
         id: 'field_sales.mr_approvals',
-        label: 'MR Approvals',
+        label: 'Field Approvals',
         icon: Icons.fact_check_outlined,
         activeIcon: Icons.fact_check,
-        route: Routes.fieldSalesMrApprovals),
+        route: Routes.fieldSalesMrApprovals,
+        labelResolver: _fieldSalesApprovalLabel),
     NavItem(
         id: 'field_sales.samples',
         label: 'Samples & TA/DA',
@@ -1219,13 +1242,22 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
     super.dispose();
   }
 
+  List<KCommand> _commandsForCurrentOrg() {
+    final auth = ref.read(authProvider);
+    final industry = (auth.industryCode ?? auth.industry ?? '').toUpperCase();
+    final isPharma =
+        industry == 'PHARMACY' || industry.contains('PHARMA');
+    return buildAppCommands(isPharma: isPharma);
+  }
+
   bool _handleKey(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
 
     final hasModifier = KShortcuts.isControlOrMetaPressed();
 
     if (hasModifier && event.logicalKey == LogicalKeyboardKey.keyK) {
-      KCommandPalette.show(context, commands: buildAppCommands());
+      KCommandPalette.show(
+          context, commands: _commandsForCurrentOrg());
       return true;
     }
 
@@ -1308,7 +1340,8 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
     if (createRoute != null) {
       context.go(createRoute);
     } else {
-      KCommandPalette.show(context, commands: buildAppCommands());
+      KCommandPalette.show(
+          context, commands: _commandsForCurrentOrg());
     }
   }
 
@@ -1713,6 +1746,8 @@ List<Widget> _buildSidebarSections({
   return [
     if (topItemOk(_dashboardNavItem))
       _SidebarNavItem(item: _dashboardNavItem, collapsed: collapsed),
+    if (topItemOk(_testingGuideNavItem))
+      _SidebarNavItem(item: _testingGuideNavItem, collapsed: collapsed),
     if (!isViewer &&
         capabilities.canUseAiInbox &&
         topItemOk(_aiCommandCenterNavItem))
@@ -1753,6 +1788,14 @@ List<Widget> _buildSidebarSections({
       _SidebarNavItem(item: _settingsNavItem, collapsed: collapsed),
   ];
 }
+
+bool _isPharmaIndustry(String? industryCode) {
+  final code = (industryCode ?? '').trim().toUpperCase();
+  return code == 'PHARMACY' || code.contains('PHARMA');
+}
+
+String _fieldSalesApprovalLabel(String? industryCode) =>
+    _isPharmaIndustry(industryCode) ? 'MR Approvals' : 'Field Approvals';
 
 /// Whether the supplied item passes the capability + override + role +
 /// industry + country gates. PLATFORM_ADMIN (via [NavOverrides.isPlatformAdmin])
@@ -1812,6 +1855,7 @@ NavGroup? _visibleGroup(
   final visibleChildren = group.children
       .where((item) => _isItemVisible(
           item, capabilities, overrides, role, industryCode, countryCode))
+      .map((item) => item.resolvedForIndustry(industryCode))
       .toList(growable: false);
   if (visibleChildren.isEmpty) return null;
   return NavGroup(

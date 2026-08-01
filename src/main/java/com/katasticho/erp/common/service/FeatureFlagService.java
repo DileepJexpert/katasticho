@@ -73,13 +73,25 @@ public class FeatureFlagService {
 
     @Transactional
     public void seedForSubCategories(UUID orgId, List<String> subCategoryCodes) {
+        String businessType = organisationRepository.findById(orgId)
+                .map(org -> org.getBusinessType())
+                .orElse(null);
+        seedForSubCategories(orgId, businessType, subCategoryCodes);
+    }
+
+    private void seedForSubCategories(UUID orgId, String businessType, List<String> subCategoryCodes) {
         flagRepository.deleteByOrgId(orgId);
 
         Map<String, Boolean> merged = defaultFlags();
         List<String> normalizedCodes = normalizeSubCategoryCodes(subCategoryCodes);
 
+        // Business type is the durable capability boundary. Do not make a
+        // user's access depend on finding a legacy industry template; the
+        // template only contributes vertical-specific feature flags.
+        applyModuleFlagsForBusinessType(merged, businessType);
+
         if (normalizedCodes != null && !normalizedCodes.isEmpty()) {
-            UUID templateId = resolveTemplateId(normalizedCodes);
+            UUID templateId = resolveTemplateId(normalizedCodes, businessType);
 
             if (templateId != null) {
                 // Apply module-level flags (INVENTORY, POS, etc.) from businessType
@@ -115,8 +127,8 @@ public class FeatureFlagService {
         }
 
         invalidateCache(orgId);
-        log.info("Seeded {} feature flags for org {} (subCategories={})",
-                merged.size(), orgId, normalizedCodes);
+        log.info("Seeded {} feature flags for org {} (businessType={}, subCategories={})",
+                merged.size(), orgId, businessType, normalizedCodes);
     }
 
     private List<String> normalizeSubCategoryCodes(List<String> codes) {
@@ -179,7 +191,51 @@ public class FeatureFlagService {
      * Resolves the IndustryTemplate UUID for a list of codes.
      * Codes may be either sub-category codes (PHARMACY_CHAIN) or industry codes (PHARMACY).
      */
-    private UUID resolveTemplateId(List<String> codes) {
+    private UUID resolveTemplateId(List<String> codes, String businessType) {
+        String normalizedBusinessType = businessType == null ? null : businessType.trim().toUpperCase(Locale.ROOT);
+
+        if (normalizedBusinessType != null && !normalizedBusinessType.isBlank()) {
+            // A sub-category code is only valid when it belongs to this org business type.
+            // This prevents a legacy OTHER_RETAIL code from selecting a retailer template
+            // for a distributor organisation.
+            for (String code : codes) {
+                Optional<UUID> subCategoryTemplateId = subCategoryRepository.findBySubCategoryCode(code)
+                        .map(subCategory -> subCategory.getIndustryTemplateId())
+                        .filter(templateId -> industryTemplateRepository.findById(templateId)
+                                .map(template -> normalizedBusinessType.equalsIgnoreCase(template.getBusinessType()))
+                                .orElse(false));
+                if (subCategoryTemplateId.isPresent()) return subCategoryTemplateId.get();
+            }
+
+            // Industry codes are globally unique, but the selected template must still
+            // match the organisation business type.
+            for (String code : codes) {
+                Optional<UUID> industryTemplateId = industryTemplateRepository.findByIndustryCode(code)
+                        .filter(template -> normalizedBusinessType.equalsIgnoreCase(template.getBusinessType()))
+                        .map(IndustryTemplate::getId);
+                if (industryTemplateId.isPresent()) return industryTemplateId.get();
+            }
+
+            // Older organisations may carry a generic industry code from before the
+            // business-type/vertical model was introduced.
+            String fallbackCode = switch (normalizedBusinessType) {
+                case "RETAILER" -> "OTHER_RETAIL";
+                case "DISTRIBUTOR" -> "OTHER_DISTRIBUTOR";
+                case "MANUFACTURER" -> "OTHER_MANUFACTURER";
+                case "SERVICE_PROVIDER" -> "IT_SERVICES";
+                default -> null;
+            };
+            if (fallbackCode != null) {
+                Optional<UUID> fallbackTemplateId = industryTemplateRepository.findByIndustryCode(fallbackCode)
+                        .map(IndustryTemplate::getId);
+                if (fallbackTemplateId.isPresent()) return fallbackTemplateId.get();
+            }
+        }
+
+        return resolveTemplateIdWithoutBusinessType(codes);
+    }
+
+    private UUID resolveTemplateIdWithoutBusinessType(List<String> codes) {
         // Step 1: look up via IndustrySubCategory table (handles sub-category codes)
         for (String code : codes) {
             Optional<UUID> templateId = subCategoryRepository.findBySubCategoryCode(code)
@@ -201,7 +257,20 @@ public class FeatureFlagService {
      * These are separate from the fine-grained feature flags stored in IndustryFeatureConfig.
      */
     private void applyModuleFlagsForTemplate(Map<String, Boolean> merged, IndustryTemplate template) {
-        switch (template.getBusinessType()) {
+        applyModuleFlagsForBusinessType(merged, template.getBusinessType());
+
+        // Pharma-specific modules
+        String ic = template.getIndustryCode();
+        if (ic != null && (ic.contains("PHARMA") || ic.equals("PHARMACY"))) {
+            merged.put(ModuleCode.PHARMA, true);
+            merged.put(ModuleCode.BATCH_EXPIRY, true);
+        }
+    }
+
+    private void applyModuleFlagsForBusinessType(Map<String, Boolean> merged, String businessType) {
+        if (businessType == null || businessType.isBlank()) return;
+
+        switch (businessType.trim().toUpperCase(Locale.ROOT)) {
             case "RETAILER" -> {
                 merged.put(ModuleCode.POS, true);
                 merged.put(ModuleCode.INVENTORY, true);
@@ -209,18 +278,14 @@ public class FeatureFlagService {
             case "DISTRIBUTOR" -> {
                 merged.put(ModuleCode.INVENTORY, true);
                 merged.put(ModuleCode.DISTRIBUTION, true);
+                merged.put(ModuleCode.FIELD_SALES, true);
             }
             case "MANUFACTURER" -> {
                 merged.put(ModuleCode.INVENTORY, true);
                 merged.put(ModuleCode.MANUFACTURING, true);
+                merged.put(ModuleCode.FIELD_SALES, true);
             }
             default -> { }
-        }
-        // Pharma-specific modules
-        String ic = template.getIndustryCode();
-        if (ic.contains("PHARMA") || ic.equals("PHARMACY")) {
-            merged.put(ModuleCode.PHARMA, true);
-            merged.put(ModuleCode.BATCH_EXPIRY, true);
         }
     }
 

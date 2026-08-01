@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -28,11 +29,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -43,8 +45,9 @@ class EditLogHibernateListenerTest {
 
     @Mock
     private EntityPersister persister;
-    @Mock
     private EventSource session;
+    private int actionQueueCalls;
+    private int doWorkCalls;
     @Mock
     private ActionQueue actionQueue;
     @Mock
@@ -64,17 +67,42 @@ class EditLogHibernateListenerTest {
         TenantContext.setCurrentUserId(userId);
         when(persister.getEntityName()).thenReturn(INVOICE_ENTITY);
         when(persister.getPropertyNames()).thenReturn(NAMES);
-        when(session.getActionQueue()).thenReturn(actionQueue);
+        actionQueueCalls = 0;
+        doWorkCalls = 0;
+        session = (EventSource) Proxy.newProxyInstance(
+                EventSource.class.getClassLoader(),
+                new Class<?>[]{EventSource.class},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("getActionQueue")) {
+                        actionQueueCalls++;
+                        return actionQueue;
+                    }
+                    if (method.getName().equals("doWork")) {
+                        doWorkCalls++;
+                        ((Work) args[0]).execute(connection);
+                        return null;
+                    }
+                    return defaultValue(method.getReturnType());
+                });
         when(connection.prepareStatement(anyString())).thenReturn(preparedStatement);
-        doAnswer(invocation -> {
-            invocation.getArgument(0, Work.class).execute(connection);
-            return null;
-        }).when(session).doWork(any(Work.class));
     }
 
     @AfterEach
     void tearDown() {
         TenantContext.clear();
+    }
+
+    private static Object defaultValue(Class<?> type) {
+        if (!type.isPrimitive()) return null;
+        if (type == boolean.class) return false;
+        if (type == char.class) return (char) 0;
+        if (type == byte.class) return (byte) 0;
+        if (type == short.class) return (short) 0;
+        if (type == int.class) return 0;
+        if (type == long.class) return 0L;
+        if (type == float.class) return 0F;
+        if (type == double.class) return 0D;
+        return null;
     }
 
     private BeforeTransactionCompletionProcess capturedBeforeProcess() {
@@ -139,7 +167,7 @@ class EditLogHibernateListenerTest {
         listener.onPostUpdate(new PostUpdateEvent(
                 new Object(), entityId, newState, oldState, new int[]{2}, persister, session));
 
-        verify(session, never()).getActionQueue();
+        assertEquals(0, actionQueueCalls);
     }
 
     @Test
@@ -150,7 +178,7 @@ class EditLogHibernateListenerTest {
 
         listener.onPostInsert(new PostInsertEvent(new Object(), entityId, state, persister, session));
 
-        verify(session, never()).getActionQueue();
+        assertEquals(0, actionQueueCalls);
     }
 
     @Test
@@ -161,7 +189,7 @@ class EditLogHibernateListenerTest {
         // must not throw
         listener.onPostInsert(new PostInsertEvent(new Object(), entityId, state, persister, session));
 
-        verify(session, never()).getActionQueue();
+        assertEquals(0, actionQueueCalls);
     }
 
     @Test
@@ -170,7 +198,7 @@ class EditLogHibernateListenerTest {
 
         listener.onPostInsert(new PostInsertEvent(new Object(), entityId, state, persister, session));
 
-        verify(session, never()).getActionQueue();
+        assertEquals(0, actionQueueCalls);
     }
 
     @Test
@@ -185,6 +213,6 @@ class EditLogHibernateListenerTest {
         verify(preparedStatement, org.mockito.Mockito.times(2)).addBatch();
         verify(preparedStatement).executeBatch();
         // the second event reused the already-registered process — one connection write
-        verify(session).doWork(any(Work.class));
+        assertEquals(1, doWorkCalls);
     }
 }

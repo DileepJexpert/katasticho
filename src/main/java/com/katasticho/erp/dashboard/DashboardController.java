@@ -1,6 +1,8 @@
 package com.katasticho.erp.dashboard;
 
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.dashboard.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -102,6 +104,7 @@ public class DashboardController {
     }
 
     @GetMapping("/expiring-soon")
+    @RequiresModule(ModuleCode.BATCH_EXPIRY)
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<List<ExpiringSoonResponse>>> expiringSoon(
             @RequestParam(required = false, defaultValue = "90") int withinDays) {

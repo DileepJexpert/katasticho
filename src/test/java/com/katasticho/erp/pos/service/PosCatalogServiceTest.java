@@ -1,6 +1,7 @@
 package com.katasticho.erp.pos.service;
 
 import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.common.module.ModuleAccessService;
 import com.katasticho.erp.inventory.dto.CreateItemRequest;
 import com.katasticho.erp.inventory.entity.DrugMaster;
 import com.katasticho.erp.inventory.entity.Item;
@@ -37,6 +38,7 @@ class PosCatalogServiceTest {
     @Mock private ItemService itemService;
     @Mock private PosSearchService posSearchService;
     @Mock private com.katasticho.erp.organisation.OrgSettingsService orgSettingsService;
+    @Mock private ModuleAccessService moduleAccessService;
 
     private PosCatalogService service;
 
@@ -44,8 +46,9 @@ class PosCatalogServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PosCatalogService(drugMasterRepo, itemRepo, itemService, posSearchService,
+        service = new PosCatalogService(moduleAccessService, drugMasterRepo, itemRepo, itemService, posSearchService,
                 orgSettingsService);
+        lenient().doNothing().when(moduleAccessService).requireEnabled("PHARMA");
         lenient().when(orgSettingsService.get(eq(orgId),
                 eq("pos.catalog_quick_add_track_batches"), eq("false"))).thenReturn("false");
         TenantContext.setCurrentOrgId(orgId);
@@ -110,6 +113,7 @@ class PosCatalogServiceTest {
         assertNull(req.purchasePrice());
         assertEquals(0, new BigDecimal("10").compareTo(req.openingStock()));
         assertEquals("Dolo 650 Tablet", res.name());
+        verify(moduleAccessService).requireEnabled("PHARMA");
     }
 
     @Test
@@ -169,3 +173,4 @@ class PosCatalogServiceTest {
         assertTrue(captor.getValue().sku().matches("DOLO-650-TABLET-\\d{4}"));
     }
 }
+

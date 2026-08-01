@@ -17,6 +17,8 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
   final _warehouseCtl = TextEditingController();
   final _processingChargesCtl = TextEditingController();
   final _notesCtl = TextEditingController();
+  final _outputItemCtl = TextEditingController();
+  final _outputQtyCtl = TextEditingController();
 
   DateTime? _plannedSendDate;
   DateTime? _plannedReturnDate;
@@ -39,6 +41,8 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
     _warehouseCtl.dispose();
     _processingChargesCtl.dispose();
     _notesCtl.dispose();
+    _outputItemCtl.dispose();
+    _outputQtyCtl.dispose();
     for (final row in _materialRows) {
       row.dispose();
     }
@@ -213,6 +217,46 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
 
           const SizedBox(height: 24),
 
+          Text(
+            'Finished Good to Receive',
+            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Select the item the external manufacturer will return. This is separate from raw materials sent out.',
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 3,
+                child: TextField(
+                  controller: _outputItemCtl,
+                  decoration: const InputDecoration(
+                    labelText: 'Finished-good Item ID *',
+                    hintText: 'Item UUID',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _outputQtyCtl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Expected qty *',
+                    hintText: '0',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
           FilledButton.icon(
             onPressed: _submitting ? null : _submit,
             icon: _submitting
@@ -258,6 +302,15 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
       return;
     }
 
+    final outputItemId = _outputItemCtl.text.trim();
+    final outputQty = double.tryParse(_outputQtyCtl.text.trim());
+    if (outputItemId.isEmpty || outputQty == null || outputQty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add the finished-good item and expected quantity')),
+      );
+      return;
+    }
+
     setState(() => _submitting = true);
     try {
       final repo = ref.read(manufacturingRepositoryProvider);
@@ -265,6 +318,7 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
         vendorId: vendorId,
         warehouseId: warehouseId,
         materials: materials,
+        outputs: [{'itemId': outputItemId, 'qty': outputQty}],
         processingCharges: double.tryParse(_processingChargesCtl.text.trim()),
         plannedSendDate: _plannedSendDate != null ? _formatDate(_plannedSendDate!) : null,
         plannedReturnDate: _plannedReturnDate != null ? _formatDate(_plannedReturnDate!) : null,

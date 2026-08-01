@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/auth_state.dart';
+
 import '../data/field_sales_repository.dart';
 
-/// Manager inbox for MR submissions: monthly tour plans (MTP) and
-/// Daily Call Reports (DCR) awaiting approval.
+/// Manager inbox for field submissions: monthly tour plans and daily reports
+/// awaiting approval. Pharma organisations see the traditional MR wording.
 class MrApprovalsScreen extends ConsumerStatefulWidget {
   const MrApprovalsScreen({super.key});
 
@@ -143,11 +145,17 @@ class _MrApprovalsScreenState extends ConsumerState<MrApprovalsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authProvider);
+    final industry = (auth.industryCode ?? auth.industry ?? '').toUpperCase();
+    final isPharma = industry == 'PHARMACY' || industry.contains('PHARMA');
+    final screenTitle = isPharma ? 'MR Approvals' : 'Field Approvals';
+    final dailyReportLabel = isPharma ? 'DCRs' : 'Daily Reports';
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('MR Approvals'),
+          title: Text(screenTitle),
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh),
@@ -156,7 +164,7 @@ class _MrApprovalsScreenState extends ConsumerState<MrApprovalsScreen> {
           ],
           bottom: TabBar(tabs: [
             Tab(text: 'Tour Plans (${_tourPlans.length})'),
-            Tab(text: 'DCRs (${_dcrs.length})'),
+            Tab(text: '${dailyReportLabel} (${_dcrs.length})'),
           ]),
         ),
         body: _isLoading
@@ -182,11 +190,14 @@ class _MrApprovalsScreenState extends ConsumerState<MrApprovalsScreen> {
                     leading: const Icon(Icons.assignment),
                     title: Text(
                         '${dcr['reportDate']} — ${dcr['workType'] ?? ''}'),
-                    subtitle: Text(
-                        'Visits ${dcr['totalVisits']} (Dr ${dcr['doctorsVisited']}'
-                        ' / Ch ${dcr['chemistsVisited']})'
-                        ' • POB ₹${dcr['totalPob']}'
-                        ' • Samples ${dcr['samplesGiven']}'),
+                    subtitle: Text(isPharma
+                        ? 'Visits ${dcr['totalVisits']} (Dr ${dcr['doctorsVisited']}'
+                            ' / Ch ${dcr['chemistsVisited']})'
+                            ' • POB ₹${dcr['totalPob']}'
+                            ' • Samples ${dcr['samplesGiven']}'
+                        : 'Visits ${dcr['totalVisits']}'
+                            ' • POB ₹${dcr['totalPob']}'
+                            ' • Products/Samples ${dcr['samplesGiven']}'),
                     trailing: _decisionButtons(
                         isTourPlan: false, id: dcr['id'].toString()),
                   ),

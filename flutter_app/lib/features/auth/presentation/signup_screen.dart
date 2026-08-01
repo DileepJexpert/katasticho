@@ -56,12 +56,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
     try {
       final authRepo = ref.read(authRepositoryProvider);
+      final onboarding = ref.read(onboardingProvider);
       final response = await authRepo.register(
         phone: _phoneController.text.trim(),
         password: _passwordController.text,
         fullName: _nameController.text.trim(),
         orgName: _orgNameController.text.trim(),
-        countryCode: ref.read(onboardingProvider).countryCode,
+        businessType: onboarding.businessType,
+        industryCode: onboarding.industryCode,
+        subCategories: onboarding.subCategories,
+        countryCode: onboarding.countryCode,
       );
 
       final data = response['data'] as Map<String, dynamic>;

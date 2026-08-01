@@ -47,7 +47,7 @@ class HsnGstRateHistoryServiceTest {
 
     @BeforeEach
     void setUp() {
-        svc = new PharmacyMasterService(null, hsnRepository, rateHistoryRepository,
+        svc = new PharmacyMasterService(null, null, null, hsnRepository, rateHistoryRepository,
                 null, null, null, null, null, null, clock);
         when(rateHistoryRepository.save(any())).thenAnswer(i -> i.getArgument(0));
         // Rate-change (open-ended) writes are platform-admin only; default the
@@ -201,3 +201,4 @@ class HsnGstRateHistoryServiceTest {
         verify(hsnRepository, never()).save(any());
     }
 }
+

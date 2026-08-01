@@ -13,7 +13,6 @@ import java.util.Map;
 import java.util.UUID;
 
 public record CreateItemRequest(
-        @NotBlank(message = "SKU is required")
         @Size(max = 50, message = "SKU must be at most 50 characters")
         String sku,
 

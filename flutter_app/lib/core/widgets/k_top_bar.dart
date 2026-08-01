@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../commands/command_registry.dart';
+import '../auth/auth_state.dart';
 import '../shortcuts/k_shortcuts.dart';
 import '../shell/shell_providers.dart';
 import '../theme/k_spacing.dart';
@@ -40,6 +41,10 @@ class KTopBar extends ConsumerWidget implements PreferredSizeWidget {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final collapsed = ref.watch(sidebarCollapsedProvider);
+    final auth = ref.watch(authProvider);
+    final industry = (auth.industryCode ?? auth.industry ?? '').toUpperCase();
+    final isPharma =
+        industry == 'PHARMACY' || industry.contains('PHARMA');
 
     return Container(
       height: 44,
@@ -101,7 +106,7 @@ class KTopBar extends ConsumerWidget implements PreferredSizeWidget {
                   child: GestureDetector(
                     onTap: () => KCommandPalette.show(
                       context,
-                      commands: buildAppCommands(),
+                      commands: buildAppCommands(isPharma: isPharma),
                     ),
                     child: Container(
                       height: 30,

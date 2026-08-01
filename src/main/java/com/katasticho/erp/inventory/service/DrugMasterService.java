@@ -1,6 +1,8 @@
 package com.katasticho.erp.inventory.service;
 
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.module.ModuleAccessService;
+import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.inventory.dto.DrugMasterResponse;
 import com.katasticho.erp.inventory.dto.SaltMasterResponse;
 import com.katasticho.erp.inventory.entity.DrugMaster;
@@ -20,10 +22,12 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class DrugMasterService {
 
+    private final ModuleAccessService moduleAccessService;
     private final DrugMasterRepository drugMasterRepository;
     private final SaltMasterRepository saltMasterRepository;
 
     public List<DrugMasterResponse> searchDrugs(String query, int limit) {
+        moduleAccessService.requireEnabled(ModuleCode.PHARMA);
         PageRequest page = PageRequest.of(0, limit);
         return drugMasterRepository.search(query == null ? "" : query.trim(), page)
                 .stream()
@@ -32,12 +36,14 @@ public class DrugMasterService {
     }
 
     public DrugMasterResponse getById(UUID id) {
+        moduleAccessService.requireEnabled(ModuleCode.PHARMA);
         DrugMaster drug = drugMasterRepository.findById(id)
                 .orElseThrow(() -> BusinessException.notFound("DrugMaster", id));
         return toResponse(drug);
     }
 
     public List<SaltMasterResponse> searchSalts(String query, int limit) {
+        moduleAccessService.requireEnabled(ModuleCode.PHARMA);
         PageRequest page = PageRequest.of(0, limit);
         return saltMasterRepository
                 .findByNameContainingIgnoreCaseOrderByNameAsc(query == null ? "" : query.trim(), page)
@@ -67,3 +73,4 @@ public class DrugMasterService {
         return new SaltMasterResponse(s.getId(), s.getName(), s.getCategory());
     }
 }
+

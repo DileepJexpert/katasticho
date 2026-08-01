@@ -458,9 +458,17 @@ public class ManufacturingController {
                         UUID.fromString(m.get("itemId").toString()),
                         new BigDecimal(m.get("qty").toString())
                 )).toList();
+        Object rawOutputs = body.get("outputs");
+        List<JobWorkService.JobWorkLineInput> outputs = rawOutputs instanceof List<?> list
+                ? ((List<Map<String, Object>>) list).stream()
+                        .map(m -> new JobWorkService.JobWorkLineInput(
+                                UUID.fromString(m.get("itemId").toString()),
+                                new BigDecimal(m.get("qty").toString())))
+                        .toList()
+                : List.of();
 
         return ResponseEntity.ok(ApiResponse.ok(
-                jobWorkService.createJobWorkOrder(vendorId, warehouseId, materials, charges,
+                jobWorkService.createJobWorkOrder(vendorId, warehouseId, materials, outputs, charges,
                         sendDate, returnDate, (String) body.get("notes")),
                 "Job work order created"));
     }
@@ -488,7 +496,8 @@ public class ManufacturingController {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<JobWorkOrder>> receiveJobWorkGoods(
             @PathVariable UUID id, @RequestBody Map<String, Object> body) {
-        List<JobWorkService.JobWorkReceiveInput> lines = ((List<Map<String, Object>>) body.get("lines"))
+        Object rawLines = body.get("lines") != null ? body.get("lines") : body.get("receiptLines");
+        List<JobWorkService.JobWorkReceiveInput> lines = ((List<Map<String, Object>>) rawLines)
                 .stream().map(m -> new JobWorkService.JobWorkReceiveInput(
                         UUID.fromString(m.get("itemId").toString()),
                         new BigDecimal(m.get("receivedQty").toString()),

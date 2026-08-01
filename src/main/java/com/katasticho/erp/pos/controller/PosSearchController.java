@@ -62,6 +62,7 @@ public class PosSearchController {
      * medicine mid-bill. Cost price is not involved (purchase price is null).
      */
     @PostMapping("/from-drug/{drugId}")
+    @RequiresModule(ModuleCode.PHARMA)
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
     public ResponseEntity<ApiResponse<PosSearchResult>> createFromDrug(
             @PathVariable UUID drugId,
@@ -97,3 +98,4 @@ public class PosSearchController {
                 .anyMatch(a -> a.getAuthority().equals("ROLE_OWNER") || a.getAuthority().equals("ROLE_ADMIN"));
     }
 }
+

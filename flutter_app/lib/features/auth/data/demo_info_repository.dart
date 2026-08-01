@@ -59,12 +59,22 @@ class DemoInfo {
 /// "demo disabled" instead of throwing, so the login screen stays clean.
 final demoInfoProvider = FutureProvider<DemoInfo>((ref) async {
   final apiClient = ref.watch(apiClientProvider);
-  try {
-    final response = await apiClient.get<Map<String, dynamic>>(ApiConfig.demoInfo);
-    final data = response.data?['data'] as Map<String, dynamic>?;
-    if (data == null) return DemoInfo.disabled;
-    return DemoInfo.fromJson(data);
-  } catch (_) {
-    return DemoInfo.disabled;
+
+  // Spring Boot may still be binding port 8080 when Chrome loads. Retry the
+  // public demo endpoint so a slow backend startup does not permanently hide
+  // the one-tap demo logins for the whole browser session.
+  for (var attempt = 0; attempt < 4; attempt++) {
+    try {
+      final response = await apiClient.get<Map<String, dynamic>>(ApiConfig.demoInfo);
+      final data = response.data?['data'] as Map<String, dynamic>?;
+      if (data == null) return DemoInfo.disabled;
+      return DemoInfo.fromJson(data);
+    } catch (_) {
+      if (attempt < 3) {
+        await Future<void>.delayed(Duration(milliseconds: 750 * (attempt + 1)));
+      }
+    }
   }
+
+  return DemoInfo.disabled;
 });

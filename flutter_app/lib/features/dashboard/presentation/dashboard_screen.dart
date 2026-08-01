@@ -643,12 +643,15 @@ class _DistributorDashboard extends StatelessWidget {
                   vertical: config.vertical,
                 ),
                 const SizedBox(height: 10),
-                _KpiGrid(
-                  kpis: config.kpis,
-                  isDesktop: isDesktop,
-                  compact: true,
-                  expandedAging: expandedAging,
-                  onToggleAging: onToggleAging,
+                LayoutBuilder(
+                  builder: (context, constraints) => _KpiGrid(
+                    kpis: config.kpis,
+                    isDesktop: isDesktop,
+                    compact: true,
+                    availableWidth: constraints.maxWidth,
+                    expandedAging: expandedAging,
+                    onToggleAging: onToggleAging,
+                  ),
                 ),
                 if (capabilities.canUseDistribution) ...[
                   const SizedBox(height: 10),
@@ -1132,6 +1135,7 @@ class _KpiGrid extends ConsumerWidget {
   final List<KpiConfig> kpis;
   final bool isDesktop;
   final bool compact;
+  final double? availableWidth;
   final String? expandedAging;
   final ValueChanged<String> onToggleAging;
 
@@ -1139,13 +1143,19 @@ class _KpiGrid extends ConsumerWidget {
     required this.kpis,
     required this.isDesktop,
     this.compact = false,
+    this.availableWidth,
     required this.expandedAging,
     required this.onToggleAging,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cols = isDesktop ? 4 : 2;
+    // The distributor dashboard splits desktop content into two columns.
+    // The left column is often too narrow for four compact cards, even on a wide
+    // browser window, so choose the grid from its actual available width.
+    final cols = compact && (availableWidth ?? double.infinity) < 960
+        ? 2
+        : (isDesktop ? 4 : 2);
     final tileH =
         compact ? (isDesktop ? 78.0 : 88.0) : (isDesktop ? 112.0 : 116.0);
     final todaySalesAsync = ref.watch(todaySalesProvider);

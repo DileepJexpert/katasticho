@@ -96,13 +96,17 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       if (widget.isSignup) {
         // Signup flow: send OTP + user details together
         debugPrint('[OtpScreen] Calling signup API with phone: ${widget.phoneNumber}, fullName: ${widget.fullName}, orgName: ${widget.orgName}, industry: ${widget.industry}');
+        final onboarding = ref.read(onboardingProvider);
         response = await authRepo.signup(
           phone: widget.phoneNumber,
           otp: otp,
           fullName: widget.fullName!,
           orgName: widget.orgName!,
           industry: widget.industry,
-          countryCode: ref.read(onboardingProvider).countryCode,
+          businessType: onboarding.businessType,
+          industryCode: onboarding.industryCode,
+          subCategories: onboarding.subCategories,
+          countryCode: onboarding.countryCode,
         );
       } else {
         // Login flow: verify OTP only

@@ -166,7 +166,7 @@ app:
     enabled: ${DEMO_ENABLED:false}
     org-name: ${DEMO_ORG_NAME:Demo Distributor}
     business-type: ${DEMO_BUSINESS_TYPE:DISTRIBUTOR}
-    industry-code: ${DEMO_INDUSTRY_CODE:OTHER_RETAIL}
+    industry-code: ${DEMO_INDUSTRY_CODE:FMCG_DISTRIBUTOR}
     owner-phone: ${DEMO_OWNER_PHONE:9000000001}
     # ≥ 8 chars to satisfy RegisterRequest's @Size on password.
     shared-password: ${DEMO_PASSWORD:Demo@1234}

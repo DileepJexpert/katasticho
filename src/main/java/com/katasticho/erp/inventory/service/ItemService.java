@@ -5,6 +5,8 @@ import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.cache.CacheInvalidationService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.module.ModuleAccessService;
+import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.inventory.dto.CreateItemRequest;
@@ -46,6 +48,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -83,6 +86,7 @@ public class ItemService {
     private final RackLocationRepository rackLocationRepository;
     private final CacheInvalidationService cacheInvalidationService;
     private final AccountingPostingEngine postingEngine;
+    private final ModuleAccessService moduleAccessService;
 
     public ItemService(ItemRepository itemRepository,
                        StockBalanceRepository stockBalanceRepository,
@@ -99,7 +103,8 @@ public class ItemService {
                        UomRepository uomRepository,
                        RackLocationRepository rackLocationRepository,
                        CacheInvalidationService cacheInvalidationService,
-                       AccountingPostingEngine postingEngine) {
+                       AccountingPostingEngine postingEngine,
+                       ModuleAccessService moduleAccessService) {
         this.itemRepository = itemRepository;
         this.stockBalanceRepository = stockBalanceRepository;
         this.warehouseRepository = warehouseRepository;
@@ -116,6 +121,7 @@ public class ItemService {
         this.rackLocationRepository = rackLocationRepository;
         this.cacheInvalidationService = cacheInvalidationService;
         this.postingEngine = postingEngine;
+        this.moduleAccessService = moduleAccessService;
     }
 
     @Transactional
@@ -151,7 +157,7 @@ public class ItemService {
                     "GROUP_REQUIRED_FOR_ATTRIBUTES", HttpStatus.BAD_REQUEST);
         }
 
-        String sku = request.sku().trim();
+        String sku = resolveSku(request.sku(), request.name(), orgId);
         if (itemRepository.existsByOrgIdAndSkuAndIsDeletedFalse(orgId, sku)) {
             throw new BusinessException("Item with SKU " + sku + " already exists",
                     "INV_DUPLICATE_SKU", HttpStatus.CONFLICT);
@@ -176,6 +182,7 @@ public class ItemService {
                     "Composite items cannot carry opening stock — stock the BOM children instead",
                     "INV_COMPOSITE_OPENING_NOT_ALLOWED", HttpStatus.BAD_REQUEST);
         }
+        requireBatchExpiryForTracking(request.trackBatches());
         boolean trackInventory = isComposite
                 ? false
                 : (request.trackInventory() != null
@@ -394,6 +401,7 @@ public class ItemService {
         if (request.gstRate() != null) item.setGstRate(request.gstRate());
         if (request.trackInventory() != null) item.setTrackInventory(request.trackInventory());
         if (request.trackBatches() != null) {
+            requireBatchExpiryForTracking(request.trackBatches());
             // Forbid toggling batch tracking while the item still has
             // on-hand stock — existing movements would be orphaned from
             // the new mode. Operators must zero out stock first (or the
@@ -668,6 +676,40 @@ public class ItemService {
                 i.getGroupId(), attrs, groupName,
                 purchaseUomAbbr, i.getPurchaseUomConversion(), i.getPurchasePricePerUom(),
                 secondaryUnits);
+    }
+
+    /**
+     * SKU is an internal identifier; users should not have to invent one.
+     * Keep an explicit SKU when integrations provide it, otherwise generate
+     * a readable, org-scoped code with a collision-resistant suffix.
+     */
+    private void requireBatchExpiryForTracking(Boolean trackBatches) {
+        if (Boolean.TRUE.equals(trackBatches)) {
+            moduleAccessService.requireEnabled(ModuleCode.BATCH_EXPIRY);
+        }
+    }
+
+    private String resolveSku(String requestedSku, String itemName, UUID orgId) {
+        if (requestedSku != null && !requestedSku.isBlank()) {
+            return requestedSku.trim();
+        }
+
+        String base = itemName == null ? "ITEM" : itemName.trim()
+                .toUpperCase(Locale.ROOT)
+                .replaceAll("[^A-Z0-9]+", "-")
+                .replaceAll("^-|-$", "");
+        if (base.isBlank()) base = "ITEM";
+        if (base.length() > 40) base = base.substring(0, 40).replaceAll("-$", "");
+
+        String sku;
+        do {
+            String suffix = UUID.randomUUID().toString()
+                    .replace("-", "")
+                    .substring(0, 8)
+                    .toUpperCase(Locale.ROOT);
+            sku = base + "-" + suffix;
+        } while (itemRepository.existsByOrgIdAndSkuAndIsDeletedFalse(orgId, sku));
+        return sku;
     }
 
     private BigDecimal totalOnHand(UUID orgId, UUID itemId) {

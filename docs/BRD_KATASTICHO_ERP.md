@@ -144,7 +144,7 @@ Core capabilities (accounting, GST, contacts, items, tax engine, dashboards, set
 
 ### 4.1 Backend
 
-- **Stack:** Spring Boot 3.3.5, Java 21, JPA/Hibernate, Flyway, PostgreSQL
+- **Stack:** Spring Boot 3.5.16, Java 25, JPA/Hibernate, Flyway, PostgreSQL
 - **Multi-tenant:** Every org-scoped query filtered by `TenantContext.getCurrentOrgId()`
 - **Org-scoped entities:** Extend BaseEntity (`org_id`, `is_deleted`, audit timestamps)
 - **Platform-level reference tables:** No `org_id` — `salt_master`, `drug_master`, `manufacturer_master`, `hsn_gst_master`, `generic_substitution`, `drug_interaction`

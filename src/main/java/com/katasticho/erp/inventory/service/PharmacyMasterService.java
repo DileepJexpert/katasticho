@@ -2,6 +2,9 @@ package com.katasticho.erp.inventory.service;
 
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.module.ModuleAccessService;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.service.BusinessContextService;
 import com.katasticho.erp.inventory.dto.*;
 import com.katasticho.erp.inventory.entity.*;
 import com.katasticho.erp.inventory.repository.*;
@@ -20,6 +23,8 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class PharmacyMasterService {
 
+    private final BusinessContextService businessContextService;
+    private final ModuleAccessService moduleAccessService;
     private final ManufacturerMasterRepository manufacturerRepository;
     private final HsnGstMasterRepository hsnRepository;
     private final HsnGstRateHistoryRepository rateHistoryRepository;
@@ -32,6 +37,7 @@ public class PharmacyMasterService {
     private final java.time.Clock clock;
 
     public List<ManufacturerMasterResponse> searchManufacturers(String query, int limit) {
+        moduleAccessService.requireEnabled(ModuleCode.PHARMA);
         return manufacturerRepository
                 .findByNameContainingIgnoreCaseAndActiveTrueOrderByNameAsc(
                         query == null ? "" : query.trim(), PageRequest.of(0, Math.min(limit, 100)))
@@ -42,9 +48,17 @@ public class PharmacyMasterService {
 
     public List<HsnGstMasterResponse> searchHsn(String query, int limit) {
         String q = query == null ? "" : query.trim();
+        int safeLimit = Math.max(1, Math.min(limit, 100));
+        int fetchLimit = Math.min(Math.max(safeLimit * 5, safeLimit), 100);
+        List<String> preferredCategories = businessContextService.preferredHsnCategories();
         return hsnRepository
-                .search(q, PageRequest.of(0, Math.min(limit, 100)))
+                .search(q, PageRequest.of(0, fetchLimit))
                 .stream()
+                .sorted(Comparator
+                        .comparingInt((HsnGstMaster row) -> categoryRank(row.getCategory(), preferredCategories))
+                        .thenComparingInt(row -> textRank(row, q))
+                        .thenComparing(HsnGstMaster::getHsnCode, Comparator.nullsLast(String::compareTo)))
+                .limit(safeLimit)
                 .map(this::toHsn)
                 .toList();
     }
@@ -287,6 +301,7 @@ public class PharmacyMasterService {
     }
 
     public List<GenericSubstitutionResponse> substitutions(UUID drugMasterId) {
+        moduleAccessService.requireEnabled(ModuleCode.PHARMA);
         List<GenericSubstitution> rows =
                 substitutionRepository.findByDrugMasterIdAndActiveTrueOrderByEstimatedSavingsDesc(drugMasterId);
         Set<UUID> substituteIds = rows.stream()
@@ -301,6 +316,7 @@ public class PharmacyMasterService {
     }
 
     public List<DrugInteractionResponse> checkInteractions(List<UUID> saltIds) {
+        moduleAccessService.requireEnabled(ModuleCode.PHARMA);
         if (saltIds == null || saltIds.size() < 2) return List.of();
         return interactionRepository.findActiveWithinSaltSet(new HashSet<>(saltIds))
                 .stream()
@@ -309,6 +325,7 @@ public class PharmacyMasterService {
     }
 
     public List<DrugInteractionResponse> checkInteractionsByCompositions(List<String> compositions) {
+        moduleAccessService.requireEnabled(ModuleCode.PHARMA);
         if (compositions == null || compositions.size() < 2) return List.of();
         Set<String> saltNames = compositions.stream()
                 .filter(c -> c != null && !c.isBlank())
@@ -354,7 +371,38 @@ public class PharmacyMasterService {
                 i.getSeverity(), i.getWarning(), i.getRecommendation());
     }
 
+    private int categoryRank(String category, List<String> preferredCategories) {
+        if (preferredCategories == null || preferredCategories.isEmpty()) {
+            return Integer.MAX_VALUE;
+        }
+        String normalized = category == null ? "" : category.trim().toUpperCase(Locale.ROOT);
+        for (int i = 0; i < preferredCategories.size(); i++) {
+            if (normalized.equals(preferredCategories.get(i))) {
+                return i;
+            }
+        }
+        return preferredCategories.size() + 1;
+    }
+
+    private int textRank(HsnGstMaster row, String query) {
+        String normalizedQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        if (normalizedQuery.isEmpty()) {
+            return 2;
+        }
+        String code = row.getHsnCode() == null ? "" : row.getHsnCode().toLowerCase(Locale.ROOT);
+        String description = row.getDescription() == null ? "" : row.getDescription().toLowerCase(Locale.ROOT);
+        if (code.equals(normalizedQuery)) {
+            return 0;
+        }
+        if (description.startsWith(normalizedQuery) || code.startsWith(normalizedQuery)) {
+            return 1;
+        }
+        return 2;
+    }
+
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }
 }
+
+

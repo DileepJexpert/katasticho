@@ -1,7 +1,13 @@
 package com.katasticho.erp.fieldsales.service;
 
+import com.katasticho.erp.ar.dto.CustomerReceiptRequest;
+import com.katasticho.erp.ar.dto.CustomerReceiptResponse;
+import com.katasticho.erp.ar.entity.Invoice;
+import com.katasticho.erp.ar.repository.InvoiceRepository;
+import com.katasticho.erp.ar.service.CustomerReceiptService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.expense.repository.ExpenseRepository;
 import com.katasticho.erp.fieldsales.entity.*;
 import com.katasticho.erp.fieldsales.repository.*;
 import com.katasticho.erp.inventory.dto.StockMovementRequest;
@@ -16,6 +22,7 @@ import com.katasticho.erp.sales.repository.SalesOrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -28,11 +35,11 @@ import java.time.LocalDate;
 import java.util.*;
 
 /**
- * FMCG Field Sales service — manages beats, routes, vans, field visits,
+ * FMCG Field Sales service ï¿½ manages beats, routes, vans, field visits,
  * van stock transfers, day-close reconciliation, and salesman targets.
  *
  * All org-scoped queries use {@link TenantContext#getCurrentOrgId()}.
- * Stock movements flow through {@link InventoryService#recordMovement} —
+ * Stock movements flow through {@link InventoryService#recordMovement} ï¿½
  * this service never writes to stock_movement or stock_balance directly.
  */
 @Service
@@ -56,6 +63,9 @@ public class FieldSalesService {
     private final InventoryService inventoryService;
     private final StockBalanceRepository stockBalanceRepository;
     private final SalesOrderRepository salesOrderRepository;
+    private final InvoiceRepository invoiceRepository;
+    private final CustomerReceiptService customerReceiptService;
+    private final ExpenseRepository expenseRepository;
     private final OrgSettingsService orgSettingsService;
 
     // =====================================================================
@@ -535,14 +545,14 @@ public class FieldSalesService {
         for (VanStockTransferLine line : lines) {
             // Deduct warehouse stock via InventoryService. The returned movement
             // carries the TRUE (FIFO/weighted-avg) unit cost the goods left the
-            // warehouse at — stamp it on the van so the return leg re-opens the
+            // warehouse at ï¿½ stamp it on the van so the return leg re-opens the
             // warehouse lot at the same basis (value-neutral round-trip).
             StockMovement outMovement = inventoryService.recordMovement(new StockMovementRequest(
                     line.getItemId(),
                     transfer.getWarehouseId(),
                     MovementType.TRANSFER_OUT,
                     line.getQuantity().negate(),  // negative = stock out
-                    null,                         // unitCost — resolved by the gate
+                    null,                         // unitCost ï¿½ resolved by the gate
                     transfer.getTransferDate(),
                     ReferenceType.VAN_LOAD,
                     transfer.getId(),
@@ -638,7 +648,7 @@ public class FieldSalesService {
         for (VanStockTransferLine line : lines) {
             // Read the cost the goods carried on the van BEFORE deducting, so the
             // warehouse lot re-opens at the load-leg basis (a pure custody move must
-            // not mint/destroy inventory value). Null → gate falls back to
+            // not mint/destroy inventory value). Null ? gate falls back to
             // item.purchasePrice (legacy behaviour for un-costed vans).
             BigDecimal returnCost = (line.getBatchId() != null
                     ? vanStockBalanceRepository.findByOrgIdAndVanIdAndItemIdAndBatchId(
@@ -657,7 +667,7 @@ public class FieldSalesService {
                     transfer.getWarehouseId(),
                     MovementType.TRANSFER_IN,
                     line.getQuantity(),           // positive = stock in
-                    returnCost,                   // load-leg cost (null → purchasePrice)
+                    returnCost,                   // load-leg cost (null ? purchasePrice)
                     transfer.getTransferDate(),
                     ReferenceType.VAN_RETURN,
                     transfer.getId(),
@@ -737,7 +747,7 @@ public class FieldSalesService {
      * blended so the van tracks what the goods cost when loaded; on a negative
      * delta (return/unload) averageCost is left unchanged (it is the cost of what
      * remains). The null-batch path targets ONLY the null-batch grain so a
-     * batch-less line can never match — or crash against — batched rows.
+     * batch-less line can never match ï¿½ or crash against ï¿½ batched rows.
      */
     private void adjustVanStockBalance(UUID orgId, UUID vanId, UUID itemId,
                                         UUID batchId, BigDecimal delta, BigDecimal unitCost) {
@@ -971,13 +981,22 @@ public class FieldSalesService {
                     "FS_EXECUTION_NOT_IN_PROGRESS", HttpStatus.BAD_REQUEST);
         }
 
-        // Update summary counts from visits
+        // A route cannot be closed while a planned visit is silently left open.
         List<FieldVisit> visits = fieldVisitRepository
                 .findByOrgIdAndRouteExecutionIdAndIsDeletedFalseOrderBySequenceNumber(orgId, executionId);
+        long openVisits = visits.stream()
+                .filter(visit -> !Set.of("COMPLETED", "SKIPPED").contains(visit.getStatus()))
+                .count();
+        if (openVisits > 0) {
+            throw new BusinessException(
+                    "Complete or skip all visits before closing the route (open: " + openVisits + ")",
+                    "FS_VISITS_NOT_CLOSED", HttpStatus.BAD_REQUEST);
+        }
 
         int completedVisits = 0;
         int skippedVisits = 0;
         BigDecimal totalOrdersValue = BigDecimal.ZERO;
+        BigDecimal cashCollections = BigDecimal.ZERO;
         BigDecimal totalCollections = BigDecimal.ZERO;
 
         for (FieldVisit visit : visits) {
@@ -988,8 +1007,13 @@ public class FieldSalesService {
             }
             totalOrdersValue = totalOrdersValue.add(
                     visit.getOrderValue() != null ? visit.getOrderValue() : BigDecimal.ZERO);
-            totalCollections = totalCollections.add(
-                    visit.getCollectionAmount() != null ? visit.getCollectionAmount() : BigDecimal.ZERO);
+            BigDecimal visitCollection = visit.getCollectionAmount() != null
+                    ? visit.getCollectionAmount() : BigDecimal.ZERO;
+            totalCollections = totalCollections.add(visitCollection);
+            if (visit.getCollectionPaymentMethod() == null
+                    || "CASH".equals(visit.getCollectionPaymentMethod())) {
+                cashCollections = cashCollections.add(visitCollection);
+            }
         }
 
         execution.setStatus("COMPLETED");
@@ -1108,7 +1132,7 @@ public class FieldSalesService {
                 .orElseThrow(() -> BusinessException.notFound("FieldVisit", visitId));
         ensureVisitOwnership(visit, orgId);
 
-        // salesOrderId is optional — quick-amount orders from the field app record value only
+        // salesOrderId is optional ï¿½ quick-amount orders from the field app record value only
         if (salesOrderId != null) {
             salesOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(salesOrderId, orgId)
                     .orElseThrow(() -> BusinessException.notFound("SalesOrder", salesOrderId));
@@ -1123,10 +1147,19 @@ public class FieldSalesService {
     }
 
     /**
-     * Records the collection amount on a visit.
+     * Records a cash collection on a visit for legacy callers.
      */
     @Transactional
     public FieldVisit recordVisitCollection(UUID visitId, BigDecimal collectionAmount) {
+        return recordVisitCollection(visitId, collectionAmount, "CASH");
+    }
+
+    /**
+     * Records the collection amount and payment channel on a visit.
+     */
+    @Transactional
+    public FieldVisit recordVisitCollection(UUID visitId, BigDecimal collectionAmount,
+                                             String paymentMethod) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
         FieldVisit visit = fieldVisitRepository.findByIdAndOrgIdAndIsDeletedFalse(visitId, orgId)
@@ -1134,13 +1167,96 @@ public class FieldSalesService {
         ensureVisitOwnership(visit, orgId);
 
         visit.setCollectionAmount(collectionAmount != null ? collectionAmount : BigDecimal.ZERO);
+        visit.setCollectionPaymentMethod(normalizeCollectionPaymentMethod(paymentMethod));
 
         visit = fieldVisitRepository.save(visit);
-        log.info("Recorded collection {} on visit {} for org {}",
-                collectionAmount, visitId, orgId);
+        log.info("Recorded collection {} ({}) on visit {} for org {}",
+                collectionAmount, paymentMethod, visitId, orgId);
         return visit;
     }
 
+    /**
+     * Records a field collection through the AR receipt engine. The receipt is
+     * allocated oldest-invoice-first and any remainder becomes customer
+     * advance. The visit link makes retries idempotent.
+     */
+    @Transactional
+    public Map<String, Object> recordVisitCollectionWithReceipt(UUID visitId,
+                                                                  BigDecimal collectionAmount,
+                                                                  String paymentMethod,
+                                                                  String referenceNumber) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        if (collectionAmount == null || collectionAmount.signum() <= 0) {
+            throw new BusinessException("Collection amount must be positive",
+                    "FS_COLLECTION_INVALID", HttpStatus.BAD_REQUEST);
+        }
+
+        FieldVisit visit = fieldVisitRepository.findByIdAndOrgIdAndIsDeletedFalse(visitId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("FieldVisit", visitId));
+        ensureVisitOwnership(visit, orgId);
+
+        if (visit.getCustomerReceiptId() != null) {
+            CustomerReceiptResponse existing = customerReceiptService
+                    .getReceiptResponse(visit.getCustomerReceiptId());
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("visit", visit);
+            result.put("receipt", existing);
+            result.put("idempotent", true);
+            return result;
+        }
+
+        String method = normalizeCollectionPaymentMethod(paymentMethod);
+
+        List<Invoice> invoices = invoiceRepository
+                .findByOrgIdAndContactIdAndIsDeletedFalseOrderByInvoiceDateDesc(
+                        orgId, visit.getContactId(), PageRequest.of(0, 500))
+                .getContent().stream()
+                .filter(invoice -> invoice.getBalanceDue() != null
+                        && invoice.getBalanceDue().signum() > 0)
+                .sorted(Comparator.comparing(Invoice::getInvoiceDate))
+                .toList();
+
+        BigDecimal remaining = collectionAmount;
+        List<CustomerReceiptRequest.AllocationRequest> allocations = new ArrayList<>();
+        for (Invoice invoice : invoices) {
+            if (remaining.signum() <= 0) break;
+            BigDecimal applied = invoice.getBalanceDue().min(remaining);
+            if (applied.signum() > 0) {
+                allocations.add(new CustomerReceiptRequest.AllocationRequest(
+                        invoice.getId(), applied));
+                remaining = remaining.subtract(applied);
+            }
+        }
+
+        CustomerReceiptResponse receipt = customerReceiptService.recordReceipt(
+                new CustomerReceiptRequest(
+                        visit.getContactId(), collectionAmount, method, LocalDate.now(),
+                        referenceNumber,
+                        "Field collection for visit " + visitId,
+                        null, allocations));
+
+        visit.setCollectionAmount(collectionAmount);
+        visit.setCollectionPaymentMethod(method);
+        visit.setCustomerReceiptId(receipt.id());
+        fieldVisitRepository.save(visit);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("visit", visit);
+        result.put("receipt", receipt);
+        result.put("idempotent", false);
+        result.put("advanceAmount", receipt.advanceAmount());
+        return result;
+    }
+
+    private String normalizeCollectionPaymentMethod(String paymentMethod) {
+        String method = paymentMethod == null || paymentMethod.isBlank()
+                ? "CASH" : paymentMethod.trim().toUpperCase(Locale.ROOT);
+        if (!Set.of("CASH", "UPI", "BANK_TRANSFER", "CHEQUE", "CARD").contains(method)) {
+            throw new BusinessException("Unsupported collection payment method: " + method,
+                    "FS_COLLECTION_PAYMENT_METHOD_INVALID", HttpStatus.BAD_REQUEST);
+        }
+        return method;
+    }
     /**
      * Returns all visits for a route execution, ordered by sequence.
      */
@@ -1156,7 +1272,7 @@ public class FieldSalesService {
      * against the beat customer's stored geo location. Sets geoVerified
      * true/false + distance when both coordinates exist; leaves them null
      * when the customer has no stored location or no GPS was sent.
-     * Never blocks the check-in — a failed geofence is a flag for review.
+     * Never blocks the check-in ï¿½ a failed geofence is a flag for review.
      */
     private void applyGeofence(FieldVisit visit, UUID orgId,
                                BigDecimal latitude, BigDecimal longitude) {
@@ -1229,6 +1345,11 @@ public class FieldSalesService {
      */
     @Transactional
     public DayClose initiateDayClose(UUID routeExecutionId) {
+        return initiateDayClose(routeExecutionId, BigDecimal.ZERO);
+    }
+
+    @Transactional
+    public DayClose initiateDayClose(UUID routeExecutionId, BigDecimal openingCash) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
         RouteExecution execution = routeExecutionRepository
@@ -1251,6 +1372,11 @@ public class FieldSalesService {
                     "FS_DAY_CLOSE_ALREADY_EXISTS", HttpStatus.CONFLICT);
         }
 
+        if (openingCash != null && openingCash.signum() < 0) {
+            throw new BusinessException("Opening cash cannot be negative",
+                    "FS_OPENING_CASH_INVALID", HttpStatus.BAD_REQUEST);
+        }
+
         // Gather visit summary
         List<FieldVisit> visits = fieldVisitRepository
                 .findByOrgIdAndRouteExecutionIdAndIsDeletedFalseOrderBySequenceNumber(orgId, routeExecutionId);
@@ -1259,6 +1385,7 @@ public class FieldSalesService {
         int visitsCompleted = 0;
         int visitsProductive = 0;
         BigDecimal totalOrdersValue = BigDecimal.ZERO;
+        BigDecimal cashCollections = BigDecimal.ZERO;
         BigDecimal totalCollections = BigDecimal.ZERO;
 
         for (FieldVisit visit : visits) {
@@ -1270,8 +1397,13 @@ public class FieldSalesService {
             }
             totalOrdersValue = totalOrdersValue.add(
                     visit.getOrderValue() != null ? visit.getOrderValue() : BigDecimal.ZERO);
-            totalCollections = totalCollections.add(
-                    visit.getCollectionAmount() != null ? visit.getCollectionAmount() : BigDecimal.ZERO);
+            BigDecimal visitCollection = visit.getCollectionAmount() != null
+                    ? visit.getCollectionAmount() : BigDecimal.ZERO;
+            totalCollections = totalCollections.add(visitCollection);
+            if (visit.getCollectionPaymentMethod() == null
+                    || "CASH".equals(visit.getCollectionPaymentMethod())) {
+                cashCollections = cashCollections.add(visitCollection);
+            }
         }
 
         DayClose dayClose = DayClose.builder()
@@ -1280,9 +1412,11 @@ public class FieldSalesService {
                 .vanId(execution.getVanId())
                 .closeDate(execution.getExecutionDate())
                 .status("PENDING")
-                .openingCash(BigDecimal.ZERO)
-                .cashCollections(totalCollections)
-                .cashExpenses(BigDecimal.ZERO)
+                .openingCash(openingCash != null ? openingCash : BigDecimal.ZERO)
+                .cashCollections(cashCollections)
+                .cashExpenses(Optional.ofNullable(expenseRepository
+                        .sumCashTotalByOrgAndCreatedByAndDate(orgId, execution.getSalespersonId(), execution.getExecutionDate()))
+                        .orElse(BigDecimal.ZERO))
                 .closingCash(BigDecimal.ZERO)
                 .cashDeposited(BigDecimal.ZERO)
                 .cashVariance(BigDecimal.ZERO)
@@ -1530,6 +1664,7 @@ public class FieldSalesService {
         long totalVisitsPlanned = 0;
         long totalVisitsCompleted = 0;
         BigDecimal totalOrdersValue = BigDecimal.ZERO;
+        BigDecimal cashCollections = BigDecimal.ZERO;
         BigDecimal totalCollections = BigDecimal.ZERO;
 
         // Iterate over each date in range to collect executions

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/auth/business_capabilities.dart';
 
 final expiryRepositoryProvider = Provider<ExpiryRepository>((ref) {
   return ExpiryRepository(ref.watch(apiClientProvider));
@@ -55,6 +56,17 @@ class ExpiryRepository {
 /// Provider for expiry summary data.
 final expirySummaryProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  if (!ref.watch(businessCapabilitiesProvider).canUseBatchExpiry) {
+    return const {
+      'success': true,
+      'data': {
+        'expired': 0,
+        'within7Days': 0,
+        'within30Days': 0,
+        'within90Days': 0,
+      },
+    };
+  }
   final repo = ref.watch(expiryRepositoryProvider);
   return repo.getExpirySummary();
 });
@@ -62,6 +74,9 @@ final expirySummaryProvider =
 /// Provider for near-expiry batches list, parameterized by days threshold.
 final nearExpiryBatchesProvider = FutureProvider.autoDispose
     .family<Map<String, dynamic>, int>((ref, days) async {
+  if (!ref.watch(businessCapabilitiesProvider).canUseBatchExpiry) {
+    return const {'success': true, 'data': <dynamic>[]};
+  }
   final repo = ref.watch(expiryRepositoryProvider);
   return repo.getNearExpiryBatches(days: days);
 });

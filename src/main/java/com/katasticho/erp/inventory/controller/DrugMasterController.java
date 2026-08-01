@@ -1,6 +1,8 @@
 package com.katasticho.erp.inventory.controller;
 
 import com.katasticho.erp.common.dto.ApiResponse;
+import com.katasticho.erp.common.module.ModuleCode;
+import com.katasticho.erp.common.module.RequiresModule;
 import com.katasticho.erp.inventory.dto.DrugMasterImportResult;
 import com.katasticho.erp.inventory.dto.DrugMasterResponse;
 import com.katasticho.erp.inventory.dto.SaltMasterResponse;
@@ -17,6 +19,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/drug-master")
+@RequiresModule(ModuleCode.PHARMA)
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
 public class DrugMasterController {
@@ -59,3 +62,4 @@ public class DrugMasterController {
         return ResponseEntity.ok(ApiResponse.ok(results));
     }
 }
+

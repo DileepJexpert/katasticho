@@ -1,10 +1,10 @@
 package com.katasticho.erp.fieldforce.service;
 
-import com.katasticho.erp.ar.dto.RecordPaymentRequest;
+import com.katasticho.erp.ar.dto.CustomerReceiptRequest;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.entity.Payment;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
-import com.katasticho.erp.ar.service.PaymentService;
+import com.katasticho.erp.ar.service.CustomerReceiptService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.contact.dto.ContactLedgerResponse;
@@ -46,7 +46,7 @@ public class FieldFacadeService {
     private final ContactLedgerService contactLedgerService;
     private final InvoiceRepository invoiceRepository;
     private final SalesOrderService salesOrderService;
-    private final PaymentService paymentService;
+    private final CustomerReceiptService customerReceiptService;
 
     // ── Today's route + visits ───────────────────────────────────────────
 
@@ -153,45 +153,43 @@ public class FieldFacadeService {
             throw new BusinessException("Collection amount must be positive",
                     "FIELD_COLLECTION_INVALID", HttpStatus.BAD_REQUEST);
         }
-        String method = paymentMethod != null && !paymentMethod.isBlank() ? paymentMethod : "CASH";
-
-        BigDecimal remaining = amount;
-        List<Map<String, Object>> applied = new ArrayList<>();
-        for (Invoice inv : openInvoices(dealerId)) {
-            if (remaining.signum() <= 0) break;
-            BigDecimal bal = nz(inv.getBalanceDue());
-            if (bal.signum() <= 0) continue;
-            BigDecimal pay = bal.min(remaining);
-            Payment p = paymentService.recordPayment(new RecordPaymentRequest(
-                    inv.getId(), dealerId, LocalDate.now(), pay, method, null, null,
-                    "Field collection"));
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("invoiceId", inv.getId());
-            row.put("invoiceNumber", inv.getInvoiceNumber());
-            row.put("paymentId", p.getId());
-            row.put("amount", pay);
-            applied.add(row);
-            remaining = remaining.subtract(pay);
+        String method = paymentMethod != null && !paymentMethod.isBlank()
+                ? paymentMethod.trim().toUpperCase(Locale.ROOT) : "CASH";
+        if (!Set.of("CASH", "UPI", "BANK_TRANSFER", "CHEQUE", "CARD").contains(method)) {
+            throw new BusinessException("Unsupported collection payment method: " + method,
+                    "FIELD_COLLECTION_PAYMENT_METHOD_INVALID", HttpStatus.BAD_REQUEST);
         }
 
+        BigDecimal remaining = amount;
+        List<CustomerReceiptRequest.AllocationRequest> allocations = new ArrayList<>();
+        for (Invoice invoice : openInvoices(dealerId)) {
+            if (remaining.signum() <= 0) break;
+            BigDecimal applied = nz(invoice.getBalanceDue()).min(remaining);
+            if (applied.signum() > 0) {
+                allocations.add(new CustomerReceiptRequest.AllocationRequest(
+                        invoice.getId(), applied));
+                remaining = remaining.subtract(applied);
+            }
+        }
+
+        var receipt = customerReceiptService.recordReceipt(new CustomerReceiptRequest(
+                dealerId, amount, method, LocalDate.now(), null,
+                "Field collection", null, allocations));
         BigDecimal allocated = amount.subtract(remaining);
-        if (visitId != null && allocated.signum() > 0) {
-            fieldSalesService.recordVisitCollection(visitId, allocated);
+        if (visitId != null) {
+            fieldSalesService.recordVisitCollection(visitId, amount, method);
         }
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("requested", amount);
         out.put("allocated", allocated);
-        out.put("unallocated", remaining); // no open invoice to absorb this remainder
-        out.put("payments", applied);
-        if (remaining.signum() > 0) {
-            out.put("note", "₹" + remaining.toPlainString()
-                    + " could not be allocated — the dealer has no further open invoices.");
-        }
+        out.put("unallocated", remaining);
+        out.put("advanceAmount", receipt.advanceAmount());
+        out.put("receipt", receipt);
         return out;
     }
 
-    // ── GPS pings ────────────────────────────────────────────────────────
+    // -- GPS pings ────────────────────────────────────────────────────────
 
     @Transactional
     public int recordPings(List<FieldTrackingService.PingRequest> pings) {

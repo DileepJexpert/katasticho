@@ -1,6 +1,8 @@
 package com.katasticho.erp.pos.service;
 
 import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.common.module.ModuleAccessService;
+import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.entity.StockBalance;
 import com.katasticho.erp.inventory.entity.StockBatch;
@@ -49,9 +51,10 @@ public class PosSearchService {
     private final TaxGroupRepository taxGroupRepository;
     private final OrganisationRepository organisationRepository;
     private final TaxEngine taxEngine;
+    private final ModuleAccessService moduleAccessService;
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "pos-search", key = "#orgId + ':' + #query + ':' + #warehouseId",
+    @Cacheable(value = "pos-search-v2", key = "#orgId + ':' + #query + ':' + #warehouseId",
             unless = "#result.isEmpty()")
     public List<PosSearchResult> search(UUID orgId, String query, UUID warehouseId, int limit) {
         if (query == null || query.isBlank()) return List.of();
@@ -91,6 +94,11 @@ public class PosSearchService {
                 .toList();
 
         if (items.isEmpty()) return List.of();
+
+        // Batch fields are module-gated. Do not expose them to POS when the
+        // organisation cannot use the batch/expiry capability.
+        boolean batchExpiryEnabled = moduleAccessService.isEnabled(
+                orgId, ModuleCode.BATCH_EXPIRY);
 
         // Resolve effective warehouse
         UUID effectiveWarehouseId = warehouseId;
@@ -150,7 +158,7 @@ public class PosSearchService {
             UUID batchId = null;
             java.time.LocalDate batchExpiry = null;
             String batchNumber = null;
-            if (item.isTrackBatches() && whId != null) {
+            if (batchExpiryEnabled && item.isTrackBatches() && whId != null) {
                 List<StockBatch> batches = batchRepository.findFefoBatches(orgId, item.getId(), whId);
                 if (!batches.isEmpty()) {
                     StockBatch nearest = batches.get(0);
@@ -191,7 +199,7 @@ public class PosSearchService {
                     item.isWeightBasedBilling(),
                     batchId,
                     batchExpiry,
-                    item.isTrackBatches(),
+                    batchExpiryEnabled && item.isTrackBatches(),
                     batchNumber,
                     thresholds,
                     item.isPrescriptionRequired(),

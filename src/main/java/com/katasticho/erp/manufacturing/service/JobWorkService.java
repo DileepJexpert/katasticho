@@ -40,6 +40,21 @@ public class JobWorkService {
                                             BigDecimal processingCharges,
                                             LocalDate plannedSendDate, LocalDate plannedReturnDate,
                                             String notes) {
+        return createJobWorkOrder(vendorId, warehouseId, materials, List.of(),
+                processingCharges, plannedSendDate, plannedReturnDate, notes);
+    }
+
+    /**
+     * Creates subcontracting work with separate raw-material and finished-good
+     * lines. OUTPUT lines are the only lines eligible for finished stock receipt.
+     */
+    @Transactional
+    public JobWorkOrder createJobWorkOrder(UUID vendorId, UUID warehouseId,
+                                            List<JobWorkLineInput> materials,
+                                            List<JobWorkLineInput> outputs,
+                                            BigDecimal processingCharges,
+                                            LocalDate plannedSendDate, LocalDate plannedReturnDate,
+                                            String notes) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
         if (materials == null || materials.isEmpty()) {
@@ -81,6 +96,25 @@ public class JobWorkService {
                     .build();
             jwo.getLines().add(line);
             totalMaterialCost = totalMaterialCost.add(lineCost);
+        }
+
+        if (outputs != null) {
+            for (JobWorkLineInput input : outputs) {
+                if (input.qty() == null || input.qty().signum() <= 0) {
+                    throw new BusinessException("Finished-good quantity must be positive",
+                            "JW_OUTPUT_QTY_INVALID", HttpStatus.BAD_REQUEST);
+                }
+                itemRepository.findByIdAndOrgIdAndIsDeletedFalse(input.itemId(), orgId)
+                        .orElseThrow(() -> BusinessException.notFound("Item", input.itemId()));
+                jwo.getLines().add(JobWorkOrderLine.builder()
+                        .jobWorkOrder(jwo)
+                        .itemId(input.itemId())
+                        .lineType("OUTPUT")
+                        .sentQty(input.qty())
+                        .unitCost(BigDecimal.ZERO)
+                        .lineCost(BigDecimal.ZERO)
+                        .build());
+            }
         }
 
         jwo.setTotalMaterialCost(totalMaterialCost);
@@ -163,12 +197,18 @@ public class JobWorkService {
                     "JW_CANNOT_RECEIVE", HttpStatus.BAD_REQUEST);
         }
 
+        boolean hasOutputLines = jwo.getLines().stream()
+                .anyMatch(l -> !l.isDeleted() && "OUTPUT".equals(l.getLineType()));
+        String receiveLineType = hasOutputLines ? "OUTPUT" : "MATERIAL";
+
         for (JobWorkReceiveInput input : receiptLines) {
             JobWorkOrderLine line = jwo.getLines().stream()
                     .filter(l -> !l.isDeleted() && l.getItemId().equals(input.itemId())
-                            && "MATERIAL".equals(l.getLineType()))
+                            && receiveLineType.equals(l.getLineType()))
                     .findFirst()
-                    .orElseThrow(() -> new BusinessException("Material line not found for item " + input.itemId(),
+                    .orElseThrow(() -> new BusinessException(
+                            (hasOutputLines ? "Finished-good" : "Material")
+                                    + " line not found for item " + input.itemId(),
                             "JW_LINE_NOT_FOUND", HttpStatus.BAD_REQUEST));
 
             BigDecimal newReceived = line.getReceivedQty().add(input.receivedQty());
@@ -181,12 +221,18 @@ public class JobWorkService {
                         "JW_EXCEEDS_SENT", HttpStatus.BAD_REQUEST);
             }
 
+            BigDecimal receiptUnitCost = hasOutputLines
+                    ? outputUnitCost(jwo) : line.getUnitCost();
+            line.setUnitCost(receiptUnitCost);
+            line.setLineCost(receiptUnitCost.multiply(input.receivedQty())
+                    .setScale(2, RoundingMode.HALF_UP));
+
             inventoryService.recordMovement(new StockMovementRequest(
                     line.getItemId(),
                     jwo.getWarehouseId(),
                     MovementType.JOB_WORK_IN,
                     input.receivedQty(),
-                    line.getUnitCost(),
+                    receiptUnitCost,
                     LocalDate.now(),
                     ReferenceType.JOB_WORK_ORDER,
                     jwo.getId(),
@@ -205,7 +251,7 @@ public class JobWorkService {
         }
 
         boolean allReceived = jwo.getLines().stream()
-                .filter(l -> !l.isDeleted() && "MATERIAL".equals(l.getLineType()))
+                .filter(l -> !l.isDeleted() && receiveLineType.equals(l.getLineType()))
                 .allMatch(l -> "RECEIVED".equals(l.getStatus()));
 
         if (allReceived) {
@@ -267,6 +313,14 @@ public class JobWorkService {
     }
 
     @Transactional(readOnly = true)
+    private BigDecimal outputUnitCost(JobWorkOrder jwo) {
+        BigDecimal plannedOutput = jwo.getLines().stream()
+                .filter(l -> !l.isDeleted() && "OUTPUT".equals(l.getLineType()))
+                .map(JobWorkOrderLine::getSentQty)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (plannedOutput.signum() <= 0) return BigDecimal.ZERO;
+        return jwo.getTotalCost().divide(plannedOutput, 6, RoundingMode.HALF_UP);
+    }
     public List<JobWorkOrder> getGstDeadlineAlerts(int daysBeforeDeadline) {
         UUID orgId = TenantContext.getCurrentOrgId();
         LocalDate deadline = LocalDate.now().plusDays(daysBeforeDeadline);

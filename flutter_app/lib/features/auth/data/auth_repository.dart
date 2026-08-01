@@ -58,6 +58,9 @@ class AuthRepository {
     required String fullName,
     required String orgName,
     String? industry,
+    String? businessType,
+    String? industryCode,
+    List<String>? subCategories,
     String? countryCode,
   }) async {
     final body = {
@@ -66,6 +69,9 @@ class AuthRepository {
       'fullName': fullName,
       'orgName': orgName,
       if (industry != null) 'industry': industry,
+      if (businessType != null) 'businessType': businessType,
+      if (industryCode != null) 'industryCode': industryCode,
+      if (subCategories != null) 'subCategories': subCategories,
       if (countryCode != null) 'countryCode': countryCode,
     };
     debugPrint('[AuthRepo] signup called with body: $body');
@@ -129,6 +135,7 @@ class AuthRepository {
     required String orgName,
     String? businessType,
     String? industryCode,
+    List<String>? subCategories,
     String? countryCode,
   }) async {
     final response = await _apiClient.post(
@@ -140,6 +147,7 @@ class AuthRepository {
         'orgName': orgName,
         if (businessType != null) 'businessType': businessType,
         if (industryCode != null) 'industryCode': industryCode,
+        if (subCategories != null) 'subCategories': subCategories,
         if (countryCode != null) 'countryCode': countryCode,
       },
     );

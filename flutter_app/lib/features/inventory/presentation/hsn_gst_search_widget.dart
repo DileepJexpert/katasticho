@@ -189,7 +189,7 @@ class _HsnGstSearchWidgetState extends ConsumerState<HsnGstSearchWidget> {
                   controller: _controller,
                   focusNode: _focusNode,
                   decoration: InputDecoration(
-                    hintText: 'Search HSN code or description…',
+                    hintText: 'Search product or HSN code (e.g. rice, sugar)...',
                     hintStyle:
                         KTypography.bodySmall.copyWith(color: KColors.textHint),
                     border: InputBorder.none,
@@ -277,7 +277,7 @@ class _HsnGstSearchWidgetState extends ConsumerState<HsnGstSearchWidget> {
                                   description,
                                   style: KTypography.bodySmall
                                       .copyWith(color: KColors.textSecondary),
-                                  maxLines: 1,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ],

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/auth/business_capabilities.dart';
 import 'dashboard_models.dart';
 
 /// Date range + optional branch filter used by every dashboard widget.
@@ -318,6 +319,9 @@ final dailySummaryProvider =
 
 final expiringSoonProvider =
     FutureProvider.autoDispose<List<ExpiringSoonItem>>((ref) async {
+  if (!ref.watch(businessCapabilitiesProvider).canUseBatchExpiry) {
+    return const [];
+  }
   return ref.watch(dashboardRepositoryProvider).getExpiringSoon();
 });
 

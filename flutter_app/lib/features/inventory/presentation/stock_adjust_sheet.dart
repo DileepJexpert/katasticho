@@ -11,12 +11,14 @@ class StockAdjustSheet extends ConsumerStatefulWidget {
   final String itemId;
   final String itemName;
   final VoidCallback? onSaved;
+  final double? initialUnitCost;
 
   const StockAdjustSheet({
     super.key,
     required this.itemId,
     required this.itemName,
     this.onSaved,
+    this.initialUnitCost,
   });
 
   @override
@@ -25,10 +27,19 @@ class StockAdjustSheet extends ConsumerStatefulWidget {
 
 class _StockAdjustSheetState extends ConsumerState<StockAdjustSheet> {
   final _qtyController = TextEditingController();
-  final _unitCostController = TextEditingController(text: '0');
+  final _unitCostController = TextEditingController();
   final _noteController = TextEditingController();
   String _direction = 'IN';
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final cost = widget.initialUnitCost;
+    if (cost != null && cost > 0) {
+      _unitCostController.text = cost.toString();
+    }
+  }
 
   @override
   void dispose() {
@@ -53,7 +64,7 @@ class _StockAdjustSheetState extends ConsumerState<StockAdjustSheet> {
       final payload = {
         'itemId': widget.itemId,
         'quantity': signedQty,
-        'unitCost': double.tryParse(_unitCostController.text) ?? 0,
+        'unitCost': double.tryParse(_unitCostController.text.trim()),
         'reason': _noteController.text.trim().isEmpty
             ? 'Manual stock adjustment'
             : _noteController.text.trim(),
@@ -79,15 +90,21 @@ class _StockAdjustSheetState extends ConsumerState<StockAdjustSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: KSpacing.md,
-        right: KSpacing.md,
-        top: KSpacing.lg,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
+    final media = MediaQuery.of(context);
+    final maxHeight = (media.size.height - media.viewInsets.bottom) * 0.9;
+
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            bottom: media.viewInsets.bottom,
+            left: KSpacing.md,
+            right: KSpacing.md,
+            top: KSpacing.lg,
+          ),
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -139,6 +156,7 @@ class _StockAdjustSheetState extends ConsumerState<StockAdjustSheet> {
             ),
             KSpacing.vGapMd,
           ],
+          ),
         ),
       ),
     );

@@ -75,6 +75,14 @@ public class FieldVisit {
     @Builder.Default
     private BigDecimal collectionAmount = BigDecimal.ZERO;
 
+    /** Accounting receipt created for this visit's collection. */
+    @Column(name = "customer_receipt_id")
+    private UUID customerReceiptId;
+
+    /** Payment channel used for day-close cash reconciliation. */
+    @Column(name = "collection_payment_method", length = 30)
+    private String collectionPaymentMethod;
+
     @Column(name = "delivery_challan_id")
     private UUID deliveryChallanId;
 

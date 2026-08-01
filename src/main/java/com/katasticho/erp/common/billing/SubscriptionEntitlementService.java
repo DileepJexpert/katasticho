@@ -28,6 +28,7 @@ public class SubscriptionEntitlementService {
             ModuleCode.POS,
             ModuleCode.INVENTORY,
             ModuleCode.DISTRIBUTION,
+            ModuleCode.FIELD_SALES,
             ModuleCode.PHARMA,
             ModuleCode.MANUFACTURING,
             ModuleCode.RECURRING_BILLING,
@@ -78,7 +79,8 @@ public class SubscriptionEntitlementService {
                     ModuleCode.COLLECTIONS,
                     ModuleCode.PAYMENTS,
                     ModuleCode.INVENTORY,
-                    ModuleCode.DISTRIBUTION
+                    ModuleCode.DISTRIBUTION,
+                    ModuleCode.FIELD_SALES
             ),
             "PHARMA", Set.of(
                     ModuleCode.ACCOUNTING,
@@ -104,7 +106,8 @@ public class SubscriptionEntitlementService {
                     ModuleCode.PAYMENTS,
                     ModuleCode.POS,
                     ModuleCode.INVENTORY,
-                    ModuleCode.DISTRIBUTION
+                    ModuleCode.DISTRIBUTION,
+                    ModuleCode.FIELD_SALES
             ),
             "PHARMA_DISTRIBUTOR", Set.of(
                     ModuleCode.ACCOUNTING,
@@ -118,6 +121,7 @@ public class SubscriptionEntitlementService {
                     ModuleCode.PAYMENTS,
                     ModuleCode.INVENTORY,
                     ModuleCode.DISTRIBUTION,
+                    ModuleCode.FIELD_SALES,
                     ModuleCode.PHARMA,
                     ModuleCode.BATCH_EXPIRY
             ),
@@ -132,6 +136,7 @@ public class SubscriptionEntitlementService {
                     ModuleCode.PAYMENTS,
                     ModuleCode.INVENTORY,
                     ModuleCode.DISTRIBUTION,
+                    ModuleCode.FIELD_SALES,
                     ModuleCode.MANUFACTURING
             ),
             "ENTERPRISE", ALL_MODULES

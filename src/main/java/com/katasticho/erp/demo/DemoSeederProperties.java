@@ -49,7 +49,7 @@ public record DemoSeederProperties(
     public DemoSeederProperties {
         if (orgName == null || orgName.isBlank()) orgName = "Demo Distributor";
         if (businessType == null || businessType.isBlank()) businessType = "DISTRIBUTOR";
-        if (industryCode == null || industryCode.isBlank()) industryCode = "OTHER_RETAIL";
+        if (industryCode == null || industryCode.isBlank()) industryCode = "FMCG_DISTRIBUTOR";
         if (ownerPhone == null || ownerPhone.isBlank()) ownerPhone = "9000000001";
         if (sharedPassword == null || sharedPassword.isBlank()) sharedPassword = "Demo@1234";
     }

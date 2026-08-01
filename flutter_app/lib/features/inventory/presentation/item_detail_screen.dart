@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_state.dart';
+import '../../../core/auth/business_capabilities.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -126,6 +127,8 @@ class _ItemDetailBody extends ConsumerWidget {
     final itemType = item['itemType']?.toString() ?? 'GOODS';
     final trackInventory = item['trackInventory'] as bool? ?? true;
     final trackBatches = item['trackBatches'] as bool? ?? false;
+    final canUseBatchExpiry =
+        ref.watch(businessCapabilitiesProvider).canUseBatchExpiry;
     final onHand = (item['totalOnHand'] as num?)?.toDouble() ?? 0;
     final reorderLevel = (item['reorderLevel'] as num?)?.toDouble() ?? 0;
     final rackCode = item['rackLocationCode']?.toString() ?? '';
@@ -189,7 +192,7 @@ class _ItemDetailBody extends ConsumerWidget {
             KCard(
               title: 'Stock',
               action: KButton(
-                label: 'Adjust',
+                label: 'Adjust Stock',
                 icon: Icons.tune,
                 variant: KButtonVariant.outlined,
                 size: KButtonSize.small,
@@ -241,7 +244,7 @@ class _ItemDetailBody extends ConsumerWidget {
           ],
 
           // Batches — only for batch-tracked items
-          if (trackBatches) ...[
+          if (trackBatches && canUseBatchExpiry) ...[
             _BatchesCard(itemId: itemId),
             KSpacing.vGapMd,
           ],
@@ -327,7 +330,7 @@ class _ItemDetailBody extends ConsumerWidget {
                   label: 'Unit',
                   value: item['unitOfMeasure']?.toString() ?? 'PCS',
                 ),
-                if (trackBatches)
+                if (trackBatches && canUseBatchExpiry)
                   const KDetailRow(
                     label: 'Batch Tracking',
                     value: 'Enabled (FEFO)',
@@ -451,6 +454,7 @@ class _ItemDetailBody extends ConsumerWidget {
       builder: (_) => StockAdjustSheet(
         itemId: itemId,
         itemName: item['name']?.toString() ?? 'Item',
+        initialUnitCost: (item['purchasePrice'] as num?)?.toDouble(),
         onSaved: () {
           ref.invalidate(itemDetailProvider(itemId));
           ref.invalidate(itemListProvider);
@@ -526,7 +530,7 @@ class _MovementsList extends ConsumerWidget {
                 ),
                 KSpacing.vGapSm,
                 Text(
-                  'Use Goods Receipt to receive supplier stock. Use Adjust only for corrections or setup stock that was missed during item creation.',
+                  'Use Goods Receipt to receive supplier stock. Use the Stock card action above for corrections or setup stock that was missed during item creation.',
                   style: KTypography.bodySmall.copyWith(
                     color: KColors.textSecondary,
                   ),
@@ -542,13 +546,7 @@ class _MovementsList extends ConsumerWidget {
                       size: KButtonSize.small,
                       onPressed: () => context.go(Routes.stockReceiptCreate),
                     ),
-                    KButton(
-                      label: 'Adjust',
-                      icon: Icons.tune,
-                      variant: KButtonVariant.outlined,
-                      size: KButtonSize.small,
-                      onPressed: () => _openAdjustSheet(context, ref),
-                    ),
+
                   ],
                 ),
               ],
@@ -577,6 +575,7 @@ class _MovementsList extends ConsumerWidget {
       builder: (_) => StockAdjustSheet(
         itemId: itemId,
         itemName: itemName,
+        initialUnitCost: null,
         onSaved: () {
           ref.invalidate(itemDetailProvider(itemId));
         },

@@ -2,6 +2,8 @@ package com.katasticho.erp.pos.service;
 
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.common.module.ModuleAccessService;
+import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.inventory.dto.CreateItemRequest;
 import com.katasticho.erp.inventory.entity.DrugMaster;
 import com.katasticho.erp.inventory.entity.ItemType;
@@ -34,6 +36,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @Slf4j
 public class PosCatalogService {
 
+    private final ModuleAccessService moduleAccessService;
     private final DrugMasterRepository drugMasterRepository;
     private final ItemRepository itemRepository;
     private final ItemService itemService;
@@ -44,6 +47,7 @@ public class PosCatalogService {
     public PosSearchResult createItemFromDrug(UUID drugId, UUID warehouseId,
                                               java.math.BigDecimal openingStock) {
         UUID orgId = TenantContext.getCurrentOrgId();
+        moduleAccessService.requireEnabled(ModuleCode.PHARMA);
         DrugMaster drug = drugMasterRepository.findById(drugId)
                 .orElseThrow(() -> BusinessException.notFound("DrugMaster", drugId));
 
@@ -133,3 +137,4 @@ public class PosCatalogService {
         return s != null && s.length() > max ? s.substring(0, max) : s;
     }
 }
+

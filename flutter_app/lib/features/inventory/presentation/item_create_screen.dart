@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_state.dart';
+import '../../../core/auth/business_capabilities.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/form_error_handler.dart';
@@ -16,6 +17,7 @@ import 'drug_master_search_widget.dart';
 import 'hsn_gst_search_widget.dart';
 import 'item_scan_sheet.dart';
 import 'manufacturer_search_widget.dart';
+import 'stock_adjust_sheet.dart';
 
 /// Form for creating a new inventory item or editing an existing one.
 /// When [itemId] is provided, the screen loads that item and updates it on save.
@@ -98,13 +100,42 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
   Map<String, dynamic>? _selectedGroup;
   final Map<String, String> _variantAttrs = {};
 
+  static const _fallbackUomAbbreviations = <String>{
+    'PCS',
+    'DOZEN',
+    'SET',
+    'PAIR',
+    'KG',
+    'GM',
+    'MG',
+    'LTR',
+    'ML',
+    'MTR',
+    'BOX',
+    'PACK',
+    'PKT',
+    'BAG',
+    'BORA',
+    'KATTA',
+    'CTN',
+    'TIN',
+    'TRAY',
+    'PETI',
+    'BUNDLE',
+  };
+
+  List<String> get _uomAbbreviations => {
+        ..._fallbackUomAbbreviations,
+        ..._availableUoms
+            .map((u) => u['abbreviation']?.toString().trim().toUpperCase() ?? '')
+            .where((u) => u.isNotEmpty),
+      }.toList();
+
   bool get _isEdit => widget.itemId != null;
   bool get _isPharmacyOrg =>
-      ((ref.read(authProvider).industryCode ??
-                  ref.read(authProvider).industry ??
-                  '')
-              .toUpperCase())
-          .contains('PHARM');
+      ref.watch(businessCapabilitiesProvider).canUsePharma;
+  bool get _canUseBatchExpiry =>
+      ref.read(businessCapabilitiesProvider).canUseBatchExpiry;
   bool get _hasPhysicalValues =>
       _weightController.text.trim().isNotEmpty ||
       _lengthController.text.trim().isNotEmpty ||
@@ -274,7 +305,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     _storageConditionController.text =
         data['storageCondition']?.toString() ?? '';
     _showPackagingSection = _hasPhysicalValues;
-    _trackBatches = data['trackBatches'] as bool? ?? false;
+    _trackBatches = (data['trackBatches'] as bool? ?? false) && _canUseBatchExpiry;
     _prescriptionRequired = data['prescriptionRequired'] as bool? ?? false;
     _itemType = data['itemType']?.toString() ?? 'GOODS';
     _trackInventory = data['trackInventory'] as bool? ?? true;
@@ -366,6 +397,51 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     super.dispose();
   }
 
+  Future<void> _openStockAdjustment() async {
+    if (!_isEdit || widget.itemId == null) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => StockAdjustSheet(
+        itemId: widget.itemId!,
+        itemName: _nameController.text.trim(),
+        initialUnitCost: double.tryParse(_purchasePriceController.text),
+        onSaved: () {
+          if (mounted) setState(() {});
+        },
+      ),
+    );
+  }
+
+  Widget _buildEditStockAction() {
+    return KCard(
+      padding: const EdgeInsets.all(KSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Opening stock is locked after item creation so stock history stays accurate.',
+            style: KTypography.bodySmall,
+          ),
+          KSpacing.vGapSm,
+          Text(
+            'To add quantity that was missed, use Stock In. For supplier stock, use Goods Receipt.',
+            style: KTypography.bodySmall.copyWith(
+              color: KColors.textSecondary,
+            ),
+          ),
+          KSpacing.vGapSm,
+          KButton(
+            label: 'Add Stock',
+            icon: Icons.add_box_outlined,
+            variant: KButtonVariant.outlined,
+            size: KButtonSize.small,
+            onPressed: _openStockAdjustment,
+          ),
+        ],
+      ),
+    );
+  }
   Future<void> _save() async {
     clearServerErrors();
     if (!_formKey.currentState!.validate()) return;
@@ -397,7 +473,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
       'mrp': doubleOrNull(_mrpController),
       'gstRate': double.tryParse(_gstRateController.text) ?? 0,
       'trackInventory': _trackInventory && _itemType == 'GOODS',
-      'trackBatches': _trackBatches && _itemType == 'GOODS',
+      'trackBatches': _trackBatches && _itemType == 'GOODS' && _canUseBatchExpiry,
       'reorderLevel': double.tryParse(_reorderLevelController.text) ?? 0,
       'reorderQuantity': double.tryParse(_reorderQtyController.text) ?? 0,
       'barcode': nullIfEmpty(_barcodeController.text),
@@ -507,10 +583,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
   Widget _buildPurchaseSalesUnitsSection() {
     final baseUnit =
         _uomController.text.trim().isEmpty ? 'PCS' : _uomController.text.trim();
-    final uomItems = _availableUoms
-        .map((u) => u['abbreviation']?.toString() ?? '')
-        .where((a) => a.isNotEmpty)
-        .toList();
+    final uomItems = _uomAbbreviations;
 
     // Auto-calculate cost per base unit
     String costPerBase = '';
@@ -976,8 +1049,296 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     );
   }
 
+  Widget _buildSellingUnitDropdown() {
+    final current = _uomController.text.trim().toUpperCase();
+    final options = {..._uomAbbreviations, if (current.isNotEmpty) current}.toList();
+
+    return DropdownButtonFormField<String>(
+      initialValue: options.contains(current) ? current : null,
+      decoration: const InputDecoration(
+        labelText: 'Selling Unit',
+        border: OutlineInputBorder(),
+        isDense: true,
+      ),
+      items: options
+          .map((unit) => DropdownMenuItem(value: unit, child: Text(unit)))
+          .toList(),
+      onChanged: (value) {
+        if (value != null) setState(() => _uomController.text = value);
+      },
+    );
+  }
+  Widget _buildSimpleGoodsForm() {
+    final hasMrpPricing = ref
+        .watch(featureFlagsProvider)
+        .valueOrNull
+        ?.contains('MRP_PRICING') ==
+        true;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        KCollapsibleSection(
+          title: 'Item Details',
+          icon: Icons.info_outline,
+          initiallyExpanded: true,
+          children: [
+            KTextField(
+              label: 'Name',
+              controller: _nameController,
+              prefixIcon: Icons.label_outline,
+              isRequired: true,
+              serverError: serverErrors['name'],
+              validator: (v) => fieldError(
+                'name',
+                v == null || v.trim().isEmpty ? 'Name is required' : null,
+              ),
+            ),
+            KSpacing.vGapSm,
+            KCompactRow(children: [
+              KTextField(
+                label: 'Barcode (optional)',
+                controller: _barcodeController,
+                prefixIcon: Icons.barcode_reader,
+              ),
+              _buildSellingUnitDropdown(),
+            ]),
+            KSpacing.vGapSm,
+            HsnGstSearchWidget(
+              controller: _hsnController,
+              initialHsnCode: _hsnController.text,
+              onSelected: (hsnCode, gstRate, description) {
+                _hsnController.text = hsnCode;
+                _gstRateController.text = gstRate.toStringAsFixed(
+                    gstRate.truncateToDouble() == gstRate ? 0 : 2);
+                setState(() {});
+              },
+            ),
+            KSpacing.vGapSm,
+            KCompactRow(children: [
+              KTextField(
+                label: 'Category (optional)',
+                controller: _categoryController,
+              ),
+              KTextField(
+                label: 'Brand (optional)',
+                controller: _brandController,
+              ),
+            ]),
+          ],
+        ),
+        KSpacing.vGapSm,
+        KCollapsibleSection(
+          title: 'Pricing & Tax',
+          icon: Icons.currency_rupee,
+          initiallyExpanded: true,
+          children: [
+            KCompactRow(children: [
+              KTextField.amount(
+                label: 'Purchase Price',
+                controller: _purchasePriceController,
+                onChanged: (_) => setState(() {}),
+              ),
+              KTextField.amount(
+                label: 'Sale Price',
+                controller: _salePriceController,
+                onChanged: (_) => setState(() {}),
+                validator: (v) {
+                  final salePrice = double.tryParse(v ?? '') ?? 0;
+                  final mrp = double.tryParse(_mrpController.text) ?? 0;
+                  return mrp > 0 && salePrice > mrp
+                      ? 'Cannot exceed MRP'
+                      : null;
+                },
+              ),
+            ]),
+            KSpacing.vGapSm,
+            KCompactRow(children: [
+              KTextField(
+                label: 'GST %',
+                controller: _gstRateController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                selectAllOnFocus: true,
+              ),
+              if (hasMrpPricing)
+                KTextField.amount(
+                  label: 'MRP (optional)',
+                  controller: _mrpController,
+                  onChanged: (_) => setState(() {}),
+                ),
+            ]),
+            if (hasMrpPricing) _buildMrpMarginHint(),
+          ],
+        ),
+        KSpacing.vGapSm,
+        KCollapsibleSection(
+          title: 'Opening Stock',
+          icon: Icons.inventory_2_outlined,
+          initiallyExpanded: true,
+          children: [
+            KCard(
+              padding: const EdgeInsets.all(KSpacing.sm),
+              child: Text(
+                _isEdit
+                    ? 'For new supplier stock, go to Purchases -> Goods Receipt after receiving the goods.'
+                    : 'Use this only for stock already on hand. For new supplier stock, go to Purchases -> Goods Receipt after receiving the goods.',
+                style: KTypography.bodySmall,
+              ),
+            ),
+            KSpacing.vGapSm,
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: const Text('Track inventory'),
+              subtitle: const Text('Include this item in stock and POS'),
+              value: _trackInventory,
+              onChanged: (v) => setState(() => _trackInventory = v),
+            ),
+            if (_trackInventory) ...[
+              KSpacing.vGapSm,
+              if (_isEdit)
+                _buildEditStockAction()
+              else
+                KTextField(
+                  label: 'Opening Stock',
+                  hint: 'Optional',
+                  controller: _openingStockController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  prefixIcon: Icons.inventory_outlined,
+                  onChanged: (_) => setState(() {}),
+                ),
+              KSpacing.vGapSm,
+              KCompactRow(children: [
+                KTextField(
+                  label: 'Reorder Level',
+                  controller: _reorderLevelController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                ),
+                KTextField(
+                  label: 'Reorder Qty',
+                  controller: _reorderQtyController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                ),
+              ]),
+            ],
+          ],
+        ),
+        KSpacing.vGapSm,
+        KCollapsibleSection(
+          title: 'More Options',
+          icon: Icons.tune_outlined,
+          initiallyExpanded: false,
+          children: [
+            KTextField(
+              label: 'SKU (optional)',
+              hint: 'Leave blank to auto-generate',
+              controller: _skuController,
+              prefixIcon: Icons.qr_code,
+              serverError: serverErrors['sku'],
+            ),
+            KSpacing.vGapSm,
+            KTextField(
+              label: 'Description (optional)',
+              controller: _descriptionController,
+              maxLines: 2,
+            ),
+            KSpacing.vGapSm,
+            DropdownButtonFormField<String>(
+              initialValue: _itemType,
+              decoration: const InputDecoration(labelText: 'Type'),
+              items: const [
+                DropdownMenuItem(value: 'GOODS', child: Text('Goods')),
+                DropdownMenuItem(value: 'SERVICE', child: Text('Service')),
+                DropdownMenuItem(
+                    value: 'COMPOSITE', child: Text('Composite (kit)')),
+              ],
+              onChanged: (v) {
+                setState(() {
+                  _itemType = v ?? 'GOODS';
+                  if (_itemType != 'GOODS') {
+                    _trackInventory = false;
+                    _groupId = null;
+                    _selectedGroup = null;
+                    _variantAttrs.clear();
+                  }
+                });
+              },
+            ),
+            if (_rackLocations.isNotEmpty) ...[
+              KSpacing.vGapSm,
+              DropdownButtonFormField<String>(
+                initialValue: _rackLocationId,
+                decoration: const InputDecoration(labelText: 'Rack Location'),
+                isExpanded: true,
+                items: [
+                  const DropdownMenuItem<String>(
+                    value: null,
+                    child: Text('No rack assigned'),
+                  ),
+                  ..._rackLocations.map(
+                    (rack) => DropdownMenuItem<String>(
+                      value: rack['id']?.toString(),
+                      child: Text(
+                        [
+                          rack['code']?.toString() ?? '',
+                          if ((rack['name']?.toString() ?? '').isNotEmpty)
+                            rack['name'].toString(),
+                        ].join(' - '),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+                onChanged: (value) =>
+                    setState(() => _rackLocationId = value),
+              ),
+            ],
+            KSpacing.vGapSm,
+            _buildPurchaseSalesUnitsSection(),
+            KSpacing.vGapSm,
+            _buildPhysicalSection('Packaging & Shipping'),
+            KCollapsibleSection(
+              title: 'Accounting',
+              icon: Icons.account_balance_outlined,
+              children: [
+                KTextField(
+                  label: 'Revenue Account Code',
+                  controller: _revenueAccountController,
+                ),
+                KSpacing.vGapSm,
+                KTextField(
+                  label: 'COGS Account Code',
+                  controller: _cogsAccountController,
+                ),
+                KSpacing.vGapSm,
+                KTextField(
+                  label: 'Inventory Account Code',
+                  controller: _inventoryAccountController,
+                ),
+              ],
+            ),
+          ],
+        ),
+        KSpacing.vGapLg,
+        KButton(
+          label: _isEdit ? 'Update' : 'Create Item',
+          fullWidth: true,
+          isLoading: _saving,
+          onPressed: _save,
+        ),
+        KSpacing.vGapMd,
+      ],
+    );
+  }
   @override
   Widget build(BuildContext context) {
+    final useSimpleGoodsForm =
+        !_isPharmacyOrg && !_canUseBatchExpiry && _itemType == 'GOODS';
+
     return KKeyboardFormWrapper(
       onSubmit: _save,
       onCancel: () => context.pop(),
@@ -1001,7 +1362,10 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                 padding: KSpacing.pagePadding,
                 children: [
                   // ── Drug Master Quick-fill (pharmacy items only) ──
-                  if (!_isEdit) ...[
+                  if (useSimpleGoodsForm) ...[
+                    _buildSimpleGoodsForm(),
+                  ] else ...[
+                  if (!_isEdit && _isPharmacyOrg) ...[
                     DrugMasterSearchWidget(onSelected: _fillFromDrug),
                     if (_autoFilledFromDrug)
                       Padding(
@@ -1036,17 +1400,12 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                     children: [
                       KCompactRow(children: [
                         KTextField(
-                          label: 'SKU',
+                          label: 'SKU (optional)',
+                          hint: 'Leave blank to auto-generate',
                           controller: _skuController,
                           prefixIcon: Icons.qr_code,
-                          isRequired: true,
                           serverError: serverErrors['sku'],
-                          validator: (v) => fieldError(
-                            'sku',
-                            v == null || v.trim().isEmpty
-                                ? 'SKU is required'
-                                : null,
-                          ),
+                          validator: (v) => fieldError('sku', null),
                         ),
                         KTextField(
                           label: 'Barcode',
@@ -1068,6 +1427,19 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                               : null,
                         ),
                       ),
+                      KSpacing.vGapSm,
+                      if (_itemType != 'SERVICE') ...[
+                        HsnGstSearchWidget(
+                          controller: _hsnController,
+                          initialHsnCode: _hsnController.text,
+                          onSelected: (hsnCode, gstRate, description) {
+                            _hsnController.text = hsnCode;
+                            _gstRateController.text =
+                                gstRate.toStringAsFixed(gstRate.truncateToDouble() == gstRate ? 0 : 2);
+                            setState(() {});
+                          },
+                        ),
+                      ],
                       KSpacing.vGapSm,
                       KTextField(
                         label: 'Description',
@@ -1169,12 +1541,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                     icon: Icons.currency_rupee,
                     initiallyExpanded: true,
                     children: [
-                      KCompactRow(flex: const [
-                        2,
-                        2,
-                        1,
-                        1
-                      ], children: [
+                      KCompactRow(flex: _itemType == 'SERVICE' ? const [2, 2, 1, 1] : const [2, 2, 1], children: [
                         KTextField.amount(
                           label: 'Purchase Price',
                           controller: _purchasePriceController,
@@ -1199,20 +1566,9 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                             return null;
                           },
                         ),
-                        if (_isPharmacyOrg && _itemType != 'SERVICE')
-                          HsnGstSearchWidget(
-                            controller: _hsnController,
-                            initialHsnCode: _hsnController.text,
-                            onSelected: (hsnCode, gstRate, description) {
-                              _hsnController.text = hsnCode;
-                              _gstRateController.text =
-                                  gstRate.toStringAsFixed(gstRate.truncateToDouble() == gstRate ? 0 : 2);
-                              setState(() {});
-                            },
-                          )
-                        else
+                        if (_itemType == 'SERVICE')
                           KTextField(
-                            label: _itemType == 'SERVICE' ? 'SAC' : 'HSN',
+                            label: 'SAC',
                             controller: _hsnController,
                           ),
                         KTextField(
@@ -1297,7 +1653,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                               KSpacing.hGapSm,
                               Expanded(
                                 child: Text(
-                                  'This page creates the product master. Opening stock is only for initial setup stock already in the business. New supplier stock should be received through Purchase Order -> Goods Receipt.',
+                                  'This page creates the item master, not a stock receipt. Opening Stock is only for quantity already on hand. Add new supplier stock from Purchases -> Goods Receipt after receiving the goods.',
                                   style: KTypography.bodySmall,
                                 ),
                               ),
@@ -1315,7 +1671,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                           onChanged: (v) => setState(() => _trackInventory = v),
                         ),
                         if (_trackInventory) ...[
-                          SwitchListTile.adaptive(
+                          if (_canUseBatchExpiry)
+                            SwitchListTile.adaptive(
                             contentPadding: EdgeInsets.zero,
                             dense: true,
                             title: const Text('Track batches (FEFO)'),
@@ -1341,7 +1698,9 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                                       decimal: true),
                             ),
                           ]),
-                          if (!_isEdit) ...[
+                          if (_isEdit)
+                            _buildEditStockAction()
+                          else ...[
                             KSpacing.vGapSm,
                             KTextField(
                               label: 'Opening Stock',
@@ -1531,6 +1890,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                     onPressed: _save,
                   ),
                   KSpacing.vGapMd,
+                  ],
                 ],
               ),
             ),

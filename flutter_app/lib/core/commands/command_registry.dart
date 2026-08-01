@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import '../widgets/k_command_palette.dart';
 import '../../routing/app_router.dart';
 
-List<KCommand> buildAppCommands() {
-  return const [
+List<KCommand> buildAppCommands({bool isPharma = false}) {
+  const commands = [
     // ── Navigation ─────────────────────────────────────────────────
     KCommand(
       label: 'Dashboard',
@@ -416,7 +416,7 @@ List<KCommand> buildAppCommands() {
       keywords: ['gps', 'location', 'salesman', 'map'],
     ),
     KCommand(
-      label: 'MR Approvals',
+      label: 'Field Approvals',
       icon: Icons.fact_check,
       section: 'Navigate',
       route: Routes.fieldSalesMrApprovals,
@@ -449,6 +449,13 @@ List<KCommand> buildAppCommands() {
       section: 'Navigate',
       route: Routes.auditTrail,
       keywords: ['edit log', 'audit', 'mca', 'alteration', 'who changed', 'history', 'compliance'],
+    ),
+    KCommand(
+      label: 'Testing Guide',
+      icon: Icons.fact_check_rounded,
+      section: 'Navigate',
+      route: Routes.testingGuide,
+      keywords: ['qa', 'test', 'testing', 'fmcg', 'distributor', 'field sales', 'runbook'],
     ),
     KCommand(
       label: 'Field Coverage Reports',
@@ -1012,4 +1019,15 @@ List<KCommand> buildAppCommands() {
       keywords: ['month close', 'fiscal'],
     ),
   ];
+  return commands
+      .map((command) => command.route == Routes.fieldSalesMrApprovals
+          ? KCommand(
+              label: isPharma ? 'MR Approvals' : 'Field Approvals',
+              icon: command.icon,
+              section: command.section,
+              route: command.route,
+              keywords: command.keywords,
+            )
+          : command)
+      .toList(growable: false);
 }

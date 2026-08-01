@@ -445,12 +445,17 @@ public class FieldSalesController {
     }
 
     @PostMapping("/visits/{id}/record-collection")
-    public ResponseEntity<ApiResponse<FieldVisit>> recordVisitCollection(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> recordVisitCollection(
             @PathVariable UUID id,
             @RequestBody Map<String, Object> body) {
         BigDecimal collectionAmount = new BigDecimal(body.get("collectionAmount").toString());
+        String paymentMethod = body.get("paymentMethod") != null
+                ? body.get("paymentMethod").toString() : "CASH";
+        String referenceNumber = body.get("referenceNumber") != null
+                ? body.get("referenceNumber").toString() : null;
         return ResponseEntity.ok(ApiResponse.ok(
-                service.recordVisitCollection(id, collectionAmount), "Collection recorded"));
+                service.recordVisitCollectionWithReceipt(id, collectionAmount,
+                        paymentMethod, referenceNumber), "Collection recorded"));
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -573,9 +578,12 @@ public class FieldSalesController {
 
     @PostMapping("/day-close/initiate/{routeExecutionId}")
     public ResponseEntity<ApiResponse<DayClose>> initiateDayClose(
-            @PathVariable UUID routeExecutionId) {
+            @PathVariable UUID routeExecutionId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        BigDecimal openingCash = body != null && body.get("openingCash") != null
+                ? new BigDecimal(body.get("openingCash").toString()) : BigDecimal.ZERO;
         return ResponseEntity.ok(ApiResponse.ok(
-                service.initiateDayClose(routeExecutionId), "Day close initiated"));
+                service.initiateDayClose(routeExecutionId, openingCash), "Day close initiated"));
     }
 
     @GetMapping("/day-close/{id}")

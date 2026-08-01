@@ -40,6 +40,7 @@ import 'pos_receipt_settings_screen.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../pricing/data/scheme_repository.dart';
 import '../../../core/auth/auth_state.dart';
+import '../../../core/auth/business_capabilities.dart';
 import '../../loyalty/data/wallet_repository.dart';
 import '../../loyalty/presentation/wallet_balance_chip.dart';
 import '../../pharma/data/prescription_repository.dart';
@@ -156,7 +157,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     }
 
     // For batch-tracked items, auto-select if single batch, else show picker
-    final trackBatches = item['trackBatches'] == true;
+    final canUseBatchExpiry =
+        ref.read(businessCapabilitiesProvider).canUseBatchExpiry;
+    final trackBatches =
+        item['trackBatches'] == true && canUseBatchExpiry;
     if (trackBatches) {
       final itemId = item['id']?.toString();
       final itemName = item['name']?.toString() ?? 'Item';
@@ -1864,9 +1868,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   Widget _resultsList(List<Map<String, dynamic>> results) {
     final query = _searchQuery;
+    final canUsePharmaCatalog =
+        ref.watch(businessCapabilitiesProvider).canUsePharma;
     // Marg-style fallback: when the org's own items don't cover the
     // search, offer the platform medicine catalog below.
-    final showCatalog = query != null && results.length < 5;
+    final showCatalog =
+        canUsePharmaCatalog && query != null && results.length < 5;
     return ListView(
       padding: const EdgeInsets.only(bottom: 8),
       children: [
