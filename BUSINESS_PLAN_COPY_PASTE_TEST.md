@@ -657,4 +657,17 @@ Credit: 1100 - Accounts Receivable   531
 ```
 
 The payment journal is balanced and clears the receivable for `INV-2026-000001`.
+
+### Customer Statement - Verified Result (2026-08-08)
+
+Opened the contact statement for `Shree Ganesh Kirana Store` for `01 Jan 2026` through `08 Aug 2026`:
+
+```text
+Invoiced: 531
+Paid: 531
+Balance: 0
+Closing Balance: 0
+```
+
+The statement showed `INV-2026-000001` followed by `PAY-2026-000001`. The invoice row's `Bal: 531` is the running balance after invoicing; the payment row's `Bal: 0` is the final cleared balance.
 ```
