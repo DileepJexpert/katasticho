@@ -292,11 +292,13 @@ public class DeliveryChallanService {
         challanRepository.save(challan);
     }
 
+    @Transactional(readOnly = true)
     public DeliveryChallanResponse get(UUID challanId) {
         UUID orgId = TenantContext.getCurrentOrgId();
         return toResponse(findOrThrow(challanId, orgId));
     }
 
+    @Transactional(readOnly = true)
     public Page<DeliveryChallanResponse> list(String status, UUID salesOrderId, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
@@ -312,6 +314,7 @@ public class DeliveryChallanService {
         return page.map(this::toResponse);
     }
 
+    @Transactional(readOnly = true)
     public List<DeliveryChallanResponse> getChallansForSalesOrder(UUID salesOrderId) {
         UUID orgId = TenantContext.getCurrentOrgId();
         return challanRepository.findBySalesOrderIdAndOrgIdAndIsDeletedFalse(salesOrderId, orgId)
