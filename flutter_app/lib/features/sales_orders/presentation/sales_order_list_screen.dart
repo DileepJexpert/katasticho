@@ -261,8 +261,8 @@ class _SalesOrderTable extends StatelessWidget {
         final orderDate = order['orderDate']?.toString();
         final shipDate = order['expectedShipmentDate']?.toString();
         final status = order['status']?.toString() ?? 'DRAFT';
-        final total = (order['total'] as num?)?.toDouble() ??
-            (order['totalAmount'] as num?)?.toDouble() ??
+        final total = (order['totalAmount'] as num?)?.toDouble() ??
+            (order['total'] as num?)?.toDouble() ??
             0;
         final selected = selectedIds.contains(id);
 
