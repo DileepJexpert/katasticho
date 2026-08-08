@@ -342,7 +342,7 @@ public class DashboardService {
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
-        BigDecimal invoiceRevenue = invoiceRepository.sumRevenueByOrgAndDateRange(
+        BigDecimal invoiceRevenue = invoiceRepository.sumNetRevenueByOrgAndDateRange(
                 orgId, effectiveFrom, effectiveTo);
         BigDecimal posRevenue = salesReceiptRepository.sumTotalByOrgAndDateRange(
                 orgId, effectiveFrom, effectiveTo);

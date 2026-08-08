@@ -120,6 +120,16 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     """)
     BigDecimal sumRevenueByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
 
+    /** Net invoiced revenue excluding GST and other tax amounts. */
+    @Query("""
+        SELECT COALESCE(SUM(i.subtotal), 0) FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.isDeleted = false
+          AND i.status <> 'CANCELLED'
+          AND i.invoiceDate BETWEEN :from AND :to
+    """)
+    BigDecimal sumNetRevenueByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
+
     /** Posted (non-draft, non-cancelled) invoice turnover in a range — CMP-08 etc. */
     @Query("""
         SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i
