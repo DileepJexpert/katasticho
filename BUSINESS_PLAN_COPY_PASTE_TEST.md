@@ -702,4 +702,16 @@ Output tax amount: 81
 ```
 
 The report correctly reflects the sales invoice and the split CGST/SGST journal tax.
+
+### Profit & Loss - Verified Result (2026-08-08)
+
+For `01 Aug 2026` through `08 Aug 2026`:
+
+```text
+Revenue - 4010 Sales Revenue: 450
+Expenses - 5010 Cost of Goods Sold: 300
+Net Profit: 150
+```
+
+GST is correctly excluded from revenue and expense totals.
 ```
