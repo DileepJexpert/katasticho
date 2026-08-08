@@ -360,7 +360,11 @@ class _SalesOrderDetailBody extends ConsumerWidget {
     final status = order['status'] as String? ?? 'DRAFT';
     final orderNumber = order['salesOrderNumber'] as String? ?? '--';
     final customerName = order['contactName'] as String? ?? 'Customer';
-    final total = (order['total'] as num?)?.toDouble() ?? 0;
+    // SalesOrderResponse exposes the canonical field as totalAmount.
+    // Keep total as a fallback for older API payloads already cached by the app.
+    final total = (order['totalAmount'] as num?)?.toDouble() ??
+        (order['total'] as num?)?.toDouble() ??
+        0;
     final subtotal = (order['subtotal'] as num?)?.toDouble() ?? total;
     final tax = (order['taxAmount'] as num?)?.toDouble() ?? 0;
     final discount = (order['discountAmount'] as num?)?.toDouble() ?? 0;

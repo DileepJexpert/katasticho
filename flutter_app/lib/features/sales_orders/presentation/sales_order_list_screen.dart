@@ -316,7 +316,9 @@ class _SalesOrderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final status = order['status'] as String? ?? 'DRAFT';
-    final total = (order['total'] as num?)?.toDouble() ?? 0;
+    final total = (order['totalAmount'] as num?)?.toDouble() ??
+        (order['total'] as num?)?.toDouble() ??
+        0;
     final customerName = order['contactName'] as String? ?? 'Unknown';
     final orderNumber = order['salesOrderNumber'] as String? ?? '--';
     final orderDate = order['orderDate'] as String?;
