@@ -3,6 +3,9 @@ package com.katasticho.erp.procurement.service;
 import com.katasticho.erp.audit.AuditService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.entity.ContactType;
+import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.procurement.dto.SupplierRequest;
 import com.katasticho.erp.procurement.dto.SupplierResponse;
 import com.katasticho.erp.procurement.entity.Supplier;
@@ -16,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +27,7 @@ import java.util.UUID;
 public class SupplierService {
 
     private final SupplierRepository supplierRepository;
+    private final ContactRepository contactRepository;
     private final AuditService auditService;
 
     @Transactional
@@ -54,6 +59,17 @@ public class SupplierService {
                 .active(request.active() == null || request.active())
                 .build();
 
+        if (request.contactId() != null) {
+            Contact contact = requireVendorContact(request.contactId(), orgId);
+            supplier.setContactId(contact.getId());
+            copyPartyFields(supplier, contact);
+        } else {
+            Contact contact = findVendorContact(orgId, supplier.getName(), supplier.getGstin()).orElse(null);
+            if (contact == null) contact = createVendorContact(supplier, orgId);
+            supplier.setContactId(contact.getId());
+            copyPartyFields(supplier, contact);
+        }
+
         supplier = supplierRepository.save(supplier);
         auditService.log("SUPPLIER", supplier.getId(), "CREATE", null,
                 "{\"name\":\"" + supplier.getName() + "\"}");
@@ -83,6 +99,15 @@ public class SupplierService {
         supplier.setNotes(request.notes());
         if (request.active() != null) supplier.setActive(request.active());
 
+        if (request.contactId() != null) {
+            Contact contact = requireVendorContact(request.contactId(), orgId);
+            supplier.setContactId(contact.getId());
+        } else if (supplier.getContactId() == null) {
+            Contact contact = findVendorContact(orgId, supplier.getName(), supplier.getGstin()).orElse(null);
+            if (contact == null) contact = createVendorContact(supplier, orgId);
+            supplier.setContactId(contact.getId());
+        }
+
         supplier = supplierRepository.save(supplier);
         auditService.log("SUPPLIER", supplier.getId(), "UPDATE", null, null);
         return toResponse(supplier);
@@ -107,9 +132,10 @@ public class SupplierService {
                 .orElseThrow(() -> BusinessException.notFound("Supplier", id));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Page<SupplierResponse> listSuppliers(String search, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
+        synchronizeVendorContacts(orgId);
         Page<Supplier> page;
         if (search != null && !search.isBlank()) {
             page = supplierRepository.search(orgId, search.trim(), pageable);
@@ -127,10 +153,150 @@ public class SupplierService {
 
     public SupplierResponse toResponse(Supplier s) {
         return new SupplierResponse(
-                s.getId(), s.getName(), s.getGstin(), s.getPan(), s.getPhone(), s.getEmail(),
+                s.getId(), s.getContactId(), s.getName(), s.getGstin(), s.getPan(), s.getPhone(), s.getEmail(),
                 s.getAddressLine1(), s.getAddressLine2(), s.getCity(), s.getState(), s.getStateCode(),
                 s.getPostalCode(), s.getCountry(), s.getPaymentTermsDays(), s.getNotes(),
                 s.isActive(), s.getCreatedAt());
+    }
+
+    /**
+     * Keeps the legacy procurement supplier projection aligned with the unified
+     * contact master. Existing rows are linked by name once; new vendor
+     * contacts receive a projection so old PO/GRN foreign keys remain stable.
+     */
+    private void synchronizeVendorContacts(UUID orgId) {
+        List<Contact> contacts = contactRepository
+                .findByOrgIdAndContactTypeInAndIsDeletedFalse(
+                        orgId, List.of(ContactType.VENDOR, ContactType.BOTH));
+
+        for (Contact contact : contacts) {
+            Supplier supplier = supplierRepository
+                    .findFirstByOrgIdAndContactIdAndIsDeletedFalse(orgId, contact.getId())
+                    .orElse(null);
+
+            if (supplier == null) {
+                supplier = supplierRepository
+                        .findFirstByOrgIdAndNameIgnoreCaseAndIsDeletedFalse(orgId, contact.getDisplayName())
+                        .filter(candidate -> candidate.getContactId() == null)
+                        .orElse(null);
+            }
+
+            if (supplier == null) {
+                supplier = Supplier.builder()
+                        .name(contact.getDisplayName())
+                        .paymentTermsDays(contact.getPaymentTermsDays())
+                        .active(contact.isActive())
+                        .contactId(contact.getId())
+                        .build();
+                supplier.setOrgId(orgId);
+                copyPartyFields(supplier, contact);
+                supplierRepository.save(supplier);
+                auditService.log("SUPPLIER", supplier.getId(), "LINK_CONTACT", null,
+                        "{\"contactId\":\"" + contact.getId() + "\"}");
+            } else {
+                boolean changed = supplier.getContactId() == null;
+                supplier.setContactId(contact.getId());
+                changed |= copyPartyFields(supplier, contact);
+                if (changed) {
+                    supplierRepository.save(supplier);
+                }
+            }
+        }
+    }
+
+    private Contact requireVendorContact(UUID contactId, UUID orgId) {
+        Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Contact", contactId));
+        if (contact.getContactType() != ContactType.VENDOR
+                && contact.getContactType() != ContactType.BOTH) {
+            throw new BusinessException("Contact '" + contact.getDisplayName() + "' is not a vendor",
+                    "SUPPLIER_CONTACT_NOT_VENDOR", HttpStatus.BAD_REQUEST);
+        }
+        return contact;
+    }
+
+    private Contact createVendorContact(Supplier supplier, UUID orgId) {
+        Contact contact = Contact.builder()
+                .contactType(ContactType.VENDOR)
+                .displayName(supplier.getName())
+                .companyName(supplier.getName())
+                .gstin(supplier.getGstin())
+                .pan(supplier.getPan())
+                .email(supplier.getEmail())
+                .phone(supplier.getPhone())
+                .billingAddressLine1(supplier.getAddressLine1())
+                .billingAddressLine2(supplier.getAddressLine2())
+                .billingCity(supplier.getCity())
+                .billingState(supplier.getState())
+                .billingStateCode(supplier.getStateCode())
+                .billingPostalCode(supplier.getPostalCode())
+                .billingCountry(supplier.getCountry())
+                .currency("INR")
+                .paymentTermsDays(supplier.getPaymentTermsDays())
+                .notes(supplier.getNotes())
+                .active(supplier.isActive())
+                .build();
+        contact.setOrgId(orgId);
+        contact = contactRepository.save(contact);
+        auditService.log("CONTACT", contact.getId(), "CREATE_FROM_SUPPLIER", null,
+                "{\"displayName\":\"" + contact.getDisplayName() + "\"}");
+        return contact;
+    }
+
+    private java.util.Optional<Contact> findVendorContact(UUID orgId, String name, String gstin) {
+        if (gstin != null && !gstin.isBlank()) {
+            java.util.Optional<Contact> byGstin = contactRepository
+                    .findFirstByOrgIdAndGstinIgnoreCaseAndIsDeletedFalse(orgId, gstin);
+            if (byGstin.filter(this::isVendor).isPresent()) {
+                return byGstin;
+            }
+            if (byGstin.isPresent()) {
+                Contact contact = byGstin.get();
+                contact.setContactType(ContactType.BOTH);
+                return java.util.Optional.of(contactRepository.save(contact));
+            }
+        }
+        return contactRepository.findFirstByOrgIdAndDisplayNameIgnoreCaseAndIsDeletedFalse(orgId, name)
+                .filter(this::isVendor);
+    }
+
+    private boolean isVendor(Contact contact) {
+        return contact.getContactType() == ContactType.VENDOR
+                || contact.getContactType() == ContactType.BOTH;
+    }
+
+    private boolean copyPartyFields(Supplier supplier, Contact contact) {
+        boolean changed = false;
+        changed |= !java.util.Objects.equals(supplier.getName(), contact.getDisplayName());
+        supplier.setName(contact.getDisplayName());
+        changed |= !java.util.Objects.equals(supplier.getGstin(), contact.getGstin());
+        supplier.setGstin(contact.getGstin());
+        changed |= !java.util.Objects.equals(supplier.getPan(), contact.getPan());
+        supplier.setPan(contact.getPan());
+        changed |= !java.util.Objects.equals(supplier.getPhone(), contact.getPhone());
+        supplier.setPhone(contact.getPhone());
+        changed |= !java.util.Objects.equals(supplier.getEmail(), contact.getEmail());
+        supplier.setEmail(contact.getEmail());
+        changed |= !java.util.Objects.equals(supplier.getAddressLine1(), contact.getBillingAddressLine1());
+        supplier.setAddressLine1(contact.getBillingAddressLine1());
+        changed |= !java.util.Objects.equals(supplier.getAddressLine2(), contact.getBillingAddressLine2());
+        supplier.setAddressLine2(contact.getBillingAddressLine2());
+        changed |= !java.util.Objects.equals(supplier.getCity(), contact.getBillingCity());
+        supplier.setCity(contact.getBillingCity());
+        changed |= !java.util.Objects.equals(supplier.getState(), contact.getBillingState());
+        supplier.setState(contact.getBillingState());
+        changed |= !java.util.Objects.equals(supplier.getStateCode(), contact.getBillingStateCode());
+        supplier.setStateCode(contact.getBillingStateCode());
+        changed |= !java.util.Objects.equals(supplier.getPostalCode(), contact.getBillingPostalCode());
+        supplier.setPostalCode(contact.getBillingPostalCode());
+        changed |= !java.util.Objects.equals(supplier.getCountry(), contact.getBillingCountry());
+        supplier.setCountry(contact.getBillingCountry());
+        changed |= supplier.getPaymentTermsDays() == null
+                || !java.util.Objects.equals(supplier.getPaymentTermsDays(), contact.getPaymentTermsDays());
+        supplier.setPaymentTermsDays(contact.getPaymentTermsDays());
+        changed |= supplier.isActive() != contact.isActive();
+        supplier.setActive(contact.isActive());
+        return changed;
     }
 
     private static String blankToNull(String s) {

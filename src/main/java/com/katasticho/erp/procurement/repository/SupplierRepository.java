@@ -31,4 +31,6 @@ public interface SupplierRepository extends JpaRepository<Supplier, UUID> {
     boolean existsByOrgIdAndGstinAndIsDeletedFalse(UUID orgId, String gstin);
 
     Optional<Supplier> findFirstByOrgIdAndNameIgnoreCaseAndIsDeletedFalse(UUID orgId, String name);
+
+    Optional<Supplier> findFirstByOrgIdAndContactIdAndIsDeletedFalse(UUID orgId, UUID contactId);
 }

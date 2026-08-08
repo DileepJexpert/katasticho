@@ -20,6 +20,9 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
     Page<Contact> findByOrgIdAndContactTypeAndIsDeletedFalse(
             UUID orgId, ContactType type, Pageable pageable);
 
+    List<Contact> findByOrgIdAndContactTypeInAndIsDeletedFalse(
+            UUID orgId, Collection<ContactType> types);
+
     @Query("""
             SELECT c FROM Contact c
             WHERE c.orgId = :orgId

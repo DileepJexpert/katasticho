@@ -3,6 +3,8 @@ package com.katasticho.erp.procurement.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import java.util.UUID;
+
 public record SupplierRequest(
         @NotBlank @Size(max = 255) String name,
         @Size(max = 15) String gstin,
@@ -18,5 +20,6 @@ public record SupplierRequest(
         String country,
         Integer paymentTermsDays,
         String notes,
-        Boolean active
+        Boolean active,
+        UUID contactId
 ) {}
