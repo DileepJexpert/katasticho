@@ -23,5 +23,6 @@ public record DeliveryChallanResponse(
         String notes,
         String shippingAddress,
         List<DeliveryChallanLineResponse> lines,
-        Instant createdAt
+        Instant createdAt,
+        String salesOrderInvoicedStatus
 ) {}

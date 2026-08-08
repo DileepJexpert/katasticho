@@ -389,8 +389,10 @@ public class DeliveryChallanService {
                 .map(Warehouse::getName).orElse(null)
                 : null;
 
-        String soNumber = salesOrderRepository.findById(challan.getSalesOrderId())
-                .map(SalesOrder::getSalesorderNumber).orElse(null);
+        SalesOrder salesOrder = salesOrderRepository
+                .findByIdAndOrgIdAndIsDeletedFalse(challan.getSalesOrderId(), challan.getOrgId())
+                .orElse(null);
+        String soNumber = salesOrder != null ? salesOrder.getSalesorderNumber() : null;
 
         List<DeliveryChallanLineResponse> lineResponses = challan.getLines().stream()
                 .map(l -> {
@@ -417,6 +419,7 @@ public class DeliveryChallanService {
                 challan.getDeliveryMethod(), challan.getVehicleNumber(),
                 challan.getTrackingNumber(), challan.getNotes(),
                 challan.getShippingAddress(),
-                lineResponses, challan.getCreatedAt());
+                lineResponses, challan.getCreatedAt(),
+                salesOrder != null ? salesOrder.getInvoicedStatus() : null);
     }
 }

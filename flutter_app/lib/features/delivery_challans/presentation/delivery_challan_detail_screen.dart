@@ -33,6 +33,11 @@ class DeliveryChallanDetailScreen extends ConsumerWidget {
             data: (data) {
               final challan = (data['data'] ?? data) as Map<String, dynamic>;
               final status = challan['status'] as String? ?? '';
+              final invoicedStatus =
+                  challan['salesOrderInvoicedStatus'] as String? ?? '';
+              final canCreateInvoice =
+                  (status == 'DISPATCHED' || status == 'DELIVERED') &&
+                      invoicedStatus != 'FULLY_INVOICED';
               return PopupMenuButton<String>(
                 onSelected: (value) =>
                     _handleAction(context, ref, value, status),
@@ -53,17 +58,13 @@ class DeliveryChallanDetailScreen extends ConsumerWidget {
                           style: TextStyle(color: KColors.error)),
                     ),
                   ],
-                  if (status == 'DISPATCHED')
+                  if (canCreateInvoice)
                     const PopupMenuItem(
                         value: 'invoice',
                         child: Text('Create Sales Invoice')),
                   if (status == 'DISPATCHED')
                     const PopupMenuItem(
                         value: 'deliver', child: Text('Mark Delivered')),
-                  if (status == 'DELIVERED')
-                    const PopupMenuItem(
-                        value: 'invoice',
-                        child: Text('Create Sales Invoice')),
                 ],
               );
             },
@@ -88,6 +89,11 @@ class DeliveryChallanDetailScreen extends ConsumerWidget {
         data: (data) {
           final challan = (data['data'] ?? data) as Map<String, dynamic>;
           final status = challan['status'] as String? ?? '';
+          final invoicedStatus =
+              challan['salesOrderInvoicedStatus'] as String? ?? '';
+          final canCreateInvoice =
+              (status == 'DISPATCHED' || status == 'DELIVERED') &&
+                  invoicedStatus != 'FULLY_INVOICED';
 
           if (status == 'DRAFT') {
             return Container(
@@ -117,7 +123,7 @@ class DeliveryChallanDetailScreen extends ConsumerWidget {
               ),
             );
           }
-          if (status == 'DISPATCHED' || status == 'DELIVERED') {
+          if (canCreateInvoice) {
             return Container(
               padding: const EdgeInsets.all(KSpacing.md),
               decoration: BoxDecoration(
@@ -368,14 +374,24 @@ class _DeliveryChallanDetailBody extends ConsumerWidget {
     final customerName = challan['contactName'] as String? ?? 'Customer';
     final salesOrderNumber =
         challan['salesOrderNumber'] as String? ?? '--';
+    final salesOrderInvoicedStatus =
+        challan['salesOrderInvoicedStatus'] as String? ?? '';
     final lines = (challan['lines'] as List?) ?? [];
     final auth = ref.watch(authProvider);
-    final hint = WorkflowHintResolver.resolve(
+    final resolvedHint = WorkflowHintResolver.resolve(
       pageKey: 'delivery_challan.detail',
       status: status,
       businessType: auth.businessType,
       industryCode: auth.industryCode,
     );
+    final hint = salesOrderInvoicedStatus == 'FULLY_INVOICED'
+        ? const WorkflowHint(
+            title: 'Invoice already posted',
+            body:
+                'This challan has already been billed through its Sales Order. Create a payment receipt from the invoice; do not create another invoice.',
+            variant: WorkflowHintVariant.success,
+          )
+        : resolvedHint;
 
     return DefaultTabController(
       length: 2,

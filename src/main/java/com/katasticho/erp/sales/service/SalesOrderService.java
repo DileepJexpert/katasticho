@@ -486,6 +486,10 @@ public class SalesOrderService {
             throw new BusinessException("Sales order is not in a state that allows invoicing",
                     "SO_CANNOT_INVOICE", HttpStatus.BAD_REQUEST);
         }
+        if ("FULLY_INVOICED".equals(so.getInvoicedStatus())) {
+            throw new BusinessException("Sales order is already fully invoiced",
+                    "SO_ALREADY_FULLY_INVOICED", HttpStatus.BAD_REQUEST);
+        }
 
         String revenueAccountCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.SALES_REVENUE);
 
