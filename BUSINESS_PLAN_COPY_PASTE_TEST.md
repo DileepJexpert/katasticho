@@ -541,4 +541,92 @@ Mark each item only after checking the screen and the accounting/report result:
 [ ] Journals and reports reconcile
 [ ] Posted entries are immutable and reversals are auditable
 [ ] Viewer and salesperson permissions are enforced
+
+## 16. Verified SO-DC-Invoice Run (2026-08-08)
+
+This is the first end-to-end distributor transaction verified manually. Keep it as the reference flow for regression testing after future changes.
+
+### Sales Order
+
+```text
+Customer: Shree Ganesh Kirana Store
+Item: Turmeric Masala 100g
+Quantity: 10 PCS
+Rate: 45 per PCS
+GST: 18%
+Fulfilment warehouse: Main FMCG Warehouse
+Subtotal: 450
+GST amount: 81
+Total: 531
+Expected initial status: DRAFT
+```
+
+Process:
+
+1. Create the Sales Order and verify the total is `531`.
+2. Confirm the Sales Order.
+3. Verify stock is reserved from `Main FMCG Warehouse` and the order becomes `CONFIRMED`.
+
+### Delivery Challan
+
+```text
+Sales Order: SO-2026-000001
+Vehicle Number: dl3ccp5617
+Tracking Number: 35342k
+Delivery Method: hand by bike
+Quantity to dispatch: 10 PCS
+```
+
+Process:
+
+1. Create the Delivery Challan from the confirmed Sales Order.
+2. Open the challan detail page and verify its status is `DRAFT`.
+3. Dispatch the challan.
+4. Verify the status becomes `DISPATCHED` and stock decreases by `10 PCS`.
+5. Verify the linked Sales Order shows `10` shipped.
+
+### Sales Invoice
+
+1. Select `Create Sales Invoice` from the dispatched challan.
+2. Verify the invoice contains the dispatched quantity only.
+3. Verify the invoice totals:
+
+```text
+Subtotal: 450
+Tax: 81
+Total: 531
+Amount paid: 0
+Balance due: 531
+Invoice status: SENT
+Sales Order invoiced status: FULLY_INVOICED
+```
+
+4. Verify the Sales Order status becomes `INVOICED`.
+5. Verify the Delivery Challan remains `DISPATCHED`; this is correct because dispatch status and billing status are separate.
+6. Verify the Delivery Challan no longer offers `Create Sales Invoice` after the Sales Order is fully invoiced.
+7. A second invoice attempt must be rejected and must not create another invoice.
+
+### Payment Test - Next Step
+
+Open the invoice and click `Record Payment`.
+
+```text
+Payment amount: 531
+Payment mode: CASH
+Payment date: 08 Aug 2026
+Reference: CASH-SHREE-001
+Notes: Full payment for INV-2026-000001
+```
+
+Expected result:
+
+```text
+Invoice status: PAID
+Amount paid: 531
+Balance due: 0
+Customer outstanding: reduced by 531
+Journal: Debit Cash / Bank, Credit Accounts Receivable
+```
+
+After any backend or Flutter code change, restart the backend and restart Flutter before repeating this flow. Refresh the existing document before creating a new one; do not create duplicate challans or invoices for the same shipped quantity.
 ```
