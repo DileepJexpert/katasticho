@@ -629,4 +629,18 @@ Journal: Debit Cash / Bank, Credit Accounts Receivable
 ```
 
 After any backend or Flutter code change, restart the backend and restart Flutter before repeating this flow. Refresh the existing document before creating a new one; do not create duplicate challans or invoices for the same shipped quantity.
+
+### Payment Test - Verified Result (2026-08-08)
+
+Verified on invoice `INV-2026-000001`:
+
+```text
+Invoice status: PAID
+Invoice total: 531
+Amount paid: 531
+Balance due: 0
+Customer: Shree Ganesh Kirana Store
+```
+
+The invoice detail screen correctly showed the `PAID` status and matching total and amount-paid values.
 ```
