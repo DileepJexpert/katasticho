@@ -233,8 +233,6 @@ class SalesCycleTest {
                 .thenReturn(Optional.of(challan));
         when(salesOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(soId, orgId))
                 .thenReturn(Optional.of(so));
-        when(salesOrderRepository.findById(soId))
-                .thenReturn(Optional.of(so));
         when(reservationRepository.findBySourceTypeAndSourceLineId("SALES_ORDER", soLineId))
                 .thenReturn(Optional.of(reservation));
 
@@ -374,7 +372,6 @@ class SalesCycleTest {
                 .thenReturn(Optional.of(challan));
         when(salesOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(soId, orgId))
                 .thenReturn(Optional.of(so));
-        when(salesOrderRepository.findById(soId)).thenReturn(Optional.of(so));
         when(reservationRepository.findBySourceTypeAndSourceLineId("SALES_ORDER", paidLineId))
                 .thenReturn(Optional.of(paidReservation));
         when(reservationRepository.findBySourceTypeAndSourceLineId("SALES_ORDER", freeLineId))
@@ -569,7 +566,6 @@ class SalesCycleTest {
                 .thenReturn(Optional.of(challan));
         when(salesOrderRepository.findByIdAndOrgIdAndIsDeletedFalse(soId, orgId))
                 .thenReturn(Optional.of(so));
-        when(salesOrderRepository.findById(soId)).thenReturn(Optional.of(so));
         when(reservationRepository.findBySourceTypeAndSourceLineId("SALES_ORDER", soLineId))
                 .thenReturn(Optional.of(reservation));
         StockBalance partialBalance = new StockBalance();

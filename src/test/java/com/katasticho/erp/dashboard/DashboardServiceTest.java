@@ -454,10 +454,15 @@ class DashboardServiceTest {
         // Today: POS 5000, paid invoices 1000, credit invoices 500
         when(salesReceiptRepository.sumTotalByOrgAndDateRange(eq(orgId), eq(today), eq(today)))
                 .thenReturn(new BigDecimal("5000"));
+        // Net sales are used for earnings, while total sales remain gross.
+        when(salesReceiptRepository.sumSubtotalByOrgAndDateRange(eq(orgId), eq(today), eq(today)))
+                .thenReturn(new BigDecimal("4500"));
         when(invoiceRepository.sumPaidInvoicesByOrgAndDateRange(eq(orgId), eq(today), eq(today)))
                 .thenReturn(new BigDecimal("1000"));
         when(invoiceRepository.sumCreditSalesByOrgAndDateRange(eq(orgId), eq(today), eq(today)))
                 .thenReturn(new BigDecimal("500"));
+        when(invoiceRepository.sumNetRevenueByOrgAndDateRange(eq(orgId), eq(today), eq(today)))
+                .thenReturn(new BigDecimal("1200"));
         // Today cost: POS cost 3000, invoice cost 600
         when(salesReceiptLineRepository.sumCostByOrgAndDateRange(eq(orgId), eq(today), eq(today)))
                 .thenReturn(new BigDecimal("3000"));
@@ -474,6 +479,10 @@ class DashboardServiceTest {
                 .thenReturn(List.of());
         when(invoiceRepository.sumRevenueDailyByOrg(eq(orgId), any(), any()))
                 .thenReturn(List.of());
+        when(salesReceiptRepository.sumSubtotalDailyByOrg(eq(orgId), any(), any()))
+                .thenReturn(List.of());
+        when(invoiceRepository.sumNetRevenueDailyByOrg(eq(orgId), any(), any()))
+                .thenReturn(List.of());
         when(salesReceiptLineRepository.sumCostDailyByOrg(eq(orgId), any(), any()))
                 .thenReturn(List.of());
         when(invoiceLineRepository.sumCostDailyByOrg(eq(orgId), any(), any()))
@@ -486,6 +495,12 @@ class DashboardServiceTest {
         when(invoiceRepository.sumRevenueByOrgAndDateRange(eq(orgId),
                 eq(today.minusDays(13)), eq(today.minusDays(7))))
                 .thenReturn(new BigDecimal("10000"));
+        when(salesReceiptRepository.sumSubtotalByOrgAndDateRange(eq(orgId),
+                eq(today.minusDays(13)), eq(today.minusDays(7))))
+                .thenReturn(new BigDecimal("28000"));
+        when(invoiceRepository.sumNetRevenueByOrgAndDateRange(eq(orgId),
+                eq(today.minusDays(13)), eq(today.minusDays(7))))
+                .thenReturn(new BigDecimal("9000"));
         when(salesReceiptLineRepository.sumCostByOrgAndDateRange(eq(orgId),
                 eq(today.minusDays(13)), eq(today.minusDays(7))))
                 .thenReturn(new BigDecimal("25000"));
@@ -495,10 +510,11 @@ class DashboardServiceTest {
 
         DailySummaryResponse resp = dashboardService.getDailySummary(7);
 
-        // Today snapshot: sale = 5000+1000+500 = 6500, cost = 3600, earning = 2900
+        // Today snapshot: gross sale = 5000+1000+500 = 6500;
+        // net sale = 4500+1200 = 5700; cost = 3600; earning = 2100.
         assertEquals(0, new BigDecimal("6500").compareTo(resp.today().totalSale()));
         assertEquals(0, new BigDecimal("3600").compareTo(resp.today().totalCost()));
-        assertEquals(0, new BigDecimal("2900").compareTo(resp.today().earning()));
+        assertEquals(0, new BigDecimal("2100").compareTo(resp.today().earning()));
         assertEquals(0, new BigDecimal("6000").compareTo(resp.today().cashUpiIn()));
         assertEquals(0, new BigDecimal("500").compareTo(resp.today().creditSale()));
         assertEquals(15, resp.today().billCount());
