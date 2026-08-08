@@ -687,4 +687,19 @@ Total credits: 831
 ```
 
 The invoice journal correctly records receivable, revenue, split GST, COGS, and inventory reduction.
+
+### GST Summary - Verified Result (2026-08-08)
+
+For `01 Aug 2026` through `08 Aug 2026`:
+
+```text
+Output Tax: 81
+Input Credit: 0
+Net Payable: 81
+Output sales transactions: 1
+Output taxable amount: 450
+Output tax amount: 81
+```
+
+The report correctly reflects the sales invoice and the split CGST/SGST journal tax.
 ```
