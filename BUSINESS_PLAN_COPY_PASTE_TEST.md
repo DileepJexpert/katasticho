@@ -643,4 +643,18 @@ Customer: Shree Ganesh Kirana Store
 ```
 
 The invoice detail screen correctly showed the `PAID` status and matching total and amount-paid values.
+
+### Payment Journal - Verified Result (2026-08-08)
+
+Opened `JE-2026-000002` from Accounting -> Journal Entries:
+
+```text
+Status: POSTED
+Source: Payment (Auto)
+Description: Payment PAY-2026-000001 for INV-2026-000001
+Debit: 1020 - Bank Account       531
+Credit: 1100 - Accounts Receivable   531
+```
+
+The payment journal is balanced and clears the receivable for `INV-2026-000001`.
 ```
