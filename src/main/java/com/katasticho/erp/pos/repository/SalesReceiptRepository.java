@@ -92,6 +92,10 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
     @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate BETWEEN :from AND :to AND r.isDeleted = false AND (r.status IS NULL OR r.status <> 'RETURNED')")
     BigDecimal sumTotalByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
 
+    /** Net POS sales excluding GST and other tax amounts. */
+    @Query("SELECT COALESCE(SUM(r.subtotal), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.receiptDate BETWEEN :from AND :to AND r.isDeleted = false AND (r.status IS NULL OR r.status <> 'RETURNED')")
+    BigDecimal sumSubtotalByOrgAndDateRange(UUID orgId, LocalDate from, LocalDate to);
+
     @Query("SELECT COALESCE(SUM(r.total), 0) FROM SalesReceipt r WHERE r.orgId = :orgId AND r.branchId = :branchId AND r.receiptDate BETWEEN :from AND :to AND r.isDeleted = false AND (r.status IS NULL OR r.status <> 'RETURNED')")
     BigDecimal sumTotalByOrgBranchAndDateRange(UUID orgId, UUID branchId, LocalDate from, LocalDate to);
 
@@ -121,6 +125,17 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
         ORDER BY r.receiptDate
     """)
     List<DailyRevenueRow> sumTotalDailyByOrg(UUID orgId, LocalDate from, LocalDate to);
+
+    @Query("""
+        SELECT r.receiptDate AS date, COALESCE(SUM(r.subtotal), 0) AS total
+        FROM SalesReceipt r
+        WHERE r.orgId = :orgId AND r.isDeleted = false
+          AND (r.status IS NULL OR r.status <> 'RETURNED')
+          AND r.receiptDate BETWEEN :from AND :to
+        GROUP BY r.receiptDate
+        ORDER BY r.receiptDate
+    """)
+    List<DailyRevenueRow> sumSubtotalDailyByOrg(UUID orgId, LocalDate from, LocalDate to);
 
     interface DailyRevenueRow {
         LocalDate getDate();

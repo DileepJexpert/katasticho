@@ -473,15 +473,18 @@ public class DashboardService {
 
         // --- today snapshot ---
         BigDecimal posSalesToday = salesReceiptRepository.sumTotalByOrgAndDateRange(orgId, today, today);
+        BigDecimal posNetSalesToday = salesReceiptRepository.sumSubtotalByOrgAndDateRange(orgId, today, today);
         BigDecimal paidInvToday = invoiceRepository.sumPaidInvoicesByOrgAndDateRange(orgId, today, today);
         BigDecimal creditInvToday = invoiceRepository.sumCreditSalesByOrgAndDateRange(orgId, today, today);
         BigDecimal cashUpiToday = posSalesToday.add(paidInvToday);
         BigDecimal todaySale = cashUpiToday.add(creditInvToday);
+        BigDecimal todayNetSale = posNetSalesToday
+                .add(invoiceRepository.sumNetRevenueByOrgAndDateRange(orgId, today, today));
 
         BigDecimal posCostToday = salesReceiptLineRepository.sumCostByOrgAndDateRange(orgId, today, today);
         BigDecimal invCostToday = invoiceLineRepository.sumCostByOrgAndDateRange(orgId, today, today);
         BigDecimal todayCost = posCostToday.add(invCostToday);
-        BigDecimal todayEarning = todaySale.subtract(todayCost);
+        BigDecimal todayEarning = todayNetSale.subtract(todayCost);
 
         long posCountToday = salesReceiptRepository.countByOrgAndDateRange(orgId, today, today);
         long invCountToday = invoiceRepository.countByOrgAndDateRange(orgId, today, today);
@@ -501,6 +504,16 @@ public class DashboardService {
                 .collect(Collectors.toMap(InvoiceRepository.DailyRevenueRow::getDate,
                         InvoiceRepository.DailyRevenueRow::getTotal));
 
+        Map<LocalDate, BigDecimal> posNetSaleByDate = salesReceiptRepository
+                .sumSubtotalDailyByOrg(orgId, rangeStart, today).stream()
+                .collect(Collectors.toMap(SalesReceiptRepository.DailyRevenueRow::getDate,
+                        SalesReceiptRepository.DailyRevenueRow::getTotal));
+
+        Map<LocalDate, BigDecimal> invNetSaleByDate = invoiceRepository
+                .sumNetRevenueDailyByOrg(orgId, rangeStart, today).stream()
+                .collect(Collectors.toMap(InvoiceRepository.DailyRevenueRow::getDate,
+                        InvoiceRepository.DailyRevenueRow::getTotal));
+
         Map<LocalDate, BigDecimal> posCostByDate = salesReceiptLineRepository
                 .sumCostDailyByOrg(orgId, rangeStart, today).stream()
                 .collect(Collectors.toMap(SalesReceiptLineRepository.DailyCostRow::getDate,
@@ -517,7 +530,9 @@ public class DashboardService {
                             .add(invSaleByDate.getOrDefault(d, BigDecimal.ZERO));
                     BigDecimal cost = posCostByDate.getOrDefault(d, BigDecimal.ZERO)
                             .add(invCostByDate.getOrDefault(d, BigDecimal.ZERO));
-                    return new DailySummaryResponse.DailyRow(d, sale, cost, sale.subtract(cost));
+                    BigDecimal netSale = posNetSaleByDate.getOrDefault(d, BigDecimal.ZERO)
+                            .add(invNetSaleByDate.getOrDefault(d, BigDecimal.ZERO));
+                    return new DailySummaryResponse.DailyRow(d, sale, cost, netSale.subtract(cost));
                 })
                 .toList();
 
@@ -535,9 +550,11 @@ public class DashboardService {
         LocalDate lastWeekEnd = weekStart.minusDays(1);
         BigDecimal lastWeekSale = salesReceiptRepository.sumTotalByOrgAndDateRange(orgId, lastWeekStart, lastWeekEnd)
                 .add(invoiceRepository.sumRevenueByOrgAndDateRange(orgId, lastWeekStart, lastWeekEnd));
+        BigDecimal lastWeekNetSale = salesReceiptRepository.sumSubtotalByOrgAndDateRange(orgId, lastWeekStart, lastWeekEnd)
+                .add(invoiceRepository.sumNetRevenueByOrgAndDateRange(orgId, lastWeekStart, lastWeekEnd));
         BigDecimal lastWeekCost = salesReceiptLineRepository.sumCostByOrgAndDateRange(orgId, lastWeekStart, lastWeekEnd)
                 .add(invoiceLineRepository.sumCostByOrgAndDateRange(orgId, lastWeekStart, lastWeekEnd));
-        BigDecimal lastWeekEarning = lastWeekSale.subtract(lastWeekCost);
+        BigDecimal lastWeekEarning = lastWeekNetSale.subtract(lastWeekCost);
 
         BigDecimal vsLastWeekSalePct = lastWeekSale.signum() > 0
                 ? thisWeekSale.subtract(lastWeekSale)

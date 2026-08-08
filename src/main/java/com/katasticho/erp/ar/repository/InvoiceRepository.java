@@ -199,6 +199,19 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     """)
     List<DailyRevenueRow> sumRevenueDailyByOrg(UUID orgId, LocalDate from, LocalDate to);
 
+    @Query("""
+        SELECT i.invoiceDate AS date, COALESCE(SUM(i.subtotal), 0) AS total
+        FROM Invoice i
+        WHERE i.orgId = :orgId
+          AND i.isDeleted = false
+          AND i.status <> 'CANCELLED'
+          AND i.invoiceDate >= :from
+          AND i.invoiceDate <= :to
+        GROUP BY i.invoiceDate
+        ORDER BY i.invoiceDate
+    """)
+    List<DailyRevenueRow> sumNetRevenueDailyByOrg(UUID orgId, LocalDate from, LocalDate to);
+
     interface DailyRevenueRow {
         LocalDate getDate();
         BigDecimal getTotal();
