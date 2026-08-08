@@ -282,9 +282,15 @@ class _InvoiceDetailBody extends ConsumerWidget {
     final status = invoice['status'] as String? ?? 'DRAFT';
     final invoiceNumber = invoice['invoiceNumber'] as String? ?? '--';
     final customerName = invoice['contactName'] as String? ?? 'Customer';
-    final total = (invoice['total'] as num?)?.toDouble() ?? 0;
+    // InvoiceResponse exposes totalAmount/taxAmount as the canonical fields.
+    // Keep the legacy keys as fallbacks for older cached payloads.
+    final total = (invoice['totalAmount'] as num?)?.toDouble() ??
+        (invoice['total'] as num?)?.toDouble() ??
+        0;
     final subtotal = (invoice['subtotal'] as num?)?.toDouble() ?? total;
-    final tax = (invoice['taxTotal'] as num?)?.toDouble() ?? 0;
+    final tax = (invoice['taxAmount'] as num?)?.toDouble() ??
+        (invoice['taxTotal'] as num?)?.toDouble() ??
+        0;
     final amountPaid = (invoice['amountPaid'] as num?)?.toDouble() ?? 0;
     final lines = (invoice['lines'] as List?) ?? [];
 
