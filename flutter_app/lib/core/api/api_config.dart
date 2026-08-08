@@ -355,6 +355,8 @@ class ApiConfig {
   // Procurement
   static const String suppliers = '/api/v1/suppliers';
   static String supplierById(String id) => '/api/v1/suppliers/$id';
+  static String supplierFromContact(String contactId) =>
+      '/api/v1/suppliers/from-contact/$contactId';
   static const String stockReceipts = '/api/v1/stock-receipts';
   static String stockReceiptById(String id) => '/api/v1/stock-receipts/$id';
   static String receiveStockReceipt(String id) =>

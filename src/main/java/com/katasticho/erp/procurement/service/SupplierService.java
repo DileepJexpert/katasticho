@@ -19,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -74,6 +73,50 @@ public class SupplierService {
         auditService.log("SUPPLIER", supplier.getId(), "CREATE", null,
                 "{\"name\":\"" + supplier.getName() + "\"}");
         log.info("Supplier {} created", supplier.getName());
+        return toResponse(supplier);
+    }
+
+    /**
+     * Explicitly promotes a unified vendor contact into the procurement
+     * supplier projection used by purchase orders, goods receipts and bills.
+     * The operation is idempotent and does not create a second party record.
+     */
+    @Transactional
+    public SupplierResponse createFromContact(UUID contactId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Contact contact = contactRepository.findForSupplierRole(contactId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Contact", contactId));
+        if (!isVendor(contact)) {
+            throw new BusinessException("Contact '" + contact.getDisplayName() + "' is not a vendor",
+                    "SUPPLIER_CONTACT_NOT_VENDOR", HttpStatus.BAD_REQUEST);
+        }
+
+        Supplier existing = supplierRepository
+                .findFirstByOrgIdAndContactIdAndIsDeletedFalse(orgId, contactId)
+                .orElse(null);
+        if (existing != null) {
+            boolean changed = copyPartyFields(existing, contact);
+            if (changed) {
+                existing = supplierRepository.save(existing);
+            }
+            return toResponse(existing);
+        }
+
+        if (contact.getGstin() != null && !contact.getGstin().isBlank()
+                && supplierRepository.existsByOrgIdAndGstinAndIsDeletedFalse(
+                        orgId, contact.getGstin().trim())) {
+            throw new BusinessException(
+                    "A supplier with GSTIN " + contact.getGstin() + " already exists",
+                    "SUP_DUPLICATE_GSTIN", HttpStatus.CONFLICT);
+        }
+
+        Supplier supplier = Supplier.builder().name(contact.getDisplayName()).build();
+        supplier.setOrgId(orgId);
+        supplier.setContactId(contactId);
+        copyPartyFields(supplier, contact);
+        supplier = supplierRepository.save(supplier);
+        auditService.log("SUPPLIER", supplier.getId(), "ENABLE_FROM_CONTACT", null,
+                "{\"contactId\":\"" + contactId + "\"}");
         return toResponse(supplier);
     }
 
@@ -132,10 +175,9 @@ public class SupplierService {
                 .orElseThrow(() -> BusinessException.notFound("Supplier", id));
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public Page<SupplierResponse> listSuppliers(String search, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        synchronizeVendorContacts(orgId);
         Page<Supplier> page;
         if (search != null && !search.isBlank()) {
             page = supplierRepository.search(orgId, search.trim(), pageable);
@@ -157,51 +199,6 @@ public class SupplierService {
                 s.getAddressLine1(), s.getAddressLine2(), s.getCity(), s.getState(), s.getStateCode(),
                 s.getPostalCode(), s.getCountry(), s.getPaymentTermsDays(), s.getNotes(),
                 s.isActive(), s.getCreatedAt());
-    }
-
-    /**
-     * Keeps the legacy procurement supplier projection aligned with the unified
-     * contact master. Existing rows are linked by name once; new vendor
-     * contacts receive a projection so old PO/GRN foreign keys remain stable.
-     */
-    private void synchronizeVendorContacts(UUID orgId) {
-        List<Contact> contacts = contactRepository
-                .findByOrgIdAndContactTypeInAndIsDeletedFalse(
-                        orgId, List.of(ContactType.VENDOR, ContactType.BOTH));
-
-        for (Contact contact : contacts) {
-            Supplier supplier = supplierRepository
-                    .findFirstByOrgIdAndContactIdAndIsDeletedFalse(orgId, contact.getId())
-                    .orElse(null);
-
-            if (supplier == null) {
-                supplier = supplierRepository
-                        .findFirstByOrgIdAndNameIgnoreCaseAndIsDeletedFalse(orgId, contact.getDisplayName())
-                        .filter(candidate -> candidate.getContactId() == null)
-                        .orElse(null);
-            }
-
-            if (supplier == null) {
-                supplier = Supplier.builder()
-                        .name(contact.getDisplayName())
-                        .paymentTermsDays(contact.getPaymentTermsDays())
-                        .active(contact.isActive())
-                        .contactId(contact.getId())
-                        .build();
-                supplier.setOrgId(orgId);
-                copyPartyFields(supplier, contact);
-                supplierRepository.save(supplier);
-                auditService.log("SUPPLIER", supplier.getId(), "LINK_CONTACT", null,
-                        "{\"contactId\":\"" + contact.getId() + "\"}");
-            } else {
-                boolean changed = supplier.getContactId() == null;
-                supplier.setContactId(contact.getId());
-                changed |= copyPartyFields(supplier, contact);
-                if (changed) {
-                    supplierRepository.save(supplier);
-                }
-            }
-        }
     }
 
     private Contact requireVendorContact(UUID contactId, UUID orgId) {

@@ -30,6 +30,19 @@ public class SupplierController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(response));
     }
 
+    /**
+     * Enables the supplier role for an existing unified contact.
+     * This is intentionally idempotent so the Contact page can be the user's
+     * explicit entry point without creating duplicate supplier projections.
+     */
+    @PostMapping("/from-contact/{contactId}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<SupplierResponse>> createFromContact(
+            @PathVariable UUID contactId) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                supplierService.createFromContact(contactId), "Supplier role enabled"));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<SupplierResponse>> getSupplier(@PathVariable UUID id) {

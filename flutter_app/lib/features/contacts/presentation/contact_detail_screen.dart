@@ -7,12 +7,30 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
+import '../../procurement/data/supplier_repository.dart';
 import '../data/contact_repository.dart';
 
 class ContactDetailScreen extends ConsumerWidget {
   final String contactId;
 
   const ContactDetailScreen({super.key, required this.contactId});
+
+  Future<void> _enableSupplier(
+      BuildContext context, WidgetRef ref, String displayName) async {
+    try {
+      await ref.read(supplierRepositoryProvider).enableFromContact(contactId);
+      ref.invalidate(supplierListProvider);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$displayName is now available as a supplier')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not enable supplier: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -109,7 +127,11 @@ class ContactDetailScreen extends ConsumerWidget {
                 _DetailsTab(
                     contact: contact,
                     typeColor: typeColor,
-                    taxLabel: taxLabel),
+                    taxLabel: taxLabel,
+                    onEnableSupplier:
+                        contactType == 'VENDOR' || contactType == 'BOTH'
+                            ? () => _enableSupplier(context, ref, displayName)
+                            : null),
                 _PersonsTab(contact: contact, contactId: contactId),
                 KActivityTimeline(
                   entityType: 'CONTACT',
@@ -128,11 +150,13 @@ class _DetailsTab extends StatelessWidget {
   final Map<String, dynamic> contact;
   final Color typeColor;
   final String taxLabel;
+  final VoidCallback? onEnableSupplier;
 
   const _DetailsTab(
       {required this.contact,
       required this.typeColor,
-      required this.taxLabel});
+      required this.taxLabel,
+      this.onEnableSupplier});
 
   @override
   Widget build(BuildContext context) {
@@ -239,6 +263,35 @@ class _DetailsTab extends StatelessWidget {
                       ? 'Due on Receipt'
                       : 'Net ${paymentTermsDays.toInt()} days')
                   : 'Net 30 days'),
+          if (onEnableSupplier != null) ...[
+            KSpacing.vGapLg,
+            KCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.local_shipping_outlined),
+                      SizedBox(width: KSpacing.md),
+                      Text('Procurement role'),
+                    ],
+                  ),
+                  KSpacing.vGapSm,
+                  const Text(
+                    'Enable this vendor in Purchase Orders and Goods Receipts.',
+                  ),
+                  KSpacing.vGapMd,
+                  KButton(
+                    label: 'Enable Supplier',
+                    variant: KButtonVariant.outlined,
+                    icon: Icons.add_business_outlined,
+                    onPressed: onEnableSupplier,
+                    fullWidth: true,
+                  ),
+                ],
+              ),
+            ),
+          ],
           KSpacing.vGapXl,
         ],
       ),

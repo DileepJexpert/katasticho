@@ -4,6 +4,7 @@ import com.katasticho.erp.contact.entity.Contact;
 import com.katasticho.erp.contact.entity.ContactType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,6 +13,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import jakarta.persistence.LockModeType;
 
 public interface ContactRepository extends JpaRepository<Contact, UUID> {
 
@@ -51,6 +54,14 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
     Page<Contact> findVendors(@Param("orgId") UUID orgId, Pageable pageable);
 
     Optional<Contact> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
+
+    /** Serializes concurrent role-enablement requests for the same party. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT c FROM Contact c
+            WHERE c.id = :id AND c.orgId = :orgId AND c.isDeleted = false
+            """)
+    Optional<Contact> findForSupplierRole(@Param("id") UUID id, @Param("orgId") UUID orgId);
 
     List<Contact> findByOrgIdAndIsDeletedFalseAndIdIn(UUID orgId, Collection<UUID> ids);
 

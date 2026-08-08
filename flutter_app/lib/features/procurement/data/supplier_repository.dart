@@ -46,6 +46,13 @@ class SupplierRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> enableFromContact(String contactId) async {
+    debugPrint('[SupplierRepo] enableFromContact contactId=$contactId');
+    final response =
+        await _api.post(ApiConfig.supplierFromContact(contactId));
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> updateSupplier(
       String id, Map<String, dynamic> data) async {
     final response = await _api.put(ApiConfig.supplierById(id), data: data);

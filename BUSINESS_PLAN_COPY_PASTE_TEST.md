@@ -140,7 +140,24 @@ Expected: total debit and credit are both `300000`. Post the journal. Do not edi
 
 ## 5. Supplier Masters
 
-Open `Contacts -> Add Contact` and create these vendors.
+Create supplier parties from the unified Contact master. This is the required
+workflow: first create the party as a `Vendor` contact, then open that contact
+detail page and click `Enable Supplier`. Only enabled supplier roles appear in
+Purchase Orders, Goods Receipts, Bills, and supplier statements. Opening the
+Purchase Order picker must not create a supplier automatically.
+
+For each vendor below:
+
+1. Open `Contacts -> Add Contact`.
+2. Select `Type: Vendor`.
+3. Save the contact.
+4. Open the saved contact and click `Enable Supplier`.
+5. Confirm `Purchases -> New Purchase Order` can find the supplier.
+
+The action is safe to click twice: it must return the same supplier projection,
+not create a duplicate.
+
+Create these vendors:
 
 ```text
 Name: Shakti Spice Manufacturer
