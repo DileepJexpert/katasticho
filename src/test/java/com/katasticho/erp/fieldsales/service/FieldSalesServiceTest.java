@@ -1,7 +1,10 @@
 package com.katasticho.erp.fieldsales.service;
 
+import com.katasticho.erp.ar.repository.InvoiceRepository;
+import com.katasticho.erp.ar.service.CustomerReceiptService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.expense.repository.ExpenseRepository;
 import com.katasticho.erp.fieldsales.entity.*;
 import com.katasticho.erp.fieldsales.repository.*;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
@@ -44,6 +47,9 @@ class FieldSalesServiceTest {
     @Mock private InventoryService inventoryService;
     @Mock private StockBalanceRepository stockBalanceRepo;
     @Mock private SalesOrderRepository salesOrderRepo;
+    @Mock private InvoiceRepository invoiceRepo;
+    @Mock private CustomerReceiptService customerReceiptService;
+    @Mock private ExpenseRepository expenseRepo;
     @Mock private OrgSettingsService orgSettingsService;
 
     private FieldSalesService service;
@@ -60,7 +66,8 @@ class FieldSalesServiceTest {
                 vanStockTransferRepo, vanStockTransferLineRepo,
                 routeExecutionRepo, fieldVisitRepo, dayCloseRepo,
                 salesmanTargetRepo, inventoryService, stockBalanceRepo,
-                salesOrderRepo, orgSettingsService);
+                salesOrderRepo, invoiceRepo, customerReceiptService, expenseRepo,
+                orgSettingsService);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }

@@ -42,8 +42,11 @@ public class ExpenseController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) UUID contactId,
+            @RequestParam(required = false) UUID employeeId,
             Pageable pageable) {
-        Page<ExpenseResponse> page = expenseService.listExpenses(from, to, category, contactId, pageable);
+        Page<ExpenseResponse> page = employeeId != null
+                ? expenseService.listExpensesByEmployee(employeeId, pageable)
+                : expenseService.listExpenses(from, to, category, contactId, pageable);
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(page)));
     }
 
@@ -62,7 +65,7 @@ public class ExpenseController {
         return ResponseEntity.ok(ApiResponse.ok(response, "Expense updated"));
     }
 
-    /** DELETE is a VOID — creates a reversal journal; record stays for audit. */
+    /** DELETE is a VOID Ã¢â‚¬â€ creates a reversal journal; record stays for audit. */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<ExpenseResponse>> voidExpense(

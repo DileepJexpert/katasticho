@@ -73,7 +73,9 @@ class WarehouseManagementScreen extends ConsumerWidget {
 
   Widget _card(BuildContext context, WidgetRef ref, Map<String, dynamic> w) {
     final isDefault = w['isDefault'] == true;
-    final isActive = w['isActive'] == true;
+    // The API response uses `active`; keep `isActive` as a compatibility
+    // fallback for older payloads.
+    final isActive = w['active'] == true || w['isActive'] == true;
     final location = [w['city'], w['state']]
         .where((s) => s != null && (s as String).isNotEmpty)
         .join(', ');
@@ -196,6 +198,7 @@ class _WarehouseFormSheetState extends ConsumerState<_WarehouseFormSheet> {
   final _postal = TextEditingController();
   final _country = TextEditingController(text: 'IN');
   bool _isDefault = false;
+  bool _isActive = true;
   bool _saving = false;
 
   bool get _isEdit => widget.existing != null;
@@ -215,6 +218,7 @@ class _WarehouseFormSheetState extends ConsumerState<_WarehouseFormSheet> {
       _postal.text = (e['postalCode'] ?? '').toString();
       _country.text = (e['country'] ?? 'IN').toString();
       _isDefault = e['isDefault'] == true;
+      _isActive = e['active'] == true || e['isActive'] == true;
     }
   }
 
@@ -244,6 +248,7 @@ class _WarehouseFormSheetState extends ConsumerState<_WarehouseFormSheet> {
       'postalCode': _postal.text.trim(),
       'country': _country.text.trim().isEmpty ? 'IN' : _country.text.trim(),
       'isDefault': _isDefault,
+      'active': _isActive,
     };
     try {
       final repo = ref.read(inventoryRepositoryProvider);
@@ -305,6 +310,21 @@ class _WarehouseFormSheetState extends ConsumerState<_WarehouseFormSheet> {
                   style: KTypography.bodySmall.copyWith(color: KColors.textHint)),
               value: _isDefault,
               onChanged: (v) => setState(() => _isDefault = v),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Active warehouse'),
+              subtitle: Text('Available for stock, purchasing, and sales',
+                  style: KTypography.bodySmall.copyWith(color: KColors.textHint)),
+              value: _isActive,
+              onChanged: (v) {
+                if (!v && _isDefault) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Choose another default warehouse first')));
+                  return;
+                }
+                setState(() => _isActive = v);
+              },
             ),
             const SizedBox(height: KSpacing.sm),
             KButton(

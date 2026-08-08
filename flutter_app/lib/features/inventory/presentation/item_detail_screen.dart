@@ -240,6 +240,11 @@ class _ItemDetailBody extends ConsumerWidget {
                 ],
               ),
             ),
+            KSpacing.vGapSm,
+            _WarehouseBalancesCard(
+              itemId: itemId,
+              unit: item['unitOfMeasure']?.toString() ?? 'PCS',
+            ),
             KSpacing.vGapMd,
           ],
 
@@ -486,6 +491,71 @@ class _ItemDetailBody extends ConsumerWidget {
       (item['packSize']?.toString() ?? '').isNotEmpty ||
       (item['storageCondition']?.toString() ?? '').isNotEmpty ||
       item['prescriptionRequired'] == true;
+}
+
+class _WarehouseBalancesCard extends ConsumerWidget {
+  final String itemId;
+  final String unit;
+
+  const _WarehouseBalancesCard({required this.itemId, required this.unit});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final balancesAsync = ref.watch(itemBalancesProvider(itemId));
+    return KCard(
+      title: 'Warehouse Stock',
+      child: balancesAsync.when(
+        loading: () => const KShimmerCard(height: 56),
+        error: (error, _) => KErrorView(
+          message: 'Failed to load warehouse stock',
+          onRetry: () => ref.invalidate(itemBalancesProvider(itemId)),
+        ),
+        data: (raw) {
+          final data = raw['data'] ?? raw;
+          final balances = data is List
+              ? data.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList()
+              : const <Map<String, dynamic>>[];
+          if (balances.isEmpty) {
+            return Text('No warehouse balance recorded',
+                style: KTypography.bodySmall);
+          }
+          return Column(
+            children: balances.map((balance) {
+              final quantity =
+                  (balance['quantityOnHand'] as num?)?.toDouble() ?? 0;
+              final averageCost =
+                  (balance['averageCost'] as num?)?.toDouble() ?? 0;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        balance['warehouseName']?.toString() ?? 'Warehouse',
+                        style: KTypography.labelMedium,
+                      ),
+                    ),
+                    Text('${_fmtQty(quantity)} $unit',
+                        style: KTypography.labelMedium),
+                    const SizedBox(width: KSpacing.md),
+                    KMoney(averageCost),
+                  ],
+                ),
+              );
+            }).toList(),
+          );
+        },
+      ),
+    );
+  }
+
+  static String _fmtQty(double quantity) {
+    if (quantity == quantity.truncateToDouble()) {
+      return quantity.toStringAsFixed(0);
+    }
+    return quantity.toStringAsFixed(2);
+  }
 }
 
 class _MovementsList extends ConsumerWidget {

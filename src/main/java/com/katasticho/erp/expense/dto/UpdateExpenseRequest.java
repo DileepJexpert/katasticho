@@ -5,7 +5,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * All fields nullable — only non-null fields are applied.
+ * All fields nullable â€” only non-null fields are applied.
  * Updating amount/tax/accounts reverses the journal and reposts.
  */
 public record UpdateExpenseRequest(
@@ -22,5 +22,6 @@ public record UpdateExpenseRequest(
         UUID projectId,
         UUID customerContactId,
         String receiptUrl,
-        UUID taxGroupId
+        UUID taxGroupId,
+        UUID employeeId
 ) {}

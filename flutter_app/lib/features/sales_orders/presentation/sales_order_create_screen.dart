@@ -42,31 +42,44 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
   bool _loadingCustomers = true;
   bool _allowBackorder = false;
 
-  /// Default warehouse for the ATP badge. The SO entity doesn't carry a
-  /// warehouse — DC dispatch picks one — but the order taker still wants
-  /// the honest available-now answer at capture time. We use the org's
-  /// default warehouse for now; future work can let the row pick.
-  String? _defaultWarehouseId;
+  List<Map<String, dynamic>> _warehouses = [];
+  String? _selectedWarehouseId;
+  bool _loadingWarehouses = true;
 
   @override
   void initState() {
     super.initState();
     _loadCustomers();
-    _loadDefaultWarehouse();
+    _loadWarehouses();
   }
 
-  Future<void> _loadDefaultWarehouse() async {
+  Future<void> _loadWarehouses() async {
     try {
       final repo = ref.read(itemRepositoryProvider);
-      final warehouses = await repo.listWarehouses();
-      if (!mounted || warehouses.isEmpty) return;
-      final defaultWh = warehouses.cast<Map<String, dynamic>?>().firstWhere(
-            (w) => w?['isDefault'] == true,
-            orElse: () => warehouses.first,
-          );
-      setState(() => _defaultWarehouseId = defaultWh?['id']?.toString());
+      final allWarehouses = await repo.listWarehouses();
+      final activeWarehouses = allWarehouses.where((warehouse) {
+        final active = warehouse['active'] ?? warehouse['isActive'];
+        return active is! bool || active;
+      }).toList();
+      if (!mounted) return;
+      if (activeWarehouses.isEmpty) {
+        setState(() {
+          _warehouses = [];
+          _loadingWarehouses = false;
+        });
+        return;
+      }
+      final defaultWarehouse = activeWarehouses.firstWhere(
+        (warehouse) => warehouse['isDefault'] == true,
+        orElse: () => activeWarehouses.first,
+      );
+      setState(() {
+        _warehouses = activeWarehouses;
+        _selectedWarehouseId = defaultWarehouse['id']?.toString();
+        _loadingWarehouses = false;
+      });
     } catch (_) {
-      // Silent — ATP badge will simply not show when warehouse unknown.
+      if (mounted) setState(() => _loadingWarehouses = false);
     }
   }
 
@@ -140,6 +153,13 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
     // Guard: Ctrl+Enter can invoke this directly while a submit is in
     // flight; without this check a second press creates a duplicate document.
     if (_isSubmitting) return;
+    if (_selectedWarehouseId == null) {
+      setState(() {
+        _currentStep = 1;
+        _errorMessage = 'Select an active fulfilment warehouse';
+      });
+      return;
+    }
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -157,6 +177,7 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
         'notes': _notes,
         'terms': _terms,
         'allowBackorder': _allowBackorder,
+        'warehouseId': _selectedWarehouseId,
         'lines': _lineItems
             .where((l) => l.description.isNotEmpty)
             .map((l) => {
@@ -520,6 +541,42 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text('Fulfilment Warehouse', style: KTypography.h2),
+        KSpacing.vGapXs,
+        Text(
+          'Stock will be checked, reserved, and dispatched from this warehouse.',
+          style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+        ),
+        KSpacing.vGapSm,
+        if (_loadingWarehouses)
+          const KLoading(message: 'Loading warehouses...')
+        else if (_warehouses.isEmpty)
+          const KErrorBanner(
+            message: 'No active warehouse is available for this order.',
+          )
+        else
+          DropdownButtonFormField<String>(
+            initialValue: _selectedWarehouseId,
+            decoration: const InputDecoration(
+              labelText: 'Warehouse',
+              prefixIcon: Icon(Icons.warehouse_outlined),
+            ),
+            items: _warehouses.map((warehouse) {
+              final id = warehouse['id']?.toString() ?? '';
+              final name = warehouse['name']?.toString() ?? 'Warehouse';
+              final code = warehouse['code']?.toString();
+              final isDefault = warehouse['isDefault'] == true;
+              return DropdownMenuItem(
+                value: id,
+                child: Text(
+                  [name, if (code != null && code.isNotEmpty) code, if (isDefault) 'Default']
+                      .join(' - '),
+                ),
+              );
+            }).toList(),
+            onChanged: (value) => setState(() => _selectedWarehouseId = value),
+          ),
+        KSpacing.vGapLg,
         Text('Line Items', style: KTypography.h2),
         KSpacing.vGapMd,
         ...List.generate(_lineItems.length, (index) {
@@ -527,7 +584,7 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
             item: _lineItems[index],
             index: index,
             schemeApplyMode: schemeApplyMode,
-            warehouseId: _defaultWarehouseId,
+            warehouseId: _selectedWarehouseId,
             onRemove: _lineItems.length > 1
                 ? () => setState(() => _lineItems.removeAt(index))
                 : null,
@@ -588,6 +645,13 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
   }
 
   Widget _buildReviewStep() {
+    final selectedWarehouse = _warehouses.firstWhere(
+      (warehouse) => warehouse['id']?.toString() == _selectedWarehouseId,
+      orElse: () => <String, dynamic>{},
+    );
+    final selectedWarehouseName =
+        selectedWarehouse['name']?.toString() ?? 'Not selected';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -603,6 +667,14 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
                 style: KTypography.bodyLarge,
               ),
             ],
+          ),
+        ),
+        KSpacing.vGapMd,
+        KCard(
+          title: 'Fulfilment Warehouse',
+          child: Text(
+            selectedWarehouseName,
+            style: KTypography.bodyLarge,
           ),
         ),
         KSpacing.vGapMd,

@@ -76,7 +76,7 @@ class WarehouseServiceTest {
 
     private CreateWarehouseRequest req(String code, String name, Boolean isDefault) {
         return new CreateWarehouseRequest(code, name, "Line 1", null,
-                "Mumbai", "Maharashtra", "27", "400001", "IN", isDefault);
+                "Mumbai", "Maharashtra", "27", "400001", "IN", isDefault, null);
     }
 
     @Test
@@ -121,7 +121,7 @@ class WarehouseServiceTest {
         WarehouseResponse resp = service.updateWarehouse(target.getId(), req("WH2", "Promote me", true));
 
         assertTrue(resp.isDefault());
-        assertFalse(priorDefault.isDefault(), "prior default demoted");
+        verify(warehouseRepository).clearDefaultExcept(orgId, target.getId());
     }
 
     @Test

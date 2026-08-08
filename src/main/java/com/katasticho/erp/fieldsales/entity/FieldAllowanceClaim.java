@@ -36,7 +36,7 @@ public class FieldAllowanceClaim {
     @Builder.Default
     private BigDecimal distanceKm = BigDecimal.ZERO;
 
-    /** Km recorded by the GPS trail that day — reference for approvers. */
+    /** Km recorded by the GPS trail that day â€” reference for approvers. */
     @Column(name = "gps_distance_km", nullable = false)
     @Builder.Default
     private BigDecimal gpsDistanceKm = BigDecimal.ZERO;
@@ -52,6 +52,9 @@ public class FieldAllowanceClaim {
     @Column(name = "total_amount", nullable = false)
     @Builder.Default
     private BigDecimal totalAmount = BigDecimal.ZERO;
+
+    @Column(name = "reimbursement_id")
+    private UUID reimbursementId;
 
     @Column(name = "expense_id")
     private UUID expenseId;

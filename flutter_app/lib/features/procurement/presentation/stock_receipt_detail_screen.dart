@@ -13,13 +13,25 @@ import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/stock_receipt_repository.dart';
 
-class StockReceiptDetailScreen extends ConsumerWidget {
+class StockReceiptDetailScreen extends ConsumerStatefulWidget {
   final String receiptId;
 
   const StockReceiptDetailScreen({super.key, required this.receiptId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StockReceiptDetailScreen> createState() =>
+      _StockReceiptDetailScreenState();
+}
+
+class _StockReceiptDetailScreenState
+    extends ConsumerState<StockReceiptDetailScreen> {
+  bool _receiving = false;
+  bool _receiveCompleted = false;
+
+  String get receiptId => widget.receiptId;
+
+  @override
+  Widget build(BuildContext context) {
     final receiptAsync = ref.watch(stockReceiptDetailProvider(receiptId));
 
     return Scaffold(
@@ -69,7 +81,7 @@ class StockReceiptDetailScreen extends ConsumerWidget {
         data: (data) {
           final receipt = (data['data'] ?? data) as Map<String, dynamic>;
           final status = receipt['status'] as String? ?? '';
-          if (status != 'DRAFT') return null;
+           if (status != 'DRAFT' || _receiveCompleted) return null;
           return Container(
             padding: const EdgeInsets.all(KSpacing.md),
             decoration: BoxDecoration(
@@ -101,7 +113,10 @@ class StockReceiptDetailScreen extends ConsumerWidget {
                   KButton(
                     label: 'Receive Stock',
                     icon: Icons.check_circle_outline,
-                    onPressed: () => _confirmReceive(context, ref, receipt),
+                    isLoading: _receiving,
+                    onPressed: _receiving
+                        ? null
+                        : () => _confirmReceive(context, ref, receipt),
                   ),
                 ],
               ),
@@ -144,9 +159,17 @@ class StockReceiptDetailScreen extends ConsumerWidget {
       ),
     );
     if (ok != true) return;
+    if (receipt['status'] != 'DRAFT' || _receiving) return;
+    setState(() => _receiving = true);
     try {
       final repo = ref.read(stockReceiptRepositoryProvider);
       await repo.receiveReceipt(receipt['id']?.toString() ?? '');
+      if (mounted) {
+        setState(() {
+          _receiving = false;
+          _receiveCompleted = true;
+        });
+      }
       ref.invalidate(stockReceiptDetailProvider(receiptId));
       ref.invalidate(stockReceiptListProvider);
       if (context.mounted) {
@@ -156,6 +179,7 @@ class StockReceiptDetailScreen extends ConsumerWidget {
       }
     } catch (e) {
       debugPrint('[GrnDetail] receive failed: $e');
+      if (mounted) setState(() => _receiving = false);
       String errorMsg = 'Failed to receive stock';
       if (e is DioException) {
         final body = e.response?.data;
@@ -168,12 +192,12 @@ class StockReceiptDetailScreen extends ConsumerWidget {
       if (context.mounted) {
         showDialog<void>(
           context: context,
-          builder: (_) => AlertDialog(
+          builder: (dialogContext) => AlertDialog(
             title: const Text('Receive Failed'),
             content: Text(errorMsg),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(dialogContext).pop(),
                 child: const Text('OK'),
               ),
             ],

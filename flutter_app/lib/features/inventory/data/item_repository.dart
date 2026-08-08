@@ -68,6 +68,11 @@ class ItemRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> getItemBalances(String itemId) async {
+    final response = await _api.get(ApiConfig.itemBalances(itemId));
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> getLowStock() async {
     final response = await _api.get(ApiConfig.lowStock);
     return response.data as Map<String, dynamic>;
@@ -200,6 +205,12 @@ final itemDetailProvider = FutureProvider.autoDispose
     .family<Map<String, dynamic>, String>((ref, id) async {
   final repo = ref.watch(itemRepositoryProvider);
   return repo.getItem(id);
+});
+
+final itemBalancesProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>, String>((ref, id) async {
+  final repo = ref.watch(itemRepositoryProvider);
+  return repo.getItemBalances(id);
 });
 
 final lowStockProvider =

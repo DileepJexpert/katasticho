@@ -772,14 +772,16 @@ class _GrnLineCardState extends State<_GrnLineCard> {
       widget.line.unitPrice =
           (picked['purchasePrice'] as num?)?.toDouble() ?? 0;
       _priceCtl.text = widget.line.unitPrice.toString();
+      final pickedGst = (picked['gstRate'] as num?)?.toDouble() ?? 0;
       final pickedTaxGroupId = picked['defaultTaxGroupId']?.toString();
       if (pickedTaxGroupId != null) {
         widget.line.taxGroupId = pickedTaxGroupId;
-        final pickedGst = (picked['gstRate'] as num?)?.toDouble();
-        widget.line.gstRate = pickedGst ?? 0;
+        widget.line.gstRate = pickedGst;
       } else {
+        // Items may carry a GST rate without a tax-group link. Preserve the
+        // item master rate instead of silently changing the receipt to 0%.
         widget.line.taxGroupId = null;
-        widget.line.gstRate = 0;
+        widget.line.gstRate = pickedGst;
       }
     });
     widget.onChanged();

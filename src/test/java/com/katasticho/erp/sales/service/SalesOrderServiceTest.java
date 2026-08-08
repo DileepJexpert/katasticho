@@ -335,6 +335,31 @@ class SalesOrderServiceTest {
     }
 
     @Test
+    void create_usesRequestedActiveWarehouse() {
+        UUID requestedWarehouseId = UUID.randomUUID();
+        Warehouse requestedWarehouse = new Warehouse();
+        requestedWarehouse.setId(requestedWarehouseId);
+        requestedWarehouse.setName("North Warehouse");
+        requestedWarehouse.setActive(true);
+
+        when(warehouseRepository.findByIdAndOrgIdAndIsDeletedFalse(requestedWarehouseId, orgId))
+                .thenReturn(Optional.of(requestedWarehouse));
+        when(warehouseRepository.findById(requestedWarehouseId))
+                .thenReturn(Optional.of(requestedWarehouse));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(contact));
+
+        SalesOrderResponse result = salesOrderService.create(
+                createRequest(new BigDecimal("200"), requestedWarehouseId));
+
+        ArgumentCaptor<SalesOrder> captor = ArgumentCaptor.forClass(SalesOrder.class);
+        verify(salesOrderRepository).save(captor.capture());
+        assertEquals(requestedWarehouseId, captor.getValue().getWarehouseId());
+        assertEquals(requestedWarehouseId, result.warehouseId());
+        assertEquals("North Warehouse", result.warehouseName());
+    }
+
+    @Test
     void create_withOverdueInvoiceAndMatchingWorkflow_createsPendingApprovalOrder() {
         when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
                 .thenReturn(Optional.of(contact));
@@ -385,6 +410,10 @@ class SalesOrderServiceTest {
     }
 
     private CreateSalesOrderRequest createRequest(BigDecimal rate) {
+        return createRequest(rate, null);
+    }
+
+    private CreateSalesOrderRequest createRequest(BigDecimal rate, UUID warehouseId) {
         return new CreateSalesOrderRequest(
                 contactId,
                 List.of(new SalesOrderLineRequest(
@@ -411,7 +440,8 @@ class SalesOrderServiceTest {
                 null,
                 null,
                 null,
-                false);
+                false,
+                warehouseId);
     }
 
     private Invoice overdueInvoice(BigDecimal balanceDue, LocalDate dueDate) {

@@ -13,5 +13,6 @@ public record CreateWarehouseRequest(
         @Size(max = 5) String stateCode,
         @Size(max = 20) String postalCode,
         @Size(max = 2) String country,
-        Boolean isDefault
+        Boolean isDefault,
+        Boolean active
 ) {}

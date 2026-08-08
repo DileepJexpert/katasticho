@@ -39,5 +39,7 @@ public record SalesOrderResponse(
         int linkedChallanCount,
         boolean allowBackorder,
         Instant createdAt,
-        List<String> warnings
+        List<String> warnings,
+        UUID warehouseId,
+        String warehouseName
 ) {}

@@ -39,13 +39,14 @@ public class WarehouseService {
         }
 
         boolean makeDefault = Boolean.TRUE.equals(request.isDefault());
+        boolean active = request.active() == null || request.active();
+        if (makeDefault && !active) {
+            throw new BusinessException("The default warehouse must be active",
+                    "INV_DEFAULT_WAREHOUSE_MUST_BE_ACTIVE", HttpStatus.BAD_REQUEST);
+        }
         if (makeDefault) {
             // Demote any existing default — only one default per org.
-            warehouseRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
-                    .ifPresent(existing -> {
-                        existing.setDefault(false);
-                        warehouseRepository.save(existing);
-                    });
+            warehouseRepository.clearDefault(orgId);
         } else {
             // First warehouse for this org becomes default automatically.
             if (warehouseRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId).isEmpty()) {
@@ -70,7 +71,7 @@ public class WarehouseService {
                 .postalCode(request.postalCode())
                 .country(request.country() != null ? request.country() : "IN")
                 .isDefault(makeDefault)
-                .active(true)
+                .active(active)
                 .build();
 
         warehouse = warehouseRepository.save(warehouse);
@@ -102,18 +103,22 @@ public class WarehouseService {
         w.setPostalCode(request.postalCode());
         if (request.country() != null) w.setCountry(request.country());
 
+        if (Boolean.FALSE.equals(request.active()) && w.isDefault()) {
+            throw new BusinessException("The default warehouse must remain active",
+                    "INV_DEFAULT_WAREHOUSE_MUST_BE_ACTIVE", HttpStatus.BAD_REQUEST);
+        }
+        if (request.active() != null) {
+            w.setActive(request.active());
+        }
+
         // Promote to default → demote the prior default. We never self-clear the
         // default flag here (that would leave the org with no default); promote
         // another warehouse instead.
         if (Boolean.TRUE.equals(request.isDefault()) && !w.isDefault()) {
             UUID currentId = w.getId();
-            warehouseRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
-                    .filter(existing -> !existing.getId().equals(currentId))
-                    .ifPresent(existing -> {
-                        existing.setDefault(false);
-                        warehouseRepository.save(existing);
-                    });
+            warehouseRepository.clearDefaultExcept(orgId, currentId);
             w.setDefault(true);
+            w.setActive(true);
         }
 
         w = warehouseRepository.save(w);

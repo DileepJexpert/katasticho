@@ -1,10 +1,10 @@
 package com.katasticho.erp.fieldforce.service;
 
-import com.katasticho.erp.ar.dto.RecordPaymentRequest;
+import com.katasticho.erp.ar.dto.CustomerReceiptRequest;
+import com.katasticho.erp.ar.dto.CustomerReceiptResponse;
 import com.katasticho.erp.ar.entity.Invoice;
-import com.katasticho.erp.ar.entity.Payment;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
-import com.katasticho.erp.ar.service.PaymentService;
+import com.katasticho.erp.ar.service.CustomerReceiptService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.contact.service.ContactLedgerService;
 import com.katasticho.erp.contact.service.ContactService;
@@ -42,7 +42,7 @@ class FieldFacadeServiceTest {
     @Mock private ContactLedgerService contactLedgerService;
     @Mock private InvoiceRepository invoiceRepository;
     @Mock private SalesOrderService salesOrderService;
-    @Mock private PaymentService paymentService;
+    @Mock private CustomerReceiptService customerReceiptService;
     private FieldFacadeService service;
 
     private final UUID orgId = UUID.randomUUID();
@@ -51,11 +51,20 @@ class FieldFacadeServiceTest {
     @BeforeEach
     void setUp() {
         service = new FieldFacadeService(fieldSalesService, fieldTrackingService, contactService,
-                contactLedgerService, invoiceRepository, salesOrderService, paymentService);
+                contactLedgerService, invoiceRepository, salesOrderService, customerReceiptService);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(UUID.randomUUID());
-        when(paymentService.recordPayment(any())).thenAnswer(i ->
-                Payment.builder().id(UUID.randomUUID()).build());
+        when(customerReceiptService.recordReceipt(any())).thenAnswer(invocation -> {
+            CustomerReceiptRequest request = invocation.getArgument(0);
+            BigDecimal allocated = request.allocations().stream()
+                    .map(CustomerReceiptRequest.AllocationRequest::amountApplied)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            return new CustomerReceiptResponse(
+                    UUID.randomUUID(), request.contactId(), null, "RCPT-TEST",
+                    request.receiptDate(), request.amount(), allocated,
+                    request.amount().subtract(allocated), "INR", request.paymentMethod(),
+                    request.referenceNumber(), request.notes(), null, List.of(), null);
+        });
     }
 
     @AfterEach
@@ -84,15 +93,17 @@ class FieldFacadeServiceTest {
         assertEquals(0, new BigDecimal("2500").compareTo((BigDecimal) r.get("allocated")));
         assertEquals(0, BigDecimal.ZERO.compareTo((BigDecimal) r.get("unallocated")));
 
-        ArgumentCaptor<RecordPaymentRequest> cap = ArgumentCaptor.forClass(RecordPaymentRequest.class);
-        verify(paymentService, times(2)).recordPayment(cap.capture());
-        List<RecordPaymentRequest> calls = cap.getAllValues();
+        ArgumentCaptor<CustomerReceiptRequest> cap =
+                ArgumentCaptor.forClass(CustomerReceiptRequest.class);
+        verify(customerReceiptService).recordReceipt(cap.capture());
+        List<CustomerReceiptRequest.AllocationRequest> allocations = cap.getValue().allocations();
+        assertEquals(2, allocations.size());
         // First payment goes to the OLDER invoice for its full balance.
-        assertEquals(older.getId(), calls.get(0).invoiceId());
-        assertEquals(0, new BigDecimal("2000").compareTo(calls.get(0).amount()));
+        assertEquals(older.getId(), allocations.get(0).invoiceId());
+        assertEquals(0, new BigDecimal("2000").compareTo(allocations.get(0).amountApplied()));
         // Second payment is the ₹500 remainder against the newer invoice.
-        assertEquals(newer.getId(), calls.get(1).invoiceId());
-        assertEquals(0, new BigDecimal("500").compareTo(calls.get(1).amount()));
+        assertEquals(newer.getId(), allocations.get(1).invoiceId());
+        assertEquals(0, new BigDecimal("500").compareTo(allocations.get(1).amountApplied()));
     }
 
     @Test
@@ -106,14 +117,14 @@ class FieldFacadeServiceTest {
 
         assertEquals(0, new BigDecimal("1000").compareTo((BigDecimal) r.get("allocated")));
         assertEquals(0, new BigDecimal("500").compareTo((BigDecimal) r.get("unallocated")));
-        verify(paymentService, times(1)).recordPayment(any());
-        assertNotNull(r.get("note"));
+        verify(customerReceiptService).recordReceipt(any());
+        assertNotNull(r.get("receipt"));
     }
 
     @Test
     void recordCollection_nonPositiveAmount_throws() {
         assertThrows(RuntimeException.class,
                 () -> service.recordCollection(dealerId, BigDecimal.ZERO, "CASH", null));
-        verify(paymentService, never()).recordPayment(any());
+        verify(customerReceiptService, never()).recordReceipt(any());
     }
 }

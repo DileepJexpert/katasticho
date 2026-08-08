@@ -30,7 +30,7 @@ public class Expense {
     @Column(name = "expense_date", nullable = false)
     private LocalDate expenseDate;
 
-    /** FK to account.id — Expense GL account. */
+    /** FK to account.id â€” Expense GL account. */
     @Column(name = "account_id", nullable = false)
     private UUID accountId;
 
@@ -61,15 +61,19 @@ public class Expense {
     @Column(name = "tax_group_id")
     private UUID taxGroupId;
 
-    /** FK to contact.id — vendor (optional). */
+    /** FK to contact.id â€” vendor (optional). */
     @Column(name = "contact_id")
     private UUID contactId;
+
+    /** Optional claimant for employee reimbursement-linked expenses. */
+    @Column(name = "employee_id")
+    private UUID employeeId;
 
     @Column(name = "payment_mode", nullable = false, length = 20)
     @Builder.Default
     private String paymentMode = "CASH";
 
-    /** FK to account.id — Cash/Bank GL paid from. */
+    /** FK to account.id â€” Cash/Bank GL paid from. */
     @Column(name = "paid_through_id", nullable = false)
     private UUID paidThroughId;
 
@@ -80,7 +84,7 @@ public class Expense {
     @Column(name = "project_id")
     private UUID projectId;
 
-    /** FK to contact.id — customer the expense is billable to. */
+    /** FK to contact.id â€” customer the expense is billable to. */
     @Column(name = "customer_contact_id")
     private UUID customerContactId;
 

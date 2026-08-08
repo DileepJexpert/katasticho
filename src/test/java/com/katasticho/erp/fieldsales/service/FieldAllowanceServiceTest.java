@@ -4,14 +4,16 @@ import com.katasticho.erp.accounting.entity.Account;
 import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
-import com.katasticho.erp.expense.dto.CreateExpenseRequest;
-import com.katasticho.erp.expense.dto.ExpenseResponse;
-import com.katasticho.erp.expense.service.ExpenseService;
+import com.katasticho.erp.expense.reimbursement.dto.CreateReimbursementRequest;
+import com.katasticho.erp.expense.reimbursement.dto.ReimbursementResponse;
+import com.katasticho.erp.expense.reimbursement.service.EmployeeReimbursementService;
 import com.katasticho.erp.fieldsales.entity.FieldAllowanceClaim;
 import com.katasticho.erp.fieldsales.entity.FieldLocationPing;
 import com.katasticho.erp.fieldsales.repository.FieldAllowanceClaimRepository;
 import com.katasticho.erp.fieldsales.repository.FieldLocationPingRepository;
 import com.katasticho.erp.organisation.OrgSettingsService;
+import com.katasticho.erp.payroll.entity.Employee;
+import com.katasticho.erp.payroll.repository.EmployeeRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +41,8 @@ class FieldAllowanceServiceTest {
     @Mock private FieldLocationPingRepository pingRepo;
     @Mock private FieldAllowanceClaimRepository claimRepo;
     @Mock private OrgSettingsService settings;
-    @Mock private ExpenseService expenseService;
+    @Mock private EmployeeReimbursementService reimbursementService;
+    @Mock private EmployeeRepository employeeRepository;
     @Mock private AccountRepository accountRepo;
 
     private FieldAllowanceService service;
@@ -50,7 +53,8 @@ class FieldAllowanceServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new FieldAllowanceService(pingRepo, claimRepo, settings, expenseService, accountRepo);
+        service = new FieldAllowanceService(pingRepo, claimRepo, settings,
+                reimbursementService, employeeRepository, accountRepo);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
     }
@@ -121,25 +125,18 @@ class FieldAllowanceServiceTest {
                 .thenReturn(Optional.empty());
         Account travel = mock(Account.class);
         when(travel.getId()).thenReturn(UUID.randomUUID());
-        Account cash = mock(Account.class);
-        when(cash.getId()).thenReturn(UUID.randomUUID());
         when(accountRepo.findByOrgIdAndCodeAndIsDeletedFalse(orgId, "5240"))
                 .thenReturn(Optional.of(travel));
-        when(accountRepo.findByOrgIdAndCodeAndIsDeletedFalse(orgId, "1010"))
-                .thenReturn(Optional.of(cash));
         UUID expenseId = UUID.randomUUID();
-        ExpenseResponse expense = mock(ExpenseResponse.class);
-        when(expense.id()).thenReturn(expenseId);
-        when(expenseService.createExpense(any())).thenReturn(expense);
+        stubEmployeeAndReimbursement(expenseId);
         when(claimRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         FieldAllowanceClaim claim = service.claim(date, null);
 
-        ArgumentCaptor<CreateExpenseRequest> captor =
-                ArgumentCaptor.forClass(CreateExpenseRequest.class);
-        verify(expenseService).createExpense(captor.capture());
+        ArgumentCaptor<CreateReimbursementRequest> captor =
+                ArgumentCaptor.forClass(CreateReimbursementRequest.class);
+        verify(reimbursementService).submit(captor.capture());
         assertEquals(date, captor.getValue().expenseDate());
-        assertEquals("CASH", captor.getValue().paymentMode());
         assertEquals(expenseId, claim.getExpenseId());
         assertEquals(0, claim.getTotalAmount()
                 .compareTo(claim.getTaAmount().add(claim.getDaAmount())));
@@ -167,7 +164,7 @@ class FieldAllowanceServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> service.claim(date, null));
         assertEquals("FS_ALLOWANCE_NOTHING_TO_CLAIM", ex.getErrorCode());
-        verifyNoInteractions(expenseService);
+        verifyNoInteractions(reimbursementService);
     }
 
     @Test
@@ -187,9 +184,9 @@ class FieldAllowanceServiceTest {
         assertTrue(claim.getGpsDistanceKm().doubleValue() > 11.0);
         assertEquals(0, new BigDecimal("40.00").compareTo(claim.getTaAmount()));
 
-        ArgumentCaptor<CreateExpenseRequest> captor =
-                ArgumentCaptor.forClass(CreateExpenseRequest.class);
-        verify(expenseService).createExpense(captor.capture());
+        ArgumentCaptor<CreateReimbursementRequest> captor =
+                ArgumentCaptor.forClass(CreateReimbursementRequest.class);
+        verify(reimbursementService).submit(captor.capture());
         assertTrue(captor.getValue().description().contains("claimed (GPS"),
                 "expense description should expose the GPS reference");
     }
@@ -239,21 +236,28 @@ class FieldAllowanceServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> service.claim(date, null));
         assertEquals("FS_ALLOWANCE_KM_REQUIRED", ex.getErrorCode());
-        verifyNoInteractions(expenseService);
+        verifyNoInteractions(reimbursementService);
     }
 
     private void stubAccountsAndExpense() {
         Account travel = mock(Account.class);
         when(travel.getId()).thenReturn(UUID.randomUUID());
-        Account cash = mock(Account.class);
-        when(cash.getId()).thenReturn(UUID.randomUUID());
         when(accountRepo.findByOrgIdAndCodeAndIsDeletedFalse(orgId, "5240"))
                 .thenReturn(Optional.of(travel));
-        when(accountRepo.findByOrgIdAndCodeAndIsDeletedFalse(orgId, "1010"))
-                .thenReturn(Optional.of(cash));
-        ExpenseResponse expense = mock(ExpenseResponse.class);
-        when(expense.id()).thenReturn(UUID.randomUUID());
-        when(expenseService.createExpense(any())).thenReturn(expense);
+        stubEmployeeAndReimbursement(UUID.randomUUID());
+    }
+
+    private void stubEmployeeAndReimbursement(UUID expenseId) {
+        Employee employee = mock(Employee.class);
+        UUID employeeId = UUID.randomUUID();
+        when(employee.getId()).thenReturn(employeeId);
+        when(employeeRepository.findByOrgIdAndUserIdAndIsDeletedFalse(orgId, userId))
+                .thenReturn(Optional.of(employee));
+        ReimbursementResponse reimbursement = mock(ReimbursementResponse.class);
+        when(reimbursement.id()).thenReturn(UUID.randomUUID());
+        when(reimbursement.expenseId()).thenReturn(expenseId);
+        when(reimbursementService.submit(any(CreateReimbursementRequest.class)))
+                .thenReturn(reimbursement);
     }
 
     private FieldLocationPing ping(String lat, String lng) {

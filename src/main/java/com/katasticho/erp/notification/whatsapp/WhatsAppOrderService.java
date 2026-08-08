@@ -307,7 +307,8 @@ public class WhatsAppOrderService {
                 null,                       // terms
                 null,                       // billingAddress
                 null,                       // shippingAddress
-                Boolean.TRUE                // allowBackorder
+                Boolean.TRUE,               // allowBackorder
+                null                         // warehouseId: resolve org default
         );
         SalesOrderResponse so = salesOrderService.create(req);
         log.info("WhatsApp inbound order → DRAFT SO {} for contact {}", so.id(), contactId);

@@ -314,6 +314,12 @@ const _purchasesGroup = NavGroup(
         activeIcon: Icons.payments_rounded,
         route: Routes.expenses),
     NavItem(
+        id: 'purchases.employee_reimbursements',
+        label: 'Employee Reimbursements',
+        icon: Icons.request_quote_outlined,
+        activeIcon: Icons.request_quote_rounded,
+        route: Routes.employeeReimbursements),
+    NavItem(
         id: 'purchases.payables',
         label: 'Payables',
         icon: Icons.account_balance_wallet_outlined,

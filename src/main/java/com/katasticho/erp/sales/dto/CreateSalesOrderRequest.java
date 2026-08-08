@@ -47,5 +47,8 @@ public record CreateSalesOrderRequest(
          * When true, the order can be confirmed even if some items are out of stock.
          * Backordered quantities are fulfilled automatically when a matching GRN is received.
          */
-        Boolean allowBackorder
+        Boolean allowBackorder,
+
+        /** Warehouse used for ATP, reservation, and downstream fulfilment. */
+        UUID warehouseId
 ) {}

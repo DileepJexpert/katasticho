@@ -32,6 +32,9 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
     Page<Expense> findByOrgIdAndContactIdAndIsDeletedFalseOrderByExpenseDateDescCreatedAtDesc(
             UUID orgId, UUID contactId, Pageable pageable);
 
+    Page<Expense> findByOrgIdAndEmployeeIdAndIsDeletedFalseOrderByExpenseDateDescCreatedAtDesc(
+            UUID orgId, UUID employeeId, Pageable pageable);
+
     @Query("SELECT COALESCE(SUM(e.total), 0) FROM Expense e WHERE e.orgId = :orgId AND e.expenseDate = :date AND e.isDeleted = false")
     BigDecimal sumTotalByOrgAndDate(UUID orgId, LocalDate date);
 

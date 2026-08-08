@@ -23,8 +23,20 @@ import java.util.stream.Collectors;
 @Component
 public class AttachmentAccessPolicy {
 
+    public void assertCanUpload(String entityType, UUID entityId) {
+        switch (norm(entityType)) {
+            case "EMPLOYEE_REIMBURSEMENT" -> requireAnyRole("OWNER", "ADMIN", "ACCOUNTANT", "OPERATOR");
+            case "EMPLOYEE" -> requireOwnerAdminOrSelf(entityId);
+            case "POD" -> requireAnyRole("OWNER", "ADMIN", "ACCOUNTANT", "OPERATOR");
+            case "OPERATION" -> requireAnyRole("OWNER", "ADMIN", "OPERATOR");
+            case "BILL" -> requireAnyRole("OWNER", "ADMIN", "ACCOUNTANT");
+            default -> requireAnyRole("OWNER", "ADMIN");
+        }
+    }
+
     public void assertCanRead(String entityType, UUID entityId) {
         switch (norm(entityType)) {
+            case "EMPLOYEE_REIMBURSEMENT" -> requireAnyRole("OWNER", "ADMIN", "ACCOUNTANT", "OPERATOR");
             case "EMPLOYEE" -> requireOwnerAdminOrSelf(entityId);
             case "POD" -> requireAnyRole("OWNER", "ADMIN", "ACCOUNTANT", "OPERATOR");
             case "OPERATION" -> requireAnyRole("OWNER", "ADMIN", "OPERATOR");
@@ -36,10 +48,11 @@ public class AttachmentAccessPolicy {
 
     public void assertCanDelete(String entityType, UUID entityId) {
         switch (norm(entityType)) {
+            case "EMPLOYEE_REIMBURSEMENT" -> requireAnyRole("OWNER", "ADMIN", "ACCOUNTANT");
             case "EMPLOYEE" -> requireOwnerAdminOrSelf(entityId);
             case "POD" -> requireAnyRole("OWNER", "ADMIN", "ACCOUNTANT");
             case "OPERATION" -> requireAnyRole("OWNER", "ADMIN", "OPERATOR");
-            // BILL attachments are uploaded by OWNER/ADMIN/ACCOUNTANT — same gate to delete.
+            // BILL attachments are uploaded by OWNER/ADMIN/ACCOUNTANT â€” same gate to delete.
             case "BILL" -> requireAnyRole("OWNER", "ADMIN", "ACCOUNTANT");
             default -> requireAnyRole("OWNER", "ADMIN");
         }

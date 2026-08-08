@@ -27,6 +27,7 @@ public class AttachmentService {
     public EntityAttachment upload(String entityType, UUID entityId, MultipartFile file) {
         UUID orgId  = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
+        accessPolicy.assertCanUpload(entityType, entityId);
 
         String fileName  = file.getOriginalFilename() != null ? file.getOriginalFilename() : "file";
         String fileId    = UUID.randomUUID().toString();

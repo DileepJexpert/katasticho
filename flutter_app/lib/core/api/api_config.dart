@@ -4,10 +4,10 @@ import '../config/env_config.dart';
 class ApiConfig {
   ApiConfig._();
 
-  // Base URL — resolved from EnvConfig (--dart-define at build time)
+  // Base URL Ã¢â‚¬â€ resolved from EnvConfig (--dart-define at build time)
   static String get baseUrl => EnvConfig.apiBaseUrl;
 
-  // Timeouts — longer in dev for debugging
+  // Timeouts Ã¢â‚¬â€ longer in dev for debugging
   static Duration get connectTimeout => EnvConfig.connectTimeout;
   static Duration get receiveTimeout => EnvConfig.receiveTimeout;
 
@@ -26,7 +26,7 @@ class ApiConfig {
   static const String resendVerification = '/api/v1/auth/verify-email/resend';
   static const String changePassword = '/api/v1/auth/change-password';
 
-  /// Demo-mode info — returns `{enabled, orgName, users}` so the login screen
+  /// Demo-mode info Ã¢â‚¬â€ returns `{enabled, orgName, users}` so the login screen
   /// can render a "Demo credentials" card with one-tap fill. Public (no auth).
   /// When the server has demo mode off, `enabled` is false and the card hides.
   static const String demoInfo = '/api/v1/auth/demo-info';
@@ -129,7 +129,7 @@ class ApiConfig {
   static const String gstItcRisk = '/api/v1/gst/itc-risk';
   static const String gstItcRiskRollup = '/api/v1/gst/itc-risk/rollup';
   static const String gstItcRiskAlert = '/api/v1/gst/itc-risk/alert';
-  // IMS (Invoice Management System) — Accept/Reject/Pending on 2B rows
+  // IMS (Invoice Management System) Ã¢â‚¬â€ Accept/Reject/Pending on 2B rows
   static const String imsSummary = '/api/v1/gst/ims/summary';
   static const String imsNoAction = '/api/v1/gst/ims/no-action';
   static String imsAction(String id) => '/api/v1/gst/ims/$id/action';
@@ -169,8 +169,8 @@ class ApiConfig {
   static String tdsForm16Pdf(String employeeId, int fy) =>
       '/api/v1/tds/form16/$employeeId/pdf?fy=$fy';
 
-  // TCS 206C(1H) (auto-collected on invoices past ₹50L/buyer/FY)
-  // Gulf VAT returns (UAE VAT201 + Oman VAT) — country-gated backends.
+  // TCS 206C(1H) (auto-collected on invoices past Ã¢â€šÂ¹50L/buyer/FY)
+  // Gulf VAT returns (UAE VAT201 + Oman VAT) Ã¢â‚¬â€ country-gated backends.
   static String vatReturn(String region, String from, String to) =>
       '/api/v1/vat/$region/return?fromDate=$from&toDate=$to';
   static String vatReturnExport(String region, String from, String to) =>
@@ -242,7 +242,7 @@ class ApiConfig {
   static String itemById(String id) => '/api/v1/items/$id';
   static const String itemImport = '/api/v1/items/import';
 
-  // ── FSSAI / Food compliance ─────────────────────────────────────────────
+  // Ã¢â€â‚¬Ã¢â€â‚¬ FSSAI / Food compliance Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   static String fssaiItem(String itemId) => '/api/v1/fssai/items/$itemId';
   static const String fssaiAllergens = '/api/v1/fssai/allergens';
   static const String fssaiAllergenExposure =
@@ -255,7 +255,7 @@ class ApiConfig {
   }
   static const String itemImportPreview = '/api/v1/items/import/preview';
   static const String itemImportTemplate = '/api/v1/items/import/template';
-  // F4 BOM — composite item bill of materials (only valid for
+  // F4 BOM Ã¢â‚¬â€ composite item bill of materials (only valid for
   // itemType=COMPOSITE parents; the resolver at invoice-send time is
   // server-side and never hit over HTTP).
   static String itemBom(String parentId) => '/api/v1/items/$parentId/bom';
@@ -263,10 +263,10 @@ class ApiConfig {
   static String itemBomComponentById(String componentId) =>
       '/api/v1/items/bom/$componentId';
 
-  // F5 Item groups — variant template + matrix bulk-create.
+  // F5 Item groups Ã¢â‚¬â€ variant template + matrix bulk-create.
   // The group is a presentation/inheritance layer; variants stay as
   // regular Item rows with group_id + variant_attributes, so every
-  // existing item endpoint (stock, BOM, batches, invoices, GRN, …)
+  // existing item endpoint (stock, BOM, batches, invoices, GRN, Ã¢â‚¬Â¦)
   // keeps working unchanged.
   static const String itemGroups = '/api/v1/item-groups';
   static String itemGroupById(String id) => '/api/v1/item-groups/$id';
@@ -334,7 +334,7 @@ class ApiConfig {
   static String serialNumberReturn(String id) =>
       '/api/v1/serial-numbers/$id/return';
 
-  // Batches (v2 — perishables / FEFO)
+  // Batches (v2 Ã¢â‚¬â€ perishables / FEFO)
   static String batchesByItem(String itemId) => '/api/v1/batches/item/$itemId';
 
   /// FEFO-ordered list of batches with non-zero quantity available.
@@ -365,6 +365,21 @@ class ApiConfig {
   // F7: Expenses
   static const String expenses = '/api/v1/expenses';
   static String expenseById(String id) => '/api/v1/expenses/$id';
+
+  // Employee reimbursement workflow
+  static const String employeeReimbursements = '/api/v1/employee-reimbursements';
+  static String employeeReimbursement(String id) =>
+      '/api/v1/employee-reimbursements/$id';
+  static String employeeReimbursementApprove(String id) =>
+      '/api/v1/employee-reimbursements/$id/approve';
+  static String employeeReimbursementReject(String id) =>
+      '/api/v1/employee-reimbursements/$id/reject';
+  static String employeeReimbursementPay(String id) =>
+      '/api/v1/employee-reimbursements/$id/pay';
+  static const String employeeAdvances =
+      '/api/v1/employee-reimbursements/advances';
+  static String employeeReimbursementAttachments(String id) =>
+      '/api/v1/attachments/EMPLOYEE_REIMBURSEMENT/$id';
 
   // F9: Estimates / Quotations
   static const String estimates = '/api/v1/estimates';
@@ -436,7 +451,7 @@ class ApiConfig {
   static String aiBillDraftReject(String suggestionId) =>
       '/api/v1/ai/bill-drafts/$suggestionId/reject';
 
-  // Photo-to-GRN — vision-OCR of a supplier's invoice / challan into a DRAFT
+  // Photo-to-GRN Ã¢â‚¬â€ vision-OCR of a supplier's invoice / challan into a DRAFT
   // stock receipt + AI Inbox suggestion. Approve posts via StockReceiptService.receive.
   static const String aiGrnDrafts = '/api/v1/ai/grn-drafts';
   static const String aiGrnDraftScan = '/api/v1/ai/grn-drafts/scan';
@@ -452,7 +467,7 @@ class ApiConfig {
   // Proactive agents (collections, month-close, anomalies)
   static const String aiProactiveRun = '/api/v1/ai/agents/proactive/run';
 
-  // Advisory agentic replenishment — scans low-stock items and drafts
+  // Advisory agentic replenishment Ã¢â‚¬â€ scans low-stock items and drafts
   // AGENTIC_REPLENISHMENT suggestions in the AI Inbox. Approval drafts a
   // real PR (default) or DRAFT PO; nothing posts without the human's tap.
   static const String aiReplenishmentRun =
@@ -532,7 +547,7 @@ class ApiConfig {
   static String orgInviteCancel(String inviteId) =>
       '/api/v1/org/users/invites/$inviteId';
 
-  // Platform admin (v1 — legacy)
+  // Platform admin (v1 Ã¢â‚¬â€ legacy)
   static const String platformOrganisations =
       '/api/v1/platform-admin/organisations';
   static String platformOrgUsers(String orgId) =>
@@ -577,7 +592,7 @@ class ApiConfig {
   static const String demoSeedSharmaMedical =
       '/api/v1/demo/seed-sharma-medical';
 
-  // AP — Purchase Bills
+  // AP Ã¢â‚¬â€ Purchase Bills
   static const String bills = '/api/v1/bills';
   static String billById(String id) => '/api/v1/bills/$id';
   static String billWhatsAppLink(String id) =>
@@ -597,13 +612,13 @@ class ApiConfig {
   static const String bulkPostBills = '/api/v1/bills/bulk-post';
   static const String bulkVoidBills = '/api/v1/bills/bulk-void';
 
-  // AP — Vendor Payments
+  // AP Ã¢â‚¬â€ Vendor Payments
   static const String vendorPayments = '/api/v1/vendor-payments';
   static String vendorPaymentById(String id) => '/api/v1/vendor-payments/$id';
   static String voidVendorPayment(String id) =>
       '/api/v1/vendor-payments/$id/void';
 
-  // AP — Vendor Credits
+  // AP Ã¢â‚¬â€ Vendor Credits
   static const String vendorCredits = '/api/v1/vendor-credits';
   static String vendorCreditById(String id) => '/api/v1/vendor-credits/$id';
   static String postVendorCredit(String id) =>
@@ -613,14 +628,14 @@ class ApiConfig {
   static String applyVendorCredit(String id) =>
       '/api/v1/vendor-credits/$id/apply';
 
-  // AP — Tax Groups
+  // AP Ã¢â‚¬â€ Tax Groups
   static const String taxGroups = '/api/v1/tax-groups';
   static String taxGroupById(String id) => '/api/v1/tax-groups/$id';
 
-  // Settings — Default GL Accounts (per org, by purpose)
+  // Settings Ã¢â‚¬â€ Default GL Accounts (per org, by purpose)
   static const String defaultAccounts = '/api/v1/settings/default-accounts';
 
-  // Settings — Tax Account Mapping (per-rate GL bindings)
+  // Settings Ã¢â‚¬â€ Tax Account Mapping (per-rate GL bindings)
   static const String taxAccountMappings = '/api/v1/settings/tax-accounts';
   static const String taxAccountMappingsReset =
       '/api/v1/settings/tax-accounts/reset';
@@ -649,7 +664,7 @@ class ApiConfig {
   static const String walletEarn = '/api/v1/wallet/earn';
   static const String walletRedeem = '/api/v1/wallet/redeem';
 
-  // POS — Sales Receipts
+  // POS Ã¢â‚¬â€ Sales Receipts
   static const String salesReceipts = '/api/v1/sales-receipts';
   static String salesReceiptById(String id) => '/api/v1/sales-receipts/$id';
   static String salesReceiptPrint(String id) =>
@@ -702,7 +717,7 @@ class ApiConfig {
   static String proofOfDeliveryAttachments(String id) =>
       '/api/v1/proof-of-delivery/$id/attachments';
 
-  // Pricing (v2 — F3 price lists)
+  // Pricing (v2 Ã¢â‚¬â€ F3 price lists)
   static const String priceLists = '/api/v1/price-lists';
   static String priceListById(String id) => '/api/v1/price-lists/$id';
   static String priceListItems(String listId) =>
@@ -714,7 +729,7 @@ class ApiConfig {
   static String priceListCustomerAssign(String listId, String contactId) =>
       '/api/v1/price-lists/$listId/customers/$contactId';
 
-  // Schemes (promotional offers — Buy X Get Y, % discount)
+  // Schemes (promotional offers Ã¢â‚¬â€ Buy X Get Y, % discount)
   static const String schemes = '/api/v1/schemes';
   static String schemeById(String id) => '/api/v1/schemes/$id';
   static String schemesApplicable(String itemId, double qty) =>
@@ -725,7 +740,7 @@ class ApiConfig {
   static String drugLicenseById(String id) => '/api/v1/drug-licenses/$id';
   static const String drugLicensesExpiring = '/api/v1/drug-licenses/expiring';
 
-  // Statutory Pharma Registers (H1 / Schedule X / Narcotics) — Rule 65(11)(h)
+  // Statutory Pharma Registers (H1 / Schedule X / Narcotics) Ã¢â‚¬â€ Rule 65(11)(h)
   static const String statutoryRegisters = '/api/v1/pharma/statutory-registers';
   static String statutoryRegisterById(String id) =>
       '/api/v1/pharma/statutory-registers/$id';
@@ -734,7 +749,7 @@ class ApiConfig {
   static const String statutoryRegistersDashboard =
       '/api/v1/pharma/statutory-registers/dashboard';
 
-  // Pharma — Prescriptions
+  // Pharma Ã¢â‚¬â€ Prescriptions
   static const String prescriptions = '/api/v1/prescriptions';
   static String prescriptionById(String id) => '/api/v1/prescriptions/$id';
   static String prescriptionsByContact(String contactId) =>
@@ -779,7 +794,7 @@ class ApiConfig {
   static String procurementRateContractCancel(String id) =>
       '/api/v1/procurement/rate-contracts/$id/cancel';
 
-  // 3-Way Match (PO ↔ GRN ↔ Vendor Bill)
+  // 3-Way Match (PO Ã¢â€ â€ GRN Ã¢â€ â€ Vendor Bill)
   static const String threeWayMatchExceptions =
       '/api/v1/ap/three-way-match/exceptions';
   static const String threeWayMatchSettings =
@@ -800,7 +815,7 @@ class ApiConfig {
   static const String auditEditLog = '/api/v1/audit/edit-log';
   static const String auditEditLogSummary = '/api/v1/audit/edit-log/summary';
 
-  // Drug Master (platform reference — all pharma clients)
+  // Drug Master (platform reference Ã¢â‚¬â€ all pharma clients)
   static const String drugMasterSearch = '/api/v1/drug-master/search';
   static String drugMasterById(String id) => '/api/v1/drug-master/$id';
   static const String saltMasterSearch = '/api/v1/drug-master/salts/search';
@@ -815,7 +830,7 @@ class ApiConfig {
   static const String pharmacyHsnUpsert = '/api/v1/pharmacy-masters/hsn';
   static String hsnGstByCode(String code) =>
       '/api/v1/pharmacy-masters/hsn/$code';
-  // GST reference (ungated — all orgs need state codes for address/GSTIN entry)
+  // GST reference (ungated Ã¢â‚¬â€ all orgs need state codes for address/GSTIN entry)
   static const String gstStateCodes = '/api/v1/reference/state-codes';
   static String gstStateByGstin(String gstin) =>
       '/api/v1/reference/state-codes/by-gstin/$gstin';
@@ -830,7 +845,7 @@ class ApiConfig {
   static const String drugInteractionCheckByComposition =
       '/api/v1/pharmacy-masters/interactions/check-by-composition';
 
-  // HR portal — Leave management
+  // HR portal Ã¢â‚¬â€ Leave management
   static const String hrLeaveTypes = '/api/v1/hr/leave/types';
   static const String hrLeaveApply = '/api/v1/hr/leave/apply';
   static String hrLeaveApprove(String id) => '/api/v1/hr/leave/$id/approve';
@@ -841,7 +856,7 @@ class ApiConfig {
   static const String hrLeaveBalances = '/api/v1/hr/leave/my-balances';
   static const String hrHolidays = '/api/v1/hr/leave/holidays';
 
-  // HR portal — Attendance management
+  // HR portal Ã¢â‚¬â€ Attendance management
   static const String hrAttendanceRegs = '/api/v1/hr/attendance/regularizations';
   static const String hrAttendanceRegsMine =
       '/api/v1/hr/attendance/regularizations/me';
@@ -853,11 +868,11 @@ class ApiConfig {
       '/api/v1/hr/attendance/regularizations/$id/reject';
   static const String hrAttendanceSummaryMe = '/api/v1/hr/attendance/summary/me';
 
-  // HR portal — Shift management
+  // HR portal Ã¢â‚¬â€ Shift management
   static const String hrShifts = '/api/v1/hr/shifts';
   static const String hrShiftAssignments = '/api/v1/hr/shifts/assignments';
 
-  // HR portal — Timesheets
+  // HR portal Ã¢â‚¬â€ Timesheets
   static const String hrTimesheets = '/api/v1/hr/timesheets';
   static const String hrTimesheetSubmit = '/api/v1/hr/timesheets/submit';
   static const String hrTimesheetMine = '/api/v1/hr/timesheets/me';
@@ -867,7 +882,7 @@ class ApiConfig {
       '/api/v1/hr/timesheets/$id/approve';
   static String hrTimesheetReject(String id) => '/api/v1/hr/timesheets/$id/reject';
 
-  // HR portal — Help Desk
+  // HR portal Ã¢â‚¬â€ Help Desk
   static const String hrHelpdeskTickets = '/api/v1/hr/helpdesk/tickets';
   static const String hrHelpdeskMine = '/api/v1/hr/helpdesk/tickets/me';
   static const String hrHelpdeskOpen = '/api/v1/hr/helpdesk/tickets/open';
@@ -879,15 +894,15 @@ class ApiConfig {
   static String hrHelpdeskStatus(String id) =>
       '/api/v1/hr/helpdesk/tickets/$id/status';
 
-  // HR portal — Employee documents
+  // HR portal Ã¢â‚¬â€ Employee documents
   static const String hrDocumentsMine = '/api/v1/hr/documents/me';
   static const String hrDocumentsExpiring = '/api/v1/hr/documents/expiring';
   static String hrDocumentById(String id) => '/api/v1/hr/documents/$id';
 
-  // HR portal — Analytics
+  // HR portal Ã¢â‚¬â€ Analytics
   static const String hrAnalyticsDashboard = '/api/v1/hr/analytics/dashboard';
 
-  // HR portal — Offboarding
+  // HR portal Ã¢â‚¬â€ Offboarding
   static const String hrOffboarding = '/api/v1/hr/offboarding';
   static String hrOffboardingById(String id) => '/api/v1/hr/offboarding/$id';
   static String hrOffboardingTaskComplete(String taskId) =>
@@ -898,7 +913,7 @@ class ApiConfig {
   static String hrOffboardingCancel(String id) =>
       '/api/v1/hr/offboarding/$id/cancel';
 
-  // HR portal — Employee depth + self-service (module 2)
+  // HR portal Ã¢â‚¬â€ Employee depth + self-service (module 2)
   static const String hrMyProfile = '/api/v1/hr/employees/me';
   static const String hrMyFamily = '/api/v1/hr/employees/me/family';
   static String hrMyFamilyById(String id) => '/api/v1/hr/employees/me/family/$id';
@@ -949,7 +964,7 @@ class ApiConfig {
   static String payrollRunPayment(String runId) =>
       '/api/v1/payroll/runs/$runId/payment';
   static const String statutoryPayments = '/api/v1/payroll/statutory-payments';
-  // Form 12BB — employee tax declaration (self-service + HR verify).
+  // Form 12BB Ã¢â‚¬â€ employee tax declaration (self-service + HR verify).
   static String taxDeclarationMe(String fy) =>
       '/api/v1/payroll/tax-declarations/me?fy=$fy';
   static String taxDeclarationList(String fy) =>
@@ -1153,7 +1168,7 @@ class ApiConfig {
   static String manufacturingWorkOrderFromSo = '/api/v1/manufacturing/work-orders/from-sales-order';
   static String manufacturingWorkOrderJobCards(String id) => '/api/v1/manufacturing/work-orders/$id/job-cards';
 
-  // ── Pharma BMR (Batch Manufacturing Record) ─────────────────────────────
+  // Ã¢â€â‚¬Ã¢â€â‚¬ Pharma BMR (Batch Manufacturing Record) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   static const String bmrStepRecords = '/api/v1/manufacturing/bmr/step-records';
   static const String bmrSignoffs = '/api/v1/manufacturing/bmr/signoffs';
   static const String bmrDeviations = '/api/v1/manufacturing/bmr/deviations';
@@ -1173,7 +1188,7 @@ class ApiConfig {
       '/api/v1/manufacturing/bmr/work-orders/$woId/deviations';
   static String manufacturingWorkOrderScrap(String id) => '/api/v1/manufacturing/work-orders/$id/scrap';
 
-  // Manufacturing — Maintenance management
+  // Manufacturing Ã¢â‚¬â€ Maintenance management
   static const String mfgMaintSchedules = '/api/v1/manufacturing/maintenance/schedules';
   static const String mfgMaintSchedulesDue = '/api/v1/manufacturing/maintenance/schedules/due';
   static const String mfgMaintGenerateDue = '/api/v1/manufacturing/maintenance/schedules/generate-due';
@@ -1193,7 +1208,7 @@ class ApiConfig {
   static const String mfgMaintReliabilityReport =
       '/api/v1/manufacturing/maintenance/reports/reliability';
 
-  // Manufacturing — Workstations & Operations & Routings
+  // Manufacturing Ã¢â‚¬â€ Workstations & Operations & Routings
   static const String manufacturingWorkstations = '/api/v1/manufacturing/workstations';
   static String manufacturingWorkstationById(String id) => '/api/v1/manufacturing/workstations/$id';
   static const String manufacturingOperations = '/api/v1/manufacturing/operations';
@@ -1221,11 +1236,11 @@ class ApiConfig {
   static const String manufacturingRoutings = '/api/v1/manufacturing/routings';
   static String manufacturingRoutingById(String id) => '/api/v1/manufacturing/routings/$id';
 
-  // Manufacturing — Job Cards
+  // Manufacturing Ã¢â‚¬â€ Job Cards
   static String manufacturingJobCardStart(String id) => '/api/v1/manufacturing/job-cards/$id/start';
   static String manufacturingJobCardComplete(String id) => '/api/v1/manufacturing/job-cards/$id/complete';
 
-  // Manufacturing — Job Work
+  // Manufacturing Ã¢â‚¬â€ Job Work
   static const String manufacturingJobWork = '/api/v1/manufacturing/job-work';
   static String manufacturingJobWorkById(String id) => '/api/v1/manufacturing/job-work/$id';
   static String manufacturingJobWorkSend(String id) => '/api/v1/manufacturing/job-work/$id/send';
@@ -1233,7 +1248,7 @@ class ApiConfig {
   static String manufacturingJobWorkCancel(String id) => '/api/v1/manufacturing/job-work/$id/cancel';
   static const String manufacturingJobWorkGstAlerts = '/api/v1/manufacturing/job-work/gst-alerts';
 
-  // Manufacturing — Quality Control
+  // Manufacturing Ã¢â‚¬â€ Quality Control
   static const String manufacturingQcTemplates = '/api/v1/manufacturing/qc/templates';
   static String manufacturingQcTemplateById(String id) => '/api/v1/manufacturing/qc/templates/$id';
   static const String manufacturingQcInspections = '/api/v1/manufacturing/qc/inspections';
@@ -1241,11 +1256,11 @@ class ApiConfig {
   static String manufacturingQcInspectionResults(String id) => '/api/v1/manufacturing/qc/inspections/$id/results';
   static String manufacturingQcInspectionFinalize(String id) => '/api/v1/manufacturing/qc/inspections/$id/finalize';
 
-  // Manufacturing — Scrap
+  // Manufacturing Ã¢â‚¬â€ Scrap
   static const String manufacturingScrap = '/api/v1/manufacturing/scrap';
   static const String manufacturingScrapReasonCodes = '/api/v1/manufacturing/scrap/reason-codes';
 
-  // Manufacturing — Tier 2: Disassembly, BOM Versioning, Reports
+  // Manufacturing Ã¢â‚¬â€ Tier 2: Disassembly, BOM Versioning, Reports
   static const String manufacturingDisassembly = '/api/v1/manufacturing/work-orders/disassembly';
   static String manufacturingDisassemble(String id) => '/api/v1/manufacturing/work-orders/$id/disassemble';
   static String manufacturingBomVersion(String itemId) => '/api/v1/manufacturing/bom/$itemId/version';
@@ -1287,7 +1302,7 @@ class ApiConfig {
   static const String manufacturingScrapRate =
       '/api/v1/manufacturing/reports/scrap-rate';
 
-  // POS — Cash Register / Day Close
+  // POS Ã¢â‚¬â€ Cash Register / Day Close
   static const String cashRegister = '/api/v1/pos/cash-register';
   static String cashRegisterDate(String date) => '/api/v1/pos/cash-register/$date';
 
@@ -1391,7 +1406,7 @@ class ApiConfig {
   // GS1 DataMatrix barcode scan (top-300 pharma QR mandate, G.S.R. 823(E))
   static const String inventoryBarcodeScan = '/api/v1/inventory/barcode/scan';
 
-  // ATP (Available-to-Promise) — read-only snapshot for SO capture.
+  // ATP (Available-to-Promise) Ã¢â‚¬â€ read-only snapshot for SO capture.
   // Status taxonomy: ATP_OK / ATP_PARTIAL / ATP_BACKORDER.
   static String inventoryAtp(String itemId, String warehouseId, num qty) =>
       '/api/v1/inventory/atp?itemId=$itemId&warehouseId=$warehouseId&qty=$qty';

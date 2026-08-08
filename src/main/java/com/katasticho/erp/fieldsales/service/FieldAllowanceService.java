@@ -4,9 +4,10 @@ import com.katasticho.erp.accounting.entity.Account;
 import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
-import com.katasticho.erp.expense.dto.CreateExpenseRequest;
-import com.katasticho.erp.expense.dto.ExpenseResponse;
-import com.katasticho.erp.expense.service.ExpenseService;
+import com.katasticho.erp.expense.reimbursement.dto.CreateReimbursementRequest;
+import com.katasticho.erp.expense.reimbursement.dto.ReimbursementResponse;
+import com.katasticho.erp.expense.reimbursement.service.EmployeeReimbursementService;
+import com.katasticho.erp.payroll.repository.EmployeeRepository;
 import com.katasticho.erp.fieldsales.entity.FieldAllowanceClaim;
 import com.katasticho.erp.fieldsales.entity.FieldLocationPing;
 import com.katasticho.erp.fieldsales.repository.FieldAllowanceClaimRepository;
@@ -32,9 +33,8 @@ import java.util.UUID;
  * TA/DA field allowance for any vertical: travel allowance is computed
  * from the day's GPS distance trail (org setting `field_sales.ta_per_km`),
  * plus a flat daily allowance (`field_sales.da_per_day`). Claiming creates
- * a normal expense (Travel & Conveyance 5240, paid through Cash 1010) so
- * all accounting flows through the existing expense module. One claim per
- * salesperson per day.
+ * a submitted employee reimbursement for manager approval; accounting is
+ * posted when approved. One claim per salesperson per day.
  */
 @Service
 @RequiredArgsConstructor
@@ -46,12 +46,12 @@ public class FieldAllowanceService {
     /** GPS (strict, claim = tracked km) | FLEXIBLE (tracked km, adjustable) | MANUAL (salesperson enters km). */
     static final String SETTING_MODE = "field_sales.allowance_mode";
     private static final String TRAVEL_EXPENSE_CODE = "5240";
-    private static final String CASH_CODE = "1010";
 
     private final FieldLocationPingRepository pingRepository;
     private final FieldAllowanceClaimRepository claimRepository;
     private final OrgSettingsService orgSettingsService;
-    private final ExpenseService expenseService;
+    private final EmployeeReimbursementService reimbursementService;
+    private final EmployeeRepository employeeRepository;
     private final AccountRepository accountRepository;
 
     /** Computed (not yet necessarily claimed) allowance for the current user. */
@@ -83,6 +83,7 @@ public class FieldAllowanceService {
         result.put("configured", taPerKm.signum() > 0 || daPerDay.signum() > 0);
         result.put("claimed", existing != null);
         result.put("claimedKm", existing != null ? existing.getDistanceKm() : null);
+        result.put("reimbursementId", existing != null ? existing.getReimbursementId() : null);
         result.put("expenseId", existing != null ? existing.getExpenseId() : null);
         return result;
     }
@@ -117,42 +118,38 @@ public class FieldAllowanceService {
 
         if (total.signum() <= 0) {
             throw new BusinessException(
-                    "Nothing to claim — no travel recorded for " + date
+                    "Nothing to claim ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â no travel recorded for " + date
                             + " or allowance rates are not configured"
                             + " (org settings " + SETTING_TA_PER_KM + " / " + SETTING_DA_PER_DAY + ")",
                     "FS_ALLOWANCE_NOTHING_TO_CLAIM", HttpStatus.BAD_REQUEST);
         }
 
+        UUID employeeId = employeeRepository.findByOrgIdAndUserIdAndIsDeletedFalse(orgId, userId)
+                .map(e -> e.getId())
+                .orElseThrow(() -> new BusinessException(
+                        "Create an employee profile for this salesperson before claiming allowance",
+                        "FS_EMPLOYEE_PROFILE_REQUIRED", HttpStatus.BAD_REQUEST));
         Account travel = accountRepository
                 .findByOrgIdAndCodeAndIsDeletedFalse(orgId, TRAVEL_EXPENSE_CODE)
                 .orElseThrow(() -> new BusinessException(
                         "Travel & Conveyance account (" + TRAVEL_EXPENSE_CODE + ") not found",
                         "FS_ALLOWANCE_ACCOUNT_MISSING", HttpStatus.BAD_REQUEST));
-        Account cash = accountRepository
-                .findByOrgIdAndCodeAndIsDeletedFalse(orgId, CASH_CODE)
-                .orElseThrow(() -> new BusinessException(
-                        "Cash account (" + CASH_CODE + ") not found",
-                        "FS_ALLOWANCE_ACCOUNT_MISSING", HttpStatus.BAD_REQUEST));
-
         String kmNote = distanceKm.compareTo(gpsKm) == 0
                 ? distanceKm + " km"
                 : distanceKm + " km claimed (GPS " + gpsKm + " km)";
-        ExpenseResponse expense = expenseService.createExpense(new CreateExpenseRequest(
-                date, travel.getId(), "Field Allowance",
-                "TA/DA " + date + " — " + kmNote
+        ReimbursementResponse reimbursement = reimbursementService.submit(new CreateReimbursementRequest(
+                date, employeeId, travel.getId(), "Field Allowance",
+                "TA/DA " + date + " - " + kmNote
                         + " (TA " + taAmount + " + DA " + daAmount + ")",
-                total, BigDecimal.ZERO, "INR", null,
-                "CASH", cash.getId(),
-                false, null, null, null, null));
-
+                total, BigDecimal.ZERO, null, null, null));
         FieldAllowanceClaim claim = claimRepository.save(FieldAllowanceClaim.builder()
                 .orgId(orgId).salespersonId(userId).claimDate(date)
                 .distanceKm(distanceKm).gpsDistanceKm(gpsKm)
                 .taAmount(taAmount).daAmount(daAmount).totalAmount(total)
-                .expenseId(expense.id())
+                .reimbursementId(reimbursement.id()).expenseId(reimbursement.expenseId())
                 .build());
-        log.info("Allowance claimed for {} by {}: {} km (GPS {}), total {} (expense {})",
-                date, userId, distanceKm, gpsKm, total, expense.id());
+        log.info("Allowance claimed for {} by {}: {} km (GPS {}), total {} (reimbursement {})",
+                date, userId, distanceKm, gpsKm, total, reimbursement.id());
         return claim;
     }
 
@@ -163,13 +160,13 @@ public class FieldAllowanceService {
             case "MANUAL" -> {
                 if (requestedKm == null) {
                     throw new BusinessException(
-                            "Distance in km is required — this organisation uses manual allowance entry",
+                            "Distance in km is required ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â this organisation uses manual allowance entry",
                             "FS_ALLOWANCE_KM_REQUIRED", HttpStatus.BAD_REQUEST);
                 }
                 yield requestedKm;
             }
             // FLEXIBLE: salesperson may adjust DOWN (e.g. deduct personal travel),
-            // but never above the GPS-recorded trail — cap at gpsKm so a claim can't
+            // but never above the GPS-recorded trail ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â cap at gpsKm so a claim can't
             // inflate the reimbursable distance beyond what was actually driven.
             default -> requestedKm != null ? requestedKm.min(gpsKm) : gpsKm;
         };

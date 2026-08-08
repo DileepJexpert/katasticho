@@ -381,6 +381,8 @@ class _SalesOrderDetailBody extends ConsumerWidget {
       _InfoFact('Reference', order['referenceNumber'] as String? ?? '--'),
       _InfoFact('Delivery', order['deliveryMethod'] as String? ?? '--'),
       _InfoFact('Place of supply', order['placeOfSupply'] as String? ?? '--'),
+      _InfoFact('Fulfilment warehouse',
+          order['warehouseName'] as String? ?? '--'),
     ];
 
     return LayoutBuilder(

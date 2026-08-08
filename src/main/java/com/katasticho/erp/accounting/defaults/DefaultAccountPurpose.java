@@ -44,6 +44,8 @@ public enum DefaultAccountPurpose {
     // ── Advances ──────────────────────────────────────────────
     CUSTOMER_ADVANCE    ("2100", "Advance from Customers"),
     VENDOR_ADVANCE      ("1400", "Advances to Suppliers"),
+    EMPLOYEE_ADVANCE   ("1310", "Employee Advances"),
+    EMPLOYEE_REIMBURSEMENT_PAYABLE ("2080", "Employee Reimbursement Payable"),
 
     // ── Opening Balance ───────────────────────────────────────
     OPENING_BALANCE_EQUITY ("3040", "Opening Balance Equity"),

@@ -33,6 +33,10 @@ public class SalesOrder extends BaseEntity {
     @Column(name = "contact_id", nullable = false)
     private UUID contactId;
 
+    /** Warehouse from which this order will be reserved and fulfilled. */
+    @Column(name = "warehouse_id")
+    private UUID warehouseId;
+
     @Column(name = "estimate_id")
     private UUID estimateId;
 

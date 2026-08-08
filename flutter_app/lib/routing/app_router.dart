@@ -26,6 +26,7 @@ import '../features/accounts/presentation/account_detail_screen.dart';
 import '../features/expenses/presentation/expense_list_screen.dart';
 import '../features/expenses/presentation/expense_create_screen.dart';
 import '../features/expenses/presentation/expense_detail_screen.dart';
+import '../features/expenses/presentation/employee_reimbursement_screen.dart';
 import '../features/estimates/presentation/estimate_list_screen.dart';
 import '../features/estimates/presentation/estimate_create_screen.dart';
 import '../features/estimates/presentation/estimate_detail_screen.dart';
@@ -285,6 +286,7 @@ class Routes {
   static const expenses = '/expenses';
   static const expenseCreate = '/expenses/create';
   static const expenseDetail = '/expenses/:id';
+  static const employeeReimbursements = '/employee-reimbursements';
   static const estimates = '/estimates';
   static const estimateCreate = '/estimates/create';
   static const estimateDetail = '/estimates/:id';
@@ -1020,6 +1022,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/expenses/:id',
             builder: (context, state) => ExpenseDetailScreen(
               expenseId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: Routes.employeeReimbursements,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: EmployeeReimbursementScreen(),
             ),
           ),
           // F9: Estimates / Quotations

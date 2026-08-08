@@ -26,6 +26,8 @@ public record ExpenseResponse(
         UUID contactId,
         String contactName,
 
+        UUID employeeId,
+
         String paymentMode,
         UUID paidThroughId,
         String paidThroughName,

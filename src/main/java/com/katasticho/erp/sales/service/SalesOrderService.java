@@ -101,6 +101,8 @@ public class SalesOrderService {
                 .orElseThrow(() -> BusinessException.notFound("Contact", request.contactId()));
         validateContactType(contact);
 
+        Warehouse warehouse = resolveWarehouse(orgId, request.warehouseId());
+
         UUID branchId = branchRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
                 .map(Branch::getId).orElse(null);
 
@@ -114,6 +116,7 @@ public class SalesOrderService {
                 .salesorderNumber(soNumber)
                 .referenceNumber(request.referenceNumber())
                 .contactId(contact.getId())
+                .warehouseId(warehouse.getId())
                 .orderDate(orderDate)
                 .expectedShipmentDate(request.expectedShipmentDate())
                 .discountType(request.discountType() != null ? request.discountType() : "ITEM_LEVEL")
@@ -272,7 +275,7 @@ public class SalesOrderService {
                 LocalDate.now(), null, estimate.getReferenceNumber(),
                 null, null, null, null, null,
                 null, null, estimate.getNotes(), estimate.getTerms(),
-                null, null, null);
+                null, null, null, null);
 
         SalesOrderResponse response = create(soRequest);
 
@@ -298,9 +301,10 @@ public class SalesOrderService {
                     "SO_NOT_DRAFT", HttpStatus.BAD_REQUEST);
         }
 
-        Warehouse warehouse = warehouseRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
-                .orElseThrow(() -> new BusinessException("No default warehouse configured",
-                        "SO_NO_WAREHOUSE", HttpStatus.BAD_REQUEST));
+        Warehouse warehouse = resolveWarehouse(orgId, so.getWarehouseId());
+        if (so.getWarehouseId() == null) {
+            so.setWarehouseId(warehouse.getId());
+        }
 
         boolean hasBackorder = false;
         int reservedCount = 0;
@@ -595,6 +599,9 @@ public class SalesOrderService {
         if (request.notes() != null) so.setNotes(request.notes());
         if (request.terms() != null) so.setTerms(request.terms());
         if (request.shippingAddress() != null) so.setShippingAddress(request.shippingAddress());
+        if (request.warehouseId() != null) {
+            so.setWarehouseId(resolveWarehouse(orgId, request.warehouseId()).getId());
+        }
 
         so = salesOrderRepository.save(so);
         return toResponseWithContactLookup(so);
@@ -983,7 +990,29 @@ public class SalesOrderService {
                 invoiceCount, challanRepository.countBySalesOrderIdAndIsDeletedFalse(so.getId()),
                 so.isAllowBackorder(),
                 so.getCreatedAt(),
-                warnings);
+                warnings,
+                so.getWarehouseId(),
+                so.getWarehouseId() == null
+                        ? null
+                        : warehouseRepository.findById(so.getWarehouseId())
+                                .map(Warehouse::getName)
+                                .orElse(null));
+    }
+
+    /** Resolve and validate the fulfilment warehouse for an order. */
+    private Warehouse resolveWarehouse(UUID orgId, UUID requestedWarehouseId) {
+        Warehouse warehouse = requestedWarehouseId != null
+                ? warehouseRepository.findByIdAndOrgIdAndIsDeletedFalse(requestedWarehouseId, orgId)
+                        .orElseThrow(() -> BusinessException.notFound("Warehouse", requestedWarehouseId))
+                : warehouseRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
+                        .orElseThrow(() -> new BusinessException("No default warehouse configured",
+                                "SO_NO_WAREHOUSE", HttpStatus.BAD_REQUEST));
+
+        if (!warehouse.isActive()) {
+            throw new BusinessException("Selected warehouse is inactive: " + warehouse.getName(),
+                    "SO_WAREHOUSE_INACTIVE", HttpStatus.BAD_REQUEST);
+        }
+        return warehouse;
     }
 
     private record SalesOrderRiskDecision(

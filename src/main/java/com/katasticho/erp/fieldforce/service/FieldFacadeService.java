@@ -127,7 +127,7 @@ public class FieldFacadeService {
         }
         CreateSalesOrderRequest req = new CreateSalesOrderRequest(
                 dealerId, lines, LocalDate.now(), null, null,
-                null, null, null, null, null, null, null, notes, null, null, null, Boolean.TRUE);
+                null, null, null, null, null, null, null, notes, null, null, null, Boolean.TRUE, null);
         SalesOrderResponse so = salesOrderService.create(req);
 
         // Stamp the visit if the order was booked during one.

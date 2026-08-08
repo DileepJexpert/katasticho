@@ -39,5 +39,8 @@ public record UpdateSalesOrderRequest(
         String billingAddress,
 
         /** JSON string representing the shipping address. */
-        String shippingAddress
+        String shippingAddress,
+
+        /** Warehouse can be changed while the order is still DRAFT. */
+        UUID warehouseId
 ) {}

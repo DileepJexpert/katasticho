@@ -26,7 +26,7 @@ public record CreateExpenseRequest(
 
         String currency,
 
-        /** Vendor contact (VENDOR or BOTH). Optional — cash spend without a vendor is fine. */
+        /** Vendor contact (VENDOR or BOTH). Optional â€” cash spend without a vendor is fine. */
         UUID contactId,
 
         @NotNull(message = "Payment mode is required")
@@ -42,5 +42,8 @@ public record CreateExpenseRequest(
         String receiptUrl,
 
         /** Optional tax group. If null, resolved from gstRate. */
-        UUID taxGroupId
+        UUID taxGroupId,
+
+        /** Optional employee claimant for reimbursement-linked expenses. */
+        UUID employeeId
 ) {}

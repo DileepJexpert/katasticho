@@ -73,9 +73,10 @@ public class DeliveryChallanService {
                     "DC_INVALID_SO_STATUS", HttpStatus.BAD_REQUEST);
         }
 
-        Warehouse warehouse = warehouseRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
-                .orElseThrow(() -> new BusinessException("No default warehouse configured",
-                        "DC_NO_WAREHOUSE", HttpStatus.BAD_REQUEST));
+        Warehouse warehouse = resolveWarehouse(orgId, so);
+        if (so.getWarehouseId() == null) {
+            so.setWarehouseId(warehouse.getId());
+        }
 
         UUID branchId = branchRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
                 .map(Branch::getId).orElse(null);
@@ -340,6 +341,20 @@ public class DeliveryChallanService {
                         "DC_INSUFFICIENT_STOCK", HttpStatus.BAD_REQUEST);
             }
         }
+    }
+
+    private Warehouse resolveWarehouse(UUID orgId, SalesOrder so) {
+        Warehouse warehouse = so.getWarehouseId() != null
+                ? warehouseRepository.findByIdAndOrgIdAndIsDeletedFalse(so.getWarehouseId(), orgId)
+                        .orElseThrow(() -> BusinessException.notFound("Warehouse", so.getWarehouseId()))
+                : warehouseRepository.findByOrgIdAndIsDefaultTrueAndIsDeletedFalse(orgId)
+                        .orElseThrow(() -> new BusinessException("No default warehouse configured",
+                                "DC_NO_WAREHOUSE", HttpStatus.BAD_REQUEST));
+        if (!warehouse.isActive()) {
+            throw new BusinessException("Sales order warehouse is inactive: " + warehouse.getName(),
+                    "DC_WAREHOUSE_INACTIVE", HttpStatus.BAD_REQUEST);
+        }
+        return warehouse;
     }
 
     private DeliveryChallan findOrThrow(UUID challanId, UUID orgId) {
