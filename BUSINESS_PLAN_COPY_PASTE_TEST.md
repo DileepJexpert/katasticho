@@ -670,4 +670,21 @@ Closing Balance: 0
 ```
 
 The statement showed `INV-2026-000001` followed by `PAY-2026-000001`. The invoice row's `Bal: 531` is the running balance after invoicing; the payment row's `Bal: 0` is the final cleared balance.
+
+### Invoice Journal - Verified Result (2026-08-08)
+
+Opened `JE-2026-000001` for `INV-2026-000001`:
+
+```text
+Debit  1100 - Accounts Receivable   531
+Credit 4010 - Sales Revenue          450
+Credit 2020 - CGST Output Payable     40.50
+Credit 2021 - SGST Output Payable     40.50
+Debit  5010 - Cost of Goods Sold     300
+Credit 1200 - Inventory              300
+Total debits:  831
+Total credits: 831
+```
+
+The invoice journal correctly records receivable, revenue, split GST, COGS, and inventory reduction.
 ```
