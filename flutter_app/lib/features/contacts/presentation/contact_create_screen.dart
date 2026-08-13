@@ -25,6 +25,7 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
   final _formKey = GlobalKey<FormState>();
 
   String _contactType = 'CUSTOMER';
+  bool _supplierEnabled = false;
   final _displayNameCtrl = TextEditingController();
   final _companyNameCtrl = TextEditingController();
   final _firstNameCtrl = TextEditingController();
@@ -125,6 +126,7 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
     final c = (result['data'] ?? result) as Map<String, dynamic>;
     setState(() {
       _contactType = c['contactType'] as String? ?? 'CUSTOMER';
+      _supplierEnabled = c['supplierEnabled'] as bool? ?? false;
       _displayNameCtrl.text = c['displayName'] as String? ?? '';
       _companyNameCtrl.text = c['companyName'] as String? ?? '';
       _firstNameCtrl.text = c['firstName'] as String? ?? '';
@@ -190,10 +192,42 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
                 ButtonSegment(value: 'BOTH', label: Text('Both')),
               ],
               selected: {_contactType},
-              onSelectionChanged: (s) =>
-                  setState(() => _contactType = s.first),
+              onSelectionChanged: (s) => setState(() {
+                _contactType = s.first;
+                if (_contactType == 'CUSTOMER') _supplierEnabled = false;
+              }),
             ),
             KSpacing.vGapSm,
+            if (_contactType == 'VENDOR' || _contactType == 'BOTH') ...[
+              KCard(
+                child: Row(
+                  children: [
+                    const Icon(Icons.local_shipping_outlined),
+                    KSpacing.hGapMd,
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Supplier role'),
+                          SizedBox(height: 4),
+                          Text(
+                            'Make this contact available in Purchase Orders, Goods Receipts and Bills.',
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: _supplierEnabled,
+                      onChanged: _isEdit && _supplierEnabled
+                          ? null
+                          : (value) =>
+                              setState(() => _supplierEnabled = value),
+                    ),
+                  ],
+                ),
+              ),
+              KSpacing.vGapSm,
+            ],
 
             KCollapsibleSection(
               title: 'Basic Information',
@@ -464,6 +498,7 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
 
     final data = <String, dynamic>{
       'contactType': _contactType,
+      'supplierEnabled': _supplierEnabled,
       'displayName': _displayNameCtrl.text.trim(),
       if (_companyNameCtrl.text.isNotEmpty)
         'companyName': _companyNameCtrl.text.trim(),
@@ -507,6 +542,7 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
         await repo.createContact(data);
       }
       ref.invalidate(contactListProvider);
+      ref.invalidate(contactSummaryProvider);
       if (!mounted) return;
       context.pop();
     } catch (e) {

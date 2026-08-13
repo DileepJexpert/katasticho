@@ -141,8 +141,9 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
   String _notes = '';
   String _terms = '';
 
+  // Subtotal is the taxable amount after line discounts, before GST.
   double get _subtotal =>
-      _lineItems.fold(0, (sum, line) => sum + line.lineTotal);
+      _lineItems.fold(0, (sum, line) => sum + line.taxableAmount);
 
   double get _totalTax =>
       _lineItems.fold(0, (sum, line) => sum + line.taxAmount);

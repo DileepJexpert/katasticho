@@ -20,6 +20,8 @@ class ContactDetailScreen extends ConsumerWidget {
     try {
       await ref.read(supplierRepositoryProvider).enableFromContact(contactId);
       ref.invalidate(supplierListProvider);
+      ref.invalidate(contactListProvider);
+      ref.invalidate(contactSummaryProvider);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('$displayName is now available as a supplier')),
@@ -53,6 +55,7 @@ class ContactDetailScreen extends ConsumerWidget {
         final contact = (raw['data'] ?? raw) as Map<String, dynamic>;
         final displayName = contact['displayName'] as String? ?? 'Contact';
         final contactType = contact['contactType'] as String? ?? 'CUSTOMER';
+        final supplierEnabled = contact['supplierEnabled'] as bool? ?? false;
 
         final typeColor = contactType == 'VENDOR'
             ? KColors.info
@@ -103,6 +106,7 @@ class ContactDetailScreen extends ConsumerWidget {
                             .read(contactRepositoryProvider)
                             .deleteContact(contactId);
                         ref.invalidate(contactListProvider);
+                        ref.invalidate(contactSummaryProvider);
                         if (context.mounted) context.pop();
                       }
                     }
@@ -129,7 +133,8 @@ class ContactDetailScreen extends ConsumerWidget {
                     typeColor: typeColor,
                     taxLabel: taxLabel,
                     onEnableSupplier:
-                        contactType == 'VENDOR' || contactType == 'BOTH'
+                        !supplierEnabled &&
+                                (contactType == 'VENDOR' || contactType == 'BOTH')
                             ? () => _enableSupplier(context, ref, displayName)
                             : null),
                 _PersonsTab(contact: contact, contactId: contactId),

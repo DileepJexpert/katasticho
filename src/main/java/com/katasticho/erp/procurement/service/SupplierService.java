@@ -176,10 +176,14 @@ public class SupplierService {
     }
 
     @Transactional(readOnly = true)
-    public Page<SupplierResponse> listSuppliers(String search, Pageable pageable) {
+    public Page<SupplierResponse> listSuppliers(String search, Pageable pageable, boolean selectableOnly) {
         UUID orgId = TenantContext.getCurrentOrgId();
         Page<Supplier> page;
-        if (search != null && !search.isBlank()) {
+        if (selectableOnly) {
+            page = search != null && !search.isBlank()
+                    ? supplierRepository.searchSelectable(orgId, search.trim(), pageable)
+                    : supplierRepository.findSelectable(orgId, pageable);
+        } else if (search != null && !search.isBlank()) {
             page = supplierRepository.search(orgId, search.trim(), pageable);
         } else {
             page = supplierRepository.findByOrgIdAndIsDeletedFalseOrderByNameAsc(orgId, pageable);

@@ -11,8 +11,14 @@ class FieldSalesRepository {
   FieldSalesRepository(this._api);
 
   // -- Beats --
-  Future<List<Map<String, dynamic>>> listBeats() async {
-    final response = await _api.get(ApiConfig.fieldSalesBeats);
+  Future<List<Map<String, dynamic>>> listBeats({
+    int page = 0,
+    int size = 20,
+  }) async {
+    final response = await _api.get(
+      ApiConfig.fieldSalesBeats,
+      queryParameters: {'page': page, 'size': size},
+    );
     final data = response.data['data'] ?? response.data;
     final content = data is Map ? (data['content'] as List?) ?? [] : data;
     return (content as List)
@@ -29,6 +35,17 @@ class FieldSalesRepository {
 
   Future<Map<String, dynamic>> getBeat(String id) async {
     final response = await _api.get(ApiConfig.fieldSalesBeatById(id));
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateBeat(
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _api.put(
+      ApiConfig.fieldSalesBeatById(id),
+      data: payload,
+    );
     return (response.data['data'] ?? response.data) as Map<String, dynamic>;
   }
 
@@ -61,6 +78,29 @@ class FieldSalesRepository {
     final response =
         await _api.post(ApiConfig.fieldSalesRoutes, data: payload);
     return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateRoute(
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _api.put(
+      ApiConfig.fieldSalesRouteById(id),
+      data: payload,
+    );
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> getRouteBeats(String routeId) async {
+    final response = await _api.get(ApiConfig.fieldSalesRouteBeats(routeId));
+    final data = response.data['data'] ?? response.data;
+    final content = data is List
+        ? data
+        : (data is Map ? (data['content'] as List?) ?? [] : []);
+    return content
+        .whereType<Map>()
+        .map((entry) => entry.cast<String, dynamic>())
+        .toList();
   }
 
   // -- Vans --

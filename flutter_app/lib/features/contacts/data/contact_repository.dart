@@ -29,6 +29,11 @@ class ContactRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> contactSummary() async {
+    final response = await _api.get('${ApiConfig.contacts}/summary');
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> getContact(String id) async {
     debugPrint('[ContactRepo] getContact id: $id');
     final response = await _api.get('${ApiConfig.contacts}/$id');
@@ -63,6 +68,12 @@ final contactListProvider =
     return repo.listContacts(type: type);
   },
 );
+
+final contactSummaryProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final repo = ref.watch(contactRepositoryProvider);
+  return repo.contactSummary();
+});
 
 /// Contact search provider — searches by name/phone, filtered by type.
 final contactSearchProvider = FutureProvider.autoDispose

@@ -10,12 +10,6 @@ import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/contact_repository.dart';
 
-const _contactTabs = [
-  KListTab(label: 'All'),
-  KListTab(label: 'Customers', value: 'CUSTOMER'),
-  KListTab(label: 'Vendors', value: 'VENDOR'),
-];
-
 class ContactListScreen extends ConsumerStatefulWidget {
   const ContactListScreen({super.key});
 
@@ -88,6 +82,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
     if (!mounted) return;
     setState(_selectedIds.clear);
     ref.invalidate(contactListProvider(_selectedType));
+    ref.invalidate(contactSummaryProvider);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -104,10 +99,30 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
     final inSelection = _selectedIds.isNotEmpty;
     final taxLabel =
         ref.watch(countryProfileProvider).valueOrNull?.taxIdLabel ?? 'GSTIN';
+    final summary = ref.watch(contactSummaryProvider).valueOrNull;
+    final summaryData = summary?['data'];
+    final counts = summaryData is Map
+        ? summaryData.cast<String, dynamic>()
+        : null;
+    final tabs = [
+      KListTab(label: 'All${_countSuffix(counts, 'total')}'),
+      KListTab(
+          label: 'Customers${_countSuffix(counts, 'customers')}',
+          value: 'CUSTOMER'),
+      KListTab(
+          label: 'Vendors${_countSuffix(counts, 'vendors')}', value: 'VENDOR'),
+      KListTab(
+        label: 'Suppliers${_countSuffix(counts, 'suppliers')}',
+        value: 'SUPPLIER',
+      ),
+    ];
     return KKeyboardListWrapper(
       itemCount: () => _currentContacts.length,
       onNew: () => context.go(Routes.contactCreate),
-      onRefresh: () => ref.invalidate(contactListProvider(_selectedType)),
+      onRefresh: () {
+        ref.invalidate(contactListProvider(_selectedType));
+        ref.invalidate(contactSummaryProvider);
+      },
       onOpen: _openAtIndex,
       child: Scaffold(
       body: Column(
@@ -115,7 +130,7 @@ class _ContactListScreenState extends ConsumerState<ContactListScreen> {
           KListPageHeader(
             title: 'Contacts',
             searchHint: 'Search by name, email, phone, $taxLabel…',
-            tabs: _contactTabs,
+            tabs: tabs,
             selectedTab: _selectedType,
             onTabChanged: (v) => setState(() => _selectedType = v),
             onSearchChanged: (q) => setState(() => _searchQuery = q),
@@ -185,7 +200,12 @@ class _ContactTabBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final asyncContacts = ref.watch(contactListProvider(type));
+    final trimmedSearch = search.trim();
+    final asyncContacts = trimmedSearch.isEmpty
+        ? ref.watch(contactListProvider(type))
+        : ref.watch(contactSearchProvider(
+            (type: type, search: trimmedSearch),
+          ));
 
     return asyncContacts.when(
       loading: () => const KShimmerList(),
@@ -198,20 +218,6 @@ class _ContactTabBody extends ConsumerWidget {
         List<dynamic> contacts = content is List
             ? content
             : (content is Map ? (content['content'] as List?) ?? [] : []);
-
-        if (search.isNotEmpty) {
-          final q = search.toLowerCase();
-          contacts = contacts.where((c) {
-            final m = c as Map<String, dynamic>;
-            return (m['displayName'] as String? ?? '')
-                    .toLowerCase()
-                    .contains(q) ||
-                (m['companyName'] as String? ?? '').toLowerCase().contains(q) ||
-                (m['email'] as String? ?? '').toLowerCase().contains(q) ||
-                (m['phone'] as String? ?? '').contains(q) ||
-                (m['gstin'] as String? ?? '').contains(q);
-          }).toList();
-        }
 
         if (contacts.isEmpty) {
           return KEmptyState(
@@ -257,6 +263,11 @@ class _ContactTabBody extends ConsumerWidget {
   }
 }
 
+String _countSuffix(Map<String, dynamic>? counts, String key) {
+  final value = counts?[key];
+  return value is num ? ' (${value.toInt()})' : '';
+}
+
 class _ContactTable extends StatelessWidget {
   final List<Map<String, dynamic>> contacts;
   final Set<String> selectedIds;
@@ -289,6 +300,7 @@ class _ContactTable extends StatelessWidget {
         final displayName = contact['displayName'] as String? ?? 'Unknown';
         final companyName = contact['companyName'] as String? ?? '--';
         final contactType = contact['contactType'] as String? ?? 'CUSTOMER';
+        final supplierEnabled = contact['supplierEnabled'] as bool? ?? false;
         final phone =
             contact['phone'] as String? ?? contact['mobile'] as String? ?? '--';
         final outstandingAr = (contact['outstandingAr'] as num?)?.toDouble() ??
@@ -316,7 +328,10 @@ class _ContactTable extends StatelessWidget {
               name: displayName,
               type: contactType,
             )),
-            DataCell(_ContactTypeCell(type: contactType)),
+            DataCell(_ContactTypeCell(
+              type: contactType,
+              supplierEnabled: supplierEnabled,
+            )),
             DataCell(KTableTextCell(value: companyName, width: 130)),
             DataCell(KTableTextCell(value: phone, width: 108)),
             DataCell(_ContactAmountCell(value: outstandingAr)),
@@ -386,15 +401,35 @@ class _ContactNameCell extends StatelessWidget {
 
 class _ContactTypeCell extends StatelessWidget {
   final String type;
+  final bool supplierEnabled;
 
-  const _ContactTypeCell({required this.type});
+  const _ContactTypeCell({
+    required this.type,
+    required this.supplierEnabled,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final color = _contactTypeColor(type);
-    final label = type == 'BOTH' ? 'Both' : type.capitalize();
+    return Wrap(
+      spacing: 4,
+      runSpacing: 2,
+      children: _contactRoleLabels(type, supplierEnabled)
+          .map((label) => _ContactRoleChip(label: label))
+          .toList(),
+    );
+  }
+}
+
+class _ContactRoleChip extends StatelessWidget {
+  final String label;
+
+  const _ContactRoleChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _contactRoleColor(label);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
@@ -454,10 +489,10 @@ class _ContactCard extends ConsumerWidget {
     final gstin = contact['gstin'] as String?;
     final email = contact['email'] as String?;
     final phone = contact['phone'] as String? ?? contact['mobile'] as String?;
+    final supplierEnabled = contact['supplierEnabled'] as bool? ?? false;
 
     final typeColor = _contactTypeColor(contactType);
-
-    final typeLabel = contactType == 'BOTH' ? 'Both' : contactType.capitalize();
+    final roleLabels = _contactRoleLabels(contactType, supplierEnabled);
 
     // Build the compact subtitle chips: prefer company, then phone, then email.
     final subtitleChips = <_InfoChipData>[
@@ -527,20 +562,15 @@ class _ContactCard extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: typeColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        typeLabel,
-                        style:
-                            KTypography.labelSmall.copyWith(color: typeColor),
-                      ),
-                    ),
                   ],
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 2,
+                  children: roleLabels
+                      .map((label) => _ContactRoleChip(label: label))
+                      .toList(),
                 ),
                 if (subtitleChips.isNotEmpty) ...[
                   const SizedBox(height: 3),
@@ -610,6 +640,22 @@ class _InfoChipRow extends StatelessWidget {
 extension on String {
   String capitalize() =>
       isEmpty ? this : '${this[0].toUpperCase()}${substring(1).toLowerCase()}';
+}
+
+List<String> _contactRoleLabels(String type, bool supplierEnabled) {
+  final labels = <String>[];
+  if (type == 'CUSTOMER' || type == 'BOTH') labels.add('Customer');
+  if (type == 'VENDOR' || type == 'BOTH') labels.add('Vendor');
+  if (supplierEnabled) labels.add('Supplier');
+  return labels.isEmpty ? ['Customer'] : labels;
+}
+
+Color _contactRoleColor(String role) {
+  return switch (role) {
+    'Supplier' => KColors.info,
+    'Vendor' => KColors.info,
+    _ => KColors.success,
+  };
 }
 
 Color _contactTypeColor(String type) {

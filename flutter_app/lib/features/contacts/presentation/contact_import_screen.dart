@@ -162,6 +162,7 @@ class _ContactImportScreenState extends ConsumerState<ContactImportScreen> {
       final body = response.data as Map<String, dynamic>;
       final result = (body['data'] ?? body) as Map<String, dynamic>;
       ref.invalidate(contactListProvider(null));
+      ref.invalidate(contactSummaryProvider);
       setState(() => _result = result);
     } catch (e, st) {
       debugPrint('[ContactImport] upload FAILED: $e\n$st');

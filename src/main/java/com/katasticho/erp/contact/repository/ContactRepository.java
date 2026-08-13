@@ -20,6 +20,8 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
 
     Page<Contact> findByOrgIdAndIsDeletedFalse(UUID orgId, Pageable pageable);
 
+    long countByOrgIdAndIsDeletedFalse(UUID orgId);
+
     Page<Contact> findByOrgIdAndContactTypeAndIsDeletedFalse(
             UUID orgId, ContactType type, Pageable pageable);
 
@@ -33,9 +35,87 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
               AND (LOWER(c.displayName) LIKE LOWER(CONCAT('%', :q, '%'))
                 OR LOWER(c.companyName) LIKE LOWER(CONCAT('%', :q, '%'))
                 OR LOWER(c.email)       LIKE LOWER(CONCAT('%', :q, '%'))
-                OR c.phone              LIKE CONCAT('%', :q, '%'))
+                OR c.phone              LIKE CONCAT('%', :q, '%')
+                OR c.mobile             LIKE CONCAT('%', :q, '%')
+                OR LOWER(c.gstin)       LIKE LOWER(CONCAT('%', :q, '%'))
+                OR LOWER(c.taxId)       LIKE LOWER(CONCAT('%', :q, '%')))
             """)
     Page<Contact> search(@Param("orgId") UUID orgId, @Param("q") String query, Pageable pageable);
+
+    @Query("""
+            SELECT c FROM Contact c
+            WHERE c.orgId = :orgId
+              AND c.isDeleted = false
+              AND (:search IS NULL OR :search = ''
+                OR LOWER(c.displayName) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(c.companyName) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(c.email)       LIKE LOWER(CONCAT('%', :search, '%'))
+                OR c.phone              LIKE CONCAT('%', :search, '%')
+                OR c.mobile             LIKE CONCAT('%', :search, '%')
+                OR LOWER(c.gstin)       LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(c.taxId)       LIKE LOWER(CONCAT('%', :search, '%')))
+              AND (c.contactType = :type OR c.contactType = 'BOTH')
+            ORDER BY c.displayName ASC
+            """)
+    Page<Contact> findByRoleAndSearch(
+            @Param("orgId") UUID orgId,
+            @Param("type") ContactType type,
+            @Param("search") String search,
+            Pageable pageable);
+
+    @Query("""
+            SELECT c FROM Contact c
+            WHERE c.orgId = :orgId
+              AND c.isDeleted = false
+              AND (:search IS NULL OR :search = ''
+                OR LOWER(c.displayName) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(c.companyName) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(c.email)       LIKE LOWER(CONCAT('%', :search, '%'))
+                OR c.phone              LIKE CONCAT('%', :search, '%')
+                OR c.mobile             LIKE CONCAT('%', :search, '%')
+                OR LOWER(c.gstin)       LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(c.taxId)       LIKE LOWER(CONCAT('%', :search, '%')))
+              AND EXISTS (
+                  SELECT s.id FROM Supplier s
+                  WHERE s.orgId = :orgId
+                    AND s.contactId = c.id
+                    AND s.isDeleted = false
+                    AND s.active = true
+              )
+            ORDER BY c.displayName ASC
+            """)
+    Page<Contact> findSupplierContacts(
+            @Param("orgId") UUID orgId,
+            @Param("search") String search,
+            Pageable pageable);
+
+    @Query("""
+            SELECT COUNT(c) FROM Contact c
+            WHERE c.orgId = :orgId AND c.isDeleted = false
+              AND (c.contactType = 'CUSTOMER' OR c.contactType = 'BOTH')
+            """)
+    long countCustomers(@Param("orgId") UUID orgId);
+
+    @Query("""
+            SELECT COUNT(c) FROM Contact c
+            WHERE c.orgId = :orgId AND c.isDeleted = false
+              AND (c.contactType = 'VENDOR' OR c.contactType = 'BOTH')
+            """)
+    long countVendors(@Param("orgId") UUID orgId);
+
+    @Query("""
+            SELECT COUNT(c) FROM Contact c
+            WHERE c.orgId = :orgId
+              AND c.isDeleted = false
+              AND EXISTS (
+                  SELECT s.id FROM Supplier s
+                  WHERE s.orgId = :orgId
+                    AND s.contactId = c.id
+                    AND s.isDeleted = false
+                    AND s.active = true
+              )
+            """)
+    long countSupplierContacts(@Param("orgId") UUID orgId);
 
     @Query("""
             SELECT c FROM Contact c

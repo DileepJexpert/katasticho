@@ -4,7 +4,12 @@ import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
+import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.fieldsales.dto.BeatCustomerAssignmentRequest;
+import com.katasticho.erp.fieldsales.dto.BeatCustomerResponse;
+import com.katasticho.erp.fieldsales.dto.RouteSummaryResponse;
 import com.katasticho.erp.fieldsales.entity.*;
+import com.katasticho.erp.fieldsales.dto.RouteBeatResponse;
 import com.katasticho.erp.fieldsales.service.FieldAllowanceService;
 import com.katasticho.erp.fieldsales.service.FieldSalesService;
 import com.katasticho.erp.fieldsales.service.FieldSampleService;
@@ -13,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -48,7 +54,9 @@ public class FieldSalesController {
                 .state((String) body.get("state"))
                 .description((String) body.get("description"))
                 .build();
-        return ResponseEntity.ok(ApiResponse.ok(service.createBeat(beat), "Beat created"));
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.createBeat(beat, parseBeatCustomerAssignments(body.get("customers"))),
+                "Beat created"));
     }
 
     @PutMapping("/beats/{id}")
@@ -64,7 +72,10 @@ public class FieldSalesController {
                 .state((String) body.get("state"))
                 .description((String) body.get("description"))
                 .build();
-        return ResponseEntity.ok(ApiResponse.ok(service.updateBeat(id, beat), "Beat updated"));
+        List<BeatCustomerAssignmentRequest> assignments = body.containsKey("customers")
+                ? parseBeatCustomerAssignments(body.get("customers")) : null;
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.updateBeat(id, beat, assignments), "Beat updated"));
     }
 
     @GetMapping("/beats")
@@ -108,22 +119,58 @@ public class FieldSalesController {
     }
 
     @GetMapping("/beats/{id}/customers")
-    public ResponseEntity<ApiResponse<List<BeatCustomer>>> getBeatCustomers(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<List<BeatCustomerResponse>>> getBeatCustomers(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.getBeatCustomers(id)));
+    }
+
+    /** Parses assignment maps while preserving this controller's Map-based API. */
+    private List<BeatCustomerAssignmentRequest> parseBeatCustomerAssignments(Object value) {
+        if (value == null) {
+            return List.of();
+        }
+        if (!(value instanceof List<?> rawAssignments)) {
+            throw new BusinessException(
+                    "Beat customers must be a list",
+                    "FS_BEAT_ASSIGNMENTS_INVALID", HttpStatus.BAD_REQUEST);
+        }
+
+        List<BeatCustomerAssignmentRequest> assignments = new ArrayList<>();
+        for (Object rawAssignment : rawAssignments) {
+            if (!(rawAssignment instanceof Map<?, ?> assignment)) {
+                throw new BusinessException(
+                        "Each beat customer must include a contactId",
+                        "FS_BEAT_ASSIGNMENTS_INVALID", HttpStatus.BAD_REQUEST);
+            }
+            Object contactId = assignment.get("contactId");
+            if (contactId == null) {
+                throw new BusinessException(
+                        "Each beat customer must include a contactId",
+                        "FS_BEAT_ASSIGNMENTS_INVALID", HttpStatus.BAD_REQUEST);
+            }
+            Object sequence = assignment.get("visitSequence");
+            Object visitFrequency = assignment.get("visitFrequency");
+            try {
+                assignments.add(new BeatCustomerAssignmentRequest(
+                        UUID.fromString(contactId.toString()),
+                        sequence instanceof Number number ? number.intValue() : null,
+                        visitFrequency != null ? visitFrequency.toString() : null));
+            } catch (IllegalArgumentException exception) {
+                throw new BusinessException(
+                        "Each beat customer must use a valid contactId",
+                        "FS_BEAT_ASSIGNMENTS_INVALID", HttpStatus.BAD_REQUEST);
+            }
+        }
+        return assignments;
     }
 
     // ══════════════════════════════════════════════════════════════
     // Route endpoints
     // ══════════════════════════════════════════════════════════════
 
-    @SuppressWarnings("unchecked")
     @PostMapping("/routes")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<Route>> createRoute(@RequestBody Map<String, Object> body) {
-        List<String> beatIdStrings = (List<String>) body.get("beatIds");
-        List<UUID> beatIds = beatIdStrings != null
-                ? beatIdStrings.stream().map(UUID::fromString).toList()
-                : List.of();
+        List<UUID> beatIds = parseRouteBeatIds(body.get("beatIds"));
         Route route = Route.builder()
                 .code((String) body.get("code"))
                 .name((String) body.get("name"))
@@ -148,11 +195,14 @@ public class FieldSalesController {
                 .warehouseId(body.get("warehouseId") != null
                         ? UUID.fromString((String) body.get("warehouseId")) : null)
                 .build();
-        return ResponseEntity.ok(ApiResponse.ok(service.updateRoute(id, route), "Route updated"));
+        List<UUID> beatIds = body.containsKey("beatIds")
+                ? parseRouteBeatIds(body.get("beatIds"))
+                : null;
+        return ResponseEntity.ok(ApiResponse.ok(service.updateRoute(id, route, beatIds), "Route updated"));
     }
 
     @GetMapping("/routes")
-    public ResponseEntity<ApiResponse<Page<Route>>> listRoutes(Pageable pageable) {
+    public ResponseEntity<ApiResponse<Page<RouteSummaryResponse>>> listRoutes(Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok(service.listRoutes(pageable)));
     }
 
@@ -169,8 +219,28 @@ public class FieldSalesController {
     }
 
     @GetMapping("/routes/{id}/beats")
-    public ResponseEntity<ApiResponse<List<RouteBeat>>> getRouteBeats(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<List<RouteBeatResponse>>> getRouteBeats(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.getRouteBeats(id)));
+    }
+
+    private List<UUID> parseRouteBeatIds(Object value) {
+        if (value == null) {
+            return List.of();
+        }
+        if (!(value instanceof List<?> rawBeatIds)) {
+            throw new BusinessException("beatIds must be an array", "FS_ROUTE_INVALID_BEAT_IDS", HttpStatus.BAD_REQUEST);
+        }
+        if (rawBeatIds.stream().anyMatch(Objects::isNull)) {
+            throw new BusinessException("beatIds must contain valid IDs", "FS_ROUTE_INVALID_BEAT_IDS", HttpStatus.BAD_REQUEST);
+        }
+        try {
+            return rawBeatIds.stream()
+                    .map(Object::toString)
+                    .map(UUID::fromString)
+                    .toList();
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException("beatIds must contain valid IDs", "FS_ROUTE_INVALID_BEAT_IDS", HttpStatus.BAD_REQUEST);
+        }
     }
 
     // ══════════════════════════════════════════════════════════════

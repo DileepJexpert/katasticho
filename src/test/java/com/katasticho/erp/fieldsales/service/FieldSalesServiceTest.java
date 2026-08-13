@@ -4,7 +4,11 @@ import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.service.CustomerReceiptService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.entity.ContactType;
+import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.expense.repository.ExpenseRepository;
+import com.katasticho.erp.fieldsales.dto.BeatCustomerAssignmentRequest;
 import com.katasticho.erp.fieldsales.entity.*;
 import com.katasticho.erp.fieldsales.repository.*;
 import com.katasticho.erp.inventory.repository.StockBalanceRepository;
@@ -33,6 +37,7 @@ class FieldSalesServiceTest {
 
     @Mock private BeatRepository beatRepo;
     @Mock private BeatCustomerRepository beatCustomerRepo;
+    @Mock private ContactRepository contactRepo;
     @Mock private RouteRepository routeRepo;
     @Mock private RouteBeatRepository routeBeatRepo;
     @Mock private VanRepository vanRepo;
@@ -61,7 +66,7 @@ class FieldSalesServiceTest {
     @BeforeEach
     void setUp() {
         service = new FieldSalesService(
-                beatRepo, beatCustomerRepo, routeRepo, routeBeatRepo,
+                beatRepo, beatCustomerRepo, contactRepo, routeRepo, routeBeatRepo,
                 vanRepo, vanStockBalanceRepo, assignmentRepo,
                 vanStockTransferRepo, vanStockTransferLineRepo,
                 routeExecutionRepo, fieldVisitRepo, dayCloseRepo,
@@ -99,6 +104,65 @@ class FieldSalesServiceTest {
         Beat input = Beat.builder().code("B01").name("Dup").build();
         BusinessException ex = assertThrows(BusinessException.class, () -> service.createBeat(input));
         assertEquals("FS_BEAT_CODE_EXISTS", ex.getErrorCode());
+    }
+
+    @Test
+    void addCustomerToBeat_rejectsVendorContact() {
+        UUID beatId = UUID.randomUUID();
+        UUID vendorId = UUID.randomUUID();
+        Beat beat = Beat.builder().code("B01").name("Market Area").build();
+        beat.setId(beatId);
+        Contact vendor = Contact.builder()
+                .contactType(ContactType.VENDOR)
+                .displayName("Vendor only")
+                .active(true)
+                .build();
+        vendor.setId(vendorId);
+
+        when(beatRepo.findByIdAndOrgIdAndIsDeletedFalse(beatId, orgId))
+                .thenReturn(Optional.of(beat));
+        when(contactRepo.findByOrgIdAndIsDeletedFalseAndIdIn(orgId, Set.of(vendorId)))
+                .thenReturn(List.of(vendor));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.addCustomerToBeat(beatId, vendorId, 1, "WEEKLY"));
+
+        assertEquals("FS_BEAT_CONTACT_NOT_CUSTOMER", ex.getErrorCode());
+        verify(beatCustomerRepo, never()).save(any());
+    }
+
+    @Test
+    void createBeat_assignsActiveCustomerInSameTransaction() {
+        UUID beatId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        Beat input = Beat.builder().code("B01").name("Market Area").build();
+        Beat savedBeat = Beat.builder().code("B01").name("Market Area").build();
+        savedBeat.setId(beatId);
+        Contact customer = Contact.builder()
+                .contactType(ContactType.CUSTOMER)
+                .displayName("Retailer")
+                .active(true)
+                .build();
+        customer.setId(customerId);
+
+        when(beatRepo.existsByOrgIdAndCodeAndIsDeletedFalse(orgId, "B01")).thenReturn(false);
+        when(beatRepo.save(any())).thenReturn(savedBeat);
+        when(beatCustomerRepo.findByOrgIdAndBeatId(orgId, beatId)).thenReturn(List.of());
+        when(contactRepo.findByOrgIdAndIsDeletedFalseAndIdIn(orgId, Set.of(customerId)))
+                .thenReturn(List.of(customer));
+
+        service.createBeat(input, List.of(
+                new BeatCustomerAssignmentRequest(customerId, null, null)));
+
+        verify(beatCustomerRepo).saveAll(argThat(assignments -> {
+            List<BeatCustomer> values = new ArrayList<>();
+            assignments.forEach(values::add);
+            return values.size() == 1
+                    && values.getFirst().getContactId().equals(customerId)
+                    && values.getFirst().getVisitSequence() == 1
+                    && "WEEKLY".equals(values.getFirst().getVisitFrequency())
+                    && values.getFirst().isActive();
+        }));
     }
 
     // ── Visit ownership ──

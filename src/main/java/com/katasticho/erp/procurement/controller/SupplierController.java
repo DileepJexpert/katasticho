@@ -53,8 +53,9 @@ public class SupplierController {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
     public ResponseEntity<ApiResponse<PagedResponse<SupplierResponse>>> listSuppliers(
             @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "false") boolean selectableOnly,
             Pageable pageable) {
-        Page<SupplierResponse> page = supplierService.listSuppliers(search, pageable);
+        Page<SupplierResponse> page = supplierService.listSuppliers(search, pageable, selectableOnly);
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.from(page)));
     }
 

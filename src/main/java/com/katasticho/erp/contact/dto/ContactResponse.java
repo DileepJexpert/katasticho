@@ -71,5 +71,6 @@ public record ContactResponse(
         String mrClass,
         Integer visitsPerMonth,
 
-        List<ContactPersonResponse> persons
+        List<ContactPersonResponse> persons,
+        boolean supplierEnabled
 ) {}

@@ -57,14 +57,14 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
     );
     if (created != null && mounted) {
       // Bounce the new supplier straight back to the caller as the picked one.
-      ref.invalidate(supplierListProvider);
+      ref.invalidate(selectableSupplierListProvider);
       Navigator.pop(context, created);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final suppliersAsync = ref.watch(supplierListProvider(_query));
+    final suppliersAsync = ref.watch(selectableSupplierListProvider(_query));
 
     return Padding(
       padding: EdgeInsets.only(
@@ -153,8 +153,17 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final supplier = suppliers[index] as Map<String, dynamic>;
-                    final gstin = supplier['gstin'] as String? ?? '';
-                    final phone = supplier['phone'] as String? ?? '';
+                    final gstin = supplier['gstin']?.toString() ?? '';
+                    final phone = supplier['phone']?.toString() ?? '';
+                    final city = supplier['city']?.toString() ?? '';
+                    final state = supplier['state']?.toString() ?? '';
+                    final identity = <String>[
+                      if (gstin.isNotEmpty) 'GSTIN: $gstin',
+                      if (phone.isNotEmpty) 'Phone: $phone',
+                    ];
+                    final location = [city, state]
+                        .where((value) => value.isNotEmpty)
+                        .join(', ');
                     return ListTile(
                       dense: true,
                       visualDensity: VisualDensity.compact,
@@ -175,11 +184,18 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
                       ),
                       title: Text(supplier['name']?.toString() ?? '',
                           style: KTypography.labelMedium),
-                      subtitle: Text(
-                        gstin.isNotEmpty
-                            ? 'GSTIN: $gstin'
-                            : (phone.isNotEmpty ? phone : 'No details'),
-                        style: KTypography.bodySmall,
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            identity.isEmpty
+                                ? 'No GSTIN or phone on file'
+                                : identity.join('  •  '),
+                            style: KTypography.bodySmall,
+                          ),
+                          if (location.isNotEmpty)
+                            Text(location, style: KTypography.bodySmall),
+                        ],
                       ),
                       onTap: () => Navigator.pop(context, supplier),
                     );

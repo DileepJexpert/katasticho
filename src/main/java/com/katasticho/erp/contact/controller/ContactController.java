@@ -47,6 +47,11 @@ public class ContactController {
         return ApiResponse.ok(contactService.list(type, search, pageable));
     }
 
+    @GetMapping("/summary")
+    public ApiResponse<ContactSummaryResponse> summary() {
+        return ApiResponse.ok(contactService.summary());
+    }
+
     @GetMapping("/{id}")
     public ApiResponse<ContactResponse> get(@PathVariable UUID id) {
         return ApiResponse.ok(contactService.get(id));

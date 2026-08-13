@@ -11,6 +11,8 @@ import com.katasticho.erp.contact.entity.ContactType;
 import com.katasticho.erp.contact.entity.GstTreatment;
 import com.katasticho.erp.contact.repository.ContactPersonRepository;
 import com.katasticho.erp.contact.repository.ContactRepository;
+import com.katasticho.erp.procurement.repository.SupplierRepository;
+import com.katasticho.erp.procurement.service.SupplierService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -20,6 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,10 +34,13 @@ public class ContactService {
     private final ContactPersonRepository contactPersonRepository;
     private final AuditService auditService;
     private final CommentService commentService;
+    private final SupplierRepository supplierRepository;
+    private final SupplierService supplierService;
 
     @Transactional
     public ContactResponse create(CreateContactRequest req) {
         UUID orgId = TenantContext.getCurrentOrgId();
+        validateSupplierRoleRequest(req);
 
         if (req.gstin() != null && !req.gstin().isBlank()) {
             if (contactRepository.existsByOrgIdAndGstinAndIsDeletedFalse(orgId, req.gstin())) {
@@ -96,17 +103,29 @@ public class ContactService {
                 .build();
 
         contact = contactRepository.save(contact);
+        boolean supplierEnabled = Boolean.TRUE.equals(req.supplierEnabled()) && isVendor(contact);
+        if (supplierEnabled) {
+            supplierService.createFromContact(contact.getId());
+        }
         auditService.log("CONTACT", contact.getId(), "CREATE", null,
                 "{\"displayName\":\"" + contact.getDisplayName() + "\",\"type\":\"" + contact.getContactType() + "\"}");
         commentService.addSystemComment("CONTACT", contact.getId(), "Contact created");
         log.info("Contact {} created: {} ({})", contact.getId(), contact.getDisplayName(), contact.getContactType());
-        return toResponse(contact);
+        return toResponse(contact, supplierEnabled);
     }
 
     @Transactional
     public ContactResponse update(UUID id, CreateContactRequest req) {
         UUID orgId = TenantContext.getCurrentOrgId();
         Contact contact = load(id, orgId);
+        boolean existingSupplier = supplierRepository
+                .existsByOrgIdAndContactIdAndActiveTrueAndIsDeletedFalse(orgId, id);
+        validateSupplierRoleRequest(req);
+        if (req.contactType() == ContactType.CUSTOMER && existingSupplier) {
+            throw new BusinessException(
+                    "Disable the supplier role before changing this contact to Customer",
+                    "CONTACT_SUPPLIER_ROLE_ACTIVE", HttpStatus.BAD_REQUEST);
+        }
 
         if (req.gstin() != null && !req.gstin().isBlank()) {
             if (contactRepository.existsByOrgIdAndGstinAndIdNotAndIsDeletedFalse(orgId, req.gstin(), id)) {
@@ -167,9 +186,14 @@ public class ContactService {
         contact.setVisitsPerMonth(req.visitsPerMonth());
 
         contact = contactRepository.save(contact);
+        boolean supplierEnabled = existingSupplier;
+        if (Boolean.TRUE.equals(req.supplierEnabled()) && isVendor(contact)) {
+            supplierService.createFromContact(contact.getId());
+            supplierEnabled = true;
+        }
         auditService.log("CONTACT", contact.getId(), "UPDATE", null, null);
         commentService.addSystemComment("CONTACT", contact.getId(), "Contact details updated");
-        return toResponse(contact);
+        return toResponse(contact, supplierEnabled);
     }
 
     @Transactional
@@ -185,25 +209,56 @@ public class ContactService {
 
     @Transactional(readOnly = true)
     public ContactResponse get(UUID id) {
-        return toResponse(load(id, TenantContext.getCurrentOrgId()));
+        UUID orgId = TenantContext.getCurrentOrgId();
+        Contact contact = load(id, orgId);
+        boolean supplierEnabled = supplierRepository
+                .existsByOrgIdAndContactIdAndActiveTrueAndIsDeletedFalse(orgId, id);
+        return toResponse(contact, supplierEnabled);
     }
 
     @Transactional(readOnly = true)
     public Page<ContactResponse> list(String type, String search, Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
         Page<Contact> page;
+        String normalizedSearch = search == null || search.isBlank() ? null : search.trim();
 
-        if (search != null && !search.isBlank()) {
-            page = contactRepository.search(orgId, search.trim(), pageable);
-        } else if ("CUSTOMER".equalsIgnoreCase(type)) {
-            page = contactRepository.findCustomers(orgId, pageable);
+        if ("CUSTOMER".equalsIgnoreCase(type)) {
+            page = contactRepository.findByRoleAndSearch(
+                    orgId, ContactType.CUSTOMER, normalizedSearch, pageable);
         } else if ("VENDOR".equalsIgnoreCase(type)) {
-            page = contactRepository.findVendors(orgId, pageable);
+            page = contactRepository.findByRoleAndSearch(
+                    orgId, ContactType.VENDOR, normalizedSearch, pageable);
+        } else if ("SUPPLIER".equalsIgnoreCase(type)) {
+            page = contactRepository.findSupplierContacts(orgId, normalizedSearch, pageable);
+        } else if (normalizedSearch != null) {
+            page = contactRepository.search(orgId, normalizedSearch, pageable);
         } else {
             page = contactRepository.findByOrgIdAndIsDeletedFalse(orgId, pageable);
         }
 
-        return page.map(this::toResponse);
+        Set<UUID> contactIds = page.getContent().stream()
+                .map(Contact::getId)
+                .collect(Collectors.toSet());
+        Set<UUID> supplierContactIds = contactIds.isEmpty()
+                ? Set.of()
+                : supplierRepository
+                        .findByOrgIdAndContactIdInAndActiveTrueAndIsDeletedFalse(orgId, contactIds)
+                        .stream()
+                        .map(supplier -> supplier.getContactId())
+                        .collect(Collectors.toSet());
+        return page.map(contact -> toResponse(
+                contact, supplierContactIds.contains(contact.getId())));
+    }
+
+    @Transactional(readOnly = true)
+    public ContactSummaryResponse summary() {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        return new ContactSummaryResponse(
+                contactRepository.countByOrgIdAndIsDeletedFalse(orgId),
+                contactRepository.countCustomers(orgId),
+                contactRepository.countVendors(orgId),
+                contactRepository.countSupplierContacts(orgId)
+        );
     }
 
     @Transactional
@@ -259,7 +314,20 @@ public class ContactService {
         return GstTreatment.UNREGISTERED;
     }
 
+    private void validateSupplierRoleRequest(CreateContactRequest req) {
+        if (Boolean.TRUE.equals(req.supplierEnabled())
+                && req.contactType() == ContactType.CUSTOMER) {
+            throw new BusinessException(
+                    "Only Vendor or Both contacts can be enabled as suppliers",
+                    "SUPPLIER_CONTACT_NOT_VENDOR", HttpStatus.BAD_REQUEST);
+        }
+    }
+
     public ContactResponse toResponse(Contact c) {
+        return toResponse(c, false);
+    }
+
+    private ContactResponse toResponse(Contact c, boolean supplierEnabled) {
         return new ContactResponse(
                 c.getId(), c.getContactType(),
                 c.getDisplayName(), c.getCompanyName(),
@@ -284,8 +352,14 @@ public class ContactService {
                 c.getPersons().stream()
                         .filter(p -> !p.isDeleted())
                         .map(this::toPersonResponse)
-                        .toList()
+                        .toList(),
+                supplierEnabled
         );
+    }
+
+    private boolean isVendor(Contact contact) {
+        return contact.getContactType() == ContactType.VENDOR
+                || contact.getContactType() == ContactType.BOTH;
     }
 
     private ContactPersonResponse toPersonResponse(ContactPerson p) {

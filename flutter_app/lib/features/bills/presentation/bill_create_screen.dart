@@ -12,6 +12,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../contacts/data/contact_repository.dart';
+import '../../contacts/presentation/contact_picker_sheet.dart';
 import '../../inventory/data/item_repository.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
@@ -35,9 +36,9 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
   // Vendor step
   String? _selectedContactId;
   String _vendorName = '';
-  List<Map<String, dynamic>> _contacts = [];
-  List<Map<String, dynamic>> _filteredContacts = [];
-  bool _loadingContacts = true;
+  String? _vendorGstin;
+  String? _vendorPhone;
+  String? _vendorCompany;
 
   // Bill metadata
   String _vendorBillNumber = '';
@@ -50,39 +51,81 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
   // Line items
   final List<_BillLineItem> _lineItems = [_BillLineItem()];
 
-  @override
-  void initState() {
-    super.initState();
-    _loadContacts();
+  Future<void> _openVendorPicker() async {
+    final picked = await showContactPicker(
+      context,
+      contactType: 'VENDOR',
+      title: 'Select Vendor',
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      _selectedContactId = picked['id']?.toString();
+      _vendorName = _contactDisplayName(picked);
+      _vendorGstin = picked['gstin']?.toString();
+      _vendorPhone = (picked['phone'] ?? picked['mobile'])?.toString();
+      _vendorCompany = picked['companyName']?.toString();
+      _errorMessage = null;
+    });
   }
 
-  Future<void> _loadContacts() async {
+  Future<Map<String, dynamic>?> _findVendorByGstin(String gstin) async {
     try {
-      final repo = ref.read(contactRepositoryProvider);
-      // Load vendors (type=VENDOR) and dual-type contacts (type=BOTH)
-      final result = await repo.listContacts(size: 200);
+      final result = await ref.read(contactRepositoryProvider).listContacts(
+            type: 'VENDOR',
+            search: gstin,
+            size: 20,
+          );
       final content = result['data'];
-      final list = content is List
-          ? content.cast<Map<String, dynamic>>()
-          : (content is Map
-              ? ((content['content'] as List?)?.cast<Map<String, dynamic>>() ??
-                  [])
-              : <Map<String, dynamic>>[]);
-      // Filter to vendor-type contacts
-      final vendors = list.where((c) {
-        final type = (c['contactType'] as String? ?? '').toUpperCase();
-        return type == 'VENDOR' || type == 'BOTH';
-      }).toList();
-      if (mounted) {
-        setState(() {
-          _contacts = vendors;
-          _filteredContacts = vendors;
-          _loadingContacts = false;
-        });
+      final raw = content is List
+          ? content
+          : content is Map
+              ? (content['content'] as List?) ?? const []
+              : const [];
+      for (final value in raw) {
+        if (value is! Map) continue;
+        final contact = Map<String, dynamic>.from(value);
+        final type = contact['contactType']?.toString().toUpperCase();
+        final candidate = contact['gstin']?.toString().toUpperCase();
+        if ((type == 'VENDOR' || type == 'BOTH') &&
+            candidate == gstin.toUpperCase()) {
+          return contact;
+        }
       }
-    } catch (e) {
-      if (mounted) setState(() => _loadingContacts = false);
+    } catch (_) {
+      // Scanning can still populate the bill even when vendor lookup fails.
     }
+    return null;
+  }
+
+  String _contactDisplayName(Map<String, dynamic> contact) {
+    for (final key in const [
+      'displayName',
+      'companyName',
+      'name',
+      'fullName',
+      'contactName',
+    ]) {
+      final value = contact[key]?.toString().trim();
+      if (value != null && value.isNotEmpty) return value;
+    }
+    final first = contact['firstName']?.toString().trim() ?? '';
+    final last = contact['lastName']?.toString().trim() ?? '';
+    final full = [first, last].where((s) => s.isNotEmpty).join(' ');
+    return full.isEmpty ? 'Vendor' : full;
+  }
+
+  String _vendorSubtitle() {
+    final parts = <String>[
+      if (_vendorCompany != null &&
+          _vendorCompany!.isNotEmpty &&
+          _vendorCompany != _vendorName)
+        _vendorCompany!,
+      if (_vendorGstin != null && _vendorGstin!.isNotEmpty)
+        'GSTIN: $_vendorGstin',
+      if (_vendorPhone != null && _vendorPhone!.isNotEmpty) _vendorPhone!,
+    ];
+    return parts.isEmpty ? 'Vendor contact selected' : parts.join(' | ');
   }
 
   Future<void> _scanBill() async {
@@ -121,22 +164,21 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
         _dueDate = result['dueDate'] as DateTime;
       }
 
-      final gstin = result['vendorGstin'] as String? ?? '';
-      if (gstin.isNotEmpty) {
-        final match = _contacts.cast<Map<String, dynamic>?>().firstWhere(
-              (c) =>
-                  (c?['gstin'] as String? ?? '').toUpperCase() ==
-                  gstin.toUpperCase(),
-              orElse: () => null,
-            );
-        if (match != null) {
-          _selectedContactId = match['id']?.toString();
-          _vendorName = match['displayName'] as String? ??
-              match['companyName'] as String? ??
-              '';
-        }
-      }
     });
+
+    final gstin = result['vendorGstin'] as String? ?? '';
+    if (gstin.isNotEmpty) {
+      final match = await _findVendorByGstin(gstin);
+      if (match != null && mounted) {
+        setState(() {
+          _selectedContactId = match['id']?.toString();
+          _vendorName = _contactDisplayName(match);
+          _vendorGstin = match['gstin']?.toString();
+          _vendorPhone = (match['phone'] ?? match['mobile'])?.toString();
+          _vendorCompany = match['companyName']?.toString();
+        });
+      }
+    }
 
     final scannedLines = (result['lineItems'] as List?) ?? [];
     if (scannedLines.isEmpty) {
@@ -363,28 +405,6 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
     final inter = sa.intersection(sb).length;
     final union = sa.union(sb).length;
     return inter / union;
-  }
-
-  void _filterContacts(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        _filteredContacts = _contacts;
-      } else {
-        final lower = query.toLowerCase();
-        _filteredContacts = _contacts
-            .where((c) =>
-                (c['displayName'] as String? ?? '')
-                    .toLowerCase()
-                    .contains(lower) ||
-                (c['companyName'] as String? ?? '')
-                    .toLowerCase()
-                    .contains(lower) ||
-                (c['phone'] as String? ?? '').contains(lower) ||
-                (c['mobile'] as String? ?? '').contains(lower) ||
-                (c['gstin'] as String? ?? '').toLowerCase().contains(lower))
-            .toList();
-      }
-    });
   }
 
   double get _subtotal =>
@@ -659,60 +679,16 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
         Text('Select Vendor', style: KTypography.h2),
         KSpacing.vGapMd,
 
-        KTextField(
-          label: 'Search vendors',
-          hint: 'Type vendor name, company or GSTIN...',
-          prefixIcon: Icons.search,
-          onChanged: _filterContacts,
+        _VendorSelectTile(
+          name: _selectedContactId == null
+              ? 'Tap to pick a vendor'
+              : _vendorName,
+          subtitle: _selectedContactId == null
+              ? 'Search by name, company, GSTIN or phone'
+              : _vendorSubtitle(),
+          isSelected: _selectedContactId != null,
+          onTap: _openVendorPicker,
         ),
-        KSpacing.vGapMd,
-
-        Text(
-          'Your Vendors',
-          style: KTypography.labelLarge.copyWith(color: KColors.textSecondary),
-        ),
-        KSpacing.vGapSm,
-
-        if (_loadingContacts)
-          const Center(
-              child: Padding(
-            padding: EdgeInsets.all(24),
-            child: CircularProgressIndicator(),
-          ))
-        else if (_filteredContacts.isEmpty)
-          _VendorSelectTile(
-            name: _contacts.isEmpty ? 'No vendors yet' : 'No matching vendors',
-            subtitle: _contacts.isEmpty
-                ? 'Add vendor contacts first'
-                : 'Try a different search term',
-            isSelected: false,
-            onTap: () {},
-          )
-        else
-          ..._filteredContacts.map((contact) {
-            final id = contact['id']?.toString() ?? '';
-            final name = contact['displayName'] as String? ??
-                contact['companyName'] as String? ??
-                'Unknown';
-            final gstin = contact['gstin'] as String? ?? '';
-            final companyName = contact['companyName'] as String? ?? '';
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _VendorSelectTile(
-                name: name,
-                subtitle: gstin.isNotEmpty
-                    ? 'GSTIN: $gstin'
-                    : (companyName.isNotEmpty ? companyName : 'Vendor'),
-                isSelected: _selectedContactId == id,
-                onTap: () {
-                  setState(() {
-                    _selectedContactId = id;
-                    _vendorName = name;
-                  });
-                },
-              ),
-            );
-          }),
 
         KSpacing.vGapLg,
         const Divider(),

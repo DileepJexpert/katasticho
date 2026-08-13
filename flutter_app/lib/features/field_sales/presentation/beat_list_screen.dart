@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/field_sales_repository.dart';
+import 'beat_customer_picker_sheet.dart';
 
 class BeatListScreen extends ConsumerStatefulWidget {
   const BeatListScreen({super.key});
@@ -14,11 +17,13 @@ class BeatListScreen extends ConsumerStatefulWidget {
 }
 
 class _BeatListScreenState extends ConsumerState<BeatListScreen> {
+  final _searchController = TextEditingController();
+
   bool _isLoading = true;
   List<Map<String, dynamic>> _beats = [];
   String _searchQuery = '';
-  final _searchController = TextEditingController();
   String? _expandedBeatId;
+  int _customerAssignmentsRevision = 0;
 
   @override
   void initState() {
@@ -37,10 +42,10 @@ class _BeatListScreenState extends ConsumerState<BeatListScreen> {
     try {
       final beats = await ref.read(fieldSalesRepositoryProvider).listBeats();
       if (mounted) setState(() => _beats = beats);
-    } catch (e) {
+    } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load beats: $e')),
+          SnackBar(content: Text('Failed to load beats: $error')),
         );
       }
     } finally {
@@ -50,7 +55,7 @@ class _BeatListScreenState extends ConsumerState<BeatListScreen> {
 
   List<Map<String, dynamic>> get _filteredBeats {
     if (_searchQuery.isEmpty) return _beats;
-    final q = _searchQuery.toLowerCase();
+    final query = _searchQuery.toLowerCase();
     return _beats.where((beat) {
       final haystack = [
         beat['name'],
@@ -58,181 +63,111 @@ class _BeatListScreenState extends ConsumerState<BeatListScreen> {
         beat['area'],
         beat['city'],
       ].whereType<Object>().join(' ').toLowerCase();
-      return haystack.contains(q);
+      return haystack.contains(query);
     }).toList();
   }
 
-  Future<void> _showCreateBeatDialog() async {
-    final codeCtl = TextEditingController();
-    final nameCtl = TextEditingController();
-    final areaCtl = TextEditingController();
-    final cityCtl = TextEditingController();
-    final stateCtl = TextEditingController();
-    final descCtl = TextEditingController();
+  bool get _canManageBeats {
+    final role = ref.read(authProvider).role?.toUpperCase();
+    return role == 'OWNER' || role == 'ADMIN';
+  }
 
-    final result = await showDialog<bool>(
+  Future<void> _openBeatEditor([Map<String, dynamic>? beat]) async {
+    if (!_canManageBeats) return;
+
+    List<Map<String, dynamic>> selectedCustomers = [];
+    final beatId = beat?['id']?.toString();
+    if (beatId != null && beatId.isNotEmpty) {
+      try {
+        selectedCustomers = await ref
+            .read(fieldSalesRepositoryProvider)
+            .getBeatCustomers(beatId);
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not load assigned customers: $error')),
+          );
+        }
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    final payload = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Create Beat'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: codeCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Code *',
-                  hintText: 'e.g. BEAT-001',
-                ),
-              ),
-              KSpacing.vGapSm,
-              TextField(
-                controller: nameCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Name *',
-                  hintText: 'e.g. MG Road Beat',
-                ),
-              ),
-              KSpacing.vGapSm,
-              TextField(
-                controller: areaCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Area',
-                  hintText: 'e.g. MG Road',
-                ),
-              ),
-              KSpacing.vGapSm,
-              TextField(
-                controller: cityCtl,
-                decoration: const InputDecoration(
-                  labelText: 'City',
-                  hintText: 'e.g. Bengaluru',
-                ),
-              ),
-              KSpacing.vGapSm,
-              TextField(
-                controller: stateCtl,
-                decoration: const InputDecoration(
-                  labelText: 'State',
-                  hintText: 'e.g. Karnataka',
-                ),
-              ),
-              KSpacing.vGapSm,
-              TextField(
-                controller: descCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                ),
-                maxLines: 2,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (codeCtl.text.trim().isEmpty || nameCtl.text.trim().isEmpty) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(content: Text('Code and Name are required')),
-                );
-                return;
-              }
-              Navigator.pop(ctx, true);
-            },
-            child: const Text('Create'),
-          ),
-        ],
+      builder: (_) => _BeatEditorDialog(
+        beat: beat,
+        selectedCustomers: selectedCustomers,
       ),
     );
+    if (payload == null || !mounted) return;
 
-    if (result != true || !mounted) return;
-
-    setState(() => _isLoading = true);
     try {
-      await ref.read(fieldSalesRepositoryProvider).createBeat({
-        'code': codeCtl.text.trim(),
-        'name': nameCtl.text.trim(),
-        if (areaCtl.text.trim().isNotEmpty) 'area': areaCtl.text.trim(),
-        if (cityCtl.text.trim().isNotEmpty) 'city': cityCtl.text.trim(),
-        if (stateCtl.text.trim().isNotEmpty) 'state': stateCtl.text.trim(),
-        if (descCtl.text.trim().isNotEmpty)
-          'description': descCtl.text.trim(),
-      });
+      if (beatId == null || beatId.isEmpty) {
+        await ref.read(fieldSalesRepositoryProvider).createBeat(payload);
+      } else {
+        await ref.read(fieldSalesRepositoryProvider).updateBeat(beatId, payload);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(beatId == null ? 'Beat created' : 'Beat updated'),
+          backgroundColor: KColors.success,
+        ),
+      );
+      await _loadBeats();
+      if (mounted) {
+        // Expanded cards cache their stop list; force it to reload after the
+        // assignment plan has been replaced by this save.
+        setState(() => _customerAssignmentsRevision++);
+      }
+    } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Beat created successfully'),
-            backgroundColor: KColors.success,
+          SnackBar(
+            content: Text('Could not save beat: $error'),
+            backgroundColor: KColors.error,
           ),
         );
-      }
-      await _loadBeats();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create beat: $e')),
-        );
-        setState(() => _isLoading = false);
       }
     }
   }
 
-  Future<void> _toggleExpand(String beatId) async {
-    if (_expandedBeatId == beatId) {
-      setState(() => _expandedBeatId = null);
-      return;
-    }
-    setState(() => _expandedBeatId = beatId);
+  void _toggleExpand(String beatId) {
+    setState(() => _expandedBeatId = _expandedBeatId == beatId ? null : beatId);
   }
 
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredBeats;
+    final canManage = ref.watch(authProvider.select((state) {
+      final role = state.role?.toUpperCase();
+      return role == 'OWNER' || role == 'ADMIN';
+    }));
 
     return KKeyboardListWrapper(
       itemCount: () => filtered.length,
-      onNew: _showCreateBeatDialog,
-      onRefresh: () => _loadBeats(),
+      onNew: canManage ? () => _openBeatEditor() : null,
+      onRefresh: _loadBeats,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Beats'),
-        ),
+        appBar: AppBar(title: const Text('Beats')),
         body: Column(
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(
-                  KSpacing.md, KSpacing.sm, KSpacing.md, KSpacing.sm),
-              child: TextField(
+                KSpacing.md,
+                KSpacing.sm,
+                KSpacing.md,
+                KSpacing.sm,
+              ),
+              child: KTextField.search(
                 controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search beats by name, area...',
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _searchQuery = '');
-                          },
-                        )
-                      : null,
-                  isDense: true,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  border: OutlineInputBorder(
-                    borderRadius: KSpacing.borderRadiusMd,
-                    borderSide: const BorderSide(color: KColors.divider),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: KSpacing.borderRadiusMd,
-                    borderSide: const BorderSide(color: KColors.divider),
-                  ),
-                ),
-                onChanged: (val) => setState(() => _searchQuery = val),
+                hint: 'Search beats by name, area or city',
+                onChanged: (value) => setState(() => _searchQuery = value),
+                onClear: () {
+                  _searchController.clear();
+                  setState(() => _searchQuery = '');
+                },
               ),
             ),
             Expanded(
@@ -245,7 +180,7 @@ class _BeatListScreenState extends ConsumerState<BeatListScreen> {
                               ? 'No beats yet'
                               : 'No matching beats',
                           subtitle: _beats.isEmpty
-                              ? 'Create beats to define sales territories for your field team.'
+                              ? 'Create a beat, then assign the customer stops for the field team.'
                               : 'Try a different search term.',
                         )
                       : RefreshIndicator(
@@ -257,11 +192,14 @@ class _BeatListScreenState extends ConsumerState<BeatListScreen> {
                             itemBuilder: (context, index) {
                               final beat = filtered[index];
                               final beatId = beat['id']?.toString() ?? '';
-                              final isExpanded = _expandedBeatId == beatId;
                               return _BeatCard(
                                 beat: beat,
-                                isExpanded: isExpanded,
+                                isExpanded: _expandedBeatId == beatId,
+                                canManage: canManage,
+                                customerAssignmentsRevision:
+                                    _customerAssignmentsRevision,
                                 onTap: () => _toggleExpand(beatId),
+                                onEdit: () => _openBeatEditor(beat),
                                 repo: ref.read(fieldSalesRepositoryProvider),
                               );
                             },
@@ -270,29 +208,37 @@ class _BeatListScreenState extends ConsumerState<BeatListScreen> {
             ),
           ],
         ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: _showCreateBeatDialog,
-          icon: const Icon(Icons.add),
-          label: const Text('New Beat'),
-          tooltip: 'New Beat (N)',
-        ),
+        floatingActionButton: canManage
+            ? FloatingActionButton.extended(
+                onPressed: () => _openBeatEditor(),
+                icon: const Icon(Icons.add),
+                label: const Text('New Beat'),
+                tooltip: 'New Beat (N)',
+              )
+            : null,
       ),
     );
   }
 }
 
 class _BeatCard extends StatefulWidget {
-  final Map<String, dynamic> beat;
-  final bool isExpanded;
-  final VoidCallback onTap;
-  final FieldSalesRepository repo;
-
   const _BeatCard({
     required this.beat,
     required this.isExpanded,
+    required this.canManage,
+    required this.customerAssignmentsRevision,
     required this.onTap,
+    required this.onEdit,
     required this.repo,
   });
+
+  final Map<String, dynamic> beat;
+  final bool isExpanded;
+  final bool canManage;
+  final int customerAssignmentsRevision;
+  final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final FieldSalesRepository repo;
 
   @override
   State<_BeatCard> createState() => _BeatCardState();
@@ -300,11 +246,19 @@ class _BeatCard extends StatefulWidget {
 
 class _BeatCardState extends State<_BeatCard> {
   List<Map<String, dynamic>>? _customers;
-  bool _loadingCustomers = false;
+  bool _isLoadingCustomers = false;
 
   @override
   void didUpdateWidget(covariant _BeatCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.customerAssignmentsRevision !=
+        widget.customerAssignmentsRevision) {
+      _customers = null;
+      if (widget.isExpanded) {
+        _fetchCustomers();
+      }
+      return;
+    }
     if (widget.isExpanded && !oldWidget.isExpanded && _customers == null) {
       _fetchCustomers();
     }
@@ -312,16 +266,21 @@ class _BeatCardState extends State<_BeatCard> {
 
   Future<void> _fetchCustomers() async {
     final beatId = widget.beat['id']?.toString();
-    if (beatId == null) return;
-    setState(() => _loadingCustomers = true);
+    if (beatId == null || beatId.isEmpty) return;
+    setState(() => _isLoadingCustomers = true);
     try {
       final customers = await widget.repo.getBeatCustomers(beatId);
       if (mounted) setState(() => _customers = customers);
-    } catch (_) {
-      // Silently fail - customers section just won't show
     } finally {
-      if (mounted) setState(() => _loadingCustomers = false);
+      if (mounted) setState(() => _isLoadingCustomers = false);
     }
+  }
+
+  String _customerName(Map<String, dynamic> customer) {
+    return customer['contactName']?.toString() ??
+        customer['displayName']?.toString() ??
+        customer['companyName']?.toString() ??
+        'Unnamed customer';
   }
 
   @override
@@ -331,115 +290,317 @@ class _BeatCardState extends State<_BeatCard> {
     final area = widget.beat['area']?.toString();
     final city = widget.beat['city']?.toString();
     final active = widget.beat['active'] != false;
-    final location = [area, city].whereType<String>().join(', ');
+    final location = [area, city]
+        .where((part) => part != null && part.isNotEmpty)
+        .join(', ');
 
     return KCard(
       onTap: widget.onTap,
+      leading: const Icon(Icons.map_outlined, color: KColors.primary),
+      title: name,
+      subtitle: location.isEmpty ? code : '$code | $location',
+      action: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          KStatusChip(
+            status: active ? 'ACTIVE' : 'INACTIVE',
+            label: active ? 'Active' : 'Inactive',
+          ),
+          if (widget.canManage) ...[
+            KSpacing.hGapSm,
+            KButton(
+              label: 'Edit',
+              size: KButtonSize.small,
+              variant: KButtonVariant.outlined,
+              icon: Icons.edit_outlined,
+              onPressed: widget.onEdit,
+            ),
+          ],
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: KColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.map_outlined,
-                    color: KColors.primary, size: 20),
-              ),
-              KSpacing.hGapMd,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(name,
-                              style: KTypography.labelLarge,
-                              overflow: TextOverflow.ellipsis),
-                        ),
-                        KSpacing.hGapSm,
-                        KStatusChip(
-                          status: active ? 'ACTIVE' : 'INACTIVE',
-                          label: active ? 'Active' : 'Inactive',
-                        ),
-                      ],
-                    ),
-                    KSpacing.vGapXs,
-                    Row(
-                      children: [
-                        Text(code,
-                            style: KTypography.bodySmall
-                                .copyWith(color: KColors.textSecondary)),
-                        if (location.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Icon(Icons.location_on_outlined,
-                              size: 12, color: KColors.textSecondary),
-                          const SizedBox(width: 2),
-                          Expanded(
-                            child: Text(location,
-                                style: KTypography.bodySmall
-                                    .copyWith(color: KColors.textSecondary),
-                                overflow: TextOverflow.ellipsis),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                widget.isExpanded
-                    ? Icons.expand_less
-                    : Icons.chevron_right,
-                color: KColors.textHint,
-              ),
-            ],
-          ),
-          if (widget.isExpanded) ...[
-            KSpacing.vGapMd,
+          if (!widget.isExpanded)
+            Text('Tap to view assigned customer stops',
+                style: KTypography.bodySmall.copyWith(
+                  color: KColors.textSecondary,
+                ))
+          else ...[
             const Divider(height: 1),
             KSpacing.vGapSm,
-            Text('Customers', style: KTypography.labelMedium),
+            Text('Customer stops', style: KTypography.labelMedium),
             KSpacing.vGapXs,
-            if (_loadingCustomers)
+            if (_isLoadingCustomers)
               const Padding(
-                padding: EdgeInsets.all(8.0),
+                padding: EdgeInsets.all(KSpacing.sm),
                 child: Center(
-                    child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2))),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
               )
             else if (_customers == null || _customers!.isEmpty)
               Text('No customers assigned to this beat.',
-                  style: KTypography.bodySmall
-                      .copyWith(color: KColors.textSecondary))
-            else
-              ...(_customers!.map((c) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.person_outline,
-                            size: 14, color: KColors.textSecondary),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            c['contactName']?.toString() ??
-                                c['name']?.toString() ??
-                                'Customer ${c['contactId'] ?? c['id'] ?? ''}',
-                            style: KTypography.bodySmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ))),
+                  style: KTypography.bodySmall.copyWith(
+                    color: KColors.textSecondary,
+                  ))
+            else ...[
+              for (final customer in _customers!.take(5))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: KSpacing.xs),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person_outline,
+                          size: 16, color: KColors.textSecondary),
+                      KSpacing.hGapXs,
+                      Expanded(
+                        child: Text(_customerName(customer),
+                            style: KTypography.bodySmall),
+                      ),
+                    ],
+                  ),
+                ),
+              if (_customers!.length > 5)
+                Text('+ ${_customers!.length - 5} more customers',
+                    style: KTypography.bodySmall.copyWith(
+                      color: KColors.textSecondary,
+                    )),
+            ],
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _BeatEditorDialog extends StatefulWidget {
+  const _BeatEditorDialog({
+    this.beat,
+    required this.selectedCustomers,
+  });
+
+  final Map<String, dynamic>? beat;
+  final List<Map<String, dynamic>> selectedCustomers;
+
+  @override
+  State<_BeatEditorDialog> createState() => _BeatEditorDialogState();
+}
+
+class _BeatEditorDialogState extends State<_BeatEditorDialog> {
+  late final TextEditingController _codeController;
+  late final TextEditingController _nameController;
+  late final TextEditingController _areaController;
+  late final TextEditingController _cityController;
+  late final TextEditingController _stateController;
+  late final TextEditingController _descriptionController;
+  late List<Map<String, dynamic>> _selectedCustomers;
+
+  @override
+  void initState() {
+    super.initState();
+    final beat = widget.beat;
+    _codeController = TextEditingController(text: beat?['code']?.toString());
+    _nameController = TextEditingController(text: beat?['name']?.toString());
+    _areaController = TextEditingController(text: beat?['area']?.toString());
+    _cityController = TextEditingController(text: beat?['city']?.toString());
+    _stateController = TextEditingController(text: beat?['state']?.toString());
+    _descriptionController =
+        TextEditingController(text: beat?['description']?.toString());
+    _selectedCustomers = List.of(widget.selectedCustomers);
+  }
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    _nameController.dispose();
+    _areaController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectCustomers() async {
+    final customers = await showBeatCustomerPickerSheet(
+      context,
+      selectedCustomers: _selectedCustomers,
+    );
+    if (customers != null && mounted) {
+      setState(() => _selectedCustomers = customers);
+    }
+  }
+
+  String _customerName(Map<String, dynamic> customer) {
+    return customer['displayName']?.toString() ??
+        customer['contactName']?.toString() ??
+        customer['companyName']?.toString() ??
+        'Unnamed customer';
+  }
+
+  void _save() {
+    final code = _codeController.text.trim();
+    final name = _nameController.text.trim();
+    if (code.isEmpty || name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Code and name are required.')),
+      );
+      return;
+    }
+
+    Navigator.pop(context, {
+      'code': code,
+      'name': name,
+      if (_areaController.text.trim().isNotEmpty)
+        'area': _areaController.text.trim(),
+      if (_cityController.text.trim().isNotEmpty)
+        'city': _cityController.text.trim(),
+      if (_stateController.text.trim().isNotEmpty)
+        'state': _stateController.text.trim(),
+      if (_descriptionController.text.trim().isNotEmpty)
+        'description': _descriptionController.text.trim(),
+      'customers': [
+        for (var index = 0; index < _selectedCustomers.length; index++)
+          {
+            // Existing beat assignments have their own id. The API expects
+            // the contact id, which is preserved separately on those rows.
+            'contactId': _selectedCustomers[index]['contactId']?.toString() ??
+                _selectedCustomers[index]['id']?.toString(),
+            'visitSequence': index + 1,
+            'visitFrequency': 'WEEKLY',
+          },
+      ],
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final editing = widget.beat != null;
+    final selectedNames = _selectedCustomers
+        .take(3)
+        .map(_customerName)
+        .join(', ');
+
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 680, maxHeight: 760),
+        child: Padding(
+          padding: KSpacing.pagePaddingLg,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(editing ? 'Edit Beat' : 'New Beat',
+                  style: KTypography.titleLarge),
+              KSpacing.vGapMd,
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      KTextField(
+                        label: 'Beat code',
+                        hint: 'e.g. GONDA-MAIN-01',
+                        controller: _codeController,
+                        isRequired: true,
+                        readOnly: editing,
+                      ),
+                      KSpacing.vGapSm,
+                      KTextField(
+                        label: 'Beat name',
+                        hint: 'e.g. Gonda Main Market',
+                        controller: _nameController,
+                        isRequired: true,
+                      ),
+                      KSpacing.vGapSm,
+                      KTextField(
+                        label: 'Area',
+                        hint: 'e.g. Main Market',
+                        controller: _areaController,
+                      ),
+                      KSpacing.vGapSm,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: KTextField(
+                              label: 'City',
+                              hint: 'e.g. Gonda',
+                              controller: _cityController,
+                            ),
+                          ),
+                          KSpacing.hGapSm,
+                          Expanded(
+                            child: KTextField(
+                              label: 'State',
+                              hint: 'e.g. Uttar Pradesh',
+                              controller: _stateController,
+                            ),
+                          ),
+                        ],
+                      ),
+                      KSpacing.vGapSm,
+                      KTextField(
+                        label: 'Description',
+                        hint: 'Optional operational notes',
+                        controller: _descriptionController,
+                        maxLines: 2,
+                      ),
+                      KSpacing.vGapMd,
+                      KCard(
+                        title: 'Customer stops',
+                        subtitle: _selectedCustomers.isEmpty
+                            ? 'No customers selected yet'
+                            : '${_selectedCustomers.length} customer${_selectedCustomers.length == 1 ? '' : 's'} assigned',
+                        action: KButton(
+                          label: 'Manage',
+                          icon: Icons.people_outline,
+                          size: KButtonSize.small,
+                          variant: KButtonVariant.outlined,
+                          onPressed: _selectCustomers,
+                        ),
+                        child: _selectedCustomers.isEmpty
+                            ? Text(
+                                'Select the retailers or customers this field route should visit.',
+                                style: KTypography.bodySmall.copyWith(
+                                  color: KColors.textSecondary,
+                                ),
+                              )
+                            : Text(
+                                selectedNames +
+                                    (_selectedCustomers.length > 3
+                                        ? ' + ${_selectedCustomers.length - 3} more'
+                                        : ''),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: KTypography.bodySmall,
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              KSpacing.vGapMd,
+              Row(
+                children: [
+                  Expanded(
+                    child: KButton(
+                      label: 'Cancel',
+                      variant: KButtonVariant.outlined,
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                  KSpacing.hGapSm,
+                  Expanded(
+                    child: KButton(
+                      label: editing ? 'Save changes' : 'Create Beat',
+                      onPressed: _save,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

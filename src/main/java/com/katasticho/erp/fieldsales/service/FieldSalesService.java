@@ -7,7 +7,15 @@ import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.service.CustomerReceiptService;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.contact.entity.Contact;
+import com.katasticho.erp.contact.entity.ContactType;
+import com.katasticho.erp.contact.repository.ContactRepository;
 import com.katasticho.erp.expense.repository.ExpenseRepository;
+import com.katasticho.erp.fieldsales.dto.BeatCustomerAssignmentRequest;
+import com.katasticho.erp.fieldsales.dto.BeatCustomerResponse;
+import com.katasticho.erp.fieldsales.dto.RouteBeatCountProjection;
+import com.katasticho.erp.fieldsales.dto.RouteBeatResponse;
+import com.katasticho.erp.fieldsales.dto.RouteSummaryResponse;
 import com.katasticho.erp.fieldsales.entity.*;
 import com.katasticho.erp.fieldsales.repository.*;
 import com.katasticho.erp.inventory.dto.StockMovementRequest;
@@ -49,6 +57,7 @@ public class FieldSalesService {
 
     private final BeatRepository beatRepository;
     private final BeatCustomerRepository beatCustomerRepository;
+    private final ContactRepository contactRepository;
     private final RouteRepository routeRepository;
     private final RouteBeatRepository routeBeatRepository;
     private final VanRepository vanRepository;
@@ -77,6 +86,16 @@ public class FieldSalesService {
      */
     @Transactional
     public Beat createBeat(Beat input) {
+        return createBeat(input, List.of());
+    }
+
+    /**
+     * Creates a beat and its customer plan atomically. A failed customer
+     * validation rolls back the beat as well, so no empty territory is left
+     * behind by a partially completed setup.
+     */
+    @Transactional
+    public Beat createBeat(Beat input, List<BeatCustomerAssignmentRequest> customerAssignments) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
         if (beatRepository.existsByOrgIdAndCodeAndIsDeletedFalse(orgId, input.getCode())) {
@@ -96,6 +115,7 @@ public class FieldSalesService {
                 .build();
 
         beat = beatRepository.save(beat);
+        replaceBeatCustomers(orgId, beat.getId(), customerAssignments);
         log.info("Created beat {} (code={}) for org {}", beat.getId(), input.getCode(), orgId);
         return beat;
     }
@@ -105,6 +125,17 @@ public class FieldSalesService {
      */
     @Transactional
     public Beat updateBeat(UUID id, Beat input) {
+        return updateBeat(id, input, null);
+    }
+
+    /**
+     * Updates beat details and, when supplied, replaces the active customer
+     * plan in the same transaction. A null plan intentionally means "leave
+     * assignments unchanged" for backwards-compatible API callers.
+     */
+    @Transactional
+    public Beat updateBeat(UUID id, Beat input,
+                           List<BeatCustomerAssignmentRequest> customerAssignments) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
         Beat beat = beatRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
@@ -117,6 +148,9 @@ public class FieldSalesService {
         beat.setDescription(input.getDescription());
 
         beat = beatRepository.save(beat);
+        if (customerAssignments != null) {
+            replaceBeatCustomers(orgId, beat.getId(), customerAssignments);
+        }
         log.info("Updated beat {} for org {}", id, orgId);
         return beat;
     }
@@ -168,25 +202,25 @@ public class FieldSalesService {
         beatRepository.findByIdAndOrgIdAndIsDeletedFalse(beatId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Beat", beatId));
 
-        // Check for duplicate
-        List<BeatCustomer> existing = beatCustomerRepository
-                .findByOrgIdAndBeatIdAndIsActiveTrue(orgId, beatId);
-        boolean alreadyAssigned = existing.stream()
-                .anyMatch(bc -> bc.getContactId().equals(contactId));
-        if (alreadyAssigned) {
+        validateCustomerAssignments(orgId, List.of(
+                new BeatCustomerAssignmentRequest(contactId, visitSequence, visitFrequency)));
+
+        Optional<BeatCustomer> existing = beatCustomerRepository
+                .findFirstByOrgIdAndBeatIdAndContactId(orgId, beatId, contactId);
+        if (existing.isPresent() && existing.get().isActive()) {
             throw new BusinessException(
                     "Contact " + contactId + " is already assigned to beat " + beatId,
                     "FS_BEAT_CUSTOMER_DUPLICATE", HttpStatus.CONFLICT);
         }
 
-        BeatCustomer beatCustomer = BeatCustomer.builder()
+        BeatCustomer beatCustomer = existing.orElseGet(() -> BeatCustomer.builder()
                 .orgId(orgId)
                 .beatId(beatId)
                 .contactId(contactId)
-                .visitSequence(visitSequence)
-                .visitFrequency(visitFrequency != null ? visitFrequency : "WEEKLY")
-                .isActive(true)
-                .build();
+                .build());
+        beatCustomer.setVisitSequence(visitSequence);
+        beatCustomer.setVisitFrequency(normalizeVisitFrequency(visitFrequency));
+        beatCustomer.setActive(true);
 
         beatCustomer = beatCustomerRepository.save(beatCustomer);
         log.info("Added contact {} to beat {} for org {}", contactId, beatId, orgId);
@@ -199,7 +233,11 @@ public class FieldSalesService {
     @Transactional
     public void removeCustomerFromBeat(UUID beatId, UUID contactId) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        beatCustomerRepository.deleteByOrgIdAndBeatIdAndContactId(orgId, beatId, contactId);
+        beatCustomerRepository.findFirstByOrgIdAndBeatIdAndContactId(orgId, beatId, contactId)
+                .ifPresent(assignment -> {
+                    assignment.setActive(false);
+                    beatCustomerRepository.save(assignment);
+                });
         log.info("Removed contact {} from beat {} for org {}", contactId, beatId, orgId);
     }
 
@@ -207,9 +245,135 @@ public class FieldSalesService {
      * Returns active customers for a beat.
      */
     @Transactional(readOnly = true)
-    public List<BeatCustomer> getBeatCustomers(UUID beatId) {
+    public List<BeatCustomerResponse> getBeatCustomers(UUID beatId) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        return beatCustomerRepository.findByOrgIdAndBeatIdAndIsActiveTrue(orgId, beatId);
+        List<BeatCustomer> assignments = beatCustomerRepository
+                .findByOrgIdAndBeatIdAndIsActiveTrue(orgId, beatId);
+        if (assignments.isEmpty()) {
+            return List.of();
+        }
+
+        Map<UUID, Contact> contactsById = contactRepository
+                .findByOrgIdAndIsDeletedFalseAndIdIn(orgId, assignments.stream()
+                        .map(BeatCustomer::getContactId)
+                        .collect(java.util.stream.Collectors.toSet()))
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(Contact::getId, contact -> contact));
+
+        return assignments.stream()
+                .sorted(Comparator.comparing(BeatCustomer::getVisitSequence,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(assignment -> {
+                    Contact contact = contactsById.get(assignment.getContactId());
+                    return new BeatCustomerResponse(
+                            assignment.getId(),
+                            assignment.getBeatId(),
+                            assignment.getContactId(),
+                            contact != null ? contact.getDisplayName() : "Unknown customer",
+                            contact != null ? contact.getCompanyName() : null,
+                            contact != null ? contact.getPhone() : null,
+                            assignment.getVisitSequence(),
+                            assignment.getVisitFrequency(),
+                            assignment.isActive());
+                })
+                .toList();
+    }
+
+    /**
+     * Reconciles a beat's active customer assignments without deleting history.
+     * Existing selections are reactivated and updated; removed selections become
+     * inactive so past route execution records stay attributable.
+     */
+    private void replaceBeatCustomers(UUID orgId, UUID beatId,
+                                      List<BeatCustomerAssignmentRequest> requestedAssignments) {
+        List<BeatCustomerAssignmentRequest> assignments = requestedAssignments == null
+                ? List.of() : requestedAssignments;
+        validateCustomerAssignments(orgId, assignments);
+
+        Map<UUID, BeatCustomer> existingByContact = beatCustomerRepository
+                .findByOrgIdAndBeatId(orgId, beatId)
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        BeatCustomer::getContactId, assignment -> assignment,
+                        (first, ignored) -> first));
+        Set<UUID> requestedContactIds = new HashSet<>();
+        List<BeatCustomer> changes = new ArrayList<>();
+
+        for (int index = 0; index < assignments.size(); index++) {
+            BeatCustomerAssignmentRequest request = assignments.get(index);
+            requestedContactIds.add(request.contactId());
+            BeatCustomer assignment = existingByContact.get(request.contactId());
+            if (assignment == null) {
+                assignment = BeatCustomer.builder()
+                        .orgId(orgId)
+                        .beatId(beatId)
+                        .contactId(request.contactId())
+                        .build();
+            }
+            assignment.setVisitSequence(
+                    request.visitSequence() != null ? request.visitSequence() : index + 1);
+            assignment.setVisitFrequency(normalizeVisitFrequency(request.visitFrequency()));
+            assignment.setActive(true);
+            changes.add(assignment);
+        }
+
+        for (BeatCustomer existing : existingByContact.values()) {
+            if (!requestedContactIds.contains(existing.getContactId()) && existing.isActive()) {
+                existing.setActive(false);
+                changes.add(existing);
+            }
+        }
+
+        if (!changes.isEmpty()) {
+            beatCustomerRepository.saveAll(changes);
+        }
+    }
+
+    /** Ensures a beat can only contain active Customer or Both contacts. */
+    private void validateCustomerAssignments(UUID orgId,
+                                             List<BeatCustomerAssignmentRequest> assignments) {
+        Set<UUID> contactIds = new LinkedHashSet<>();
+        for (BeatCustomerAssignmentRequest assignment : assignments) {
+            if (assignment == null || assignment.contactId() == null) {
+                throw new BusinessException(
+                        "Every beat assignment must identify a customer contact",
+                        "FS_BEAT_CUSTOMER_REQUIRED", HttpStatus.BAD_REQUEST);
+            }
+            if (!contactIds.add(assignment.contactId())) {
+                throw new BusinessException(
+                        "A customer can only be assigned to a beat once",
+                        "FS_BEAT_CUSTOMER_DUPLICATE", HttpStatus.CONFLICT);
+            }
+        }
+
+        if (contactIds.isEmpty()) {
+            return;
+        }
+
+        Map<UUID, Contact> contactsById = contactRepository
+                .findByOrgIdAndIsDeletedFalseAndIdIn(orgId, contactIds)
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(Contact::getId, contact -> contact));
+
+        for (UUID contactId : contactIds) {
+            Contact contact = contactsById.get(contactId);
+            if (contact == null) {
+                throw BusinessException.notFound("Customer contact", contactId);
+            }
+            boolean canBeVisited = contact.isActive()
+                    && (contact.getContactType() == ContactType.CUSTOMER
+                    || contact.getContactType() == ContactType.BOTH);
+            if (!canBeVisited) {
+                throw new BusinessException(
+                        "Only active customer contacts can be assigned to a beat",
+                        "FS_BEAT_CONTACT_NOT_CUSTOMER", HttpStatus.BAD_REQUEST);
+            }
+        }
+    }
+
+    private String normalizeVisitFrequency(String visitFrequency) {
+        return visitFrequency == null || visitFrequency.isBlank()
+                ? "WEEKLY" : visitFrequency.trim().toUpperCase(Locale.ROOT);
     }
 
     // =====================================================================
@@ -229,6 +393,8 @@ public class FieldSalesService {
                     "FS_ROUTE_CODE_EXISTS", HttpStatus.CONFLICT);
         }
 
+        List<UUID> validatedBeatIds = validateRouteBeatIds(orgId, beatIds);
+
         Route route = Route.builder()
                 .code(input.getCode())
                 .name(input.getName())
@@ -241,22 +407,27 @@ public class FieldSalesService {
         route = routeRepository.save(route);
 
         // Create RouteBeat entries with sequential ordering
-        if (beatIds != null && !beatIds.isEmpty()) {
-            createRouteBeats(orgId, route.getId(), beatIds);
+        if (!validatedBeatIds.isEmpty()) {
+            createRouteBeats(orgId, route.getId(), validatedBeatIds);
         }
 
         log.info("Created route {} (code={}) with {} beats for org {}",
-                route.getId(), input.getCode(), beatIds != null ? beatIds.size() : 0, orgId);
+                route.getId(), input.getCode(), validatedBeatIds.size(), orgId);
         return route;
     }
 
-    /**
-     * Updates an existing route. Rebuilds the beat list.
-     * Note: beatIds are not passed from the controller's updateRoute call,
-     * so the route beat list is left as-is unless the caller rebuilds it separately.
-     */
     @Transactional
     public Route updateRoute(UUID id, Route input) {
+        return updateRoute(id, input, null);
+    }
+
+    /**
+     * Updates route details and, when supplied, replaces its ordered beat plan in
+     * the same transaction. Null preserves the plan for backwards-compatible API
+     * callers; an empty list intentionally clears the plan.
+     */
+    @Transactional
+    public Route updateRoute(UUID id, Route input, List<UUID> beatIds) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
         Route route = routeRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
@@ -267,6 +438,10 @@ public class FieldSalesService {
         route.setFrequency(input.getFrequency() != null ? input.getFrequency() : route.getFrequency());
         route.setWarehouseId(input.getWarehouseId());
 
+        if (beatIds != null) {
+            replaceRouteBeats(orgId, route.getId(), beatIds);
+        }
+
         route = routeRepository.save(route);
         log.info("Updated route {} for org {}", id, orgId);
         return route;
@@ -276,9 +451,37 @@ public class FieldSalesService {
      * Paginated list of routes for the current org.
      */
     @Transactional(readOnly = true)
-    public Page<Route> listRoutes(Pageable pageable) {
+    public Page<RouteSummaryResponse> listRoutes(Pageable pageable) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        return routeRepository.findByOrgIdAndIsDeletedFalse(orgId, pageable);
+        Page<Route> routes = routeRepository.findByOrgIdAndIsDeletedFalse(orgId, pageable);
+        if (!routes.hasContent()) {
+            return routes.map(route -> toRouteSummary(route, 0));
+        }
+
+        List<UUID> routeIds = routes.getContent().stream().map(Route::getId).toList();
+        Map<UUID, Long> beatCounts = routeBeatRepository
+                .countByOrgIdAndRouteIdIn(orgId, routeIds)
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        RouteBeatCountProjection::getRouteId,
+                        RouteBeatCountProjection::getBeatCount));
+
+        return routes.map(route -> toRouteSummary(
+                route, beatCounts.getOrDefault(route.getId(), 0L)));
+    }
+
+    private RouteSummaryResponse toRouteSummary(Route route, long beatCount) {
+        return new RouteSummaryResponse(
+                route.getId(),
+                route.getCode(),
+                route.getName(),
+                route.getDayOfWeek(),
+                route.getFrequency(),
+                route.getWarehouseId(),
+                route.getEstimatedDistanceKm(),
+                route.getEstimatedDurationMinutes(),
+                route.isActive(),
+                beatCount);
     }
 
     /**
@@ -310,9 +513,70 @@ public class FieldSalesService {
      * Returns ordered beat entries for a route.
      */
     @Transactional(readOnly = true)
-    public List<RouteBeat> getRouteBeats(UUID routeId) {
+    public List<RouteBeatResponse> getRouteBeats(UUID routeId) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        return routeBeatRepository.findByOrgIdAndRouteIdOrderBySequenceNumber(orgId, routeId);
+        List<RouteBeat> routeBeats =
+                routeBeatRepository.findByOrgIdAndRouteIdOrderBySequenceNumber(orgId, routeId);
+        if (routeBeats.isEmpty()) {
+            return List.of();
+        }
+
+        Set<UUID> beatIds = routeBeats.stream()
+                .map(RouteBeat::getBeatId)
+                .collect(java.util.stream.Collectors.toSet());
+        Map<UUID, Beat> beatsById = beatRepository
+                .findByOrgIdAndIsDeletedFalseAndIdIn(orgId, beatIds)
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(Beat::getId, beat -> beat));
+
+        return routeBeats.stream()
+                .map(routeBeat -> {
+                    Beat beat = beatsById.get(routeBeat.getBeatId());
+                    return new RouteBeatResponse(
+                            routeBeat.getId(),
+                            routeBeat.getRouteId(),
+                            routeBeat.getBeatId(),
+                            beat != null ? beat.getCode() : null,
+                            beat != null ? beat.getName() : "Unavailable beat",
+                            beat != null ? beat.getArea() : null,
+                            beat != null ? beat.getCity() : null,
+                            routeBeat.getSequenceNumber());
+                })
+                .toList();
+    }
+
+    /** Validates the full proposed route plan before any existing plan is removed. */
+    private List<UUID> validateRouteBeatIds(UUID orgId, List<UUID> beatIds) {
+        if (beatIds == null || beatIds.isEmpty()) {
+            return List.of();
+        }
+
+        LinkedHashSet<UUID> uniqueBeatIds = new LinkedHashSet<>(beatIds);
+        if (uniqueBeatIds.size() != beatIds.size()) {
+            throw new BusinessException(
+                    "A beat can only appear once in a route plan",
+                    "FS_ROUTE_DUPLICATE_BEAT",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        int activeBeatCount = beatRepository
+                .findByOrgIdAndIsActiveTrueAndIsDeletedFalseAndIdIn(orgId, uniqueBeatIds)
+                .size();
+        if (activeBeatCount != uniqueBeatIds.size()) {
+            throw new BusinessException(
+                    "Every route stop must be an active beat in this organisation",
+                    "FS_ROUTE_INVALID_BEAT",
+                    HttpStatus.BAD_REQUEST);
+        }
+        return List.copyOf(uniqueBeatIds);
+    }
+
+    private void replaceRouteBeats(UUID orgId, UUID routeId, List<UUID> beatIds) {
+        List<UUID> validatedBeatIds = validateRouteBeatIds(orgId, beatIds);
+        routeBeatRepository.deleteByOrgIdAndRouteId(orgId, routeId);
+        if (!validatedBeatIds.isEmpty()) {
+            createRouteBeats(orgId, routeId, validatedBeatIds);
+        }
     }
 
     private void createRouteBeats(UUID orgId, UUID routeId, List<UUID> beatIds) {

@@ -9,11 +9,9 @@ import '../data/contact_repository.dart';
 /// Modal contact picker. Returns the selected contact map
 /// (with id, displayName, phone, etc.) or null if cancelled.
 ///
-/// [contactType] filters the empty-state list (e.g. 'CUSTOMER' or 'VENDOR').
-/// When the user types a search query the backend ignores the type filter
-/// (a known backend limitation), so we apply a client-side filter to keep
-/// only contacts whose `contactType` matches the requested type or is
-/// 'BOTH'. Pass `contactType: null` to list everything.
+/// [contactType] filters the list (e.g. 'CUSTOMER', 'VENDOR' or 'SUPPLIER').
+/// SUPPLIER is a procurement role backed by the supplier projection, while
+/// the contact response still carries contactType VENDOR or BOTH.
 ///
 /// Vendor pickers (RFQ, rate contracts, supplier pickers) should pass
 /// `contactType: 'VENDOR'` — that returns Contacts of type VENDOR or BOTH,
@@ -128,7 +126,7 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
                 KSpacing.vGapSm,
                 KTextField.search(
                   controller: _searchController,
-                  hint: 'Search by name or phone',
+                  hint: 'Search by name, company, GSTIN or phone',
                   onChanged: (v) => setState(
                       () => _query = v.trim().isEmpty ? null : v.trim()),
                   onClear: () {
@@ -154,24 +152,22 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
                     : (content is Map
                         ? (content['content'] as List?) ?? []
                         : []);
-                // Backend ignores `type` when a `search` query is set, so
-                // we filter client-side. Match either the exact type or
-                // BOTH (a contact that's both customer and vendor is a
-                // valid pick on either side of the ledger).
-                final contacts = _query == null
-                    ? rawContacts
-                    : rawContacts.where((c) {
-                        if (c is! Map) return false;
-                        final t = c['contactType']?.toString().toUpperCase();
-                        return t == widget.contactType.toUpperCase() ||
-                            t == 'BOTH';
-                      }).toList();
+                final requestedType = widget.contactType.toUpperCase();
+                final contacts = rawContacts.where((c) {
+                  if (c is! Map) return false;
+                  if (requestedType == 'SUPPLIER') {
+                    return c['supplierEnabled'] == true;
+                  }
+                  final t = c['contactType']?.toString().toUpperCase();
+                  return t == requestedType || t == 'BOTH';
+                }).toList();
 
                 if (contacts.isEmpty) {
-                  final noun =
-                      widget.contactType.toUpperCase() == 'VENDOR'
-                          ? 'vendors'
-                          : 'customers';
+                  final noun = switch (requestedType) {
+                    'SUPPLIER' => 'suppliers',
+                    'VENDOR' => 'vendors',
+                    _ => 'customers',
+                  };
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -207,10 +203,33 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
                   itemBuilder: (context, index) {
                     final contact = contacts[index] as Map<String, dynamic>;
                     final name = _contactName(contact);
-                    final phone = contact['phone']?.toString() ??
-                        contact['mobile']?.toString() ??
+                    final company = contact['companyName']?.toString().trim() ?? '';
+                    final gstin = contact['gstin']?.toString().trim() ?? '';
+                    final rawPhone = (contact['phone'] ?? contact['mobile'])
+                            ?.toString()
+                            .trim() ??
                         '';
-                    final email = contact['email']?.toString() ?? '';
+                    final city = (contact['billingCity'] ?? contact['city'])
+                            ?.toString()
+                            .trim() ??
+                        '';
+                    final state = (contact['billingState'] ?? contact['state'])
+                            ?.toString()
+                            .trim() ??
+                        '';
+                    final location = [city, state]
+                        .where((s) => s.isNotEmpty)
+                        .join(', ');
+                    final identity = [
+                      if (company.isNotEmpty && company != name) company,
+                      if (gstin.isNotEmpty) 'GSTIN: $gstin',
+                      if (rawPhone.isNotEmpty) rawPhone,
+                      if (location.isNotEmpty) location,
+                    ].join(' | ');
+                    final phone = identity.isEmpty
+                        ? 'No GSTIN, phone or location on file'
+                        : identity;
+                    final email = '';
 
                     return ListTile(
                       dense: true,

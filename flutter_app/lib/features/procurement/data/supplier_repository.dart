@@ -16,13 +16,13 @@ class SupplierRepository {
     int page = 0,
     int size = 50,
     String? search,
-    bool activeOnly = false,
+    bool selectableOnly = false,
   }) async {
     final params = <String, dynamic>{
       'page': page,
       'size': size,
       if (search != null && search.isNotEmpty) 'search': search,
-      if (activeOnly) 'activeOnly': true,
+      if (selectableOnly) 'selectableOnly': true,
     };
     debugPrint('[SupplierRepo] listSuppliers params=$params');
     try {
@@ -71,6 +71,15 @@ final supplierListProvider = FutureProvider.autoDispose
     .family<Map<String, dynamic>, String?>((ref, search) async {
   final repo = ref.watch(supplierRepositoryProvider);
   return repo.listSuppliers(search: search);
+});
+
+/// Suppliers safe to select in a purchase flow. This deliberately excludes
+/// inactive and legacy standalone projections while the admin list still
+/// exposes them for cleanup or migration.
+final selectableSupplierListProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>, String?>((ref, search) async {
+  final repo = ref.watch(supplierRepositoryProvider);
+  return repo.listSuppliers(search: search, selectableOnly: true);
 });
 
 final supplierDetailProvider = FutureProvider.autoDispose

@@ -76,5 +76,8 @@ public record CreateContactRequest(
         String medicalCategory,
         String specialty,
         String mrClass,
-        Integer visitsPerMonth
+        Integer visitsPerMonth,
+
+        // Procurement role projection
+        Boolean supplierEnabled
 ) {}
